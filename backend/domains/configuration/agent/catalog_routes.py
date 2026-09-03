@@ -5,11 +5,23 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict
 
+from backend.domains.configuration.agent.catalog_models import (
+    AgentSkillAssignmentResponse,
+    AgentSkillCatalogItemResponse,
+    AgentSkillCatalogIssueResponse as AgentSkillCatalogIssueResponse,
+    AgentSkillCatalogResponse,
+    AgentSkillDeleteResponse,
+    AgentSkillValidationResponse,
+    AgentToolCatalogResponse,
+    SkillAutomationDeleteResponse,
+    SkillAutomationQueuedResponse,
+    SkillAutomationResponse,
+    SkillAutomationRunsResponse,
+    SkillAutomationsResponse,
+)
 from backend.domains.configuration.agent.contracts import (
     AgentSkillAssignmentPayload,
     AutomationWritePayload,
@@ -27,17 +39,20 @@ from backend.domains.configuration.agent.governance_routes import (
 from backend.domains.configuration.agent.router import router
 from backend.models.agent_skills import (
     CatalogStatus,
-    SkillDescriptor,
+    SkillCatalogEntry,
     SkillKind,
     ToolEffect,
 )
 from backend.services.agent_skill_assignments import (
     AgentAssignmentConflictError,
     AgentNotFoundError,
+    AgentSkillAssignmentStore,
 )
 from backend.services.agent_skill_catalog import (
     CatalogConflictError,
     CatalogProviderError,
+    SkillCatalog,
+    ToolCatalog,
 )
 from backend.services.agent_skill_catalog import (
     get_skill_catalog as _default_get_skill_catalog,
@@ -65,50 +80,20 @@ from backend.services.workspace_service import (
     get_workspace_context,
     require_role,
 )
+from backend.utils.open_values import iterate_values
 
-_CatalogProvider = Callable[[], Any]
-_AssignmentProvider = Callable[[], Any]
-_skill_catalog_provider: _CatalogProvider = _default_get_skill_catalog
-_tool_catalog_provider: _CatalogProvider = _default_get_tool_catalog
+_SkillCatalogProvider = Callable[[], SkillCatalog]
+_ToolCatalogProvider = Callable[[], ToolCatalog]
+_AssignmentProvider = Callable[[], AgentSkillAssignmentStore]
+_skill_catalog_provider: _SkillCatalogProvider = _default_get_skill_catalog
+_tool_catalog_provider: _ToolCatalogProvider = _default_get_tool_catalog
 _assignment_provider: _AssignmentProvider = _default_assignment_store
-
-
-class AgentSkillCatalogItemResponse(SkillDescriptor):
-    """Flattened effective skill descriptor returned by the catalog route."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    available: bool
-    missing_tool_ids: list[str]
-    effects: list[ToolEffect]
-    editable: bool
-    deletable: bool
-    revision: str
-
-
-class AgentSkillCatalogIssueResponse(BaseModel):
-    """Validation issue for one user-provided skill package."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    package: str
-    error: str
-
-
-class AgentSkillCatalogResponse(BaseModel):
-    """Effective skills plus package issues and the catalog revision."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    skills: list[AgentSkillCatalogItemResponse]
-    issues: list[AgentSkillCatalogIssueResponse]
-    catalog_revision: str
 
 
 def configure_catalog_dependencies(
     *,
-    skill_catalog: _CatalogProvider,
-    tool_catalog: _CatalogProvider,
+    skill_catalog: _SkillCatalogProvider,
+    tool_catalog: _ToolCatalogProvider,
     assignment_store: _AssignmentProvider,
 ) -> None:
     """Bind historical catalog and assignment seams at the legacy facade."""
@@ -118,15 +103,15 @@ def configure_catalog_dependencies(
     _assignment_provider = assignment_store
 
 
-def get_skill_catalog() -> Any:
+def get_skill_catalog() -> SkillCatalog:
     return _skill_catalog_provider()
 
 
-def get_tool_catalog() -> Any:
+def get_tool_catalog() -> ToolCatalog:
     return _tool_catalog_provider()
 
 
-def _assignment_store() -> Any:
+def _assignment_store() -> AgentSkillAssignmentStore:
     return _assignment_provider()
 
 
@@ -138,7 +123,9 @@ def _validate_automation_target(context: WorkspaceContext, *, agent_id: str, ski
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     normalized = skill_id.strip().lower()
-    assigned = {str(value).strip().lower() for value in (agent.get("skill_ids") or [])}
+    assigned = {
+        str(value).strip().lower() for value in iterate_values(agent.get("skill_ids") or [])
+    }
     if normalized not in assigned:
         raise HTTPException(status_code=409, detail="skill is not assigned to agent")
     entry = get_skill_catalog().get_entry(normalized, Path(context.vault_path))
@@ -157,14 +144,16 @@ def _refresh_mcp_catalog(request: Request) -> None:
     )
 
 
-def _entry_response(entry: Any) -> Dict[str, Any]:
-    result = dict(entry.descriptor.model_dump(mode="json"))
+def _entry_response(entry: SkillCatalogEntry | None) -> dict[str, object]:
+    if entry is None:
+        raise AttributeError("'NoneType' object has no attribute 'descriptor'")
+    result: dict[str, object] = dict(entry.descriptor.model_dump(mode="json"))
     result.update(
         {
             "available": entry.available,
             "missing_tool_ids": entry.missing_tool_ids,
             "effects": [
-                effect.value if hasattr(effect, "value") else str(effect)
+                effect.value if isinstance(effect, ToolEffect) else str(effect)
                 for effect in entry.effects
             ],
             "editable": entry.editable,
@@ -175,7 +164,7 @@ def _entry_response(entry: Any) -> Dict[str, Any]:
     return result
 
 
-def _validate_referenced_tools(tool_ids: List[str]) -> None:
+def _validate_referenced_tools(tool_ids: list[str]) -> None:
     tools = {descriptor.id: descriptor for descriptor in get_tool_catalog().list()}
     missing = []
     unavailable = []
@@ -197,11 +186,15 @@ def _validate_referenced_tools(tool_ids: List[str]) -> None:
         )
 
 
-@router.get("/skills", response_model=AgentSkillCatalogResponse)
+@router.get(
+    "/skills",
+    response_model=AgentSkillCatalogResponse,
+    response_model_exclude_unset=True,
+)
 def list_skills(
     request: Request,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     """List the effective catalog and visible user-package validation issues."""
 
     _refresh_mcp_catalog(request)
@@ -218,23 +211,32 @@ def list_skills(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/skills/{skill_id}", response_model=None)
+@router.get(
+    "/skills/{skill_id}",
+    response_model=AgentSkillCatalogItemResponse,
+    response_model_exclude_unset=True,
+)
 def get_skill(
     skill_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     entry = get_skill_catalog().get_entry(skill_id, Path(context.vault_path))
     if entry is None:
         raise HTTPException(status_code=404, detail="skill not found")
     return _entry_response(entry)
 
 
-@router.post("/skills", status_code=201, response_model=None)
+@router.post(
+    "/skills",
+    status_code=201,
+    response_model=AgentSkillCatalogItemResponse,
+    response_model_exclude_unset=True,
+)
 def create_skill(
     payload: UserSkillWritePayload,
     request: Request,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     _refresh_mcp_catalog(request)
     _validate_referenced_tools(payload.tool_ids)
     store = _store_for(context)
@@ -252,13 +254,17 @@ def create_skill(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.put("/skills/{skill_id}", response_model=None)
+@router.put(
+    "/skills/{skill_id}",
+    response_model=AgentSkillCatalogItemResponse,
+    response_model_exclude_unset=True,
+)
 def update_skill(
     skill_id: str,
     payload: UserSkillWritePayload,
     request: Request,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     if payload.requested_id and payload.requested_id != skill_id:
         raise HTTPException(status_code=400, detail="skill ID is immutable")
     _refresh_mcp_catalog(request)
@@ -281,13 +287,17 @@ def update_skill(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/skills/{skill_id}/validate", response_model=None)
+@router.post(
+    "/skills/{skill_id}/validate",
+    response_model=AgentSkillValidationResponse,
+    response_model_exclude_unset=True,
+)
 def validate_skill(
     skill_id: str,
     request: Request,
-    payload: Optional[UserSkillWritePayload] = None,
+    payload: UserSkillWritePayload | None = None,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     _refresh_mcp_catalog(request)
     store = _store_for(context)
     try:
@@ -312,13 +322,18 @@ def validate_skill(
         return {"valid": False, "errors": [str(exc)]}
 
 
-@router.post("/skills/{skill_id}/clone", status_code=201, response_model=None)
+@router.post(
+    "/skills/{skill_id}/clone",
+    status_code=201,
+    response_model=AgentSkillCatalogItemResponse,
+    response_model_exclude_unset=True,
+)
 def clone_skill(
     skill_id: str,
     request: Request,
-    payload: Optional[CloneSkillPayload] = None,
+    payload: CloneSkillPayload | None = None,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     _refresh_mcp_catalog(request)
     entry = get_skill_catalog().get_entry(skill_id, Path(context.vault_path))
     if entry is None:
@@ -339,12 +354,16 @@ def clone_skill(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.delete("/skills/{skill_id}", response_model=None)
+@router.delete(
+    "/skills/{skill_id}",
+    response_model=AgentSkillDeleteResponse,
+    response_model_exclude_unset=True,
+)
 def delete_skill(
     skill_id: str,
     unassign: bool = Query(default=False),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     store = _store_for(context)
     assignments = _assignment_store()
     assignments.ensure_migrated()
@@ -384,16 +403,20 @@ def delete_skill(
     }
 
 
-@router.get("/tools", response_model=None)
+@router.get(
+    "/tools",
+    response_model=AgentToolCatalogResponse,
+    response_model_exclude_unset=True,
+)
 def list_tools(
     request: Request,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     _refresh_mcp_catalog(request)
     catalog = get_skill_catalog()
     try:
         entries = catalog.list_entries(Path(context.vault_path))
-        consumers: Dict[str, List[str]] = {}
+        consumers: dict[str, list[str]] = {}
         for entry in entries:
             for tool_id in entry.descriptor.tool_ids:
                 consumers.setdefault(tool_id, []).append(entry.descriptor.id)
@@ -414,11 +437,15 @@ def list_tools(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/agents/{agent_id}/skills", response_model=None)
+@router.get(
+    "/agents/{agent_id}/skills",
+    response_model=AgentSkillAssignmentResponse,
+    response_model_exclude_unset=True,
+)
 def get_agent_skills(
     agent_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     assignments = _assignment_store()
     assignments.ensure_migrated()
     try:
@@ -433,12 +460,16 @@ def get_agent_skills(
     }
 
 
-@router.put("/agents/{agent_id}/skills", response_model=None)
+@router.put(
+    "/agents/{agent_id}/skills",
+    response_model=AgentSkillAssignmentResponse,
+    response_model_exclude_unset=True,
+)
 def assign_agent_skills(
     agent_id: str,
     payload: AgentSkillAssignmentPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     assignments = _assignment_store()
     assignments.ensure_migrated()
     try:
@@ -465,11 +496,14 @@ def assign_agent_skills(
 
 
 @router.get(
-    "/automations", dependencies=[Depends(require_plugins("automations"))], response_model=None
+    "/automations",
+    dependencies=[Depends(require_plugins("automations"))],
+    response_model=SkillAutomationsResponse,
+    response_model_exclude_unset=True,
 )
 def list_skill_automations(
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     """List automations visible in the exact workspace and vault scope."""
     return {"automations": list_automations(_automation_scope(context))}
 
@@ -478,12 +512,13 @@ def list_skill_automations(
     "/automations",
     status_code=201,
     dependencies=[Depends(require_plugins("automations"))],
-    response_model=None,
+    response_model=SkillAutomationResponse,
+    response_model_exclude_unset=True,
 )
 def create_skill_automation(
     payload: AutomationWritePayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     _validate_automation_target(context, agent_id=payload.agent_id, skill_id=payload.skill_id)
     return save_automation(
         _automation_scope(context),
@@ -495,12 +530,13 @@ def create_skill_automation(
 @router.get(
     "/automations/{automation_id}",
     dependencies=[Depends(require_plugins("automations"))],
-    response_model=None,
+    response_model=SkillAutomationResponse,
+    response_model_exclude_unset=True,
 )
 def get_skill_automation(
     automation_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     try:
         return get_automation(automation_id, _automation_scope(context))
     except LookupError as exc:
@@ -510,13 +546,14 @@ def get_skill_automation(
 @router.put(
     "/automations/{automation_id}",
     dependencies=[Depends(require_plugins("automations"))],
-    response_model=None,
+    response_model=SkillAutomationResponse,
+    response_model_exclude_unset=True,
 )
 def update_skill_automation(
     automation_id: str,
     payload: AutomationWritePayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     _validate_automation_target(context, agent_id=payload.agent_id, skill_id=payload.skill_id)
     try:
         return save_automation(
@@ -535,12 +572,13 @@ def update_skill_automation(
 @router.delete(
     "/automations/{automation_id}",
     dependencies=[Depends(require_plugins("automations"))],
-    response_model=None,
+    response_model=SkillAutomationDeleteResponse,
+    response_model_exclude_unset=True,
 )
 def remove_skill_automation(
     automation_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     try:
         delete_automation(automation_id, _automation_scope(context))
     except LookupError as exc:
@@ -551,13 +589,14 @@ def remove_skill_automation(
 @router.get(
     "/automations/{automation_id}/runs",
     dependencies=[Depends(require_plugins("automations"))],
-    response_model=None,
+    response_model=SkillAutomationRunsResponse,
+    response_model_exclude_unset=True,
 )
 def list_skill_automation_runs(
     automation_id: str,
     limit: int = Query(default=50, ge=1, le=200),
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     try:
         return {"runs": list_runs(automation_id, _automation_scope(context), limit=limit)}
     except LookupError as exc:
@@ -568,13 +607,14 @@ def list_skill_automation_runs(
     "/automations/{automation_id}/run",
     status_code=202,
     dependencies=[Depends(require_plugins("automations"))],
-    response_model=None,
+    response_model=SkillAutomationQueuedResponse,
+    response_model_exclude_unset=True,
 )
 def run_skill_automation_now(
     automation_id: str,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     try:
         get_automation(automation_id, _automation_scope(context))
     except LookupError as exc:

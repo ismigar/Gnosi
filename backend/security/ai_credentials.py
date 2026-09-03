@@ -1,4 +1,5 @@
 import os
+from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple
 
 # Single source of truth for which providers run without an API key.
@@ -133,7 +134,10 @@ def env_keys_for_provider(provider_id: str) -> List[str]:
     return keys
 
 
-def normalize_credential_ref(provider_id: str, provider_cfg: Dict[str, Any]) -> Optional[str]:
+def normalize_credential_ref(
+    provider_id: str,
+    provider_cfg: Mapping[str, object],
+) -> Optional[str]:
     ref = (provider_cfg or {}).get("credential_ref")
     if isinstance(ref, str) and ref.strip():
         return ref.strip()
@@ -144,7 +148,8 @@ def normalize_credential_ref(provider_id: str, provider_cfg: Dict[str, Any]) -> 
 
 
 def resolve_provider_api_key(
-    provider_id: str, provider_cfg: Optional[Dict[str, Any]]
+    provider_id: str,
+    provider_cfg: Mapping[str, object] | None,
 ) -> Optional[str]:
     cfg = provider_cfg or {}
     inline_key = cfg.get("api_key")
@@ -183,7 +188,10 @@ def set_provider_api_key(provider_id: str, api_key: str) -> Tuple[bool, Optional
     return True, f"__keychain__:{key}"
 
 
-def has_provider_api_key(provider_id: str, provider_cfg: Optional[Dict[str, Any]]) -> bool:
+def has_provider_api_key(
+    provider_id: str,
+    provider_cfg: Mapping[str, object] | None,
+) -> bool:
     return bool(resolve_provider_api_key(provider_id, provider_cfg))
 
 

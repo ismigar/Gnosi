@@ -114,6 +114,121 @@
         "title": "AddMemberRequest",
         "type": "object"
       },
+      "AgentQualityDashboardResponse": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityHealthResponse"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/AgentQualityResponse"
+          }
+        },
+        "required": [
+          "quality",
+          "capabilities"
+        ],
+        "title": "AgentQualityDashboardResponse",
+        "type": "object"
+      },
+      "AgentQualityResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "completed_turns": {
+            "title": "Completed Turns",
+            "type": "integer"
+          },
+          "error_codes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Error Codes",
+            "type": "object"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "evaluation_candidates": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Evaluation Candidates",
+            "type": "object"
+          },
+          "event_count": {
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "latency_buckets": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Latency Buckets",
+            "type": "object"
+          },
+          "modes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Modes",
+            "type": "object"
+          },
+          "ratings": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Ratings",
+            "type": "object"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "signals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Signals",
+            "type": "object"
+          },
+          "top_tools": {
+            "items": {
+              "$ref": "#/components/schemas/QualityToolUsageResponse"
+            },
+            "title": "Top Tools",
+            "type": "array"
+          },
+          "verification": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Verification",
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema_version",
+          "event_count",
+          "completed_turns",
+          "errors",
+          "signals",
+          "ratings",
+          "modes",
+          "verification",
+          "latency_buckets",
+          "error_codes",
+          "top_tools",
+          "evaluation_candidates"
+        ],
+        "title": "AgentQualityResponse",
+        "type": "object"
+      },
       "AgentSkillAssignmentPayload": {
         "additionalProperties": false,
         "description": "Revision-aware complete assignment list for one agent.",
@@ -139,6 +254,57 @@
           }
         },
         "title": "AgentSkillAssignmentPayload",
+        "type": "object"
+      },
+      "AgentSkillAssignmentResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "required_skill_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Required Skill Ids"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "skill_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Skill Ids"
+          }
+        },
+        "required": [
+          "agent_id",
+          "skill_ids",
+          "required_skill_ids",
+          "revision"
+        ],
+        "title": "AgentSkillAssignmentResponse",
         "type": "object"
       },
       "AgentSkillCatalogIssueResponse": {
@@ -306,6 +472,208 @@
           "catalog_revision"
         ],
         "title": "AgentSkillCatalogResponse",
+        "type": "object"
+      },
+      "AgentSkillDeleteResponse": {
+        "properties": {
+          "affected_agents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Agents",
+            "type": "array"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "skill_id",
+          "affected_agents"
+        ],
+        "title": "AgentSkillDeleteResponse",
+        "type": "object"
+      },
+      "AgentSkillValidationErrorResponse": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "valid": {
+            "const": false,
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "errors"
+        ],
+        "title": "AgentSkillValidationErrorResponse",
+        "type": "object"
+      },
+      "AgentSkillValidationSuccessResponse": {
+        "properties": {
+          "descriptor": {
+            "$ref": "#/components/schemas/SkillDescriptor"
+          },
+          "missing_tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Tool Ids",
+            "type": "array"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid",
+          "descriptor",
+          "missing_tool_ids"
+        ],
+        "title": "AgentSkillValidationSuccessResponse",
+        "type": "object"
+      },
+      "AgentToolCatalogItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation": {
+            "$ref": "#/components/schemas/ConfirmationPolicy",
+            "default": "none"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/ToolEffect"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "handler_ref": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handler Ref"
+          },
+          "id": {
+            "maxLength": 160,
+            "minLength": 3,
+            "pattern": "^(?:core|user|mcp|generated|plugin\\.[a-z0-9][a-z0-9_-]{1,63})\\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "minimum_role": {
+            "default": "viewer",
+            "title": "Minimum Role",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/CatalogOrigin"
+          },
+          "output_schema": {
+            "additionalProperties": true,
+            "title": "Output Schema",
+            "type": "object"
+          },
+          "runtime_adapter_available": {
+            "title": "Runtime Adapter Available",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "skill_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skill Ids",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus",
+            "default": "available"
+          },
+          "version": {
+            "default": "1.0.0",
+            "maxLength": 64,
+            "pattern": "^[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][a-zA-Z0-9.-]+)?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "origin",
+          "skill_ids",
+          "runtime_adapter_available"
+        ],
+        "title": "AgentToolCatalogItemResponse",
+        "type": "object"
+      },
+      "AgentToolCatalogResponse": {
+        "properties": {
+          "catalog_revision": {
+            "title": "Catalog Revision",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/AgentToolCatalogItemResponse"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tools",
+          "catalog_revision"
+        ],
+        "title": "AgentToolCatalogResponse",
         "type": "object"
       },
       "AiCatalogResponse": {
@@ -1430,6 +1798,132 @@
           "path"
         ],
         "title": "AttachmentRef",
+        "type": "object"
+      },
+      "AutomationApprovalResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "confirmation_id": {
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "destructive": {
+            "title": "Destructive",
+            "type": "boolean"
+          },
+          "details": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
+          },
+          "result": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Result",
+            "type": "object"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary_key": {
+            "title": "Summary Key",
+            "type": "string"
+          },
+          "title_key": {
+            "title": "Title Key",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "confirmation_id",
+          "action",
+          "title_key",
+          "summary_key",
+          "details",
+          "destructive",
+          "created_at",
+          "expires_at",
+          "status",
+          "result",
+          "error_code",
+          "agent_id",
+          "session_id"
+        ],
+        "title": "AutomationApprovalResponse",
+        "type": "object"
+      },
+      "AutomationApprovalsResponse": {
+        "properties": {
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/AutomationApprovalResponse"
+            },
+            "title": "Approvals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "approvals"
+        ],
+        "title": "AutomationApprovalsResponse",
+        "type": "object"
+      },
+      "AutomationBudgetsResponse": {
+        "properties": {
+          "max_ai_calls_per_run": {
+            "title": "Max Ai Calls Per Run",
+            "type": "integer"
+          },
+          "max_runs_per_day": {
+            "title": "Max Runs Per Day",
+            "type": "integer"
+          },
+          "max_runtime_seconds": {
+            "title": "Max Runtime Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_runs_per_day",
+          "max_ai_calls_per_run",
+          "max_runtime_seconds"
+        ],
+        "title": "AutomationBudgetsResponse",
         "type": "object"
       },
       "AutomationWritePayload": {
@@ -3495,6 +3989,496 @@
         "title": "CandidateRequest",
         "type": "object"
       },
+      "CapabilityAuditEventResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "argument_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Argument Keys",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "effects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "result_kind": {
+            "title": "Result Kind",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tool_id": {
+            "title": "Tool Id",
+            "type": "string"
+          },
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "session_id",
+          "tool_id",
+          "tool_name",
+          "effects",
+          "status",
+          "argument_keys",
+          "result_kind",
+          "error_code",
+          "duration_ms",
+          "created_at"
+        ],
+        "title": "CapabilityAuditEventResponse",
+        "type": "object"
+      },
+      "CapabilityAuditResponse": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityAuditEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "CapabilityAuditResponse",
+        "type": "object"
+      },
+      "CapabilityConformanceResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityConformanceRowResponse"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "durable_job_dispatchers": {
+            "items": {
+              "$ref": "#/components/schemas/DurableJobDispatcherResponse"
+            },
+            "title": "Durable Job Dispatchers",
+            "type": "array"
+          },
+          "enforcement": {
+            "title": "Enforcement",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "counts",
+          "total",
+          "capabilities",
+          "enforcement",
+          "durable_job_dispatchers"
+        ],
+        "title": "CapabilityConformanceResponse",
+        "type": "object"
+      },
+      "CapabilityConformanceRowResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "checks": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Checks",
+            "type": "object"
+          },
+          "declared_schema_version": {
+            "title": "Declared Schema Version",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Fields",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "declared_schema_version",
+          "status",
+          "checks",
+          "missing_fields"
+        ],
+        "title": "CapabilityConformanceRowResponse",
+        "type": "object"
+      },
+      "CapabilityHealthResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "average_latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Latency Ms"
+          },
+          "capability_id": {
+            "title": "Capability Id",
+            "type": "string"
+          },
+          "quarantined_until": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quarantined Until"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recent_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Failures"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "successful_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successful Calls"
+          },
+          "total_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Calls"
+          }
+        },
+        "required": [
+          "capability_id",
+          "status"
+        ],
+        "title": "CapabilityHealthResponse",
+        "type": "object"
+      },
+      "CapabilityJobContractResponse": {
+        "properties": {
+          "idempotency": {
+            "title": "Idempotency",
+            "type": "string"
+          },
+          "job_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Job Kinds",
+            "type": "array"
+          },
+          "lease_seconds": {
+            "title": "Lease Seconds",
+            "type": "integer"
+          },
+          "max_attempts": {
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "model_call_budget": {
+            "title": "Model Call Budget",
+            "type": "integer"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "job_kinds",
+          "idempotency",
+          "lease_seconds",
+          "max_attempts",
+          "model_call_budget"
+        ],
+        "title": "CapabilityJobContractResponse",
+        "type": "object"
+      },
+      "CapabilityJobFeaturesResponse": {
+        "properties": {
+          "automatic_retry": {
+            "title": "Automatic Retry",
+            "type": "boolean"
+          },
+          "cancel": {
+            "title": "Cancel",
+            "type": "boolean"
+          },
+          "estimate": {
+            "title": "Estimate",
+            "type": "boolean"
+          },
+          "result": {
+            "title": "Result",
+            "type": "boolean"
+          },
+          "resume": {
+            "title": "Resume",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "result",
+          "resume",
+          "cancel",
+          "estimate",
+          "automatic_retry"
+        ],
+        "title": "CapabilityJobFeaturesResponse",
+        "type": "object"
+      },
+      "CapabilityJobResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CapabilityJobFeaturesResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contract": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CapabilityJobContractResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "CapabilityJobResponse",
+        "type": "object"
+      },
+      "CapabilityJobResultResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "CapabilityJobResultResponse",
+        "type": "object"
+      },
+      "CapabilityJobsResponse": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityJobResponse"
+            },
+            "title": "Jobs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "jobs"
+        ],
+        "title": "CapabilityJobsResponse",
+        "type": "object"
+      },
       "CatalogInstallRequest": {
         "properties": {
           "id": {
@@ -4937,6 +5921,16 @@
         ],
         "title": "ConfigurationUpdateResponse",
         "type": "object"
+      },
+      "ConfirmationPolicy": {
+        "description": "Minimum turn-level authorization required by a tool.",
+        "enum": [
+          "none",
+          "explicit_request",
+          "always"
+        ],
+        "title": "ConfirmationPolicy",
+        "type": "string"
       },
       "ConflictRequest": {
         "properties": {
@@ -6589,6 +7583,59 @@
         "title": "DrupalFieldResponse",
         "type": "object"
       },
+      "DurableJobDispatcherResponse": {
+        "properties": {
+          "idempotency": {
+            "title": "Idempotency",
+            "type": "string"
+          },
+          "job_type": {
+            "title": "Job Type",
+            "type": "string"
+          },
+          "lease_seconds": {
+            "title": "Lease Seconds",
+            "type": "integer"
+          },
+          "max_attempts": {
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "model_call_budget": {
+            "title": "Model Call Budget",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "supports_cancel": {
+            "title": "Supports Cancel",
+            "type": "boolean"
+          },
+          "supports_resume": {
+            "title": "Supports Resume",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "schema_version",
+          "job_type",
+          "provider",
+          "idempotency",
+          "lease_seconds",
+          "max_attempts",
+          "model_call_budget",
+          "supports_resume",
+          "supports_cancel"
+        ],
+        "title": "DurableJobDispatcherResponse",
+        "type": "object"
+      },
       "EmailConnectionTestRequest": {
         "properties": {
           "imap_encryption": {
@@ -6736,6 +7783,76 @@
         "title": "EnvironmentUpdateResponse",
         "type": "object"
       },
+      "EvaluationCandidateResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "occurrence_count": {
+            "default": 0,
+            "title": "Occurrence Count",
+            "type": "integer"
+          },
+          "review_status": {
+            "title": "Review Status",
+            "type": "string"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "synthetic_case": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Synthetic Case",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "review_status",
+          "synthetic_case"
+        ],
+        "title": "EvaluationCandidateResponse",
+        "type": "object"
+      },
       "EvaluationCandidateReviewPayload": {
         "description": "Administrative decision for one privacy-safe evaluation candidate.",
         "properties": {
@@ -6749,6 +7866,22 @@
           "decision"
         ],
         "title": "EvaluationCandidateReviewPayload",
+        "type": "object"
+      },
+      "EvaluationCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "EvaluationCandidatesResponse",
         "type": "object"
       },
       "ExternalContextSourceResponse": {
@@ -14857,6 +15990,112 @@
         "title": "ModelComparisonRoute",
         "type": "object"
       },
+      "ModelEvaluationResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "estimated_cost_usd": {
+            "title": "Estimated Cost Usd",
+            "type": "number"
+          },
+          "evaluation_id": {
+            "title": "Evaluation Id",
+            "type": "integer"
+          },
+          "failure_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failure Codes",
+            "type": "array"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "integer"
+          },
+          "privacy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Privacy"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "provider",
+          "model",
+          "agent_id",
+          "score",
+          "passed",
+          "total",
+          "latency_ms",
+          "input_tokens",
+          "output_tokens",
+          "estimated_cost_usd",
+          "failure_codes",
+          "created_at"
+        ],
+        "title": "ModelEvaluationResponse",
+        "type": "object"
+      },
+      "ModelEvaluationsResponse": {
+        "properties": {
+          "evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvaluationResponse"
+            },
+            "title": "Evaluations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "evaluations"
+        ],
+        "title": "ModelEvaluationsResponse",
+        "type": "object"
+      },
       "ModelRegistryEntry": {
         "additionalProperties": true,
         "description": "One configured router model, preserving provider-specific JSON metadata.",
@@ -18679,6 +19918,40 @@
         "title": "PdfRecognitionResponse",
         "type": "object"
       },
+      "PersonalMemoriesResponse": {
+        "properties": {
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalMemoryResponse"
+            },
+            "title": "Memories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "memories"
+        ],
+        "title": "PersonalMemoriesResponse",
+        "type": "object"
+      },
+      "PersonalMemoryDeleteResponse": {
+        "properties": {
+          "memory_id": {
+            "title": "Memory Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "memory_id"
+        ],
+        "title": "PersonalMemoryDeleteResponse",
+        "type": "object"
+      },
       "PersonalMemoryPayload": {
         "additionalProperties": false,
         "description": "Explicit user-owned memory fields.",
@@ -18735,6 +20008,69 @@
           "text"
         ],
         "title": "PersonalMemoryPayload",
+        "type": "object"
+      },
+      "PersonalMemoryResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "memory_id": {
+            "title": "Memory Id",
+            "type": "string"
+          },
+          "provenance": {
+            "title": "Provenance",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "memory_id",
+          "text",
+          "category",
+          "provenance",
+          "enabled",
+          "expires_at",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PersonalMemoryResponse",
         "type": "object"
       },
       "PlanningDefaultsResponse": {
@@ -19523,6 +20859,24 @@
           "posts"
         ],
         "title": "PublishRequest",
+        "type": "object"
+      },
+      "QualityToolUsageResponse": {
+        "properties": {
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "uses": {
+            "title": "Uses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tool_name",
+          "uses"
+        ],
+        "title": "QualityToolUsageResponse",
         "type": "object"
       },
       "RateHistoryEntryResponse": {
@@ -21519,6 +22873,90 @@
         "title": "ReviewScheduleRequest",
         "type": "object"
       },
+      "ReviewedEvaluationReportResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "passed": {
+            "title": "Passed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewedEvaluationResultResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "suite": {
+            "title": "Suite",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "suite",
+          "passed",
+          "total",
+          "score",
+          "results"
+        ],
+        "title": "ReviewedEvaluationReportResponse",
+        "type": "object"
+      },
+      "ReviewedEvaluationResultResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "failures": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "plan": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Plan",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "passed",
+          "failures",
+          "plan"
+        ],
+        "title": "ReviewedEvaluationResultResponse",
+        "type": "object"
+      },
       "RevokedShareResponse": {
         "properties": {
           "status": {
@@ -21796,6 +23234,24 @@
         "title": "ScheduledTaskResponse",
         "type": "object"
       },
+      "SemanticAssociationDeleteResponse": {
+        "properties": {
+          "association_id": {
+            "title": "Association Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "association_id"
+        ],
+        "title": "SemanticAssociationDeleteResponse",
+        "type": "object"
+      },
       "SemanticAssociationPayload": {
         "additionalProperties": false,
         "description": "One explicit, reversible personal vocabulary correction.",
@@ -21821,6 +23277,58 @@
           "related_terms"
         ],
         "title": "SemanticAssociationPayload",
+        "type": "object"
+      },
+      "SemanticAssociationResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "related_term": {
+            "title": "Related Term",
+            "type": "string"
+          },
+          "trigger_term": {
+            "title": "Trigger Term",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "trigger_term",
+          "related_term",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SemanticAssociationResponse",
+        "type": "object"
+      },
+      "SemanticAssociationsResponse": {
+        "properties": {
+          "associations": {
+            "items": {
+              "$ref": "#/components/schemas/SemanticAssociationResponse"
+            },
+            "title": "Associations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "associations"
+        ],
+        "title": "SemanticAssociationsResponse",
         "type": "object"
       },
       "ShareCreateRequest": {
@@ -22084,6 +23592,313 @@
         ],
         "title": "SkillActivation",
         "type": "string"
+      },
+      "SkillAutomationDeleteResponse": {
+        "properties": {
+          "automation_id": {
+            "title": "Automation Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "automation_id"
+        ],
+        "title": "SkillAutomationDeleteResponse",
+        "type": "object"
+      },
+      "SkillAutomationQueuedResponse": {
+        "properties": {
+          "automation_id": {
+            "title": "Automation Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "automation_id"
+        ],
+        "title": "SkillAutomationQueuedResponse",
+        "type": "object"
+      },
+      "SkillAutomationResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "budgets": {
+            "$ref": "#/components/schemas/AutomationBudgetsResponse"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction": {
+            "title": "Instruction",
+            "type": "string"
+          },
+          "interval_minutes": {
+            "title": "Interval Minutes",
+            "type": "integer"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_status": {
+            "title": "Last Status",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "agent_id",
+          "skill_id",
+          "instruction",
+          "interval_minutes",
+          "enabled",
+          "budgets",
+          "next_run_at",
+          "last_run_at",
+          "last_status",
+          "created_at",
+          "updated_at",
+          "revision"
+        ],
+        "title": "SkillAutomationResponse",
+        "type": "object"
+      },
+      "SkillAutomationRunResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "ai_calls": {
+            "title": "Ai Calls",
+            "type": "integer"
+          },
+          "automation_id": {
+            "title": "Automation Id",
+            "type": "string"
+          },
+          "confirmation_count": {
+            "title": "Confirmation Count",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "automation_id",
+          "status",
+          "ai_calls",
+          "confirmation_count",
+          "error_code",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "SkillAutomationRunResponse",
+        "type": "object"
+      },
+      "SkillAutomationRunsResponse": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/SkillAutomationRunResponse"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "SkillAutomationRunsResponse",
+        "type": "object"
+      },
+      "SkillAutomationsResponse": {
+        "properties": {
+          "automations": {
+            "items": {
+              "$ref": "#/components/schemas/SkillAutomationResponse"
+            },
+            "title": "Automations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "automations"
+        ],
+        "title": "SkillAutomationsResponse",
+        "type": "object"
+      },
+      "SkillDescriptor": {
+        "additionalProperties": false,
+        "description": "Declarative skill metadata plus its human-authored instructions.",
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/SkillActivation",
+            "default": "automatic"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 160,
+            "minLength": 3,
+            "pattern": "^(?:core|user|mcp|generated|plugin\\.[a-z0-9][a-z0-9_-]{1,63})\\.[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+            "title": "Id",
+            "type": "string"
+          },
+          "instructions": {
+            "default": "",
+            "maxLength": 100000,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SkillKind",
+            "default": "agent"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/CatalogOrigin"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus",
+            "default": "available"
+          },
+          "tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tool Ids",
+            "type": "array"
+          },
+          "version": {
+            "default": "1.0.0",
+            "maxLength": 64,
+            "pattern": "^[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][a-zA-Z0-9.-]+)?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "origin"
+        ],
+        "title": "SkillDescriptor",
+        "type": "object"
       },
       "SkillKind": {
         "description": "Supported skill package categories.",
@@ -26074,7 +27889,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalMemoriesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26203,7 +28020,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalMemoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26333,7 +28152,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalMemoryDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26471,7 +28292,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalMemoryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26592,7 +28415,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillAssignmentResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26721,7 +28546,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillAssignmentResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26834,7 +28661,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationApprovalsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -26947,7 +28776,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27067,7 +28898,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27188,7 +29021,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27307,7 +29142,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27436,7 +29273,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27557,7 +29396,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationQueuedResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27690,7 +29531,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillAutomationRunsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -27815,7 +29658,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityAuditResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28005,7 +29850,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationCandidatesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28118,7 +29965,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedEvaluationReportResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28250,7 +30099,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationCandidateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28374,7 +30225,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelEvaluationsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28496,7 +30349,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModelEvaluationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28652,7 +30507,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityJobsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28774,7 +30631,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -28896,7 +30755,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29018,7 +30879,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityJobResultResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -29140,7 +31003,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityJobResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30104,7 +31969,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityConformanceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30217,7 +32084,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQualityDashboardResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30342,7 +32211,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticAssociationsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30463,7 +32334,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticAssociationsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30585,7 +32458,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticAssociationDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30820,7 +32695,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillCatalogItemResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -30951,7 +32828,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31070,7 +32949,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillCatalogItemResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31199,7 +33080,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillCatalogItemResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31337,7 +33220,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkillCatalogItemResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -31475,7 +33360,17 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AgentSkillValidationSuccessResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AgentSkillValidationErrorResponse"
+                    }
+                  ],
+                  "title": "Response Validate Skill Api Ai Skills  Skill Id  Validate Post"
+                }
               }
             },
             "description": "Successful Response"
@@ -31587,7 +33482,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolCatalogResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -9727,6 +9727,55 @@ export interface components {
             /** @default viewer */
             role: components["schemas"]["UserRole"];
         };
+        /** AgentQualityDashboardResponse */
+        AgentQualityDashboardResponse: {
+            /** Capabilities */
+            capabilities: components["schemas"]["CapabilityHealthResponse"][];
+            quality: components["schemas"]["AgentQualityResponse"];
+        };
+        /** AgentQualityResponse */
+        AgentQualityResponse: {
+            /** Completed Turns */
+            completed_turns: number;
+            /** Error Codes */
+            error_codes: {
+                [key: string]: number;
+            };
+            /** Errors */
+            errors: number;
+            /** Evaluation Candidates */
+            evaluation_candidates: {
+                [key: string]: number;
+            };
+            /** Event Count */
+            event_count: number;
+            /** Latency Buckets */
+            latency_buckets: {
+                [key: string]: number;
+            };
+            /** Modes */
+            modes: {
+                [key: string]: number;
+            };
+            /** Ratings */
+            ratings: {
+                [key: string]: number;
+            };
+            /** Schema Version */
+            schema_version: number;
+            /** Signals */
+            signals: {
+                [key: string]: number;
+            };
+            /** Top Tools */
+            top_tools: components["schemas"]["QualityToolUsageResponse"][];
+            /** Verification */
+            verification: {
+                [key: string]: number;
+            };
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /**
          * AgentSkillAssignmentPayload
          * @description Revision-aware complete assignment list for one agent.
@@ -9736,6 +9785,19 @@ export interface components {
             expected_revision?: string | null;
             /** Skill Ids */
             skill_ids?: string[];
+        };
+        /** AgentSkillAssignmentResponse */
+        AgentSkillAssignmentResponse: {
+            /** Agent Id */
+            agent_id: string;
+            /** Required Skill Ids */
+            required_skill_ids: string[] | string;
+            /** Revision */
+            revision: string;
+            /** Skill Ids */
+            skill_ids: string[] | string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
         };
         /**
          * AgentSkillCatalogIssueResponse
@@ -9813,6 +9875,92 @@ export interface components {
             issues: components["schemas"]["AgentSkillCatalogIssueResponse"][];
             /** Skills */
             skills: components["schemas"]["AgentSkillCatalogItemResponse"][];
+        };
+        /** AgentSkillDeleteResponse */
+        AgentSkillDeleteResponse: {
+            /** Affected Agents */
+            affected_agents: string[];
+            /** Skill Id */
+            skill_id: string;
+            /** Status */
+            status: string;
+        };
+        /** AgentSkillValidationErrorResponse */
+        AgentSkillValidationErrorResponse: {
+            /** Errors */
+            errors: string[];
+            /**
+             * Valid
+             * @constant
+             */
+            valid: false;
+        };
+        /** AgentSkillValidationSuccessResponse */
+        AgentSkillValidationSuccessResponse: {
+            descriptor: components["schemas"]["SkillDescriptor"];
+            /** Missing Tool Ids */
+            missing_tool_ids: string[];
+            /** Valid */
+            valid: boolean;
+        };
+        /** AgentToolCatalogItemResponse */
+        AgentToolCatalogItemResponse: {
+            /** @default none */
+            confirmation: components["schemas"]["ConfirmationPolicy"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Effects */
+            effects?: components["schemas"]["ToolEffect"][];
+            /** Handler Ref */
+            handler_ref?: string | null;
+            /** Id */
+            id: string;
+            /** Input Schema */
+            input_schema?: {
+                [key: string]: unknown;
+            };
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Minimum Role
+             * @default viewer
+             */
+            minimum_role: string;
+            /** Name */
+            name: string;
+            origin: components["schemas"]["CatalogOrigin"];
+            /** Output Schema */
+            output_schema?: {
+                [key: string]: unknown;
+            };
+            /** Runtime Adapter Available */
+            runtime_adapter_available: boolean;
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /** Skill Ids */
+            skill_ids: string[];
+            /** @default available */
+            status: components["schemas"]["CatalogStatus"];
+            /**
+             * Version
+             * @default 1.0.0
+             */
+            version: string;
+        };
+        /** AgentToolCatalogResponse */
+        AgentToolCatalogResponse: {
+            /** Catalog Revision */
+            catalog_revision: string;
+            /** Tools */
+            tools: components["schemas"]["AgentToolCatalogItemResponse"][];
         };
         /**
          * AiCatalogResponse
@@ -10225,6 +10373,57 @@ export interface components {
              * @default
              */
             type: string;
+        };
+        /** AutomationApprovalResponse */
+        AutomationApprovalResponse: {
+            /** Action */
+            action: string;
+            /** Agent Id */
+            agent_id: string;
+            /** Confirmation Id */
+            confirmation_id: string;
+            /** Created At */
+            created_at: number;
+            /** Destructive */
+            destructive: boolean;
+            /** Details */
+            details: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Error Code */
+            error_code: string;
+            /** Expires At */
+            expires_at: number;
+            /** Result */
+            result: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Session Id */
+            session_id: string;
+            /** Status */
+            status: string;
+            /** Summary Key */
+            summary_key: string;
+            /** Title Key */
+            title_key: string;
+            /** Type */
+            type: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** AutomationApprovalsResponse */
+        AutomationApprovalsResponse: {
+            /** Approvals */
+            approvals: components["schemas"]["AutomationApprovalResponse"][];
+        };
+        /** AutomationBudgetsResponse */
+        AutomationBudgetsResponse: {
+            /** Max Ai Calls Per Run */
+            max_ai_calls_per_run: number;
+            /** Max Runs Per Day */
+            max_runs_per_day: number;
+            /** Max Runtime Seconds */
+            max_runtime_seconds: number;
         };
         /**
          * AutomationWritePayload
@@ -11133,6 +11332,162 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** CapabilityAuditEventResponse */
+        CapabilityAuditEventResponse: {
+            /** Agent Id */
+            agent_id: string;
+            /** Argument Keys */
+            argument_keys: string[];
+            /** Created At */
+            created_at: number;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Effects */
+            effects: string[];
+            /** Error Code */
+            error_code: string;
+            /** Id */
+            id: string;
+            /** Result Kind */
+            result_kind: string;
+            /** Session Id */
+            session_id: string;
+            /** Status */
+            status: string;
+            /** Tool Id */
+            tool_id: string;
+            /** Tool Name */
+            tool_name: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** CapabilityAuditResponse */
+        CapabilityAuditResponse: {
+            /** Events */
+            events: components["schemas"]["CapabilityAuditEventResponse"][];
+        };
+        /** CapabilityConformanceResponse */
+        CapabilityConformanceResponse: {
+            /** Capabilities */
+            capabilities: components["schemas"]["CapabilityConformanceRowResponse"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Durable Job Dispatchers */
+            durable_job_dispatchers: components["schemas"]["DurableJobDispatcherResponse"][];
+            /** Enforcement */
+            enforcement: string;
+            /** Schema Version */
+            schema_version: number;
+            /** Total */
+            total: number;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** CapabilityConformanceRowResponse */
+        CapabilityConformanceRowResponse: {
+            /** Checks */
+            checks: {
+                [key: string]: boolean;
+            };
+            /** Declared Schema Version */
+            declared_schema_version: number;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Missing Fields */
+            missing_fields: string[];
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** CapabilityHealthResponse */
+        CapabilityHealthResponse: {
+            /** Average Latency Ms */
+            average_latency_ms?: number | null;
+            /** Capability Id */
+            capability_id: string;
+            /** Quarantined Until */
+            quarantined_until?: number | null;
+            /** Reason */
+            reason?: string | null;
+            /** Recent Failures */
+            recent_failures?: number | null;
+            /** Status */
+            status: string;
+            /** Successful Calls */
+            successful_calls?: number | null;
+            /** Total Calls */
+            total_calls?: number | null;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** CapabilityJobContractResponse */
+        CapabilityJobContractResponse: {
+            /** Idempotency */
+            idempotency: string;
+            /** Job Kinds */
+            job_kinds: string[];
+            /** Lease Seconds */
+            lease_seconds: number;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Model Call Budget */
+            model_call_budget: number;
+            /** Schema Version */
+            schema_version: number;
+        };
+        /** CapabilityJobFeaturesResponse */
+        CapabilityJobFeaturesResponse: {
+            /** Automatic Retry */
+            automatic_retry: boolean;
+            /** Cancel */
+            cancel: boolean;
+            /** Estimate */
+            estimate: boolean;
+            /** Result */
+            result: boolean;
+            /** Resume */
+            resume: boolean;
+            /** Status */
+            status: boolean;
+        };
+        /** CapabilityJobResponse */
+        CapabilityJobResponse: {
+            capabilities?: components["schemas"]["CapabilityJobFeaturesResponse"] | null;
+            contract?: components["schemas"]["CapabilityJobContractResponse"] | null;
+            /** Job Id */
+            job_id: string;
+            /** Provider */
+            provider?: string | null;
+            /** State */
+            state?: string | null;
+            /** Status */
+            status?: string | null;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** CapabilityJobResultResponse */
+        CapabilityJobResultResponse: {
+            /** Job Id */
+            job_id: string;
+            /** Provider */
+            provider?: string | null;
+            /** State */
+            state?: string | null;
+            /** Status */
+            status?: string | null;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** CapabilityJobsResponse */
+        CapabilityJobsResponse: {
+            /** Jobs */
+            jobs: components["schemas"]["CapabilityJobResponse"][];
+        };
         /** CatalogInstallRequest */
         CatalogInstallRequest: {
             /** Id */
@@ -11680,6 +12035,12 @@ export interface components {
             /** Status */
             status: string;
         };
+        /**
+         * ConfirmationPolicy
+         * @description Minimum turn-level authorization required by a tool.
+         * @enum {string}
+         */
+        ConfirmationPolicy: "none" | "explicit_request" | "always";
         /** ConflictRequest */
         ConflictRequest: {
             /**
@@ -12322,6 +12683,27 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** DurableJobDispatcherResponse */
+        DurableJobDispatcherResponse: {
+            /** Idempotency */
+            idempotency: string;
+            /** Job Type */
+            job_type: string;
+            /** Lease Seconds */
+            lease_seconds: number;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Model Call Budget */
+            model_call_budget: number;
+            /** Provider */
+            provider: string;
+            /** Schema Version */
+            schema_version: number;
+            /** Supports Cancel */
+            supports_cancel: boolean;
+            /** Supports Resume */
+            supports_resume: boolean;
+        };
         /** EmailConnectionTestRequest */
         EmailConnectionTestRequest: {
             /**
@@ -12375,6 +12757,32 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** EvaluationCandidateResponse */
+        EvaluationCandidateResponse: {
+            /** First Seen */
+            first_seen?: number | null;
+            /** Id */
+            id: string;
+            /** Last Seen */
+            last_seen?: number | null;
+            /**
+             * Occurrence Count
+             * @default 0
+             */
+            occurrence_count: number;
+            /** Review Status */
+            review_status: string;
+            /** Scenario */
+            scenario?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Synthetic Case */
+            synthetic_case: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /**
          * EvaluationCandidateReviewPayload
          * @description Administrative decision for one privacy-safe evaluation candidate.
@@ -12382,6 +12790,11 @@ export interface components {
         EvaluationCandidateReviewPayload: {
             /** Decision */
             decision: string;
+        };
+        /** EvaluationCandidatesResponse */
+        EvaluationCandidatesResponse: {
+            /** Candidates */
+            candidates: components["schemas"]["EvaluationCandidateResponse"][];
         };
         /** ExternalContextSourceResponse */
         ExternalContextSourceResponse: {
@@ -15321,6 +15734,44 @@ export interface components {
             /** Tags */
             tags: string[];
         };
+        /** ModelEvaluationResponse */
+        ModelEvaluationResponse: {
+            /** Agent Id */
+            agent_id: string;
+            /** Created At */
+            created_at: string;
+            /** Estimated Cost Usd */
+            estimated_cost_usd: number;
+            /** Evaluation Id */
+            evaluation_id: number;
+            /** Failure Codes */
+            failure_codes: string[];
+            /** Input Tokens */
+            input_tokens: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model */
+            model: string;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Passed */
+            passed: number;
+            /** Privacy */
+            privacy?: string | null;
+            /** Provider */
+            provider: string;
+            /** Score */
+            score: number;
+            /** Total */
+            total: number;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** ModelEvaluationsResponse */
+        ModelEvaluationsResponse: {
+            /** Evaluations */
+            evaluations: components["schemas"]["ModelEvaluationResponse"][];
+        };
         /**
          * ModelRegistryEntry
          * @description One configured router model, preserving provider-specific JSON metadata.
@@ -16718,6 +17169,18 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** PersonalMemoriesResponse */
+        PersonalMemoriesResponse: {
+            /** Memories */
+            memories: components["schemas"]["PersonalMemoryResponse"][];
+        };
+        /** PersonalMemoryDeleteResponse */
+        PersonalMemoryDeleteResponse: {
+            /** Memory Id */
+            memory_id: string;
+            /** Status */
+            status: string;
+        };
         /**
          * PersonalMemoryPayload
          * @description Explicit user-owned memory fields.
@@ -16744,6 +17207,29 @@ export interface components {
             provenance: string;
             /** Text */
             text: string;
+        };
+        /** PersonalMemoryResponse */
+        PersonalMemoryResponse: {
+            /** Category */
+            category: string;
+            /** Created At */
+            created_at: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Expires At */
+            expires_at: string | null;
+            /** Memory Id */
+            memory_id: string;
+            /** Provenance */
+            provenance: string;
+            /** Revision */
+            revision: number;
+            /** Text */
+            text: string;
+            /** Updated At */
+            updated_at: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
         };
         /**
          * PlanningDefaultsResponse
@@ -17059,6 +17545,13 @@ export interface components {
              * @default
              */
             source_title: string;
+        };
+        /** QualityToolUsageResponse */
+        QualityToolUsageResponse: {
+            /** Tool Name */
+            tool_name: string;
+            /** Uses */
+            uses: number;
         };
         /**
          * RateHistoryEntryResponse
@@ -18049,6 +18542,40 @@ export interface components {
              */
             title: string;
         };
+        /** ReviewedEvaluationReportResponse */
+        ReviewedEvaluationReportResponse: {
+            /** Passed */
+            passed: number;
+            /** Results */
+            results: components["schemas"]["ReviewedEvaluationResultResponse"][];
+            /** Schema Version */
+            schema_version: number;
+            /** Score */
+            score: number;
+            /** Suite */
+            suite: string;
+            /** Total */
+            total: number;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** ReviewedEvaluationResultResponse */
+        ReviewedEvaluationResultResponse: {
+            /** Failures */
+            failures: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Id */
+            id: string;
+            /** Passed */
+            passed: boolean;
+            /** Plan */
+            plan: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
         /** ReviewScheduleRequest */
         ReviewScheduleRequest: {
             /**
@@ -18175,6 +18702,13 @@ export interface components {
              */
             source_title: string;
         };
+        /** SemanticAssociationDeleteResponse */
+        SemanticAssociationDeleteResponse: {
+            /** Association Id */
+            association_id: string;
+            /** Status */
+            status: string;
+        };
         /**
          * SemanticAssociationPayload
          * @description One explicit, reversible personal vocabulary correction.
@@ -18184,6 +18718,26 @@ export interface components {
             related_terms: string[];
             /** Trigger */
             trigger: string;
+        };
+        /** SemanticAssociationResponse */
+        SemanticAssociationResponse: {
+            /** Created At */
+            created_at: number;
+            /** Id */
+            id: string;
+            /** Related Term */
+            related_term: string;
+            /** Trigger Term */
+            trigger_term: string;
+            /** Updated At */
+            updated_at: number;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** SemanticAssociationsResponse */
+        SemanticAssociationsResponse: {
+            /** Associations */
+            associations: components["schemas"]["SemanticAssociationResponse"][];
         };
         /** ShareCreateRequest */
         ShareCreateRequest: {
@@ -18278,6 +18832,126 @@ export interface components {
          * @enum {string}
          */
         SkillActivation: "always" | "automatic" | "explicit";
+        /** SkillAutomationDeleteResponse */
+        SkillAutomationDeleteResponse: {
+            /** Automation Id */
+            automation_id: string;
+            /** Status */
+            status: string;
+        };
+        /** SkillAutomationQueuedResponse */
+        SkillAutomationQueuedResponse: {
+            /** Automation Id */
+            automation_id: string;
+            /** Status */
+            status: string;
+        };
+        /** SkillAutomationResponse */
+        SkillAutomationResponse: {
+            /** Agent Id */
+            agent_id: string;
+            budgets: components["schemas"]["AutomationBudgetsResponse"];
+            /** Created At */
+            created_at: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: string;
+            /** Instruction */
+            instruction: string;
+            /** Interval Minutes */
+            interval_minutes: number;
+            /** Last Run At */
+            last_run_at: number | null;
+            /** Last Status */
+            last_status: string;
+            /** Name */
+            name: string;
+            /** Next Run At */
+            next_run_at: number | null;
+            /** Revision */
+            revision: string;
+            /** Skill Id */
+            skill_id: string;
+            /** Updated At */
+            updated_at: number;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** SkillAutomationRunResponse */
+        SkillAutomationRunResponse: {
+            /** Ai Calls */
+            ai_calls: number;
+            /** Automation Id */
+            automation_id: string;
+            /** Confirmation Count */
+            confirmation_count: number;
+            /** Error Code */
+            error_code: string | null;
+            /** Finished At */
+            finished_at: number | null;
+            /** Id */
+            id: string;
+            /** Started At */
+            started_at: number;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** SkillAutomationRunsResponse */
+        SkillAutomationRunsResponse: {
+            /** Runs */
+            runs: components["schemas"]["SkillAutomationRunResponse"][];
+        };
+        /** SkillAutomationsResponse */
+        SkillAutomationsResponse: {
+            /** Automations */
+            automations: components["schemas"]["SkillAutomationResponse"][];
+        };
+        /**
+         * SkillDescriptor
+         * @description Declarative skill metadata plus its human-authored instructions.
+         */
+        SkillDescriptor: {
+            /** @default automatic */
+            activation: components["schemas"]["SkillActivation"];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Id */
+            id: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /** @default agent */
+            kind: components["schemas"]["SkillKind"];
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            origin: components["schemas"]["CatalogOrigin"];
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /** @default available */
+            status: components["schemas"]["CatalogStatus"];
+            /** Tool Ids */
+            tool_ids?: string[];
+            /**
+             * Version
+             * @default 1.0.0
+             */
+            version: string;
+        };
         /**
          * SkillKind
          * @description Supported skill package categories.
@@ -19735,7 +20409,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PersonalMemoriesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19777,7 +20451,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PersonalMemoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19820,7 +20494,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PersonalMemoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19859,7 +20533,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PersonalMemoryDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19897,7 +20571,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillAssignmentResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19939,7 +20613,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillAssignmentResponse"];
                 };
             };
             /** @description Validation Error */
@@ -19975,7 +20649,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AutomationApprovalsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20011,7 +20685,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20051,7 +20725,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20089,7 +20763,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20131,7 +20805,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20169,7 +20843,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20207,7 +20881,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationQueuedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20247,7 +20921,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillAutomationRunsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20285,7 +20959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityAuditResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20376,7 +21050,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EvaluationCandidatesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20418,7 +21092,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EvaluationCandidateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20454,7 +21128,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReviewedEvaluationReportResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20492,7 +21166,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelEvaluationsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20530,7 +21204,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelEvaluationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20599,7 +21273,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityJobsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20637,7 +21311,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20675,7 +21349,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20713,7 +21387,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityJobResultResponse"];
                 };
             };
             /** @description Validation Error */
@@ -20751,7 +21425,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityJobResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21100,7 +21774,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CapabilityConformanceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21136,7 +21810,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentQualityDashboardResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21174,7 +21848,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SemanticAssociationsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21214,7 +21888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SemanticAssociationsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21252,7 +21926,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SemanticAssociationDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21328,7 +22002,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillCatalogItemResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21366,7 +22040,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillCatalogItemResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21408,7 +22082,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillCatalogItemResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21448,7 +22122,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21490,7 +22164,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillCatalogItemResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21532,7 +22206,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentSkillValidationSuccessResponse"] | components["schemas"]["AgentSkillValidationErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21568,7 +22242,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentToolCatalogResponse"];
                 };
             };
             /** @description Validation Error */

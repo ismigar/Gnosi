@@ -6,7 +6,6 @@ import asyncio
 import hashlib
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Dict
 
 from fastapi import Depends, HTTPException, Query
 
@@ -17,6 +16,25 @@ from backend.domains.configuration.agent.contracts import (
     PersonalMemoryPayload,
     SemanticAssociationPayload,
     UserSkillWritePayload,
+)
+from backend.domains.configuration.agent.governance_models import (
+    AgentQualityDashboardResponse,
+    AutomationApprovalsResponse,
+    CapabilityAuditResponse,
+    CapabilityConformanceResponse,
+    CapabilityJobResponse,
+    CapabilityJobResultResponse,
+    CapabilityJobsResponse,
+    EvaluationCandidateResponse,
+    EvaluationCandidatesResponse,
+    ModelEvaluationResponse,
+    ModelEvaluationsResponse,
+    PersonalMemoriesResponse,
+    PersonalMemoryDeleteResponse,
+    PersonalMemoryResponse,
+    ReviewedEvaluationReportResponse,
+    SemanticAssociationDeleteResponse,
+    SemanticAssociationsResponse,
 )
 from backend.domains.configuration.agent.router import router
 from backend.models.agent_skills import CatalogStatus
@@ -34,6 +52,8 @@ from backend.services.agent_semantic_memory import (
 )
 from backend.services.agent_skill_assignments import AgentSkillAssignmentStore
 from backend.services.agent_skill_catalog import (
+    SkillCatalog,
+    ToolCatalog,
     get_skill_catalog as _default_get_skill_catalog,
 )
 from backend.services.agent_skill_catalog import (
@@ -61,15 +81,17 @@ from backend.services.workspace_service import (
     get_workspace_context,
     require_role,
 )
+from backend.utils.open_values import iterate_values
 
-_JobOperation = Callable[[Path, str], Any]
-_CatalogProvider = Callable[[], Any]
+_JobOperation = Callable[[Path, str], Mapping[str, object]]
+_SkillCatalogProvider = Callable[[], SkillCatalog]
+_ToolCatalogProvider = Callable[[], ToolCatalog]
 _get_job_status: _JobOperation = _default_get_capability_job_status
 _read_job_result: _JobOperation = _default_read_capability_job_result
 _cancel_job: _JobOperation = _default_cancel_capability_job
 _resume_job: _JobOperation = _default_resume_capability_job
-_skill_catalog_provider: _CatalogProvider = _default_get_skill_catalog
-_tool_catalog_provider: _CatalogProvider = _default_get_tool_catalog
+_skill_catalog_provider: _SkillCatalogProvider = _default_get_skill_catalog
+_tool_catalog_provider: _ToolCatalogProvider = _default_get_tool_catalog
 
 
 def configure_job_dependencies(
@@ -78,8 +100,8 @@ def configure_job_dependencies(
     read_result: _JobOperation,
     cancel: _JobOperation,
     resume: _JobOperation,
-    skill_catalog: _CatalogProvider,
-    tool_catalog: _CatalogProvider,
+    skill_catalog: _SkillCatalogProvider,
+    tool_catalog: _ToolCatalogProvider,
 ) -> None:
     """Bind historical monkeypatch seams at the compatibility edge."""
     global _get_job_status, _read_job_result, _cancel_job, _resume_job
@@ -92,7 +114,7 @@ def configure_job_dependencies(
     _tool_catalog_provider = tool_catalog
 
 
-def _metadata(payload: UserSkillWritePayload) -> Dict[str, Any]:
+def _metadata(payload: UserSkillWritePayload) -> dict[str, object]:
     return {
         "schema_version": 1,
         "version": payload.version,
@@ -127,7 +149,7 @@ def _assignment_store() -> AgentSkillAssignmentStore:
     return AgentSkillAssignmentStore(cfg.params_source, cfg.params)
 
 
-def _automation_scope(context: WorkspaceContext) -> Dict[str, str]:
+def _automation_scope(context: WorkspaceContext) -> dict[str, str]:
     vault = Path(context.vault_path).resolve()
     return {
         "vault_scope": hashlib.sha256(str(vault).encode("utf-8")).hexdigest()[:20],
@@ -137,41 +159,42 @@ def _automation_scope(context: WorkspaceContext) -> Dict[str, str]:
     }
 
 
-def _ai_configuration() -> dict[str, Any]:
+def _ai_configuration() -> dict[str, object]:
     raw_ai: object = load_params(strict_env=False).ai
     if not isinstance(raw_ai, Mapping):
         return {}
     return {str(key): value for key, value in raw_ai.items()}
 
 
-def _require_configured_agent(agent_id: str) -> dict[str, Any]:
+def _require_configured_agent(agent_id: str) -> dict[str, object]:
     ai = _ai_configuration()
-    agent = next(
-        (
-            item
-            for item in (ai.get("agents") or [])
-            if isinstance(item, dict) and str(item.get("id")) == str(agent_id)
-        ),
-        None,
-    )
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found.")
-    return agent
+    for item in iterate_values(ai.get("agents") or []):
+        if isinstance(item, Mapping) and str(item.get("id")) == str(agent_id):
+            return {str(key): value for key, value in item.items()}
+    raise HTTPException(status_code=404, detail="Agent not found.")
 
 
-@router.get("/jobs", response_model=None)
+@router.get(
+    "/jobs",
+    response_model=CapabilityJobsResponse,
+    response_model_exclude_unset=True,
+)
 def list_governed_jobs(
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     """List namespaced durable capability jobs for the active Vault."""
     return {"jobs": list_capability_jobs(Path(context.vault_path))}
 
 
-@router.get("/jobs/{job_id}", response_model=None)
+@router.get(
+    "/jobs/{job_id}",
+    response_model=CapabilityJobResponse,
+    response_model_exclude_unset=True,
+)
 def get_governed_job(
     job_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> Mapping[str, object]:
     """Read one durable job's current provider-neutral status."""
     try:
         return _get_job_status(Path(context.vault_path), job_id)
@@ -181,11 +204,15 @@ def get_governed_job(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/jobs/{job_id}/result", response_model=None)
+@router.get(
+    "/jobs/{job_id}/result",
+    response_model=CapabilityJobResultResponse,
+    response_model_exclude_unset=True,
+)
 def get_governed_job_result(
     job_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> Mapping[str, object]:
     """Read the durable result when the owning provider exposes it."""
     try:
         return _read_job_result(Path(context.vault_path), job_id)
@@ -195,11 +222,15 @@ def get_governed_job_result(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/jobs/{job_id}/resume", response_model=None)
+@router.post(
+    "/jobs/{job_id}/resume",
+    response_model=CapabilityJobResponse,
+    response_model_exclude_unset=True,
+)
 def resume_governed_job(
     job_id: str,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Resume a provider-owned failed or interrupted durable job."""
     try:
         return _resume_job(Path(context.vault_path), job_id)
@@ -209,11 +240,15 @@ def resume_governed_job(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/jobs/{job_id}/cancel", response_model=None)
+@router.post(
+    "/jobs/{job_id}/cancel",
+    response_model=CapabilityJobResponse,
+    response_model_exclude_unset=True,
+)
 def cancel_governed_job(
     job_id: str,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     """Request cooperative cancellation of a cancellable durable job."""
     try:
         return _cancel_job(Path(context.vault_path), job_id)
@@ -223,28 +258,40 @@ def cancel_governed_job(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.get("/capability-audit", response_model=None)
+@router.get(
+    "/capability-audit",
+    response_model=CapabilityAuditResponse,
+    response_model_exclude_unset=True,
+)
 def list_workspace_capability_audit(
     limit: int = Query(default=200, ge=1, le=500),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     """List current-user metadata-only tool events across agents and sessions."""
     return {"events": list_workspace_capability_events(_automation_scope(context), limit=limit)}
 
 
-@router.get("/evals/candidates", response_model=None)
+@router.get(
+    "/evals/candidates",
+    response_model=EvaluationCandidatesResponse,
+    response_model_exclude_unset=True,
+)
 def list_agent_evaluation_candidates(
     limit: int = Query(default=200, ge=1, le=500),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     """List deduplicated metadata-only regression candidates."""
     return {"candidates": list_evaluation_candidates(_automation_scope(context), limit=limit)}
 
 
-@router.get("/quality/dashboard", response_model=None)
+@router.get(
+    "/quality/dashboard",
+    response_model=AgentQualityDashboardResponse,
+    response_model_exclude_unset=True,
+)
 def get_agent_quality_dashboard(
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     """Return privacy-safe agent service levels and persisted tool health."""
     return {
         "quality": quality_dashboard(_automation_scope(context)),
@@ -252,10 +299,14 @@ def get_agent_quality_dashboard(
     }
 
 
-@router.get("/quality/conformance", response_model=None)
+@router.get(
+    "/quality/conformance",
+    response_model=CapabilityConformanceResponse,
+    response_model_exclude_unset=True,
+)
 def get_agent_capability_conformance(
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     """Report versioned skill/tool contract coverage without granting access."""
     from backend.services.agent_capability_conformance import conformance_report
 
@@ -269,20 +320,29 @@ def get_agent_capability_conformance(
     return report
 
 
-@router.get("/semantic-associations", response_model=None)
+@router.get(
+    "/semantic-associations",
+    response_model=SemanticAssociationsResponse,
+    response_model_exclude_unset=True,
+)
 def get_agent_semantic_associations(
     limit: int = Query(default=200, ge=1, le=500),
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     """List reviewable vocabulary associations for the active Vault."""
     return {"associations": list_associations(context.vault_path, limit=limit)}
 
 
-@router.post("/semantic-associations", status_code=201, response_model=None)
+@router.post(
+    "/semantic-associations",
+    status_code=201,
+    response_model=SemanticAssociationsResponse,
+    response_model_exclude_unset=True,
+)
 def create_agent_semantic_association(
     payload: SemanticAssociationPayload,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> dict[str, object]:
     """Store an explicit term correction without conversation content."""
     try:
         rows = add_association(
@@ -296,22 +356,30 @@ def create_agent_semantic_association(
     return {"associations": rows}
 
 
-@router.delete("/semantic-associations/{association_id}", response_model=None)
+@router.delete(
+    "/semantic-associations/{association_id}",
+    response_model=SemanticAssociationDeleteResponse,
+    response_model_exclude_unset=True,
+)
 def remove_agent_semantic_association(
     association_id: str,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> dict[str, str]:
     """Remove one exact vocabulary correction from the active Vault."""
     if not delete_association(context.vault_path, association_id):
         raise HTTPException(status_code=404, detail="Semantic association not found.")
     return {"status": "deleted", "association_id": association_id}
 
 
-@router.get("/agents/{agent_id}/memories", response_model=None)
+@router.get(
+    "/agents/{agent_id}/memories",
+    response_model=PersonalMemoriesResponse,
+    response_model_exclude_unset=True,
+)
 def get_agent_memories(
     agent_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
-) -> Any:
+) -> dict[str, object]:
     from backend.services.agent_personal_memory import list_memories
 
     _require_configured_agent(agent_id)
@@ -324,12 +392,17 @@ def get_agent_memories(
     }
 
 
-@router.post("/agents/{agent_id}/memories", status_code=201, response_model=None)
+@router.post(
+    "/agents/{agent_id}/memories",
+    status_code=201,
+    response_model=PersonalMemoryResponse,
+    response_model_exclude_unset=True,
+)
 def create_agent_memory(
     agent_id: str,
     payload: PersonalMemoryPayload,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     from backend.services.agent_personal_memory import create_memory
 
     _require_configured_agent(agent_id)
@@ -347,13 +420,17 @@ def create_agent_memory(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.put("/agents/{agent_id}/memories/{memory_id}", response_model=None)
+@router.put(
+    "/agents/{agent_id}/memories/{memory_id}",
+    response_model=PersonalMemoryResponse,
+    response_model_exclude_unset=True,
+)
 def edit_agent_memory(
     agent_id: str,
     memory_id: str,
     payload: PersonalMemoryPayload,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> Mapping[str, object]:
     from backend.services.agent_personal_memory import update_memory
 
     _require_configured_agent(agent_id)
@@ -375,12 +452,16 @@ def edit_agent_memory(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.delete("/agents/{agent_id}/memories/{memory_id}", response_model=None)
+@router.delete(
+    "/agents/{agent_id}/memories/{memory_id}",
+    response_model=PersonalMemoryDeleteResponse,
+    response_model_exclude_unset=True,
+)
 def remove_agent_memory(
     agent_id: str,
     memory_id: str,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> dict[str, str]:
     from backend.services.agent_personal_memory import delete_memory
 
     _require_configured_agent(agent_id)
@@ -394,21 +475,29 @@ def remove_agent_memory(
     return {"status": "deleted", "memory_id": memory_id}
 
 
-@router.get("/evals/models", response_model=None)
+@router.get(
+    "/evals/models",
+    response_model=ModelEvaluationsResponse,
+    response_model_exclude_unset=True,
+)
 def get_model_evaluations(
     limit: int = Query(default=50, ge=1, le=200),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     from backend.services.agent_model_evaluations import list_evaluations
 
     return {"evaluations": list_evaluations(limit)}
 
 
-@router.post("/evals/models/{agent_id}/run", response_model=None)
+@router.post(
+    "/evals/models/{agent_id}/run",
+    response_model=ModelEvaluationResponse,
+    response_model_exclude_unset=True,
+)
 async def run_agent_model_evaluation(
     agent_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> Mapping[str, object]:
     """Run explicit synthetic model calls and persist metadata-only scores."""
     from langchain_core.messages import HumanMessage
 
@@ -420,12 +509,21 @@ async def run_agent_model_evaluation(
     agent = _require_configured_agent(agent_id)
     provider = str(agent.get("provider") or "")
     model = str(agent.get("model") or "")
-    provider_config = dict((ai.get("providers") or {}).get(provider) or {})
+    raw_providers = ai.get("providers")
+    providers = raw_providers if isinstance(raw_providers, Mapping) else {}
+    raw_provider_config = providers.get(provider)
+    provider_config = (
+        {str(key): value for key, value in raw_provider_config.items()}
+        if isinstance(raw_provider_config, Mapping)
+        else {}
+    )
+    raw_base_url = provider_config.get("base_url")
+    base_url = raw_base_url if isinstance(raw_base_url, str) else None
     llm = get_llm(
         provider=provider,
         model=model,
         api_key=resolve_provider_api_key(provider, provider_config),
-        base_url=provider_config.get("base_url"),
+        base_url=base_url,
         timeout=45,
     )
     if llm is None:
@@ -439,12 +537,16 @@ async def run_agent_model_evaluation(
     )
 
 
-@router.post("/evals/candidates/{candidate_id}/review", response_model=None)
+@router.post(
+    "/evals/candidates/{candidate_id}/review",
+    response_model=EvaluationCandidateResponse,
+    response_model_exclude_unset=True,
+)
 def review_agent_evaluation_candidate(
     candidate_id: str,
     payload: EvaluationCandidateReviewPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> Mapping[str, object]:
     """Accept, reject, or reopen one synthetic evaluation case."""
     try:
         return review_evaluation_candidate(
@@ -456,10 +558,14 @@ def review_agent_evaluation_candidate(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/evals/candidates/run", response_model=None)
+@router.post(
+    "/evals/candidates/run",
+    response_model=ReviewedEvaluationReportResponse,
+    response_model_exclude_unset=True,
+)
 def run_reviewed_agent_evaluation_candidates(
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     """Run accepted synthetic cases without constructing a model."""
     from backend.agent.evals.runner import run_evaluations
 
@@ -478,9 +584,13 @@ def run_reviewed_agent_evaluation_candidates(
     return report
 
 
-@router.get("/approvals", response_model=None)
+@router.get(
+    "/approvals",
+    response_model=AutomationApprovalsResponse,
+    response_model_exclude_unset=True,
+)
 def list_workspace_approvals(
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, object]:
     """List pending automation approvals without exposing stored arguments."""
     return {"approvals": list_workspace_confirmations(_automation_scope(context))}

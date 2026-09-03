@@ -81,10 +81,47 @@ no-op before deleting the temporary snippets.
   legacy facade symbol after import.
 - Pydantic response annotations and docstrings can change OpenAPI. Compare the
   complete generated artifact, not only route counts.
+- When extracting an existing Pydantic response model, preserve its class
+  docstring verbatim. Pydantic publishes that text as the schema description,
+  so omitting it creates contract drift even when every field is unchanged.
 - Do not move mutable module state by copying aliases. Introduce one canonical
   owner and keep compatibility accessors thin.
 - Keep cleanup recoverable. Remove temporary worktrees and files only after all
   reports and contract tests pass.
+- In zsh validation wrappers, do not assign an exit code to `status`, because
+  it is a read-only shell parameter and prevents the intended command from
+  running. Use a task-specific name such as `test_exit` and propagate it only
+  after printing the bounded log tail.
+- In restricted worktrees, do not let `uv` fall back to the user-global cache,
+  because even an offline check may inspect paths outside the permitted
+  workspace. Set `UV_CACHE_DIR` to a worktree-local ignored directory together
+  with `UV_NO_SYNC=1` and `UV_OFFLINE=1`.
+- If the packaged `uv` runtime panics in macOS sandboxing while opening the
+  System Configuration Dynamic Store, do not retry dependency resolution or
+  enable network access. Reuse the repository's already-locked virtual
+  environment executables directly and keep all validation offline.
+- When replacing an untyped JSON route family with forward-compatible Pydantic
+  responses, apply `response_model_exclude_unset=True` consistently to every
+  route in the family. Do not rely on today's required fields for selected
+  endpoints, because later optional compatibility fields must not appear as
+  synthetic `null` keys.
+- A successful `ruff check` does not prove formatting compliance. Run
+  `ruff format --check` over the exact changed Python paths before wider gates,
+  and format only those reviewed paths when it reports drift.
+- Do not use `mypy --strict backend` as shorthand when `backend/tests` is inside
+  that tree and the repository's production gate intentionally excludes legacy
+  tests. Resolve and run the canonical production-source file set, then check
+  any newly added typed contract tests explicitly; otherwise thousands of
+  unrelated test annotations obscure the changed-source result.
+- When a source guardrail invokes Ruff as a subprocess, selecting the locked
+  virtual environment's Python executable is not enough. Prepend that virtual
+  environment's `bin` directory to `PATH`; otherwise the guardrail reports that
+  Ruff is unavailable even though direct Ruff checks pass.
+- Do not invoke a pnpm workspace script from a fresh linked worktree before
+  checking for its local `node_modules`. Pnpm may start a complete workspace
+  install and attempt registry access. For deterministic generated-client work,
+  execute the already-installed generator binary from the canonical checkout
+  against the reviewed worktree's OpenAPI input and output paths.
 
 ## Verification
 
