@@ -121,6 +121,22 @@ def test_documentation_workflow_never_consumes_hosted_runner_budget() -> None:
     assert workflow.count("runs-on: [self-hosted, Linux, ARM64]") == 2
 
 
+def test_release_workflow_never_consumes_hosted_runner_budget() -> None:
+    workflow = (ROOT / ".github/workflows/build-release.yml").read_text()
+
+    for hosted_label in (
+        "ubuntu-latest",
+        "ubuntu-24.04-arm",
+        "macos-15",
+        "macos-15-intel",
+        "windows-2025",
+    ):
+        assert hosted_label not in workflow
+    assert workflow.count("runs-on: [self-hosted, Linux, ARM64]") == 3
+    assert 'runs-on: [self-hosted, macOS, "${{ matrix.runner_arch }}"]' in workflow
+    assert "runs-on: [self-hosted, Windows, X64]" in workflow
+
+
 @pytest.mark.parametrize(("script_name", "commands", "failure_at"), [
     ("typecheck", EXPECTED_COMMANDS, failure_at) for failure_at in range(5)
 ] + [
