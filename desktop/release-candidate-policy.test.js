@@ -18,6 +18,7 @@ const TRUSTED_PR_IF = "github.event_name != 'pull_request' || "
   + 'github.event.pull_request.head.repo.full_name == github.repository';
 const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
   + 'github.event.pull_request.head.repo.full_name == github.repository) || inputs.release_candidate';
+const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
 const DEPENDENCIES = {
   preflight: [],
   quality: ['preflight'],
@@ -118,6 +119,16 @@ function assertCandidateUpload(workflow) {
   assert.equal(upload['continue-on-error'], undefined);
 }
 
+function assertFrontendMemoryBudget(workflow) {
+  assert.deepEqual(workflow.jobs.frontend.env, {
+    NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
+  }, 'the complete frontend job must use the reviewed Node heap budget');
+  for (const step of workflow.jobs.frontend.steps) {
+    assert.equal(step.env?.NODE_OPTIONS, undefined,
+      'the heap budget belongs at job level so lint, tests and build share it');
+  }
+}
+
 function assertNonPublishingBuilds(scripts) {
   assert.equal(scripts.build, 'pnpm run build:python && electron-builder --publish never',
     'the generic desktop build must not use implicit publication defaults');
@@ -203,6 +214,24 @@ test('shared CI prevents fork pull requests from reaching self-hosted runners', 
       assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
     }
   }
+});
+
+test('shared CI gives every frontend validation step the reviewed Node heap budget', () => {
+  assertFrontendMemoryBudget(ci);
+  for (const value of [undefined, '--max-old-space-size=2048', '--max-old-space-size=8192']) {
+    const changed = structuredClone(ci);
+    if (value === undefined) {
+      delete changed.jobs.frontend.env;
+    } else {
+      changed.jobs.frontend.env.NODE_OPTIONS = value;
+    }
+    assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);
+  }
+
+  const stepScoped = structuredClone(ci);
+  delete stepScoped.jobs.frontend.env;
+  stepScoped.jobs.frontend.steps.at(-1).env = { NODE_OPTIONS: FRONTEND_NODE_OPTIONS };
+  assert.throws(() => assertFrontendMemoryBudget(stepScoped), assert.AssertionError);
 });
 
 test('candidate upload retains exactly the validated review payload with a unique rerun identity', () => {

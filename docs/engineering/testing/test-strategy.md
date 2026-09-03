@@ -158,6 +158,9 @@ browser checks cover pointer and keyboard focus in light and dark themes.
 Docker CI currently validates Compose and builds the backend and frontend
 images; it does not start containers or verify their health and persistence.
 Those runtime checks remain required release evidence.
+The self-hosted frontend job applies its reviewed 4 GiB Node heap budget at job
+scope so lint, type checking, tests and production build run under the same
+predictable memory contract.
 
 Electron release CI configures packaging for macOS arm64/x64, Linux arm64 and
 Windows x64. Configuring that matrix, running desktop unit tests or checking a
