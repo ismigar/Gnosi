@@ -12,10 +12,14 @@ from urllib.parse import urlparse
 import requests
 
 from backend.domains.mail.services.analysis_cache import (
+    PreviousMailAnalysis,
     load_previous_mail_analysis,
     store_previous_mail_analysis,
 )
-from backend.domains.mail.services.local_analysis import extract_local_entities
+from backend.domains.mail.services.local_analysis import (
+    LocalEntityAnalysis,
+    extract_local_entities,
+)
 from backend.security.ai_credentials import resolve_provider_api_key
 
 log = logging.getLogger(__name__)
@@ -178,7 +182,7 @@ async def _local_fallback(
     recipients: tuple[str, ...],
     attachments: tuple[str, ...],
 ) -> dict[str, object]:
-    local, previous = await asyncio.gather(
+    local_result, previous_result = await asyncio.gather(
         asyncio.to_thread(
             extract_local_entities,
             context,
@@ -193,12 +197,51 @@ async def _local_fallback(
             recipients=recipients,
             attachments=attachments,
         ),
+        return_exceptions=True,
     )
+    for result in (local_result, previous_result):
+        if isinstance(result, asyncio.CancelledError):
+            raise result
+    local = local_result if isinstance(local_result, LocalEntityAnalysis) else None
+    previous = (
+        previous_result
+        if isinstance(previous_result, PreviousMailAnalysis)
+        else None
+    )
+    if not isinstance(previous_result, (PreviousMailAnalysis, type(None))):
+        log.warning("Previous mail analysis could not be read")
+    if local is None:
+        error_code = (
+            "temporarily_unavailable"
+            if isinstance(local_result, BaseException)
+            else "invalid_response"
+        )
+        log.warning("Deterministic local mail analysis failed (%s)", error_code)
+        if previous is not None:
+            return {
+                "events": previous.events,
+                "contacts": previous.contacts,
+                "provider": "previous_valid",
+                "status": "complete",
+                "result_source": "previous_valid",
+                "degraded_reason": reason,
+                "provider_attempts": attempts,
+            }
+        return {
+            "events": [],
+            "contacts": [],
+            "provider": "local_deterministic",
+            "error": error_code,
+            "status": "degraded",
+            "result_source": "local",
+            "degraded_reason": reason,
+            "provider_attempts": attempts,
+        }
     return {
         "events": previous.events if previous is not None else local.events,
         "contacts": previous.contacts if previous is not None else local.contacts,
         "provider": "previous_valid" if previous is not None else "local_deterministic",
-        "status": "degraded",
+        "status": "complete",
         "result_source": "previous_valid" if previous is not None else "local",
         "degraded_reason": reason,
         "provider_attempts": attempts,

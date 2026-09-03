@@ -198,7 +198,8 @@ describe('MailViewer', () => {
       },
       provider: 'local_deterministic',
       provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
-      status: 'degraded',
+      result_source: 'local',
+      status: 'complete',
     });
     await render({ mail: message('local-analysis') });
     expect(mocks.extractEntities).not.toHaveBeenCalled();
@@ -208,13 +209,16 @@ describe('MailViewer', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
       .not.toBeNull();
-    expect(container.textContent).toContain('Gnosi only shows explicit data detected locally');
+    expect(container.textContent)
+      .toContain('Analyzed locally from explicit message content');
     expect(container.textContent).toContain('Ada Lovelace');
     expect(container.textContent).toContain('Message body');
-    expect(container.textContent).toContain('fixture: timeout');
-    expect(container.textContent).toContain('Try again');
+    expect(container.textContent).not.toContain('fixture: timeout');
+    expect(container.textContent).toContain('Try online analysis');
+    expect(container.querySelector('[data-mail-analysis-provenance="local"]'))
+      .not.toBeNull();
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
@@ -231,6 +235,7 @@ describe('MailViewer', () => {
       }],
       events: [],
       provider: 'local_deterministic',
+      result_source: 'local',
     });
     await render({ mail: message('local-without-provider') });
 
@@ -239,7 +244,7 @@ describe('MailViewer', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
       .not.toBeNull();
     expect(container.textContent).toContain('Ada Lovelace');
     expect(container.querySelector('[data-mail-analysis-status="not_configured"]'))
@@ -264,7 +269,13 @@ describe('MailViewer', () => {
         status: 'complete',
       })
       .mockResolvedValueOnce({
-        contacts: [],
+        contacts: [{
+          company: '',
+          email: 'ada@example.test',
+          name: 'Ada Lovelace',
+          notes: '',
+          phone: '',
+        }],
         degraded_reason: 'providers_failed',
         events: [],
         local_analysis: {
@@ -284,7 +295,7 @@ describe('MailViewer', () => {
         provider: 'previous_valid',
         provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
         result_source: 'previous_valid',
-        status: 'degraded',
+        status: 'complete',
       });
     await render({ mail: message('preserve-analysis') });
 
@@ -300,11 +311,13 @@ describe('MailViewer', () => {
     });
 
     expect(container.textContent).toContain('Ada Lovelace');
-    expect(container.textContent).toContain('fixture: timeout');
-    expect(container.textContent).toContain('last valid analysis for this exact message');
+    expect(container.textContent).not.toContain('fixture: timeout');
+    expect(container.textContent).toContain('previous valid analysis for this exact message');
     expect(container.querySelector('[data-mail-analysis-source="previous_valid"]'))
       .not.toBeNull();
-    expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
+      .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-provenance="previous"]'))
       .not.toBeNull();
     expect(mocks.markRead).not.toHaveBeenCalled();
   });
@@ -326,7 +339,8 @@ describe('MailViewer', () => {
         },
         provider: 'local_deterministic',
         provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
-        status: 'degraded',
+        result_source: 'local',
+        status: 'complete',
       })
       .mockResolvedValueOnce({
         contacts: [],
@@ -344,7 +358,7 @@ describe('MailViewer', () => {
       action('Smart analysis').click();
       await Promise.resolve();
     });
-    expect(container.querySelector('[data-mail-analysis-status="local_results"]'))
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
       .not.toBeNull();
 
     await act(async () => {
@@ -355,6 +369,30 @@ describe('MailViewer', () => {
     expect(container.querySelector('[data-mail-analysis-status="results"]'))
       .not.toBeNull();
     expect(container.textContent).toContain('Explicit review');
+  });
+
+  it('shows an actionable error only when deterministic local processing also fails', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('local-analysis-failure'));
+    mocks.extractEntities.mockResolvedValue({
+      contacts: [],
+      degraded_reason: 'providers_failed',
+      error: 'invalid_response',
+      events: [],
+      provider: 'local_deterministic',
+      result_source: 'local',
+      status: 'degraded',
+    });
+    await render({ mail: message('local-analysis-failure') });
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-mail-analysis-status="invalid_response"]'))
+      .not.toBeNull();
+    expect(container.textContent).toContain('Message body');
+    expect(container.textContent).toContain('You can try again');
   });
 
   it('waits for the selected detail before fetching its complete thread', async () => {

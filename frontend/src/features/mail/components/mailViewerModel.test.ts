@@ -112,7 +112,7 @@ describe('mailViewerModel', () => {
 
   it('only uses backend recovery after explicit consent, then installs a safe fallback', async () => {
     const document = new DOMParser().parseFromString(
-      '<img data-gnosi-remote-image="pending" data-gnosi-remote-token="remote-image-1">',
+      '<img alt="Quarterly chart" height="180" width="320" data-gnosi-remote-image="pending" data-gnosi-remote-token="remote-image-1">',
       'text/html',
     );
     const image = document.querySelector('img');
@@ -120,9 +120,12 @@ describe('mailViewerModel', () => {
     Object.defineProperty(image, 'complete', { configurable: true, value: false });
     const recoverSource = vi.fn().mockResolvedValue('blob:recovered-image');
     const releaseRecoveredSource = vi.fn();
+    const openOriginalSource = vi.fn();
     const cleanup = installRemoteMailImageRecovery(document, {
       fallbackLabel: 'Remote image unavailable',
       fallbackDetail: 'The origin blocked access.',
+      openOriginalLabel: 'Open original',
+      openOriginalSource,
       recoveryActionLabel: 'Load safely',
       recoveryPromptLabel: 'Remote image blocked for privacy',
       recoveringLabel: 'Loading safely…',
@@ -137,6 +140,15 @@ describe('mailViewerModel', () => {
       '.gnosi-remote-image-recover',
     );
     expect(recoveryButton?.textContent).toBe('Load safely');
+    const offeredFallback = document.querySelector<HTMLElement>(
+      '[data-gnosi-remote-image="recovery-offered"]',
+    );
+    expect(offeredFallback?.style.inlineSize).toBe('320px');
+    expect(offeredFallback?.style.blockSize).toBe('180px');
+    expect(offeredFallback?.textContent).toContain('Quarterly chart');
+    document.querySelector<HTMLButtonElement>('.gnosi-remote-image-open-original')
+      ?.click();
+    expect(openOriginalSource).toHaveBeenCalledWith('remote-image-1');
     recoveryButton?.click();
     await vi.waitFor(() => {
       expect(image.dataset.gnosiRemoteImage).toBe('recovered');
@@ -144,11 +156,16 @@ describe('mailViewerModel', () => {
     expect(recoverSource).toHaveBeenCalledOnce();
     expect(recoverSource).toHaveBeenCalledWith('remote-image-1');
     expect(image.src).toBe('blob:recovered-image');
+    expect(document.querySelector('img')).toBeNull();
     image.dispatchEvent(new Event('error'));
 
     const fallback = document.querySelector('[data-gnosi-remote-image="unavailable"]');
     expect(fallback?.getAttribute('role')).toBe('group');
-    expect(fallback?.getAttribute('aria-label')).toBe('Remote image unavailable');
+    expect(fallback?.getAttribute('aria-label'))
+      .toBe('Quarterly chart — Remote image unavailable');
+    expect(fallback?.textContent).toContain('Quarterly chart');
+    expect((fallback as HTMLElement | null)?.style.inlineSize).toBe('320px');
+    expect((fallback as HTMLElement | null)?.style.blockSize).toBe('180px');
     expect(document.querySelector('img')).toBeNull();
     expect(releaseRecoveredSource).toHaveBeenCalledWith('blob:recovered-image');
     cleanup();
@@ -156,15 +173,18 @@ describe('mailViewerModel', () => {
 
   it('shows an actionable final state without exposing a failed source URL', async () => {
     const document = new DOMParser().parseFromString(
-      '<img data-gnosi-remote-image="pending" data-gnosi-remote-token="remote-image-1">',
+      '<img alt="Remote chart" height="180" width="320" data-gnosi-remote-image="pending" data-gnosi-remote-token="remote-image-1">',
       'text/html',
     );
+    const image = document.querySelector('img');
+    if (!image) throw new Error('Missing image fixture');
     const recoverSource = vi.fn()
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce('blob:retry-image');
     installRemoteMailImageRecovery(document, {
       fallbackLabel: 'Remote image unavailable',
       fallbackDetail: 'The origin blocked access or requires private data.',
+      openOriginalLabel: 'Open original',
       recoveryActionLabel: 'Load safely',
       recoveryPromptLabel: 'Remote image blocked for privacy',
       recoveringLabel: 'Loading safely…',
@@ -178,14 +198,45 @@ describe('mailViewerModel', () => {
         .not.toBeNull();
     });
     expect(document.body.textContent).toContain('The origin blocked access');
+    expect(document.body.textContent).toContain('Remote chart');
     expect(document.body.textContent).not.toContain('images.example.test');
     const retryButton = document.querySelector<HTMLButtonElement>('button');
     expect(retryButton?.textContent).toBe('Try again');
     retryButton?.click();
     await vi.waitFor(() => {
-      expect(document.querySelector('img')?.getAttribute('src'))
-        .toBe('blob:retry-image');
+      expect(image.getAttribute('src')).toBe('blob:retry-image');
     });
+    expect(document.querySelector('img')).toBeNull();
+    image.dispatchEvent(new Event('load'));
+    expect(document.querySelector('img')?.getAttribute('src')).toBe('blob:retry-image');
     expect(recoverSource).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a stable local fallback for blocked images without a recoverable source', () => {
+    const document = new DOMParser().parseFromString(
+      '<img alt="Private tracking image" height="90" width="240" data-gnosi-remote-image="blocked">',
+      'text/html',
+    );
+    installRemoteMailImageRecovery(document, {
+      fallbackLabel: 'Remote image unavailable',
+      fallbackDetail: 'The image cannot be loaded safely.',
+      openOriginalLabel: 'Open original',
+      recoveryActionLabel: 'Load safely',
+      recoveryPromptLabel: 'Remote image blocked for privacy',
+      recoveringLabel: 'Loading safely…',
+      retryLabel: 'Try again',
+    });
+
+    const fallback = document.querySelector<HTMLElement>(
+      '[data-gnosi-remote-image="unavailable"]',
+    );
+    expect(document.querySelector('img')).toBeNull();
+    expect(fallback?.getAttribute('role')).toBe('img');
+    expect(fallback?.getAttribute('aria-label'))
+      .toBe('Private tracking image — Remote image unavailable');
+    expect(fallback?.textContent).toContain('Private tracking image');
+    expect(fallback?.style.inlineSize).toBe('240px');
+    expect(fallback?.style.blockSize).toBe('90px');
+    expect(fallback?.querySelector('button')).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  openBrowserWindow,
   subscribeElementEvent,
   subscribeWindowEvent,
 } from '../../../shared/platform/browser-events';
@@ -25,9 +26,11 @@ pre, code { white-space: pre-wrap; word-break: break-word; }
 a { color: #3b82f6; }
 * { box-sizing: border-box; }
 .gnosi-remote-image-fallback { display: inline-flex; min-height: 52px; min-width: 160px; max-width: 100%; flex-direction: column; gap: 8px; align-items: center; justify-content: center; padding: 12px; border: 1px dashed #aeb4bd; border-radius: 8px; color: #5f6670; background: #f5f6f8; font-size: 12px; text-align: center; }
-.gnosi-remote-image-recover { appearance: none; border: 1px solid #94a3b8; border-radius: 7px; padding: 5px 9px; color: #334155; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
-.gnosi-remote-image-recover:hover { border-color: #3b82f6; color: #2563eb; }
-.gnosi-remote-image-recover:disabled { cursor: wait; opacity: .65; }
+.gnosi-remote-image-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.gnosi-remote-image-action { appearance: none; border: 1px solid #94a3b8; border-radius: 7px; padding: 5px 9px; color: #334155; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.gnosi-remote-image-action:hover { border-color: #3b82f6; color: #2563eb; }
+.gnosi-remote-image-action:disabled { cursor: wait; opacity: .65; }
+.gnosi-remote-image-alt { max-width: 320px; color: #334155; font-weight: 600; overflow-wrap: anywhere; }
 .gnosi-remote-image-detail { max-width: 320px; opacity: .8; }
 `;
 const EMAIL_CSS_DARK = `
@@ -42,9 +45,11 @@ blockquote { border-left: 3px solid #444; color: #c0c0c0; }
 hr { border-color: #444; }
 * { box-sizing: border-box; }
 .gnosi-remote-image-fallback { display: inline-flex; min-height: 52px; min-width: 160px; max-width: 100%; flex-direction: column; gap: 8px; align-items: center; justify-content: center; padding: 12px; border: 1px dashed #555d68; border-radius: 8px; color: #c0c6ce; background: #25282d; font-size: 12px; text-align: center; }
-.gnosi-remote-image-recover { appearance: none; border: 1px solid #64748b; border-radius: 7px; padding: 5px 9px; color: #dbeafe; background: #1e293b; font: inherit; font-weight: 600; cursor: pointer; }
-.gnosi-remote-image-recover:hover { border-color: #60a5fa; color: #bfdbfe; }
-.gnosi-remote-image-recover:disabled { cursor: wait; opacity: .65; }
+.gnosi-remote-image-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.gnosi-remote-image-action { appearance: none; border: 1px solid #64748b; border-radius: 7px; padding: 5px 9px; color: #dbeafe; background: #1e293b; font: inherit; font-weight: 600; cursor: pointer; }
+.gnosi-remote-image-action:hover { border-color: #60a5fa; color: #bfdbfe; }
+.gnosi-remote-image-action:disabled { cursor: wait; opacity: .65; }
+.gnosi-remote-image-alt { max-width: 320px; color: #e2e8f0; font-weight: 600; overflow-wrap: anywhere; }
 .gnosi-remote-image-detail { max-width: 320px; opacity: .8; }
 `;
 
@@ -56,6 +61,7 @@ interface MailBodyProps {
   readonly folder?: string | null;
   readonly messageId?: string | null;
   readonly remoteImageBlockedLabel?: string;
+  readonly remoteImageOpenOriginalLabel?: string;
   readonly remoteImageRecoveryLabel?: string;
   readonly remoteImageRecoveringLabel?: string;
   readonly remoteImageRetryLabel?: string;
@@ -71,6 +77,7 @@ export function MailBody({
   folder,
   messageId,
   remoteImageBlockedLabel = 'Remote image blocked for privacy',
+  remoteImageOpenOriginalLabel = 'Open original',
   remoteImageRecoveryLabel = 'Load safely',
   remoteImageRecoveringLabel = 'Loading safely…',
   remoteImageRetryLabel = 'Try again',
@@ -131,6 +138,13 @@ export function MailBody({
         return null;
       }
     };
+    const openOriginalSource = (token: string): void => {
+      const source = renderedBody.remoteSources.get(token);
+      if (!source) return;
+      const parsed = new URL(source);
+      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return;
+      openBrowserWindow(source, '_blank', 'noopener,noreferrer');
+    };
     const setupDocument = (): void => {
       try {
         const document = iframe.contentDocument;
@@ -142,12 +156,14 @@ export function MailBody({
         recoveryCleanups.push(installRemoteMailImageRecovery(document, {
           fallbackLabel: remoteImageUnavailableLabel,
           fallbackDetail: remoteImageUnavailableDetail,
+          openOriginalLabel: remoteImageOpenOriginalLabel,
           onStateChange: () => {
             setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
           },
           recoveryActionLabel: remoteImageRecoveryLabel,
           recoveryPromptLabel: remoteImageBlockedLabel,
           recoveringLabel: remoteImageRecoveringLabel,
+          openOriginalSource,
           recoverSource,
           releaseRecoveredSource,
           retryLabel: remoteImageRetryLabel,
@@ -178,6 +194,7 @@ export function MailBody({
     messageId,
     renderedBody,
     remoteImageBlockedLabel,
+    remoteImageOpenOriginalLabel,
     remoteImageRecoveryLabel,
     remoteImageRecoveringLabel,
     remoteImageRetryLabel,

@@ -69,7 +69,7 @@ def test_entity_analysis_runs_provider_off_the_event_loop(
     assert provider_threads and provider_threads[0] != caller_thread
 
 
-def test_entity_analysis_returns_typed_error_when_providers_fail(
+def test_entity_analysis_treats_local_fallback_as_a_normal_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def failing_provider(_prompt: str, **_options: object) -> str:
@@ -83,7 +83,10 @@ def test_entity_analysis_returns_typed_error_when_providers_fail(
         compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
     )
 
-    assert result["status"] == "degraded"
+    assert result["status"] == "complete"
+    assert "error" not in result
+    assert result["provider"] == "local_deterministic"
+    assert result["result_source"] == "local"
     assert result["degraded_reason"] == "providers_failed"
     assert result["provider_attempts"] == [
         {"provider": "fixture", "status": "unavailable"}
@@ -120,7 +123,7 @@ def test_entity_analysis_uses_literal_local_results_when_providers_fail(
             }
         ]
     assert result["provider"] == "local_deterministic"
-    assert result["status"] == "degraded"
+    assert result["status"] == "complete"
 
 
 def test_entity_analysis_reports_missing_configuration_without_provider_call(
@@ -155,7 +158,7 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
             }
         ]
     assert result["provider"] == "local_deterministic"
-    assert result["status"] == "degraded"
+    assert result["status"] == "complete"
     assert result["degraded_reason"] == "not_configured"
     assert result["provider_attempts"] == []
 
@@ -167,6 +170,54 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
         )
     )
     assert restarted_result == result
+
+
+def test_entity_analysis_errors_only_when_local_processing_also_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr(
+        "pipeline.ai_client.call_ai_client",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            TimeoutError("synthetic provider timeout")
+        ),
+    )
+    monkeypatch.setattr(
+        analysis,
+        "extract_local_entities",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("synthetic local failure")
+        ),
+    )
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert result["status"] == "degraded"
+    assert result["error"] == "temporarily_unavailable"
+    assert result["events"] == []
+    assert result["contacts"] == []
+    assert "synthetic local failure" not in str(result)
+
+
+def test_entity_analysis_rejects_an_invalid_local_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: [])
+    monkeypatch.setattr(
+        analysis,
+        "extract_local_entities",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    result = asyncio.run(
+        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
+    )
+
+    assert result["status"] == "degraded"
+    assert result["error"] == "invalid_response"
+    assert result["provider"] == "local_deterministic"
 
 
 def test_entity_analysis_distinguishes_empty_and_invalid_responses(
@@ -192,7 +243,7 @@ def test_entity_analysis_distinguishes_empty_and_invalid_responses(
 
     assert empty["status"] == "complete"
     assert empty["provider"] == "fixture"
-    assert invalid["status"] == "degraded"
+    assert invalid["status"] == "complete"
     assert invalid["provider_attempts"] == [
         {"provider": "fixture", "status": "invalid_response"}
     ]
@@ -310,7 +361,7 @@ def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(
     assert recovered["provider"] == "previous_valid"
     assert recovered["result_source"] == "previous_valid"
     assert recovered["events"] == [{"title": "Literal fixture"}]
-    assert recovered["status"] == "degraded"
+    assert recovered["status"] == "complete"
     assert recovered["provider_attempts"] == [
         {"provider": "fixture", "status": "timeout"}
     ]
@@ -318,6 +369,39 @@ def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(
     assert "Synthetic body" not in stored
     assert "sender@example.test" not in stored
     assert "reader@example.test" not in stored
+
+
+def test_entity_analysis_preserves_exact_previous_result_if_local_processing_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def provider(_prompt: str, **_options: object) -> str:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise TimeoutError("synthetic timeout")
+        return '{"events": [{"title": "Cached fixture"}], "contacts": []}'
+
+    request = schemas.MailExtractEntitiesRequest(context="Exact synthetic fixture")
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+    asyncio.run(compose.extract_entities(request))
+    monkeypatch.setattr(
+        analysis,
+        "extract_local_entities",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("synthetic local failure")
+        ),
+    )
+
+    recovered = asyncio.run(compose.extract_entities(request))
+
+    assert recovered["status"] == "complete"
+    assert recovered["provider"] == "previous_valid"
+    assert recovered["result_source"] == "previous_valid"
+    assert recovered["events"] == [{"title": "Cached fixture"}]
+    assert "error" not in recovered
 
 
 def test_entity_analysis_does_not_reuse_previous_result_for_different_input(

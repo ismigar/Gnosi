@@ -76,7 +76,10 @@ export function useMailViewerData({
     try {
       const response = await extractMailEntities(context, metadata);
       if (requestId !== analysisRequestRef.current) return;
-      if (response.error) {
+      const entities = normalizeMailEntities(response);
+      const hasResults = entities.events.length > 0 || entities.contacts.length > 0
+        || entities.localAnalysis !== null;
+      if (response.error && !hasResults) {
         const status: MailAnalysisStatus = response.error === 'not_configured'
           ? 'not_configured'
           : response.error === 'invalid_response'
@@ -85,25 +88,11 @@ export function useMailViewerData({
         setAnalysisStatus(status);
         return;
       }
-      const normalized = normalizeMailEntities(response);
-      const previous = extractedEntitiesRef.current;
-      const entities = response.status === 'degraded' && previous
-        ? {
-            ...previous,
-            degradedReason: normalized.degradedReason,
-            localAnalysis: normalized.localAnalysis ?? previous.localAnalysis,
-            providerAttempts: normalized.providerAttempts,
-            resultSource: normalized.resultSource ?? previous.resultSource,
-          }
-        : normalized;
-      if (entities.events.length > 0 || entities.contacts.length > 0
-        || entities.localAnalysis) {
+      if (hasResults) {
         setExtractedEntities(entities);
         extractedEntitiesRef.current = entities;
-        if (response.status === 'degraded' || response.provider === 'local_deterministic') {
-          setAnalysisStatus('local_results');
-        } else {
-          setAnalysisStatus('results');
+        setAnalysisStatus('results');
+        if (entities.resultSource === 'provider') {
           toast.success(t('mail.smart_suggestions_found', 'Smart suggestions found'));
         }
       } else {
@@ -113,9 +102,7 @@ export function useMailViewerData({
       if (requestId !== analysisRequestRef.current) return;
       logError('mail-viewer.entity-scan', error);
       const previous = extractedEntitiesRef.current;
-      setAnalysisStatus(previous
-        ? previous.degradedReason ? 'local_results' : 'results'
-        : 'temporarily_unavailable');
+      setAnalysisStatus(previous ? 'results' : 'temporarily_unavailable');
     } finally {
       if (requestId === analysisRequestRef.current) {
         analysisRunningRef.current = false;

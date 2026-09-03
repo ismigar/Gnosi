@@ -84,6 +84,20 @@ describe('MailBody', () => {
       emitAppEvent(MAIL_DARK_BODY_EVENT);
     });
     await settleIframe();
-    expect(container.querySelector('iframe')?.srcdoc).toContain('background: #1a1a1a');
+    const darkSource = container.querySelector('iframe')?.srcdoc || '';
+    expect(darkSource).toContain('background: #1a1a1a');
+    expect(darkSource).toContain('.gnosi-remote-image-alt');
+    expect(darkSource).toContain('color: #e2e8f0');
+  });
+
+  it('keeps the remote-image fallback readable in the light canvas', async () => {
+    act(() => {
+      root.render(<MailBody bodyHtml={'<img alt="Fixture chart" height="180" width="320" src="https://images.example.test/chart.png">'} />);
+    });
+    await settleIframe();
+    const source = container.querySelector('iframe')?.srcdoc || '';
+    expect(source).toContain('color: #334155');
+    expect(source).toContain('background: #f5f6f8');
+    expect(source).not.toContain('https://images.example.test/chart.png');
   });
 });
