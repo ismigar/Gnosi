@@ -5809,6 +5809,103 @@
         "title": "ChatRewindRequest",
         "type": "object"
       },
+      "CitationFormattingRequest": {
+        "additionalProperties": true,
+        "description": "Ordered citation keys and optional CSL rendering preferences.",
+        "properties": {
+          "keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ordered citation keys; duplicate keys are preserved.",
+            "title": "Keys"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "CSL locale identifier.",
+            "title": "Locale"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "CSL style identifier.",
+            "title": "Style"
+          }
+        },
+        "title": "CitationFormattingRequest",
+        "type": "object"
+      },
+      "CitationKeyRequest": {
+        "additionalProperties": true,
+        "description": "Bibliographic values used to generate one unique citation key.",
+        "properties": {
+          "authors": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authors"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "title": "CitationKeyRequest",
+        "type": "object"
+      },
       "CitationKeyResponse": {
         "description": "Unique citation key generated for one bibliographic record.",
         "properties": {
@@ -19556,6 +19653,69 @@
         "title": "MentionRef",
         "type": "object"
       },
+      "MetadataLookupRequest": {
+        "additionalProperties": true,
+        "description": "Candidate identifiers, resolved in the historical provider priority.",
+        "properties": {
+          "arxiv": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arxiv"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          },
+          "isbn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn"
+          },
+          "pmid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pmid"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "MetadataLookupRequest",
+        "type": "object"
+      },
       "MetadataLookupResponse": {
         "description": "Metadata suggestion returned for one external identifier.",
         "properties": {
@@ -32388,6 +32548,86 @@
           "created_at"
         ],
         "title": "WorkspaceResponse",
+        "type": "object"
+      },
+      "ZoteroExtraPromotionRequest": {
+        "additionalProperties": true,
+        "description": "Selection and destination for promoting a dynamic Zotero extra field.",
+        "properties": {
+          "column_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Name"
+          },
+          "column_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Type"
+          },
+          "expected_etags": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Etags"
+          },
+          "page_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Ids"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          },
+          "zotero_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zotero Field"
+          }
+        },
+        "title": "ZoteroExtraPromotionRequest",
         "type": "object"
       },
       "ZoteroExtraPromotionResponse": {
@@ -70742,9 +70982,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/CitationFormattingRequest"
               }
             }
           },
@@ -71011,9 +71249,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/CitationFormattingRequest"
               }
             }
           },
@@ -71137,9 +71373,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/CitationKeyRequest"
               }
             }
           },
@@ -79284,9 +79518,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MetadataLookupRequest"
               }
             }
           },
@@ -88595,9 +88827,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/ZoteroExtraPromotionRequest"
               }
             }
           },

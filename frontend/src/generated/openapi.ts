@@ -11911,6 +11911,43 @@ export interface components {
             keep_messages: number;
         };
         /**
+         * CitationFormattingRequest
+         * @description Ordered citation keys and optional CSL rendering preferences.
+         */
+        CitationFormattingRequest: {
+            /**
+             * Keys
+             * @description Ordered citation keys; duplicate keys are preserved.
+             */
+            keys?: components["schemas"]["JsonValue"][] | null;
+            /**
+             * Locale
+             * @description CSL locale identifier.
+             */
+            locale?: string | null;
+            /**
+             * Style
+             * @description CSL style identifier.
+             */
+            style?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CitationKeyRequest
+         * @description Bibliographic values used to generate one unique citation key.
+         */
+        CitationKeyRequest: {
+            /** Authors */
+            authors?: string | components["schemas"]["JsonValue"][] | null;
+            /** Title */
+            title?: string | null;
+            /** Year */
+            year?: number | string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * CitationKeyResponse
          * @description Unique citation key generated for one bibliographic record.
          */
@@ -16631,6 +16668,24 @@ export interface components {
             label?: string | null;
             /** Type */
             type: string;
+        };
+        /**
+         * MetadataLookupRequest
+         * @description Candidate identifiers, resolved in the historical provider priority.
+         */
+        MetadataLookupRequest: {
+            /** Arxiv */
+            arxiv?: string | null;
+            /** Doi */
+            doi?: string | null;
+            /** Isbn */
+            isbn?: string | null;
+            /** Pmid */
+            pmid?: string | null;
+            /** Url */
+            url?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * MetadataLookupResponse
@@ -21721,6 +21776,28 @@ export interface components {
             role?: string | null;
             /** Slug */
             slug?: string | null;
+        };
+        /**
+         * ZoteroExtraPromotionRequest
+         * @description Selection and destination for promoting a dynamic Zotero extra field.
+         */
+        ZoteroExtraPromotionRequest: {
+            /** Column Name */
+            column_name?: string | null;
+            /** Column Type */
+            column_type?: string | null;
+            /** Expected Etags */
+            expected_etags?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Page Ids */
+            page_ids?: components["schemas"]["JsonValue"][] | null;
+            /** Table Id */
+            table_id?: string | null;
+            /** Zotero Field */
+            zotero_field?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * ZoteroExtraPromotionResponse
@@ -34196,9 +34273,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CitationFormattingRequest"];
             };
         };
         responses: {
@@ -34278,9 +34353,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CitationFormattingRequest"];
             };
         };
         responses: {
@@ -34320,9 +34393,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["CitationKeyRequest"];
             };
         };
         responses: {
@@ -36933,9 +37004,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MetadataLookupRequest"];
             };
         };
         responses: {
@@ -39781,9 +39850,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ZoteroExtraPromotionRequest"];
             };
         };
         responses: {
