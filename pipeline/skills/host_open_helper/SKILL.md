@@ -42,44 +42,17 @@ Native Gnosi connects to `127.0.0.1:5099`. Docker deployments use
 - Pass the query as a separate argv value and never through a shell.
 - Run subprocesses without `shell=True`.
 
-## macOS LaunchAgent installation
+## Provisioning boundary
 
-Use the portable, idempotent installer. It derives paths from the current
-`$HOME` and verifies the result:
+The public repository ships only the portable helper implementation. It does
+not install, start, stop or rewrite operating-system services. Maintainer
+LaunchAgent templates and idempotent machine provisioning belong exclusively to
+the private `WorkspaceTools/skills/host_open_helper` skill.
 
-```bash
-sh pipeline/skills/host_open_helper/scripts/install_launchagent.sh
-```
-
-The former machine-specific example plist was preserved privately and retired.
-Do not copy another user's plist: its absolute paths can prevent startup.
-Maintainer provisioning belongs in the private workspace tools repository; the
-generic helper and portable installer remain public. Installing or restarting a
-LaunchAgent changes the host session and is a separate requested operation, not
-a unit-test or documentation step.
-
-Manual installation is acceptable only after verifying every plist path:
-
-```bash
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.gnosi.host-open-helper.plist
-curl -sS http://127.0.0.1:5099/healthz
-```
-
-Stop the service with:
-
-```bash
-launchctl bootout gui/$(id -u)/com.gnosi.host-open-helper
-```
-
-### Reload after code changes
-
-The LaunchAgent runs `host_open_helper.py` by path. Restart it after editing
-the script:
-
-```bash
-launchctl kickstart -k gui/$(id -u)/com.gnosi.host-open-helper
-curl -sS http://127.0.0.1:5099/healthz
-```
+Self-hosters may run `host_open_helper.py` directly or create their own service
+definition after reviewing every executable path and `GNOSI_OPEN_ROOTS`. Never
+copy a service definition from another machine: absolute paths and privacy
+permissions are user- and host-specific.
 
 ## Restrictions and edge cases
 
@@ -96,30 +69,22 @@ curl -sS http://127.0.0.1:5099/healthz
 - `mdfind` diagnostic lines such as `[UserQueryParser] Loading keywords…`
   appear on stderr and do not contaminate stdout results.
 
-### Empty `/search` results under LaunchAgent
+### Empty `/search` results under a background service
 
 Symptom: `/search` immediately returns `200` and no results, while the same
 `mdfind -onlyin $HOME -name <query>` command works in Terminal. Files under
 `~/Downloads` or `~/Library/CloudStorage` are commonly affected.
 
-Cause: the LaunchAgent runs under `launchd` and does not inherit Terminal's
+Cause: a background service does not necessarily inherit Terminal's
 Full Disk Access. macOS TCC grants access by binary and responsible process,
 so `mdfind` can return filtered results without an error. The same pattern
 affects the OneDrive warmup daemon.
 
-Fix: add the LaunchAgent's Python binary to **System Settings > Privacy &
-Security > Full Disk Access**. Locate it with:
+Fix on macOS: add the service's Python binary to **System Settings > Privacy &
+Security > Full Disk Access**. Locate the configured binary in the private
+service definition or process manager.
 
-```bash
-ps -p $(pgrep -f host_open_helper.py | head -1) -o command=
-```
-
-Then restart the service so TCC reevaluates access:
-
-```bash
-launchctl kickstart -k gui/$(id -u)/com.gnosi.host-open-helper
-```
-
-As a temporary alternative, boot out the LaunchAgent and run
+Then restart it through the owning private provisioning tool so TCC reevaluates
+access. As a temporary diagnostic alternative, stop the background service and run
 `host_open_helper.py` manually from a Terminal process that already has Full
 Disk Access.
