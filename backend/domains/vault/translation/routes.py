@@ -1,7 +1,8 @@
 """Typed Vault domain extracted from the historical route facade."""
 
 import importlib as _legacy_importlib
-from typing import TYPE_CHECKING, Literal
+from collections.abc import Awaitable, Callable, Mapping
+from typing import TYPE_CHECKING, Literal, cast
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, JsonValue
@@ -9,6 +10,17 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.schemas.pages import IndexedPageMetadata
 from backend.domains.vault.translation.http_values import stripped_request_text
+from backend.domains.vault.translation.request_contracts import (
+    ExecuteButtonActionRequest,
+    GenerateButtonActionRequest,
+    MatchDrupalRowsRequest,
+    SyncDrupalRowRequest,
+    SyncDrupalRowsRequest,
+    TranslatePageRequest,
+    TranslateRowRequest,
+    TranslateRowsRequest,
+    request_payload,
+)
 from backend.domains.vault.translation.types import Result
 from backend.utils.open_values import get_value, iterable_values
 
@@ -185,7 +197,7 @@ async def drupal_content_type_fields(bundle: str) -> Result:
 )
 async def sync_drupal_row(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: SyncDrupalRowRequest = _legacy.Body(...),
 ) -> Result:
     """Creates or updates a row's Drupal node (and its translations).
 
@@ -194,19 +206,20 @@ async def sync_drupal_row(
     columns and the uuid to the hidden metadata.
 
     """
-    item_id = stripped_request_text(payload.get("item_id") or "")
-    button_action = payload.get("button_action") or "sync_drupal"
+    request = request_payload(payload)
+    item_id = stripped_request_text(request.get("item_id") or "")
+    button_action = request.get("button_action") or "sync_drupal"
     if not item_id:
         raise _legacy.HTTPException(status_code=400, detail="item_id is required")
     if button_action != "sync_drupal":
         raise _legacy.HTTPException(
             status_code=400, detail=f"Unsupported button_action: {button_action}"
         )
-    publish = payload.get("publish", True)
-    scope = payload.get("scope") or "all"
+    publish = request.get("publish", True)
+    scope = request.get("scope") or "all"
     if scope not in ("all", "lang_only"):
         scope = "all"
-    push_media = bool(payload.get("push_media", True))
+    push_media = bool(request.get("push_media", True))
     result = await _legacy._do_sync_drupal_row(
         item_id,
         background_tasks=background_tasks,
@@ -225,18 +238,19 @@ async def sync_drupal_row(
 )
 async def sync_drupal_rows(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: SyncDrupalRowsRequest = _legacy.Body(...),
 ) -> Result:
     """Bulk variant of sync-drupal-row. Each row is independent; per-row errors
     are reported in `errors` instead of aborting the batch."""
-    item_ids = payload.get("item_ids") or []
+    request = request_payload(payload)
+    item_ids = request.get("item_ids") or []
     if not is_object_list(item_ids) or not item_ids:
         raise _legacy.HTTPException(status_code=400, detail="item_ids must be a non-empty list")
-    scope = payload.get("scope") or "all"
+    scope = request.get("scope") or "all"
     if scope not in ("all", "lang_only"):
         scope = "all"
-    publish = bool(payload.get("publish", True))
-    push_media = bool(payload.get("push_media", True))
+    publish = bool(request.get("publish", True))
+    push_media = bool(request.get("push_media", True))
     results: list[Result] = []
     errors: list[Result] = []
     for iid in item_ids:
@@ -265,7 +279,7 @@ async def sync_drupal_rows(
 )
 async def match_drupal_rows(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: MatchDrupalRowsRequest = _legacy.Body(...),
 ) -> Result:
     """Links rows to **existing** Drupal nodes by title, without creating anything.
 
@@ -277,12 +291,13 @@ async def match_drupal_rows(
 
     """
     return await _legacy.drupal_matching.match_drupal_rows(
-        background_tasks, payload, _legacy._drupal_matching_dependencies()
+        background_tasks, request_payload(payload), _legacy._drupal_matching_dependencies()
     )
 
 
 @router.post(
     "/skills/translate-row",
+    name="translate_row",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("translation")),
@@ -290,9 +305,9 @@ async def match_drupal_rows(
     response_model=TranslateRowResponse,
     response_model_exclude_unset=True,
 )
-async def translate_row(
+async def _translate_row_http(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: TranslateRowRequest = _legacy.Body(...),
 ) -> Result:
     """Translate the translatable fields of a row to one subitem per language.
 
@@ -310,9 +325,10 @@ async def translate_row(
     the existing per-language subitem in place (idempotent) instead of
     duplicating it.
     """
-    item_id = stripped_request_text(payload.get("item_id") or "")
-    target_languages = payload.get("target_languages") or []
-    button_action = payload.get("button_action") or "translate_row"
+    request = request_payload(payload)
+    item_id = stripped_request_text(request.get("item_id") or "")
+    target_languages = request.get("target_languages") or []
+    button_action = request.get("button_action") or "translate_row"
     if not item_id:
         raise _legacy.HTTPException(status_code=400, detail="item_id is required")
     if not is_object_list(target_languages) or not target_languages:
@@ -336,8 +352,22 @@ async def translate_row(
     return {"status": "ok", **result}
 
 
+_translate_row_http.__name__ = "translate_row"
+translate_row = cast(
+    Callable[
+        [
+            _legacy.BackgroundTasks,
+            TranslateRowRequest | Mapping[str, object],
+        ],
+        Awaitable[Result],
+    ],
+    _translate_row_http,
+)
+
+
 @router.post(
     "/skills/translate-rows",
+    name="translate_rows",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("translation")),
@@ -345,9 +375,9 @@ async def translate_row(
     response_model=TranslateRowsResponse,
     response_model_exclude_unset=True,
 )
-async def translate_rows(
+async def _translate_rows_http(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: TranslateRowsRequest = _legacy.Body(...),
 ) -> Result:
     """Bulk variant of translate-row: translate many selected rows at once.
 
@@ -362,9 +392,10 @@ async def translate_rows(
     A per-row failure (e.g. a selected row whose table isn't translatable) is
     reported in `errors` rather than aborting the whole batch.
     """
-    item_ids = payload.get("item_ids") or []
-    target_languages = payload.get("target_languages") or []
-    button_action = payload.get("button_action") or "translate_row"
+    request = request_payload(payload)
+    item_ids = request.get("item_ids") or []
+    target_languages = request.get("target_languages") or []
+    button_action = request.get("button_action") or "translate_row"
     if not is_object_list(item_ids) or not item_ids:
         raise _legacy.HTTPException(status_code=400, detail="item_ids must be a non-empty list")
     if not is_object_list(target_languages) or not target_languages:
@@ -403,6 +434,19 @@ async def translate_rows(
     return {"status": "ok", "count": len(results), "results": results, "errors": errors}
 
 
+_translate_rows_http.__name__ = "translate_rows"
+translate_rows = cast(
+    Callable[
+        [
+            _legacy.BackgroundTasks,
+            TranslateRowsRequest | Mapping[str, object],
+        ],
+        Awaitable[Result],
+    ],
+    _translate_rows_http,
+)
+
+
 @router.post(
     "/skills/generate-button-action",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
@@ -410,11 +454,12 @@ async def translate_rows(
     response_model_exclude_unset=True,
 )
 async def generate_button_action(
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: GenerateButtonActionRequest = _legacy.Body(...),
 ) -> Result:
     """Generates structured button action configuration using LLM based on user prompt."""
-    user_prompt = stripped_request_text(payload.get("prompt") or "")
-    fields = payload.get("fields") or []
+    request = request_payload(payload)
+    user_prompt = stripped_request_text(request.get("prompt") or "")
+    fields = request.get("fields") or []
     if not user_prompt:
         raise _legacy.HTTPException(status_code=400, detail="Prompt is required")
     import json
@@ -460,12 +505,13 @@ async def generate_button_action(
     response_model_exclude_unset=True,
 )
 async def execute_button_action(
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: ExecuteButtonActionRequest = _legacy.Body(...),
 ) -> Result:
     """Executes a custom AI prompt or Skill button action on a note/row."""
-    note_id = stripped_request_text(payload.get("note_id") or "")
-    button_action = stripped_request_text(payload.get("button_action") or "")
-    button_config = payload.get("button_config") or {}
+    request = request_payload(payload)
+    note_id = stripped_request_text(request.get("note_id") or "")
+    button_action = stripped_request_text(request.get("button_action") or "")
+    button_config = request.get("button_config") or {}
     if not note_id:
         raise _legacy.HTTPException(status_code=400, detail="note_id is required")
     file_path = await _legacy.asyncio.to_thread(_legacy.find_page_path, note_id)
@@ -514,6 +560,7 @@ async def execute_button_action(
 
 @router.post(
     "/skills/translate-page",
+    name="translate_page",
     dependencies=[
         _legacy.Depends(_legacy.require_role("editor")),
         _legacy.Depends(_legacy.require_plugins("translation")),
@@ -521,9 +568,9 @@ async def execute_button_action(
     response_model=TranslatePageResponse,
     response_model_exclude_unset=True,
 )
-async def translate_page(
+async def _translate_page_http(
     background_tasks: _legacy.BackgroundTasks,
-    payload: dict[str, object] = _legacy.Body(...),
+    payload: TranslatePageRequest = _legacy.Body(...),
 ) -> Result:
     """Translate a Vault page (title + markdown body) into one child page per language.
 
@@ -540,5 +587,18 @@ async def translate_page(
     `translate_page` skill's segmenter. Mirrors `translate_row` but for whole documents.
     """
     return await _legacy.translation_page_service.translate_page(
-        background_tasks, payload, _legacy._PAGE_TRANSLATION_DEPENDENCIES
+        background_tasks, request_payload(payload), _legacy._PAGE_TRANSLATION_DEPENDENCIES
     )
+
+
+_translate_page_http.__name__ = "translate_page"
+translate_page = cast(
+    Callable[
+        [
+            _legacy.BackgroundTasks,
+            TranslatePageRequest | Mapping[str, object],
+        ],
+        Awaitable[Result],
+    ],
+    _translate_page_http,
+)

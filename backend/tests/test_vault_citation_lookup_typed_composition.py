@@ -194,6 +194,7 @@ def check_lookup_keeps_late_provider_mapping_and_unknown_values(
 ) -> None:
     from backend.api import vault_routes as facade
     from backend.domains.vault.citations import lookup_routes as routes
+    from backend.domains.vault.citations.request_contracts import MetadataLookupRequest
 
     extension = {"opaque": [False, 0, None, {"label": "Mercè"}]}
     metadata: dict[str, object] = {"Title": "Synthetic bibliography", "extension": extension}
@@ -235,7 +236,9 @@ def check_lookup_keeps_late_provider_mapping_and_unknown_values(
     ):
         monkeypatch.setattr(facade, name, forbidden)
     monkeypatch.setattr(facade, "_http_get", fetch)
-    result = asyncio.run(routes.lookup_metadata({"doi": "10.1234/synthetic"}))
+    result = asyncio.run(
+        routes.lookup_metadata(MetadataLookupRequest.model_validate({"doi": "10.1234/synthetic"}))
+    )
     assert result == {
         "source": "crossref",
         "identifier": "10.1234/synthetic",
@@ -430,8 +433,11 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
     from backend.domains.vault.citations.request_contracts import (
         CitationKeyRequest,
         MetadataLookupRequest,
+        UrlTranslationRequest,
         ZoteroExtraPromotionRequest,
     )
+    from backend.domains.vault.schemas.pages import BulkPageMutationResponse
+    from pydantic import BaseModel
 
     app = FastAPI()
     app.include_router(vr.router, prefix="/api/vault", tags=["Vault"])
@@ -442,7 +448,7 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
         "/translate-url": routes.UrlTranslationResponse,
         "/recognize-pdf": routes.PdfRecognitionResponse,
         "/promote-zotero-extra": routes.ZoteroExtraPromotionResponse,
-        "/bulk-update-metadata": routes.BulkPageMutationResponse,
+        "/bulk-update-metadata": BulkPageMutationResponse,
         "/generate-citation-key": keys_api.CitationKeyResponse,
     }
     assert routes.router is vr.router
@@ -458,8 +464,9 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
         *LOOKUP_PATHS[9:],
     )
     pending: set[str] = set()
-    request_models = {
+    request_models: dict[str, type[BaseModel]] = {
         "/lookup-metadata": MetadataLookupRequest,
+        "/translate-url": UrlTranslationRequest,
         "/promote-zotero-extra": ZoteroExtraPromotionRequest,
         "/generate-citation-key": CitationKeyRequest,
     }
@@ -473,15 +480,16 @@ def check_lookup_openapi_and_models_unchanged(isolated_backend: None) -> None:
                 "backend.domains.vault.schemas.pages",
             }
         path = "/api/vault" + route.path
-        if request_model := request_models.get(route.path):
+        request_model = request_models.get(route.path)
+        if request_model is not None:
+            model_name = request_model.__name__
+            assert model_name is not None
             assert route.dependant.body_params[0].field_info.annotation is request_model
             request_schema = actual["paths"][path]["post"]["requestBody"]["content"][
                 "application/json"
             ]["schema"]
-            assert request_schema == {
-                "$ref": f"#/components/schemas/{request_model.__name__}"
-            }
-            assert set(actual["components"]["schemas"][request_model.__name__]["properties"])
+            assert request_schema == {"$ref": f"#/components/schemas/{model_name}"}
+            assert set(actual["components"]["schemas"][model_name]["properties"])
         if route.path != "/bulk-update-metadata":
             actual_path = copy.deepcopy(actual["paths"][path])
             baseline_path = copy.deepcopy(baseline["paths"][path])
@@ -572,10 +580,10 @@ def check_template_table_callback_is_nullable_and_late_bound(
     from backend.domains.vault.pages.metadata_mutations import MetadataMutationDependencies
 
     dependencies: MetadataMutationDependencies = routes._metadata_mutation_dependencies()
-    calls: list[dict[str, object]] = []
-    metadata: dict[str, object] = {"is_template": True}
+    calls: list[dict[object, object]] = []
+    metadata: dict[object, object] = {"is_template": True}
 
-    def nullable(value: dict[str, object]) -> str | None:
+    def nullable(value: dict[object, object]) -> str | None:
         calls.append(value)
         return get_table_id(value)
 

@@ -22,6 +22,7 @@ from backend.domains.vault.citations import web_capture as citation_web_capture
 from backend.domains.vault.citations.authors import MetadataKey
 from backend.domains.vault.citations.request_contracts import (
     MetadataLookupRequest,
+    UrlTranslationRequest,
     ZoteroExtraPromotionRequest,
     request_payload,
 )
@@ -541,7 +542,7 @@ def _zotero_item_to_recursos(item: dict[str, object]) -> dict[str, object]:
     response_model_exclude_unset=True,
 )
 async def translate_url(
-    payload: dict[str, object] = Body(...),
+    payload: UrlTranslationRequest = Body(...),
 ) -> ResourceMetadata:
     """Captures a reference from a URL via Zotero translation-server.
 
@@ -560,7 +561,7 @@ async def translate_url(
         inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
         normalize_item_type=lambda metadata: _vault._normalize_suggested_item_type(metadata),
     )
-    return await citation_web_capture.capture_url(payload, dependencies)
+    return await citation_web_capture.capture_url(request_payload(payload), dependencies)
 
 
 def _build_dedup_indexes(v_str: str) -> dict[str, dict[str, str]]:

@@ -49,6 +49,17 @@ class MetadataLookupRequest(CitationRequest):
     url: SkipValidation[str | None] = None
 
 
+class UrlTranslationRequest(CitationRequest):
+    """URL passed unchanged to the translation-server capture boundary."""
+
+    url: SkipValidation[str | None] = None
+
+    def as_payload(self) -> dict[str, object]:
+        """Preserve omission as well as raw URL and extension values."""
+        supplied = self.model_fields_set
+        return {name: value for name, value in self if name in supplied}
+
+
 class ZoteroExtraPromotionRequest(CitationRequest):
     """Selection and destination for promoting a dynamic Zotero extra field."""
 
@@ -72,6 +83,7 @@ __all__ = [
     "CitationKeyRequest",
     "CitationRequest",
     "MetadataLookupRequest",
+    "UrlTranslationRequest",
     "ZoteroExtraPromotionRequest",
     "request_payload",
 ]
