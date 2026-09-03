@@ -157,13 +157,19 @@ jobs:
         env:
           DIGITAL_BRAIN_VAULT_PATH: ${{ github.workspace }}/vault
           GNOSI_DATA_DIR: ${{ runner.temp }}/gnosi-data
+          PYTHONUNBUFFERED: '1'
         run: |
           uv run uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-          pnpm dev:frontend -- --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-          for attempt in $(seq 1 60); do
+          backend_pid=$!
+          pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
+          frontend_pid=$!
+          for attempt in $(seq 1 180); do
             curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
               && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
               && exit 0
+            if ! kill -0 "${backend_pid}" 2>/dev/null || ! kill -0 "${frontend_pid}" 2>/dev/null; then
+              break
+            fi
             sleep 2
           done
           tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
