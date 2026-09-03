@@ -1,4 +1,5 @@
 import { fetchConfiguration } from '../../shared/api/configuration';
+import { changeI18nLanguage, initializeI18n } from '../../shared/i18n/i18n';
 import {
   defineStorageKey,
   readStorage,
@@ -96,6 +97,7 @@ export async function initializeInterfaceLanguage(
   options?: ResolveLanguageOptions,
 ): Promise<InterfaceLanguage> {
   const language = await resolveInitialInterfaceLanguage(options);
+  await initializeI18n(language);
   if (i18n.resolvedLanguage !== language) await i18n.changeLanguage(language);
   return language;
 }
@@ -108,6 +110,7 @@ export async function setInterfaceLanguage(
 ): Promise<InterfaceLanguage> {
   const language = normalizeInterfaceLanguage(value) ?? DEFAULT_INTERFACE_LANGUAGE;
   writeStorage(interfaceLanguageKey, language, storage);
-  await i18n.changeLanguage(language);
+  await changeI18nLanguage(language);
+  if (i18n.resolvedLanguage !== language) await i18n.changeLanguage(language);
   return language;
 }

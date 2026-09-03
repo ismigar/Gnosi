@@ -13,7 +13,10 @@ function fixture(sizes: Readonly<Record<string, number>>, base = './'): string {
   const assets = join(root, 'assets');
   mkdirSync(assets);
   for (const [name, size] of Object.entries(sizes)) writeFileSync(join(assets, name), Buffer.alloc(size));
-  writeFileSync(join(root, 'index.html'), `<script type="module" src="${base}assets/index-A.js"></script>`);
+  writeFileSync(join(root, 'index.html'), [
+    `<script type="module" src="${base}assets/index-A.js"></script>`,
+    `<link rel="modulepreload" href="${base}assets/startup-shared-A.js">`,
+  ].join('\n'));
   return root;
 }
 
@@ -25,9 +28,9 @@ afterEach(() => {
 });
 
 describe('production bundle budgets', () => {
-  const limits = { startupEntryBytes: 100, largestChunkBytes: 200, editorVendorBytes: 80,
-    tldrawVendorBytes: 70, settingsRouteBytes: 60 };
-  const valid = { 'index-A.js': 100, 'editor-vendor-A.js': 80, 'tldraw-vendor-A.js': 70,
+  const limits = { startupEntryBytes: 100, startupStaticBytes: 150,
+    largestChunkBytes: 200, settingsRouteBytes: 60 };
+  const valid = { 'index-A.js': 100, 'startup-shared-A.js': 50,
     'GlobalSettingsModal-A.js': 60, 'VaultDashboard-A.js': 200 };
 
   it.each(['./', '/', '/gnosi/'])('accepts reviewed limits with deployment base %s', base => {
@@ -39,10 +42,8 @@ describe('production bundle budgets', () => {
       .toThrow('startupEntryBytes: 101 > 100');
   });
 
-  it('fails closed if a reviewed lazy chunk disappears or is duplicated', () => {
-    const { 'editor-vendor-A.js': _missing, ...withoutEditor } = valid;
-    expect(() => inspectBundle(fixture(withoutEditor), limits)).toThrow('Expected exactly one editor-vendor- chunk');
-    expect(() => inspectBundle(fixture({ ...valid, 'tldraw-vendor-B.js': 10 }), limits))
-      .toThrow('Expected exactly one tldraw-vendor- chunk, found 2');
+  it('counts static preload dependencies in the startup budget', () => {
+    expect(() => inspectBundle(fixture({ ...valid, 'startup-shared-A.js': 51 }), limits))
+      .toThrow('startupStaticBytes: 151 > 150');
   });
 });

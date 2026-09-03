@@ -2,19 +2,6 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import HomePage from './HomePage';
-import { Dashboard } from '../features/control-center/index';
-import { SocialDashboard, ComposerPage } from '../features/social/index';
-import { MediaCenter } from '../features/media/index';
-import { SchedulerPage } from '../features/automations/index';
-import { SharedPage } from '../features/sharing/index';
-import { NotebooksPage } from '../features/notebooks/index';
-import { MailPage } from '../features/mail/index';
-import { CalendarPage } from '../features/calendar/index';
-import { GraphPage } from '../features/graph/index';
-import { ReaderDashboard } from '../features/reader/index';
-import { ContactsPage } from '../features/contacts/index';
-import { LiteraturePage } from '../features/literature/index';
-import { ProjectPlanningPage } from '../features/planning/index';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
 import { PluginRoute } from '../shared/plugins/PluginGate';
 import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../shared/routing/vaultRouting';
@@ -27,6 +14,20 @@ import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, va
 // HomePage stays EAGER because it's the most common startup (without a flash of
 // Suspense at the start).
 const VaultDashboard = lazy(() => import('../features/vault/VaultDashboard'));
+const Dashboard = lazy(() => import('../features/control-center/Dashboard'));
+const SocialDashboard = lazy(() => import('../features/social/SocialDashboard'));
+const ComposerPage = lazy(() => import('../features/social/ComposerPage'));
+const MediaCenter = lazy(() => import('../features/media/MediaCenter'));
+const SchedulerPage = lazy(() => import('../features/automations/SchedulerPage'));
+const SharedPage = lazy(() => import('../features/sharing/SharedPage'));
+const NotebooksPage = lazy(() => import('../features/notebooks/NotebooksPage'));
+const MailPage = lazy(() => import('../features/mail/MailPage'));
+const CalendarPage = lazy(() => import('../features/calendar/CalendarPage'));
+const GraphPage = lazy(() => import('../features/graph/GraphPage'));
+const ReaderDashboard = lazy(() => import('../features/reader/ReaderDashboard'));
+const ContactsPage = lazy(() => import('../features/contacts/ContactsPage'));
+const LiteraturePage = lazy(() => import('../features/literature/LiteraturePage'));
+const ProjectPlanningPage = lazy(() => import('../features/planning/ProjectPlanningPage'));
 const ZoteroReaderPage = lazy(() =>
   import('../features/reader/zotero/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
 );

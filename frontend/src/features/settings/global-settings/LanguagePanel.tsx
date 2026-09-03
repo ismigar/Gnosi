@@ -6,19 +6,20 @@ import { Globe } from 'lucide-react';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { availableLocales } from '../../../shared/i18n/locales/registry';
 import { resolveLocale } from '../../../shared/i18n/locales/registry';
+import { changeI18nLanguage } from '../../../shared/i18n/i18n';
 import type { SettingsController } from './useGlobalSettingsController';
 
 type Props = { context: Pick<SettingsController, 'activeTab' | 'draft' | 'i18n' | 'setDraft' | 't' | 'tn'> };
 
 export function LanguagePanel({ context }: Props) {
-  const { activeTab, draft, i18n, setDraft, t, tn } = context;
+  const { activeTab, draft, setDraft, t, tn } = context;
   return (activeTab === 'language' && (
     <Section title={tn('language.section_title')} icon={Globe}>
       <FormGroup label={tn('language.select_language')} description={tn('language.select_language_desc')}>
         <select className="gnosi-select" value={resolveLocale(draft.settings.language)} onChange={e => {
           const code = e.target.value;
           setDraft({ ...draft, settings: { ...draft.settings, language: code } });
-          void i18n.changeLanguage(code);
+          void changeI18nLanguage(code);
         }}>
           {availableLocales.map(locale => (
             <option key={locale.code} value={locale.code}>{locale.nativeName}</option>

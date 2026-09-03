@@ -6,6 +6,7 @@ import {
     canonicalizeLocale,
     getIntlLocale,
     getLocaleMeta,
+    loadLocaleResource,
     resolveLocale,
     type LocaleDirection,
     type TranslationCatalogue,
@@ -112,5 +113,13 @@ describe('locale registry', () => {
         expect(getIntlLocale('de-DE')).toBe('en-US');
         expect(resolveLocale('es-MX')).toBe('es');
         expect(getLocaleMeta('unknown').code).toBe('en');
+    });
+
+    it('loads one production catalogue on demand without embedding metadata', async () => {
+        const resource = await loadLocaleResource('ca-ES');
+
+        expect(resource.translation.app_title).toBe('Gnosi');
+        expect(resource.translation).not.toHaveProperty('_meta');
+        await expect(loadLocaleResource('ca')).resolves.toBe(resource);
     });
 });
