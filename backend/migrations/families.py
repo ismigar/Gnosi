@@ -50,6 +50,11 @@ FAMILIES = {
             ),
         ),
         MigrationFamily(
+            "literature_index",
+            "literature_index",
+            ("literature_0001",),
+        ),
+        MigrationFamily(
             "action_confirmations",
             "action_confirmations",
             ("actions_0001", "actions_0002"),

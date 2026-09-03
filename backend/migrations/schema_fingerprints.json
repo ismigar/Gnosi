@@ -57,6 +57,15 @@
         ]
       }
     },
+    "literature_index": {
+      "branch": "literature_index",
+      "head": "literature_0001",
+      "revisions": {
+        "literature_0001": [
+          "e509e55bf2fb15d84103f8741dcf8563f73dcd7713daa58d1b9e75a5c1013d29"
+        ]
+      }
+    },
     "management": {
       "branch": "management",
       "head": "mgmt_0005",

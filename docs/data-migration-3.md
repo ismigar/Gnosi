@@ -133,6 +133,13 @@ store. Startup accepts only an empty database, an exact reviewed Gnosi 2.x
 schema fingerprint or an already versioned database. An unknown or drifted
 schema stops startup without modifying the file.
 
+The per-vault academic index at
+`literature/<vault-scope>/academic_index.sqlite3` is a durable auxiliary store
+with its own `literature_index` revision line. Its OAI records, synchronization
+cursor/state and FTS row mapping are migrated and backed up together. Although
+the FTS terms can be rebuilt, the database is not a disposable cache and must
+never be deleted or recreated to resolve schema drift.
+
 Before starting Gnosi 3 against an existing data directory, stop every writer
 and run the explicit migrator:
 

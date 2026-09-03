@@ -37,7 +37,19 @@ OWNED_DATABASES = (
 )
 
 EXTERNAL_DATABASE_ROOTS = ("chroma_db", "system/checkpoints")
-DERIVED_DATABASE_ROOTS = ("literature", "llm_wiki")
+DERIVED_DATABASE_ROOTS = ("llm_wiki",)
+
+
+def _literature_indexes(root: Path) -> list[tuple[Path, str]]:
+    """Discover the durable OAI index owned independently by each vault."""
+    literature_root = root / "literature"
+    if not literature_root.exists():
+        return []
+    return [
+        (path, "literature_index")
+        for path in sorted(literature_root.glob("*/academic_index.sqlite3"))
+        if path.is_file()
+    ]
 
 
 def existing_owned_databases(data_dir: Path) -> list[tuple[Path, str]]:
@@ -55,6 +67,7 @@ def existing_owned_databases(data_dir: Path) -> list[tuple[Path, str]]:
             for path in sorted(vault_root.glob("gnosi_vault_*.db"))
             if path.is_file()
         )
+    result.extend(_literature_indexes(root))
     return result
 
 

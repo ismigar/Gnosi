@@ -78,6 +78,8 @@ def test_oai_index_uses_fts_and_applies_date_filters(literature_env):
         connection.commit()
     rows = literature_service.search_oai_index(literature_env, "dialnet-articles", "open science", {"date_from": 2020}, 10)
     assert [row["title"] for row in rows] == ["Open science education"]
+    with literature_service._connect_index(literature_env) as connection:
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "literature_0001"
 
 
 def test_oai_tombstone_removes_record_and_fts_entry(literature_env):

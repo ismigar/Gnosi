@@ -58,50 +58,13 @@ def index_path(vault_path: Path | str) -> Path:
 
 
 def _connect_index(vault_path: Path | str) -> sqlite3.Connection:
-    connection = sqlite3.connect(index_path(vault_path), timeout=30)
+    path = index_path(vault_path)
+    from backend.migrations.runner import ensure_database_schema_once
+
+    local_data = cast(str | Path, load_params(strict_env=False).paths["LOCAL_DATA"])
+    ensure_database_schema_once(path, "literature_index", Path(local_data))
+    connection = sqlite3.connect(path, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=30000")
-    connection.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS oai_records (
-            source_id TEXT NOT NULL,
-            provider_id TEXT NOT NULL,
-            duplicate_key TEXT,
-            title TEXT NOT NULL,
-            normalized_title TEXT NOT NULL,
-            year INTEGER,
-            work_json TEXT NOT NULL,
-            datestamp TEXT,
-            updated_at TEXT NOT NULL,
-            PRIMARY KEY(source_id, provider_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_oai_records_key ON oai_records(duplicate_key);
-        CREATE VIRTUAL TABLE IF NOT EXISTS oai_records_fts USING fts5(
-            source_id UNINDEXED,
-            provider_id UNINDEXED,
-            title,
-            abstract,
-            authors,
-            tokenize='unicode61 remove_diacritics 2'
-        );
-        CREATE TABLE IF NOT EXISTS oai_sync_state (
-            source_id TEXT PRIMARY KEY,
-            state TEXT NOT NULL,
-            job_id TEXT,
-            resumption_token TEXT,
-            last_successful_datestamp TEXT,
-            received_count INTEGER NOT NULL DEFAULT 0,
-            indexed_count INTEGER NOT NULL DEFAULT 0,
-            deleted_count INTEGER NOT NULL DEFAULT 0,
-            complete_list_size INTEGER,
-            cursor_value INTEGER,
-            cancel_requested INTEGER NOT NULL DEFAULT 0,
-            error TEXT,
-            started_at TEXT,
-            updated_at TEXT NOT NULL,
-            completed_at TEXT
-        );
-        """
-    )
     return connection

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.migrations.coordinator import existing_owned_databases
 from backend.migrations.families import FAMILIES
 from backend.migrations.runner import (
     UnknownSchemaError,
@@ -21,6 +22,47 @@ ALL_REVISIONS = [
     for family in FAMILIES.values()
     for revision in family.revisions
 ]
+
+LEGACY_LITERATURE_SCHEMA = """
+CREATE TABLE oai_records (
+    source_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    duplicate_key TEXT,
+    title TEXT NOT NULL,
+    normalized_title TEXT NOT NULL,
+    year INTEGER,
+    work_json TEXT NOT NULL,
+    datestamp TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(source_id, provider_id)
+);
+CREATE INDEX idx_oai_records_key ON oai_records(duplicate_key);
+CREATE VIRTUAL TABLE oai_records_fts USING fts5(
+    source_id UNINDEXED,
+    provider_id UNINDEXED,
+    title,
+    abstract,
+    authors,
+    tokenize='unicode61 remove_diacritics 2'
+);
+CREATE TABLE oai_sync_state (
+    source_id TEXT PRIMARY KEY,
+    state TEXT NOT NULL,
+    job_id TEXT,
+    resumption_token TEXT,
+    last_successful_datestamp TEXT,
+    received_count INTEGER NOT NULL DEFAULT 0,
+    indexed_count INTEGER NOT NULL DEFAULT 0,
+    deleted_count INTEGER NOT NULL DEFAULT 0,
+    complete_list_size INTEGER,
+    cursor_value INTEGER,
+    cancel_requested INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    started_at TEXT,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+);
+"""
 
 
 def _remove_version_table(path: Path) -> None:
@@ -68,6 +110,179 @@ def test_empty_database_is_created_at_management_head(tmp_path: Path) -> None:
     assert result["changed"] is True
     assert result["backup"] is None
     assert _current_revision(database) == FAMILIES["management"].head
+
+
+def test_empty_literature_index_creates_oai_state_and_search(tmp_path: Path) -> None:
+    database = tmp_path / "literature" / "vault-scope" / "academic_index.sqlite3"
+
+    result = ensure_database_schema(database, "literature_index", tmp_path)
+
+    assert result["changed"] is True
+    assert result["backup"] is None
+    assert _current_revision(database) == FAMILIES["literature_index"].head
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """INSERT INTO oai_records(
+                source_id,provider_id,duplicate_key,title,normalized_title,
+                year,work_json,datestamp,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?)""",
+            (
+                "source",
+                "record-1",
+                "doi:example",
+                "Open Science",
+                "open science",
+                2026,
+                '{"title":"Open Science"}',
+                "2026-09-01",
+                "2026-09-03T00:00:00+00:00",
+            ),
+        )
+        rowid = int(connection.execute("SELECT rowid FROM oai_records").fetchone()[0])
+        connection.execute(
+            """INSERT INTO oai_records_fts(
+                rowid,source_id,provider_id,title,abstract,authors
+            ) VALUES(?,?,?,?,?,?)""",
+            (rowid, "source", "record-1", "Open Science", "Evidence", "Ada Riu"),
+        )
+        connection.execute(
+            """INSERT INTO oai_sync_state(
+                source_id,state,received_count,indexed_count,deleted_count,
+                cancel_requested,updated_at
+            ) VALUES(?,?,?,?,?,?,?)""",
+            ("source", "completed", 1, 1, 0, 0, "2026-09-03T00:00:00+00:00"),
+        )
+        assert connection.execute(
+            "SELECT provider_id FROM oai_records_fts WHERE oai_records_fts MATCH 'open'"
+        ).fetchone() == ("record-1",)
+        assert connection.execute(
+            "SELECT state,indexed_count FROM oai_sync_state WHERE source_id='source'"
+        ).fetchone() == ("completed", 1)
+
+
+def test_literature_2x_schema_preserves_records_sync_state_and_fts(tmp_path: Path) -> None:
+    database = tmp_path / "literature" / "legacy-scope" / "academic_index.sqlite3"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.executescript(LEGACY_LITERATURE_SCHEMA)
+        connection.execute(
+            """INSERT INTO oai_records(
+                source_id,provider_id,duplicate_key,title,normalized_title,
+                year,work_json,datestamp,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?)""",
+            (
+                "legacy-source",
+                "legacy-record",
+                "doi:legacy",
+                "Legacy Evidence",
+                "legacy evidence",
+                2024,
+                '{"title":"Legacy Evidence"}',
+                "2024-01-01",
+                "2026-09-03T00:00:00+00:00",
+            ),
+        )
+        rowid = int(connection.execute("SELECT rowid FROM oai_records").fetchone()[0])
+        connection.execute(
+            """INSERT INTO oai_records_fts(
+                rowid,source_id,provider_id,title,abstract,authors
+            ) VALUES(?,?,?,?,?,?)""",
+            (
+                rowid,
+                "legacy-source",
+                "legacy-record",
+                "Legacy Evidence",
+                "Preserved abstract",
+                "Ada Riu",
+            ),
+        )
+        connection.execute(
+            """INSERT INTO oai_sync_state(
+                source_id,state,job_id,resumption_token,
+                last_successful_datestamp,received_count,indexed_count,
+                deleted_count,complete_list_size,cursor_value,cancel_requested,
+                error,started_at,updated_at,completed_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "legacy-source",
+                "running",
+                "job-1",
+                "next-token",
+                "2024-01-01",
+                9,
+                7,
+                2,
+                12,
+                9,
+                0,
+                None,
+                "2026-09-03T00:00:00+00:00",
+                "2026-09-03T00:01:00+00:00",
+                None,
+            ),
+        )
+
+    result = ensure_database_schema(database, "literature_index", tmp_path)
+
+    assert result["revision_before"] == "literature_0001"
+    assert result["revision_after"] == "literature_0001"
+    assert result["backup"]["sha256"]
+    assert _current_revision(database) == "literature_0001"
+    backup = tmp_path / result["backup"]["path"]
+    with sqlite3.connect(backup) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name='alembic_version'"
+        ).fetchone() == (0,)
+        assert connection.execute("SELECT COUNT(*) FROM oai_records").fetchone() == (1,)
+        assert connection.execute(
+            "SELECT resumption_token FROM oai_sync_state WHERE source_id='legacy-source'"
+        ).fetchone() == ("next-token",)
+        assert connection.execute(
+            "SELECT provider_id FROM oai_records_fts WHERE oai_records_fts MATCH 'preserved'"
+        ).fetchone() == ("legacy-record",)
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT title,work_json FROM oai_records WHERE provider_id='legacy-record'"
+        ).fetchone() == ("Legacy Evidence", '{"title":"Legacy Evidence"}')
+        assert connection.execute(
+            """SELECT state,job_id,resumption_token,received_count,indexed_count,
+                deleted_count,complete_list_size,cursor_value
+            FROM oai_sync_state WHERE source_id='legacy-source'"""
+        ).fetchone() == ("running", "job-1", "next-token", 9, 7, 2, 12, 9)
+        assert connection.execute(
+            "SELECT provider_id FROM oai_records_fts WHERE oai_records_fts MATCH 'preserved'"
+        ).fetchone() == ("legacy-record",)
+
+
+def test_coordinator_discovers_dynamic_literature_indexes(tmp_path: Path) -> None:
+    database = tmp_path / "literature" / "scope-a" / "academic_index.sqlite3"
+    ensure_database_schema(database, "literature_index", tmp_path)
+
+    discovered = existing_owned_databases(tmp_path)
+
+    assert (database, "literature_index") in discovered
+
+
+def test_unknown_literature_schema_aborts_without_backup_or_stamp(tmp_path: Path) -> None:
+    database = tmp_path / "literature" / "drifted" / "academic_index.sqlite3"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE oai_records(source_id TEXT PRIMARY KEY, payload TEXT)"
+        )
+    checksum_before = _sha256(database)
+    fingerprint_before = database_fingerprint(database)
+
+    with pytest.raises(UnknownSchemaError, match="database was not modified"):
+        ensure_database_schema(database, "literature_index", tmp_path)
+
+    assert _sha256(database) == checksum_before
+    assert database_fingerprint(database) == fingerprint_before
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE name='alembic_version'"
+        ).fetchone() == (0,)
+    assert not (tmp_path / "backups").exists()
 
 
 def test_management_backfill_and_rows_are_preserved(tmp_path: Path) -> None:
