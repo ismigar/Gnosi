@@ -63,6 +63,10 @@
 - Regeneration is a reviewed migration, never an automatic side effect of CI.
 - An allowlist entry must name one exact operation and explain the deliberate
   compatibility decision. Wildcards are forbidden.
+- Do not leave a frontend request adapter broader than its explicit OpenAPI
+  request model after replacing a free-form body. That produces generated-client
+  failures such as `unknown[]` not being assignable to `string[]`; narrow the
+  adapter to the stable historical wire type and verify its callers.
 
 ## 6. Error Protocol and Learning
 
@@ -72,6 +76,7 @@
 | 2026-09-03 | Initial comparison reported false removals and JSON recategorizations | FastAPI/OpenAPI uses implementation parameter names and several response-producing endpoints expose an empty or generic schema | Canonicalize parameter names while preserving converters, and supplement OpenAPI with deterministic endpoint-source evidence for stream, download and redirect transports |
 | 2026-09-03 | Path converters could not be compared directly | FastAPI removes `:path` from generated OpenAPI even though it exists in source | Normalize all parameterized segments for route identity, retain literal segments exactly, and classify transport from both OpenAPI and source evidence |
 | 2026-09-03 | Guardrail launcher reported Ruff unavailable in the isolated worktree | The worktree intentionally had no local virtual environment and the command was invoked outside the provisioned runtime | Expose the already provisioned project runtime on `PATH` when validating an isolated worktree; do not create or synchronize a second environment merely to run the guardrail |
+| 2026-09-03 | Calendar client stopped type-checking after request models became explicit | The handwritten free/busy adapter still advertised `unknown[]` while the real provider contract and generated client require calendar identifiers as strings | Narrow `CalendarFreeBusyInput.calendarIds` to `string[]` and run the global frontend type-check after every contract regeneration |
 
 ## 7. Rationalizations
 
