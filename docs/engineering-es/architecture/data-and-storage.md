@@ -93,6 +93,13 @@ revisadas, crean copias verificadas y aplican migraciones hacia delante. Los esq
 desconocidos o divergentes provocan una parada sin modificaciones. Las cachés
 derivadas y las bases de datos externas quedan fuera de estas migraciones.
 
+Los archivos `academic_index.sqlite3` delimitados pertenecen a la familia
+`literature_index`. Los registros OAI y `oai_sync_state` son duraderos; la tabla
+virtual FTS se puede reconstruir, pero permanece en la misma migración revisada
+porque sus identificadores de fila se mantienen sincronizados con los registros
+duraderos. Las conexiones en tiempo de ejecución solo establecen pragmas
+operativos de SQLite y nunca ejecutan DDL de esquema.
+
 Solo se guardan los hashes de los PAT y un prefijo reconocible. Los tokens de
 compartición pública son identificadores opacos; sus filas conservan el creador,
 el vault, los permisos, la caducidad y el estado de revocación.

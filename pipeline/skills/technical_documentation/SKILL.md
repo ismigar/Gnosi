@@ -147,6 +147,13 @@ requires documentation evidence.
 
 ## Restrictions and edge cases
 
+- Note: Do not add or remove inline-code literals in a reviewed English guide
+  without applying the same literal set to its Catalan, Spanish, and French
+  mirrors, because the locale parity gate rejects code-span drift even when the
+  translated prose remains readable. Update all reviewed mirrors together, then
+  run `localize.py --check`; never weaken the parity check or regenerate reviewed
+  prose automatically to hide the mismatch.
+
 - Note: Do not run the automatic documentation build or Pages deployment on a
   GitHub-hosted runner, because the project intentionally operates without a
   hosted Actions budget. Use the provisioned self-hosted Linux ARM64 runner for

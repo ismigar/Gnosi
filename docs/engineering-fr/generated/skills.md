@@ -11,16 +11,16 @@ Discovered **15 documented runtime skills**.
 | Compétence | Titre déclaré | Lignes de documentation | Scripts | Contrat |
 | --- | --- | ---: | ---: | --- |
 | `calendar_sync` | SKILL: Calendar Sync | 63 | 0 | [`pipeline/skills/calendar_sync/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/calendar_sync/SKILL.md) |
-| `host_open_helper` | Host Open Helper | 125 | 2 | [`pipeline/skills/host_open_helper/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/host_open_helper/SKILL.md) |
+| `host_open_helper` | Host Open Helper | 90 | 1 | [`pipeline/skills/host_open_helper/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/host_open_helper/SKILL.md) |
 | `mail_sync` | SKILL: Mail Sync | 85 | 0 | [`pipeline/skills/mail_sync/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/mail_sync/SKILL.md) |
 | `notification_service` | Notification Service Skill | 38 | 1 | [`pipeline/skills/notification_service/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notification_service/SKILL.md) |
 | `notion_clone` | Skill: Notion Clone | 94 | 3 | [`pipeline/skills/notion_clone/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/notion_clone/SKILL.md) |
 | `playwright_e2e` | Playwright E2E | 235 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/playwright_e2e/SKILL.md) |
-| `python_module_refactor` | SKILL: Python module refactor | 95 | 3 | [`pipeline/skills/python_module_refactor/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/SKILL.md) |
+| `python_module_refactor` | SKILL: Python module refactor | 132 | 3 | [`pipeline/skills/python_module_refactor/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/SKILL.md) |
 | `rss_to_audio` | SKILL: RSS to Audio Podcast | 91 | 1 | [`pipeline/skills/rss_to_audio/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/rss_to_audio/SKILL.md) |
 | `scheduler` | SKILL: Backend Background Scheduler | 77 | 0 | [`pipeline/skills/scheduler/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/scheduler/SKILL.md) |
 | `suggest_connections` | SKILL: Brain Connection Proposals | 54 | 0 | [`pipeline/skills/suggest_connections/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/suggest_connections/SKILL.md) |
-| `technical_documentation` | SKILL: Technical documentation | 218 | 14 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/SKILL.md) |
+| `technical_documentation` | SKILL: Technical documentation | 230 | 14 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/SKILL.md) |
 | `translate_page` | Skill: translate_page | 110 | 3 | [`pipeline/skills/translate_page/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/SKILL.md) |
 | `translate_row` | Skill: translate_row | 173 | 2 | [`pipeline/skills/translate_row/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_row/SKILL.md) |
 | `vault_core` | SKILL: Vault Core Management | 54 | 0 | [`pipeline/skills/vault_core/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/vault_core/SKILL.md) |
