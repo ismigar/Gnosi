@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter
 from fastapi.params import Depends as DependsParameter
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from backend.domains.configuration.api.plugin_models import (
     ConfigurationInstalledPluginsResponse,
@@ -21,7 +22,13 @@ from backend.domains.configuration.api.plugin_models import (
     ConfigurationPluginRegistryUrlResponse,
     ConfigurationPluginStateResponse,
     ConfigurationPluginTrustedKeysResponse,
+    PluginInstallationResponse,
+    PluginPermissionsMutationResponse,
     PluginSettingsResponse,
+    PluginSubmissionResponse,
+    PluginTrustedKeyAdditionResponse,
+    PluginTrustedKeyRemovalResponse,
+    PluginUninstallResponse,
     VaultPluginSummaryResponse,
 )
 
@@ -154,19 +161,35 @@ def register_plugin_routes(
         ("PUT", "/plugins/registry-url", handlers.set_registry_url, admin),
     )
     response_models = {
+        handlers.add_trusted_key: PluginTrustedKeyAdditionResponse,
         handlers.fetch_for_ui_plugin: ConfigurationPluginNetworkFetchResponse,
         handlers.get_installed_plugins: ConfigurationInstalledPluginsResponse,
         handlers.get_plugins_catalog: ConfigurationPluginPermissionsCatalogResponse,
         handlers.get_plugins_state: ConfigurationPluginStateResponse,
         handlers.get_registry_url: ConfigurationPluginRegistryUrlResponse,
         handlers.get_plugin_settings: PluginSettingsResponse,
+        handlers.install_from_catalog: PluginInstallationResponse,
+        handlers.install_plugin: PluginInstallationResponse,
         handlers.list_plugin_catalog: ConfigurationPluginCatalogResponse,
         handlers.list_trusted_keys: ConfigurationPluginTrustedKeysResponse,
+        handlers.remove_trusted_key: PluginTrustedKeyRemovalResponse,
+        handlers.set_llm_wiki_lifecycle: ConfigurationPluginStateResponse,
         handlers.set_plugin_lifecycle: ConfigurationPluginStateResponse,
+        handlers.set_plugin_permissions: PluginPermissionsMutationResponse,
         handlers.set_plugin_settings: PluginSettingsResponse,
+        handlers.set_plugins_state: ConfigurationPluginStateResponse,
+        handlers.set_registry_url: ConfigurationPluginRegistryUrlResponse,
+        handlers.submit_plugin_package: PluginSubmissionResponse,
         handlers.summarize_with_vault_plugin: VaultPluginSummaryResponse,
+        handlers.uninstall_plugin: PluginUninstallResponse,
+    }
+    non_json_endpoints = {
+        handlers.export_plugin_package: Response,
+        handlers.get_plugin_asset: FileResponse,
     }
     for method, path, endpoint, dependencies in routes:
+        if endpoint not in response_models and endpoint not in non_json_endpoints:
+            raise RuntimeError(f"Missing plugin response contract for {method} {path}")
         router.add_api_route(
             path,
             endpoint,
@@ -174,4 +197,5 @@ def register_plugin_routes(
             dependencies=list(dependencies),
             response_model=response_models.get(endpoint),
             response_model_exclude_unset=endpoint in response_models,
+            response_class=non_json_endpoints.get(endpoint, JSONResponse),
         )
