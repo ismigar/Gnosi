@@ -186,14 +186,14 @@ describe('AuthProvider bootstrap resilience', () => {
             .mockRejectedValueOnce(new DOMException('No session', 'AbortError'))
             .mockResolvedValueOnce(hydratedUser);
         mocks.registerWithPassword.mockResolvedValue(registeredUser);
-        mocks.initializeVaultRouting.mockImplementation(async () => {
+        mocks.initializeVaultRouting.mockImplementation(() => {
             expect(readStorage(WORKSPACE_ID_STORAGE_KEY)).toBeUndefined();
             expect(readStorage(USER_ROLE_STORAGE_KEY)).toBeUndefined();
-            return {
+            return Promise.resolve({
                 active: { id: 'vault-1', name: 'Main Vault', slug: 'main-vault' },
                 routeFound: true,
                 vaults: [],
-            };
+            });
         });
         writeStorage(USER_ROLE_STORAGE_KEY, 'viewer');
         writeStorage(WORKSPACE_ID_STORAGE_KEY, 'stale-workspace');
