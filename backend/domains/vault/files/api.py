@@ -17,6 +17,11 @@ from backend.domains.vault.files.contracts import (
     PhysicalFileDeletionResponse,
     PropertyFileUploadResponse,
 )
+from backend.domains.vault.files.request_contracts import (
+    LinkedExistingFileRequest,
+    LocalFileRegistrationRequest,
+    PhysicalFileDeletionRequest,
+)
 from backend.domains.vault.files.serving import serve_file_with_containment
 from backend.domains.vault.files.state import FileServingState, LocalLinkStore
 from backend.domains.vault.files.thumbnails import (
@@ -195,7 +200,9 @@ async def serve_thumb(
     return await serve_thumb_service(rel_url, size, v, _deps().thumbnails)
 
 
-async def register_local_file(body: dict[str, object]) -> dict[str, object]:
+async def register_local_file(
+    body: LocalFileRegistrationRequest,
+) -> dict[str, object]:
     """Registers an absolute path and returns a token + servable URL.
 
     Body: { "file_path": "/abs/path/to/file" }
@@ -206,7 +213,7 @@ async def register_local_file(body: dict[str, object]) -> dict[str, object]:
     the user registers the same file twice we don't accumulate entries.
 
     """
-    return await local_service.register_local_file(body, _deps().local_files)
+    return await local_service.register_local_file(body.as_payload(), _deps().local_files)
 
 
 async def serve_local_file(
@@ -267,7 +274,7 @@ async def upload_property_file(
     )
 
 
-async def link_existing_file(body: dict[str, object]) -> dict[str, object]:
+async def link_existing_file(body: LinkedExistingFileRequest) -> dict[str, object]:
     """Variant B: register an existing local file path without copying it.
 
     Body: { "file_path": "/absolute/path/to/file.pdf", "target_name": "..." }
@@ -279,10 +286,10 @@ async def link_existing_file(body: dict[str, object]) -> dict[str, object]:
     attachment from Zotero, renaming it will break the link to Zotero.
 
     """
-    return await local_service.link_existing_file(body, _deps().link_files)
+    return await local_service.link_existing_file(body.as_payload(), _deps().link_files)
 
 
-async def delete_physical_file(body: dict[str, object]) -> dict[str, str]:
+async def delete_physical_file(body: PhysicalFileDeletionRequest) -> dict[str, str]:
     """Deletes the physical file referenced by `target` (does not touch any page).
 
     `target` is the value saved in the `files` field: `file://…`,
@@ -296,7 +303,7 @@ async def delete_physical_file(body: dict[str, object]) -> dict[str, str]:
     Containment: only under the host's HOME or under the vault's Assets. Never outside.
 
     """
-    return await local_service.delete_physical_file(body, _deps().delete_files)
+    return await local_service.delete_physical_file(body.as_payload(), _deps().delete_files)
 
 
 def register_serving_routes(
