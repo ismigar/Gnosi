@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterable
 from pathlib import Path
 
 GENERATED_NOTICE = (
@@ -59,6 +60,11 @@ EXCLUDED_FILE_PARTS = {
 EXCLUDED_FILE_NAMES = {
     "zotero_db_config.json",
 }
+
+
+def has_excluded_file_part(parts: Iterable[str]) -> bool:
+    """Reject fixed artifact names and every suffixed virtual environment."""
+    return any(part in EXCLUDED_FILE_PARTS or part.startswith(".venv") for part in parts)
 
 
 def relative_posix(path: Path, root: Path) -> str:
@@ -171,8 +177,8 @@ def python_files(root: Path, *, include_tests: bool = True) -> list[Path]:
     """Return owned Python files with generated and cache trees excluded."""
     files: list[Path] = []
     for path in root.rglob("*.py"):
-        parts = set(path.relative_to(root).parts)
-        if parts.intersection(EXCLUDED_FILE_PARTS):
+        parts = path.relative_to(root).parts
+        if has_excluded_file_part(parts):
             continue
         if not include_tests and ("tests" in parts or TEST_NAME_RE.match(path.name)):
             continue
@@ -186,8 +192,8 @@ def frontend_files(root: Path, *, include_tests: bool = True) -> list[Path]:
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
             continue
-        parts = set(path.relative_to(root).parts)
-        if parts.intersection(EXCLUDED_FILE_PARTS):
+        parts = path.relative_to(root).parts
+        if has_excluded_file_part(parts):
             continue
         if not include_tests and TEST_NAME_RE.match(path.name):
             continue
@@ -200,6 +206,6 @@ def is_owned_inventory_file(path: Path, *, root: Path | None = None) -> bool:
     if not path.is_file() or path.name.startswith(".") or path.name in EXCLUDED_FILE_NAMES:
         return False
     relative = path.relative_to(root) if root is not None else path
-    if set(relative.parts).intersection(EXCLUDED_FILE_PARTS):
+    if has_excluded_file_part(relative.parts):
         return False
     return path.suffix not in {".oxt", ".pyc", ".pyo"}

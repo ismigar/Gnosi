@@ -159,6 +159,13 @@ requires documentation evidence.
   source. Apply the same exclusions to source discovery, inventory and domain
   coverage; test catalog invariance after adding local scratch fixtures.
 
+- Note: Do not exclude only the literal `.venv` and `.venv-python` directory
+  names, because architecture or relocation diagnostics such as
+  `.venv-arm64-relocated` then leak thousands of dependency tests into the
+  generated public catalog. Treat every path component beginning with `.venv`
+  as a local runtime artifact and prove source, frontend, inventory and coverage
+  discovery stay invariant when suffixed environments exist.
+
 - Note: Do not machine-translate generated catalogs or accept presence/marker
   checks as parity, because source labels and paths can be mangled while French
   copies become stale. Instead, generate localized fixed labels deterministically

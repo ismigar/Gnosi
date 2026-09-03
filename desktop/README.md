@@ -127,7 +127,9 @@ and artifact validation. It uses the SemVer implementation locked with
 whitespace, `v` prefixes and invalid or non-canonical versions. Do not add a
 second parser in packaging or update code.
 
-The current **Build Release Candidate** workflow checks tag/commit identity
+The optional **Build Release Candidate** workflow runs only after an explicit
+manual dispatch; pushing a version tag never starts hosted Actions. It checks
+tag/commit identity
 before any project install and requires the tag version to match the root,
 frontend, desktop and Python manifests. It then runs the shared CI before
 building the four target groups. Its collector verifies
@@ -145,6 +147,11 @@ not publish the candidate.
 The workflow has read-only repository permissions. It does not publish or modify
 GitHub releases or public updater channels. Candidate artifacts must not contain
 credentials or user data and are not confidential storage.
+
+The final zero-hosted-budget release path builds and verifies every platform
+artifact on the maintainer's local machines, then publishes those exact artifacts
+separately. Do not dispatch this optional hosted workflow unless its runner budget
+has been approved explicitly.
 
 Public distribution remains disabled until the complete native, Docker,
 installer and real 2.x upgrade matrix is accepted and a separate publication

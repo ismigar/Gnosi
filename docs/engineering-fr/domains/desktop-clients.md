@@ -383,14 +383,18 @@ métadonnées de build canoniques et rejette les espaces adjacents, les préfixe
 `v` ainsi que les versions invalides ou non canoniques. La politique de mise à
 jour et l’empaquetage ne doivent pas introduire un second analyseur.
 
-`Build Release Candidate` vérifie que le tag demandé existe et que sa
-résolution jusqu’au commit correspond exactement au `github.sha` extrait,
-aussi bien pour les envois de tags que pour les déclenchements manuels.
+`Build Release Candidate` est un workflow facultatif, uniquement manuel. La
+publication d’un tag de version ne démarre jamais les Actions hébergées. Lorsqu’il
+est lancé explicitement, il vérifie que le tag demandé existe et que sa résolution
+jusqu’au commit correspond exactement au `github.sha` extrait.
 Une entrée mal formée, un tag manquant, une cible qui n’est pas un commit ou
 une divergence interrompt le processus avant l’installation des dépendances.
 L’outil de vérification d’identité utilise Git local et ne déplace pas de
 références ni n’en récupère de lui-même. La protection des tags distants reste
 une exigence distincte.
+Le chemin de publication sans budget hébergé construit et vérifie localement les
+quatre groupes de plateformes, puis publie uniquement ces artefacts exacts ; ne
+lancez pas le workflow hébergé facultatif sans approbation explicite du budget.
 Le même contrôle préliminaire exige aussi que la version du tag corresponde
 aux manifestes de la racine, du frontend, de l’application de bureau et de
 Python avant de lancer la CI ou toute compilation d’architecture.

@@ -364,13 +364,17 @@ fixada amb `electron-updater`, accepta metadades de build canòniques i rebutja
 espais adjacents, prefixos `v` i versions invàlides o no canòniques. La política
 d’actualització i l’empaquetatge no han d’introduir un segon parser.
 
-`Build Release Candidate` verifica que l’etiqueta sol·licitada existeixi i es
-resolgui al commit exacte del checkout, `github.sha`, tant en enviaments
-d’etiquetes com en execucions manuals. Una entrada malformada, etiquetes absents,
+`Build Release Candidate` és un workflow opcional i exclusivament manual.
+Enviar una etiqueta de versió no inicia Actions allotjades. Quan s’executa
+explícitament, verifica que l’etiqueta sol·licitada existeixi i es resolgui al
+commit exacte del checkout, `github.sha`. Una entrada malformada, etiquetes absents,
 destinacions que no siguin commits o discrepàncies aturen el procés abans
 d’instal·lar dependències. L’eina auxiliar d’identitat utilitza Git local i no
 mou referències ni recupera dades remotes pel seu compte. La protecció de les
 etiquetes remotes continua sent un requisit separat.
+La publicació sense pressupost allotjat construeix i verifica localment els quatre
+grups de plataforma i publica només aquells artefactes exactes; no executis el
+workflow allotjat opcional sense una aprovació explícita de pressupost.
 El mateix preflight també exigeix que la versió de l’etiqueta coincideixi amb
 els manifests de l’arrel, del frontend, de l’escriptori i de Python abans
 d’iniciar la CI o qualsevol construcció per arquitectura.

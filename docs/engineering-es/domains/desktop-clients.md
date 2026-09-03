@@ -373,13 +373,17 @@ y rechaza espacios adyacentes, prefijos `v` y versiones no válidas o no
 canónicas. La política de actualización y el empaquetado no deben introducir
 un segundo analizador.
 
-`Build Release Candidate` comprueba que la etiqueta solicitada existe y que,
-al resolverla hasta su commit, coincide exactamente con el `github.sha` extraído,
-tanto en envíos de etiquetas como en ejecuciones manuales. Las entradas mal
+`Build Release Candidate` es un workflow opcional y exclusivamente manual.
+Enviar una etiqueta de versión no inicia Actions alojadas. Cuando se ejecuta
+explícitamente, comprueba que la etiqueta solicitada existe y que, al resolverla
+hasta su commit, coincide exactamente con el `github.sha` extraído. Las entradas mal
 formadas, las etiquetas ausentes, los destinos que no son commits o las
 discrepancias detienen el proceso antes de instalar dependencias. La herramienta
 de identidad usa Git local y no mueve referencias ni descarga referencias por
 sí sola. La protección de etiquetas remotas sigue siendo un requisito aparte.
+La publicación sin presupuesto alojado construye y verifica localmente los cuatro
+grupos de plataforma y publica solo esos artefactos exactos; no ejecutes el
+workflow alojado opcional sin aprobación explícita de presupuesto.
 El mismo preflight también exige que la versión de la etiqueta coincida con
 los manifiestos de la raíz, del frontend, del escritorio y de Python antes de
 iniciar la CI o cualquier compilación por arquitectura.

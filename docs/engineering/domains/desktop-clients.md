@@ -325,11 +325,15 @@ updater and artifact collector. It uses the SemVer implementation locked with
 whitespace, `v` prefixes and invalid or non-canonical versions. Packaging and
 update policy must not introduce a second parser.
 
-`Build Release Candidate` verifies that the requested tag exists and peels to
-the exact checked-out `github.sha`, for both tag pushes and manual dispatch.
+`Build Release Candidate` is an optional, manual-only workflow. Pushing a
+version tag never starts hosted Actions. When explicitly dispatched, it verifies
+that the requested tag exists and peels to the exact checked-out `github.sha`.
 Malformed input, missing tags, non-commit targets or mismatches stop before
 dependency installation. The identity helper uses local Git and does not move
 refs or fetch by itself. Remote tag protection remains a separate requirement.
+The zero-hosted-budget publication path builds and verifies all four platform
+groups locally and publishes only those exact artifacts; do not dispatch the
+optional hosted workflow without explicit budget approval.
 The same preflight also requires the tag version to match the root, frontend,
 desktop and Python manifests before CI or any architecture build starts.
 

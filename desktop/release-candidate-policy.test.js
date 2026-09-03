@@ -157,9 +157,11 @@ for (const platform of ['mac', 'linux', 'win']) {
   });
 }
 
-test('tag and manual builds retain their explicit source inputs without a publish switch', () => {
-  assert.deepEqual(Object.keys(candidate.on).sort(), ['push', 'workflow_dispatch']);
-  assert.deepEqual(candidate.on.push, { tags: ['v*'] });
+test('candidate builds require an explicit manual dispatch without automatic tag runs', () => {
+  assert.deepEqual(Object.keys(candidate.on), ['workflow_dispatch']);
+  assert.equal(candidate.on.push, undefined);
+  assert.equal(candidate.on.pull_request, undefined);
+  assert.equal(candidate.on.schedule, undefined);
   const { inputs } = candidate.on.workflow_dispatch;
   assert.deepEqual(Object.keys(inputs), ['tag']);
   assert.equal(inputs.tag.type, 'string');
