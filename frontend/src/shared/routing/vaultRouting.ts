@@ -1,4 +1,4 @@
-import { fetchVaultCatalog } from '../api/vaults';
+import { fetchVaultCatalog, invalidateVaultCatalog } from '../api/vaults';
 import {
     ACTIVE_VAULT_ID_KEY,
     ACTIVE_VAULT_NAME_KEY,
@@ -98,6 +98,7 @@ export async function initializeVaultRouting({
     );
     let vaults = force ? [] : readVaultCatalog();
     try {
+        if (force) await invalidateVaultCatalog();
         const data = await fetchVaultCatalog();
         vaults = persistVaultCatalog(data.vaults);
     } catch {

@@ -41,6 +41,10 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - No registrar payloads, textos de pàgines, credencials ni contingut del vault durant el perfilat.
 - Nota: no renderitzar un component `lazy` tancat esperant que el seu `isOpen` eviti la descàrrega; React resol el mòdul tan bon punt el component entra a l'arbre. Cal condicionar el muntatge de la frontera `lazy` des del pare lleuger.
 - Nota: no interpretar un lint global sense sortida que no finalitza com un resultat vàlid. Cal interrompre'l, validar tots els fitxers modificats de forma explícita i repetir el lint global en la integració canònica, on les dependències no són una còpia temporal del worktree.
+- Nota: no deixar que diversos muntatges inicials consultin directament el mateix recurs. Cal compartir la clau i la promesa en curs, separar les claus dependents del vault i fer que la cancel·lació d'un consumidor no cancel·li els altres.
+- Nota: no confondre coalescència amb una cache immutable. Els canvis de vault i els refrescos explícits han d'invalidar la clau corresponent abans de tornar a consultar.
+- Nota: no executar el binari de Vitest del frontend des de l'arrel del repositori, perquè no carregarà la configuració jsdom del paquet i les proves d'emmagatzematge fallaran falsament. Cal executar-lo amb `frontend/` com a directori de treball.
+- Nota: no introduir `QueryClient.fetchQuery` en la versió actual de TanStack, perquè està deprecat i el lint estricte ho rebutja. Cal usar `QueryClient.query` per compartir consultes imperatives.
 
 ## Criteris d'acceptació
 

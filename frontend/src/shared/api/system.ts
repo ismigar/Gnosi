@@ -1,4 +1,6 @@
 import type { components } from '../../generated/openapi';
+import { bootstrapQueryKeys } from './bootstrap-query-keys';
+import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
@@ -76,9 +78,18 @@ export async function clearSystemNotifications(): Promise<ClearSystemNotificatio
 export async function fetchSystemHealth(
   signal?: AbortSignal,
 ): Promise<SystemHealth> {
-  return unwrapApiResult<SystemHealth, unknown>(
-    await apiClient.GET('/api/health', { signal }),
-  );
+  return fetchCachedQuery({
+    queryFn: async (sharedSignal) => unwrapApiResult<SystemHealth, unknown>(
+      await apiClient.GET('/api/health', { signal: sharedSignal }),
+    ),
+    queryKey: bootstrapQueryKeys.health,
+    signal,
+    staleTime: 60_000,
+  });
+}
+
+export async function invalidateSystemHealth(): Promise<void> {
+  await invalidateCachedQuery(bootstrapQueryKeys.health);
 }
 
 
