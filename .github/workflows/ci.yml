@@ -16,7 +16,10 @@ permissions:
 
 jobs:
   documentation:
-    if: github.event_name == 'pull_request' || inputs.release_candidate
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      inputs.release_candidate
     runs-on: [self-hosted, Linux, ARM64]
     permissions:
       contents: read
@@ -42,6 +45,9 @@ jobs:
           uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
   frontend:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
@@ -81,6 +87,9 @@ jobs:
       - run: pnpm --filter @gnosi/desktop typecheck:ipc
 
   backend:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
@@ -117,6 +126,9 @@ jobs:
       - run: uv run pytest
 
   native-smoke:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
@@ -162,6 +174,9 @@ jobs:
           GNOSI_BASE_URL: http://127.0.0.1:5173
 
   docker:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7

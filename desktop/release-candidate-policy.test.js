@@ -14,6 +14,10 @@ const ci = readWorkflow('ci');
 const desktopScripts = JSON.parse(fs.readFileSync(
   path.join(__dirname, 'package.json'), 'utf8',
 )).scripts;
+const TRUSTED_PR_IF = "github.event_name != 'pull_request' || "
+  + 'github.event.pull_request.head.repo.full_name == github.repository';
+const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
+  + 'github.event.pull_request.head.repo.full_name == github.repository) || inputs.release_candidate';
 const DEPENDENCIES = {
   preflight: [],
   quality: ['preflight'],
@@ -57,8 +61,8 @@ function assertQualityDependencies(workflow) {
 function assertFatalGates(workflow, reusableCI = false) {
   for (const [name, job] of Object.entries(workflow.jobs)) {
     assert.equal(job['continue-on-error'], undefined, `${name} failure must remain fatal by default`);
-    assert.equal(job.if, reusableCI && name === 'documentation'
-      ? "github.event_name == 'pull_request' || inputs.release_candidate" : undefined,
+    assert.equal(job.if, reusableCI
+      ? (name === 'documentation' ? DOCUMENTATION_IF : TRUSTED_PR_IF) : undefined,
     `${name} must not override successful dependency gating`);
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
@@ -187,6 +191,17 @@ test('shared CI uses only the owner self-hosted Linux ARM64 runner', () => {
   for (const [name, job] of Object.entries(ci.jobs)) {
     assert.deepEqual(job['runs-on'], ['self-hosted', 'Linux', 'ARM64'],
       `${name} must not consume a hosted runner`);
+  }
+});
+
+test('shared CI prevents fork pull requests from reaching self-hosted runners', () => {
+  assertFatalGates(ci, true);
+  for (const name of Object.keys(ci.jobs)) {
+    for (const weakened of [undefined, "github.event_name == 'pull_request'", '${{ always() }}']) {
+      const changed = structuredClone(ci);
+      changed.jobs[name].if = weakened;
+      assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
+    }
   }
 });
 
