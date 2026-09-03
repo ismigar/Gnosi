@@ -167,6 +167,10 @@ export default defineConfig(({ mode }) => {
       // fixtures inside the vendored Zotero Reader and tries to resolve the
       // PDF.js build-only aliases as application dependencies.
       entries: [path.join(rootDir, "index.html")],
+      // Keep Lucide's per-icon dynamic imports visible to Vite. If esbuild
+      // prebundles this entry, opening any stored custom icon makes the dev
+      // browser request the complete icon catalogue instead of one module.
+      exclude: ["lucide-react/dynamic"],
     },
     build: {
       // We separate large vendors into their own chunks because (1) the chunk

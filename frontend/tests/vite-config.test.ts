@@ -71,3 +71,11 @@ it.each(environments)(
     expect(config.resolve?.dedupe).toContain('yjs');
   },
 );
+
+it.each(environments)(
+  'keeps per-icon Lucide imports lazy for $command/$mode/$isPreview',
+  async environment => {
+    const config = await configured(environment);
+    expect(config.optimizeDeps?.exclude).toContain('lucide-react/dynamic');
+  },
+);

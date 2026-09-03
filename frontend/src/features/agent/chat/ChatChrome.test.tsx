@@ -51,10 +51,10 @@ describe('chat icon and floating dock', () => {
     expect(container.textContent).toBe('🧠'); expect(container.querySelector('span')?.style.fontSize).toBe('18px');
     await render(<ChatIcon icon="lucide:Brain" />);
     expect(container.querySelector('svg')?.getAttribute('data-icon')).toBe('brain');
-    expect(container.querySelector('svg')?.getAttribute('color')).toBe('white');
+    expect(container.querySelector('svg')?.getAttribute('stroke')).toBe('white');
     await render(<ChatIcon icon="lucide:ChevronDown:gray" />);
     expect(container.querySelector('svg')?.getAttribute('data-icon')).toBe('chevron-down');
-    expect(container.querySelector('svg')?.getAttribute('color')).toBe('gray');
+    expect(container.querySelector('svg')?.getAttribute('stroke')).toBe('gray');
     await render(<ChatIcon icon="lucide:not-an-icon" />);
     expect(container.querySelector('svg')).not.toBeNull(); expect(container.querySelector('[data-icon]')).toBeNull();
   });
