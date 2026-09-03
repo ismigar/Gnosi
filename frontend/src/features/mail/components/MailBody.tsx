@@ -6,7 +6,11 @@ import {
   subscribeWindowEvent,
 } from '../../../shared/platform/browser-events';
 import { subscribeAppSignal } from '../../../shared/platform/app-events';
-import { fetchRemoteMailImage } from '../../../shared/api/mail-specialized';
+import {
+  fetchRemoteMailImage,
+  RemoteMailImageFetchError,
+  type RemoteMailImageFailureReason,
+} from '../../../shared/api/mail-specialized';
 import {
   buildMailHtmlDocument,
   linkPlainMailText,
@@ -66,6 +70,10 @@ interface MailBodyProps {
   readonly remoteImageRecoveringLabel?: string;
   readonly remoteImageRetryLabel?: string;
   readonly remoteImageUnavailableDetail?: string;
+  readonly remoteImageBlockedDetail?: string;
+  readonly remoteImageTimeoutDetail?: string;
+  readonly remoteImageTooLargeDetail?: string;
+  readonly remoteImageUnsupportedDetail?: string;
   readonly remoteImageUnavailableLabel?: string;
 }
 
@@ -82,6 +90,10 @@ export function MailBody({
   remoteImageRecoveringLabel = 'Loading safely…',
   remoteImageRetryLabel = 'Try again',
   remoteImageUnavailableDetail = 'The origin blocked access or requires data that Gnosi does not send.',
+  remoteImageBlockedDetail = 'Gnosi blocked this source because it is not safe to request.',
+  remoteImageTimeoutDetail = 'The image server did not respond before the safe time limit.',
+  remoteImageTooLargeDetail = 'The image exceeds the safe download limit.',
+  remoteImageUnsupportedDetail = 'The source is not a verified supported raster image.',
   remoteImageUnavailableLabel = 'Remote image unavailable',
 }: MailBodyProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -125,19 +137,28 @@ export function MailBody({
       if (!objectUrls.delete(source)) return;
       URL.revokeObjectURL(source);
     };
-    const recoverSource = async (token: string): Promise<string | null> => {
+    const recoverSource = async (token: string) => {
       const source = renderedBody.remoteSources.get(token);
-      if (!source) return null;
+      if (!source) return { error: 'blocked' as const };
       try {
         const body = await fetchRemoteMailImage(source, abortController.signal);
-        if (!body) return null;
         const objectUrl = URL.createObjectURL(body);
         objectUrls.add(objectUrl);
-        return objectUrl;
-      } catch {
-        return null;
+        return { source: objectUrl };
+      } catch (error) {
+        if (error instanceof RemoteMailImageFetchError) {
+          return { error: error.reason };
+        }
+        return { error: 'unavailable' as const };
       }
     };
+    const failureDetail = (reason: RemoteMailImageFailureReason): string => ({
+      blocked: remoteImageBlockedDetail,
+      timeout: remoteImageTimeoutDetail,
+      too_large: remoteImageTooLargeDetail,
+      unavailable: remoteImageUnavailableDetail,
+      unsupported: remoteImageUnsupportedDetail,
+    })[reason];
     const openOriginalSource = (token: string): void => {
       const source = renderedBody.remoteSources.get(token);
       if (!source) return;
@@ -156,6 +177,7 @@ export function MailBody({
         recoveryCleanups.push(installRemoteMailImageRecovery(document, {
           fallbackLabel: remoteImageUnavailableLabel,
           fallbackDetail: remoteImageUnavailableDetail,
+          failureDetail,
           openOriginalLabel: remoteImageOpenOriginalLabel,
           onStateChange: () => {
             setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
@@ -194,12 +216,16 @@ export function MailBody({
     messageId,
     renderedBody,
     remoteImageBlockedLabel,
+    remoteImageBlockedDetail,
     remoteImageOpenOriginalLabel,
     remoteImageRecoveryLabel,
     remoteImageRecoveringLabel,
     remoteImageRetryLabel,
     remoteImageUnavailableDetail,
     remoteImageUnavailableLabel,
+    remoteImageTimeoutDetail,
+    remoteImageTooLargeDetail,
+    remoteImageUnsupportedDetail,
   ]);
 
   if (bodyHtml) {

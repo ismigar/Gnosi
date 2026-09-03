@@ -54,6 +54,18 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
   const entities = controller.extractedEntities;
   const { t } = controller;
   const statusCopy = {
+    credentials: t(
+      'mail.smart_analysis_credentials',
+      'Smart analysis credentials are missing or were rejected. Review the provider in Settings.',
+    ),
+    disabled: t(
+      'mail.smart_analysis_disabled',
+      'Smart analysis is disabled. Enable a provider in Settings to use it.',
+    ),
+    internal_error: t(
+      'mail.smart_analysis_internal_error',
+      'Gnosi could not complete the local analysis. Try again; if it persists, review the application logs.',
+    ),
     invalid_response: t(
       'mail.smart_analysis_invalid_response',
       'The analysis service returned an invalid response. You can try again.',
@@ -66,6 +78,14 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
       'mail.smart_analysis_not_configured',
       'Smart analysis is not configured. Add an AI provider in Settings.',
     ),
+    quota: t(
+      'mail.smart_analysis_quota',
+      'The configured providers have reached a quota or rate limit. Try again later or choose another provider.',
+    ),
+    timeout: t(
+      'mail.smart_analysis_timeout',
+      'The configured providers did not respond in time. Try again or choose another provider.',
+    ),
     temporarily_unavailable: t(
       'mail.smart_analysis_temporarily_unavailable',
       'Smart analysis is temporarily unavailable. You can try again.',
@@ -73,7 +93,10 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
   } as const;
   if (controller.analysisStatus in statusCopy) {
     const retryable = controller.analysisStatus === 'invalid_response'
-      || controller.analysisStatus === 'temporarily_unavailable';
+      || controller.analysisStatus === 'temporarily_unavailable'
+      || controller.analysisStatus === 'timeout'
+      || controller.analysisStatus === 'quota'
+      || controller.analysisStatus === 'internal_error';
     const StatusIcon = retryable
       ? AlertTriangle
       : controller.analysisStatus === 'no_entities' ? Sparkles : Info;
@@ -96,6 +119,9 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
   const local = entities.localAnalysis;
   const preservedResult = entities.resultSource === 'previous_valid';
   const locallyProduced = entities.resultSource === 'local';
+  const degradationCopy = entities.analysisReason
+    ? statusCopy[entities.analysisReason]
+    : null;
   return (
     <div className="bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-3xl p-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500 backdrop-blur-sm" data-mail-analysis-source={entities.resultSource ?? undefined} data-mail-analysis-status={controller.analysisStatus}>
       {(locallyProduced || preservedResult) && (
@@ -111,6 +137,11 @@ export function MailSmartSuggestions({ controller }: { readonly controller: Mail
               'mail.smart_analysis_local_results',
               'Analyzed locally from explicit message content. Review suggestions before adding them.',
             )}</span>
+            {degradationCopy && (
+              <span className="text-xs opacity-75" data-mail-analysis-degradation={entities.analysisReason ?? undefined}>
+                {degradationCopy}
+              </span>
+            )}
           </div>
           <button className="shrink-0 px-3 py-1.5 rounded-lg bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] text-xs font-bold hover:opacity-80" onClick={controller.analyzeMessage} type="button">
             {t('mail.smart_analysis_retry_online', 'Try online analysis')}

@@ -1,9 +1,11 @@
 import { subscribeElementEvent } from '../../../shared/platform/browser-events';
+import type { RemoteMailImageFailureReason } from '../../../shared/api/mail-specialized';
 
 
 interface RemoteMailImageRecoveryOptions {
   readonly fallbackLabel: string;
   readonly fallbackDetail: string;
+  readonly failureDetail?: (reason: RemoteMailImageFailureReason) => string;
   readonly openOriginalLabel: string;
   readonly onStateChange?: () => void;
   readonly openOriginalSource?: (token: string) => void;
@@ -11,10 +13,16 @@ interface RemoteMailImageRecoveryOptions {
   readonly recoveryActionLabel: string;
   readonly recoveringLabel: string;
   readonly retryLabel: string;
-  readonly recoverSource?: (token: string) => Promise<string | null>;
+  readonly recoverSource?: (token: string) => Promise<RemoteImageRecoveryResult>;
   readonly releaseRecoveredSource?: (source: string) => void;
   readonly timeoutMs?: number;
+  readonly maxRetries?: number;
 }
+
+
+export type RemoteImageRecoveryResult =
+  | { readonly source: string }
+  | { readonly error: RemoteMailImageFailureReason };
 
 
 interface RemoteImagePresentation {
@@ -45,6 +53,7 @@ export function installRemoteMailImageRecovery(
   options: RemoteMailImageRecoveryOptions,
 ): () => void {
   const timeoutMs = options.timeoutMs ?? 8000;
+  const maxRetries = options.maxRetries ?? 3;
   const cleanups: Array<() => void> = [];
 
   const monitor = (image: HTMLImageElement): void => {
@@ -56,7 +65,10 @@ export function installRemoteMailImageRecovery(
     let recoveredSource: string | null = null;
     let activeFallback: HTMLElement | null = null;
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    let recoveryAttempts = 0;
+    let failureReason: RemoteMailImageFailureReason = 'unavailable';
     const presentation = readPresentation(image);
+    const localImage = image.dataset.gnosiLocalImage === 'pending';
 
     const clearTimers = (): void => {
       if (timeoutTimer !== undefined) {
@@ -111,11 +123,18 @@ export function installRemoteMailImageRecovery(
     };
     const renderFinalCopy = (fallback: HTMLElement): void => {
       fallback.dataset.gnosiRemoteImage = 'unavailable';
-      renderCopy(fallback, options.fallbackLabel, options.fallbackDetail);
+      fallback.dataset.gnosiRemoteImageReason = failureReason;
+      renderCopy(
+        fallback,
+        options.fallbackLabel,
+        options.failureDetail?.(failureReason) ?? options.fallbackDetail,
+      );
     };
     const startRecovery = (fallback: HTMLElement, token: string): void => {
       if (!active || !options.recoverSource
+        || recoveryAttempts >= maxRetries
         || (phase !== 'offered' && phase !== 'failed')) return;
+      recoveryAttempts += 1;
       phase = 'recovering';
       fallback.dataset.gnosiRemoteImage = 'recovering';
       fallback.setAttribute('aria-live', 'polite');
@@ -124,20 +143,21 @@ export function installRemoteMailImageRecovery(
         button.disabled = true;
         button.textContent = options.recoveringLabel;
       }
-      void options.recoverSource(token).then((nextSource) => {
+      void options.recoverSource(token).then((result) => {
         if (!active || phase !== 'recovering' || !fallback.isConnected) {
-          if (nextSource) options.releaseRecoveredSource?.(nextSource);
+          if ('source' in result) options.releaseRecoveredSource?.(result.source);
           return;
         }
-        if (!nextSource) {
+        if ('error' in result) {
+          failureReason = result.error;
           renderFailure(fallback, token);
           return;
         }
-        recoveredSource = nextSource;
+        recoveredSource = result.source;
         phase = 'recovered';
         image.dataset.gnosiRemoteImage = 'recovered';
         timeoutTimer = setTimeout(showFailedImage, timeoutMs);
-        image.src = nextSource;
+        image.src = result.source;
         options.onStateChange?.();
       }).catch(() => {
         if (!active || phase !== 'recovering') return;
@@ -162,7 +182,7 @@ export function installRemoteMailImageRecovery(
     const appendActions = (fallback: HTMLElement, token: string, label: string): void => {
       const actions = document.createElement('span');
       actions.className = 'gnosi-remote-image-actions';
-      if (options.recoverSource) {
+      if (options.recoverSource && recoveryAttempts < maxRetries) {
         appendAction(
           actions,
           token,
@@ -228,6 +248,13 @@ export function installRemoteMailImageRecovery(
       options.onStateChange?.();
     };
     const markLoaded = (): void => {
+      if (localImage && phase === 'pending') {
+        phase = 'loaded';
+        clearTimers();
+        image.dataset.gnosiLocalImage = 'loaded';
+        options.onStateChange?.();
+        return;
+      }
       if (phase !== 'recovered' || !activeFallback?.isConnected) return;
       phase = 'loaded';
       clearTimers();
@@ -238,7 +265,9 @@ export function installRemoteMailImageRecovery(
     };
     const unsubscribeLoad = subscribeElementEvent(image, 'load', markLoaded);
     const unsubscribeError = subscribeElementEvent(image, 'error', () => {
-      if (phase === 'recovered') showFailedImage();
+      if (phase === 'recovered' || (localImage && phase === 'pending')) {
+        showFailedImage();
+      }
     });
     cleanups.push(() => {
       active = false;
@@ -252,11 +281,17 @@ export function installRemoteMailImageRecovery(
       showFailedImage();
       return;
     }
+    if (localImage) {
+      timeoutTimer = setTimeout(showFailedImage, timeoutMs);
+      return;
+    }
     offerRecovery();
   };
 
   document
-    .querySelectorAll<HTMLImageElement>('img[data-gnosi-remote-image]')
+    .querySelectorAll<HTMLImageElement>(
+      'img[data-gnosi-remote-image], img[data-gnosi-local-image]',
+    )
     .forEach((image) => {
       monitor(image);
     });

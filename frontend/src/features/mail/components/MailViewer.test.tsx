@@ -173,30 +173,23 @@ describe('MailViewer', () => {
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
-  it('distinguishes missing configuration and temporary provider failure', async () => {
+  it('distinguishes every actionable analysis failure without automatic toasts', async () => {
     mocks.fetchMessage.mockResolvedValue(message('analysis-status'));
-    mocks.extractEntities.mockResolvedValueOnce({
-      contacts: [],
-      events: [],
-      error: 'not_configured',
-    });
     await render({ mail: message('analysis-status') });
     expect(mocks.extractEntities).not.toHaveBeenCalled();
     expect(container.querySelector('[data-mail-analysis-status]')).toBeNull();
-    expect(mocks.toastError).not.toHaveBeenCalled();
-    await runSmartAnalysis();
-    expect(container.querySelector('[data-mail-analysis-status="not_configured"]'))
-      .not.toBeNull();
-
-    mocks.extractEntities.mockResolvedValueOnce({
-      contacts: [],
-      events: [],
-      error: 'temporarily_unavailable',
-    });
-    await runSmartAnalysis();
-    expect(container.querySelector(
-      '[data-mail-analysis-status="temporarily_unavailable"]',
-    )).not.toBeNull();
+    for (const reason of [
+      'not_configured', 'disabled', 'timeout', 'credentials', 'quota',
+      'temporarily_unavailable', 'invalid_response', 'internal_error',
+    ] as const) {
+      mocks.extractEntities.mockResolvedValueOnce({
+        analysis_reason: reason,
+        contacts: [], events: [], error: reason, status: 'degraded',
+      });
+      await runSmartAnalysis();
+      expect(container.querySelector(`[data-mail-analysis-status="${reason}"]`))
+        .not.toBeNull();
+    }
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
@@ -210,6 +203,7 @@ describe('MailViewer', () => {
         notes: '',
         phone: '',
       }],
+      analysis_reason: 'timeout',
       events: [],
       degraded_reason: 'providers_failed',
       local_analysis: {
@@ -246,6 +240,8 @@ describe('MailViewer', () => {
     expect(container.textContent).toContain('Try online analysis');
     expect(container.querySelector('[data-mail-analysis-provenance="local"]'))
       .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-degradation="timeout"]'))
+      .not.toBeNull();
     expect([action('Smart analysis').disabled, mocks.toastError.mock.calls]).toEqual([false, []]);
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
@@ -260,6 +256,7 @@ describe('MailViewer', () => {
         notes: '',
         phone: '',
       }],
+      analysis_reason: 'not_configured',
       events: [],
       provider: 'local_deterministic',
       result_source: 'local',
@@ -275,7 +272,6 @@ describe('MailViewer', () => {
       .toBeNull();
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
-
   it('keeps previous valid results when every provider fails on retry', async () => {
     mocks.fetchMessage.mockResolvedValue(message('preserve-analysis'));
     mocks.extractEntities
@@ -293,6 +289,7 @@ describe('MailViewer', () => {
         status: 'complete',
       })
       .mockResolvedValueOnce({
+        analysis_reason: 'timeout',
         contacts: [{
           company: '',
           email: 'ada@example.test',
@@ -343,6 +340,7 @@ describe('MailViewer', () => {
       .not.toBeNull();
     expect(container.querySelector('[data-mail-analysis-provenance="previous"]'))
       .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-degradation="timeout"]')).not.toBeNull();
     expect([action('Smart analysis').disabled, mocks.toastError.mock.calls]).toEqual([false, []]);
     expect(mocks.markRead).not.toHaveBeenCalled();
   });
@@ -352,6 +350,7 @@ describe('MailViewer', () => {
     mocks.extractEntities
       .mockResolvedValueOnce({
         contacts: [],
+        analysis_reason: 'timeout',
         degraded_reason: 'providers_failed',
         events: [],
         local_analysis: {
@@ -400,8 +399,9 @@ describe('MailViewer', () => {
     mocks.fetchMessage.mockResolvedValue(message('local-analysis-failure'));
     mocks.extractEntities.mockResolvedValue({
       contacts: [],
+      analysis_reason: 'internal_error',
       degraded_reason: 'providers_failed',
-      error: 'invalid_response',
+      error: 'internal_error',
       events: [],
       provider: 'local_deterministic',
       result_source: 'local',
@@ -414,10 +414,10 @@ describe('MailViewer', () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelector('[data-mail-analysis-status="invalid_response"]'))
-      .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-status="internal_error"]')).not.toBeNull();
     expect(container.textContent).toContain('Message body');
-    expect(container.textContent).toContain('You can try again');
+    expect(container.textContent).toContain('Try again; if it persists');
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
   it('waits for the selected detail before fetching its complete thread', async () => {

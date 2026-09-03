@@ -9,6 +9,7 @@ import re
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
+from typing import Literal, TypeAlias
 from urllib.parse import urlparse
 
 import requests
@@ -29,6 +30,18 @@ log = logging.getLogger(__name__)
 
 class MailAnalysisInvalidResponseError(RuntimeError):
     """Raised when a provider response is not the entity JSON contract."""
+
+
+AnalysisReason: TypeAlias = Literal[
+    "not_configured",
+    "disabled",
+    "timeout",
+    "credentials",
+    "quota",
+    "temporarily_unavailable",
+    "invalid_response",
+    "internal_error",
+]
 
 
 _HOSTED_PROVIDERS_REQUIRING_CREDENTIALS = {
@@ -110,6 +123,42 @@ def _configured_provider_names() -> list[str]:
             continue
         configured.append(name)
     return configured
+
+
+def _configuration_failure_reason() -> AnalysisReason:
+    """Explain why no provider can run without making a provider request."""
+    from pipeline import ai_client
+
+    saw_disabled = False
+    saw_missing_credentials = False
+    saw_enabled_candidate = False
+    for name in dict.fromkeys(
+        candidate
+        for candidate in (ai_client.PRIMARY_PROVIDER, ai_client.FALLBACK_PROVIDER)
+        if candidate
+    ):
+        config = ai_client.PROVIDERS.get(name)
+        if not isinstance(config, dict):
+            continue
+        if config.get("enabled", True) is False:
+            saw_disabled = True
+            continue
+        saw_enabled_candidate = True
+        model_url = str(config.get("model_url") or "").strip()
+        model_name = str(config.get("model_name") or "").strip()
+        if not model_url or not model_name:
+            continue
+        if (
+            name.casefold() in _HOSTED_PROVIDERS_REQUIRING_CREDENTIALS
+            and not _is_local_endpoint(model_url)
+            and not resolve_provider_api_key(name, config)
+        ):
+            saw_missing_credentials = True
+    if saw_missing_credentials:
+        return "credentials"
+    if saw_disabled and not saw_enabled_candidate:
+        return "disabled"
+    return "not_configured"
 
 
 async def request_entity_analysis(
@@ -222,9 +271,23 @@ def _provider_failure_status(error: Exception) -> str:
     return "unavailable"
 
 
+def _provider_exhaustion_reason(attempts: list[dict[str, str]]) -> AnalysisReason:
+    statuses = {attempt.get("status", "") for attempt in attempts}
+    if "unauthorized" in statuses:
+        return "credentials"
+    if "rate_limited" in statuses:
+        return "quota"
+    if "timeout" in statuses and statuses <= {"timeout", "unavailable"}:
+        return "timeout"
+    if statuses == {"invalid_response"}:
+        return "invalid_response"
+    return "temporarily_unavailable"
+
+
 async def _local_fallback(
     context: str,
     reason: str,
+    analysis_reason: AnalysisReason,
     attempts: list[dict[str, str]],
     *,
     sender: str,
@@ -260,10 +323,8 @@ async def _local_fallback(
     if not isinstance(previous_result, (PreviousMailAnalysis, type(None))):
         log.warning("Previous mail analysis could not be read")
     if local is None:
-        error_code = (
-            "temporarily_unavailable"
-            if isinstance(local_result, BaseException)
-            else "invalid_response"
+        error_code: AnalysisReason = (
+            "internal_error" if isinstance(local_result, BaseException) else "invalid_response"
         )
         log.warning("Deterministic local mail analysis failed (%s)", error_code)
         if previous is not None:
@@ -274,6 +335,7 @@ async def _local_fallback(
                 "status": "complete",
                 "result_source": "previous_valid",
                 "degraded_reason": reason,
+                "analysis_reason": error_code,
                 "provider_attempts": attempts,
             }
         return {
@@ -284,6 +346,7 @@ async def _local_fallback(
             "status": "degraded",
             "result_source": "local",
             "degraded_reason": reason,
+            "analysis_reason": error_code,
             "provider_attempts": attempts,
         }
     return {
@@ -293,6 +356,7 @@ async def _local_fallback(
         "status": "complete",
         "result_source": "previous_valid" if previous is not None else "local",
         "degraded_reason": reason,
+        "analysis_reason": analysis_reason,
         "provider_attempts": attempts,
         "local_analysis": local.report.as_dict(),
     }
@@ -346,9 +410,16 @@ async def analyze_mail_entities(
             "result_source": "provider",
             "provider_attempts": attempts,
         }
+    degraded_reason = "not_configured" if not configured else "providers_failed"
+    analysis_reason = (
+        _configuration_failure_reason()
+        if not configured
+        else _provider_exhaustion_reason(attempts)
+    )
     return await _local_fallback(
         context,
-        "not_configured" if not configured else "providers_failed",
+        degraded_reason,
+        analysis_reason,
         attempts,
         sender=sender,
         recipients=recipients,

@@ -245,6 +245,16 @@ class MailExtractEntitiesResponse(BaseModel):
     status: Literal["complete", "degraded"] | None = None
     result_source: Literal["provider", "local", "previous_valid"] | None = None
     degraded_reason: Literal["not_configured", "providers_failed"] | None = None
+    analysis_reason: Literal[
+        "not_configured",
+        "disabled",
+        "timeout",
+        "credentials",
+        "quota",
+        "temporarily_unavailable",
+        "invalid_response",
+        "internal_error",
+    ] | None = None
     provider_attempts: list[MailProviderAttemptResponse] = Field(default_factory=list)
     local_analysis: MailLocalAnalysisResponse | None = None
 

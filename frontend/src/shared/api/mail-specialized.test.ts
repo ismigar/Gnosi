@@ -76,8 +76,8 @@ describe('specialized mail transports', () => {
 
     const image = await fetchRemoteMailImage('https://images.example.test/a.png');
 
-    expect(image?.type).toBe('image/png');
-    expect(image?.size).toBe(3);
+    expect(image.type).toBe('image/png');
+    expect(image.size).toBe(3);
     const [input, init] = fetchMock.mock.calls[0] || [];
     const request = input instanceof Request
       ? input
@@ -85,6 +85,24 @@ describe('specialized mail transports', () => {
     expect(request.method).toBe('POST');
     expect(await request.json()).toEqual({
       url: 'https://images.example.test/a.png',
+    });
+  });
+
+  it.each([
+    ['blocked_url', 'blocked'],
+    ['timeout', 'timeout'],
+    ['image_too_large', 'too_large'],
+    ['invalid_image', 'unsupported'],
+    ['origin_unavailable', 'unavailable'],
+  ] as const)('retains safe remote image failure %s as %s', async (detail, reason) => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ detail }, { status: 502 }),
+    ));
+
+    const request = fetchRemoteMailImage('https://images.example.test/a.png');
+
+    await expect(request).rejects.toMatchObject({
+      reason,
     });
   });
 });

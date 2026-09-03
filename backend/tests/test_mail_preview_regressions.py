@@ -91,6 +91,7 @@ def test_entity_analysis_enforces_timeout_outside_provider_client(
     assert result["provider_attempts"] == [
         {"provider": "fixture", "status": "timeout"}
     ]
+    assert result["analysis_reason"] == "timeout"
 
 
 def test_entity_analysis_bounds_workers_when_provider_ignores_timeout(
@@ -163,6 +164,7 @@ def test_entity_analysis_treats_local_fallback_as_a_normal_result(
     assert result["provider"] == "local_deterministic"
     assert result["result_source"] == "local"
     assert result["degraded_reason"] == "providers_failed"
+    assert result["analysis_reason"] == "temporarily_unavailable"
     assert result["provider_attempts"] == [
         {"provider": "fixture", "status": "unavailable"}
     ]
@@ -206,6 +208,11 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
 ) -> None:
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: [])
     monkeypatch.setattr(
+        analysis,
+        "_configuration_failure_reason",
+        lambda: "not_configured",
+    )
+    monkeypatch.setattr(
         "pipeline.ai_client.call_ai_with_fallback",
         lambda *_args, **_kwargs: pytest.fail("an unconfigured provider must not run"),
     )
@@ -235,6 +242,7 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
     assert result["provider"] == "local_deterministic"
     assert result["status"] == "complete"
     assert result["degraded_reason"] == "not_configured"
+    assert result["analysis_reason"] == "not_configured"
     assert result["provider_attempts"] == []
 
     restarted_result = asyncio.run(
@@ -270,7 +278,8 @@ def test_entity_analysis_errors_only_when_local_processing_also_fails(
     )
 
     assert result["status"] == "degraded"
-    assert result["error"] == "temporarily_unavailable"
+    assert result["error"] == "internal_error"
+    assert result["analysis_reason"] == "internal_error"
     assert result["events"] == []
     assert result["contacts"] == []
     assert "synthetic local failure" not in str(result)
@@ -280,6 +289,11 @@ def test_entity_analysis_rejects_an_invalid_local_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: [])
+    monkeypatch.setattr(
+        analysis,
+        "_configuration_failure_reason",
+        lambda: "not_configured",
+    )
     monkeypatch.setattr(
         analysis,
         "extract_local_entities",
@@ -292,6 +306,7 @@ def test_entity_analysis_rejects_an_invalid_local_contract(
 
     assert result["status"] == "degraded"
     assert result["error"] == "invalid_response"
+    assert result["analysis_reason"] == "invalid_response"
     assert result["provider"] == "local_deterministic"
 
 
@@ -325,18 +340,19 @@ def test_entity_analysis_distinguishes_empty_and_invalid_responses(
 
 
 @pytest.mark.parametrize(
-    ("failure", "expected"),
+    ("failure", "expected", "expected_reason"),
     [
-        (TimeoutError("synthetic"), "timeout"),
-        (RuntimeError("AI error 401: private response"), "unauthorized"),
-        (RuntimeError("AI error 429: private response"), "rate_limited"),
-        (RuntimeError("AI error 503: private response"), "server_error"),
+        (TimeoutError("synthetic"), "timeout", "timeout"),
+        (RuntimeError("AI error 401: private response"), "unauthorized", "credentials"),
+        (RuntimeError("AI error 429: private response"), "rate_limited", "quota"),
+        (RuntimeError("AI error 503: private response"), "server_error", "temporarily_unavailable"),
     ],
 )
 def test_entity_analysis_classifies_provider_failures_without_details(
     monkeypatch: pytest.MonkeyPatch,
     failure: Exception,
     expected: str,
+    expected_reason: str,
 ) -> None:
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
     monkeypatch.setattr(
@@ -351,6 +367,7 @@ def test_entity_analysis_classifies_provider_failures_without_details(
     assert result["provider_attempts"] == [
         {"provider": "fixture", "status": expected}
     ]
+    assert result["analysis_reason"] == expected_reason
     assert "private response" not in str(result)
 
 
@@ -440,6 +457,7 @@ def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(
     assert recovered["provider_attempts"] == [
         {"provider": "fixture", "status": "timeout"}
     ]
+    assert recovered["analysis_reason"] == "timeout"
     stored = next((tmp_path / "analysis-results").glob("*.json")).read_text()
     assert "Synthetic body" not in stored
     assert "sender@example.test" not in stored
@@ -476,6 +494,7 @@ def test_entity_analysis_preserves_exact_previous_result_if_local_processing_fai
     assert recovered["provider"] == "previous_valid"
     assert recovered["result_source"] == "previous_valid"
     assert recovered["events"] == [{"title": "Cached fixture"}]
+    assert recovered["analysis_reason"] == "internal_error"
     assert "error" not in recovered
 
 
@@ -510,6 +529,70 @@ def test_entity_analysis_does_not_reuse_previous_result_for_different_input(
     assert result["provider"] == "local_deterministic"
     assert result["result_source"] == "local"
     assert result["events"] == []
+
+
+@pytest.mark.parametrize(
+    ("provider_config", "api_key", "expected"),
+    [
+        ({"enabled": False, "model_name": "model", "model_url": "https://ai.example.test"}, None, "disabled"),
+        ({"enabled": True, "model_name": "model", "model_url": "https://ai.example.test"}, None, "credentials"),
+        ({"enabled": True, "model_name": "", "model_url": ""}, None, "not_configured"),
+    ],
+)
+def test_entity_analysis_classifies_local_provider_configuration_without_requests(
+    monkeypatch: pytest.MonkeyPatch,
+    provider_config: dict[str, object],
+    api_key: str | None,
+    expected: str,
+) -> None:
+    from pipeline import ai_client
+
+    monkeypatch.setattr(ai_client, "PRIMARY_PROVIDER", "openai")
+    monkeypatch.setattr(ai_client, "FALLBACK_PROVIDER", None)
+    monkeypatch.setattr(ai_client, "PROVIDERS", {"openai": provider_config})
+    monkeypatch.setattr(
+        analysis,
+        "resolve_provider_api_key",
+        lambda *_args, **_kwargs: api_key,
+    )
+    monkeypatch.setattr(
+        ai_client,
+        "call_ai_client",
+        lambda *_args, **_kwargs: pytest.fail("configuration inspection must not call a provider"),
+    )
+
+    assert analysis._configured_provider_names() == []
+    assert analysis._configuration_failure_reason() == expected
+
+
+def test_entity_analysis_cancellation_stops_the_cascade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = asyncio.Event()
+    local_called = False
+
+    async def pending_provider(_prompt: str, _provider: str, _timeout: int) -> str:
+        started.set()
+        await asyncio.Future()
+
+    def local_fallback(*_args: object, **_kwargs: object) -> object:
+        nonlocal local_called
+        local_called = True
+        return object()
+
+    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
+    monkeypatch.setattr(analysis, "request_entity_analysis", pending_provider)
+    monkeypatch.setattr(analysis, "extract_local_entities", local_fallback)
+
+    async def cancel_running_analysis() -> None:
+        task = asyncio.create_task(analysis.analyze_mail_entities("fixture"))
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(cancel_running_analysis())
+    assert local_called is False
 
 
 def test_inline_image_uses_detail_cache_without_a_second_provider_fetch(

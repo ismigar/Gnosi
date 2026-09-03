@@ -15722,6 +15722,8 @@ export interface components {
         };
         /** MailExtractEntitiesResponse */
         MailExtractEntitiesResponse: {
+            /** Analysis Reason */
+            analysis_reason?: ("not_configured" | "disabled" | "timeout" | "credentials" | "quota" | "temporarily_unavailable" | "invalid_response" | "internal_error") | null;
             /** Contacts */
             contacts: components["schemas"]["JsonValue"][];
             /** Degraded Reason */

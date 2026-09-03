@@ -9,6 +9,7 @@ import type {
   MailExtractedEntities,
   MailExtractedEvent,
   MailAnalysisEvidence,
+  MailAnalysisReason,
   MailLocalAnalysis,
   MailProviderAttempt,
   MailViewerMessage,
@@ -20,6 +21,10 @@ export const MAIL_DARK_BODY_KEY = defineStorageKey(
   'gnosi_mail_dark_body',
   stringStorageCodec,
 );
+
+const MAX_INLINE_DATA_IMAGE_CHARS = 11_200_000;
+const SAFE_INLINE_DATA_IMAGE = /^data:image\/(?:avif|gif|jpeg|png|webp);base64,[a-z0-9+/=\s]+$/i;
+const SAFE_LOCAL_MAIL_IMAGE = /^\/api\/mail\/messages\/[^/?#]+\/(?:cid|attachments)\/[^?#]+(?:\?[^#]*)?$/i;
 
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -86,6 +91,12 @@ function deferredImageSource(image: HTMLImageElement): string {
 }
 
 
+function isSafeInlineDataImage(source: string): boolean {
+  return source.length <= MAX_INLINE_DATA_IMAGE_CHARS
+    && SAFE_INLINE_DATA_IMAGE.test(source);
+}
+
+
 export function buildMailHtmlDocument(
   html: string,
   options: MailHtmlDocumentOptions,
@@ -108,6 +119,9 @@ export function buildMailHtmlDocument(
         options.email,
         options.folder || 'INBOX',
       );
+    } else if (currentSource.toLocaleLowerCase().startsWith('cid:')) {
+      image.removeAttribute('src');
+      image.dataset.gnosiRemoteImage = 'blocked';
     } else {
       // Lazy-loading scripts cannot run inside the sandboxed mail canvas.
       // A deferred source is therefore authoritative even when the sender
@@ -143,6 +157,18 @@ export function buildMailHtmlDocument(
         image.removeAttribute('src');
         image.dataset.gnosiRemoteImage = 'blocked';
       }
+    } else if (finalSource.startsWith('data:')) {
+      if (isSafeInlineDataImage(finalSource)) {
+        image.dataset.gnosiLocalImage = 'pending';
+      } else {
+        image.removeAttribute('src');
+        image.dataset.gnosiRemoteImage = 'blocked';
+      }
+    } else if (SAFE_LOCAL_MAIL_IMAGE.test(finalSource)) {
+      image.dataset.gnosiLocalImage = 'pending';
+    } else if (finalSource) {
+      image.removeAttribute('src');
+      image.dataset.gnosiRemoteImage = 'blocked';
     }
   }
   const policy = document.createElement('meta');
@@ -296,6 +322,7 @@ function normalizeProviderAttempts(value: unknown): MailProviderAttempt[] {
 
 
 export function normalizeMailEntities(value: {
+  readonly analysis_reason?: unknown;
   readonly contacts?: readonly unknown[];
   readonly degraded_reason?: unknown;
   readonly events?: readonly unknown[];
@@ -303,9 +330,18 @@ export function normalizeMailEntities(value: {
   readonly provider_attempts?: unknown;
   readonly result_source?: unknown;
 }): MailExtractedEntities {
+  const allowedAnalysisReasons = new Set<MailAnalysisReason>([
+    'not_configured', 'disabled', 'timeout', 'credentials', 'quota',
+    'temporarily_unavailable', 'invalid_response', 'internal_error',
+  ]);
+  const analysisReason = value.analysis_reason;
   const degradedReason = value.degraded_reason;
   const resultSource = value.result_source;
   return {
+    analysisReason: typeof analysisReason === 'string'
+      && allowedAnalysisReasons.has(analysisReason as MailAnalysisReason)
+      ? analysisReason as MailAnalysisReason
+      : null,
     contacts: (value.contacts ?? [])
       .map(normalizeContact)
       .filter((item): item is MailExtractedContact => item !== null),

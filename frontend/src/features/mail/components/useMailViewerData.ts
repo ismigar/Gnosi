@@ -104,11 +104,12 @@ export function useMailViewerData({
       const hasResults = entities.events.length > 0 || entities.contacts.length > 0
         || entities.localAnalysis !== null;
       if (response.error && !hasResults) {
-        const status: MailAnalysisStatus = response.error === 'not_configured'
-          ? 'not_configured'
-          : response.error === 'invalid_response'
-            ? 'invalid_response'
-            : 'temporarily_unavailable';
+        const status: MailAnalysisStatus = entities.analysisReason
+          ?? (response.error === 'not_configured'
+            ? 'not_configured'
+            : response.error === 'invalid_response'
+              ? 'invalid_response'
+              : 'temporarily_unavailable');
         setAnalysisStatus(status);
         return;
       }
@@ -120,7 +121,7 @@ export function useMailViewerData({
           toast.success(t('mail.smart_suggestions_found', 'Smart suggestions found'));
         }
       } else {
-        setAnalysisStatus('no_entities');
+        setAnalysisStatus(entities.analysisReason ?? 'no_entities');
       }
     } catch (error) {
       if (requestId !== analysisRequestRef.current) return;

@@ -88,6 +88,7 @@ export interface MailProviderAttempt {
 
 
 export interface MailExtractedEntities {
+  readonly analysisReason: MailAnalysisReason | null;
   readonly contacts: readonly MailExtractedContact[];
   readonly degradedReason: 'not_configured' | 'providers_failed' | null;
   readonly events: readonly MailExtractedEvent[];
@@ -97,6 +98,17 @@ export interface MailExtractedEntities {
 }
 
 
+export type MailAnalysisReason =
+  | 'not_configured'
+  | 'disabled'
+  | 'timeout'
+  | 'credentials'
+  | 'quota'
+  | 'temporarily_unavailable'
+  | 'invalid_response'
+  | 'internal_error';
+
+
 export type MailAnalysisStatus =
   | 'idle'
   | 'analyzing'
@@ -104,8 +116,13 @@ export type MailAnalysisStatus =
   | 'local_results'
   | 'no_entities'
   | 'not_configured'
+  | 'disabled'
+  | 'timeout'
+  | 'credentials'
+  | 'quota'
   | 'temporarily_unavailable'
-  | 'invalid_response';
+  | 'invalid_response'
+  | 'internal_error';
 
 
 export interface MailComposeRequest {
