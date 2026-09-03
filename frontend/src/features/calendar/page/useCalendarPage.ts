@@ -30,7 +30,7 @@ export function useCalendarPage() {
     const reminderSettingsQuery = useMeetingReminderSettings(aiMeetingsEnabled);
     const updateReminderSettingsMutation = useUpdateMeetingReminderSettings();
     const sources = useCalendarSources(searchQuery, dateRange);
-    const actions = useCalendarEventActions(sources, setShowRightSidebar, dateRange, searchQuery);
+    const actions = useCalendarEventActions(sources, setShowRightSidebar, dateRange);
     const recurrence = useCalendarRecurrence(sources, actions);
     useEffect(() => {
         if (!isCompact) return;

@@ -4,7 +4,7 @@ import { CalendarSidebarRight } from '../components/CalendarSidebarRight';
 import type { CalendarPageController } from './useCalendarPage';
 
 export function CalendarPageWorkspace({ controller }: {controller: CalendarPageController}) {
- const { t, isCompact, showLeftSidebar, showRightSidebar, setShowLeftSidebar, setShowRightSidebar, calendarRef, calendarConfigs, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, integrations, undatedNotes, handleEventClick, loading, pages, externalEvents, searchQuery, handleContextMenu, fetchPages, setCurrentTitle, setDateRange, handleCreateEventAtDate, colorMap, setSearchQuery, eventPanel, closePanel, handleEventSaved, handleRsvp, setIsGlobalSearchOpen, defaultCalendarId } = controller;
+ const { t, isCompact, showLeftSidebar, showRightSidebar, setShowLeftSidebar, setShowRightSidebar, calendarRef, calendarConfigs, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, integrations, undatedNotes, handleEventClick, loading, externalEventsLoading, externalEventsError, pages, externalEvents, searchQuery, handleContextMenu, fetchPages, fetchExternalEvents, setCurrentTitle, setDateRange, handleCreateEventAtDate, colorMap, setSearchQuery, eventPanel, closePanel, handleEventSaved, handleRsvp, setIsGlobalSearchOpen, defaultCalendarId, activeView } = controller;
  return <>            <div className="calendar-workspace">
                 {isCompact && (showLeftSidebar || showRightSidebar) && (
                     <button
@@ -43,9 +43,10 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                             {t('calendar.loading_events')}
                         </div>
                     ) : (
-                        <div className="h-full">
+                        <div className="h-full relative">
                             <DigitalBrainCalendar
                                 allNotes={[...pages, ...externalEvents]}
+                                initialView={activeView}
                                 searchQuery={searchQuery}
                                 selectedCalendars={selectedCalendars}
 
@@ -63,6 +64,19 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                                 calendarConfigs={calendarConfigs}
                                 colorMap={colorMap}
                             />
+                            {externalEventsLoading && (
+                                <div className="absolute top-3 right-3 z-10 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)]/95 px-3 py-2 text-xs text-[var(--text-secondary)] shadow-sm" role="status" aria-live="polite">
+                                    {t('calendar.loading_events')}
+                                </div>
+                            )}
+                            {externalEventsError && (
+                                <div className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-[var(--danger-border)] bg-[var(--bg-primary)]/95 px-3 py-2 text-xs text-[var(--text-secondary)] shadow-sm" role="alert">
+                                    <span>{t('calendar.error_loading_event')}</span>
+                                    <button type="button" className="font-semibold text-[var(--gnosi-primary)]" onClick={() => { void fetchExternalEvents(); }}>
+                                        {t('common.retry')}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

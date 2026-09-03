@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../../shared/notifications/toast';
-import { fetchCalendarEvents } from '../../../shared/api/calendar';
+import type { CalendarEventsQuery } from '../../../shared/api/calendar';
 import { fetchIntegrations, updateCalendarAliases, updateCalendarColors, updateCalendarSelection, updateDefaultCalendar } from '../../../shared/api/integrations';
 import { fetchVaultPages, fetchVaultTables } from '../../../shared/api/vaults';
-import { useCalendarList } from '../../../shared/api/useCalendarData';
+import { useCalendarEvents, useCalendarList } from '../../../shared/api/useCalendarData';
 import { calendarEntry, textValue } from '../components/calendar-sidebar-right/calendarBoundary';
 import type { CalendarEntry } from '../components/calendar-sidebar-right/calendarTypes';
 import { availableCalendarSources, calendarConfigsFor, calendarSettings, hybridCalendarEntry, type CalendarSettings, type EnabledTable } from './calendarPageModel';
@@ -21,6 +21,13 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
     const savedCalendarSelectionRef = useRef<Set<string> | null | undefined>(undefined);
     const [, setPartialData] = useState(false);
     const calendarListQuery = useCalendarList();
+    const externalEventsQueryInput = useMemo<CalendarEventsQuery>(() => ({
+        includeVault: false,
+        search: searchQuery || undefined,
+        timeMax: dateRange?.end,
+        timeMin: dateRange?.start,
+    }), [dateRange?.end, dateRange?.start, searchQuery]);
+    const externalEventsQuery = useCalendarEvents(externalEventsQueryInput, dateRange !== null);
     const calendarConfigs = useMemo(() => calendarConfigsFor(availableCalendarSources(pages, externalEvents, enabledTables, integrations), integrations, enabledTables, calendarListQuery.data?.items ?? []), [pages, externalEvents, enabledTables, integrations, calendarListQuery.data]);
     const defaultCalendarId = calendarConfigs.find((config) => config.source === integrations.default_calendar)?.id || calendarConfigs[0]?.id || '';
     const colorMap = useMemo(() => {
@@ -57,8 +64,10 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
             const additions: string[] = [];
             calendarConfigs.forEach(cfg => {
                 if (!next.has(cfg.source)) {
+                    const inheritedFromAccount = cfg.account !== null
+                        && Boolean(savedSet?.has(cfg.account));
                     // Add if: there's no saved selection (show everything) or it was in the saved selection
-                    if (savedSet === null || savedSet === undefined || savedSet.has(cfg.source)) {
+                    if (savedSet === null || savedSet === undefined || savedSet.has(cfg.source) || inheritedFromAccount) {
                         next.add(cfg.source);
                         additions.push(cfg.source);
                     }
@@ -72,37 +81,20 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
     }, [calendarConfigs, integrations]);
 
 
-    // Fetch external events (Google Calendar / CalDAV) for the visible range.
-    // If the range/search changes while a request is in flight, the
-    // previous one to prevent setExternalEvents from receiving stale data (race).
-    const externalEventsAbortRef = useRef<AbortController | null>(null);
-    const fetchExternalEvents = useCallback(async (timeMin: string, timeMax: string, search = '') => {
-        if (externalEventsAbortRef.current) {
-            externalEventsAbortRef.current.abort();
-        }
-        const controller = new AbortController();
-        externalEventsAbortRef.current = controller;
-        try {
-            const events = await fetchCalendarEvents({
-                includeVault: false,
-                search: search || undefined,
-                timeMax: timeMax || undefined,
-                timeMin: timeMin || undefined,
-            }, controller.signal);
-            if (controller.signal.aborted) return;
-            const converted = events.map(hybridCalendarEntry);
-            setExternalEvents(converted);
-        } catch (err) {
-            if (
-                controller.signal.aborted
-                || (err instanceof Error && ['AbortError', 'CanceledError'].includes(err.name))
-            ) return;
-        } finally {
-            if (externalEventsAbortRef.current === controller) {
-                externalEventsAbortRef.current = null;
-            }
-        }
-    }, []);
+    const applyExternalEvents = useEffectEvent(() => {
+        if (!externalEventsQuery.data || externalEventsQuery.isPlaceholderData) return;
+        setExternalEvents(externalEventsQuery.data.map(hybridCalendarEntry));
+    });
+    useEffect(() => {
+        let active = true;
+        queueMicrotask(() => { if (active) applyExternalEvents(); });
+        return () => { active = false; };
+    }, [externalEventsQuery.data, externalEventsQuery.isPlaceholderData]);
+
+    const refetchExternalEvents = externalEventsQuery.refetch;
+    const fetchExternalEvents = useCallback(async () => {
+        await refetchExternalEvents({ cancelRefetch: true });
+    }, [refetchExternalEvents]);
 
     const fetchPages = useCallback(async () => {
         setLoading(true);
@@ -174,24 +166,6 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
         return () => { active = false; };
     }, []);
 
-    // Abort the external events request if the component unmounts.
-    useEffect(() => {
-        return () => {
-            if (externalEventsAbortRef.current) {
-                externalEventsAbortRef.current.abort();
-                externalEventsAbortRef.current = null;
-            }
-        };
-    }, []);
-
-    // Re-fetch external events when the date range or the search changes
-    useEffect(() => {
-        let active = true;
-        queueMicrotask(() => { if (active && dateRange) void fetchExternalEvents(dateRange.start, dateRange.end, searchQuery); });
-        return () => { active = false; };
-    }, [dateRange, searchQuery, fetchExternalEvents]);
-
-
     const toggleCalendar = (source: string) => {
         const next = new Set(selectedCalendars);
         if (next.has(source)) next.delete(source); else next.add(source);
@@ -219,5 +193,9 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
     const setDefaultCalendar = async (source: string) => {
         try { await updateDefaultCalendar(source); setIntegrations((previous) => ({ ...previous, default_calendar: source })); } catch { /* Selection remains usable offline. */ }
     };
-    return { pages, setPages, externalEvents, setExternalEvents, undatedNotes, loading, integrations, calendarConfigs, defaultCalendarId, colorMap, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, fetchPages, fetchExternalEvents };
+    const externalEventsLoading = dateRange !== null
+        && externalEventsQuery.isFetching
+        && externalEvents.length === 0;
+    const externalEventsError = externalEventsQuery.isError;
+    return { pages, setPages, externalEvents, setExternalEvents, undatedNotes, loading, externalEventsLoading, externalEventsError, integrations, calendarConfigs, defaultCalendarId, colorMap, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, fetchPages, fetchExternalEvents };
 }

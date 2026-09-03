@@ -89,3 +89,73 @@ def test_unknown_account_returns_no_events(monkeypatch) -> None:
 
     assert service.list_events("missing@example.com", "start", "end") == []
     assert service.get_event("missing@example.com", "event") is None
+
+
+def test_google_events_use_one_batch_for_multiple_calendars(monkeypatch) -> None:
+    class FakeRequest:
+        def __init__(self, calendar_id: str) -> None:
+            self.calendar_id = calendar_id
+
+        def execute(self) -> dict[str, object]:
+            raise AssertionError("multi-calendar loading should use the batch transport")
+
+    class FakeEvents:
+        def list(self, **kwargs: object) -> FakeRequest:
+            return FakeRequest(str(kwargs["calendarId"]))
+
+    class FakeBatch:
+        def __init__(self, callback: object) -> None:
+            self.callback = callback
+            self.requests: list[tuple[str, FakeRequest]] = []
+
+        def add(self, request: FakeRequest, *, request_id: str) -> None:
+            self.requests.append((request_id, request))
+
+        def execute(self) -> None:
+            for request_id, request in self.requests:
+                self.callback(
+                    request_id,
+                    {"items": [{"id": f"event-{request.calendar_id}"}]},
+                    None,
+                )
+
+    class FakeService:
+        def __init__(self) -> None:
+            self.batch: FakeBatch | None = None
+
+        def events(self) -> FakeEvents:
+            return FakeEvents()
+
+        def new_batch_http_request(self, *, callback: object) -> FakeBatch:
+            self.batch = FakeBatch(callback)
+            return self.batch
+
+    fake_service = FakeService()
+    monkeypatch.setattr(service, "_google_service", lambda _email: fake_service)
+    monkeypatch.setattr(
+        service,
+        "google_list_calendars",
+        lambda _email: [
+            {"id": "primary", "name": "Primary"},
+            {"id": "shared", "name": "Shared"},
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_normalize_google_event",
+        lambda event, _email, calendar: {
+            "id": event["id"],
+            "calendar_id": calendar["id"],
+        },
+    )
+
+    result = service.google_list_events(
+        "user@example.com", "2026-09-01", "2026-10-01"
+    )
+
+    assert fake_service.batch is not None
+    assert len(fake_service.batch.requests) == 2
+    assert result == [
+        {"id": "event-primary", "calendar_id": "primary"},
+        {"id": "event-shared", "calendar_id": "shared"},
+    ]

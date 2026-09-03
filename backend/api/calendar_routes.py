@@ -30,6 +30,7 @@ from backend.data.management_db import get_mgmt_session
 from backend.domains.calendar.geocoding import photon_label as _photon_label
 from backend.domains.calendar.geocoding import search_photon
 from backend.domains.calendar import schemas as calendar_schemas
+from backend.services.calendar_event_aggregation import fetch_calendar_accounts
 
 router = APIRouter(
     prefix="/api/calendar", tags=["Calendar"], dependencies=[Depends(get_workspace_context)]
@@ -205,7 +206,6 @@ def collect_all_events(
     (`_EVENTS_CACHE`) and the hidden-events filter.
 
     """
-    from backend.services.hybrid_calendar_service import list_events, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
 
     integrations = integration_manager.get_all_safe()
@@ -223,26 +223,26 @@ def collect_all_events(
         )
 
     all_events: list[dict[str, Any]] = []
+    pending_accounts: list[tuple[str, str]] = []
     for em in email_list:
         cache_key = f"{em}|{time_min}|{time_max}|{search}|{calendar_id}"
         cached = _EVENTS_CACHE.get(cache_key)
         if cached and time.time() < cached["expiry"]:
             all_events.extend(cached["data"])
             continue
-        # Per-account resilience: an expired Google token (or any error
-        # from an account) must NOT bring down the whole query. This account is skipped and
-        # we continue with the rest + the vault events. The UI already requests
-        # reconnection via the GET /calendars header.
-        try:
-            events = list_events(em, time_min, time_max, search, calendar_id)
-        except GoogleAuthExpired:
-            log.info("collect_all_events: Google authentication expired for %s; skipping", em)
+        pending_accounts.append((em, cache_key))
+
+    account_results = fetch_calendar_accounts(
+        pending_accounts, time_min, time_max, search, calendar_id
+    )
+    for result in account_results:
+        if not result.succeeded:
             continue
-        except Exception as e:
-            log.warning(f"collect_all_events: el compte {em} ha fallat: {e}")
-            continue
-        _EVENTS_CACHE[cache_key] = {"data": events, "expiry": time.time() + _EVENTS_CACHE_TTL}
-        all_events.extend(events)
+        _EVENTS_CACHE[result.cache_key] = {
+            "data": result.events,
+            "expiry": time.time() + _EVENTS_CACHE_TTL,
+        }
+        all_events.extend(result.events)
 
     # Filtrar esdeveniments amagats
     hidden_ids = _get_hidden_event_ids()

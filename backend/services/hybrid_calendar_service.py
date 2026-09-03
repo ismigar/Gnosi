@@ -143,20 +143,53 @@ def google_list_events(
     if calendar_id:
         calendars = [c for c in calendars if c["id"] == calendar_id]
 
+    def request_for(cal: JsonObject) -> Any:
+        kwargs = dict(
+            calendarId=cal["id"],
+            timeMin=time_min,
+            timeMax=time_max,
+            maxResults=500,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        if search:
+            kwargs["q"] = search
+        return service.events().list(**kwargs)
+
     events: list[JsonObject] = []
+    if len(calendars) > 1 and hasattr(service, "new_batch_http_request"):
+        calendars_by_request = {str(index): cal for index, cal in enumerate(calendars)}
+
+        def collect_batch_result(
+            request_id: str, response: JsonObject | None, exception: Exception | None
+        ) -> None:
+            cal = calendars_by_request[request_id]
+            if exception is not None:
+                log.warning(
+                    "google_list_events calendar=%s %s: %s",
+                    cal["id"],
+                    email,
+                    exception,
+                )
+                return
+            for event in (response or {}).get("items", []):
+                events.append(_normalize_google_event(event, email, cal))
+
+        try:
+            batch = service.new_batch_http_request(callback=collect_batch_result)
+            for request_id, cal in calendars_by_request.items():
+                batch.add(request_for(cal), request_id=request_id)
+            batch.execute()
+            return events
+        except Exception as ex:
+            # Some self-hosted Google-compatible endpoints do not implement the
+            # batch transport. Preserve compatibility by retrying sequentially.
+            log.warning("google_list_events batch %s: %s; retrying sequentially", email, ex)
+            events.clear()
+
     for cal in calendars:
         try:
-            kwargs = dict(
-                calendarId=cal["id"],
-                timeMin=time_min,
-                timeMax=time_max,
-                maxResults=500,
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            if search:
-                kwargs["q"] = search
-            result = service.events().list(**kwargs).execute()
+            result = request_for(cal).execute()
             for e in result.get("items", []):
                 events.append(_normalize_google_event(e, email, cal))
         except Exception as ex:

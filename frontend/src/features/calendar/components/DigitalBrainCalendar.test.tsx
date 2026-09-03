@@ -56,6 +56,12 @@ function eventElement(title: string): HTMLElement {
 }
 
 describe('DigitalBrainCalendar with real FullCalendar', () => {
+  it('honors the initial compact view selected by the page controller', async () => {
+    const calendarRef = createRef<FullCalendar>();
+    await render(<DigitalBrainCalendar allNotes={NOTES} ignoreCalendarFilter initialView="timeGridDay" calendarRef={calendarRef} />);
+    expect(calendarRef.current?.getApi().view.type).toBe('timeGridDay');
+  });
+
   it('navigates and switches every view without the native toolbar rendering loop', async () => {
     const calendarRef = createRef<FullCalendar>();
     await render(<DigitalBrainCalendar allNotes={NOTES} ignoreCalendarFilter showHeaderToolbar calendarRef={calendarRef} />);
