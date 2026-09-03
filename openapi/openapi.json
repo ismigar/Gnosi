@@ -114,6 +114,379 @@
         "title": "AddMemberRequest",
         "type": "object"
       },
+      "AgentAttachmentUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "type",
+          "path"
+        ],
+        "title": "AgentAttachmentUploadResponse",
+        "type": "object"
+      },
+      "AgentCapabilityAuditEventResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "argument_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Argument Keys",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "effects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "result_kind": {
+            "title": "Result Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tool_id": {
+            "title": "Tool Id",
+            "type": "string"
+          },
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tool_id",
+          "tool_name",
+          "effects",
+          "status",
+          "argument_keys",
+          "result_kind",
+          "error_code",
+          "duration_ms",
+          "created_at"
+        ],
+        "title": "AgentCapabilityAuditEventResponse",
+        "type": "object"
+      },
+      "AgentCapabilityAuditListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCapabilityAuditEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "AgentCapabilityAuditListResponse",
+        "type": "object"
+      },
+      "AgentChatFeedbackResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "recorded",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "event_id"
+        ],
+        "title": "AgentChatFeedbackResponse",
+        "type": "object"
+      },
+      "AgentConfirmationCancelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_id": {
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "cancelled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "confirmation_id"
+        ],
+        "title": "AgentConfirmationCancelResponse",
+        "type": "object"
+      },
+      "AgentConfirmationExecutionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "confirmation_id": {
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/AgentConfirmationExecutionSummaryResponse"
+          },
+          "result_status": {
+            "title": "Result Status",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "cancelled",
+              "completed",
+              "failed",
+              "partial"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "confirmation_id",
+          "action",
+          "result_status",
+          "result"
+        ],
+        "title": "AgentConfirmationExecutionResponse",
+        "type": "object"
+      },
+      "AgentConfirmationExecutionSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cleanup_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cleanup Status"
+          },
+          "failed_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Count"
+          },
+          "freed_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freed Bytes"
+          },
+          "purged_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purged Count"
+          },
+          "rollback_failed_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback Failed Ids"
+          },
+          "updated_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated Count"
+          }
+        },
+        "title": "AgentConfirmationExecutionSummaryResponse",
+        "type": "object"
+      },
+      "AgentConfirmationListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmations": {
+            "items": {
+              "$ref": "#/components/schemas/AgentConfirmationRecordResponse"
+            },
+            "title": "Confirmations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "confirmations"
+        ],
+        "title": "AgentConfirmationListResponse",
+        "type": "object"
+      },
+      "AgentConfirmationRecordResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "confirmation_id": {
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "destructive": {
+            "title": "Destructive",
+            "type": "boolean"
+          },
+          "details": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
+          },
+          "result": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Result",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary_key": {
+            "title": "Summary Key",
+            "type": "string"
+          },
+          "title_key": {
+            "title": "Title Key",
+            "type": "string"
+          },
+          "type": {
+            "const": "confirmation_required",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "confirmation_id",
+          "action",
+          "title_key",
+          "summary_key",
+          "details",
+          "destructive",
+          "created_at",
+          "expires_at",
+          "status",
+          "result",
+          "error_code"
+        ],
+        "title": "AgentConfirmationRecordResponse",
+        "type": "object"
+      },
+      "AgentDeleteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "AgentDeleteResponse",
+        "type": "object"
+      },
       "AgentQualityDashboardResponse": {
         "properties": {
           "capabilities": {
@@ -227,6 +600,232 @@
           "evaluation_candidates"
         ],
         "title": "AgentQualityResponse",
+        "type": "object"
+      },
+      "AgentReplayEventResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Attributes",
+            "type": "object"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_type",
+          "attributes",
+          "created_at"
+        ],
+        "title": "AgentReplayEventResponse",
+        "type": "object"
+      },
+      "AgentReplayResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AgentReplayEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trace_id",
+          "events"
+        ],
+        "title": "AgentReplayResponse",
+        "type": "object"
+      },
+      "AgentSessionMessageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "author_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author User Id"
+          },
+          "citations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conflicts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "evidence_security": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "freshness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "privacy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "timings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "AgentSessionMessageResponse",
+        "type": "object"
+      },
+      "AgentSessionMessagesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AgentSessionMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "AgentSessionMessagesResponse",
         "type": "object"
       },
       "AgentSkillAssignmentPayload": {
@@ -545,6 +1144,21 @@
           "missing_tool_ids"
         ],
         "title": "AgentSkillValidationSuccessResponse",
+        "type": "object"
+      },
+      "AgentStreamCancellationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "cancellation_requested",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AgentStreamCancellationResponse",
         "type": "object"
       },
       "AgentToolCatalogItemResponse": {
@@ -39472,7 +40086,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -39589,7 +40205,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentAttachmentUploadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -39764,7 +40382,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCapabilityAuditListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -39893,7 +40513,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmationListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40031,7 +40653,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmationRecordResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40159,7 +40783,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmationCancelResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40287,7 +40913,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmationExecutionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40406,7 +41034,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChatFeedbackResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40536,7 +41166,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentReplayResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40680,7 +41312,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40822,7 +41456,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionMessagesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -40976,7 +41612,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionMessagesResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -41267,7 +41905,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentStreamCancellationResponse"
+                }
               }
             },
             "description": "Successful Response"
