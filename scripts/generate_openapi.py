@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import hashlib
 import importlib
 import json
@@ -54,8 +55,12 @@ def _configure_isolated_runtime(runtime_root: Path) -> None:
 
 def deterministic_openapi() -> dict[str, Any]:
     """Import the canonical application and return its OpenAPI document."""
-    server = importlib.import_module("backend.server")
-    return dict(server.app.openapi())
+    faulthandler.dump_traceback_later(60, repeat=True)
+    try:
+        server = importlib.import_module("backend.server")
+        return dict(server.app.openapi())
+    finally:
+        faulthandler.cancel_dump_traceback_later()
 
 
 def serialize_openapi(payload: dict[str, Any]) -> str:
