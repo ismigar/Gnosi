@@ -252,6 +252,9 @@ async def _shutdown_runtime(
     from backend.services.durable_job_worker import durable_job_worker
 
     log.info("🛑 Shutting down...")
+    scheduler_stopped = await asyncio.to_thread(scheduler_manager.stop)
+    if not scheduler_stopped:
+        log.warning("⚠️ Scheduler workers exceeded their shutdown bound.")
     try:
         from backend.services.vault_file_index import shutdown_file_index
 
