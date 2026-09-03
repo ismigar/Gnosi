@@ -105,9 +105,26 @@ class OptionCatalogDeleteResponse(BaseModel):
     status: Literal["ok"]
 
 
+class OptionCatalogUpsertRequest(_CommandRequest):
+    """Shared catalog command; 2.x consumed only the options member."""
+
+    options: JsonValue | None = None
+
+
+class FolderSchemaRequest(RootModel[dict[str, JsonValue]]):
+    """Extensible folder schema document persisted verbatim."""
+
+    def registry_data(self) -> RegistryData:
+        """Expose the JSON object under the open-key internal registry contract."""
+        result: RegistryData = {key: value for key, value in self.root.items()}
+        return result
+
+
 __all__ = [
     "DatabaseUpsertRequest",
+    "FolderSchemaRequest",
     "OptionCatalogDeleteResponse",
+    "OptionCatalogUpsertRequest",
     "RegistryRecord",
     "TableOptionRemoveRequest",
     "TableOptionRenameRequest",

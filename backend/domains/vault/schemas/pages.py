@@ -153,6 +153,21 @@ class BulkApplyTemplateRequest(BaseModel):
     expected_etags: dict[str, str] = Field(default_factory=dict)
 
 
+class BulkMetadataUpdateRequest(BaseModel):
+    """Historically loose metadata patch command with ignored extensions."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    page_ids: JsonValue | None = None
+    updates: JsonValue | None = None
+    remove: JsonValue | None = None
+    expected_etags: JsonValue | None = None
+
+    def payload(self) -> dict[str, object]:
+        """Restore the field-by-field dictionary consumed by the 2.x handler."""
+        return {key: value for key, value in self.model_dump(exclude_unset=True).items()}
+
+
 class BulkMutationEtagResponse(BaseModel):
     page_id: str
     etag: str | None
@@ -184,6 +199,7 @@ class _BulkWarmPayload(BaseModel):
 
 __all__ = [
     "BulkApplyTemplateRequest",
+    "BulkMetadataUpdateRequest",
     "BulkMutationConflictResponse",
     "BulkMutationErrorResponse",
     "BulkMutationEtagResponse",

@@ -15,7 +15,9 @@ from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
 from backend.domains.vault.tables.contracts import (
     DatabaseUpsertRequest,
+    FolderSchemaRequest,
     OptionCatalogDeleteResponse,
+    OptionCatalogUpsertRequest,
     RegistryRecord,
     TableOptionRemoveRequest,
     TableOptionRenameRequest,
@@ -385,12 +387,15 @@ async def list_option_catalogs() -> RegistryData:
 )
 async def put_option_catalog(
     name: str,
-    payload: RegistryData = Body(...),
+    payload: OptionCatalogUpsertRequest = Body(...),
 ) -> RegistryData:
     """Creates or replaces a shared catalog. Body: ``{options: [...]}``."""
+    payload_data = (
+        payload.registry_data() if isinstance(payload, OptionCatalogUpsertRequest) else payload
+    )
     return await table_options.put_option_catalog(
         name,
-        payload,
+        payload_data,
         _configured().options,
     )
 
@@ -515,15 +520,16 @@ def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
 )
 async def save_schema(
     folder: str,
-    schema: RegistryData = Body(...),
+    schema: FolderSchemaRequest = Body(...),
 ) -> RegistryData:
     """
     Legacy route to save schemas per folder.
     Now we redirect it to table creation if needed, or save it as a local file.
     """
+    schema_data = schema.registry_data() if isinstance(schema, FolderSchemaRequest) else schema
     return await vault_view_schema.save_schema(
         folder,
-        schema,
+        schema_data,
         _configured().folder_schema,
     )
 

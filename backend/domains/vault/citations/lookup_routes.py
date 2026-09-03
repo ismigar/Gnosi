@@ -28,6 +28,7 @@ from backend.domains.vault.citations.request_contracts import (
 from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.schemas.pages import (
     BulkApplyTemplateRequest,
+    BulkMetadataUpdateRequest,
     BulkPageMutationResponse,
 )
 from backend.platform import translation_server as translation_server_transport
@@ -646,7 +647,7 @@ async def promote_zotero_extra(
     response_model_exclude_unset=True,
 )
 async def bulk_update_metadata(
-    payload: dict[str, object] = Body(...),
+    payload: BulkMetadataUpdateRequest = Body(...),
 ) -> ResourceMetadata:
     """Applies the same metadata patch to a collection of pages.
 
@@ -680,7 +681,11 @@ async def bulk_update_metadata(
     with the new etag.
 
     """
-    return await metadata_mutations.bulk_update_metadata(payload, _metadata_mutation_dependencies())
+    payload_data = payload.payload() if isinstance(payload, BulkMetadataUpdateRequest) else payload
+    return await metadata_mutations.bulk_update_metadata(
+        payload_data,
+        _metadata_mutation_dependencies(),
+    )
 
 
 @router.post(
