@@ -8,7 +8,7 @@ import {
   writeStorage,
 } from '../../../../shared/platform/browser-storage';
 import {
-  purgeMailListCacheIds,
+  purgeMailListCacheMessages,
   readMailListCache,
   writeMailListCache,
 } from './mailListCache';
@@ -44,8 +44,13 @@ class MemoryStorage implements Storage {
 }
 
 
-function message(id: string, snippet = ''): MailListMessage {
+function message(
+  id: string,
+  snippet = '',
+  overrides: Partial<MailListMessage> = {},
+): MailListMessage {
   return {
+    account: 'one@example.test',
     date: '2026-08-30T10:00:00Z',
     has_attachments: false,
     id,
@@ -53,9 +58,11 @@ function message(id: string, snippet = ''): MailListMessage {
     is_starred: false,
     sender: 'sender@example.com',
     snippet,
+    source: 'gmail',
     subject: id,
     thread_id: id,
     timestamp: 1_777_546_800,
+    ...overrides,
   };
 }
 
@@ -78,11 +85,32 @@ describe('mail list cache', () => {
     writeMailListCache('inbox', [message('one'), message('two')], writtenAt, storage);
     writeMailListCache('sent', [message('one'), message('three')], writtenAt, storage);
 
-    purgeMailListCacheIds(['one'], storage);
+    purgeMailListCacheMessages([message('one')], storage);
 
     expect(readMailListCache('inbox', writtenAt + 1, storage)).toEqual([message('two')]);
     expect(readMailListCache('sent', writtenAt + 1, storage)).toEqual([message('three')]);
     expect(readMailListCache('inbox', writtenAt + 86_400_001, storage)).toBeNull();
+  });
+
+  it('does not purge a colliding id from another account or IMAP folder', () => {
+    const storage = new MemoryStorage();
+    const target = message('shared', '', {
+      imap_folder: 'INBOX', imap_uid: '42', source: 'imap',
+    });
+    const otherAccount = message('shared', '', {
+      account: 'two@example.test', imap_folder: 'INBOX', imap_uid: '42', source: 'imap',
+    });
+    const otherFolder = message('shared', '', {
+      imap_folder: 'Archive', imap_uid: '42', source: 'imap',
+    });
+    writeMailListCache('aggregate', [target, otherAccount, otherFolder], 1, storage);
+
+    purgeMailListCacheMessages([target], storage);
+
+    expect(readMailListCache('aggregate', 2, storage)).toEqual([
+      otherAccount,
+      otherFolder,
+    ]);
   });
 
   it('rejects malformed and oversized entries safely', () => {
@@ -107,14 +135,14 @@ describe('mail list cache', () => {
     const unrelated = defineStorageKey('mail-settings', stringStorageCodec);
     writeStorage(unrelated, 'keep', storage);
     writeMailListCache('inbox', [message('one')], 1, storage);
-    purgeMailListCacheIds(['one'], storage);
+    purgeMailListCacheMessages([message('one')], storage);
 
     expect(readStorage(unrelated, storage)).toBe('keep');
     expect(readMailListCache('inbox', 2, storage)).toEqual([]);
     expect(readMailListCache('inbox', 2, null)).toBeNull();
     expect(writeMailListCache('inbox', [], 2, null)).toBe(false);
     expect(() => {
-      purgeMailListCacheIds(['one'], null);
+      purgeMailListCacheMessages([message('one')], null);
     }).not.toThrow();
   });
 

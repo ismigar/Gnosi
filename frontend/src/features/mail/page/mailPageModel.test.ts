@@ -63,10 +63,17 @@ describe('mailPageModel', () => {
   });
 
   it('selects adjacent messages and maps Vault drafts for composition', () => {
-    const messages: MailPageMessage[] = [{ id: 'one' }, { id: 'two' }];
-    expect(adjacentMail(messages, 'one')?.id).toBe('two');
-    expect(adjacentMail(messages, 'two')?.id).toBe('one');
-    expect(adjacentMail(messages, 'missing')).toBeNull();
+    const messages: MailPageMessage[] = [
+      { account: 'one@example.test', id: 'one', source: 'gmail' },
+      { account: 'one@example.test', id: 'two', source: 'gmail' },
+    ];
+    const [first, second] = messages;
+    if (!first || !second) throw new Error('Missing adjacent fixtures');
+    expect(adjacentMail(messages, first)?.id).toBe('two');
+    expect(adjacentMail(messages, second)?.id).toBe('one');
+    expect(adjacentMail(messages, {
+      account: 'one@example.test', id: 'missing', source: 'gmail',
+    })).toBeNull();
 
     expect(draftComposeData({
       body_text: 'Body',

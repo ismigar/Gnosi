@@ -7,7 +7,9 @@ import {
   deduplicateMailListMessages,
   filterOutMailThread,
   groupMailListMessages,
+  mailListMessageIdentity,
   processMailListMessages,
+  setMailTagsByIdentity,
   threadMailListMessages,
 } from './mailListModel';
 import type { MailListMessage } from './mailListTypes';
@@ -163,7 +165,10 @@ describe('mail list model', () => {
         sortDir: 'asc',
       },
       folder: 'INBOX',
-      messageTags: { a: ['important'], b: ['important'] },
+      messageTags: Object.fromEntries(messages.map((candidate) => [
+        mailListMessageIdentity(candidate),
+        ['important'],
+      ])),
       searchQuery: 'a',
       unreadOnly: true,
     }).map((candidate) => candidate.id)).toEqual(['a', 'b']);
@@ -176,7 +181,9 @@ describe('mail list model', () => {
       message('three', { account: 'one@example.com', source: 'gmail' }),
     ];
 
-    expect(filterOutMailThread(messages, 'two', 'thread').map((candidate) => candidate.id))
+    const target = messages.at(1);
+    if (!target) throw new Error('Missing scoped thread target');
+    expect(filterOutMailThread(messages, target).map((candidate) => candidate.id))
       .toEqual(['three']);
     const threaded = threadMailListMessages(messages);
     expect(threaded[0]).toMatchObject({
@@ -207,10 +214,26 @@ describe('mail list model', () => {
     expect(threadMailListMessages([first, otherAccount, otherFolder])).toHaveLength(3);
     expect(filterOutMailThread(
       [first, otherAccount, otherFolder],
-      first.id,
-      first.thread_id,
       first,
     )).toEqual([otherAccount, otherFolder]);
+  });
+
+  it('updates visual tags only for the exact structural identity', () => {
+    const first = message('shared', {
+      account: 'one@example.test', source: 'gmail', thread_id: 'thread',
+    });
+    const second = message('shared', {
+      account: 'two@example.test', source: 'gmail', thread_id: 'thread',
+    });
+    const initial = {
+      [mailListMessageIdentity(first)]: ['first-tag'],
+      [mailListMessageIdentity(second)]: ['second-tag'],
+    };
+
+    expect(setMailTagsByIdentity(initial, second, ['updated-tag'])).toEqual({
+      [mailListMessageIdentity(first)]: ['first-tag'],
+      [mailListMessageIdentity(second)]: ['updated-tag'],
+    });
   });
 
   it('keeps date grouping labels localized', () => {

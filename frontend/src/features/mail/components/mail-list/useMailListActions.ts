@@ -46,12 +46,12 @@ interface UseMailListActionsOptions {
     mailId: string,
     email: string,
     extra?: MailUndoExtra,
+    mail?: MailListMessage,
   ) => void;
   readonly purgeMessageFromCaches: (
-    messageId: string,
-    threadId?: string | null,
+    message: MailListMessage,
   ) => void;
-  readonly purgeMessagesFromCaches: (ids: readonly string[]) => void;
+  readonly purgeMessagesFromCaches: (messages: readonly MailListMessage[]) => void;
   readonly selectedIds: ReadonlySet<string>;
   readonly setLoading: Dispatch<SetStateAction<boolean>>;
   readonly setMessages: Dispatch<SetStateAction<MailListMessage[]>>;
@@ -160,12 +160,7 @@ export function useMailListActions({
     setMoveMenu(null);
     const email = account?.email || message.account;
     if (!email) return;
-    setMessages((current) => filterOutMailThread(
-      current,
-      message.id,
-      message.thread_id,
-      message,
-    ));
+    setMessages((current) => filterOutMailThread(current, message));
     try {
       await moveMailMessage(message.id, email, {
         imap_folder: message.imap_folder,
@@ -258,30 +253,20 @@ export function useMailListActions({
       )));
       await starMailMessage(message.id, email, starred).catch(() => undefined);
     } else if (action === 'archive') {
-      setMessages((current) => filterOutMailThread(
-        current,
-        message.id,
-        message.thread_id,
-        message,
-      ));
-      purgeMessageFromCaches(message.id, message.thread_id);
+      setMessages((current) => filterOutMailThread(current, message));
+      purgeMessageFromCaches(message);
       onRecordAction?.('archive', message.id, email, {
         imap_folder: message.imap_folder,
         imap_uid: message.imap_uid,
-      });
+      }, message);
       await archiveMailMessage(message.id, email).catch(() => undefined);
     } else if (action === 'trash') {
-      setMessages((current) => filterOutMailThread(
-        current,
-        message.id,
-        message.thread_id,
-        message,
-      ));
-      purgeMessageFromCaches(message.id, message.thread_id);
+      setMessages((current) => filterOutMailThread(current, message));
+      purgeMessageFromCaches(message);
       onRecordAction?.('trash', message.id, email, {
         imap_folder: message.imap_folder,
         imap_uid: message.imap_uid,
-      });
+      }, message);
       if (message.source === 'vault') {
         await deleteMailDraft(message.id).catch(() => undefined);
         onBatchDone?.();
@@ -300,7 +285,7 @@ export function useMailListActions({
       setMessages((current) => current.filter(
         (message) => !selectedIds.has(mailListMessageIdentity(message)),
       ));
-      purgeMessagesFromCaches(selected.map((message) => message.id));
+      purgeMessagesFromCaches(selected);
     } else if (action === 'read') {
       setMessages((current) => current.map((message) => (
         selectedIds.has(mailListMessageIdentity(message))

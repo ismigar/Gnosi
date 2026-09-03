@@ -14,7 +14,7 @@ import {
 import { mailEventsUrl } from '../../../../shared/api/mail-specialized';
 import { openEventStream } from '../../../../shared/api/specialized-transports';
 import {
-  purgeMailListCacheIds,
+  purgeMailListCacheMessages,
   readMailListCache,
   writeMailListCache,
 } from './mailListCache';
@@ -26,6 +26,8 @@ import {
   filterOutMailThread,
   mailListCacheKey,
 } from './mailListModel';
+import { mailMessageIdentity } from '../../mailIdentity';
+import type { MailIdentityMessage } from '../../mailIdentity';
 import type { MailAccount, MailListMessage } from './mailListTypes';
 
 
@@ -37,8 +39,8 @@ interface UseMailListDataOptions {
   readonly folder: string | null;
   readonly listRefreshToken: number;
   readonly onMessagesLoaded?: (messages: readonly MailListMessage[]) => void;
-  readonly readMailId: string | null;
-  readonly removedMailId: string | null;
+  readonly readMail: MailIdentityMessage | null;
+  readonly removedMail: MailIdentityMessage | null;
 }
 
 
@@ -59,6 +61,19 @@ const EMPTY_MAIL_MESSAGES: MailMessages = {
 };
 
 
+export function markMailReadInList(
+  messages: readonly MailListMessage[],
+  target: MailIdentityMessage,
+): MailListMessage[] {
+  const identity = mailMessageIdentity(target);
+  return messages.map((message) => (
+    mailMessageIdentity(message) === identity
+      ? { ...message, is_read: true }
+      : message
+  ));
+}
+
+
 export function useMailListData({
   account,
   accountsLoading,
@@ -67,8 +82,8 @@ export function useMailListData({
   folder,
   listRefreshToken,
   onMessagesLoaded,
-  readMailId,
-  removedMailId,
+  readMail,
+  removedMail,
 }: UseMailListDataOptions) {
   const enabledAccounts = useMemo(() => enabledMailAccounts(accounts), [accounts]);
   const emails = useMemo(
@@ -265,31 +280,22 @@ export function useMailListData({
   }, [account?.email, cacheKey]);
 
   useEffect(() => {
-    if (!removedMailId) return;
+    if (!removedMail) return;
     setMessages((current) => {
-      const threadId = current.find(
-        (message) => message.id === removedMailId,
-      )?.thread_id;
       Object.entries(messageCacheRef.current).forEach(([key, cached]) => {
-        messageCacheRef.current[key] = filterOutMailThread(
-          cached,
-          removedMailId,
-          threadId,
-        );
+        messageCacheRef.current[key] = filterOutMailThread(cached, removedMail);
       });
-      purgeMailListCacheIds([removedMailId]);
-      return filterOutMailThread(current, removedMailId, threadId);
+      purgeMailListCacheMessages([removedMail]);
+      return filterOutMailThread(current, removedMail);
     });
-  }, [removedMailId]);
+  }, [removedMail]);
 
   useEffect(() => {
-    if (!readMailId) return;
+    if (!readMail) return;
     queueMicrotask(() => {
-      setMessages((current) => current.map((message) => (
-        message.id === readMailId ? { ...message, is_read: true } : message
-      )));
+      setMessages((current) => markMailReadInList(current, readMail));
     });
-  }, [readMailId]);
+  }, [readMail]);
 
   useEffect(() => {
     if (listRefreshToken <= 0) return;
@@ -298,28 +304,21 @@ export function useMailListData({
     });
   }, [listRefreshToken]);
 
-  const purgeMessageFromCaches = useCallback((
-    messageId: string,
-    threadId?: string | null,
-  ): void => {
+  const purgeMessageFromCaches = useCallback((message: MailListMessage): void => {
     Object.entries(messageCacheRef.current).forEach(([key, cached]) => {
-      messageCacheRef.current[key] = filterOutMailThread(
-        cached,
-        messageId,
-        threadId,
-      );
+      messageCacheRef.current[key] = filterOutMailThread(cached, message);
     });
-    purgeMailListCacheIds([messageId]);
+    purgeMailListCacheMessages([message]);
   }, []);
 
-  const purgeMessagesFromCaches = useCallback((ids: readonly string[]): void => {
-    const selected = new Set(ids);
+  const purgeMessagesFromCaches = useCallback((targets: readonly MailListMessage[]): void => {
+    const selected = new Set(targets.map((message) => mailMessageIdentity(message)));
     Object.entries(messageCacheRef.current).forEach(([key, cached]) => {
       messageCacheRef.current[key] = cached.filter(
-        (message) => !selected.has(message.id),
+        (message) => !selected.has(mailMessageIdentity(message)),
       );
     });
-    purgeMailListCacheIds(ids);
+    purgeMailListCacheMessages(targets);
   }, []);
 
   const clearCurrentMemoryCache = useCallback((): void => {

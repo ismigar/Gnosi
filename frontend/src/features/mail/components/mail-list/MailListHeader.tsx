@@ -12,7 +12,10 @@ import { useTranslation } from 'react-i18next';
 
 import MailTagPicker from '../MailTagPicker';
 import type { MailView } from '../../../../shared/api/mail';
-import { mailListMessageIdentity } from './mailListModel';
+import {
+  mailListMessageIdentity,
+  setMailTagsByIdentity,
+} from './mailListModel';
 import type { MailAccount } from './mailListTypes';
 import type { MailListController } from './useMailListController';
 
@@ -132,21 +135,19 @@ export function MailListHeader({
                           (candidate) => mailListMessageIdentity(candidate) === identity,
                         );
                         if (!message) return;
-                        const messageId = message.id;
-                        const current = controller.messageTags[messageId] ?? [];
+                        const current = controller.messageTags[identity] ?? [];
                         const next = current.includes(tagId)
                           ? current.filter((id) => id !== tagId)
                           : [...current, tagId];
-                        await controller.saveMessageTags(messageId, next, {
+                        await controller.saveMessageTags(message.id, next, {
                           account_email: account?.email || message.account || '',
                           date: message.date || '',
                           sender: message.sender || '',
                           subject: message.subject || '',
                         }).catch(() => undefined);
-                        controller.setMessageTags((previous) => ({
-                          ...previous,
-                          [messageId]: next,
-                        }));
+                        controller.setMessageTags((previous) => (
+                          setMailTagsByIdentity(previous, message, next)
+                        ));
                       }));
                     }}
                     onCreateTag={async (input) => {

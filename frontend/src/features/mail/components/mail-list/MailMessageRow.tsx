@@ -14,6 +14,7 @@ import {
   cleanMailSender,
   formatMailListTimestamp,
   mailListMessageIdentity,
+  setMailTagsByIdentity,
 } from './mailListModel';
 import type { MailListMessage } from './mailListTypes';
 import type { MailListController } from './useMailListController';
@@ -25,7 +26,7 @@ interface MailMessageRowProps {
   readonly index: number;
   readonly isComposing: boolean;
   readonly message: MailListMessage;
-  readonly selectedMailId?: string;
+  readonly selectedMailIdentity?: string;
 }
 
 
@@ -35,13 +36,13 @@ export function MailMessageRow({
   index,
   isComposing,
   message,
-  selectedMailId,
+  selectedMailIdentity,
 }: MailMessageRowProps) {
   const { t } = useTranslation();
   const messageIdentity = mailListMessageIdentity(message);
   const isFocused = controller.focusedIndex === index;
   const isSelected = controller.selectedIds.has(messageIdentity);
-  const assignedTagIds = controller.messageTags[message.id] ?? [];
+  const assignedTagIds = controller.messageTags[messageIdentity] ?? [];
 
   return (
     <div
@@ -59,14 +60,14 @@ export function MailMessageRow({
       onContextMenu={(event) => {
         event.preventDefault();
         controller.setContextMenu({
-          msgId: message.id,
+          message,
           x: event.clientX,
           y: event.clientY,
         });
       }}
       className={`group flex items-center px-4 py-2 cursor-pointer border-b border-[var(--border-primary)] transition-colors
         ${isFocused ? 'ring-1 ring-inset ring-[var(--gnosi-blue)]' : ''}
-        ${selectedMailId === message.id || isSelected ? 'bg-[var(--mail-row-selected)]' : isFocused ? 'bg-[var(--bg-secondary)]' : 'hover:bg-[var(--bg-secondary)]'}`}
+        ${selectedMailIdentity === messageIdentity || isSelected ? 'bg-[var(--mail-row-selected)]' : isFocused ? 'bg-[var(--bg-secondary)]' : 'hover:bg-[var(--bg-secondary)]'}`}
     >
       <div className="flex items-center gap-3 w-full relative">
         <div className="flex items-center gap-2 min-w-[200px] max-w-[260px]">
@@ -149,7 +150,7 @@ export function MailMessageRow({
           {message.has_attachments && (
             <Paperclip size={14} className="text-[var(--text-secondary)]" />
           )}
-          <div className={`flex items-center gap-0.5 transition-opacity ${(selectedMailId || isComposing) ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+          <div className={`flex items-center gap-0.5 transition-opacity ${(selectedMailIdentity || isComposing) ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
             <button
               title={message.is_starred
                 ? t('mail.unstar', 'Remove star')
@@ -220,10 +221,9 @@ export function MailMessageRow({
                 const next = assignedTagIds.includes(tagId)
                   ? assignedTagIds.filter((id) => id !== tagId)
                   : [...assignedTagIds, tagId];
-                controller.setMessageTags((previous) => ({
-                  ...previous,
-                  [message.id]: next,
-                }));
+                controller.setMessageTags((previous) => (
+                  setMailTagsByIdentity(previous, message, next)
+                ));
                 await controller.saveMessageTags(message.id, next, {
                   account_email: accountEmail || message.account || '',
                   date: message.date,
@@ -252,7 +252,7 @@ export function MailMessageRow({
           )}
           <MoreVertical
             size={15}
-            className={`text-[var(--text-secondary)] transition-opacity ${selectedMailId ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}
+            className={`text-[var(--text-secondary)] transition-opacity ${selectedMailIdentity ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}
           />
         </div>
       </div>

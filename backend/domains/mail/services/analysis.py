@@ -6,6 +6,8 @@ import asyncio
 import json
 import logging
 import re
+import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 from urllib.parse import urlparse
 
@@ -41,6 +43,42 @@ _HTTP_STATUS_RE = re.compile(r"^AI error (?P<status>\d{3})(?::|$)")
 _PUBLIC_PROVIDER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 _PRIMARY_TIMEOUT_SECONDS = 8
 _FALLBACK_TIMEOUT_SECONDS = 12
+_PROVIDER_MAX_OCCUPANCY = 2
+_PROVIDER_CAPACITY = threading.BoundedSemaphore(_PROVIDER_MAX_OCCUPANCY)
+_PROVIDER_EXECUTOR = ThreadPoolExecutor(
+    max_workers=_PROVIDER_MAX_OCCUPANCY,
+    thread_name_prefix="mail-analysis-provider",
+)
+
+
+class MailAnalysisProviderBusyError(RuntimeError):
+    """Raised when every bounded provider worker is still occupied."""
+
+
+def _call_provider_blocking(
+    prompt: str,
+    provider: str,
+    timeout: int,
+    capacity: threading.BoundedSemaphore,
+) -> str:
+    from pipeline import ai_client
+
+    try:
+        return ai_client.call_ai_client(
+            prompt[:6000],
+            timeout=timeout,
+            provider=provider,
+            use_cache=False,
+        )
+    finally:
+        capacity.release()
+
+
+def _consume_provider_result(future: Future[str]) -> None:
+    """Observe a late provider exception after its async waiter timed out."""
+    if future.cancelled():
+        return
+    future.exception()
 
 
 def _is_local_endpoint(url: str) -> bool:
@@ -80,16 +118,24 @@ async def request_entity_analysis(
     timeout: int,
 ) -> str:
     """Run one provider off the event loop with a viewer-safe time bound."""
-    from pipeline import ai_client
-
-    async with asyncio.timeout(timeout):
-        return await asyncio.to_thread(
-            ai_client.call_ai_client,
-            prompt[:6000],
-            timeout=timeout,
-            provider=provider,
-            use_cache=False,
+    capacity = _PROVIDER_CAPACITY
+    if not capacity.acquire(blocking=False):
+        raise MailAnalysisProviderBusyError("Provider capacity is occupied")
+    try:
+        provider_future = _PROVIDER_EXECUTOR.submit(
+            _call_provider_blocking,
+            prompt,
+            provider,
+            timeout,
+            capacity,
         )
+        provider_future.add_done_callback(_consume_provider_result)
+    except BaseException:
+        capacity.release()
+        raise
+    future = asyncio.wrap_future(provider_future)
+    async with asyncio.timeout(timeout):
+        return await asyncio.shield(future)
 
 
 def parse_entity_analysis(content: str, provider: str) -> dict[str, object]:
@@ -156,6 +202,8 @@ def _public_provider_name(provider: str, index: int) -> str:
 
 
 def _provider_failure_status(error: Exception) -> str:
+    if isinstance(error, MailAnalysisProviderBusyError):
+        return "unavailable"
     if isinstance(error, (asyncio.TimeoutError, requests.exceptions.Timeout)):
         return "timeout"
     if isinstance(error, requests.exceptions.ConnectionError):

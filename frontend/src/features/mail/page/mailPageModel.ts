@@ -1,5 +1,9 @@
 import type { IntegrationsDocument } from '../../../shared/api/integrations';
 import type { MailCounts, MailView } from '../../../shared/api/mail';
+import {
+  mailMessageIdentity,
+  type MailIdentityMessage,
+} from '../mailIdentity';
 
 
 export interface MailAccount {
@@ -18,6 +22,8 @@ export interface MailAccount {
 
 export interface MailPageMessage {
   readonly [key: string]: unknown;
+  readonly account?: string | null;
+  readonly account_email?: string | null;
   readonly body_text?: string | null;
   readonly cc?: string | readonly string[] | null;
   readonly id: string;
@@ -26,6 +32,7 @@ export interface MailPageMessage {
   readonly recipient?: string | readonly string[] | null;
   readonly source?: string | null;
   readonly subject?: string | null;
+  readonly thread_id?: string | null;
   readonly type?: string | null;
 }
 
@@ -51,6 +58,7 @@ export interface MailUndoExtra {
 
 export interface MailUndoAction extends MailUndoExtra {
   readonly email: string;
+  readonly identity: string;
   readonly mailId: string;
   readonly type: string;
 }
@@ -202,9 +210,12 @@ export function mergeMailCounts(results: readonly MailCounts[]): MailCounts {
 
 export function adjacentMail(
   messages: readonly MailPageMessage[],
-  mailId: string,
+  target: MailIdentityMessage,
 ): MailPageMessage | null {
-  const index = messages.findIndex((message) => message.id === mailId);
+  const identity = mailMessageIdentity(target);
+  const index = messages.findIndex(
+    (message) => mailMessageIdentity(message) === identity,
+  );
   if (index < 0) return null;
   return messages.at(index + 1) ?? messages.at(index - 1) ?? null;
 }

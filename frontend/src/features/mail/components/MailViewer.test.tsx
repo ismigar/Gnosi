@@ -137,7 +137,7 @@ describe('MailViewer', () => {
     expect(container.textContent).toContain('Subject one');
     expect(mocks.fetchMessage).toHaveBeenCalledTimes(1);
     expect(mocks.markRead).toHaveBeenCalledWith('one', account.email, 'Inbox/Personal');
-    expect(onMailRead).toHaveBeenCalledWith('one');
+    expect(onMailRead).toHaveBeenCalledWith(expect.objectContaining({ account: account.email, id: 'one' }));
     expect(mocks.extractEntities).not.toHaveBeenCalled();
   });
 
@@ -156,17 +156,19 @@ describe('MailViewer', () => {
       .not.toBeNull();
   });
 
-  it('cancels an in-flight analysis when the selected message changes', async () => {
+  it('cancels analysis when the same raw id changes account scope', async () => {
     let analysisSignal: AbortSignal | undefined;
     mocks.fetchMessage.mockImplementation((id) => Promise.resolve(message(id)));
     mocks.extractEntities.mockImplementation((_context, _metadata, signal) => {
       analysisSignal = signal;
       return new Promise(() => undefined);
     });
-    await render({ mail: message('first-analysis') });
+    await render({ mail: message('shared-analysis') });
     await runSmartAnalysis();
     expect(analysisSignal?.aborted).toBe(false);
-    await render({ mail: message('second-analysis') });
+    await render({ mail: message('shared-analysis', {
+      account: 'other@example.test',
+    }) });
     expect(analysisSignal?.aborted).toBe(true);
     expect(mocks.toastError).not.toHaveBeenCalled();
   });
@@ -477,7 +479,7 @@ describe('MailViewer', () => {
     });
     expect(onActionDone).toHaveBeenCalledWith('reply', 'archive', account.email, {
       imap_folder: 'INBOX', imap_uid: '42',
-    });
+    }, expect.objectContaining({ account: account.email, id: 'reply' }));
   });
 
   it('deletes vault drafts through the draft endpoint without IMAP trash', async () => {
@@ -491,6 +493,7 @@ describe('MailViewer', () => {
     });
     expect(mocks.deleteDraft).toHaveBeenCalledWith('draft');
     expect(mocks.trash).not.toHaveBeenCalled();
-    expect(onActionDone).toHaveBeenCalledWith('draft', 'delete_draft', account.email);
+    expect(onActionDone).toHaveBeenCalledWith('draft', 'delete_draft', account.email, {},
+      expect.objectContaining({ account: account.email, id: 'draft' }));
   });
 });

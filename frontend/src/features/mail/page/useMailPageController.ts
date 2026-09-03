@@ -18,6 +18,11 @@ import { queryClient } from '../../../shared/api/query-client';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { MailUndoToast } from './MailUndoToast';
 import {
+  isSameMailMessage,
+  mailMessageIdentity,
+  type MailIdentityMessage,
+} from '../mailIdentity';
+import {
   adjacentMail,
   buildMailAccountCatalog,
   draftComposeData,
@@ -69,10 +74,11 @@ export interface MailPageController {
     actionType?: string,
     email?: string,
     extra?: MailUndoExtra,
+    mail?: MailPageMessage,
   ) => void;
   readonly handleCompose: () => void;
-  readonly handleMailMoved: (mailId: string) => void;
-  readonly handleMailRead: (mailId: string) => void;
+  readonly handleMailMoved: (mail: MailIdentityMessage) => void;
+  readonly handleMailRead: (mail: MailIdentityMessage) => void;
   readonly handleMailSelected: (mail: MailPageMessage | null) => void;
   readonly handleOpenComposer: (data?: MailComposeData | null) => void;
   readonly handleRecordAction: (
@@ -80,6 +86,7 @@ export interface MailPageController {
     mailId: string,
     email: string,
     extra?: MailUndoExtra,
+    mail?: MailPageMessage,
   ) => void;
   readonly handleSelectCategory: (category: string) => void;
   readonly handleSelectFolder: (folder: string) => void;
@@ -90,9 +97,9 @@ export interface MailPageController {
   readonly isComposing: boolean;
   readonly listRefreshToken: number;
   readonly messages: readonly MailPageMessage[];
-  readonly readMailId: string | null;
+  readonly readMail: MailIdentityMessage | null;
   readonly refreshCounts: () => void;
-  readonly removedMailId: string | null;
+  readonly removedMail: MailIdentityMessage | null;
   readonly searchQuery: string;
   readonly selectedAccount: MailAccount | null;
   readonly selectedMail: MailPageMessage | null;
@@ -133,8 +140,8 @@ export function useMailPageController(): MailPageController {
     compact: isCompact,
     open: initialMailboxSidebar(),
   }));
-  const [removedMailId, setRemovedMailId] = useState<string | null>(null);
-  const [readMailId, setReadMailId] = useState<string | null>(null);
+  const [removedMail, setRemovedMail] = useState<MailIdentityMessage | null>(null);
+  const [readMail, setReadMail] = useState<MailIdentityMessage | null>(null);
   const [listRefreshToken, setListRefreshToken] = useState(0);
   const [identities, setIdentities] = useState<MailAccount[]>([]);
   const [defaultAccount, setDefaultAccount] = useState<MailAccount | null>(null);
@@ -212,7 +219,7 @@ export function useMailPageController(): MailPageController {
         imap_uid: action.imap_uid,
         target_folder: 'INBOX',
       });
-      setRemovedMailId(null);
+      setRemovedMail(null);
       setListRefreshToken((current) => current + 1);
       void fetchCounts(accounts);
       toast.success(t('mail.undo_success', 'Action undone'));
@@ -226,10 +233,17 @@ export function useMailPageController(): MailPageController {
     mailId: string,
     email: string,
     extra: MailUndoExtra = {},
+    mail?: MailPageMessage,
   ) => {
-    undoRef.current = { email, mailId, type, ...extra };
+    const identity = mailMessageIdentity(mail ?? {
+      account: email,
+      id: mailId,
+      imap_folder: extra.imap_folder,
+      imap_uid: extra.imap_uid,
+    });
+    undoRef.current = { email, identity, mailId, type, ...extra };
     setTimeout(() => {
-      if (undoRef.current?.mailId === mailId) undoRef.current = null;
+      if (undoRef.current?.identity === identity) undoRef.current = null;
     }, 8000);
     const label = type === 'trash'
       ? t('mail.undo_label_trashed', 'Deleted')
@@ -268,15 +282,15 @@ export function useMailPageController(): MailPageController {
     }
   }), [isComposing, selectedMail]);
 
-  const handleMailRead = useCallback((mailId: string) => {
-    setReadMailId(mailId);
+  const handleMailRead = useCallback((mail: MailIdentityMessage) => {
+    setReadMail(mail);
     void fetchCounts(accounts);
   }, [accounts, fetchCounts]);
   const refreshCounts = useCallback(() => {
     void fetchCounts(accounts);
   }, [accounts, fetchCounts]);
-  const handleMailMoved = useCallback((mailId: string) => {
-    setRemovedMailId(mailId);
+  const handleMailMoved = useCallback((mail: MailIdentityMessage) => {
+    setRemovedMail(mail);
     setSelectedMail(null);
     void fetchCounts(accounts);
   }, [accounts, fetchCounts]);
@@ -285,17 +299,18 @@ export function useMailPageController(): MailPageController {
     actionType?: string,
     email?: string,
     extra: MailUndoExtra = {},
+    mail?: MailPageMessage,
   ) => {
     void fetchCounts(accounts);
-    if (mailId) {
-      setSelectedMail(adjacentMail(messages, mailId));
-      setRemovedMailId(mailId);
+    if (mail) {
+      setSelectedMail(adjacentMail(messages, mail));
+      setRemovedMail(mail);
     }
     if (
       mailId
       && email
       && (actionType === 'trash' || actionType === 'archive')
-    ) recordUndo(actionType, mailId, email, extra);
+    ) recordUndo(actionType, mailId, email, extra, mail);
   }, [accounts, fetchCounts, messages, recordUndo]);
 
   const closeSidebarOnCompact = useCallback(() => {
@@ -362,13 +377,15 @@ export function useMailPageController(): MailPageController {
     mailId: string,
     email: string,
     extra: MailUndoExtra = {},
+    mail?: MailPageMessage,
   ) => {
-    recordUndo(type, mailId, email, extra);
+    recordUndo(type, mailId, email, extra, mail);
     if (
       (type === 'trash' || type === 'archive')
-      && mailId === selectedMail?.id
+      && mail
+      && isSameMailMessage(mail, selectedMail)
     ) {
-      setSelectedMail(adjacentMail(messages, mailId));
+      setSelectedMail(adjacentMail(messages, mail));
     }
   }, [messages, recordUndo, selectedMail]);
 
@@ -398,9 +415,9 @@ export function useMailPageController(): MailPageController {
     isComposing,
     listRefreshToken,
     messages,
-    readMailId,
+    readMail,
     refreshCounts,
-    removedMailId,
+    removedMail,
     searchQuery,
     selectedAccount,
     selectedMail,

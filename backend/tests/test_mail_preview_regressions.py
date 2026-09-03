@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,57 @@ def test_entity_analysis_enforces_timeout_outside_provider_client(
     assert result["provider_attempts"] == [
         {"provider": "fixture", "status": "timeout"}
     ]
+
+
+def test_entity_analysis_bounds_workers_when_provider_ignores_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    release = threading.Event()
+    calls = 0
+    calls_lock = threading.Lock()
+    capacity = threading.BoundedSemaphore(2)
+    executor = ThreadPoolExecutor(max_workers=2)
+
+    def blocking_provider(_prompt: str, **_options: object) -> str:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        release.wait(timeout=2)
+        return '{"events": [], "contacts": []}'
+
+    monkeypatch.setattr("pipeline.ai_client.call_ai_client", blocking_provider)
+    monkeypatch.setattr(
+        analysis,
+        "_configured_provider_names",
+        lambda: ["primary", "secondary"],
+    )
+    monkeypatch.setattr(analysis, "_PRIMARY_TIMEOUT_SECONDS", 0.02)
+    monkeypatch.setattr(analysis, "_PROVIDER_CAPACITY", capacity)
+    monkeypatch.setattr(analysis, "_PROVIDER_EXECUTOR", executor)
+
+    async def exercise_capacity() -> list[dict[str, object]]:
+        return await asyncio.gather(*(
+            compose.extract_entities(
+                schemas.MailExtractEntitiesRequest(context=f"fixture-{index}")
+            )
+            for index in range(6)
+        ))
+
+    started = time.monotonic()
+    try:
+        results = asyncio.run(exercise_capacity())
+        assert time.monotonic() - started < 0.5
+        assert calls == 2
+        assert not capacity.acquire(blocking=False)
+        assert all(result["result_source"] == "local" for result in results)
+        assert all(result["status"] == "complete" for result in results)
+        assert all(len(result["provider_attempts"]) == 2 for result in results)
+    finally:
+        release.set()
+        executor.shutdown(wait=True)
+
+    assert capacity.acquire(blocking=False)
+    assert capacity.acquire(blocking=False)
 
 
 def test_entity_analysis_treats_local_fallback_as_a_normal_result(

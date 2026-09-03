@@ -34,9 +34,10 @@ interface MailListMockProps {
     mailId: string,
     email: string,
     extra?: MailUndoExtra,
+    mail?: MailPageMessage,
   ) => void;
   readonly onSelectMail: (mail: MailPageMessage | null) => void;
-  readonly removedMailId: string | null;
+  readonly removedMail: MailPageMessage | null;
 }
 
 
@@ -47,6 +48,7 @@ interface MailViewerMockProps {
     actionType?: string,
     email?: string,
     extra?: MailUndoExtra,
+    mail?: MailPageMessage,
   ) => void;
   readonly onClose: () => void;
 }
@@ -59,11 +61,15 @@ interface MailComposerMockProps extends MailComposeData {
 
 
 const regularMail: MailPageMessage = {
+  account: 'primary@example.test',
   id: 'mail-1',
+  source: 'gmail',
   subject: 'First message',
 };
 const adjacentMessage: MailPageMessage = {
+  account: 'primary@example.test',
   id: 'mail-2',
+  source: 'gmail',
   subject: 'Second message',
 };
 const draftMail: MailPageMessage = {
@@ -159,10 +165,10 @@ vi.mock('./components/MailList', () => ({
     onMessagesLoaded,
     onRecordAction,
     onSelectMail,
-    removedMailId,
+    removedMail,
   }: MailListMockProps) => (
     <section aria-label="mail-list">
-      <span>removed:{removedMailId ?? 'none'}</span>
+      <span>removed:{removedMail?.id ?? 'none'}</span>
       <button
         type="button"
         onClick={() => { onMessagesLoaded([regularMail, adjacentMessage]); }}
@@ -181,7 +187,7 @@ vi.mock('./components/MailList', () => ({
           onRecordAction('archive', 'mail-1', 'primary@example.test', {
             imap_folder: 'INBOX',
             imap_uid: '42',
-          });
+          }, regularMail);
         }}
       >
         archive selected
@@ -202,7 +208,7 @@ vi.mock('./components/MailViewer', () => ({
           onActionDone(mail?.id, 'archive', 'primary@example.test', {
             imap_folder: 'INBOX',
             imap_uid: '42',
-          });
+          }, mail ?? undefined);
         }}
       >
         archive viewer

@@ -1,6 +1,12 @@
 import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import type { MailMessagesQuery, MailView } from '../../../../shared/api/mail';
+import {
+  mailMessageIdentity,
+  mailThreadIdentity,
+  tryMailMessageIdentity,
+  type MailIdentityMessage,
+} from '../../mailIdentity';
 import type {
   MailAccount,
   MailListConfig,
@@ -83,22 +89,42 @@ export function buildMailListQuery(
 
 export function filterOutMailThread(
   messages: readonly MailListMessage[],
-  messageId: string,
-  threadId?: string | null,
-  scope?: MailListMessage,
+  scope: MailIdentityMessage,
 ): MailListMessage[] {
-  if (scope) {
-    const messageIdentity = mailListMessageIdentity(scope);
-    const threadIdentity = mailListThreadIdentity(scope);
-    return messages.filter((message) => (
-      mailListMessageIdentity(message) !== messageIdentity
-      && mailListThreadIdentity(message) !== threadIdentity
-    ));
-  }
+  const messageIdentity = mailMessageIdentity(scope);
+  const threadIdentity = mailThreadIdentity(scope);
   return messages.filter((message) => (
-    message.id !== messageId
-    && !(threadId && threadId !== messageId && message.thread_id === threadId)
+    mailListMessageIdentity(message) !== messageIdentity
+    && mailListThreadIdentity(message) !== threadIdentity
   ));
+}
+
+
+export function mapMailTagsByIdentity(
+  messages: readonly MailListMessage[],
+  tagsByProviderId: Readonly<Record<string, readonly string[]>>,
+): Record<string, string[]> {
+  return Object.fromEntries(messages.map((message) => [
+    mailListMessageIdentity(message),
+    [...(tagsByProviderId[message.id] ?? [])],
+  ]));
+}
+
+
+export function setMailTagsByIdentity(
+  current: Readonly<Record<string, readonly string[]>>,
+  message: MailListMessage,
+  tagIds: readonly string[],
+): Record<string, string[]> {
+  return {
+    ...Object.fromEntries(
+      Object.entries(current).map(([identity, currentTagIds]) => [
+        identity,
+        [...currentTagIds],
+      ]),
+    ),
+    [mailListMessageIdentity(message)]: [...tagIds],
+  };
 }
 
 
@@ -119,61 +145,18 @@ function legacyString(value: unknown): string {
 }
 
 
-function normalizedIdentityPart(value?: string | null): string {
-  return value?.trim().toLocaleLowerCase() ?? '';
-}
-
-
-function messageAccountIdentity(message: MailListMessage): string {
-  return normalizedIdentityPart(message.account || message.account_email);
-}
-
-
-function messageProviderIdentity(message: MailListMessage): string {
-  const source = normalizedIdentityPart(message.source);
-  if (source) return source;
-  return message.imap_uid || message.id.startsWith('imap_') ? 'imap' : '';
-}
-
-
-function structuralIdentity(kind: 'message' | 'thread', parts: readonly string[]): string {
-  return JSON.stringify([kind, ...parts]);
-}
-
-
 function providerMessageKey(message: MailListMessage): string | null {
-  const account = messageAccountIdentity(message);
-  const provider = messageProviderIdentity(message);
-  if (!account || !provider || !message.id) return null;
-  if (provider === 'imap') {
-    const folder = message.imap_folder?.trim() ?? '';
-    const uid = message.imap_uid?.trim() ?? '';
-    if (!folder || !uid) return null;
-    return structuralIdentity('message', [account, provider, folder, uid]);
-  }
-  return structuralIdentity('message', [account, provider, '', message.id]);
+  return tryMailMessageIdentity(message);
 }
 
 
 export function mailListMessageIdentity(message: MailListMessage): string {
-  return providerMessageKey(message) ?? structuralIdentity('message', [
-    messageAccountIdentity(message),
-    messageProviderIdentity(message),
-    message.imap_folder?.trim() ?? '',
-    message.imap_uid?.trim() || message.id,
-  ]);
+  return mailMessageIdentity(message);
 }
 
 
 export function mailListThreadIdentity(message: MailListMessage): string {
-  const account = messageAccountIdentity(message);
-  const provider = messageProviderIdentity(message);
-  const thread = message.thread_id.trim();
-  const folder = provider === 'imap' ? message.imap_folder?.trim() ?? '' : '';
-  if (!account || !provider || !thread || (provider === 'imap' && !folder)) {
-    return mailListMessageIdentity(message);
-  }
-  return structuralIdentity('thread', [account, provider, folder, thread]);
+  return mailThreadIdentity(message);
 }
 
 
@@ -260,7 +243,9 @@ export function processMailListMessages(
   }
   if (options.activeTagId) {
     result = result.filter((message) => (
-      options.messageTags[message.id]?.includes(options.activeTagId ?? '')
+      options.messageTags[mailListMessageIdentity(message)]?.includes(
+        options.activeTagId ?? '',
+      )
     ));
   }
   if (options.activeView?.filters.length) {

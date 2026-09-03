@@ -132,7 +132,14 @@ export function MailListMenus({ controller }: MailListMenusProps) {
           >
             <button
               onClick={() => {
-                void controller.handleBatchAction('archive');
+                const message = controller.contextMenu?.message;
+                if (message) {
+                  void controller.handleInlineAction(
+                    { stopPropagation: () => undefined },
+                    'archive',
+                    message,
+                  );
+                }
                 controller.setContextMenu(null);
               }}
               className="w-full text-left px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-2"
@@ -141,7 +148,14 @@ export function MailListMenus({ controller }: MailListMenusProps) {
             </button>
             <button
               onClick={() => {
-                void controller.handleBatchAction('trash');
+                const message = controller.contextMenu?.message;
+                if (message) {
+                  void controller.handleInlineAction(
+                    { stopPropagation: () => undefined },
+                    'trash',
+                    message,
+                  );
+                }
                 controller.setContextMenu(null);
               }}
               className="w-full text-left px-4 py-2 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] flex items-center gap-2"

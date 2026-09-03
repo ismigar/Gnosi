@@ -9,7 +9,7 @@ interface MailListBodyProps {
   readonly accountEmail?: string | null;
   readonly controller: MailListController;
   readonly listElementRef: (element: HTMLDivElement | null) => void;
-  readonly selectedMailId?: string;
+  readonly selectedMailIdentity?: string;
   readonly sentinelElementRef: (element: HTMLDivElement | null) => void;
 }
 
@@ -18,7 +18,7 @@ export function MailListBody({
   accountEmail,
   controller,
   listElementRef,
-  selectedMailId,
+  selectedMailIdentity,
   sentinelElementRef,
 }: MailListBodyProps) {
   const { t } = useTranslation();
@@ -66,7 +66,7 @@ export function MailListBody({
                   )}
                   isComposing={controller.isComposing}
                   message={message}
-                  selectedMailId={selectedMailId}
+                  selectedMailIdentity={selectedMailIdentity}
                 />
               ))}
             </div>

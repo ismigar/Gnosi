@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MailMessages, MailMessagesQuery } from '../../../shared/api/mail';
 import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import MailList, { type MailListProps } from './MailList';
+import { mailListMessageIdentity } from './mail-list/mailListModel';
 import type { MailListMessage } from './mail-list/mailListTypes';
-
 
 const mocks = vi.hoisted(() => ({
   archive: vi.fn<(...args: readonly unknown[]) => Promise<void>>(),
@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   fetchMessages: vi.fn<(query: MailMessagesQuery) => Promise<MailMessages>>(),
   getTags: vi.fn<(ids: string[]) => Promise<Record<string, string[]>>>(),
   move: vi.fn<(...args: readonly unknown[]) => Promise<void>>(),
-  purgeCache: vi.fn<(ids: readonly string[]) => void>(),
+  purgeCache: vi.fn<(messages: readonly MailListMessage[]) => void>(),
   readCache: vi.fn<(key: string) => MailListMessage[] | null>(),
   saveTags: vi.fn<(...args: readonly unknown[]) => Promise<void>>(),
   star: vi.fn<(...args: readonly unknown[]) => Promise<void>>(),
@@ -79,7 +79,7 @@ vi.mock('../../../shared/notifications/toast', () => ({
 
 
 vi.mock('./mail-list/mailListCache', () => ({
-  purgeMailListCacheIds: mocks.purgeCache,
+  purgeMailListCacheMessages: mocks.purgeCache,
   readMailListCache: mocks.readCache,
   writeMailListCache: mocks.writeCache,
 }));
@@ -177,8 +177,8 @@ function props(overrides: Partial<MailListProps> = {}): MailListProps {
     listRefreshToken: 0,
     onSelectMail: () => undefined,
     onToggleMailboxSidebar: () => undefined,
-    readMailId: null,
-    removedMailId: null,
+    readMail: null,
+    removedMail: null,
     showMailboxSidebar: true,
     ...overrides,
   };
@@ -325,6 +325,8 @@ describe('MailList', () => {
   });
 
   it('selects colliding provider ids independently across accounts', async () => {
+    const onSelectMail = vi.fn<(mail: MailListMessage) => void>();
+    const firstMessage = { ...message('shared'), account: account.email };
     mocks.fetchMessages.mockImplementation((query) => Promise.resolve(response([{
       ...message('shared'),
       account: query.email,
@@ -333,6 +335,8 @@ describe('MailList', () => {
     await render({
       account: null,
       accounts: [account, { email: 'two@example.com' }],
+      onSelectMail,
+      selectedMailIdentity: mailListMessageIdentity(firstMessage),
     });
     const checkboxes = [
       ...container.querySelectorAll<HTMLInputElement>('input[aria-label]'),
@@ -348,6 +352,23 @@ describe('MailList', () => {
     await click(button('Mark as read'));
     expect(mocks.batch).toHaveBeenCalledWith(account.email, 'read', ['shared']);
     expect(mocks.batch).not.toHaveBeenCalledWith('two@example.com', 'read', ['shared']);
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-mail-index]')];
+    expect(rows.filter((row) => row.className.includes('mail-row-selected'))).toHaveLength(1);
+    const secondRow = rows.at(1);
+    if (!secondRow) throw new Error('Missing second scoped row');
+    await click(secondRow);
+    expect(onSelectMail).toHaveBeenCalledWith(expect.objectContaining({
+      account: 'two@example.com', id: 'shared',
+    }));
+    act(() => {
+      secondRow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    });
+    const contextArchive = [...container.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent.includes('mail.archive_action'),
+    );
+    if (!contextArchive) throw new Error('Missing scoped context action');
+    await click(contextArchive);
+    expect(mocks.archive).toHaveBeenCalledWith('shared', 'two@example.com');
   });
 
   it('keeps successful aggregate rows when another synthetic account fails', async () => {
@@ -372,7 +393,9 @@ describe('MailList', () => {
     await click(checkbox());
     await click(button('Archive selected'));
 
-    expect(mocks.purgeCache).toHaveBeenCalledWith(['one']);
+    expect(mocks.purgeCache).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'one' }),
+    ]);
     expect(container.textContent).toContain('Subject one');
     expect(mocks.error).toHaveBeenCalled();
   });
@@ -393,9 +416,11 @@ describe('MailList', () => {
       limit: 50,
     }, expect.any(AbortSignal));
 
-    await render({ removedMailId: 'one' });
+    await render({ removedMail: message('one') });
     expect(container.textContent).not.toContain('Subject one');
-    expect(mocks.purgeCache).toHaveBeenCalledWith(['one']);
+    expect(mocks.purgeCache).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'one' }),
+    ]);
   });
 
   it('keeps keyboard selection and open callbacks behind the shared event adapter', async () => {

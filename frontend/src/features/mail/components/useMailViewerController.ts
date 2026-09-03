@@ -29,6 +29,7 @@ import {
   isSpamMail,
   mailErrorDetail,
 } from './mailViewerModel';
+import { selectMailDisplayMessage } from '../mailIdentity';
 import { useMailViewerData } from './useMailViewerData';
 import type {
   MailComposeRequest,
@@ -118,9 +119,11 @@ export function useMailViewerController({
     || mailData?.body_html
     || mailData?.snippet
     || '';
-  const displayMailData = mailData?.id === selectedMail?.id
-    ? mailData
-    : selectedMail;
+  const displayMailData = selectMailDisplayMessage(
+    mailData,
+    selectedMail,
+    account?.email,
+  );
   const analyzeMessage = (): void => {
     const context = analysisContext;
     const recipientValues = [mailData?.recipient, mailData?.cc]
@@ -281,7 +284,7 @@ export function useMailViewerController({
   const archive = (): void => {
     if (!mailData || !effectiveEmail) return;
     void archiveMailMessage(mailData.id, effectiveEmail, mailData.imap_folder || undefined)
-      .then(() => { onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }); })
+      .then(() => { onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }, mailData); })
       .catch((error: unknown) => {
         logError('mail-viewer.archive', error);
         toast.error(t('mail.archive_error'));
@@ -292,7 +295,7 @@ export function useMailViewerController({
     if (!mailData) return;
     if (mailData.source === 'vault' || selectedMail?.source === 'vault') {
       void deleteMailDraft(mailData.id)
-        .then(() => { onActionDone?.(mailData.id, 'delete_draft', effectiveEmail); })
+        .then(() => { onActionDone?.(mailData.id, 'delete_draft', effectiveEmail, {}, mailData); })
         .catch((error: unknown) => {
           logError('mail-viewer.delete-draft', error);
           toast.error(t('mail.delete_error'));
@@ -301,7 +304,7 @@ export function useMailViewerController({
     }
     if (!effectiveEmail) return;
     void trashMailMessage(mailData.id, effectiveEmail, mailData.imap_folder || undefined)
-      .then(() => { onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }); })
+      .then(() => { onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }, mailData); })
       .catch((error: unknown) => {
         logError('mail-viewer.trash', error);
         toast.error(t('mail.delete_error'));
@@ -358,7 +361,7 @@ export function useMailViewerController({
         target_folder: folderName,
       });
       toast.success(t('mail.moved_to_folder', 'Moved to {{folder}}', { folder: folderName }));
-      if (onMoved) onMoved(mailData.id);
+      if (onMoved) onMoved(mailData);
       else onClose?.();
     } catch (error) {
       logError('mail-viewer.move', error);

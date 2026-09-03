@@ -9,6 +9,7 @@ import MailSidebar from '../components/MailSidebar';
 import MailViewer from '../components/MailViewer';
 import type { MailView } from '../../../shared/api/mail';
 import type { MailPageController } from './useMailPageController';
+import { mailMessageIdentity } from '../mailIdentity';
 import type {
   MailAccount,
   MailComposeData,
@@ -118,7 +119,9 @@ export function MailPageView({ controller }: MailPageViewProps) {
               activeView={controller.activeView}
               activeTagId={controller.activeTagId}
               onSelectMail={controller.handleMailSelected}
-              selectedMailId={controller.selectedMail?.id}
+              selectedMailIdentity={controller.selectedMail
+                ? mailMessageIdentity(controller.selectedMail)
+                : undefined}
               isComposing={controller.isComposing}
               searchQuery={controller.searchQuery}
               onMessagesLoaded={controller.setMessages}
@@ -128,8 +131,8 @@ export function MailPageView({ controller }: MailPageViewProps) {
               onToggleMailboxSidebar={() => {
                 controller.setShowMailboxSidebar((open) => !open);
               }}
-              removedMailId={controller.removedMailId}
-              readMailId={controller.readMailId}
+              removedMail={controller.removedMail}
+              readMail={controller.readMail}
               listRefreshToken={controller.listRefreshToken}
               onRecordAction={controller.handleRecordAction}
             />

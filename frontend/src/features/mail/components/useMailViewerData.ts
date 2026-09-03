@@ -12,6 +12,11 @@ import {
   type MailAnalysisMetadata,
 } from '../../../shared/api/mail';
 import { normalizeMailEntities } from './mailViewerModel';
+import {
+  hydrateMailMessageIdentity,
+  isSameMailMessage,
+  mailMessageIdentity,
+} from '../mailIdentity';
 import type {
   MailAnalysisStatus,
   MailExtractedEntities,
@@ -23,7 +28,7 @@ import type {
 interface MailViewerDataInput {
   readonly account: MailViewerAccount | null;
   readonly mailTags: MailTagsContextValue;
-  readonly onMailRead?: (id: string) => void;
+  readonly onMailRead?: (mail: MailViewerMessage) => void;
   readonly selectedMail: MailViewerMessage | null;
   readonly t: TFunction;
 }
@@ -49,7 +54,15 @@ export function useMailViewerData({
   const analysisRunningRef = useRef(false);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const { getMessageTags } = mailTags;
-  const firstThreadMessageId = selectedMail?.thread_messages?.[0]?.id || selectedMail?.id;
+  const selectedMailIdentity = selectedMail
+    ? mailMessageIdentity(selectedMail, account?.email)
+    : null;
+  const mailDataIdentity = mailData
+    ? mailMessageIdentity(mailData, account?.email)
+    : null;
+  const firstThreadMessageIdentity = selectedMail?.thread_messages?.[0]
+    ? mailMessageIdentity(selectedMail.thread_messages[0], account?.email)
+    : selectedMailIdentity;
   const localThreadMessages = selectedMail?.thread_messages ?? [];
   const allThreadMessages = fullThreadMessages.length > 0
     ? fullThreadMessages
@@ -57,10 +70,14 @@ export function useMailViewerData({
       ? localThreadMessages
       : selectedMail ? [selectedMail] : [];
 
-  const markAsRead = useCallback((id: string, email: string, folder?: string): void => {
+  const markAsRead = useCallback((
+    message: MailViewerMessage,
+    email: string,
+    folder?: string,
+  ): void => {
     if (!email) return;
-    void markMailRead(id, email, folder || undefined)
-      .then(() => { onMailRead?.(id); })
+    void markMailRead(message.id, email, folder || undefined)
+      .then(() => { onMailRead?.(message); })
       .catch((error: unknown) => { logError('mail-viewer.mark-read', error); });
   }, [onMailRead]);
 
@@ -130,7 +147,8 @@ export function useMailViewerData({
     const id = selectedMail?.id;
     const threadId = selectedMail?.thread_id;
     const email = selectedMail?.account || account?.email || '';
-    if (!id || mailData?.id !== id || !threadId || threadId === id
+    if (!id || mailDataIdentity !== selectedMailIdentity
+      || !threadId || threadId === id
       || !email || selectedMail.source === 'vault') {
       return () => { cancelled = true; };
     }
@@ -148,14 +166,16 @@ export function useMailViewerData({
       cancelled = true;
       abortController.abort();
     };
-  }, [account?.email, mailData?.id, selectedMail]);
+  }, [account?.email, mailDataIdentity, selectedMail, selectedMailIdentity]);
 
   useEffect(() => {
-    if (!firstThreadMessageId) return undefined;
+    if (!firstThreadMessageIdentity) return undefined;
     let active = true;
-    queueMicrotask(() => { if (active) setExpandedThreadIds(new Set([firstThreadMessageId])); });
+    queueMicrotask(() => {
+      if (active) setExpandedThreadIds(new Set([firstThreadMessageIdentity]));
+    });
     return () => { active = false; };
-  }, [firstThreadMessageId, selectedMail?.id]);
+  }, [firstThreadMessageIdentity, selectedMailIdentity]);
 
   useEffect(() => {
     const id = selectedMail?.id;
@@ -171,7 +191,7 @@ export function useMailViewerData({
         if (!cancelled) setActiveTagIds([]);
       });
     return () => { cancelled = true; };
-  }, [getMessageTags, selectedMail?.id]);
+  }, [getMessageTags, selectedMail?.id, selectedMailIdentity]);
 
   useEffect(() => {
     const id = selectedMail?.id;
@@ -194,9 +214,15 @@ export function useMailViewerData({
       folder: selectedMail.imap_folder || undefined,
     }, abortController.signal).then((data) => {
       if (cancelled) return;
-      setMailData(data);
+      setMailData(hydrateMailMessageIdentity(data, selectedMail, email));
       setLoading(false);
-      if (!data.is_read) markAsRead(data.id, email, data.imap_folder || selectedMail.imap_folder || undefined);
+      if (!data.is_read) {
+        markAsRead(
+          selectedMail,
+          email,
+          data.imap_folder || selectedMail.imap_folder || undefined,
+        );
+      }
     }).catch((error: unknown) => {
       if (!abortController.signal.aborted) logError('mail-viewer.message', error);
       if (!cancelled) setLoading(false);
@@ -224,22 +250,24 @@ export function useMailViewerData({
       active = false;
       analysisAbortRef.current?.abort();
     };
-  }, [selectedMail?.id]);
+  }, [selectedMailIdentity]);
 
   const toggleThreadMessage = (message: MailViewerMessage): void => {
-    const willExpand = !expandedThreadIds.has(message.id);
+    const identity = mailMessageIdentity(message, account?.email);
+    const willExpand = !expandedThreadIds.has(identity);
     setExpandedThreadIds((current) => {
       const next = new Set(current);
-      if (next.has(message.id)) next.delete(message.id);
-      else next.add(message.id);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
       return next;
     });
-    if (willExpand && message.id !== mailData?.id && !threadMessageData[message.id]) {
+    if (willExpand && !isSameMailMessage(message, mailData, account?.email)
+      && !threadMessageData[identity]) {
       void fetchMailMessage(message.id, {
         email: message.account || account?.email || undefined,
         folder: message.imap_folder || undefined,
       }).then((data) => {
-        setThreadMessageData((current) => ({ ...current, [message.id]: data }));
+        setThreadMessageData((current) => ({ ...current, [identity]: data }));
       }).catch((error: unknown) => { logError('mail-viewer.thread-message', error); });
     }
   };

@@ -1,4 +1,5 @@
 import type { MailMessage, MailView } from '../../../../shared/api/mail';
+import type { MailIdentityMessage } from '../../mailIdentity';
 
 
 export interface MailAccount {
@@ -34,20 +35,21 @@ export interface MailListProps {
   readonly isComposing?: boolean;
   readonly listRefreshToken: number;
   readonly onBatchDone?: () => void;
-  readonly onMailRead?: (mailId: string) => void;
+  readonly onMailRead?: (mail: MailIdentityMessage) => void;
   readonly onMessagesLoaded?: (messages: readonly MailListMessage[]) => void;
   readonly onRecordAction?: (
     type: string,
     mailId: string,
     email: string,
     extra?: MailUndoExtra,
+    mail?: MailListMessage,
   ) => void;
   readonly onSelectMail: (mail: MailListMessage) => void;
   readonly onToggleMailboxSidebar: () => void;
-  readonly readMailId: string | null;
-  readonly removedMailId: string | null;
+  readonly readMail: MailIdentityMessage | null;
+  readonly removedMail: MailIdentityMessage | null;
   readonly searchQuery?: string;
-  readonly selectedMailId?: string;
+  readonly selectedMailIdentity?: string;
   readonly showMailboxSidebar: boolean;
 }
 
@@ -71,7 +73,7 @@ export interface InlineTagPickerState {
 
 
 export interface ContextMenuState {
-  readonly msgId: string;
+  readonly message: MailListMessage;
   readonly x: number;
   readonly y: number;
 }

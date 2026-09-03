@@ -18,6 +18,7 @@ export interface MailViewerAttachment extends Readonly<Record<string, unknown>> 
 
 export interface MailViewerMessage extends Readonly<Record<string, unknown>> {
   readonly account?: string | null;
+  readonly account_email?: string | null;
   readonly attachments?: readonly MailViewerAttachment[] | null;
   readonly body_html?: string | null;
   readonly body_text?: string | null;
@@ -132,11 +133,12 @@ export interface MailViewerProps {
     action?: string,
     email?: string,
     extra?: MailActionExtra,
+    mail?: MailViewerMessage,
   ) => void;
   readonly onClose?: () => void;
   readonly onCompose?: (request: MailComposeRequest) => void;
-  readonly onMailRead?: (id: string) => void;
-  readonly onMoved?: (id: string) => void;
+  readonly onMailRead?: (mail: MailViewerMessage) => void;
+  readonly onMoved?: (mail: MailViewerMessage) => void;
 }
 
 

@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 
 import { MailAttachments } from './MailAttachments';
 import { MailBody } from './MailBody';
+import { isSameMailMessage, mailMessageIdentity } from '../mailIdentity';
 import { cleanMailAddress } from './mailViewerModel';
 import type { MailViewerController } from './useMailViewerController';
 
@@ -13,21 +14,26 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
   return (
     <div className="space-y-2 mb-8">
       {controller.allThreadMessages.map((message, index) => {
-        const main = message.id === controller.mailData?.id
+        const identity = mailMessageIdentity(message, controller.account?.email);
+        const main = isSameMailMessage(
+          message,
+          controller.mailData,
+          controller.account?.email,
+        )
           || (index === 0 && !controller.mailData);
-        const expanded = controller.expandedThreadIds.has(message.id);
+        const expanded = controller.expandedThreadIds.has(identity);
         const sent = controller.isSentMessage(message);
         const sender = sent
           ? t('mail.you_label', 'You')
           : cleanMailAddress(message.sender);
         const content = main
           ? controller.mailData
-          : controller.threadMessageData[message.id];
+          : controller.threadMessageData[identity];
         const date = message.timestamp
           ? format(new Date(message.timestamp * 1000), 'd MMM yyyy · HH:mm', { locale: ca })
           : '';
         return (
-          <div className={`rounded-xl overflow-hidden border transition-all ${sent ? 'border-[var(--gnosi-blue)]/40 bg-[var(--sidebar-item-active)]/40' : 'border-[var(--border-primary)] bg-[var(--bg-primary)]'}`} key={message.id}>
+          <div className={`rounded-xl overflow-hidden border transition-all ${sent ? 'border-[var(--gnosi-blue)]/40 bg-[var(--sidebar-item-active)]/40' : 'border-[var(--border-primary)] bg-[var(--bg-primary)]'}`} key={identity}>
             <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-secondary)]/60 transition-colors text-left" onClick={() => { controller.toggleThreadMessage(message); }} type="button">
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-bold shrink-0 ${sent ? 'bg-[var(--gnosi-blue)] text-white' : 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'}`}>
                 {sender[0]?.toLocaleUpperCase() || '?'}
