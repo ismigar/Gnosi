@@ -1,0 +1,2765 @@
+{
+  "format_version": 1,
+  "operations": [
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/ai/agents/{param}/memories/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/ai/automations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/ai/providers/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/ai/semantic-associations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/ai/skills/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/analytics/directives"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/calendar/events/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/chat/attachments"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/chat/sessions/{param}/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/contacts/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/credentials/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/mail/drafts/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/mail/tags/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/mail/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/notebooks/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/notebooks/{param}/sources/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/notion-oauth/token"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/notion/token"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/pages/{param}/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/planning/assignments/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/planning/calendars/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/planning/resources/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/reader/sources/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/schedulers/history"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/social/scheduled/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/system/notifications"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/tokens/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/brain-table"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/databases/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/drawings/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/literature/repositories/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/literature/searches/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/literature/synchronizations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/media/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/option-catalogs/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/pages/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/pages/{param}/comments/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/pages/{param}/history"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/pages/{param}/inline-comments/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/pdf-annotations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/plugins/trust/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/plugins/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/reference-table"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/share/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/tables/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/trash"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/trash/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vault/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/vaults/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/workspaces/{param}/members/{param}"
+    },
+    {
+      "category": "json",
+      "method": "DELETE",
+      "path": "/api/workspaces/{param}/members/{param}/vaults/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/agent/context-sources"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/agent/internal-sources"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/agents/{param}/memories"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/agents/{param}/skills"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/approvals"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/automations"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/automations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/automations/{param}/runs"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/capability-audit"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/catalog"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/evals/candidates"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/evals/models"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/jobs"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/jobs/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/jobs/{param}/result"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/model-catalog"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/model-comparison"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/model-reliability"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/models"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/quality/conformance"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/quality/dashboard"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/semantic-associations"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/skills"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/skills/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/tools"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/usage"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/ai/usage/history"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/analytics"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/analytics/directives"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/analytics/directives/content"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/analytics/tools"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/analytics/traps"
+    },
+    {
+      "category": "redirect",
+      "method": "GET",
+      "path": "/api/auth/google/callback"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/auth/google/health"
+    },
+    {
+      "category": "redirect",
+      "method": "GET",
+      "path": "/api/auth/google/login"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/auth/google/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/auth/me"
+    },
+    {
+      "category": "redirect",
+      "method": "GET",
+      "path": "/api/auth/microsoft/callback"
+    },
+    {
+      "category": "redirect",
+      "method": "GET",
+      "path": "/api/auth/microsoft/login"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/auth/microsoft/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/attendees/search"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/calendars"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/events"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/events/{param}"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/calendar/feed.ics"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/geocode"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/reminders"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/calendar/reminders/settings"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/chat/capability-audit"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/chat/confirmations"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/chat/confirmations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/chat/replays/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/chat/sessions/{param}/{param}"
+    },
+    {
+      "category": "stream",
+      "method": "GET",
+      "path": "/api/chat/streams/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/config"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/contacts"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/contacts/sync/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/contacts/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/credentials"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/credentials/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/env"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/graph"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/identity"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/integrations"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/counts"
+    },
+    {
+      "category": "stream",
+      "method": "GET",
+      "path": "/api/mail/events"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/folders"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/messages"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/messages/{param}"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/mail/messages/{param}/attachments/{param}"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/mail/messages/{param}/cid/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/messages/{param}/tags"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/recipients/suggest"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/tags"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/tags/{param}/messages"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/threads/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/mail/views"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/meetings/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/resources"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/{param}/chat-sources"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/{param}/conversation"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/{param}/evidence/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/{param}/search"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notebooks/{param}/sources"
+    },
+    {
+      "category": "redirect",
+      "method": "GET",
+      "path": "/api/notion-oauth/callback"
+    },
+    {
+      "category": "redirect",
+      "method": "GET",
+      "path": "/api/notion-oauth/login"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion-oauth/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/clone/progress"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/databases"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/databases/{param}/schema"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/import-config"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/linked-databases"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/loose-pages"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/notion/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/pages/{param}/views"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/allocation"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/leveling/proposal"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/projects/{param}/baselines"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/projects/{param}/baselines/{param}/variance"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/projects/{param}/schedule"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/state"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/planning/worklogs"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/public/clip/config"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/public/ping"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/analysis"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/analysis/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/analysis/{param}/result"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/articles"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/articles/backfill-extract/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/articles/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/inventory"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/newsletter-account"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/podcast/info"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/reader/podcast/latest"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/podcast/status"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/reader/sources"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/schedulers"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/schedulers/history"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/schedulers/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/share/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/social/feed/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/social/history"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/social/networks"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/social/scheduled"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/social/streams"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/system/graph/visualization"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/system/native-pick/available"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/system/notifications"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/system/stats"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/tokens"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/tools/approved"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/tools/pending"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/tools/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/alias-index"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/assets/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/backlinks"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/brain-table"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/csl/styles"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/custom-icons"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/daily"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/databases"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/drawings"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/drawings/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/drupal/content-types"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/drupal/content-types/{param}/fields"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/export-references"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/export/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/format-citation"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/global-index"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/handwriting/status"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/images/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/indexer-status"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/library/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/link-index/stats"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/link-preview"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/catalog"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/configuration"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/reviews"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/reviews/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/reviews/{param}/candidates"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/literature/reviews/{param}/exports/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/searches"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/searches/{param}"
+    },
+    {
+      "category": "stream",
+      "method": "GET",
+      "path": "/api/vault/literature/searches/{param}/events"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/searches/{param}/results/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/literature/synchronizations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/llm-wiki/config"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/llm-wiki/evidence/{param}/{param}/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/llm-wiki/lint"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/llm-wiki/status/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/llm-wiki/suggestions"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/local-file/{param}"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/local-file/{param}/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/media"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/media/albums"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/media/roots"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/media/tree"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/media/views"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/option-catalogs"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/outlinks"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/by-table/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/by-table/{param}/snapshot"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}/comments"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}/history"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}/history/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}/inline-comments"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}/preview"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pages/{param}/shares"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/pdf-annotations"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins/catalog"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins/catalog/list"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins/installed"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins/registry-url"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins/trust"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/plugins/{param}/asset/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/plugins/{param}/settings"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/raw/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/reference-table"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/registry"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/resolve-by-citation-key"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/resolve-by-title"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/schema"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/search-citations"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/sidebar/summary"
+    },
+    {
+      "category": "stream",
+      "method": "GET",
+      "path": "/api/vault/synced-events"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/synced/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/tables"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/tables/{param}/options/usage"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/tags"
+    },
+    {
+      "category": "download",
+      "method": "GET",
+      "path": "/api/vault/thumb/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/trash"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/unlinked-mentions"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/unsplash/search"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/views"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/views/{param}/usage"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vault/virtual-fields"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vaults"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vaults/templates/catalog"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/vaults/{param}/template-export/preview"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/workspaces"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/workspaces/{param}"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/workspaces/{param}/members"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/workspaces/{param}/members/{param}/vaults"
+    },
+    {
+      "category": "json",
+      "method": "GET",
+      "path": "/api/workspaces/{param}/vaults"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/ai/providers/{param}/status"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/auth/me"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/calendar/events/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/mail/accounts/{param}/enabled"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/mail/messages/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/notebooks/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/planning/assignments/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/planning/calendars/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/planning/resources/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/reader/articles/{param}/read"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/media/metadata"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/media/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/pages/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/pages/{param}/comments/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/pages/{param}/inline-comments/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/pdf-annotations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vault/tables/{param}/properties/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PATCH",
+      "path": "/api/vaults/{param}"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/agents/{param}/memories"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/automations"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/automations/{param}/run"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/correct"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/evals/candidates/run"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/evals/candidates/{param}/review"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/evals/models/{param}/run"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/generate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/jobs/{param}/cancel"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/jobs/{param}/resume"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/providers/{param}/credentials"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/providers/{param}/validate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/semantic-associations"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/skills"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/skills/{param}/clone"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/ai/skills/{param}/validate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/analytics/directives/content"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/auth/change-password"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/auth/login"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/auth/logout"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/auth/register"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/events"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/events/{param}/hide"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/events/{param}/invite"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/events/{param}/rsvp"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/events/{param}/unhide"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/freebusy"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/reminders/{param}/dismiss"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/calendar/sync"
+    },
+    {
+      "category": "stream",
+      "method": "POST",
+      "path": "/api/chat"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/chat/attachments"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/chat/confirmations/{param}/cancel"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/chat/confirmations/{param}/confirm"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/chat/feedback"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/chat/sessions/{param}/{param}/rewind"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/chat/streams/{param}/cancel"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/config"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/contacts"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/contacts/sync"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/credentials"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/credentials/migrate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/env"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/identity"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/integrations/bulk"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/integrations/test-calendar"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/integrations/test-contacts"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/integrations/test-email"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/ai/extract_entities"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/ai/generate_draft"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/batch"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/drafts"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/empty_folder"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/archive"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/move"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/read"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/reply"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/snooze"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/spam"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/star"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/tags"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/messages/{param}/trash"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/send"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/sync"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/tags"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/tags/messages/batch"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/mail/views"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/meetings/record"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notebooks"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notebooks/{param}/refresh"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notebooks/{param}/refresh/cancel"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notebooks/{param}/sources"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notebooks/{param}/sources/{param}/refresh"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notion/clone"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notion/clone/abort"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notion/token"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/notion/verify-clone"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/pages/{param}/views"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/assignments"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/calendars"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/leveling/proposals/{param}/apply"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/projects/{param}/baselines"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/projects/{param}/leveling/proposals"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/projects/{param}/recalculate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/recurrences"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/recurrences/{param}/materialize"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/resources"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/planning/worklogs"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/public/clip"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/public/pages"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/analysis"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/analysis/{param}/cancel"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/analysis/{param}/resume"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/articles/backfill-extract"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/articles/{param}/extract"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/newsletter-account/sync"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/newsletter-account/test"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/podcast/generate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/sources"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/reader/sources/opml"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/schedulers/{param}/run"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/social/compose"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/social/interact"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/social/post"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/social/process-scheduled"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/social/publish"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/social/schedule"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/system/browse"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/system/native-pick"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/system/notifications"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/system/search"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/tokens"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/tools/approve"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/tools/reject"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/assets/upload"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/brain-table"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/brain-table/create"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/bulk-apply-template"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/bulk-update-metadata"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/csl/styles"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/daily"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/databases"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/delete-physical-file"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/format-bibliography"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/format-citations"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/generate-citation-key"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/handwriting/recognize"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/handwriting/warmup"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/import"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/import-icon-url"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/import-references"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/link-existing-file"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/link-index/rebuild"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/link-unlinked-mentions"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/ai"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/imports"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/manual-capture"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/repositories"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/repositories/test"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews/tables"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews/{param}/activities"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews/{param}/candidates"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews/{param}/candidates/{param}/consensus"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews/{param}/candidates/{param}/decisions"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/reviews/{param}/snowball"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/searches"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/synchronizations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/literature/synchronizations/{param}/resume"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/brain/create"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/glossary"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/maintenance"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/process"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/suggestions/{param}/accept"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/suggestions/{param}/dictate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/suggestions/{param}/dismiss"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/suggestions/{param}/reformulate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/llm-wiki/suggestions/{param}/reject"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/local-file/register"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/lookup-metadata"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/media/upload"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/media/views"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/open-local-path"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/open-resource"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/preview/warm"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/{param}/comments"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/{param}/duplicate"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/{param}/history/restore/{param}"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/{param}/inline-comments"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/{param}/restore"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pages/{param}/share"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pdf-annotations"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pick-file"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/pick-folder"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/catalog/install"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/install"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/llm-wiki/lifecycle"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/trust"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/vault-summary/summarize"
+    },
+    {
+      "category": "download",
+      "method": "POST",
+      "path": "/api/vault/plugins/{param}/export"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/{param}/lifecycle"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/{param}/network/fetch"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/{param}/permissions"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/plugins/{param}/submissions"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/promote-zotero-extra"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/recognize-pdf"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/reference-table"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/reference-table/create"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/registry"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/schema"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/execute-button-action"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/generate-button-action"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/match-drupal-rows"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/sync-drupal-row"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/sync-drupal-rows"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/translate-page"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/translate-row"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/skills/translate-rows"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/tables"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/tables/{param}/options/remove"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/tables/{param}/options/rename"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/translate-url"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/upload-cover"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/upload-icon"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/upload-property-file"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vault/views"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vaults"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vaults/from-template"
+    },
+    {
+      "category": "download",
+      "method": "POST",
+      "path": "/api/vaults/{param}/template-export"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/vaults/{param}/template-submissions"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/workspaces"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/workspaces/{param}/members"
+    },
+    {
+      "category": "json",
+      "method": "POST",
+      "path": "/api/workspaces/{param}/members/{param}/vaults"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/ai/agents/{param}/memories/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/ai/agents/{param}/skills"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/ai/automations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/ai/models"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/ai/skills/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/calendar/reminders/settings"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/contacts/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/calendar_aliases"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/calendar_colors"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/calendar_selection"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/default_calendar"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/default_contacts"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/default_mail"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/integrations/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/mail/tags/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/mail/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/notion/import-config"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/reader/newsletter-account"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/schedulers/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/social/networks"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/social/streams"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/custom-icons"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/drawings/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/literature/configuration"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/literature/repositories/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/literature/reviews/{param}/candidates/{param}/full-text"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/literature/reviews/{param}/schedule"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/llm-wiki/config"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/option-catalogs/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/pages/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/plugins"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/plugins/registry-url"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/plugins/{param}/settings"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/synced/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/tables/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/views/order"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/vault/views/{param}"
+    },
+    {
+      "category": "json",
+      "method": "PUT",
+      "path": "/api/workspaces/{param}/members/{param}/role"
+    },
+    {
+      "category": "websocket",
+      "method": "WEBSOCKET",
+      "path": "/api/vault/collab/{param}"
+    }
+  ],
+  "source": {
+    "commit": "fcfb4efc32abd5a27207c7be04b1bad13628fda1",
+    "ref": "v2.0.6",
+    "tree": "f3f67592c04dae2e0c264e176360ea29a2042d0b"
+  }
+}

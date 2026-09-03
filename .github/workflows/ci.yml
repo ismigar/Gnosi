@@ -55,6 +55,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
       - uses: pnpm/action-setup@v6
@@ -73,7 +74,7 @@ jobs:
           enable-cache: true
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen
-      - name: Check deterministic OpenAPI and generated frontend client
+      - name: Check OpenAPI, 2.x compatibility, and generated frontend client
         run: pnpm check:api-client
       - name: Enforce frontend migration guardrails
         run: pnpm guardrails:frontend
