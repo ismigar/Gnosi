@@ -147,6 +147,11 @@ requires documentation evidence.
 
 ## Restrictions and edge cases
 
+- Note: Do not run the automatic documentation build or Pages deployment on a
+  GitHub-hosted runner, because the project intentionally operates without a
+  hosted Actions budget. Use the provisioned self-hosted Linux ARM64 runner for
+  both jobs and keep a source-level regression test for the runner labels.
+
 - Note: Do not classify source using absolute ancestor names, because a checkout
   below `tests`, `e2e`, `vendor` or a scratch directory changes public catalogs.
   Instead, classify paths relative to the explicit scan/application root, while

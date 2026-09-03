@@ -114,6 +114,13 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
     assert "run: pnpm lint:frontend" in workflow
 
 
+def test_documentation_workflow_never_consumes_hosted_runner_budget() -> None:
+    workflow = (ROOT / ".github/workflows/documentation-pages.yml").read_text()
+
+    assert "ubuntu-latest" not in workflow
+    assert workflow.count("runs-on: [self-hosted, Linux, ARM64]") == 2
+
+
 @pytest.mark.parametrize(("script_name", "commands", "failure_at"), [
     ("typecheck", EXPECTED_COMMANDS, failure_at) for failure_at in range(5)
 ] + [
