@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const metricNames = ['startupEntryBytes', 'startupStaticBytes', 'largestChunkBytes', 'settingsRouteBytes'] as const;
+const metricNames = ['startupEntryBytes', 'startupStaticBytes', 'largestChunkBytes', 'settingsRouteBytes', 'knowledgeRouteEntryBytes'] as const;
 export type BundleMetrics = Record<typeof metricNames[number], number>;
 
 export const BUNDLE_LIMITS: Readonly<BundleMetrics> = Object.freeze({
@@ -10,6 +10,7 @@ export const BUNDLE_LIMITS: Readonly<BundleMetrics> = Object.freeze({
   startupStaticBytes: 600_000,
   largestChunkBytes: 2_100_000,
   settingsRouteBytes: 600_000,
+  knowledgeRouteEntryBytes: 200_000,
 });
 
 interface Chunk { readonly name: string; readonly bytes: number }
@@ -55,6 +56,7 @@ export function inspectBundle(dist: string, limits: Readonly<BundleMetrics> = BU
     ])].reduce((total, name) => total + bytes(path.join(assets, name)), 0),
     largestChunkBytes: Math.max(...chunks.map(chunk => chunk.bytes)),
     settingsRouteBytes: checkedMaximum(chunks, 'GlobalSettingsModal-').bytes,
+    knowledgeRouteEntryBytes: checkedMaximum(chunks, 'VaultDashboard-').bytes,
   };
   const violations = metricNames
     .filter(name => metrics[name] > limits[name])

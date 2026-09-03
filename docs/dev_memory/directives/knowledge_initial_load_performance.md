@@ -20,6 +20,7 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 4. Separar el registre lleuger de locales dels catàlegs pesants i resoldre el locale actiu abans d'inicialitzar i18next.
 5. Preservar el canvi d'idioma en calent carregant el catàleg sol·licitat abans d'activar-lo.
 6. Repetir exactament la mesura inicial i comparar recursos, bytes i catàlegs carregats.
+7. Dins de Knowledge, mantenir el shell, la navegació lateral i la vista de benvinguda al chunk de ruta; carregar editor, lector PDF, vistes de taula especialitzades i diàlegs només quan el seu estat els fa visibles.
 
 ## Restriccions i casos límit
 
@@ -38,6 +39,8 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - No confondre la primera compilació sota demanda de Vite amb latència estable. Cal mesurar càrrega freda, càrrega calenta i build de producció.
 - No ampliar timeouts per ocultar consultes lentes; cal mesurar la petició concreta i corregir-ne el propietari.
 - No registrar payloads, textos de pàgines, credencials ni contingut del vault durant el perfilat.
+- Nota: no renderitzar un component `lazy` tancat esperant que el seu `isOpen` eviti la descàrrega; React resol el mòdul tan bon punt el component entra a l'arbre. Cal condicionar el muntatge de la frontera `lazy` des del pare lleuger.
+- Nota: no interpretar un lint global sense sortida que no finalitza com un resultat vàlid. Cal interrompre'l, validar tots els fitxers modificats de forma explícita i repetir el lint global en la integració canònica, on les dependències no són una còpia temporal del worktree.
 
 ## Criteris d'acceptació
 
@@ -54,3 +57,10 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - La prova de navegador carrega un únic catàleg actiu (`ca`); abans els quatre catàlegs estaven incrustats a l'entrada.
 - Editor, calendari, PDF i dibuix deixen de ser dependències estàtiques d'arrencada.
 - El nombre d'assets de la ruta completa es manté en 157 perquè Knowledge continua necessitant els seus components i icones; la millora és en bytes i en evitar codi d'altres rutes.
+
+## Resultat de la divisió interna de VaultDashboard
+
+- El chunk minificat de `VaultDashboard` baixa de 2.038.744 a 158.440 bytes, un 92,2% menys.
+- Editor, Zotero, dibuix, taules i configuració queden en chunks independents i només es resolen quan la vista corresponent és activa.
+- Els diàlegs de cerca, presentació, traducció, IA, esquema, comentaris i compartició no es descarreguen mentre estan tancats.
+- El guardrail de build limita el chunk inicial de Knowledge a 200.000 bytes perquè una regressió no torni a incorporar funcionalitats diferides.

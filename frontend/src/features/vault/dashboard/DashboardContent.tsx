@@ -1,15 +1,19 @@
-import React from 'react';
-import { Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { VaultDocumentTabs } from '../navigation/VaultDocumentTabs';
-import VaultDrawings from '../drawings/VaultDrawings';
-import { VaultTrashView } from '../navigation/VaultTrashView';
-import { VaultTagsView } from '../navigation/VaultTagsView';
 import { reorderTabs } from './tab-model';
-import { TablePane } from './TablePane';
-import { EditorPane } from './EditorPane';
 import { DashboardWelcome } from './DashboardWelcome';
 import type { DashboardController } from './useDashboardController';
+
+const VaultDrawings = lazy(() => import('../drawings/VaultDrawings'));
+const VaultTrashView = lazy(() => import('../navigation/VaultTrashView').then(module => ({ default: module.VaultTrashView })));
+const VaultTagsView = lazy(() => import('../navigation/VaultTagsView').then(module => ({ default: module.VaultTagsView })));
+const TablePane = lazy(() => import('./TablePane').then(module => ({ default: module.TablePane })));
+const EditorPane = lazy(() => import('./EditorPane').then(module => ({ default: module.EditorPane })));
 const TldrawEditor = lazy(() => import('../drawings/TldrawEditor'));
+
+function ContentFallback({ label }: { readonly label: string }) {
+  return <div className="flex-1 flex items-center justify-center text-sm text-[var(--text-secondary)] animate-pulse">{label}</div>;
+}
 export function DashboardContent(dashboard: DashboardController) {
   const context = dashboard;
   const {
@@ -73,7 +77,7 @@ export function DashboardContent(dashboard: DashboardController) {
       className="flex-1 flex overflow-hidden min-w-0"
       ref={paneContainerRef}
     >
-      {viewMode === 'editor' && activeTabId ? (<>
+      {viewMode === 'editor' && activeTabId ? (<Suspense fallback={<ContentFallback label={t('common.loading')} />}>
         {openPaneEntries.map((pane, index) => (<React.Fragment key={`${pane.type}-${pane.id}-${index === 0 ? 'primary' : 'split'}`}>
           <div
             className={`flex flex-col overflow-hidden min-w-0 ${index > 0 ? 'bg-[var(--bg-primary)]' : ''}`}
@@ -103,7 +107,7 @@ export function DashboardContent(dashboard: DashboardController) {
             title={t('common.drag_resize')}
           />)}
         </React.Fragment>))}
-      </>) : viewMode === 'drawing' ? (<div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
+      </Suspense>) : viewMode === 'drawing' ? (<div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
         {activeTabId ? (<Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-[var(--text-secondary)] animate-pulse">{t('editor.loading_drawing_editor')}</div>}>
           <TldrawEditor
             key={activeTabId}
@@ -118,24 +122,24 @@ export function DashboardContent(dashboard: DashboardController) {
             onSaveSuccess={() => { }}
             onOpenPage={(pageId) => { setViewMode('editor'); void loadPage(pageId); }}
           />
-        </Suspense>) : (<VaultDrawings onDrawingSelect={(id, title) => {
+        </Suspense>) : (<Suspense fallback={<ContentFallback label={t('common.loading')} />}><VaultDrawings onDrawingSelect={(id, title) => {
           if (!tabs.find(t => t.id === id)) {
             setTabs(prev => [...prev, { id, title: title, isDrawing: true }]);
           }
           setActiveTabId(id);
-        }} />)}
+        }} /></Suspense>)}
       </div>) : viewMode === 'trash' ? (<div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
-        <VaultTrashView onAfterChange={() => {
+        <Suspense fallback={<ContentFallback label={t('common.loading')} />}><VaultTrashView onAfterChange={() => {
           if (activeTableId)
             void fetchPagesByTable(activeTableId);
           else
             void fetchPages();
-        }} />
-      </div>) : viewMode === 'tags' ? (<VaultTagsView onPageSelect={(...args: Parameters<typeof loadPage>) => { void loadPage(...args); }} />) : viewMode === 'table' && activeTableId ? (<TablePane
+        }} /></Suspense>
+      </div>) : viewMode === 'tags' ? (<Suspense fallback={<ContentFallback label={t('common.loading')} />}><VaultTagsView onPageSelect={(...args: Parameters<typeof loadPage>) => { void loadPage(...args); }} /></Suspense>) : viewMode === 'table' && activeTableId ? (<Suspense fallback={<ContentFallback label={t('common.loading')} />}><TablePane
         dashboard={dashboard}
         tableId={activeTableId}
         mode="inline"
-      />) : <DashboardWelcome
+      /></Suspense>) : <DashboardWelcome
         t={t}
         onCreatePage={() => { handleOpenCreatePrompt(null, false); }}
         onCreateDatabase={handleOpenCreateDatabaseGroup}

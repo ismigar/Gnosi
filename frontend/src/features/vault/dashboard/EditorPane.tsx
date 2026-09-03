@@ -1,7 +1,6 @@
+import { lazy, Suspense } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
-import { BlockEditor } from '../editor/BlockEditor';
-import { ZoteroReaderTab } from '../../reader/zotero/ZoteroReaderTab';
 import { getTableIdFromTab } from './tab-model';
 import { shiftDay } from './tab-model';
 import { TablePane } from './TablePane';
@@ -9,6 +8,13 @@ import { record, text } from './readers';
 import type { DashboardController } from './useDashboardController';
 import type { PublicBlockEditorProps } from '../editor/block-editor/page-editor/types';
 import { editorMetadata, editorNote, editorTable } from './editor-readers';
+
+const BlockEditor = lazy(() => import('../editor/BlockEditor').then(module => ({ default: module.BlockEditor })));
+const ZoteroReaderTab = lazy(() => import('../../reader/zotero/ZoteroReaderTab').then(module => ({ default: module.ZoteroReaderTab })));
+
+function EditorFallback({ label }: { readonly label: string }) {
+  return <div className="h-full flex items-center justify-center text-sm text-[var(--text-secondary)] animate-pulse">{label}</div>;
+}
 export function EditorPane({ dashboard, tabId }: {
   dashboard: DashboardController;
   tabId: string;
@@ -51,7 +57,7 @@ export function EditorPane({ dashboard, tabId }: {
   // Vault metadata — only the file path. It behaves like
   // any tab (it can be closed, reordered, split-view).
   if (tab.isPdf) {
-    return (<ZoteroReaderTab
+    return (<Suspense fallback={<EditorFallback label={t('common.loading')} />}><ZoteroReaderTab
       key={tab.id}
       src={tab.src || ''}
       title={tab.title}
@@ -61,7 +67,7 @@ export function EditorPane({ dashboard, tabId }: {
       // it was opened from (handleTabClose honors `tab.origin`).
 
       onClose={() => { handleTabClose(tab.id); }}
-    />);
+    /></Suspense>);
   }
   if (tab.isTable) {
     const tableId = getTableIdFromTab(tab);
@@ -122,7 +128,7 @@ export function EditorPane({ dashboard, tabId }: {
     // different note. Otherwise the spurious-autosave + unmount-save
     // logic in BlockEditor can fire a final PATCH against the wrong
     // note when reconciliation reuses the component instance.
-    <BlockEditor
+    <Suspense fallback={<EditorFallback label={t('common.loading')} />}><BlockEditor
       {...editorCallbacks}
       key={tab.id}
       noteFilename={tab.id}
@@ -146,7 +152,7 @@ export function EditorPane({ dashboard, tabId }: {
       onOpenViewConfig={handleConfigureView}
       pageActions={pageActions}
       isActivePage={tab.id === activeTabId}
-    />);
+    /></Suspense>);
   if (!dailyBar)
     return editorEl;
   return (<div className="h-full flex flex-col min-h-0">
