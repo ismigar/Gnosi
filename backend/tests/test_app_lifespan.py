@@ -158,6 +158,10 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "load_params",
         load_params,
     )
+    # lifespan imports load_params directly, so patch the bound owner as well.
+    # Otherwise index warmup can touch the configured real Vault before the
+    # facade-level registry doubles below are exercised.
+    monkeypatch.setattr(lifespan_module, "load_params", load_params)
     monkeypatch.setattr(
         plugin_dispatcher,
         "wire",
