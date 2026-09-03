@@ -17,6 +17,7 @@ Fer que qualsevol bloqueig durant la importació de l'aplicació o l'arrencada n
 
 - No utilitzar el vault real, credencials ni proveïdors externs per reproduir el problema.
 - No imprimir variables d'entorn ni contingut de configuració.
+- Nota: no s'ha d'insistir amb `uv run` si el runtime macOS falla a `system-configuration` intentant crear un objecte nul dins el sandbox. En lloc d'això, cal usar el Python de `.venv` ja sincronitzat per als diagnòstics locals; la CI continuarà validant el flux reproduïble amb `uv` a Linux.
 - Nota: no s'ha d'interpretar un procés viu sense port obert com una arrencada lenta, perquè pot estar bloquejat durant un import. En lloc d'això, cal obtenir bolcats de pila periòdics.
 - El diagnòstic ha de quedar inactiu després d'una importació correcta i no ha d'afectar el servidor en execució.
 

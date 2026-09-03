@@ -12136,7 +12136,7 @@ export interface components {
             manifest?: components["schemas"]["ConfigurationPluginManifestResponse"] | null;
             /** Provenance */
             provenance?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             } | null;
         } & {
             [key: string]: unknown;
@@ -12257,7 +12257,7 @@ export interface components {
         ConfigurationPluginStateResponse: {
             /** Builtins */
             builtins?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             }[] | null;
             /** Disabled */
             disabled?: string[];
@@ -12267,7 +12267,7 @@ export interface components {
             enabled_third_party?: string[];
             /** Granted */
             granted?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
             /** Registry Url */
             registry_url?: string | null;
@@ -12275,7 +12275,7 @@ export interface components {
             schema_version?: number | null;
             /** Settings */
             settings?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
         } & {
             [key: string]: unknown;
@@ -18436,6 +18436,13 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * PluginInstallationResponse
+         * @description Validated manifest of a newly installed quarantined plugin.
+         */
+        PluginInstallationResponse: {
+            installed: components["schemas"]["ConfigurationPluginManifestResponse"];
+        };
+        /**
          * PluginLifecycleRequest
          * @description Explicit lifecycle request for a built-in or installed plugin.
          */
@@ -18460,10 +18467,20 @@ export interface components {
         PluginNetworkFetchRequest: {
             /** Opts */
             opts?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
             /** Url */
             url: string;
+        };
+        /**
+         * PluginPermissionsMutationResponse
+         * @description Permissions retained after one plugin grant mutation.
+         */
+        PluginPermissionsMutationResponse: {
+            /** Granted */
+            granted: string[];
+            /** Id */
+            id: string;
         };
         /** PluginPermissionsRequest */
         PluginPermissionsRequest: {
@@ -18471,7 +18488,7 @@ export interface components {
              * Permissions
              * @default []
              */
-            permissions: unknown[];
+            permissions: components["schemas"]["JsonValue"][];
         };
         /** PluginSettingsRequest */
         PluginSettingsRequest: {
@@ -18480,7 +18497,7 @@ export interface components {
              * @default {}
              */
             settings: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
         };
         /**
@@ -18490,8 +18507,17 @@ export interface components {
         PluginSettingsResponse: {
             /** Settings */
             settings: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * PluginSubmissionResponse
+         * @description Forward-compatible response from the configured moderation broker.
+         */
+        PluginSubmissionResponse: {
+            status?: components["schemas"]["JsonValue"];
         } & {
             [key: string]: unknown;
         };
@@ -18501,14 +18527,38 @@ export interface components {
              * Disabled
              * @default []
              */
-            disabled: unknown[];
+            disabled: components["schemas"]["JsonValue"][];
             /**
              * Settings
              * @default {}
              */
             settings: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
+        };
+        /**
+         * PluginTrustedKeyAdditionResponse
+         * @description Name of the public signing key added to the trust store.
+         */
+        PluginTrustedKeyAdditionResponse: {
+            /** Added */
+            added: string;
+        };
+        /**
+         * PluginTrustedKeyRemovalResponse
+         * @description Name of the public signing key removed from the trust store.
+         */
+        PluginTrustedKeyRemovalResponse: {
+            /** Removed */
+            removed: string;
+        };
+        /**
+         * PluginUninstallResponse
+         * @description Identifier of the plugin removed from the current vault.
+         */
+        PluginUninstallResponse: {
+            /** Uninstalled */
+            uninstalled: string;
         };
         /** PostHistoryResponse */
         PostHistoryResponse: {
@@ -38766,7 +38816,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38804,7 +38854,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginUninstallResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38842,9 +38892,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -38880,9 +38928,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -39007,7 +39053,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginPermissionsMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39125,7 +39171,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginSubmissionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39201,7 +39247,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginInstallationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39277,7 +39323,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginInstallationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39353,7 +39399,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39429,7 +39475,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConfigurationPluginRegistryUrlResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39505,7 +39551,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginTrustedKeyAdditionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39543,7 +39589,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PluginTrustedKeyRemovalResponse"];
                 };
             };
             /** @description Validation Error */

@@ -6289,7 +6289,9 @@
           "provenance": {
             "anyOf": [
               {
-                "additionalProperties": true,
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
                 "type": "object"
               },
               {
@@ -6630,7 +6632,9 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
                   "type": "object"
                 },
                 "type": "array"
@@ -6663,7 +6667,9 @@
             "type": "array"
           },
           "granted": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Granted",
             "type": "object"
           },
@@ -6690,7 +6696,9 @@
             "title": "Schema Version"
           },
           "settings": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Settings",
             "type": "object"
           }
@@ -24362,6 +24370,19 @@
         "title": "PlanningStateResponse",
         "type": "object"
       },
+      "PluginInstallationResponse": {
+        "description": "Validated manifest of a newly installed quarantined plugin.",
+        "properties": {
+          "installed": {
+            "$ref": "#/components/schemas/ConfigurationPluginManifestResponse"
+          }
+        },
+        "required": [
+          "installed"
+        ],
+        "title": "PluginInstallationResponse",
+        "type": "object"
+      },
       "PluginLifecycleRequest": {
         "description": "Explicit lifecycle request for a built-in or installed plugin.",
         "properties": {
@@ -24390,7 +24411,9 @@
         "description": "Permission-gated network request from a UI plugin frame.",
         "properties": {
           "opts": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Opts",
             "type": "object"
           },
@@ -24405,11 +24428,35 @@
         "title": "PluginNetworkFetchRequest",
         "type": "object"
       },
+      "PluginPermissionsMutationResponse": {
+        "description": "Permissions retained after one plugin grant mutation.",
+        "properties": {
+          "granted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Granted",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "granted"
+        ],
+        "title": "PluginPermissionsMutationResponse",
+        "type": "object"
+      },
       "PluginPermissionsRequest": {
         "properties": {
           "permissions": {
             "default": [],
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Permissions",
             "type": "array"
           }
@@ -24420,7 +24467,9 @@
       "PluginSettingsRequest": {
         "properties": {
           "settings": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "default": {},
             "title": "Settings",
             "type": "object"
@@ -24434,7 +24483,9 @@
         "description": "Dynamic settings document owned by one plugin.",
         "properties": {
           "settings": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Settings",
             "type": "object"
           }
@@ -24445,16 +24496,73 @@
         "title": "PluginSettingsResponse",
         "type": "object"
       },
+      "PluginSubmissionResponse": {
+        "additionalProperties": true,
+        "description": "Forward-compatible response from the configured moderation broker.",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "title": "PluginSubmissionResponse",
+        "type": "object"
+      },
+      "PluginTrustedKeyAdditionResponse": {
+        "description": "Name of the public signing key added to the trust store.",
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "string"
+          }
+        },
+        "required": [
+          "added"
+        ],
+        "title": "PluginTrustedKeyAdditionResponse",
+        "type": "object"
+      },
+      "PluginTrustedKeyRemovalResponse": {
+        "description": "Name of the public signing key removed from the trust store.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "PluginTrustedKeyRemovalResponse",
+        "type": "object"
+      },
+      "PluginUninstallResponse": {
+        "description": "Identifier of the plugin removed from the current vault.",
+        "properties": {
+          "uninstalled": {
+            "title": "Uninstalled",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uninstalled"
+        ],
+        "title": "PluginUninstallResponse",
+        "type": "object"
+      },
       "PluginsUpdateRequest": {
         "properties": {
           "disabled": {
             "default": [],
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Disabled",
             "type": "array"
           },
           "settings": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "default": {},
             "title": "Settings",
             "type": "object"
@@ -85147,7 +85255,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginStateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -85383,7 +85493,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginInstallationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -85619,7 +85731,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginInstallationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -85855,7 +85969,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginStateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86089,7 +86205,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationPluginRegistryUrlResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86323,7 +86441,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginTrustedKeyAdditionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86444,7 +86564,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginTrustedKeyRemovalResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86689,7 +86811,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginUninstallResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -86817,11 +86941,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -86938,11 +87057,6 @@
         ],
         "responses": {
           "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
             "description": "Successful Response"
           },
           "422": {
@@ -87337,7 +87451,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginPermissionsMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -87712,7 +87828,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSubmissionResponse"
+                }
               }
             },
             "description": "Successful Response"
