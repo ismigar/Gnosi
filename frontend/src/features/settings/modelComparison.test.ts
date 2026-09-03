@@ -137,7 +137,10 @@ describe('model comparison domain', () => {
         const model = comparisonModel({ input_price: 2, output_price: 8 });
 
         expect(modelMonthlyCost(model, '5000000', '1000000')).toBe(18);
-        expect(formatComparisonContext(1_050_000)).toBe('1.1M');
+        expect(formatComparisonContext(1_050_000)).toBe(`${(1.05).toLocaleString(
+            undefined,
+            { maximumFractionDigits: 1 },
+        )}M`);
         expect(formatComparisonCost(1.5, '€')).toMatch(/^1[,.]50 €$/);
         expect(formatComparisonCost(null, '€')).toBe('—');
     });
