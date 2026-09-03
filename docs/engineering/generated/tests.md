@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
-| Vitest | 487 | 2018 |
+| Vitest | 488 | 2020 |
 | pytest | 447 | 3188 |
 
 ## Files
@@ -523,6 +523,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/tests/interface-language.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/interface-language.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/tests/typescript-coverage.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/typescript-coverage.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/tests/vite-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vite-config.test.ts) | 2 | call-pattern estimate |
+| Vitest | [`frontend/tests/vitest-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vitest-config.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/web-clipper.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/web-clipper.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/word-addin.test.ts) | 13 | call-pattern estimate |
 | pytest | [`backend/tests/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/__init__.py) | 0 | Python AST |
