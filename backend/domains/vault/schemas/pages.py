@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field, GetPydanticSchema
+from pydantic import BaseModel, ConfigDict, Field, GetPydanticSchema, JsonValue
 
 
 # Index construction and assignment retain open YAML keys. Validated HTTP
@@ -69,6 +69,20 @@ class BulkPreviewWarmResponse(BaseModel):
     cached: int
     warmed: int
     failed: int
+
+
+class PageIndexerStatusResponse(BaseModel):
+    """Current index warmup state with forward-compatible diagnostic fields."""
+
+    model_config = ConfigDict(extra="allow")
+
+    __pydantic_extra__: dict[str, JsonValue] = Field(init=False)
+    state: str
+    started_at: float | None = None
+    finished_at: float | None = None
+    files_indexed: int = 0
+    error: str | None = None
+    cached_entries: int | None = None
 
 
 class PageMutationResponse(BaseModel):
@@ -175,6 +189,7 @@ __all__ = [
     "BulkMutationEtagResponse",
     "BulkPageMutationResponse",
     "PageInfo",
+    "PageIndexerStatusResponse",
     "PageDuplicateResponse",
     "PageDetailResponse",
     "PagePreviewResponse",

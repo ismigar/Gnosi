@@ -19,6 +19,7 @@ from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
     PageDetailResponse,
     PageInfo,
+    PageIndexerStatusResponse,
     PagePreviewResponse,
     SidebarPageInfo,
     TablePagesSnapshot,
@@ -187,7 +188,7 @@ async def list_pages_by_table_snapshot(table_id: str) -> TablePagesSnapshot:
     )
 
 
-async def get_indexer_status_endpoint() -> dict[str, object]:
+async def get_indexer_status_endpoint() -> PageIndexerStatusResponse:
     """Expose the page-index warmup status so the UI can show 'indexing…'.
 
     States:
@@ -200,11 +201,11 @@ async def get_indexer_status_endpoint() -> dict[str, object]:
     dependencies = _deps()
     vault_path = dependencies.active_vault_path()
     if not vault_path:
-        return {"state": "no_vault", "files_indexed": 0}
+        return PageIndexerStatusResponse(state="no_vault", files_indexed=0)
     vault_key = str(vault_path)
     status = dependencies.get_indexer_status(vault_key)
     status["cached_entries"] = dependencies.cached_entry_count(vault_key)
-    return status
+    return PageIndexerStatusResponse.model_validate(status)
 
 
 async def list_sidebar_summary() -> list[SidebarPageInfo]:
@@ -408,7 +409,8 @@ def register_status_routes(router: APIRouter) -> None:
         "/indexer-status",
         get_indexer_status_endpoint,
         methods=["GET"],
-        response_model=None,
+        response_model=PageIndexerStatusResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/sidebar/summary",
