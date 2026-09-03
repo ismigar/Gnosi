@@ -133,7 +133,7 @@ describe('mail list model', () => {
     ])).toEqual([original, duplicateUid, otherAccount, otherFolder]);
   });
 
-  it('never merges distinct account deliveries by Internet identity or display metadata', () => {
+  it('preserves distinct account deliveries by default', () => {
     const first = message('imap_7', {
       account: 'one@example.com',
       imap_folder: 'INBOX',
@@ -164,6 +164,40 @@ describe('mail list model', () => {
       mirrored,
       distinct,
     ]);
+  });
+
+  it('collapses exact Internet Message-ID mirrors in the aggregate account view', () => {
+    const first = message('imap_7', {
+      account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '7',
+      internet_message_id: '<delivery@example.test>',
+      source: 'imap',
+    });
+    const mirrored = message('imap_91', {
+      ...first,
+      account: 'two@example.com',
+      id: 'imap_91',
+      imap_uid: '91',
+      internet_message_id: '  <DELIVERY@example.test> ',
+    });
+    const sameDisplayWithoutStrongIdentity = message('imap_92', {
+      ...mirrored,
+      id: 'imap_92',
+      imap_uid: '92',
+      internet_message_id: null,
+    });
+    const distinctDelivery = message('imap_93', {
+      ...mirrored,
+      id: 'imap_93',
+      imap_uid: '93',
+      internet_message_id: '<other@example.test>',
+    });
+
+    expect(deduplicateMailListMessages(
+      [first, mirrored, sameDisplayWithoutStrongIdentity, distinctDelivery],
+      { collapseInternetCopies: true },
+    )).toEqual([first, sameDisplayWithoutStrongIdentity, distinctDelivery]);
   });
 
   it('fails open when provider identity is incomplete', () => {

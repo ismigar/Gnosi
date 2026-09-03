@@ -387,6 +387,44 @@ describe('MailList', () => {
     expect(container.textContent).not.toContain('mail.no_messages');
   });
 
+  it('publishes a ready account before a slow account settles and reports partial availability', async () => {
+    let resolveSlowAccount: ((value: MailMessages) => void) | undefined;
+    mocks.fetchMessages.mockImplementation((query) => (
+      query.email === account.email
+        ? Promise.resolve(response([message('available')]))
+        : new Promise<MailMessages>((resolve) => {
+          resolveSlowAccount = resolve;
+        })
+    ));
+
+    await render({
+      account: null,
+      accounts: [account, { email: 'two@example.com' }],
+    });
+
+    expect(container.textContent).toContain('Subject available');
+    expect(button('common.refresh').querySelector('svg')?.getAttribute('class'))
+      .toContain('animate-spin');
+    expect(container.querySelector('[data-mail-partial-status]')).toBeNull();
+
+    await act(async () => {
+      resolveSlowAccount?.({
+        error: 'synthetic provider timeout',
+        messages: [],
+        next_page_token: null,
+        total: 0,
+      });
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-mail-partial-status="unavailable"]'))
+      .not.toBeNull();
+    expect(container.textContent).toContain('mail.some_accounts_temporarily_unavailable');
+    expect(container.textContent).toContain('Subject available');
+    expect(container.textContent).not.toContain('synthetic provider timeout');
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+
   it('restores an optimistically archived message if its batch request fails', async () => {
     mocks.batch.mockRejectedValueOnce(new Error('offline'));
     await render();

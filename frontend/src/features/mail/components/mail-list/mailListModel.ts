@@ -150,6 +150,12 @@ function providerMessageKey(message: MailListMessage): string | null {
 }
 
 
+function internetMessageKey(message: MailListMessage): string | null {
+  const value = message.internet_message_id?.trim().toLowerCase();
+  return value || null;
+}
+
+
 export function mailListMessageIdentity(message: MailListMessage): string {
   return mailMessageIdentity(message);
 }
@@ -162,14 +168,24 @@ export function mailListThreadIdentity(message: MailListMessage): string {
 
 export function deduplicateMailListMessages(
   messages: readonly MailListMessage[],
+  options: { readonly collapseInternetCopies?: boolean } = {},
 ): MailListMessage[] {
   const providerMessages = new Set<string>();
+  const internetMessages = new Set<string>();
   return messages.filter((message) => {
     if (!message.id) return false;
     const providerKey = providerMessageKey(message);
-    if (!providerKey) return true;
-    if (providerMessages.has(providerKey)) return false;
-    providerMessages.add(providerKey);
+    if (providerKey) {
+      if (providerMessages.has(providerKey)) return false;
+      providerMessages.add(providerKey);
+    }
+    if (options.collapseInternetCopies) {
+      const internetKey = internetMessageKey(message);
+      if (internetKey) {
+        if (internetMessages.has(internetKey)) return false;
+        internetMessages.add(internetKey);
+      }
+    }
     return true;
   });
 }

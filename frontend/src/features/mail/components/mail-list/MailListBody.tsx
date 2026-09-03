@@ -27,6 +27,26 @@ export function MailListBody({
 
   return (
     <>
+      {controller.unavailableAccountCount > 0 && (
+        <div
+          className="flex items-center justify-between gap-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] px-4 py-2 text-xs text-[var(--text-secondary)]"
+          data-mail-partial-status="unavailable"
+          role="status"
+        >
+          <span>
+            {accountEmail
+              ? t('mail.account_temporarily_unavailable')
+              : t('mail.some_accounts_temporarily_unavailable')}
+          </span>
+          <button
+            className="shrink-0 font-semibold text-[var(--gnosi-blue)] hover:underline"
+            onClick={() => { controller.fetchMessages({ force: true }); }}
+            type="button"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      )}
       <div
         ref={listElementRef}
         className="flex-1 overflow-y-auto"
@@ -43,7 +63,9 @@ export function MailListBody({
         ) : isEmpty ? (
           <div className="p-12 text-center">
             <p className="text-[var(--text-secondary)] font-medium">
-              {t('mail.no_messages')}
+              {controller.unavailableAccountCount > 0
+                ? t('mail.messages_temporarily_unavailable')
+                : t('mail.no_messages')}
             </p>
           </div>
         ) : Object.entries(controller.groupedMessages).map(([title, messages]) => (

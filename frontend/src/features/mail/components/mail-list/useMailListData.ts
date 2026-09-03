@@ -6,7 +6,6 @@ import {
   useState,
 } from 'react';
 
-import { toast } from '../../../../shared/notifications/toast';
 import {
   fetchMailMessages,
   type MailMessages,
@@ -98,6 +97,7 @@ export function useMailListData({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [unavailableAccountCount, setUnavailableAccountCount] = useState(0);
   const [pageTokens, setPageTokens] = useState<TokenByAccount>({});
   const [offsets, setOffsets] = useState<NumberByAccount>({});
   const [totals, setTotals] = useState<NumberByAccount>({});
@@ -114,6 +114,7 @@ export function useMailListData({
     setPageTokens({});
     setOffsets({});
     setTotals({});
+    setUnavailableAccountCount(0);
     if (emails.length === 0) {
       setMessages([]);
       setLoading(accountsLoading);
@@ -123,60 +124,89 @@ export function useMailListData({
 
     const stale = messageCacheRef.current[cacheKey]
       || (!options.force && readMailListCache(cacheKey));
-    if (stale && !options.force) {
-      setMessages(stale);
+    const staleMessages = Array.isArray(stale) ? stale : undefined;
+    if (staleMessages && !options.force) {
+      setMessages(staleMessages);
       setLoading(false);
-      onMessagesLoaded?.(stale);
+      onMessagesLoaded?.(staleMessages);
       setSyncing(true);
     } else {
       setLoading(true);
     }
 
-    void Promise.all(emails.map(async (email) => {
-      try {
-        return await fetchMailMessages(buildMailListQuery(
-          email,
-          folder,
-          category,
-          { force: options.force },
-        ), abortController.signal);
-      } catch (error) {
-        if (abortController.signal.aborted) throw error;
-        return EMPTY_MAIL_MESSAGES;
+    const settledResults = new Map<string, MailMessages>();
+    const staleByAccount = new Map<string, MailListMessage[]>();
+    const unscopedStale: MailListMessage[] = [];
+    for (const message of staleMessages ?? []) {
+      const messageAccount = message.account?.trim();
+      if (!messageAccount) {
+        unscopedStale.push(message);
+        continue;
       }
-    })).then((results) => {
+      const accountMessages = staleByAccount.get(messageAccount) ?? [];
+      accountMessages.push(message);
+      staleByAccount.set(messageAccount, accountMessages);
+    }
+    let settledCount = 0;
+    let unavailableCount = 0;
+
+    const publishResult = (
+      email: string,
+      result: MailMessages,
+      unavailable: boolean,
+    ): void => {
       if (abortController.signal.aborted) return;
+      settledResults.set(email, result);
+      settledCount += 1;
+      if (unavailable) unavailableCount += 1;
       const newTokens: TokenByAccount = {};
       const newOffsets: NumberByAccount = {};
       const newTotals: NumberByAccount = {};
-      results.forEach((result, index) => {
-        const email = emails[index];
-        if (!email) return;
-        newTokens[email] = result.next_page_token;
-        newTotals[email] = result.total;
-        newOffsets[email] = result.messages.length;
-        if (result.error) toast.error(result.error, { duration: 6000 });
+      const scopedMessages = emails.flatMap((accountEmail) => {
+        const accountResult = settledResults.get(accountEmail);
+        if (!accountResult) return staleByAccount.get(accountEmail) ?? [];
+        newTokens[accountEmail] = accountResult.next_page_token;
+        newTotals[accountEmail] = accountResult.total;
+        newOffsets[accountEmail] = accountResult.messages.length;
+        if (accountResult.error && accountResult.messages.length === 0) {
+          return staleByAccount.get(accountEmail) ?? [];
+        }
+        return accountResult.messages;
       });
+      const visibleMessages = (
+        settledCount < emails.length || unavailableCount > 0
+      ) ? [...scopedMessages, ...unscopedStale] : scopedMessages;
       setPageTokens(newTokens);
       setOffsets(newOffsets);
       setTotals(newTotals);
+      setUnavailableAccountCount(unavailableCount);
 
       const merged = deduplicateMailListMessages(
-        results.flatMap((result) => result.messages),
+        visibleMessages,
+        { collapseInternetCopies: account === null },
       );
       messageCacheRef.current[cacheKey] = merged;
       writeMailListCache(cacheKey, merged);
       setMessages(merged);
       setLoading(false);
-      setSyncing(false);
+      setSyncing(settledCount < emails.length);
       onMessagesLoaded?.(merged);
+    };
 
-    }).catch(() => {
-      if (abortController.signal.aborted) return;
-      setLoading(false);
-      setSyncing(false);
+    emails.forEach((email) => {
+      void fetchMailMessages(buildMailListQuery(
+        email,
+        folder,
+        category,
+        { force: options.force },
+      ), abortController.signal).then((result) => {
+        publishResult(email, result, Boolean(result.error));
+      }).catch(() => {
+        if (abortController.signal.aborted) return;
+        publishResult(email, EMPTY_MAIL_MESSAGES, true);
+      });
     });
-  }, [accountsLoading, cacheKey, category, emails, folder, onMessagesLoaded]);
+  }, [account, accountsLoading, cacheKey, category, emails, folder, onMessagesLoaded]);
 
   const hasMore = emails.some((email) => (
     Boolean(pageTokens[email])
@@ -223,14 +253,14 @@ export function useMailListData({
         return deduplicateMailListMessages([
           ...current,
           ...results.flatMap((result) => result.messages),
-        ]);
+        ], { collapseInternetCopies: account === null });
       });
       setLoadingMore(false);
     }).catch(() => {
       if (abortController.signal.aborted) return;
       setLoadingMore(false);
     });
-  }, [category, emails, folder, loadingMore, offsets, pageTokens, totals]);
+  }, [account, category, emails, folder, loadingMore, offsets, pageTokens, totals]);
 
   const fetchRef = useRef(fetchMessages);
   useEffect(() => {
@@ -341,5 +371,6 @@ export function useMailListData({
     setLoading,
     setMessages,
     syncing,
+    unavailableAccountCount,
   };
 }

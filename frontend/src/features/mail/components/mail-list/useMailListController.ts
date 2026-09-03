@@ -342,6 +342,7 @@ export function useMailListController(props: MailListProps) {
       tags,
       threadedMessages,
       toggleSelect,
+      unavailableAccountCount: data.unavailableAccountCount,
       unreadOnly,
     },
   };
