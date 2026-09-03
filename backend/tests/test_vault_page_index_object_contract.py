@@ -5,6 +5,8 @@ from __future__ import annotations
 import errno
 import logging
 import os
+import sys
+import time
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -79,7 +81,7 @@ def test_calendar_snapshot_does_not_schedule_obsolete_remote_mirror(
         get_last_vault_sync=lambda: 0.0,
     )
     monkeypatch.setattr(index_service, "_dependencies", dependencies)
-    monkeypatch.setattr(index_service.time, "monotonic", lambda: 1_000.0)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_000.0)
     background_tasks = BackgroundTasks()
 
     index_service._schedule_background_syncs(
@@ -198,13 +200,13 @@ def test_snapshot_keeps_metadata_identity_and_cache_hit_short_circuit(
         return "table"
 
     def cache_get(cache_key: str) -> list[PageInfo] | None:
-        assert cache_key == "snapshot:synthetic:all"
+        assert cache_key == "snapshot:synthetic:all:v0"
         calls.append("get")
         return cached
 
     def cache_set(cache_key: str, pages: list[PageInfo]) -> None:
         nonlocal cached
-        assert cache_key == "snapshot:synthetic:all"
+        assert cache_key == "snapshot:synthetic:all:v0"
         calls.append("set")
         cached = pages
 
@@ -224,6 +226,69 @@ def test_snapshot_keeps_metadata_identity_and_cache_hit_short_circuit(
     assert index_service.get_pages_snapshot() is pages
     assert calls == ["get", "registry", "folders", "resolve", "set", "get"]
     assert dependencies.index_entries[str(tmp_path)]["synthetic.md"] is entry
+
+
+def test_snapshot_cache_tracks_index_version_and_schedules_sync_on_hit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cache: dict[str, list[PageInfo]] = {}
+    sync_clock = [0.0]
+    dependencies = replace(
+        _index_dependencies(tmp_path),
+        cache_get=cache.get,
+        cache_set=cache.__setitem__,
+        get_last_vault_sync=lambda: sync_clock[0],
+        set_last_vault_sync=lambda value: sync_clock.__setitem__(0, value),
+    )
+    storage_key = str(tmp_path)
+    version_key = "synthetic"
+    dependencies.index_initialized[storage_key] = True
+    dependencies.index_entries[storage_key] = {"synthetic.md": _entry({})}
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_000.0)
+    first_tasks = BackgroundTasks()
+    first = index_service.get_pages_snapshot(background_tasks=first_tasks)
+    assert len(first_tasks.tasks) == 1
+    second = index_service.get_pages_snapshot(background_tasks=BackgroundTasks())
+    assert second is first
+    dependencies.index_version[version_key] = 1
+    rebuilt = index_service.get_pages_snapshot()
+    assert rebuilt is not first
+    assert set(cache) == {
+        f"snapshot:{version_key}:all:v0",
+        f"snapshot:{version_key}:all:v1",
+    }
+
+
+def test_file_provider_snapshot_never_stats_every_cached_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = Path("/Users/synthetic/Library/CloudStorage/Provider/Vault")
+    dependencies = replace(
+        _index_dependencies(root),
+        last_stale_check={"ts": 0.0},
+    )
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_000.0)
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    def forbidden_exists(_path: Path) -> bool:
+        raise AssertionError("File Provider paths must not be probed synchronously")
+
+    monkeypatch.setattr(Path, "exists", forbidden_exists)
+    cached = [_entry({"id": "one"}), _entry({"id": "two"})]
+    assert index_service._without_stale_entries(cached) == cached
+    assert dependencies.last_stale_check["ts"] == 1_000.0
+
+
+@pytest.mark.skipif(index_service._LOCAL_TIMEZONE is None, reason="IANA timezone unavailable")
+@pytest.mark.parametrize("timestamp", [1.0, 1_709_251_200.0, 1_719_792_000.0])
+def test_fast_timestamp_path_preserves_legacy_local_iso(timestamp: float) -> None:
+    from datetime import datetime
+
+    assert index_service._local_timestamp_iso(timestamp) == datetime.fromtimestamp(
+        timestamp
+    ).isoformat()
 
 
 def test_refresh_updates_existing_cache_object_without_losing_extension_keys(

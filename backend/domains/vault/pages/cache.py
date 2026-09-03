@@ -7,7 +7,10 @@ import time
 from backend.domains.vault.pages.state import PreviewPayload, page_state
 from backend.domains.vault.schemas.pages import PageInfo
 
-PAGES_RESPONSE_CACHE_TTL = 1.5
+# Page snapshots are versioned by the page index and explicitly invalidated by
+# every Gnosi write.  Keep the derived value through the background-sync
+# interval instead of rebuilding thousands of Pydantic models every 1.5 s.
+PAGES_RESPONSE_CACHE_TTL = 600.0
 PREVIEW_CACHE_MAX = 1000
 
 
