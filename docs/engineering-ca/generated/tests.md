@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
-| Vitest | 487 | 2015 |
-| pytest | 447 | 3178 |
+| Vitest | 487 | 2018 |
+| pytest | 447 | 3180 |
 
 ## Fitxers
 
@@ -149,7 +149,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/mail/components/mail-list/useMailListData.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListData.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mailComposerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/mailViewEditorModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewEditorModel.test.ts) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/mail/components/mailViewerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerModel.test.ts) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/mailViewerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailViewerModel.test.ts) | 13 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/editor/Mail/MailBlockEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/editor/Mail/MailBlockEditor.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/editor/Mail/mailBlockNoteAdapter.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/editor/Mail/mailBlockNoteAdapter.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/hooks/useMailTags.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/hooks/useMailTags.test.tsx) | 4 | call-pattern estimate |
@@ -695,7 +695,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_mail_inline_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_inline_images.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_mail_local_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_local_analysis.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_mail_metadata_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_metadata_manager.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_mail_preview_regressions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_preview_regressions.py) | 17 | Python AST |
+| pytest | [`backend/tests/test_mail_preview_regressions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_preview_regressions.py) | 19 | Python AST |
 | pytest | [`backend/tests/test_mail_remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_remote_images.py) | 29 | Python AST |
 | pytest | [`backend/tests/test_mail_reply_cid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_reply_cid.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_mail_tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_mail_tag_identity.py) | 6 | Python AST |

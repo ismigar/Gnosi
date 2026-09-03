@@ -16,7 +16,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 433 | 93725 |
+| `domains` | 433 | 93806 |
 | `mcp` | 3 | 429 |
 | `migrations` | 35 | 2198 |
 | `models` | 12 | 1213 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **773 modules** and **160754 source lines**.
+Total: **773 modules** and **160835 source lines**.
 
 ## agent
 
@@ -332,10 +332,10 @@ Total: **773 modules** and **160754 source lines**.
 | [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 354 | 0 | 16 | 8 | 0 | Canonical mail tags. |
 | [`backend/domains/mail/routes/views.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/views.py) | 112 | 0 | 5 | 4 | 0 | Canonical mail views. |
 | [`backend/domains/mail/routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routing.py) | 12 | 0 | 0 | 0 | 0 | Canonical mail router registration object. |
-| [`backend/domains/mail/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 452 | 52 | 0 | 0 | 11 | Pydantic contracts for the public Mail API. |
+| [`backend/domains/mail/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 462 | 52 | 0 | 0 | 11 | Pydantic contracts for the public Mail API. |
 | [`backend/domains/mail/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail-domain application services. |
 | [`backend/domains/mail/services/accounts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/accounts.py) | 37 | 0 | 3 | 0 | 1 | Mail account and provider selection helpers. |
-| [`backend/domains/mail/services/analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis.py) | 356 | 2 | 11 | 3 | 7 | Bounded execution helpers for user-triggered mail analysis. |
+| [`backend/domains/mail/services/analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis.py) | 427 | 2 | 13 | 3 | 8 | Bounded execution helpers for user-triggered mail analysis. |
 | [`backend/domains/mail/services/analysis_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis_cache.py) | 185 | 1 | 9 | 0 | 4 | Bounded local persistence for the last valid mail analysis result. |
 | [`backend/domains/mail/services/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/attachments.py) | 259 | 0 | 4 | 4 | 4 | Canonical mail attachment service. |
 | [`backend/domains/mail/services/local_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/local_analysis.py) | 395 | 4 | 15 | 0 | 1 | Conservative local extraction of literal entities from mail content. |
