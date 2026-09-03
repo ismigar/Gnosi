@@ -19,7 +19,7 @@ export async function uploadChatAttachment(file: File, scope: AttachmentScope, f
     const detail = typeof error === 'string' ? error : error ? JSON.stringify(error) : '';
     throw new Error(detail || fallback);
   }
-  const data = result.data;
+  const data: unknown = result.data;
   return typeof data === 'object' && data !== null && 'path' in data && typeof data.path === 'string' ? data.path || null : null;
 }
 

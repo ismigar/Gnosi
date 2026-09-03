@@ -27,7 +27,7 @@ export async function rewindChatSession(session: ChatSessionIdentity, body: Chat
     params: { path: { agent_id: session.agentId, session_id: session.id }, query: { notebook_id: notebookId || undefined } }, body,
   });
   if (!result.response.ok) throw new Error(`Conversation rewind failed (${String(result.response.status)})`);
-  const data = result.data;
+  const data: unknown = result.data;
   if (data === null || typeof data !== 'object') throw new Error('Conversation rewind returned an invalid response');
   return 'messages' in data ? data.messages : undefined;
 }

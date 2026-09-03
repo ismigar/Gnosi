@@ -11004,10 +11004,32 @@ export interface components {
             /** File */
             file: string;
         };
+        /** BrainDictationResponse */
+        BrainDictationResponse: {
+            /** Corrected */
+            corrected: boolean;
+            /** Proposed */
+            proposed: string;
+            /** Transcript */
+            transcript: string;
+        };
+        /** BrainGlossaryResponse */
+        BrainGlossaryResponse: {
+            /** Pairs */
+            pairs: number;
+        };
         /** BrainSuggestionListResponse */
         BrainSuggestionListResponse: {
             /** Suggestions */
             suggestions: components["schemas"]["BrainSuggestionResponse"][];
+        };
+        /**
+         * BrainSuggestionReadOnlyErrorResponse
+         * @description Permanent-note creation refusal returned by the retired accept route.
+         */
+        BrainSuggestionReadOnlyErrorResponse: {
+            /** Detail */
+            detail: string;
         };
         /** BrainSuggestionRejectedResponse */
         BrainSuggestionRejectedResponse: {
@@ -11032,6 +11054,18 @@ export interface components {
             why?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** BrainSuggestionVariantResponse */
+        BrainSuggestionVariantResponse: {
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+        };
+        /** BrainSuggestionVariantsResponse */
+        BrainSuggestionVariantsResponse: {
+            /** Variants */
+            variants: components["schemas"]["BrainSuggestionVariantResponse"][];
         };
         /** BrainTableClearResponse */
         BrainTableClearResponse: {
@@ -11847,6 +11881,14 @@ export interface components {
              */
             keep_messages: number;
         };
+        /**
+         * CitationKeyResponse
+         * @description Unique citation key generated for one bibliographic record.
+         */
+        CitationKeyResponse: {
+            /** Citation Key */
+            citation_key: string;
+        };
         /** CitationResolutionResponse */
         CitationResolutionResponse: {
             /** Author */
@@ -11902,6 +11944,25 @@ export interface components {
              */
             success: true;
         };
+        /** ClipConfigResponse */
+        ClipConfigResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Fields */
+            fields: components["schemas"]["ClipFieldResponse"][];
+            table: components["schemas"]["ClipTableResponse"] | null;
+        };
+        /** ClipFieldResponse */
+        ClipFieldResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Options */
+            options?: string[] | null;
+            /** Type */
+            type: string;
+        };
         /** ClipRequest */
         ClipRequest: {
             /**
@@ -11919,6 +11980,13 @@ export interface components {
             title?: string | null;
             /** Url */
             url: string;
+        };
+        /** ClipTableResponse */
+        ClipTableResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** ClonePayload */
         ClonePayload: {
@@ -12480,6 +12548,15 @@ export interface components {
             /** Provider */
             provider: string;
         };
+        /** CreatedPublicPageResponse */
+        CreatedPublicPageResponse: {
+            /** Id */
+            id: string;
+            /** Path */
+            path: string;
+            /** Status */
+            status: string;
+        };
         /** CreatedTokenResponse */
         CreatedTokenResponse: {
             /** Created At */
@@ -13004,6 +13081,29 @@ export interface components {
             /** Candidates */
             candidates: components["schemas"]["EvaluationCandidateResponse"][];
         };
+        /**
+         * ExecuteButtonActionResponse
+         * @description Updated note state after one server-side button action.
+         */
+        ExecuteButtonActionResponse: {
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Note Id */
+            note_id: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Updated Field */
+            updated_field: string;
+            /** Value */
+            value: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** ExternalContextSourceResponse */
         ExternalContextSourceResponse: {
             /** Description */
@@ -13110,6 +13210,62 @@ export interface components {
             results: components["schemas"]["FilesystemSearchEntryResponse"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /**
+         * FormattedBibliographyResponse
+         * @description Rendered bibliography with optional HTML fragments.
+         */
+        FormattedBibliographyResponse: {
+            /** Entries */
+            entries: string[];
+            /** Entries Html */
+            entries_html?: string[] | null;
+            /** Locale */
+            locale: string;
+            /** Missing */
+            missing: string[];
+            /** Resolved */
+            resolved: number;
+            /** Style */
+            style: string;
+        };
+        /**
+         * FormattedCitationItemResponse
+         * @description One rendered citation at its document occurrence.
+         */
+        FormattedCitationItemResponse: {
+            /** Formatted */
+            formatted: string;
+            /** Key */
+            key: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Resolved */
+            resolved: boolean;
+        };
+        /**
+         * FormattedCitationResponse
+         * @description One rendered inline citation.
+         */
+        FormattedCitationResponse: {
+            /** Formatted */
+            formatted: string;
+            /** Key */
+            key: string;
+            /** Resolved */
+            resolved: boolean;
+        };
+        /**
+         * FormattedCitationsResponse
+         * @description Context-aware rendering of an ordered citation batch.
+         */
+        FormattedCitationsResponse: {
+            /** Items */
+            items: components["schemas"]["FormattedCitationItemResponse"][];
+            /** Locale */
+            locale: string;
+            /** Style */
+            style: string;
         };
         /** FreeBusyCalendarResponse */
         FreeBusyCalendarResponse: {
@@ -14019,6 +14175,54 @@ export interface components {
             /** Url */
             url: string | null;
         };
+        /**
+         * LinkIndexDiskCacheResponse
+         * @description Persistent reverse-link index cache metadata.
+         */
+        LinkIndexDiskCacheResponse: {
+            /** Exists */
+            exists: boolean;
+            /** Path */
+            path: string | null;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /**
+         * LinkIndexRebuildResponse
+         * @description Acknowledgement that a reverse-link rebuild was scheduled.
+         */
+        LinkIndexRebuildResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "rebuild_scheduled";
+        };
+        /**
+         * LinkIndexStatsResponse
+         * @description Observable state of the reverse-link index.
+         */
+        LinkIndexStatsResponse: {
+            /** Built */
+            built: boolean;
+            /** Built Age Seconds */
+            built_age_seconds: number | null;
+            /** Built Ts */
+            built_ts: number;
+            disk_cache: components["schemas"]["LinkIndexDiskCacheResponse"];
+            /** Schema Version */
+            schema_version: number;
+            /** Sources Indexed */
+            sources_indexed: number;
+            /** Targets With Backlinks */
+            targets_with_backlinks: number;
+            /** Total Outlinks */
+            total_outlinks: number;
+            /** Total Tokens */
+            total_tokens: number;
+            /** Unresolved Title Buckets */
+            unresolved_title_buckets: number;
+        };
         /** LinkMentionsRequest */
         LinkMentionsRequest: {
             /** Source Id */
@@ -14872,6 +15076,21 @@ export interface components {
             /** Table Id */
             table_id: string | null;
         };
+        /** LlmWikiBrokenCitationResponse */
+        LlmWikiBrokenCitationResponse: {
+            /** Id */
+            id: string;
+            /** Resource Id */
+            resource_id: string;
+            /** Segment Id */
+            segment_id: string;
+            /** Snapshot Id */
+            snapshot_id: string;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** LlmWikiCapabilitiesResponse */
         LlmWikiCapabilitiesResponse: {
             /** Binaries */
@@ -14953,6 +15172,41 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LlmWikiDuplicateManagedKeyResponse */
+        LlmWikiDuplicateManagedKeyResponse: {
+            /** Key */
+            key: string;
+            /** Notes */
+            notes: components["schemas"]["LlmWikiNoteFindingResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LlmWikiEvidenceResponse
+         * @description Persisted citation evidence resolved without exposing filesystem paths.
+         */
+        LlmWikiEvidenceResponse: {
+            kind: components["schemas"]["JsonValue"];
+            label: components["schemas"]["JsonValue"];
+            resource_id: components["schemas"]["JsonValue"];
+            segment: components["schemas"]["LlmWikiEvidenceSegmentResponse"];
+            snapshot_id: components["schemas"]["JsonValue"];
+            source_url: components["schemas"]["JsonValue"];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LlmWikiEvidenceSegmentResponse
+         * @description One immutable normalized segment and its source locator.
+         */
+        LlmWikiEvidenceSegmentResponse: {
+            id: components["schemas"]["JsonValue"];
+            locator?: components["schemas"]["JsonValue"] | null;
+            order?: components["schemas"]["JsonValue"] | null;
+            text?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * LlmWikiJobResponse
          * @description Durable Brain-ingest state returned while a resource is processed.
@@ -15021,6 +15275,27 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /** LlmWikiLintCountsResponse */
+        LlmWikiLintCountsResponse: {
+            /** Broken Cites */
+            broken_cites: number;
+            /** Duplicate Keys */
+            duplicate_keys: number;
+            /** Index Drift */
+            index_drift: number;
+            /** Missing Xref */
+            missing_xref: number;
+            /** Orphans */
+            orphans: number;
+            /** Reprocess */
+            reprocess: number;
+            /** Stale */
+            stale: number;
+            /** Stale Managed */
+            stale_managed: number;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * LlmWikiLintReportResponse
          * @description Deterministic Brain lint report with forward-compatible findings.
@@ -15032,6 +15307,39 @@ export interface components {
             };
             /** Note Count */
             note_count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LlmWikiLintResponse
+         * @description Complete deterministic Brain lint report and optional suggestion totals.
+         */
+        LlmWikiLintResponse: {
+            /** Broken Cites */
+            broken_cites: components["schemas"]["LlmWikiBrokenCitationResponse"][];
+            counts: components["schemas"]["LlmWikiLintCountsResponse"];
+            /** Duplicate Keys */
+            duplicate_keys: components["schemas"]["LlmWikiDuplicateManagedKeyResponse"][];
+            /** Index Drift */
+            index_drift: components["schemas"]["LlmWikiResourceIndexDriftResponse"][];
+            /** Missing Xref */
+            missing_xref: components["schemas"]["LlmWikiMissingCrossReferenceResponse"][];
+            /** Note Count */
+            note_count: number;
+            /** Orphans */
+            orphans: components["schemas"]["LlmWikiNoteFindingResponse"][];
+            /** Reprocess */
+            reprocess: components["schemas"]["LlmWikiReprocessCandidateResponse"][];
+            /** Stale */
+            stale: components["schemas"]["LlmWikiStaleFindingResponse"][];
+            /** Stale Managed */
+            stale_managed: components["schemas"]["LlmWikiNoteFindingResponse"][];
+            /** Suggestions Pending */
+            suggestions_pending?: number | null;
+            /** Suggestions Queued */
+            suggestions_queued?: number | null;
+            /** Truncated Missing Xref */
+            truncated_missing_xref: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -15049,6 +15357,28 @@ export interface components {
             suggestions_pending: number;
             /** Suggestions Queued */
             suggestions_queued: number;
+        };
+        /** LlmWikiMissingCrossReferenceResponse */
+        LlmWikiMissingCrossReferenceResponse: {
+            /** Id */
+            id: string;
+            /** Should Link */
+            should_link: string;
+            /** Target Id */
+            target_id: string;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LlmWikiNoteFindingResponse */
+        LlmWikiNoteFindingResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * LlmWikiProcessRequest
@@ -15100,6 +15430,28 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** LlmWikiReprocessCandidateResponse */
+        LlmWikiReprocessCandidateResponse: {
+            /** Id */
+            id: string;
+            /** Modified */
+            modified: string;
+            /** Processed */
+            processed: string;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LlmWikiResourceIndexDriftResponse */
+        LlmWikiResourceIndexDriftResponse: {
+            /** Resource Id */
+            resource_id: string;
+            /** Source Table Id */
+            source_table_id: string;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * LlmWikiSettingsDocument
          * @description Persisted configuration with forward-compatible feature fields.
@@ -15143,6 +15495,19 @@ export interface components {
             label: string;
             /** Value */
             value: string;
+        };
+        /** LlmWikiStaleFindingResponse */
+        LlmWikiStaleFindingResponse: {
+            /** Days */
+            days: number | null;
+            /** Id */
+            id: string;
+            /** Review */
+            review: string | null;
+            /** Title */
+            title: string;
+        } & {
+            [key: string]: unknown;
         };
         /** LlmWikiValidationResponse */
         LlmWikiValidationResponse: {
@@ -16176,6 +16541,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** MicrosoftOAuthStatusResponse */
+        MicrosoftOAuthStatusResponse: {
+            /** Client Id */
+            client_id: string | null;
+            /** Configured */
+            configured: boolean;
+        };
         /**
          * ModelCatalogModel
          * @description Normalized model metadata from models.dev or the local Ollama overlay.
@@ -16510,6 +16882,26 @@ export interface components {
             } | null;
             /** Models */
             models: components["schemas"]["JsonValue"][];
+        };
+        /**
+         * NativeFileSelectionResponse
+         * @description Path and stable file metadata selected by the native file picker.
+         */
+        NativeFileSelectionResponse: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * NativeFolderSelectionResponse
+         * @description Path selected by the native folder picker.
+         */
+        NativeFolderSelectionResponse: {
+            /** Path */
+            path: string;
         };
         /**
          * NativePickAvailabilityResponse
@@ -17369,6 +17761,11 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** NotionOAuthDisconnectResponse */
+        NotionOAuthDisconnectResponse: {
+            /** Status */
+            status: string;
+        };
         /** NotionOAuthStatusResponse */
         NotionOAuthStatusResponse: {
             /** Connected */
@@ -17449,6 +17846,17 @@ export interface components {
             file_path?: string | null;
             /** Zotero Uri */
             zotero_uri?: string | null;
+        };
+        /**
+         * OptionCatalogDeleteResponse
+         * @description Receipt returned after deleting an unused shared option catalog.
+         */
+        OptionCatalogDeleteResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
         };
         /**
          * OriginType
@@ -17570,6 +17978,29 @@ export interface components {
             size: number;
             /** Timestamp */
             timestamp: string;
+        };
+        /**
+         * PageIndexerStatusResponse
+         * @description Current index warmup state with forward-compatible diagnostic fields.
+         */
+        PageIndexerStatusResponse: {
+            /** Cached Entries */
+            cached_entries?: number | null;
+            /** Error */
+            error?: string | null;
+            /**
+             * Files Indexed
+             * @default 0
+             */
+            files_indexed: number;
+            /** Finished At */
+            finished_at?: number | null;
+            /** Started At */
+            started_at?: number | null;
+            /** State */
+            state: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
         };
         /** PageInfo */
         PageInfo: {
@@ -17858,6 +18289,24 @@ export interface components {
             [key: string]: components["schemas"]["JsonValue"];
         };
         /**
+         * PhysicalFileDeletionResponse
+         * @description Recoverable host-trash or contained Vault deletion result.
+         */
+        PhysicalFileDeletionResponse: {
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "macos_trash" | "vault_unlink";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "trashed" | "deleted";
+            /** Target */
+            target: string;
+        };
+        /**
          * PlanningDefaultsResponse
          * @description Vault-level planning defaults.
          */
@@ -18109,10 +18558,75 @@ export interface components {
              */
             base_url: string | null;
         };
+        /**
+         * ProviderCredentialsResponse
+         * @description Acknowledgement after securely storing provider credentials.
+         */
+        ProviderCredentialsResponse: {
+            /** Credential Ref */
+            credential_ref: string;
+            /**
+             * Has Api Key
+             * @constant
+             */
+            has_api_key: true;
+            /** Provider */
+            provider: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /**
+         * ProviderDeletionResponse
+         * @description Complete result of disconnecting one provider and its model rows.
+         */
+        ProviderDeletionResponse: {
+            /** Credential Deleted */
+            credential_deleted: boolean;
+            /** Env Keys Deleted */
+            env_keys_deleted: string[];
+            /** Message */
+            message: string;
+            /** Removed Models */
+            removed_models: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "success" | "skipped";
+        };
         /** ProviderStatusPayload */
         ProviderStatusPayload: {
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * ProviderStatusResponse
+         * @description Persisted enabled state for one provider.
+         */
+        ProviderStatusResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Provider */
+            provider: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "success";
+        };
+        /**
+         * ProviderValidationResponse
+         * @description Result of the live credential/provider probe.
+         */
+        ProviderValidationResponse: {
+            /** Error */
+            error?: string | null;
+            response?: components["schemas"]["JsonValue"] | null;
+            /** Success */
+            success: boolean;
         };
         /** PublicationNetworkResult */
         PublicationNetworkResult: {
@@ -18136,6 +18650,17 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** PublicClipResponse */
+        PublicClipResponse: {
+            /** Id */
+            id: string | null;
+            /** Path */
+            path: string;
+            /** Status */
+            status: string;
+            /** Table */
+            table?: string | null;
+        };
         /** PublicPageRequest */
         PublicPageRequest: {
             /**
@@ -18152,6 +18677,15 @@ export interface components {
             tags?: string[] | null;
             /** Title */
             title: string;
+        };
+        /** PublicPingResponse */
+        PublicPingResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Scopes */
+            scopes: string;
+            /** User Id */
+            user_id: string;
         };
         /** PublishRequest */
         PublishRequest: {
@@ -19788,6 +20322,27 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * SyncDrupalRowsResponse
+         * @description Independent results and failures from bulk Drupal synchronization.
+         */
+        SyncDrupalRowsResponse: {
+            /** Errors */
+            errors: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Results */
+            results: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+        } & {
+            [key: string]: unknown;
+        };
         /** SyncedBlockResponse */
         SyncedBlockResponse: {
             /** Content */
@@ -20108,6 +20663,15 @@ export interface components {
          * @enum {string}
          */
         ToolEffect: "read" | "local_write" | "external_write" | "destructive" | "code_execution" | "ai_cost" | "external_read" | "personal_data" | "data_egress" | "bulk_write" | "financial_cost" | "notification";
+        /** ToolMutationResponse */
+        ToolMutationResponse: {
+            /** Name */
+            name: string;
+            /** Reason */
+            reason?: string | null;
+            /** Status */
+            status: string;
+        };
         /** ToolResponse */
         ToolResponse: {
             /** Approved At */
@@ -22251,7 +22815,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderDeletionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22293,7 +22857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderCredentialsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22335,7 +22899,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22377,7 +22941,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProviderValidationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23454,7 +24018,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MicrosoftOAuthStatusResponse"];
                 };
             };
         };
@@ -28454,7 +29018,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotionOAuthDisconnectResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29038,7 +29602,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageViewMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -29983,7 +30547,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PublicClipResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30019,7 +30583,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ClipConfigResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30054,7 +30618,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CreatedPublicPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30085,7 +30649,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PublicPingResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32215,7 +32779,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ToolMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32295,7 +32859,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ToolMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32684,7 +33248,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BulkPageMutationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33070,7 +33634,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PhysicalFileDeletionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33420,7 +33984,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FormattedBibliographyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33460,7 +34024,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FormattedCitationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33502,7 +34066,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FormattedCitationsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33544,7 +34108,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CitationKeyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33850,7 +34414,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PageIndexerStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33966,7 +34530,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LinkIndexRebuildResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34002,7 +34566,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LinkIndexStatsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35551,7 +36115,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiEvidenceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35593,7 +36157,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainGlossaryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35631,7 +36195,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LlmWikiLintResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35829,7 +36393,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainSuggestionReadOnlyErrorResponse"];
+                };
+            };
+            /** @description Gone */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrainSuggestionReadOnlyErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35871,7 +36444,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainDictationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35947,7 +36520,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BrainSuggestionVariantsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36251,7 +36824,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
@@ -36762,7 +37335,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OptionCatalogDeleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38029,7 +38602,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativeFileSelectionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -38065,7 +38638,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativeFolderSelectionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39424,7 +39997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RegistryRecord"];
                 };
             };
             /** @description Validation Error */
@@ -39623,7 +40196,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExecuteButtonActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39791,7 +40364,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SyncDrupalRowsResponse"];
                 };
             };
             /** @description Validation Error */

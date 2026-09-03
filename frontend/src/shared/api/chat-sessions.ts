@@ -16,6 +16,7 @@ export async function fetchChatSessionHistory(session: ChatSessionIdentity, note
   const result = await apiClient.GET('/api/chat/sessions/{agent_id}/{session_id}', {
     params: { path: { agent_id: session.agentId, session_id: session.id }, query: { notebook_id: notebookId || undefined } },
   });
-  if (!result.response.ok || typeof result.data !== 'object' || result.data === null || !('messages' in result.data)) return null;
-  return result.data.messages;
+  const data: unknown = result.data;
+  if (!result.response.ok || typeof data !== 'object' || data === null || !('messages' in data)) return null;
+  return data.messages;
 }

@@ -3328,6 +3328,42 @@
         "title": "Body_upload_property_file_api_vault_upload_property_file_post",
         "type": "object"
       },
+      "BrainDictationResponse": {
+        "properties": {
+          "corrected": {
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "proposed": {
+            "title": "Proposed",
+            "type": "string"
+          },
+          "transcript": {
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transcript",
+          "proposed",
+          "corrected"
+        ],
+        "title": "BrainDictationResponse",
+        "type": "object"
+      },
+      "BrainGlossaryResponse": {
+        "properties": {
+          "pairs": {
+            "title": "Pairs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pairs"
+        ],
+        "title": "BrainGlossaryResponse",
+        "type": "object"
+      },
       "BrainSuggestionListResponse": {
         "properties": {
           "suggestions": {
@@ -3342,6 +3378,20 @@
           "suggestions"
         ],
         "title": "BrainSuggestionListResponse",
+        "type": "object"
+      },
+      "BrainSuggestionReadOnlyErrorResponse": {
+        "description": "Permanent-note creation refusal returned by the retired accept route.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "BrainSuggestionReadOnlyErrorResponse",
         "type": "object"
       },
       "BrainSuggestionRejectedResponse": {
@@ -3444,6 +3494,40 @@
           "id"
         ],
         "title": "BrainSuggestionResponse",
+        "type": "object"
+      },
+      "BrainSuggestionVariantResponse": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "text"
+        ],
+        "title": "BrainSuggestionVariantResponse",
+        "type": "object"
+      },
+      "BrainSuggestionVariantsResponse": {
+        "properties": {
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/BrainSuggestionVariantResponse"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "variants"
+        ],
+        "title": "BrainSuggestionVariantsResponse",
         "type": "object"
       },
       "BrainTableClearResponse": {
@@ -5502,6 +5586,20 @@
         "title": "ChatRewindRequest",
         "type": "object"
       },
+      "CitationKeyResponse": {
+        "description": "Unique citation key generated for one bibliographic record.",
+        "properties": {
+          "citation_key": {
+            "title": "Citation Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "citation_key"
+        ],
+        "title": "CitationKeyResponse",
+        "type": "object"
+      },
       "CitationResolutionResponse": {
         "additionalProperties": true,
         "properties": {
@@ -5693,6 +5791,75 @@
         "title": "ClearTaskHistoryResponse",
         "type": "object"
       },
+      "ClipConfigResponse": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ClipFieldResponse"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClipTableResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "table",
+          "fields"
+        ],
+        "title": "ClipConfigResponse",
+        "type": "object"
+      },
+      "ClipFieldResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "title": "ClipFieldResponse",
+        "type": "object"
+      },
       "ClipRequest": {
         "properties": {
           "content": {
@@ -5746,6 +5913,24 @@
           "url"
         ],
         "title": "ClipRequest",
+        "type": "object"
+      },
+      "ClipTableResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ClipTableResponse",
         "type": "object"
       },
       "ClonePayload": {
@@ -7412,6 +7597,29 @@
         "title": "CreateVaultPayload",
         "type": "object"
       },
+      "CreatedPublicPageResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "path"
+        ],
+        "title": "CreatedPublicPageResponse",
+        "type": "object"
+      },
       "CreatedTokenResponse": {
         "properties": {
           "created_at": {
@@ -8535,6 +8743,43 @@
         "title": "EvaluationCandidatesResponse",
         "type": "object"
       },
+      "ExecuteButtonActionResponse": {
+        "additionalProperties": true,
+        "description": "Updated note state after one server-side button action.",
+        "properties": {
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "note_id": {
+            "title": "Note Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_field": {
+            "title": "Updated Field",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "note_id",
+          "updated_field",
+          "value",
+          "metadata"
+        ],
+        "title": "ExecuteButtonActionResponse",
+        "type": "object"
+      },
       "ExternalContextSourceResponse": {
         "properties": {
           "description": {
@@ -8830,6 +9075,140 @@
           "truncated"
         ],
         "title": "FilesystemSearchResponse",
+        "type": "object"
+      },
+      "FormattedBibliographyResponse": {
+        "description": "Rendered bibliography with optional HTML fragments.",
+        "properties": {
+          "entries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "entries_html": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entries Html"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "resolved": {
+            "title": "Resolved",
+            "type": "integer"
+          },
+          "style": {
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries",
+          "style",
+          "locale",
+          "resolved",
+          "missing"
+        ],
+        "title": "FormattedBibliographyResponse",
+        "type": "object"
+      },
+      "FormattedCitationItemResponse": {
+        "description": "One rendered citation at its document occurrence.",
+        "properties": {
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "resolved": {
+            "title": "Resolved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "formatted",
+          "resolved",
+          "ordinal"
+        ],
+        "title": "FormattedCitationItemResponse",
+        "type": "object"
+      },
+      "FormattedCitationResponse": {
+        "description": "One rendered inline citation.",
+        "properties": {
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "resolved": {
+            "title": "Resolved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "formatted",
+          "resolved"
+        ],
+        "title": "FormattedCitationResponse",
+        "type": "object"
+      },
+      "FormattedCitationsResponse": {
+        "description": "Context-aware rendering of an ordered citation batch.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FormattedCitationItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "style": {
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "style",
+          "locale"
+        ],
+        "title": "FormattedCitationsResponse",
         "type": "object"
       },
       "FreeBusyCalendarResponse": {
@@ -11339,6 +11718,117 @@
           "automatic_apply_supported"
         ],
         "title": "LevelingProposalResponse",
+        "type": "object"
+      },
+      "LinkIndexDiskCacheResponse": {
+        "description": "Persistent reverse-link index cache metadata.",
+        "properties": {
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "exists",
+          "size_bytes"
+        ],
+        "title": "LinkIndexDiskCacheResponse",
+        "type": "object"
+      },
+      "LinkIndexRebuildResponse": {
+        "description": "Acknowledgement that a reverse-link rebuild was scheduled.",
+        "properties": {
+          "status": {
+            "const": "rebuild_scheduled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LinkIndexRebuildResponse",
+        "type": "object"
+      },
+      "LinkIndexStatsResponse": {
+        "description": "Observable state of the reverse-link index.",
+        "properties": {
+          "built": {
+            "title": "Built",
+            "type": "boolean"
+          },
+          "built_age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Built Age Seconds"
+          },
+          "built_ts": {
+            "title": "Built Ts",
+            "type": "number"
+          },
+          "disk_cache": {
+            "$ref": "#/components/schemas/LinkIndexDiskCacheResponse"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sources_indexed": {
+            "title": "Sources Indexed",
+            "type": "integer"
+          },
+          "targets_with_backlinks": {
+            "title": "Targets With Backlinks",
+            "type": "integer"
+          },
+          "total_outlinks": {
+            "title": "Total Outlinks",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "title": "Total Tokens",
+            "type": "integer"
+          },
+          "unresolved_title_buckets": {
+            "title": "Unresolved Title Buckets",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "built",
+          "built_ts",
+          "built_age_seconds",
+          "schema_version",
+          "sources_indexed",
+          "targets_with_backlinks",
+          "unresolved_title_buckets",
+          "total_outlinks",
+          "total_tokens",
+          "disk_cache"
+        ],
+        "title": "LinkIndexStatsResponse",
         "type": "object"
       },
       "LinkMentionsRequest": {
@@ -14801,6 +15291,40 @@
         "title": "LlmWikiBrainResponse",
         "type": "object"
       },
+      "LlmWikiBrokenCitationResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "segment_id": {
+            "title": "Segment Id",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "resource_id",
+          "snapshot_id",
+          "segment_id"
+        ],
+        "title": "LlmWikiBrokenCitationResponse",
+        "type": "object"
+      },
       "LlmWikiCapabilitiesResponse": {
         "additionalProperties": true,
         "properties": {
@@ -15012,6 +15536,106 @@
           "created"
         ],
         "title": "LlmWikiCreatedSettingsResponse",
+        "type": "object"
+      },
+      "LlmWikiDuplicateManagedKeyResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiNoteFindingResponse"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "notes"
+        ],
+        "title": "LlmWikiDuplicateManagedKeyResponse",
+        "type": "object"
+      },
+      "LlmWikiEvidenceResponse": {
+        "additionalProperties": true,
+        "description": "Persisted citation evidence resolved without exposing filesystem paths.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "label": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "resource_id": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "segment": {
+            "$ref": "#/components/schemas/LlmWikiEvidenceSegmentResponse"
+          },
+          "snapshot_id": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "source_url": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "resource_id",
+          "kind",
+          "label",
+          "source_url",
+          "segment"
+        ],
+        "title": "LlmWikiEvidenceResponse",
+        "type": "object"
+      },
+      "LlmWikiEvidenceSegmentResponse": {
+        "additionalProperties": true,
+        "description": "One immutable normalized segment and its source locator.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "locator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "LlmWikiEvidenceSegmentResponse",
         "type": "object"
       },
       "LlmWikiJobResponse": {
@@ -15276,6 +15900,55 @@
         "title": "LlmWikiLifecycleRequest",
         "type": "object"
       },
+      "LlmWikiLintCountsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "broken_cites": {
+            "title": "Broken Cites",
+            "type": "integer"
+          },
+          "duplicate_keys": {
+            "title": "Duplicate Keys",
+            "type": "integer"
+          },
+          "index_drift": {
+            "title": "Index Drift",
+            "type": "integer"
+          },
+          "missing_xref": {
+            "title": "Missing Xref",
+            "type": "integer"
+          },
+          "orphans": {
+            "title": "Orphans",
+            "type": "integer"
+          },
+          "reprocess": {
+            "title": "Reprocess",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "integer"
+          },
+          "stale_managed": {
+            "title": "Stale Managed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "orphans",
+          "stale",
+          "missing_xref",
+          "reprocess",
+          "duplicate_keys",
+          "stale_managed",
+          "broken_cites",
+          "index_drift"
+        ],
+        "title": "LlmWikiLintCountsResponse",
+        "type": "object"
+      },
       "LlmWikiLintReportResponse": {
         "additionalProperties": true,
         "description": "Deterministic Brain lint report with forward-compatible findings.",
@@ -15297,6 +15970,116 @@
           "counts"
         ],
         "title": "LlmWikiLintReportResponse",
+        "type": "object"
+      },
+      "LlmWikiLintResponse": {
+        "additionalProperties": true,
+        "description": "Complete deterministic Brain lint report and optional suggestion totals.",
+        "properties": {
+          "broken_cites": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiBrokenCitationResponse"
+            },
+            "title": "Broken Cites",
+            "type": "array"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/LlmWikiLintCountsResponse"
+          },
+          "duplicate_keys": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiDuplicateManagedKeyResponse"
+            },
+            "title": "Duplicate Keys",
+            "type": "array"
+          },
+          "index_drift": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiResourceIndexDriftResponse"
+            },
+            "title": "Index Drift",
+            "type": "array"
+          },
+          "missing_xref": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiMissingCrossReferenceResponse"
+            },
+            "title": "Missing Xref",
+            "type": "array"
+          },
+          "note_count": {
+            "title": "Note Count",
+            "type": "integer"
+          },
+          "orphans": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiNoteFindingResponse"
+            },
+            "title": "Orphans",
+            "type": "array"
+          },
+          "reprocess": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiReprocessCandidateResponse"
+            },
+            "title": "Reprocess",
+            "type": "array"
+          },
+          "stale": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiStaleFindingResponse"
+            },
+            "title": "Stale",
+            "type": "array"
+          },
+          "stale_managed": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiNoteFindingResponse"
+            },
+            "title": "Stale Managed",
+            "type": "array"
+          },
+          "suggestions_pending": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestions Pending"
+          },
+          "suggestions_queued": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestions Queued"
+          },
+          "truncated_missing_xref": {
+            "title": "Truncated Missing Xref",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "note_count",
+          "orphans",
+          "stale",
+          "missing_xref",
+          "reprocess",
+          "duplicate_keys",
+          "stale_managed",
+          "broken_cites",
+          "index_drift",
+          "counts",
+          "truncated_missing_xref"
+        ],
+        "title": "LlmWikiLintResponse",
         "type": "object"
       },
       "LlmWikiMaintenanceResponse": {
@@ -15326,6 +16109,54 @@
           "suggestions_pending"
         ],
         "title": "LlmWikiMaintenanceResponse",
+        "type": "object"
+      },
+      "LlmWikiMissingCrossReferenceResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "should_link": {
+            "title": "Should Link",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "should_link",
+          "target_id"
+        ],
+        "title": "LlmWikiMissingCrossReferenceResponse",
+        "type": "object"
+      },
+      "LlmWikiNoteFindingResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "LlmWikiNoteFindingResponse",
         "type": "object"
       },
       "LlmWikiProcessRequest": {
@@ -15404,6 +16235,54 @@
           "job"
         ],
         "title": "LlmWikiProcessStartResponse",
+        "type": "object"
+      },
+      "LlmWikiReprocessCandidateResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "modified": {
+            "title": "Modified",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "processed",
+          "modified"
+        ],
+        "title": "LlmWikiReprocessCandidateResponse",
+        "type": "object"
+      },
+      "LlmWikiResourceIndexDriftResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "source_table_id": {
+            "title": "Source Table Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_table_id",
+          "resource_id"
+        ],
+        "title": "LlmWikiResourceIndexDriftResponse",
         "type": "object"
       },
       "LlmWikiSettingsDocument": {
@@ -15491,6 +16370,49 @@
           "value"
         ],
         "title": "LlmWikiSettingsOptionResponse",
+        "type": "object"
+      },
+      "LlmWikiStaleFindingResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "review",
+          "days"
+        ],
+        "title": "LlmWikiStaleFindingResponse",
         "type": "object"
       },
       "LlmWikiValidationResponse": {
@@ -18176,6 +19098,31 @@
         "title": "MetadataLookupResponse",
         "type": "object"
       },
+      "MicrosoftOAuthStatusResponse": {
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "configured",
+          "client_id"
+        ],
+        "title": "MicrosoftOAuthStatusResponse",
+        "type": "object"
+      },
       "ModelCatalogModel": {
         "additionalProperties": true,
         "description": "Normalized model metadata from models.dev or the local Ollama overlay.",
@@ -19151,6 +20098,44 @@
           "models"
         ],
         "title": "ModelsPayload",
+        "type": "object"
+      },
+      "NativeFileSelectionResponse": {
+        "description": "Path and stable file metadata selected by the native file picker.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "size"
+        ],
+        "title": "NativeFileSelectionResponse",
+        "type": "object"
+      },
+      "NativeFolderSelectionResponse": {
+        "description": "Path selected by the native folder picker.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "NativeFolderSelectionResponse",
         "type": "object"
       },
       "NativePickAvailabilityResponse": {
@@ -21425,6 +22410,19 @@
         "title": "NotionMutationResponse",
         "type": "object"
       },
+      "NotionOAuthDisconnectResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "NotionOAuthDisconnectResponse",
+        "type": "object"
+      },
       "NotionOAuthStatusResponse": {
         "properties": {
           "connected": {
@@ -21666,6 +22664,21 @@
           }
         },
         "title": "OpenResourceRequest",
+        "type": "object"
+      },
+      "OptionCatalogDeleteResponse": {
+        "description": "Receipt returned after deleting an unused shared option catalog.",
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "OptionCatalogDeleteResponse",
         "type": "object"
       },
       "OriginType": {
@@ -21978,6 +22991,72 @@
           "size"
         ],
         "title": "PageHistoryVersion",
+        "type": "object"
+      },
+      "PageIndexerStatusResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Current index warmup state with forward-compatible diagnostic fields.",
+        "properties": {
+          "cached_entries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cached Entries"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "files_indexed": {
+            "default": 0,
+            "title": "Files Indexed",
+            "type": "integer"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "PageIndexerStatusResponse",
         "type": "object"
       },
       "PageInfo": {
@@ -22801,6 +23880,39 @@
         "title": "PersonalMemoryResponse",
         "type": "object"
       },
+      "PhysicalFileDeletionResponse": {
+        "additionalProperties": false,
+        "description": "Recoverable host-trash or contained Vault deletion result.",
+        "properties": {
+          "method": {
+            "enum": [
+              "macos_trash",
+              "vault_unlink"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "trashed",
+              "deleted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "method",
+          "target"
+        ],
+        "title": "PhysicalFileDeletionResponse",
+        "type": "object"
+      },
       "PlanningDefaultsResponse": {
         "additionalProperties": true,
         "description": "Vault-level planning defaults.",
@@ -23423,6 +24535,78 @@
         "title": "ProviderCredentialPayload",
         "type": "object"
       },
+      "ProviderCredentialsResponse": {
+        "description": "Acknowledgement after securely storing provider credentials.",
+        "properties": {
+          "credential_ref": {
+            "title": "Credential Ref",
+            "type": "string"
+          },
+          "has_api_key": {
+            "const": true,
+            "title": "Has Api Key",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "provider",
+          "credential_ref",
+          "has_api_key"
+        ],
+        "title": "ProviderCredentialsResponse",
+        "type": "object"
+      },
+      "ProviderDeletionResponse": {
+        "description": "Complete result of disconnecting one provider and its model rows.",
+        "properties": {
+          "credential_deleted": {
+            "title": "Credential Deleted",
+            "type": "boolean"
+          },
+          "env_keys_deleted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Env Keys Deleted",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "removed_models": {
+            "title": "Removed Models",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "success",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "removed_models",
+          "credential_deleted",
+          "env_keys_deleted"
+        ],
+        "title": "ProviderDeletionResponse",
+        "type": "object"
+      },
       "ProviderStatusPayload": {
         "properties": {
           "enabled": {
@@ -23434,6 +24618,107 @@
           "enabled"
         ],
         "title": "ProviderStatusPayload",
+        "type": "object"
+      },
+      "ProviderStatusResponse": {
+        "description": "Persisted enabled state for one provider.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "const": "success",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "provider",
+          "enabled"
+        ],
+        "title": "ProviderStatusResponse",
+        "type": "object"
+      },
+      "ProviderValidationResponse": {
+        "description": "Result of the live credential/provider probe.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "ProviderValidationResponse",
+        "type": "object"
+      },
+      "PublicClipResponse": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table"
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "path"
+        ],
+        "title": "PublicClipResponse",
         "type": "object"
       },
       "PublicPageRequest": {
@@ -23471,6 +24756,29 @@
           "title"
         ],
         "title": "PublicPageRequest",
+        "type": "object"
+      },
+      "PublicPingResponse": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "scopes": {
+            "title": "Scopes",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "user_id",
+          "scopes"
+        ],
+        "title": "PublicPingResponse",
         "type": "object"
       },
       "PublicationNetworkResult": {
@@ -27107,6 +28415,44 @@
         "title": "SyncDrupalRowResponse",
         "type": "object"
       },
+      "SyncDrupalRowsResponse": {
+        "additionalProperties": true,
+        "description": "Independent results and failures from bulk Drupal synchronization.",
+        "properties": {
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "results",
+          "errors"
+        ],
+        "title": "SyncDrupalRowsResponse",
+        "type": "object"
+      },
       "SyncedBlockResponse": {
         "properties": {
           "content": {
@@ -27862,6 +29208,35 @@
         ],
         "title": "ToolEffect",
         "type": "string"
+      },
+      "ToolMutationResponse": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "name"
+        ],
+        "title": "ToolMutationResponse",
+        "type": "object"
       },
       "ToolResponse": {
         "properties": {
@@ -34237,7 +35612,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDeletionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34368,7 +35745,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderCredentialsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34499,7 +35878,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -34631,7 +36012,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderValidationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -37211,7 +38594,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MicrosoftOAuthStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -53416,7 +54801,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotionOAuthDisconnectResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -55169,7 +56556,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageViewMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58161,7 +59550,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PublicClipResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58273,7 +59664,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClipConfigResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58331,7 +59724,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedPublicPageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -58379,7 +59774,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPingResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64533,7 +65930,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ToolMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -64710,7 +66109,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ToolMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -66000,7 +67401,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BulkPageMutationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -67198,7 +68601,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PhysicalFileDeletionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68340,7 +69745,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FormattedBibliographyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68481,7 +69888,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FormattedCitationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68605,7 +70014,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FormattedCitationsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -68729,7 +70140,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CitationKeyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -69556,7 +70969,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PageIndexerStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -69915,7 +71330,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LinkIndexRebuildResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -70027,7 +71444,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LinkIndexStatsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -74951,7 +76370,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiEvidenceResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -75075,7 +76496,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainGlossaryResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -75197,7 +76620,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiLintResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -75824,10 +77249,22 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainSuggestionReadOnlyErrorResponse"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainSuggestionReadOnlyErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
           },
           "422": {
             "content": {
@@ -75955,7 +77392,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainDictationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -76199,7 +77638,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BrainSuggestionVariantsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -77347,7 +78788,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Albums Api Vault Media Albums Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -78843,7 +80290,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OptionCatalogDeleteResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83100,7 +84549,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NativeFileSelectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -83212,7 +84663,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NativeFolderSelectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -87459,7 +88912,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryRecord"
+                }
               }
             },
             "description": "Successful Response"
@@ -88095,7 +89550,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteButtonActionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -88597,7 +90054,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncDrupalRowsResponse"
+                }
               }
             },
             "description": "Successful Response"
