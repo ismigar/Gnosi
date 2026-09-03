@@ -15,6 +15,15 @@ RELEASE_WORKFLOW = APP_ROOT / ".github/workflows/build-release.yml"
 SIDEBAR_SOURCE = APP_ROOT / "frontend/src/app/navigation/sidebar/appSidebarModel.ts"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
 WorkflowMapping: TypeAlias = dict[str | bool, object]
+TRUSTED_PR_IF = (
+    "github.event_name != 'pull_request' || "
+    "github.event.pull_request.head.repo.full_name == github.repository"
+)
+DOCUMENTATION_IF = (
+    "(github.event_name == 'pull_request' && "
+    "github.event.pull_request.head.repo.full_name == github.repository) || "
+    "inputs.release_candidate"
+)
 CI_COMMANDS = {
     "documentation": [
         "uv sync --frozen --group docs",
@@ -139,7 +148,7 @@ def test_ci_documentation_gate_runs_on_every_pr_and_candidate(
     assert candidate["default"] is False
     assert candidate.get("required", False) is False
     job = workflow_job(ci_workflow, "documentation")
-    assert job["if"] == "github.event_name == 'pull_request' || inputs.release_candidate"
+    assert job["if"] == DOCUMENTATION_IF
     assert "continue-on-error" not in job
     assert "needs" not in job
 
@@ -233,10 +242,9 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         assert "uses" not in job
         assert "needs" not in job
         assert "continue-on-error" not in job
-        if name == "documentation":
-            assert job["if"] == "github.event_name == 'pull_request' || inputs.release_candidate"
-        else:
-            assert "if" not in job
+        assert job.get("if") == (
+            DOCUMENTATION_IF if name == "documentation" else TRUSTED_PR_IF
+        )
         steps = workflow_steps(job)
         assert all("if" not in step and "continue-on-error" not in step for step in steps)
         commands = [
@@ -287,6 +295,31 @@ def test_candidate_documentation_rejects_caller_event_shortcuts(
     ci_workflow["jobs"] = jobs
     with pytest.raises(AssertionError):
         test_ci_documentation_gate_runs_on_every_pr_and_candidate(ci_workflow)
+
+
+@pytest.mark.parametrize("name", CI_COMMANDS)
+@pytest.mark.parametrize("condition", [
+    None,
+    "github.event_name == 'pull_request'",
+    "github.event_name != 'pull_request'",
+    "github.event.pull_request.head.repo.full_name == github.repository",
+    "always()",
+])
+def test_ci_rejects_fork_guard_removal_or_weakening(
+    ci_workflow: WorkflowMapping, name: str, condition: str | None,
+) -> None:
+    """Public fork code must never reach an owner self-hosted runner."""
+    test_ci_preserves_all_five_jobs_commands_and_fatal_gates(ci_workflow)
+    job = workflow_job(ci_workflow, name)
+    if condition is None:
+        del job["if"]
+    else:
+        job["if"] = condition
+    jobs = workflow_mapping(ci_workflow["jobs"])
+    jobs[name] = job
+    ci_workflow["jobs"] = jobs
+    with pytest.raises(AssertionError):
+        test_ci_preserves_all_five_jobs_commands_and_fatal_gates(ci_workflow)
 
 
 @pytest.mark.parametrize("base", [

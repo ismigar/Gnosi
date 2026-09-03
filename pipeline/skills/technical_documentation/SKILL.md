@@ -159,6 +159,12 @@ requires documentation evidence.
   hosted Actions budget. Use the provisioned self-hosted Linux ARM64 runner for
   both jobs and keep a source-level regression test for the runner labels.
 
+- Note: Do not let a public fork pull request reach any self-hosted runner,
+  because checked-out PR code can execute arbitrary commands on the owner machine.
+  Require the exact same-repository head condition on every shared CI job, combine
+  it with the documentation candidate condition, and keep source-level regression
+  tests that reject removing or weakening the guard.
+
 - Note: Do not classify source using absolute ancestor names, because a checkout
   below `tests`, `e2e`, `vendor` or a scratch directory changes public catalogs.
   Instead, classify paths relative to the explicit scan/application root, while

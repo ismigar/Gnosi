@@ -379,6 +379,11 @@ etiquetes remotes continua sent un requisit separat.
 La publicació sense pressupost allotjat construeix i verifica localment els quatre
 grups de plataforma i publica només aquells artefactes exactes; no executis el
 workflow allotjat opcional sense una aprovació explícita de pressupost.
+Com que el repositori és públic, cada job del CI compartit només permet execució
+autoallotjada quan la branca d'una PR pertany al repositori canònic. Les PRs de
+forks no poden arribar a les màquines del propietari; un mantenidor les ha de
+revisar i reproduir el canvi en una branca interna de confiança abans d'executar
+les comprovacions protegides.
 El mateix preflight també exigeix que la versió de l’etiqueta coincideixi amb
 els manifests de l’arrel, del frontend, de l’escriptori i de Python abans
 d’iniciar la CI o qualsevol construcció per arquitectura.

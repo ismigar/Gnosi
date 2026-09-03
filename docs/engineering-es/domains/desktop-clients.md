@@ -389,6 +389,11 @@ sí sola. La protección de etiquetas remotas sigue siendo un requisito aparte.
 La publicación sin presupuesto alojado construye y verifica localmente los cuatro
 grupos de plataforma y publica solo esos artefactos exactos; no ejecutes el
 workflow alojado opcional sin aprobación explícita de presupuesto.
+Como el repositorio es público, cada trabajo del CI compartido solo permite la
+ejecución en infraestructura propia cuando la rama de una PR pertenece al
+repositorio canónico. Las PR de forks no pueden llegar a los equipos del
+propietario; un mantenedor debe revisarlas y reproducir el cambio en una rama
+interna de confianza antes de ejecutar las comprobaciones protegidas.
 El mismo preflight también exige que la versión de la etiqueta coincida con
 los manifiestos de la raíz, del frontend, del escritorio y de Python antes de
 iniciar la CI o cualquier compilación por arquitectura.

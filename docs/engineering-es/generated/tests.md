@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 20 | 74 |
 | Vitest | 489 | 2025 |
-| pytest | 447 | 3188 |
+| pytest | 447 | 3189 |
 
 ## Archivos
 
@@ -952,7 +952,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generator_compatibility.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_generator_compatibility.py) | 1 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_localize.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_localize.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_pre_pr.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_pre_pr.py) | 4 | Python AST |
-| pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 17 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 18 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_reviewed_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_reviewed_contracts.py) | 14 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_validate.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/translate_page/scripts/test_markdown_segmenter.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 44 | Python AST |

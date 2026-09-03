@@ -340,6 +340,10 @@ refs or fetch by itself. Remote tag protection remains a separate requirement.
 The zero-hosted-budget publication path builds and verifies all four platform
 groups locally and publishes only those exact artifacts; do not dispatch the
 optional hosted workflow without explicit budget approval.
+Because the repository is public, every shared CI job permits self-hosted execution
+only when a pull request's head belongs to the canonical repository. Fork pull
+requests cannot reach owner machines; a maintainer must review them and reproduce
+the change on a trusted internal branch before protected checks can run.
 The same preflight also requires the tag version to match the root, frontend,
 desktop and Python manifests before CI or any architecture build starts.
 

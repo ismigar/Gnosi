@@ -399,6 +399,11 @@ une exigence distincte.
 Le chemin de publication sans budget hébergé construit et vérifie localement les
 quatre groupes de plateformes, puis publie uniquement ces artefacts exacts ; ne
 lancez pas le workflow hébergé facultatif sans approbation explicite du budget.
+Le dépôt étant public, chaque job CI partagé n'autorise l'exécution sur
+l'infrastructure propre que lorsque la branche d'une PR appartient au dépôt
+canonique. Les PR issues de forks ne peuvent pas atteindre les machines du
+propriétaire ; un mainteneur doit les examiner et reproduire le changement sur
+une branche interne de confiance avant d'exécuter les contrôles protégés.
 Le même contrôle préliminaire exige aussi que la version du tag corresponde
 aux manifestes de la racine, du frontend, de l’application de bureau et de
 Python avant de lancer la CI ou toute compilation d’architecture.
