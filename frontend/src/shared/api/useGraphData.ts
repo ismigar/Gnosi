@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchVaultGraph } from './graph';
-
-
-export const graphQueryKey = ['graph'] as const;
+import { fetchVaultGraph, graphQueryKey } from './graph';
 
 
 export function useVaultGraphData() {
   return useQuery({
-    queryFn: fetchVaultGraph,
+    queryFn: ({ signal }) => fetchVaultGraph(signal),
     queryKey: graphQueryKey,
   });
 }
