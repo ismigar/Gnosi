@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { test } from '@playwright/test';
 
@@ -17,8 +18,9 @@ import { authStorageStatePath } from '../../support/auth-state.ts';
  * validates actual browser login separately against the isolated test backend.
  */
 
+const SETUP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const STORAGE_STATE = authStorageStatePath(
-  process.env.GNOSI_TEST_STORAGE_STATE, path.resolve(__dirname, '../..'),
+  process.env.GNOSI_TEST_STORAGE_STATE, path.resolve(SETUP_DIR, '../..'),
 );
 
 const setup = test.extend<{}, { verifiedAuthState: AuthStorageState }>({

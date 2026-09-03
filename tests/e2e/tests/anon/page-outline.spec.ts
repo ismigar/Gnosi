@@ -42,6 +42,18 @@ test.describe('PageOutline section navigator', () => {
       contentType: 'application/json',
       body: JSON.stringify({ detail: 'Not authenticated' }),
     }));
+    await page.route('**/api/vaults', (route) => route.fulfill({
+      json: {
+        active_path: '/tmp/gnosi-page-outline-vault',
+        vaults: [{
+          active: true,
+          id: 'page-outline-vault',
+          name: 'Page Outline Vault',
+          path: '/tmp/gnosi-page-outline-vault',
+          slug: 'page-outline-vault',
+        }],
+      },
+    }));
   });
 
   test('appears, lists injected sections, jumps and closes', async ({ page }) => {
