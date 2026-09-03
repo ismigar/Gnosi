@@ -96,6 +96,19 @@ class MediaMutationResponse(BaseModel):
     status: str
 
 
+class NativeFolderSelectionResponse(BaseModel):
+    """Path selected by the native folder picker."""
+
+    path: str
+
+
+class NativeFileSelectionResponse(NativeFolderSelectionResponse):
+    """Path and stable file metadata selected by the native file picker."""
+
+    name: str
+    size: int
+
+
 __all__ = [
     "MediaCoordinatesResponse",
     "MediaItemResponse",
@@ -108,4 +121,6 @@ __all__ = [
     "MediaViewResponse",
     "MediaViewScope",
     "MediaViewSort",
+    "NativeFileSelectionResponse",
+    "NativeFolderSelectionResponse",
 ]

@@ -38,6 +38,8 @@ from backend.domains.vault.media.schemas import (
     MediaTreeNodeResponse,
     MediaViewInput,
     MediaViewResponse,
+    NativeFileSelectionResponse,
+    NativeFolderSelectionResponse,
 )
 from backend.domains.vault.media.unsplash_payload import search_payload as _search_payload
 from backend.domains.vault.registry.state import RegistryData
@@ -129,7 +131,7 @@ async def get_all_media(
     )
 
 
-@router.get("/media/albums", response_model=None)
+@router.get("/media/albums", response_model=list[str])
 async def get_albums() -> list[str]:
     """Returns the list of top-level albums. Compat: the new frontend
     uses /media/tree for hierarchical navigation."""
@@ -361,7 +363,7 @@ def _run_osascript_picker(script: str) -> str:
 @router.post(
     "/pick-folder",
     dependencies=[Depends(_require_role("editor"))],
-    response_model=None,
+    response_model=NativeFolderSelectionResponse,
 )
 async def pick_folder() -> PickedFolder:
     """Open a native macOS folder-picker dialog and return the chosen path."""
@@ -389,7 +391,7 @@ async def pick_folder() -> PickedFolder:
 @router.post(
     "/pick-file",
     dependencies=[Depends(_require_role("editor"))],
-    response_model=None,
+    response_model=NativeFileSelectionResponse,
 )
 async def pick_file() -> PickedFile:
     """Open a native macOS file-picker dialog and return the chosen file path."""

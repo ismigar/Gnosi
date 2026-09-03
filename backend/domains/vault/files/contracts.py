@@ -39,8 +39,19 @@ class LocalFileRegistrationResponse(BaseModel):
     path: str
 
 
+class PhysicalFileDeletionResponse(BaseModel):
+    """Recoverable host-trash or contained Vault deletion result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["trashed", "deleted"]
+    method: Literal["macos_trash", "vault_unlink"]
+    target: str
+
+
 __all__ = [
     "LinkedExistingFileResponse",
     "LocalFileRegistrationResponse",
+    "PhysicalFileDeletionResponse",
     "PropertyFileUploadResponse",
 ]

@@ -222,6 +222,7 @@ def register_primary_routes(
         "/assets/{asset_path:path}",
         get_asset,
         methods=["GET"],
+        # Intentional binary boundary: streams a contained Vault asset.
         response_model=None,
     )
 
@@ -232,6 +233,7 @@ def register_image_route(router: APIRouter) -> None:
         "/images/{image_path:path}",
         serve_vault_image,
         methods=["GET"],
+        # Intentional binary boundary: streams a contained Vault image.
         response_model=None,
     )
 

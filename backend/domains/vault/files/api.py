@@ -14,6 +14,7 @@ from backend.domains.vault.files import host_trash, local_service, property_serv
 from backend.domains.vault.files.contracts import (
     LinkedExistingFileResponse,
     LocalFileRegistrationResponse,
+    PhysicalFileDeletionResponse,
     PropertyFileUploadResponse,
 )
 from backend.domains.vault.files.serving import serve_file_with_containment
@@ -309,18 +310,21 @@ def register_serving_routes(
         "/library/{rel_path:path}",
         serve_library_file,
         methods=["GET"],
+        # Intentional binary boundary: streams a contained Library file.
         response_model=None,
     )
     router.add_api_route(
         "/raw/{rel_path:path}",
         serve_vault_raw_file,
         methods=["GET"],
+        # Intentional binary boundary: streams an arbitrary contained Vault file.
         response_model=None,
     )
     router.add_api_route(
         "/thumb/{rel_url:path}",
         serve_thumb,
         methods=["GET"],
+        # Intentional binary boundary: returns a PNG or a raw no-store error Response.
         response_model=None,
     )
     router.add_api_route(
@@ -335,12 +339,14 @@ def register_serving_routes(
         "/local-file/{token}/{filename:path}",
         serve_local_file,
         methods=["GET"],
+        # Intentional binary boundary: streams the token-owned local file.
         response_model=None,
     )
     router.add_api_route(
         "/local-file/{token}",
         serve_local_file,
         methods=["GET"],
+        # Intentional binary boundary: legacy unnamed URL for the same file stream.
         response_model=None,
     )
 
@@ -371,7 +377,7 @@ def register_property_routes(
         delete_physical_file,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=PhysicalFileDeletionResponse,
     )
 
 
