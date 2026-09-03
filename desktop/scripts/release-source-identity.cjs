@@ -60,6 +60,21 @@ function releaseManifestVersions(root) {
   return versions;
 }
 
+function verifyReleaseLicenses() {
+  const expected = 'AGPL-3.0-or-later';
+  for (const relative of ['package.json', 'frontend/package.json', 'desktop/package.json']) {
+    let document;
+    try {
+      document = JSON.parse(fs.readFileSync(path.join(process.cwd(), relative), 'utf8'));
+    } catch (error) {
+      throw new Error(`Cannot read release license from ${relative}.`);
+    }
+    if (!document || Array.isArray(document) || document.license !== expected) {
+      throw new Error(`${relative} must declare ${expected} before tagging a release.`);
+    }
+  }
+}
+
 function verifyReleaseVersions(tag) {
   const expected = tag.slice(1);
   for (const [file, version] of releaseManifestVersions(process.cwd())) {
@@ -111,6 +126,7 @@ function verifySourceIdentity() {
     throw new Error('Release tag does not match EXPECTED_SHA. Dispatch from the same commit as the existing tag.');
   }
   verifyReleaseVersions(tag);
+  verifyReleaseLicenses();
   process.stdout.write(`Verified release source ${tag} at ${commit}.\n`);
 }
 

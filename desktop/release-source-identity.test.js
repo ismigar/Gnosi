@@ -127,7 +127,9 @@ function fixture(t, objectFormat = 'sha1', version = '3.0.0') {
     if (relative === 'pyproject.toml') {
       fs.writeFileSync(target, `[project]\nname = "fixture"\nversion = "${nextVersion}"\n`);
     } else {
-      fs.writeFileSync(target, `${JSON.stringify({ name: 'fixture', version: nextVersion })}\n`);
+      fs.writeFileSync(target, `${JSON.stringify({
+        name: 'fixture', version: nextVersion, license: 'AGPL-3.0-or-later',
+      })}\n`);
     }
   };
   for (const relative of ['package.json', 'frontend/package.json', 'desktop/package.json', 'pyproject.toml']) {
@@ -190,6 +192,17 @@ for (const relative of ['package.json', 'frontend/package.json', 'desktop/packag
     f.tag();
     f.writeVersion(relative, '3.0.1');
     reject(f.probe(), new RegExp(`does not match ${relative.replace('.', '\\.')}`));
+  });
+}
+
+for (const relative of ['package.json', 'frontend/package.json', 'desktop/package.json']) {
+  test(`rejects a release manifest with a divergent license in ${relative}`, (t) => {
+    const f = fixture(t);
+    f.tag();
+    fs.writeFileSync(path.join(f.root, relative), `${JSON.stringify({
+      name: 'fixture', version: '3.0.0', license: 'MIT',
+    })}\n`);
+    reject(f.probe(), new RegExp(`${relative.replace('.', '\\.')} must declare AGPL`));
   });
 }
 

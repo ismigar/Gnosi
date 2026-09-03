@@ -9,7 +9,7 @@
     "name": "Ismael Garcia Fernandez",
     "email": "ismigar@gmail.com"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "test": "node --test *.test.js",
     "typecheck:ipc": "pnpm --filter @gnosi/frontend exec tsc --project ../desktop/tsconfig.ipc.json",
