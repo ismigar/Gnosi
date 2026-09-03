@@ -11003,10 +11003,27 @@ export interface components {
             /** Transcript */
             transcript: string;
         };
+        /**
+         * BrainGlossaryRequest
+         * @description User-confirmed correction pair with legacy endpoint coercion.
+         */
+        BrainGlossaryRequest: {
+            /** Heard */
+            heard?: unknown | null;
+            /** Meant */
+            meant?: unknown | null;
+        };
         /** BrainGlossaryResponse */
         BrainGlossaryResponse: {
             /** Pairs */
             pairs: number;
+        };
+        /**
+         * BrainSuggestionAcceptRequest
+         * @description Ignored legacy payload retained for the permanently read-only route.
+         */
+        BrainSuggestionAcceptRequest: {
+            [key: string]: unknown;
         };
         /** BrainSuggestionListResponse */
         BrainSuggestionListResponse: {
@@ -11150,6 +11167,16 @@ export interface components {
             page_ids: string[];
             /** Template Id */
             template_id: string;
+        };
+        /**
+         * BulkMetadataUpdateRequest
+         * @description Historically loose metadata patch command with ignored extensions.
+         */
+        BulkMetadataUpdateRequest: {
+            expected_etags?: components["schemas"]["JsonValue"] | null;
+            page_ids?: components["schemas"]["JsonValue"] | null;
+            remove?: components["schemas"]["JsonValue"] | null;
+            updates?: components["schemas"]["JsonValue"] | null;
         };
         /** BulkMutationConflictResponse */
         BulkMutationConflictResponse: {
@@ -13158,6 +13185,17 @@ export interface components {
             /** Candidates */
             candidates: components["schemas"]["EvaluationCandidateResponse"][];
         };
+        /** ExecuteButtonActionRequest */
+        ExecuteButtonActionRequest: {
+            /** Button Action */
+            button_action?: components["schemas"]["JsonValue"] | null;
+            /** Button Config */
+            button_config?: components["schemas"]["JsonValue"] | null;
+            /** Note Id */
+            note_id?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * ExecuteButtonActionResponse
          * @description Updated note state after one server-side button action.
@@ -13287,6 +13325,13 @@ export interface components {
             results: components["schemas"]["FilesystemSearchEntryResponse"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /**
+         * FolderSchemaRequest
+         * @description Extensible folder schema document persisted verbatim.
+         */
+        FolderSchemaRequest: {
+            [key: string]: components["schemas"]["JsonValue"];
         };
         /**
          * FormattedBibliographyResponse
@@ -13432,6 +13477,15 @@ export interface components {
              * @enum {string}
              */
             status: "not_requested" | "requested" | "available_oa" | "attached" | "unavailable" | "assessed";
+        };
+        /** GenerateButtonActionRequest */
+        GenerateButtonActionRequest: {
+            /** Fields */
+            fields?: components["schemas"]["JsonValue"] | null;
+            /** Prompt */
+            prompt?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * GenerateButtonActionResponse
@@ -14240,6 +14294,24 @@ export interface components {
             revision: number;
             /** Warnings */
             warnings: components["schemas"]["AllocationWarningResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * LinkedExistingFileRequest
+         * @description Existing local path and optional in-place target name.
+         */
+        LinkedExistingFileRequest: {
+            /**
+             * File Path
+             * @default
+             */
+            file_path: unknown;
+            /**
+             * Target Name
+             * @default
+             */
+            target_name: unknown;
         } & {
             [key: string]: unknown;
         };
@@ -15156,6 +15228,18 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * LlmWikiBrainCreateRequest
+         * @description Loose 2.x-compatible body for the namespaced Brain creator.
+         */
+        LlmWikiBrainCreateRequest: {
+            /** Language */
+            language?: unknown | null;
+            /** Name */
+            name?: unknown | null;
+            /** Ui Locale */
+            ui_locale?: unknown | null;
+        };
         /** LlmWikiBrainResponse */
         LlmWikiBrainResponse: {
             /** Configured */
@@ -15228,6 +15312,30 @@ export interface components {
             validation: components["schemas"]["LlmWikiValidationResponse"];
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * LlmWikiConfigUpdateRequest
+         * @description Known persisted settings without pre-empting legacy normalization.
+         */
+        LlmWikiConfigUpdateRequest: {
+            /** Brain Roles */
+            brain_roles?: unknown | null;
+            /** Brain Table Id */
+            brain_table_id?: unknown | null;
+            /** Configured */
+            configured?: unknown | null;
+            /** Index Field Ids */
+            index_field_ids?: unknown | null;
+            /** Source Contract Revision */
+            source_contract_revision?: unknown | null;
+            /** Source Tables */
+            source_tables?: unknown | null;
+            /** Target Table */
+            target_table?: unknown | null;
+            /** Ui Locale */
+            ui_locale?: unknown | null;
+            /** Version */
+            version?: unknown | null;
         };
         /**
          * LlmWikiCreatedSettingsResponse
@@ -15606,6 +15714,19 @@ export interface components {
             }[];
             /** Valid */
             valid: boolean;
+        };
+        /**
+         * LocalFileRegistrationRequest
+         * @description Absolute local path selected for stable token registration.
+         */
+        LocalFileRegistrationRequest: {
+            /**
+             * File Path
+             * @default
+             */
+            file_path: unknown;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * LocalFileRegistrationResponse
@@ -16341,6 +16462,19 @@ export interface components {
             kind: "auto" | "doi" | "pmid" | "arxiv" | "isbn" | "url";
             /** Value */
             value: string;
+        };
+        /** MatchDrupalRowsRequest */
+        MatchDrupalRowsRequest: {
+            /** Bundle */
+            bundle?: components["schemas"]["JsonValue"] | null;
+            /** Dry Run */
+            dry_run?: components["schemas"]["JsonValue"] | null;
+            /** Item Ids */
+            item_ids?: components["schemas"]["JsonValue"] | null;
+            /** Table Id */
+            table_id?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * MatchDrupalRowsResponse
@@ -18049,6 +18183,13 @@ export interface components {
             status: "ok";
         };
         /**
+         * OptionCatalogUpsertRequest
+         * @description Shared catalog command; 2.x consumed only the options member.
+         */
+        OptionCatalogUpsertRequest: {
+            options?: components["schemas"]["JsonValue"] | null;
+        };
+        /**
          * OriginType
          * @description Governed source types for catalog entries.
          * @enum {string}
@@ -18477,6 +18618,19 @@ export interface components {
             updated_at: string;
         } & {
             [key: string]: components["schemas"]["JsonValue"];
+        };
+        /**
+         * PhysicalFileDeletionRequest
+         * @description Stored file target selected for contained physical deletion.
+         */
+        PhysicalFileDeletionRequest: {
+            /**
+             * Target
+             * @default
+             */
+            target: unknown;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * PhysicalFileDeletionResponse
@@ -19568,6 +19722,13 @@ export interface components {
             title: string;
         };
         /**
+         * ReferenceTableCreateRequest
+         * @description Optional create command; unknown keys were ignored by the 2.x route.
+         */
+        ReferenceTableCreateRequest: {
+            name?: components["schemas"]["JsonValue"] | null;
+        };
+        /**
          * ReferenceTableResponse
          * @description Stable designation state shared by all reference-table mutations.
          */
@@ -19584,6 +19745,13 @@ export interface components {
             table_id: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * ReferenceTableSelectionRequest
+         * @description Designation command; unknown keys were ignored by the 2.x route.
+         */
+        ReferenceTableSelectionRequest: {
+            table_id?: components["schemas"]["JsonValue"] | null;
         };
         /** RegisterPayload */
         RegisterPayload: {
@@ -20524,6 +20692,21 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** SyncDrupalRowRequest */
+        SyncDrupalRowRequest: {
+            /** Button Action */
+            button_action?: components["schemas"]["JsonValue"] | null;
+            /** Item Id */
+            item_id?: components["schemas"]["JsonValue"] | null;
+            /** Publish */
+            publish?: components["schemas"]["JsonValue"] | null;
+            /** Push Media */
+            push_media?: components["schemas"]["JsonValue"] | null;
+            /** Scope */
+            scope?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** SyncDrupalRowResponse */
         SyncDrupalRowResponse: {
             /** Created */
@@ -20559,6 +20742,19 @@ export interface components {
             url: string | null;
             /** Uuid */
             uuid: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SyncDrupalRowsRequest */
+        SyncDrupalRowsRequest: {
+            /** Item Ids */
+            item_ids?: components["schemas"]["JsonValue"] | null;
+            /** Publish */
+            publish?: components["schemas"]["JsonValue"] | null;
+            /** Push Media */
+            push_media?: components["schemas"]["JsonValue"] | null;
+            /** Scope */
+            scope?: components["schemas"]["JsonValue"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -20979,6 +21175,17 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** TranslatePageRequest */
+        TranslatePageRequest: {
+            /** Button Action */
+            button_action?: components["schemas"]["JsonValue"] | null;
+            /** Page Id */
+            page_id?: components["schemas"]["JsonValue"] | null;
+            /** Target Languages */
+            target_languages?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** TranslatePageResponse */
         TranslatePageResponse: {
             /** Created */
@@ -21005,6 +21212,17 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** TranslateRowRequest */
+        TranslateRowRequest: {
+            /** Button Action */
+            button_action?: components["schemas"]["JsonValue"] | null;
+            /** Item Id */
+            item_id?: components["schemas"]["JsonValue"] | null;
+            /** Target Languages */
+            target_languages?: components["schemas"]["JsonValue"] | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** TranslateRowResponse */
         TranslateRowResponse: {
             /** Created */
@@ -21028,6 +21246,17 @@ export interface components {
             updated: {
                 [key: string]: components["schemas"]["JsonValue"];
             }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** TranslateRowsRequest */
+        TranslateRowsRequest: {
+            /** Button Action */
+            button_action?: components["schemas"]["JsonValue"] | null;
+            /** Item Ids */
+            item_ids?: components["schemas"]["JsonValue"] | null;
+            /** Target Languages */
+            target_languages?: components["schemas"]["JsonValue"] | null;
         } & {
             [key: string]: unknown;
         };
@@ -21200,6 +21429,16 @@ export interface components {
             email?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /**
+         * UrlTranslationRequest
+         * @description URL passed unchanged to the translation-server capture boundary.
+         */
+        UrlTranslationRequest: {
+            /** Url */
+            url?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * UrlTranslationResponse
@@ -33539,9 +33778,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["BulkMetadataUpdateRequest"];
             };
         };
         responses: {
@@ -33923,9 +34160,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["PhysicalFileDeletionRequest"];
             };
         };
         responses: {
@@ -34777,9 +35012,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["LinkedExistingFileRequest"];
             };
         };
         responses: {
@@ -36280,9 +36513,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["LlmWikiBrainCreateRequest"] | null;
             };
         };
         responses: {
@@ -36358,9 +36589,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["LlmWikiConfigUpdateRequest"];
             };
         };
         responses: {
@@ -36440,9 +36669,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["BrainGlossaryRequest"];
             };
         };
         responses: {
@@ -36676,9 +36903,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["BrainSuggestionAcceptRequest"] | null;
             };
         };
         responses: {
@@ -36962,9 +37187,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["LocalFileRegistrationRequest"];
             };
         };
         responses: {
@@ -37578,9 +37801,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["OptionCatalogUpsertRequest"];
             };
         };
         responses: {
@@ -40004,9 +40225,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ReferenceTableSelectionRequest"] | null;
             };
         };
         responses: {
@@ -40082,9 +40301,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ReferenceTableCreateRequest"] | null;
             };
         };
         responses: {
@@ -40316,9 +40533,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["FolderSchemaRequest"];
             };
         };
         responses: {
@@ -40471,9 +40686,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["ExecuteButtonActionRequest"];
             };
         };
         responses: {
@@ -40513,9 +40726,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["GenerateButtonActionRequest"];
             };
         };
         responses: {
@@ -40555,9 +40766,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["MatchDrupalRowsRequest"];
             };
         };
         responses: {
@@ -40597,9 +40806,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["SyncDrupalRowRequest"];
             };
         };
         responses: {
@@ -40639,9 +40846,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["SyncDrupalRowsRequest"];
             };
         };
         responses: {
@@ -40681,9 +40886,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TranslatePageRequest"];
             };
         };
         responses: {
@@ -40723,9 +40926,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TranslateRowRequest"];
             };
         };
         responses: {
@@ -40765,9 +40966,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TranslateRowsRequest"];
             };
         };
         responses: {
@@ -41329,9 +41528,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["UrlTranslationRequest"];
             };
         };
         responses: {

@@ -3328,6 +3328,31 @@
         "title": "BrainDictationResponse",
         "type": "object"
       },
+      "BrainGlossaryRequest": {
+        "description": "User-confirmed correction pair with legacy endpoint coercion.",
+        "properties": {
+          "heard": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heard"
+          },
+          "meant": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meant"
+          }
+        },
+        "title": "BrainGlossaryRequest",
+        "type": "object"
+      },
       "BrainGlossaryResponse": {
         "properties": {
           "pairs": {
@@ -3339,6 +3364,13 @@
           "pairs"
         ],
         "title": "BrainGlossaryResponse",
+        "type": "object"
+      },
+      "BrainSuggestionAcceptRequest": {
+        "additionalProperties": true,
+        "description": "Ignored legacy payload retained for the permanently read-only route.",
+        "properties": {},
+        "title": "BrainSuggestionAcceptRequest",
         "type": "object"
       },
       "BrainSuggestionListResponse": {
@@ -3764,6 +3796,53 @@
           "template_id"
         ],
         "title": "BulkApplyTemplateRequest",
+        "type": "object"
+      },
+      "BulkMetadataUpdateRequest": {
+        "description": "Historically loose metadata patch command with ignored extensions.",
+        "properties": {
+          "expected_etags": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page_ids": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remove": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "BulkMetadataUpdateRequest",
         "type": "object"
       },
       "BulkMutationConflictResponse": {
@@ -9111,6 +9190,46 @@
         "title": "EvaluationCandidatesResponse",
         "type": "object"
       },
+      "ExecuteButtonActionRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "button_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Button Action"
+          },
+          "button_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Button Config"
+          },
+          "note_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Id"
+          }
+        },
+        "title": "ExecuteButtonActionRequest",
+        "type": "object"
+      },
       "ExecuteButtonActionResponse": {
         "additionalProperties": true,
         "description": "Updated note state after one server-side button action.",
@@ -9443,6 +9562,14 @@
           "truncated"
         ],
         "title": "FilesystemSearchResponse",
+        "type": "object"
+      },
+      "FolderSchemaRequest": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Extensible folder schema document persisted verbatim.",
+        "title": "FolderSchemaRequest",
         "type": "object"
       },
       "FormattedBibliographyResponse": {
@@ -9813,6 +9940,35 @@
           "status"
         ],
         "title": "FullTextRequest",
+        "type": "object"
+      },
+      "GenerateButtonActionRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "fields": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          }
+        },
+        "title": "GenerateButtonActionRequest",
         "type": "object"
       },
       "GenerateButtonActionResponse": {
@@ -12293,6 +12449,22 @@
           "favicon"
         ],
         "title": "LinkPreviewResponse",
+        "type": "object"
+      },
+      "LinkedExistingFileRequest": {
+        "additionalProperties": true,
+        "description": "Existing local path and optional in-place target name.",
+        "properties": {
+          "file_path": {
+            "default": "",
+            "title": "File Path"
+          },
+          "target_name": {
+            "default": "",
+            "title": "Target Name"
+          }
+        },
+        "title": "LinkedExistingFileRequest",
         "type": "object"
       },
       "LinkedExistingFileResponse": {
@@ -15655,6 +15827,40 @@
         "title": "LiteratureWorkResponse",
         "type": "object"
       },
+      "LlmWikiBrainCreateRequest": {
+        "description": "Loose 2.x-compatible body for the namespaced Brain creator.",
+        "properties": {
+          "language": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "name": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          }
+        },
+        "title": "LlmWikiBrainCreateRequest",
+        "type": "object"
+      },
       "LlmWikiBrainResponse": {
         "properties": {
           "configured": {
@@ -15849,6 +16055,94 @@
           "enabled"
         ],
         "title": "LlmWikiConfigResponse",
+        "type": "object"
+      },
+      "LlmWikiConfigUpdateRequest": {
+        "description": "Known persisted settings without pre-empting legacy normalization.",
+        "properties": {
+          "brain_roles": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brain Roles"
+          },
+          "brain_table_id": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brain Table Id"
+          },
+          "configured": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured"
+          },
+          "index_field_ids": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Field Ids"
+          },
+          "source_contract_revision": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Contract Revision"
+          },
+          "source_tables": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Tables"
+          },
+          "target_table": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Table"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
+          },
+          "version": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "LlmWikiConfigUpdateRequest",
         "type": "object"
       },
       "LlmWikiCreatedSettingsResponse": {
@@ -16838,6 +17132,18 @@
           "missing"
         ],
         "title": "LlmWikiValidationResponse",
+        "type": "object"
+      },
+      "LocalFileRegistrationRequest": {
+        "additionalProperties": true,
+        "description": "Absolute local path selected for stable token registration.",
+        "properties": {
+          "file_path": {
+            "default": "",
+            "title": "File Path"
+          }
+        },
+        "title": "LocalFileRegistrationRequest",
         "type": "object"
       },
       "LocalFileRegistrationResponse": {
@@ -18819,6 +19125,57 @@
           "value"
         ],
         "title": "ManualCaptureRequest",
+        "type": "object"
+      },
+      "MatchDrupalRowsRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "bundle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle"
+          },
+          "dry_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dry Run"
+          },
+          "item_ids": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Ids"
+          },
+          "table_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Id"
+          }
+        },
+        "title": "MatchDrupalRowsRequest",
         "type": "object"
       },
       "MatchDrupalRowsResponse": {
@@ -23399,6 +23756,23 @@
         "title": "OptionCatalogDeleteResponse",
         "type": "object"
       },
+      "OptionCatalogUpsertRequest": {
+        "description": "Shared catalog command; 2.x consumed only the options member.",
+        "properties": {
+          "options": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "OptionCatalogUpsertRequest",
+        "type": "object"
+      },
       "OriginType": {
         "description": "Governed source types for catalog entries.",
         "enum": [
@@ -24596,6 +24970,18 @@
           "updated_at"
         ],
         "title": "PersonalMemoryResponse",
+        "type": "object"
+      },
+      "PhysicalFileDeletionRequest": {
+        "additionalProperties": true,
+        "description": "Stored file target selected for contained physical deletion.",
+        "properties": {
+          "target": {
+            "default": "",
+            "title": "Target"
+          }
+        },
+        "title": "PhysicalFileDeletionRequest",
         "type": "object"
       },
       "PhysicalFileDeletionResponse": {
@@ -26906,6 +27292,23 @@
         "title": "ReferenceResourceResponse",
         "type": "object"
       },
+      "ReferenceTableCreateRequest": {
+        "description": "Optional create command; unknown keys were ignored by the 2.x route.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ReferenceTableCreateRequest",
+        "type": "object"
+      },
       "ReferenceTableResponse": {
         "additionalProperties": true,
         "description": "Stable designation state shared by all reference-table mutations.",
@@ -26964,6 +27367,23 @@
           "configured"
         ],
         "title": "ReferenceTableResponse",
+        "type": "object"
+      },
+      "ReferenceTableSelectionRequest": {
+        "description": "Designation command; unknown keys were ignored by the 2.x route.",
+        "properties": {
+          "table_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ReferenceTableSelectionRequest",
         "type": "object"
       },
       "RegisterPayload": {
@@ -29131,6 +29551,68 @@
         "title": "Stream",
         "type": "object"
       },
+      "SyncDrupalRowRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "button_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Button Action"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "publish": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish"
+          },
+          "push_media": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Push Media"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          }
+        },
+        "title": "SyncDrupalRowRequest",
+        "type": "object"
+      },
       "SyncDrupalRowResponse": {
         "additionalProperties": true,
         "properties": {
@@ -29231,6 +29713,57 @@
           "skipped_fields"
         ],
         "title": "SyncDrupalRowResponse",
+        "type": "object"
+      },
+      "SyncDrupalRowsRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "item_ids": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Ids"
+          },
+          "publish": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish"
+          },
+          "push_media": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Push Media"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          }
+        },
+        "title": "SyncDrupalRowsRequest",
         "type": "object"
       },
       "SyncDrupalRowsResponse": {
@@ -30436,6 +30969,46 @@
         "title": "ToolResponse",
         "type": "object"
       },
+      "TranslatePageRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "button_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Button Action"
+          },
+          "page_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id"
+          },
+          "target_languages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Languages"
+          }
+        },
+        "title": "TranslatePageRequest",
+        "type": "object"
+      },
       "TranslatePageResponse": {
         "additionalProperties": true,
         "properties": {
@@ -30494,6 +31067,46 @@
         "title": "TranslatePageResponse",
         "type": "object"
       },
+      "TranslateRowRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "button_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Button Action"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "target_languages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Languages"
+          }
+        },
+        "title": "TranslateRowRequest",
+        "type": "object"
+      },
       "TranslateRowResponse": {
         "additionalProperties": true,
         "properties": {
@@ -30550,6 +31163,46 @@
           "skipped"
         ],
         "title": "TranslateRowResponse",
+        "type": "object"
+      },
+      "TranslateRowsRequest": {
+        "additionalProperties": true,
+        "properties": {
+          "button_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Button Action"
+          },
+          "item_ids": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Ids"
+          },
+          "target_languages": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Languages"
+          }
+        },
+        "title": "TranslateRowsRequest",
         "type": "object"
       },
       "TranslateRowsResponse": {
@@ -30998,6 +31651,25 @@
           }
         },
         "title": "UpdateProfilePayload",
+        "type": "object"
+      },
+      "UrlTranslationRequest": {
+        "additionalProperties": true,
+        "description": "URL passed unchanged to the translation-server capture boundary.",
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "UrlTranslationRequest",
         "type": "object"
       },
       "UrlTranslationResponse": {
@@ -68640,9 +69312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/BulkMetadataUpdateRequest"
               }
             }
           },
@@ -69838,9 +70508,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/PhysicalFileDeletionRequest"
               }
             }
           },
@@ -72447,9 +73115,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/LinkedExistingFileRequest"
               }
             }
           },
@@ -77223,9 +77889,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LlmWikiBrainCreateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           }
@@ -77460,9 +78132,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/LlmWikiConfigUpdateRequest"
               }
             }
           },
@@ -77727,9 +78397,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/BrainGlossaryRequest"
               }
             }
           },
@@ -78481,9 +79149,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/BrainSuggestionAcceptRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           }
@@ -79118,9 +79792,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
+                "$ref": "#/components/schemas/LocalFileRegistrationRequest"
               }
             }
           },
@@ -81652,9 +82324,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/OptionCatalogUpsertRequest"
               }
             }
           },
@@ -89420,9 +90090,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReferenceTableSelectionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           },
@@ -89546,9 +90222,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReferenceTableCreateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           }
@@ -90282,9 +90964,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Schema",
-                "type": "object"
+                "$ref": "#/components/schemas/FolderSchemaRequest"
               }
             }
           },
@@ -90787,9 +91467,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/ExecuteButtonActionRequest"
               }
             }
           },
@@ -90913,9 +91591,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/GenerateButtonActionRequest"
               }
             }
           },
@@ -91039,9 +91715,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/MatchDrupalRowsRequest"
               }
             }
           },
@@ -91165,9 +91839,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/SyncDrupalRowRequest"
               }
             }
           },
@@ -91291,9 +91963,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/SyncDrupalRowsRequest"
               }
             }
           },
@@ -91417,9 +92087,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/TranslatePageRequest"
               }
             }
           },
@@ -91543,9 +92211,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/TranslateRowRequest"
               }
             }
           },
@@ -91669,9 +92335,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/TranslateRowsRequest"
               }
             }
           },
@@ -93517,9 +94181,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/UrlTranslationRequest"
               }
             }
           },
