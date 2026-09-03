@@ -13840,20 +13840,40 @@ export interface components {
         LiteratureActivityResponse: {
             /** Activity Type */
             activity_type?: string | null;
+            /** Ai Audit */
+            ai_audit?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Counts */
+            counts?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
             /** Errors */
-            errors?: {
-                [key: string]: unknown;
-            }[] | null;
+            errors?: components["schemas"]["LiteratureErrorResponse"][] | null;
             /** Exact Queries */
             exact_queries?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             } | null;
+            /** Export Format */
+            export_format?: string | null;
             /** Id */
             id: string | null;
+            /** Notes */
+            notes?: string | null;
             /** Occurred At */
             occurred_at?: string | null;
             /** Review Id */
             review_id?: string | null;
+            /** Source Snapshot */
+            source_snapshot?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[] | null;
+            /** Strategy */
+            strategy?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Title */
+            title?: string | null;
             /** Version */
             version?: number | null;
         } & {
@@ -13872,16 +13892,54 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LiteratureAiAuditResponse */
+        LiteratureAiAuditResponse: {
+            /** Agent Id */
+            agent_id?: string | null;
+            /** Cost */
+            cost?: number | null;
+            /** Evidence Levels */
+            evidence_levels?: string[] | null;
+            /** Human Decision Required */
+            human_decision_required?: boolean | null;
+            /** Model */
+            model?: string | null;
+            /** Operation */
+            operation?: string | null;
+            /** Operation Version */
+            operation_version?: number | null;
+            /** Performed At */
+            performed_at?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Resource Ids */
+            resource_ids?: string[] | null;
+            /** Usage */
+            usage?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** LiteratureAiResponse */
         LiteratureAiResponse: {
-            /** Audit */
-            audit: {
-                [key: string]: unknown;
-            };
+            audit: components["schemas"]["LiteratureAiAuditResponse"];
             /** Operation */
             operation: string;
-            /** Result */
-            result: unknown;
+            result: components["schemas"]["JsonValue"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureAuthorResponse */
+        LiteratureAuthorResponse: {
+            /** Family */
+            family?: string | null;
+            /** Given */
+            given?: string | null;
+            /** Literal */
+            literal?: string | null;
+            /** Orcid */
+            orcid?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -13906,26 +13964,41 @@ export interface components {
             blind_pending?: boolean | null;
             /** Conflict */
             conflict: boolean;
+            /** Decisions */
+            decisions?: components["schemas"]["LiteratureDecisionResponse"][] | null;
             /** Full Text */
             full_text: string;
-            /** Full Text Evidence */
-            full_text_evidence: {
-                [key: string]: unknown;
-            };
+            full_text_evidence: components["schemas"]["LiteratureFullTextEvidenceResponse"];
             /** Id */
             id: string | null;
+            identifiers?: components["schemas"]["LiteratureIdentifiersResponse"] | null;
             /** Phase */
             phase: string;
             /** Resource Id */
             resource_id: string | null;
             /** Review Id */
             review_id: string | null;
+            /** Sources */
+            sources?: components["schemas"]["LiteratureSourceOccurrenceResponse"][] | null;
             /** Title */
             title: string | null;
-            /** Work */
-            work: {
-                [key: string]: unknown;
-            };
+            work: components["schemas"]["LiteratureWorkResponse"];
+            /** Work Key */
+            work_key?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureCandidatesResponse */
+        LiteratureCandidatesResponse: {
+            /** Candidates */
+            candidates: components["schemas"]["LiteratureCandidateResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureCatalogResponse */
+        LiteratureCatalogResponse: {
+            /** Sources */
+            sources: components["schemas"]["LiteratureSourceResponse"][];
         } & {
             [key: string]: unknown;
         };
@@ -13948,18 +14021,145 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LiteratureCountsResponse */
+        LiteratureCountsResponse: {
+            /** Duplicates Removed */
+            duplicates_removed?: number | null;
+            /** Possible Duplicate Pairs */
+            possible_duplicate_pairs?: number | null;
+            /** Raw Occurrences */
+            raw_occurrences?: number | null;
+            /** Returned Works */
+            returned_works?: number | null;
+            /** Truncated Works */
+            truncated_works?: number | null;
+            /** Unique Works */
+            unique_works?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureDatesResponse */
+        LiteratureDatesResponse: {
+            /** Issued */
+            issued?: string | null;
+            /** Online */
+            online?: string | null;
+            /** Print */
+            print?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** LiteratureDecisionMutationResponse */
         LiteratureDecisionMutationResponse: {
             /** Blind Released */
             blind_released?: boolean | null;
             /** Conflict */
             conflict: boolean;
-            /** Decision */
-            decision: {
-                [key: string]: unknown;
-            };
+            decision: components["schemas"]["LiteratureDecisionResponse"];
             /** Phase */
             phase: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureDecisionResponse */
+        LiteratureDecisionResponse: {
+            /** Candidate Id */
+            candidate_id?: string | null;
+            /** Decided At */
+            decided_at?: string | null;
+            /** Decision */
+            decision?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Phase */
+            phase?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Replaces Decision Id */
+            replaces_decision_id?: string | null;
+            /** Resolution */
+            resolution?: boolean | null;
+            /** Review Id */
+            review_id?: string | null;
+            /** Reviewer Id */
+            reviewer_id?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureErrorResponse */
+        LiteratureErrorResponse: {
+            /** Message */
+            message?: string | null;
+            /** Retry After */
+            retry_after?: number | null;
+            /** Source Id */
+            source_id?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureExactQueryResponse */
+        LiteratureExactQueryResponse: {
+            /** Connector Version */
+            connector_version?: number | null;
+            /** Effective Query */
+            effective_query?: string | null;
+            /** Filters */
+            filters?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            /** Original Query */
+            original_query?: string | null;
+            provider_syntax?: components["schemas"]["JsonValue"];
+            /** Requests */
+            requests?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[] | null;
+            /** Source Id */
+            source_id?: string | null;
+            /** Source Name */
+            source_name?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureFullTextEvidenceResponse */
+        LiteratureFullTextEvidenceResponse: {
+            /** License */
+            license?: string | null;
+            /** Location Url */
+            location_url?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Provider Asserted Oa */
+            provider_asserted_oa?: boolean | null;
+            /** Recorded At */
+            recorded_at?: string | null;
+            /** Recorded By */
+            recorded_by?: string | null;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Status */
+            status?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureIdentifiersResponse */
+        LiteratureIdentifiersResponse: {
+            /** Arxiv */
+            arxiv?: string | null;
+            /** Doi */
+            doi?: string | null;
+            /** Isbn13 */
+            isbn13?: string[] | null;
+            /** Pmcid */
+            pmcid?: string | null;
+            /** Pmid */
+            pmid?: string | null;
+            /** Provider */
+            provider?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
         } & {
             [key: string]: unknown;
         };
@@ -13986,25 +14186,110 @@ export interface components {
             imported: components["schemas"]["LiteratureImportMembershipResponse"][];
             /** Imported Count */
             imported_count: number;
-            /** Notebook */
-            notebook: {
-                [key: string]: unknown;
-            } | null;
+            notebook: components["schemas"]["LiteratureNotebookResponse"] | null;
             /** Resource Ids */
             resource_ids: string[];
         } & {
             [key: string]: unknown;
         };
+        /** LiteratureLocationResponse */
+        LiteratureLocationResponse: {
+            /** Is Oa */
+            is_oa?: boolean | null;
+            /** Landing Page Url */
+            landing_page_url?: string | null;
+            /** License */
+            license?: string | null;
+            /** Pdf Url */
+            pdf_url?: string | null;
+            /** Url */
+            url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureLookupResponse */
+        LiteratureLookupResponse: {
+            /** Error */
+            error?: string | null;
+            /** Identifier */
+            identifier?: string | null;
+            /** Source */
+            source?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** LiteratureManualCaptureResponse */
         LiteratureManualCaptureResponse: {
-            /** Lookup */
-            lookup: {
-                [key: string]: unknown;
-            };
-            /** Work */
-            work: {
-                [key: string]: unknown;
-            };
+            lookup: components["schemas"]["LiteratureLookupResponse"];
+            work: components["schemas"]["LiteratureWorkResponse"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureMetricsResponse */
+        LiteratureMetricsResponse: {
+            /** Citations */
+            citations?: {
+                [key: string]: number | null;
+            } | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureNotebookResponse */
+        LiteratureNotebookResponse: {
+            /** Id */
+            id?: string | null;
+            /** Title */
+            title?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureOpenAccessResponse */
+        LiteratureOpenAccessResponse: {
+            best_location?: components["schemas"]["LiteratureLocationResponse"] | null;
+            /** Is Oa */
+            is_oa?: boolean | null;
+            /** License */
+            license?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteraturePrismaResponse */
+        LiteraturePrismaResponse: {
+            /** Duplicates Removed */
+            duplicates_removed?: number | null;
+            /** Exclusion Reasons */
+            exclusion_reasons?: {
+                [key: string]: number;
+            } | null;
+            /** Full Text Excluded */
+            full_text_excluded?: number | null;
+            /** Identified */
+            identified?: number | null;
+            /** Included */
+            included?: number | null;
+            /** Reports Not Retrieved */
+            reports_not_retrieved?: number | null;
+            /** Reports Sought */
+            reports_sought?: number | null;
+            /** Screened */
+            screened?: number | null;
+            /** Screening Excluded */
+            screening_excluded?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteraturePublicationResponse */
+        LiteraturePublicationResponse: {
+            /** Container Title */
+            container_title?: string | null;
+            /** Issue */
+            issue?: string | null;
+            /** Pages */
+            pages?: string | null;
+            /** Publisher */
+            publisher?: string | null;
+            /** Volume */
+            volume?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -14023,12 +14308,50 @@ export interface components {
         LiteratureRepositoryResponse: {
             /** Base Url */
             base_url: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Cursor Parameter */
+            cursor_parameter?: string | null;
+            /** Default Enabled */
+            default_enabled?: boolean | null;
             /** Id */
             id: string;
             /** Kind */
             kind: string;
+            /** Limit Parameter */
+            limit_parameter?: string | null;
+            /** Mapping */
+            mapping?: {
+                [key: string]: string;
+            } | null;
+            /** Metadata Prefix */
+            metadata_prefix?: string | null;
             /** Name */
             name: string;
+            /** Next Cursor Path */
+            next_cursor_path?: string | null;
+            /** Offset Parameter */
+            offset_parameter?: string | null;
+            /** Page Parameter */
+            page_parameter?: string | null;
+            /** Pagination */
+            pagination?: string | null;
+            /** Query Parameter */
+            query_parameter?: string | null;
+            /** Results Path */
+            results_path?: string | null;
+            /** Set */
+            set?: string | null;
+            /** Static Filters */
+            static_filters?: {
+                [key: string]: string;
+            } | null;
+            /** Sync Mode */
+            sync_mode?: string | null;
+            /** Tombstones */
+            tombstones?: boolean | null;
+            /** Updated At */
+            updated_at?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -14041,9 +14364,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Sample */
-            sample: {
-                [key: string]: unknown;
-            }[];
+            sample: components["schemas"]["LiteratureWorkResponse"][];
         } & {
             [key: string]: unknown;
         };
@@ -14053,10 +14374,7 @@ export interface components {
             activities: components["schemas"]["LiteratureActivityResponse"][];
             /** Candidates */
             candidates: components["schemas"]["LiteratureCandidateResponse"][];
-            /** Prisma */
-            prisma: {
-                [key: string]: unknown;
-            };
+            prisma: components["schemas"]["LiteraturePrismaResponse"];
             review: components["schemas"]["LiteratureReviewResponse"];
         } & {
             [key: string]: unknown;
@@ -14065,13 +14383,13 @@ export interface components {
         LiteratureReviewResponse: {
             /** Configuration */
             configuration: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
             /** Created At */
             created_at: string | null;
             /** Criteria */
             criteria: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             };
             /** Id */
             id: string | null;
@@ -14099,6 +14417,10 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LiteratureReviewTablesResponse */
+        LiteratureReviewTablesResponse: {
+            [key: string]: string;
+        };
         /** LiteratureSearchesResponse */
         LiteratureSearchesResponse: {
             /** Searches */
@@ -14109,24 +14431,25 @@ export interface components {
         /** LiteratureSearchResponse */
         LiteratureSearchResponse: {
             /** Ai Audits */
-            ai_audits?: {
-                [key: string]: unknown;
-            }[] | null;
-            /** Counts */
-            counts?: {
-                [key: string]: unknown;
-            } | null;
+            ai_audits?: components["schemas"]["LiteratureAiAuditResponse"][] | null;
+            /** Cancel Requested */
+            cancel_requested?: boolean | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Contact Email Configured */
+            contact_email_configured?: boolean | null;
+            counts?: components["schemas"]["LiteratureCountsResponse"] | null;
+            /** Created At */
+            created_at?: string | null;
             /** Errors */
-            errors?: {
-                [key: string]: unknown;
-            }[] | null;
+            errors?: components["schemas"]["LiteratureErrorResponse"][] | null;
             /** Exact Queries */
             exact_queries?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["LiteratureExactQueryResponse"];
             } | null;
             /** Filters */
             filters?: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["JsonValue"];
             } | null;
             /** Id */
             id: string;
@@ -14136,14 +14459,14 @@ export interface components {
             limit_per_source?: number | null;
             /** Offset */
             offset?: number | null;
+            /** Owner User Id */
+            owner_user_id?: string | null;
             /** Query */
             query?: string | null;
             /** Result Count */
             result_count?: number | null;
             /** Results */
-            results?: {
-                [key: string]: unknown;
-            }[] | null;
+            results?: components["schemas"]["LiteratureWorkResponse"][] | null;
             /** Source Ids */
             source_ids?: string[] | null;
             /** Source Queries */
@@ -14151,17 +14474,15 @@ export interface components {
                 [key: string]: string;
             } | null;
             /** Source Snapshots */
-            source_snapshots?: {
-                [key: string]: unknown;
-            }[] | null;
+            source_snapshots?: components["schemas"]["LiteratureSourceResponse"][] | null;
             /** Source Status */
             source_status?: {
-                [key: string]: {
-                    [key: string]: unknown;
-                };
+                [key: string]: components["schemas"]["LiteratureSourceStatusResponse"];
             } | null;
             /** State */
             state: string;
+            /** Updated At */
+            updated_at?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -14169,20 +14490,32 @@ export interface components {
         LiteratureSnowballResponse: {
             /** Activity Id */
             activity_id: string | null;
-            /** Counts */
-            counts: {
-                [key: string]: unknown;
-            };
+            counts: components["schemas"]["LiteratureCountsResponse"];
             /** Exact Queries */
             exact_queries: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["LiteratureExactQueryResponse"];
             };
             /** Provider */
             provider: string;
             /** Works */
-            works: {
-                [key: string]: unknown;
-            }[];
+            works: components["schemas"]["LiteratureWorkResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureSourceOccurrenceResponse */
+        LiteratureSourceOccurrenceResponse: {
+            /** Citations */
+            citations?: number | null;
+            /** Provider */
+            provider?: string | null;
+            /** Provider Id */
+            provider_id?: string | null;
+            /** Retrieved At */
+            retrieved_at?: string | null;
+            /** Score */
+            score?: number | null;
+            /** Url */
+            url?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -14192,8 +14525,14 @@ export interface components {
             automated?: boolean | null;
             /** Available */
             available?: boolean | null;
+            /** Base Url */
+            base_url?: string | null;
             /** Credential Status */
             credential_status?: string | null;
+            /** Default Enabled */
+            default_enabled?: boolean | null;
+            /** Docs Url */
+            docs_url?: string | null;
             /** Enabled */
             enabled?: boolean | null;
             /** Group */
@@ -14216,10 +14555,29 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LiteratureSourceStatusResponse */
+        LiteratureSourceStatusResponse: {
+            /** Completed At */
+            completed_at?: string | null;
+            /** Count */
+            count?: number | null;
+            /** Error */
+            error?: string | null;
+            /** Retry After */
+            retry_after?: number | null;
+            /** Started At */
+            started_at?: string | null;
+            /** State */
+            state: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** LiteratureSyncResponse */
         LiteratureSyncResponse: {
             /** Cancel Requested */
             cancel_requested?: boolean | null;
+            /** Completed At */
+            completed_at?: string | null;
             /** Deleted Count */
             deleted_count?: number | null;
             /** Error */
@@ -14230,12 +14588,70 @@ export interface components {
             indexed_count?: number | null;
             /** Job Id */
             job_id?: string | null;
+            /** Last Successful Datestamp */
+            last_successful_datestamp?: string | null;
             /** Received Count */
             received_count?: number | null;
+            /** Resumption Token */
+            resumption_token?: string | null;
             /** Source Id */
             source_id?: string | null;
+            /** Started At */
+            started_at?: string | null;
             /** State */
             state: string;
+            /** Updated At */
+            updated_at?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** LiteratureWorkResponse */
+        LiteratureWorkResponse: {
+            /** Abstract */
+            abstract?: string | null;
+            /** Abstract Available */
+            abstract_available?: boolean | null;
+            /** Authors */
+            authors?: (components["schemas"]["LiteratureAuthorResponse"] | string)[] | null;
+            /** Conflicts */
+            conflicts?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            } | null;
+            dates?: components["schemas"]["LiteratureDatesResponse"] | null;
+            /** Duplicate Key */
+            duplicate_key?: string | null;
+            /** Id */
+            id?: string | null;
+            identifiers?: components["schemas"]["LiteratureIdentifiersResponse"] | null;
+            /** In Resources */
+            in_resources?: boolean | null;
+            /** Language */
+            language?: string | null;
+            /** Locations */
+            locations?: components["schemas"]["LiteratureLocationResponse"][] | null;
+            metrics?: components["schemas"]["LiteratureMetricsResponse"] | null;
+            /** Normalized Title */
+            normalized_title?: string | null;
+            open_access?: components["schemas"]["LiteratureOpenAccessResponse"] | null;
+            /** Peer Reviewed */
+            peer_reviewed?: boolean | null;
+            /** Possible Duplicates */
+            possible_duplicates?: string[] | null;
+            /** Provenance */
+            provenance?: {
+                [key: string]: string[];
+            } | null;
+            publication?: components["schemas"]["LiteraturePublicationResponse"] | null;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Sources */
+            sources?: components["schemas"]["LiteratureSourceOccurrenceResponse"][] | null;
+            /** Title */
+            title?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Year */
+            year?: number | null;
         } & {
             [key: string]: unknown;
         };
@@ -33517,7 +33933,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureCatalogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34032,7 +34448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureCandidatesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34360,7 +34776,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureReviewTablesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34596,7 +35012,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureWorkResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34634,7 +35050,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LiteratureSyncResponse"];
                 };
             };
             /** @description Validation Error */
