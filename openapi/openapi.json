@@ -92674,7 +92674,7 @@
         ]
       },
       "get": {
-        "description": "Lists the trash entries, ordered by `deleted_at` desc.\n\nOptional `?q=` filter support on the title (case-insensitive).",
+        "description": "Lists the trash entries, ordered by `deleted_at` desc.\n\nOptional `?q=` filter support on the title (case-insensitive). Listing is\nintentionally read-only and never hydrates every cloud sidecar: an exact\nrestore or purge still materializes the one entry it operates on.",
         "operationId": "list_trash_api_vault_trash_get",
         "parameters": [
           {

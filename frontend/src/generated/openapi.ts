@@ -9069,7 +9069,9 @@ export interface paths {
          * List Trash
          * @description Lists the trash entries, ordered by `deleted_at` desc.
          *
-         *     Optional `?q=` filter support on the title (case-insensitive).
+         *     Optional `?q=` filter support on the title (case-insensitive). Listing is
+         *     intentionally read-only and never hydrates every cloud sidecar: an exact
+         *     restore or purge still materializes the one entry it operates on.
          */
         get: operations["list_trash_api_vault_trash_get"];
         put?: never;
