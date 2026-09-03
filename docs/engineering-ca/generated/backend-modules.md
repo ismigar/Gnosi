@@ -16,10 +16,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 432 | 93381 |
+| `domains` | 433 | 93725 |
 | `mcp` | 3 | 429 |
-| `migrations` | 34 | 2080 |
-| `models` | 12 | 1208 |
+| `migrations` | 35 | 2198 |
+| `models` | 12 | 1213 |
 | `platform` | 12 | 1246 |
 | `scheduler` | 6 | 1187 |
 | `scripts` | 2 | 69 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **771 modules** and **160287 source lines**.
+Total: **773 modules** and **160754 source lines**.
 
 ## agent
 
@@ -329,13 +329,13 @@ Total: **771 modules** and **160287 source lines**.
 | [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 726 | 0 | 19 | 12 | 6 | Canonical mail compose. |
 | [`backend/domains/mail/routes/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/messages.py) | 478 | 0 | 7 | 7 | 7 | Canonical mail messages. |
 | [`backend/domains/mail/routes/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/remote_images.py) | 39 | 1 | 1 | 1 | 1 | Mail-only route for bounded recovery of blocked remote raster images. |
-| [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 162 | 0 | 9 | 8 | 0 | Canonical mail tags. |
+| [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 354 | 0 | 16 | 8 | 0 | Canonical mail tags. |
 | [`backend/domains/mail/routes/views.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/views.py) | 112 | 0 | 5 | 4 | 0 | Canonical mail views. |
 | [`backend/domains/mail/routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routing.py) | 12 | 0 | 0 | 0 | 0 | Canonical mail router registration object. |
-| [`backend/domains/mail/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 418 | 50 | 0 | 0 | 9 | Pydantic contracts for the public Mail API. |
+| [`backend/domains/mail/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/schemas.py) | 452 | 52 | 0 | 0 | 11 | Pydantic contracts for the public Mail API. |
 | [`backend/domains/mail/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail-domain application services. |
 | [`backend/domains/mail/services/accounts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/accounts.py) | 37 | 0 | 3 | 0 | 1 | Mail account and provider selection helpers. |
-| [`backend/domains/mail/services/analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis.py) | 307 | 1 | 9 | 3 | 5 | Bounded execution helpers for user-triggered mail analysis. |
+| [`backend/domains/mail/services/analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis.py) | 356 | 2 | 11 | 3 | 7 | Bounded execution helpers for user-triggered mail analysis. |
 | [`backend/domains/mail/services/analysis_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/analysis_cache.py) | 185 | 1 | 9 | 0 | 4 | Bounded local persistence for the last valid mail analysis result. |
 | [`backend/domains/mail/services/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/attachments.py) | 259 | 0 | 4 | 4 | 4 | Canonical mail attachment service. |
 | [`backend/domains/mail/services/local_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/services/local_analysis.py) | 395 | 4 | 15 | 0 | 1 | Conservative local extraction of literal entities from mail content. |
@@ -348,6 +348,7 @@ Total: **771 modules** and **160287 source lines**.
 | [`backend/domains/mail/sync/imap_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 169 | 0 | 4 | 0 | 2 | IMAP protocol normalization and folder discovery. |
 | [`backend/domains/mail/sync/imap_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_service.py) | 49 | 1 | 0 | 0 | 1 | IMAP mail sync service. |
 | [`backend/domains/mail/sync/smtp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 115 | 0 | 1 | 0 | 1 | SMTP delivery for configured IMAP-compatible accounts. |
+| [`backend/domains/mail/tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/tag_identity.py) | 69 | 1 | 3 | 0 | 3 | Stable persistence identities for mail-tag associations. |
 | [`backend/domains/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Media-center domain services. |
 | [`backend/domains/media/metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/metadata.py) | 165 | 1 | 8 | 0 | 7 | Vault-synchronized user metadata for media files. |
 | [`backend/domains/media/query.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/media/query.py) | 387 | 2 | 10 | 0 | 7 | Filtering, sorting, pagination, and file selection for media roots. |
@@ -646,6 +647,7 @@ Total: **771 modules** and **160287 source lines**.
 | [`backend/migrations/alembic/versions/vault_0001.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0001.py) | 84 | 0 | 2 | 0 | 0 | Create the legacy per-vault relational schema. |
 | [`backend/migrations/alembic/versions/vault_0002.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0002.py) | 23 | 0 | 2 | 0 | 0 | Persist full Reader article content. |
 | [`backend/migrations/alembic/versions/vault_0003.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0003.py) | 29 | 0 | 2 | 0 | 0 | Add stable managed keys for PDF annotations. |
+| [`backend/migrations/alembic/versions/vault_0004.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0004.py) | 118 | 0 | 4 | 0 | 0 | Scope persisted mail-tag associations by provider message identity. |
 | [`backend/migrations/coordinator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/coordinator.py) | 89 | 1 | 4 | 0 | 5 | Explicit ownership map and startup coordinator for Gnosi SQLite stores. |
 | [`backend/migrations/families.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/families.py) | 104 | 1 | 1 | 0 | 2 | Stable identities for each Gnosi-owned Alembic revision line. |
 | [`backend/migrations/runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/runner.py) | 413 | 2 | 21 | 0 | 7 | Guarded Alembic runner for Gnosi-owned SQLite databases. |
@@ -660,7 +662,7 @@ Total: **771 modules** and **160287 source lines**.
 | [`backend/models/agent_skills.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/agent_skills.py) | 323 | 11 | 2 | 0 | 11 | Typed contracts for agent skills and governed tools. |
 | [`backend/models/calendar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/calendar.py) | 22 | 1 | 0 | 0 | 1 | No module docstring |
 | [`backend/models/contact.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/contact.py) | 135 | 8 | 0 | 0 | 0 | No module docstring |
-| [`backend/models/mail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py) | 80 | 4 | 0 | 0 | 0 | No module docstring |
+| [`backend/models/mail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/mail.py) | 85 | 4 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/management.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/management.py) | 230 | 17 | 0 | 0 | 2 | No module docstring |
 | [`backend/models/notification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/notification.py) | 47 | 4 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/pdf_annotation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/models/pdf_annotation.py) | 69 | 1 | 0 | 0 | 0 | Persistent annotations for PDFs opened in the Vault viewer. |
