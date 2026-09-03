@@ -54,4 +54,37 @@ describe('mail structural identity', () => {
       account: 'other@example.test',
     })).toBe(false);
   });
+
+  it('accepts hydrated detail for an account-less matching selection', () => {
+    const selected = {
+      id: 'aggregate-id',
+      imap_uid: '42',
+      source: 'imap',
+      thread_id: 'aggregate-thread',
+    };
+    const detail = {
+      ...selected,
+      account: 'resolved@example.test',
+      imap_folder: 'Archive',
+    };
+
+    expect(selectMailDisplayMessage(detail, selected)).toBe(detail);
+  });
+
+  it('rejects hydrated detail that conflicts with a supplied discriminator', () => {
+    const selected = {
+      id: 'aggregate-id',
+      imap_folder: 'INBOX',
+      imap_uid: '42',
+      source: 'imap',
+      thread_id: 'aggregate-thread',
+    };
+    const conflictingDetail = {
+      ...selected,
+      account: 'resolved@example.test',
+      imap_folder: 'Archive',
+    };
+
+    expect(selectMailDisplayMessage(conflictingDetail, selected)).toBe(selected);
+  });
 });

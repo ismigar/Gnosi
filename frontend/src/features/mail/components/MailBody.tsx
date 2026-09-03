@@ -39,21 +39,21 @@ a { color: #3b82f6; }
 `;
 const EMAIL_CSS_DARK = `
 html, body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #e6e6e6 !important; background: #1a1a1a !important; color-scheme: dark; }
-body > :where(table, div, section, main) { background-color: transparent !important; }
+body :where(address, article, aside, blockquote, div, footer, h1, h2, h3, h4, h5, h6, header, li, main, ol, p, section, span, table, tbody, td, tfoot, th, thead, tr, ul) { background-color: transparent !important; color: inherit !important; }
 img { max-width: 100% !important; height: auto !important; display: inline-block; }
 table { max-width: 100% !important; border-collapse: collapse; }
 td, th { word-break: break-word; color: inherit; }
-pre, code { white-space: pre-wrap; word-break: break-word; background: #2a2a2a; color: #e6e6e6; }
-a { color: #6ea8fe; }
-blockquote { border-left: 3px solid #444; color: #c0c0c0; }
+pre, code { white-space: pre-wrap; word-break: break-word; background: #2a2a2a !important; color: #e6e6e6 !important; }
+a { color: #6ea8fe !important; }
+blockquote { border-left: 3px solid #444; color: #c0c0c0 !important; }
 hr { border-color: #444; }
 * { box-sizing: border-box; }
-.gnosi-remote-image-fallback { display: inline-flex; min-height: 52px; min-width: 160px; max-width: 100%; flex-direction: column; gap: 8px; align-items: center; justify-content: center; padding: 12px; border: 1px dashed #555d68; border-radius: 8px; color: #c0c6ce; background: #25282d; font-size: 12px; text-align: center; }
+.gnosi-remote-image-fallback { display: inline-flex; min-height: 52px; min-width: 160px; max-width: 100%; flex-direction: column; gap: 8px; align-items: center; justify-content: center; padding: 12px; border: 1px dashed #555d68; border-radius: 8px; color: #c0c6ce !important; background: #25282d !important; font-size: 12px; text-align: center; }
 .gnosi-remote-image-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .gnosi-remote-image-action { appearance: none; border: 1px solid #64748b; border-radius: 7px; padding: 5px 9px; color: #dbeafe; background: #1e293b; font: inherit; font-weight: 600; cursor: pointer; }
 .gnosi-remote-image-action:hover { border-color: #60a5fa; color: #bfdbfe; }
 .gnosi-remote-image-action:disabled { cursor: wait; opacity: .65; }
-.gnosi-remote-image-alt { max-width: 320px; color: #e2e8f0; font-weight: 600; overflow-wrap: anywhere; }
+.gnosi-remote-image-alt { max-width: 320px; color: #e2e8f0 !important; font-weight: 600; overflow-wrap: anywhere; }
 .gnosi-remote-image-detail { max-width: 320px; opacity: .8; }
 `;
 
@@ -112,6 +112,7 @@ export function MailBody({
         remoteSources.set(token, source);
         return token;
       },
+      theme: darkBody ? 'dark' : 'light',
       themeCss: darkBody ? EMAIL_CSS_DARK : EMAIL_CSS_LIGHT,
     }) : '';
     return { remoteSources, srcDoc };

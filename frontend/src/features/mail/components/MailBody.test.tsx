@@ -90,6 +90,24 @@ describe('MailBody', () => {
     expect(darkSource).toContain('color: #e2e8f0');
   });
 
+  it('applies the selected palette to nested sender surfaces and text', async () => {
+    writeStorage(MAIL_DARK_BODY_KEY, '1');
+    act(() => {
+      root.render(<MailBody bodyHtml={'<div style="background:#fff;color:#000"><h2>Nested content</h2></div>'} />);
+    });
+    await settleIframe();
+
+    const source = container.querySelector('iframe')?.srcdoc || '';
+    const document = new DOMParser().parseFromString(source, 'text/html');
+    const theme = document.querySelector<HTMLStyleElement>(
+      'style[data-gnosi-mail-theme="true"]',
+    );
+    expect(source).toContain('data-gnosi-mail-theme="dark"');
+    expect(theme?.textContent).toContain('body :where(');
+    expect(theme?.textContent).toContain('background-color: transparent !important');
+    expect(theme?.textContent).toContain('color: inherit !important');
+  });
+
   it('keeps the remote-image fallback readable in the light canvas', async () => {
     act(() => {
       root.render(<MailBody bodyHtml={'<img alt="Fixture chart" height="180" width="320" src="https://images.example.test/chart.png">'} />);

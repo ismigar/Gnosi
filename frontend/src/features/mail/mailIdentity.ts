@@ -138,12 +138,38 @@ export function hydrateMailMessageIdentity<T extends MailIdentityMessage>(
 }
 
 
+function selectedDiscriminatorMatches(
+  selectedValue?: string | null,
+  loadedValue?: string | null,
+): boolean {
+  const selected = normalizeIdentityPart(selectedValue);
+  return !selected || selected === normalizeIdentityPart(loadedValue);
+}
+
+
+function isHydratedAccountlessSelection<T extends MailIdentityMessage>(
+  loaded: T,
+  selected: T,
+  fallbackAccount?: string | null,
+): boolean {
+  if (accountIdentity(selected, fallbackAccount) || loaded.id !== selected.id) {
+    return false;
+  }
+  return selectedDiscriminatorMatches(selected.source, loaded.source)
+    && selectedDiscriminatorMatches(selected.imap_folder, loaded.imap_folder)
+    && selectedDiscriminatorMatches(selected.imap_uid, loaded.imap_uid)
+    && selectedDiscriminatorMatches(selected.thread_id, loaded.thread_id);
+}
+
+
 export function selectMailDisplayMessage<T extends MailIdentityMessage>(
   loaded: T | null,
   selected: T | null,
   fallbackAccount?: string | null,
 ): T | null {
+  if (!loaded || !selected) return selected;
   return isSameMailMessage(loaded, selected, fallbackAccount)
+    || isHydratedAccountlessSelection(loaded, selected, fallbackAccount)
     ? loaded
     : selected;
 }

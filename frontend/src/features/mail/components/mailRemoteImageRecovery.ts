@@ -282,6 +282,11 @@ export function installRemoteMailImageRecovery(
       return;
     }
     if (localImage) {
+      if (image.complete) {
+        if (image.naturalWidth > 0) markLoaded();
+        else showFailedImage();
+        return;
+      }
       timeoutTimer = setTimeout(showFailedImage, timeoutMs);
       return;
     }

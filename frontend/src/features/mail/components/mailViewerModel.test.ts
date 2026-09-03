@@ -302,6 +302,35 @@ describe('mailViewerModel', () => {
     expect(fallback?.style.blockSize).toBe('80px');
   });
 
+  it('keeps an inline image that completed before recovery monitoring began', () => {
+    const document = new DOMParser().parseFromString(
+      '<img alt="Inline logo" src="/api/mail/messages/m/cid/logo" data-gnosi-local-image="pending">',
+      'text/html',
+    );
+    const image = document.querySelector('img');
+    if (!image) throw new Error('Missing local image fixture');
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+    });
+
+    installRemoteMailImageRecovery(document, {
+      fallbackLabel: 'Image unavailable',
+      fallbackDetail: 'The local image could not be loaded.',
+      openOriginalLabel: 'Open original',
+      recoveryActionLabel: 'Load safely',
+      recoveryPromptLabel: 'Image protected',
+      recoveringLabel: 'Loading…',
+      retryLabel: 'Try again',
+      timeoutMs: 1,
+    });
+
+    expect(image.dataset.gnosiLocalImage).toBe('loaded');
+    expect(document.querySelector('img')).toBe(image);
+    expect(document.querySelector('[data-gnosi-remote-image="unavailable"]'))
+      .toBeNull();
+  });
+
   it('keeps a stable local fallback for blocked images without a recoverable source', () => {
     const document = new DOMParser().parseFromString(
       '<img alt="Private tracking image" height="90" width="240" data-gnosi-remote-image="blocked">',

@@ -70,6 +70,7 @@ interface MailHtmlDocumentOptions {
   readonly folder?: string | null;
   readonly messageId?: string | null;
   readonly registerRemoteSource?: (source: string) => string;
+  readonly theme?: 'dark' | 'light';
   readonly themeCss: string;
 }
 
@@ -102,6 +103,7 @@ export function buildMailHtmlDocument(
   options: MailHtmlDocumentOptions,
 ): string {
   const document = new DOMParser().parseFromString(sanitizeMailHtml(html), 'text/html');
+  if (options.theme) document.documentElement.dataset.gnosiMailTheme = options.theme;
   document.querySelectorAll('base').forEach((element) => { element.remove(); });
   document.querySelectorAll('source').forEach((element) => {
     element.removeAttribute('src');

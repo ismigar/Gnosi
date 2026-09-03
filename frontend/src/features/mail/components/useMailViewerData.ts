@@ -123,10 +123,9 @@ export function useMailViewerData({
       } else {
         setAnalysisStatus(entities.analysisReason ?? 'no_entities');
       }
-    } catch (error) {
+    } catch {
       if (requestId !== analysisRequestRef.current) return;
       if (abortController.signal.aborted) return;
-      logError('mail-viewer.entity-scan', error);
       const previous = extractedEntitiesRef.current;
       setAnalysisStatus(previous ? 'results' : 'temporarily_unavailable');
     } finally {
