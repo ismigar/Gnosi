@@ -7,6 +7,7 @@
   "scripts": {
     "test": "playwright test",
     "test:smoke": "playwright test --project=chromium-anon --workers=1",
+    "test:disposable-web": "playwright test --project=disposable-web --workers=1 --retries=0",
     "test:contracts": "node --experimental-strip-types --test support/auth-state.test.ts support/auth-playwright.test.ts support/json-value.test.ts support/api-routes.test.ts",
     "typecheck": "node ../../frontend/node_modules/typescript/bin/tsc --project tsconfig.json",
     "typecheck:auth": "node ../../frontend/node_modules/typescript/bin/tsc --noEmit --strict --noUncheckedIndexedAccess --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --types node --typeRoots node_modules/@types support/auth-state.ts support/auth-playwright.ts support/auth-state.test.ts support/auth-playwright.test.ts tests/setup/auth.setup.ts playwright.config.ts",

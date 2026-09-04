@@ -30,6 +30,7 @@ const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
  *   caches the real session at .auth/state.json. Its file-level setup.use disables
  *   trace/video/screenshots before authentication, including retries.
  * - chromium-anon: smoke tests that don't need auth.
+ * - disposable-web: synthetic API/browser acceptance with external networking blocked.
  * - chromium-auth: feature tests that need workspace context.
  */
 
@@ -78,6 +79,19 @@ export default defineConfig({
       name: 'chromium-anon',
       testDir: './tests/anon',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'disposable-web',
+      testDir: './tests/disposable',
+      fullyParallel: false,
+      retries: 0,
+      workers: 1,
+      use: {
+        ...devices['Desktop Chrome'],
+        trace: 'off',
+        video: 'off',
+        screenshot: 'only-on-failure',
+      },
     },
     {
       name: 'chromium-auth',

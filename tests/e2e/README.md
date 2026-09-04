@@ -157,6 +157,23 @@ keyboard behavior as well as the axe result. Optional modules use an explicit
 fixture, so this is not acceptance of configured external providers or every
 possible content state.
 
+## Disposable synthetic web acceptance
+
+The `disposable-web` project needs no account or saved authentication state. It
+intercepts every request before navigation, allows only loopback assets, supplies
+explicit synthetic API responses and fails on either an external request or an
+undeclared API endpoint. It checks Knowledge in light/dark themes with axe,
+Knowledge readiness, theme persistence and the Calendar, Mail and Contacts
+surfaces:
+
+```bash
+GNOSI_BASE_URL=http://127.0.0.1:5173 pnpm --filter @gnosi/e2e test:disposable-web
+```
+
+This is frontend acceptance against synthetic API contracts. It does not certify
+the real backend, provider integrations, personal data, migrations or release
+installers.
+
 ## Offline worker validation
 
 The root `pnpm test:e2e:contracts` command runs offline authentication, JSON and
