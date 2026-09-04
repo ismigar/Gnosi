@@ -25,6 +25,9 @@ ARM64 rootless `nerdctl` runner without masking failed image builds.
   has completed, transferred, unpacked, and registered the requested image.
   Treat the inspected new image as the build result; the subsequent Compose
   smoke test remains the functional acceptance gate.
+- Note: publication and ordering tests must assert the helper invocation with
+  the exact Dockerfile and fresh CI tag, not the superseded raw `docker build`
+  command. Otherwise the full suite fails after a correct workflow migration.
 - Do not delete runner caches while a job is active. An installer can observe a
   cache before deletion and leave a later command without its executable.
 
