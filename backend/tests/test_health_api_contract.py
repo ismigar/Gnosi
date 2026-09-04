@@ -4,19 +4,38 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import json
+from pathlib import Path
+import tomllib
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from backend.app.factory import create_app
+from backend.app.factory import GNOSI_VERSION, create_app
 from backend.app.health_contracts import HealthResponse
 
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_public_application_version_matches_every_release_manifest() -> None:
+    app = create_app(_lifespan)
+    python_manifest = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    node_versions = [
+        json.loads((ROOT / manifest).read_text(encoding="utf-8"))["version"]
+        for manifest in ("package.json", "frontend/package.json", "desktop/package.json")
+    ]
+
+    assert app.version == GNOSI_VERSION == python_manifest["project"]["version"]
+    assert node_versions == [GNOSI_VERSION, GNOSI_VERSION, GNOSI_VERSION]
+    assert app.openapi()["info"]["version"] == GNOSI_VERSION
 
 
 def test_health_route_has_a_concrete_response_model() -> None:

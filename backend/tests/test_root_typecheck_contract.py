@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
+from yaml.nodes import MappingNode, Node, SequenceNode
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_COMMANDS = [
@@ -135,6 +137,26 @@ def test_release_workflow_never_consumes_hosted_runner_budget() -> None:
     assert workflow.count("runs-on: [self-hosted, Linux, ARM64]") == 3
     assert 'runs-on: [self-hosted, macOS, "${{ matrix.runner_arch }}"]' in workflow
     assert "runs-on: [self-hosted, Windows, X64]" in workflow
+
+
+def _assert_unique_yaml_keys(node: Node, location: str) -> None:
+    if isinstance(node, MappingNode):
+        seen: set[tuple[str, str]] = set()
+        for key_node, value_node in node.value:
+            key = (key_node.tag, key_node.value)
+            assert key not in seen, f"duplicate YAML key {key_node.value!r} at {location}"
+            seen.add(key)
+            _assert_unique_yaml_keys(value_node, f"{location}.{key_node.value}")
+    elif isinstance(node, SequenceNode):
+        for index, value_node in enumerate(node.value):
+            _assert_unique_yaml_keys(value_node, f"{location}[{index}]")
+
+
+def test_every_workflow_has_unique_yaml_mapping_keys() -> None:
+    for workflow_path in sorted((ROOT / ".github/workflows").glob("*.yml")):
+        document = yaml.compose(workflow_path.read_text(encoding="utf-8"))
+        assert document is not None
+        _assert_unique_yaml_keys(document, workflow_path.name)
 
 
 @pytest.mark.parametrize(("script_name", "commands", "failure_at"), [

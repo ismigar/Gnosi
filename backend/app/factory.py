@@ -20,6 +20,7 @@ from backend.services.auth_service import require_auth_enabled
 
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
+GNOSI_VERSION = "3.0.0"
 
 
 def refresh_health_snapshot(app: FastAPI) -> None:
@@ -48,7 +49,7 @@ def create_app(lifespan: Lifespan) -> FastAPI:
     _ = _models
     app = FastAPI(
         title="Gnosi Agent",
-        version="0.2.0",
+        version=GNOSI_VERSION,
         lifespan=lifespan,
         dependencies=[Depends(enforce_authentication)],
     )
