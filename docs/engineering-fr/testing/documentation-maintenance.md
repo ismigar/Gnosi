@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-09-04
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
@@ -14,6 +14,9 @@ source_paths:
   - mkdocs-fr.yml
   - scripts/check_public_pipeline.py
   - pipeline/README.md
+  - pyproject.toml
+  - .github/workflows/ci.yml
+  - .github/workflows/documentation-pages.yml
 tests:
   - pipeline/skills/technical_documentation/tests
   - pipeline/tests/test_public_pipeline.py
@@ -80,7 +83,7 @@ final dans l'index, puis une seconde fois après. Cette seconde exécution ne
 doit produire aucune différence dans les fichiers générés :
 
 ```bash
-uv run --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
+uv run --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
 ```
 
 Étapes individuelles de diagnostic, dans le même environnement Python :
@@ -110,6 +113,13 @@ Le dépôt public `ismigar/Gnosi` le construit directement avec
 vérifie les catalogues et versions localisées, valide la traçabilité, construit
 les quatre portails MkDocs en mode strict et publie `site/` via GitHub Pages.
 Publier le répertoire parent `site/` préserve le segment `/engineering/` de l'URL.
+
+L'automatisation consacrée à la documentation n'installe pas le runtime de
+l'application Gnosi. Pages utilise le groupe de dépendances figé `docs` ; le
+contrôle de pull request utilise le groupe minimal `docs-ci`, qui ajoute pytest
+pour la suite d'outils. `uv sync` et `uv run` utilisent tous deux
+`--only-group`, afin que la publication ne puisse pas être bloquée par le
+téléchargement de paquets de runtime sans rapport, tels que Torch ou AV.
 
 La barre latérale de Gnosi pointe vers cette adresse. Son libellé est traduit
 dans les quatre langues et le portail s'ouvre hors des routes internes de l'app.

@@ -38,19 +38,19 @@ jobs:
           version: '0.9.15'
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
-      - run: uv sync --frozen --group docs
+      - run: uv sync --frozen --only-group docs
       - name: Validate generated reference
-        run: uv run python pipeline/skills/technical_documentation/scripts/generate.py --check
+        run: uv run --frozen --only-group docs python pipeline/skills/technical_documentation/scripts/generate.py --check
       - name: Validate traceability and links
-        run: uv run python pipeline/skills/technical_documentation/scripts/validate.py
+        run: uv run --frozen --only-group docs python pipeline/skills/technical_documentation/scripts/validate.py
       - name: Validate reviewed translations and localized catalogs
-        run: uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/localize.py --check
+        run: uv run --frozen --only-group docs python pipeline/skills/technical_documentation/scripts/localize.py --check
       - name: Build localized portals
         run: |
-          uv run mkdocs build --strict --config-file mkdocs.yml
-          uv run mkdocs build --strict --config-file mkdocs-ca.yml
-          uv run mkdocs build --strict --config-file mkdocs-es.yml
-          uv run mkdocs build --strict --config-file mkdocs-fr.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-ca.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-es.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-fr.yml
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-09-04
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
@@ -14,6 +14,9 @@ source_paths:
   - mkdocs-fr.yml
   - scripts/check_public_pipeline.py
   - pipeline/README.md
+  - pyproject.toml
+  - .github/workflows/ci.yml
+  - .github/workflows/documentation-pages.yml
 tests:
   - pipeline/skills/technical_documentation/tests
   - pipeline/tests/test_public_pipeline.py
@@ -76,7 +79,7 @@ Run the complete gate before staging the final change and again after staging.
 The second run must leave no generated diff:
 
 ```bash
-uv run --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
+uv run --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
 ```
 
 Individual steps for diagnosis, using the same Python environment:
@@ -108,6 +111,12 @@ generated catalogs and localized mirrors, validates traceability, builds the
 English, Catalan, Spanish, and French MkDocs portals in strict mode, and
 publishes the complete `site/` tree through GitHub Pages. Publishing
 the parent `site/` directory preserves the `/engineering/` URL segment.
+
+Documentation-only automation never installs Gnosi's application runtime.
+Pages uses the frozen `docs` dependency group; the pull-request gate uses the
+minimal `docs-ci` group, which adds pytest for the tooling suite. Both `uv sync`
+and `uv run` use `--only-group`, so documentation publication cannot be blocked
+by downloading unrelated runtime packages such as Torch or AV.
 
 Gnosi's global sidebar links to the same canonical address. The label is
 localized in Catalan, English, Spanish, and French and the portal opens outside

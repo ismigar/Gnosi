@@ -1033,6 +1033,12 @@ docs = [
     { name = "mkdocs-material" },
     { name = "pymdown-extensions" },
 ]
+docs-ci = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "pymdown-extensions" },
+    { name = "pytest" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1121,6 +1127,12 @@ docs = [
     { name = "mkdocs", specifier = ">=1.6.1,<2" },
     { name = "mkdocs-material", specifier = ">=9.6,<10" },
     { name = "pymdown-extensions", specifier = ">=11.0.1,<12" },
+]
+docs-ci = [
+    { name = "mkdocs", specifier = ">=1.6.1,<2" },
+    { name = "mkdocs-material", specifier = ">=9.6,<10" },
+    { name = "pymdown-extensions", specifier = ">=11.0.1,<12" },
+    { name = "pytest", specifier = ">=9.1.1" },
 ]
 
 [[package]]
