@@ -210,6 +210,10 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           submodules: recursive
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+          dest: .ci/pnpm
       - name: Verify dedicated Docker runner capacity
         run: python3 scripts/ci/prepare_docker_runner.py
       - run: docker compose config --quiet
@@ -224,4 +228,6 @@ jobs:
         run: scripts/smoke_docker.sh
       - name: Release unused Docker resources
         if: always()
-        run: docker system prune --all --force --volumes
+        run: |
+          docker system prune --all --force --volumes
+          rm -rf .ci/pnpm
