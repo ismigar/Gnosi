@@ -135,6 +135,16 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   modifica la forma dels consumidors legacy.
 - El port HTTP queda disponible sense esperar la construcció del workflow IA;
   MCP i el catàleg d'eines continuen preparats abans del primer xat.
+- Nota: no iniciar l'índex global del proveïdor de fitxers durant el lifespan ni
+  refrescar-lo periòdicament per defecte. Aquest índex serveix el selector i la
+  cerca del sistema, no la hidratació de Knowledge; en un arbre CloudStorage de
+  més de 82.000 entrades pot competir durant desenes de segons amb les peticions
+  inicials. Cal carregar-lo o construir-lo sota demanda des del seu consumidor,
+  preferir la cache persistent i deixar el refresc periòdic com una opció
+  explícita.
+- Nota: les façanes que consumeixen configuració, registre i arbre lateral han
+  de compartir la mateixa clau i promesa en curs. El polling de confirmacions de
+  l'agent només pot existir mentre el xat complet és visible o està incrustat.
 
 ## Resultat verificat
 
@@ -175,3 +185,15 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   relacions i els suggeriments de propietats conservin totes les metadades.
 - Les dues façanes inicials de `llm-wiki/config` comparteixen una sola petició
   física per vault mentre la dada és vigent.
+
+## Resultat de la validació sobre el vault real
+
+- Amb el servidor Vite ja compilat, Chromium va obtenir el DOM de
+  `/@principal/knowledge` en 558 ms, sense peticions localhost fallides.
+- Cada endpoint inicial (`vaults`, configuració, arbre lateral, registre,
+  configuració IA, taules Brain i referències) es va demanar una sola vegada.
+- La primera visita immediatament posterior a una recompilació sota demanda de
+  Vite va necessitar 5,05 s; s'ha registrat com a cost de desenvolupament fred i
+  no com a latència estable de Gnosi.
+- La captura visual va confirmar el vault Principal, la navegació, els grups de
+  l'arbre lateral i la vista de benvinguda sense errors visibles.
