@@ -159,6 +159,10 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   de compartir la mateixa clau i promesa en curs. El polling de confirmacions de
   l'agent només pot existir mentre el xat complet és visible o està incrustat;
   un xat minimitzat no és visible i tampoc pot mantenir el temporitzador.
+- Nota: no esperis `unwrapApiResult` abans de passar-lo a un helper que rep una
+  promesa i invalida la cache després de l'èxit. Això converteix el valor resolt
+  en un argument incompatible i trenca TypeScript estricte. Passa la promesa
+  directament; el helper conserva l'ordre petició → invalidació → retorn.
 
 ## Resultat verificat
 
