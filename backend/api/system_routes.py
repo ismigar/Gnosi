@@ -6,7 +6,8 @@ import os
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from collections.abc import Mapping, Sequence
+from typing import TypeGuard
 
 import psutil
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -39,7 +40,7 @@ router = APIRouter()
 @router.get("/notifications", response_model=NotificationPageResponse)
 async def get_notifications(
     limit: int = 50, offset: int = 0, db: Session = Depends(get_mgmt_db)
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Returns system notifications with pagination."""
     query = db.query(Notification)
     total = query.count()
@@ -94,7 +95,7 @@ async def create_notification(
     response_model=ClearNotificationsResponse,
     dependencies=[Depends(require_role("admin"))],
 )
-async def clear_notifications(db: Session = Depends(get_mgmt_db)) -> Any:
+async def clear_notifications(db: Session = Depends(get_mgmt_db)) -> dict[str, object]:
     """Deletes all system notifications."""
     try:
         db.query(Notification).delete()
@@ -145,7 +146,7 @@ def _browse_target(
     home_internal: str,
     roots: dict[str, str | None],
     allowed_roots: list[Path],
-) -> tuple[Path | None, dict[str, Any] | None]:
+) -> tuple[Path | None, dict[str, object] | None]:
     """Resolve and validate one requested picker directory."""
     target_path = requested_path or vault_internal or home_internal or "/"
     try:
@@ -188,7 +189,7 @@ def _scan_browse_directory(
     target: Path,
     display_path: str,
     roots: dict[str, str | None],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Read one bounded directory listing without following entries."""
     directories: list[str] = []
     files: list[str] = []
@@ -238,7 +239,7 @@ def _scan_browse_directory(
     response_model=SystemStatsResponse,
     response_model_exclude_unset=True,
 )
-async def get_system_stats() -> Any:
+async def get_system_stats() -> dict[str, object]:
     """Returns real system statistics."""
     try:
         cpu = psutil.cpu_percent(interval=None)
@@ -264,11 +265,11 @@ async def get_system_stats() -> Any:
     "/graph/visualization",
     response_model=SystemGraphVisualizationResponse,
 )
-async def get_graph_viz() -> Any:
+async def get_graph_viz() -> dict[str, object]:
     return {"nodes": [], "edges": []}
 
 
-def _browse_directory(body: BrowseRequest) -> Any:
+def _browse_directory(body: BrowseRequest) -> dict[str, object]:
     """Resolve and scan one picker location outside the event-loop thread."""
     vault_internal, home_internal, roots, allowed_roots = _browser_roots()
     target, error = _browse_target(
@@ -295,7 +296,7 @@ def _browse_directory(body: BrowseRequest) -> Any:
     response_model_exclude_unset=True,
     dependencies=[Depends(require_role("admin"))],
 )
-async def browse_directory(body: BrowseRequest = Body(...)) -> Any:
+async def browse_directory(body: BrowseRequest = Body(...)) -> dict[str, object]:
     """Browse directory contents for the folder/file picker.
 
     Security: admin-only. The picker is meant to let the operator pick ANY
@@ -320,7 +321,7 @@ _HOST_HEALTH_HELPER_URL = os.getenv("GNOSI_HOST_HEALTH_HELPER_URL") or default_h
 
 def _native_pick_via_helper(
     mode: str, prompt: str, multiple: bool = False, timeout: float = 3600.0
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     """Ask the host helper to show the native dialog. Returns its response dict
     ({"status": "ok"|"cancelled", ...}), or None if the helper is unavailable.
 
@@ -349,7 +350,7 @@ def _native_pick_via_helper(
             data = json.loads(resp.read() or b"{}")
     except Exception:
         return None
-    return cast(dict[str, Any], data) if isinstance(data, dict) else None
+    return data if isinstance(data, dict) else None
 
 
 def _host_helper_healthy(timeout: float = 1.5) -> bool:
@@ -382,7 +383,7 @@ def _is_loopback_request(request: Request) -> bool:
     response_model=NativePickAvailabilityResponse,
     dependencies=[Depends(require_role("admin"))],
 )
-async def native_pick_available(request: Request) -> Any:
+async def native_pick_available(request: Request) -> dict[str, object]:
     """Whether the native OS file/folder dialog can be offered from here.
 
     Available only when the caller is loopback AND the host_open_helper answers
@@ -401,7 +402,7 @@ async def native_pick_available(request: Request) -> Any:
     response_model_exclude_unset=True,
     dependencies=[Depends(require_role("admin"))],
 )
-async def native_pick(request: Request, body: NativePickRequest = Body(...)) -> Any:
+async def native_pick(request: Request, body: NativePickRequest = Body(...)) -> dict[str, object]:
     """Open the host's native file/folder dialog and return the chosen path.
 
     A browser can never read the absolute host path of a file picked through
@@ -459,7 +460,7 @@ def _search_via_host_helper(
     limit: int,
     roots: list[str],
     timeout: float = 10.0,
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     """Delegate the search to Spotlight (`mdfind`) via the host helper.
 
     The `host_open_helper` (pipeline/skills/host_open_helper/) listens on
@@ -493,27 +494,32 @@ def _search_via_host_helper(
 
     if not isinstance(data, dict) or not isinstance(data.get("results"), list):
         return None
-    return cast(dict[str, Any], data)
+    return data
 
 
 def _dedup_by_path(
-    primary: list[dict[str, Any]],
-    secondary: list[dict[str, Any]],
+    primary: Sequence[Mapping[str, object]],
+    secondary: Sequence[Mapping[str, object]],
     limit: int,
-) -> list[dict[str, Any]]:
+) -> list[Mapping[str, object]]:
     """Merges two result lists {name,path,is_dir} without duplicates by
     `path`, keeping the order (primary first). Cuts off at `limit`."""
     seen: set[str] = set()
-    out: list[dict[str, Any]] = []
+    out: list[Mapping[str, object]] = []
     for item in list(primary) + list(secondary):
         p = item.get("path")
-        if not p or p in seen:
+        if not isinstance(p, str) or not p or p in seen:
             continue
         seen.add(p)
         out.append(item)
         if len(out) >= limit:
             break
     return out
+
+
+def _is_search_result_list(value: object) -> TypeGuard[list[dict[str, object]]]:
+    """Narrow the helper's JSON list without replacing its result objects."""
+    return isinstance(value, list) and all(isinstance(item, dict) for item in value)
 
 
 _SEARCH_PRIORITY_SUBDIRS = (
@@ -535,7 +541,7 @@ class _FilesystemSearchState:
     limit: int
     vault_internal: str
     vault_host: str
-    results: list[dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, object]] = field(default_factory=list)
     seen_paths: set[str] = field(default_factory=set)
     truncated: bool = False
     error: str | None = None
@@ -650,7 +656,7 @@ def _walk_filesystem(query: str, limit: int) -> _FilesystemSearchState:
     response_model_exclude_unset=True,
     dependencies=[Depends(require_role("admin"))],
 )
-async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, Any]:
+async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, object]:
     """Search by name across the whole system (Vault + Library + host home).
 
     Strategy:
@@ -671,7 +677,8 @@ async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, Any]:
         path for path in (os.getenv("VAULT_HOST_PATH"), os.getenv("HOME_HOST_PATH")) if path
     ]
     helper_data = await asyncio.to_thread(_search_via_host_helper, query, limit, helper_roots)
-    helper_results = helper_data.get("results", []) if helper_data else []
+    raw_helper_results = helper_data.get("results", []) if helper_data else []
+    helper_results = raw_helper_results if _is_search_result_list(raw_helper_results) else []
 
     from backend.services import vault_file_index
 
@@ -698,7 +705,7 @@ async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, Any]:
         }
 
     state = await asyncio.to_thread(_walk_filesystem, query, limit)
-    response: dict[str, Any] = {
+    response: dict[str, object] = {
         "results": state.results,
         "truncated": state.truncated,
     }

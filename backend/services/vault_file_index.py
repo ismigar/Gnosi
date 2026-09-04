@@ -44,7 +44,7 @@ import threading
 import time
 import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Literal
+from typing import Literal, NotRequired, TypedDict
 
 from backend.config.data_dir import resolve_data_dir
 
@@ -111,7 +111,39 @@ _SKIP_DIRS = {
 # Dict path(host) → {"name","name_norm","is_dir","last_seen"}. Dict (not a list)
 # to merge walks by path without duplicates.
 _lock = threading.Lock()
-_by_path: Dict[str, Dict[str, Any]] = {}
+
+
+class IndexEntry(TypedDict):
+    """One canonical provider entry retained by the index."""
+
+    name: str
+    name_norm: str
+    path: str
+    is_dir: bool
+    last_seen: NotRequired[float]
+
+
+class SearchResult(TypedDict):
+    """Public filesystem-search projection of an index entry."""
+
+    name: str
+    path: str
+    is_dir: bool
+
+
+class IndexStatus(TypedDict):
+    """Observable lifecycle state returned by :func:`status`."""
+
+    ready: bool
+    entries: int
+    built_at: float
+    building: bool
+    state: Literal["preparing", "ready", "error"]
+    error: str | None
+    refresh_seconds: int
+
+
+_by_path: dict[str, IndexEntry] = {}
 _built_at: float = 0.0
 _building = False
 _thread_started = False
@@ -122,7 +154,7 @@ _last_error: str | None = None
 # Roots removed via remove_subtree, mapped to the time of removal. A build that
 # started before a removal must not resurrect the deleted subtree when it swaps
 # in its (pre-removal) walk snapshot. Pruned once older than the window below.
-_tombstones: Dict[str, float] = {}
+_tombstones: dict[str, float] = {}
 _TOMBSTONE_TTL_SECONDS = 600.0
 
 
@@ -159,7 +191,7 @@ def _to_host(internal_path: str) -> str:
     return internal_path
 
 
-def _index_roots() -> List[str]:
+def _index_roots() -> list[str]:
     """Roots to index (HOST paths, accessible in the container via the HOME
     `ro` mount). We index ALL of `~/Library/CloudStorage` (OneDrive, Google Drive…), not
     just the Vault: the helper (mdfind) does not reliably see ANY CloudStorage
@@ -178,18 +210,18 @@ def _index_roots() -> List[str]:
         return [cloudstorage]
     # Fallback (layouts without CloudStorage or outside Docker): the Vault (the
     # Library lives inside since the pure vault-first design).
-    roots: List[str] = []
+    roots: list[str] = []
     if Path(_VAULT_INTERNAL).is_dir():
         roots.append(_VAULT_INTERNAL)
     return roots
 
 
-def _walk(cancel_event: threading.Event | None = None) -> List[Dict[str, Any]]:
+def _walk(cancel_event: threading.Event | None = None) -> list[IndexEntry]:
     """Walks the roots and returns the flat list of entries (may be partial
     if the File Provider serves incomplete listings at this moment). The paths
     are always returned as HOST (via `_to_host`, which only maps the fallback's
     `/vault` prefix; the CloudStorage roots are already host)."""
-    out: List[Dict[str, Any]] = []
+    out: list[IndexEntry] = []
     processed_entries = 0
     for root in _index_roots():
         if cancel_event is not None and cancel_event.is_set():
@@ -223,7 +255,7 @@ def _walk(cancel_event: threading.Event | None = None) -> List[Dict[str, Any]]:
 
 
 def _save_to_disk(
-    by_path: Dict[str, Dict[str, Any]],
+    by_path: dict[str, IndexEntry],
     cancel_event: threading.Event | None = None,
 ) -> None:
     """Persists the index to the local volume (atomic write). Compact format
@@ -279,14 +311,24 @@ def _load_from_disk(cancel_event: threading.Event | None = None) -> bool:
     try:
         if not _CACHE_PATH.exists():
             return False
-        data = json.loads(_CACHE_PATH.read_text(encoding="utf-8") or "{}")
+        data: dict[str, object] = json.loads(_CACHE_PATH.read_text(encoding="utf-8") or "{}")
         raw = data.get("entries") or []
+        if not isinstance(raw, list):
+            raise TypeError("vault file-index entries must be a list")
         now = time.time()
-        loaded: Dict[str, Dict[str, Any]] = {}
+        loaded: dict[str, IndexEntry] = {}
         for processed_entries, row in enumerate(raw, start=1):
             _cooperate_with_event_loop(processed_entries, cancel_event)
-            name, path, is_dir = row[0], row[1], bool(row[2])
-            last_seen = row[3] if len(row) > 3 and row[3] else now
+            if not isinstance(row, list) or len(row) < 3:
+                raise TypeError("vault file-index entry must contain name, path and kind")
+            name, path = row[0], row[1]
+            if not isinstance(name, str) or not isinstance(path, str):
+                raise TypeError("vault file-index name and path must be strings")
+            is_dir = bool(row[2])
+            raw_last_seen = row[3] if len(row) > 3 and row[3] else now
+            if not isinstance(raw_last_seen, (int, float)):
+                raise TypeError("vault file-index last_seen must be numeric")
+            last_seen = float(raw_last_seen)
             loaded[path] = {
                 "name": name,
                 "name_norm": _norm(name),
@@ -296,7 +338,10 @@ def _load_from_disk(cancel_event: threading.Event | None = None) -> bool:
             }
         with _lock:
             _by_path = loaded
-            _built_at = float(data.get("built_at") or 0.0)
+            raw_built_at = data.get("built_at") or 0.0
+            if not isinstance(raw_built_at, (int, float)):
+                raise TypeError("vault file-index built_at must be numeric")
+            _built_at = float(raw_built_at)
             if loaded:
                 _state = "ready"
                 _last_error = None
@@ -335,7 +380,7 @@ def build_index(cancel_event: threading.Event | None = None) -> int:
         prev_n = len(merged)
         for processed_entries, e in enumerate(new_entries, start=1):
             _cooperate_with_event_loop(processed_entries, cancel_event)
-            e2 = dict(e)
+            e2 = e.copy()
             e2["last_seen"] = now
             merged[e2["path"]] = e2
         # Pruning of disappeared entries ONLY if this walk has been
@@ -345,7 +390,7 @@ def build_index(cancel_event: threading.Event | None = None) -> int:
         if substantial:
             cutoff = now - _STALE_SECONDS
             before = len(merged)
-            retained: Dict[str, Dict[str, Any]] = {}
+            retained: dict[str, IndexEntry] = {}
             for processed_entries, (path, entry) in enumerate(merged.items(), start=1):
                 _cooperate_with_event_loop(processed_entries, cancel_event)
                 if entry.get("last_seen", now) >= cutoff:
@@ -417,7 +462,7 @@ def remove_subtree(root: str) -> int:
     return removed
 
 
-def query(q: str, limit: int = 200, include_files: bool = True) -> List[Dict[str, Any]]:
+def query(q: str, limit: int = 200, include_files: bool = True) -> list[SearchResult]:
     """Searches the index. Token-AND matching with NFC normalization: an entry
     matches if ALL the tokens of the query are a substring of the normalized name (like
     `mdfind -name`, but independent of the helper). Instant (in memory)."""
@@ -429,7 +474,7 @@ def query(q: str, limit: int = 200, include_files: bool = True) -> List[Dict[str
         return []
     with _lock:
         snapshot = list(_by_path.values())
-    results: List[Dict[str, Any]] = []
+    results: list[SearchResult] = []
     for e in snapshot:
         if not include_files and not e["is_dir"]:
             continue
@@ -447,7 +492,7 @@ def is_ready() -> bool:
         return bool(_by_path)
 
 
-def status() -> Dict[str, Any]:
+def status() -> IndexStatus:
     """Status for diagnostics / endpoint."""
     with _lock:
         return {
