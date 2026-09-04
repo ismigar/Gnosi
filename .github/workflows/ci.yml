@@ -16,6 +16,11 @@ permissions:
 
 env:
   UV_MANAGED_PYTHON: '1'
+  NPM_CONFIG_FETCH_RETRIES: '5'
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: '20000'
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: '120000'
+  NPM_CONFIG_FETCH_TIMEOUT: '300000'
+  NPM_CONFIG_NETWORK_CONCURRENCY: '8'
 
 jobs:
   documentation:
@@ -38,16 +43,17 @@ jobs:
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
-      - run: uv sync --frozen --group docs
+      - run: uv sync --frozen --only-group docs-ci
       - name: Check documentation against the exact PR base or candidate SHA
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
         run: |
           test -n "$PR_BASE_SHA"
           git cat-file -e "${PR_BASE_SHA}^{commit}"
-          uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
+          uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
   frontend:
     if: >-
@@ -76,7 +82,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
-          enable-cache: true
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - run: pnpm install --frozen-lockfile
@@ -115,7 +121,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
-          enable-cache: true
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen
@@ -163,7 +169,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
-          enable-cache: true
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - run: pnpm install --frozen-lockfile

@@ -7,6 +7,10 @@ export interface DisposableNetworkAudit {
   unknownApiRequests: string[];
 }
 
+export interface DisposableNetworkOptions {
+  readonly sidebarTree?: unknown;
+}
+
 const SYNTHETIC_USER = {
   id: 'synthetic-user',
   email: 'web-acceptance@example.invalid',
@@ -42,7 +46,11 @@ function knowledgeEndpoint(pathname: string, suffix: string) {
   );
 }
 
-async function syntheticApi(route: Route, audit: DisposableNetworkAudit) {
+async function syntheticApi(
+  route: Route,
+  audit: DisposableNetworkAudit,
+  options: DisposableNetworkOptions,
+) {
   const request = route.request();
   const url = new URL(request.url());
   const { pathname } = url;
@@ -88,6 +96,9 @@ async function syntheticApi(route: Route, audit: DisposableNetworkAudit) {
     });
   }
   if (knowledgeEndpoint(pathname, 'pages')) return json(route, [SYNTHETIC_PAGE]);
+  if (knowledgeEndpoint(pathname, 'sidebar/tree')) {
+    return json(route, options.sidebarTree ?? [SYNTHETIC_PAGE]);
+  }
   if (knowledgeEndpoint(pathname, 'pages/synthetic-page')) return json(route, SYNTHETIC_PAGE);
   if (pathname === '/api/vault/resolve-by-title') {
     return json(route, {
@@ -153,7 +164,10 @@ async function syntheticApi(route: Route, audit: DisposableNetworkAudit) {
   return json(route, { detail: 'Undeclared synthetic endpoint' }, 501);
 }
 
-export async function installDisposableNetwork(context: BrowserContext): Promise<DisposableNetworkAudit> {
+export async function installDisposableNetwork(
+  context: BrowserContext,
+  options: DisposableNetworkOptions = {},
+): Promise<DisposableNetworkAudit> {
   const audit: DisposableNetworkAudit = { externalRequests: [], unknownApiRequests: [] };
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
@@ -163,7 +177,7 @@ export async function installDisposableNetwork(context: BrowserContext): Promise
       return;
     }
     if (url.pathname.startsWith('/api/')) {
-      await syntheticApi(route, audit);
+      await syntheticApi(route, audit, options);
       return;
     }
     await route.continue();

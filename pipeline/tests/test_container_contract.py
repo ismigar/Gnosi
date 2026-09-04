@@ -110,6 +110,12 @@ def test_images_use_frozen_root_locks_without_copying_arbitrary_checkout_state()
     assert "requirements.txt" not in backend
     assert 'PATH="/app/.venv/bin:$PATH"' in backend
     assert "pnpm install --frozen-lockfile" in frontend
+    workspace = load("pnpm-workspace.yaml")
+    assert workspace["fetchRetries"] == 5
+    assert workspace["fetchRetryMintimeout"] == 20_000
+    assert workspace["fetchRetryMaxtimeout"] == 120_000
+    assert workspace["fetchTimeout"] == 300_000
+    assert workspace["networkConcurrency"] == 8
     assert "node:22.22.2-alpine" in frontend
     assert "pnpm@11.19.0" in frontend
     assert '"--port", "5173", "--strictPort"' in frontend
@@ -201,6 +207,8 @@ def test_ci_runs_docker_http_and_volume_persistence_smoke_after_both_builds() ->
         "/data/.gnosi-smoke-persistence",
         "compose down --remove-orphans",
         "compose down --volumes --remove-orphans",
+        'GNOSI_DOCKER_STARTUP_ATTEMPTS:-300',
+        "GNOSI_DOCKER_STARTUP_ATTEMPTS must be a positive integer",
     ):
         assert required in script
     assert script.count("compose up --detach --no-build backend frontend") == 2
