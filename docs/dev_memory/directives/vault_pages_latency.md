@@ -10,6 +10,9 @@ Mesurar i reduir la latència real de `GET /api/vault/pages` en vaults grans sen
 - Instrumentar per fases amb fixtures temporals sintètiques: cache de resposta, registre, índex, comprovació d'entrades, construcció de models i serialització HTTP.
 - Comptar operacions de filesystem, parseigs i reconstruccions; no registrar rutes, títols, metadades ni cossos reals.
 - No modificar frontend ni OpenAPI.
+- Protegir també la latència HTTP durant el refresc global de noms de
+  `backend/services/vault_file_index.py`, incloses les fases de recorregut,
+  merge, poda i persistència de desenes de milers d'entrades CloudStorage.
 
 ## Procediment
 
@@ -20,6 +23,11 @@ Mesurar i reduir la latència real de `GET /api/vault/pages` en vaults grans sen
 5. Fer la mínima correcció que mantingui la detecció eventual de canvis externs i la invalidació immediata dels canvis fets per Gnosi.
 6. Afegir proves de regressió funcionals i de comptatge d'operacions, sense llindars temporals fràgils com a única garantia.
 7. Repetir mesures, Ruff, mypy estricte, tests enfocats i guardrails abans del commit.
+8. Per al refresc global, mesurar amb 81.000 entrades sintètiques tant el temps
+   total com el retard màxim d'una tasca HTTP sentinella concurrent. La
+   mitigació ha de cedir una finestra temporal real i cancel·lable per lots;
+   `sleep(0)` no és una garantia de latència perquè el mateix fil pot recuperar
+   el GIL immediatament.
 
 ## Restriccions i casos límit
 
@@ -29,6 +37,12 @@ Mesurar i reduir la latència real de `GET /api/vault/pages` en vaults grans sen
 - La resposta cachejada ha de variar per vault, mode calendari i versió de l'índex. Els canvis interns continuen invalidant la cache explícitament; els externs s'incorporen quan acaba el refresc periòdic.
 - El refresc periòdic ha de poder programar-se encara que la resposta derivada sigui una cache hit; mai ha de fer un scan síncron dins de la petició.
 - No modificar payloads, rutes, codis d'estat, ordenació, deduplicació ni semàntica de filtres 2.x.
+- No desactivar ni reduir els roots multi-proveïdor. El ritme cooperatiu només
+  pot allargar moderadament el treball de fons: no pot saltar entrades, canviar
+  el merge-only, la detecció de fitxers, la poda segura ni la cancel·lació.
+- La pausa del worker ha d'usar l'esdeveniment de cancel·lació quan existeix,
+  perquè l'aturada no hagi d'esperar que expiri una pausa. Els valors de lot i
+  pausa han de ser configurables i validats a l'arrencada.
 - Nota: no executar ordres Git des de l'arrel `Projectes`, perquè ja no és un repositori i produeix `fatal: not a git repository`. Cal apuntar sempre a `Projectes/Gnosi` o al worktree explícit.
 
 ## Criteris d'acceptació
@@ -54,3 +68,22 @@ Mesurar i reduir la latència real de `GET /api/vault/pages` en vaults grans sen
 - Mateix fixture, després: snapshot fred 158,44 ms; reconstrucció forçada 158,96 ms; reducció del 97,4% respecte dels 6.154,95 ms.
 - Endpoint FastAPI sintètic complet, després: 208,20 ms en fred i mediana de 24,85 ms en calent per una resposta de 3.163.561 bytes.
 - La prova de File Provider demostra zero comprovacions `exists` síncrones per entrada; abans el camí podia executar-ne una per cadascuna quan vencia el control d'obsolescència.
+- Refresc global sintètic de 81.000 entrades, abans del ritme cooperatiu:
+  93,98 ms totals però un únic tick disponible, amb 92,95 ms de retard de la
+  sentinella HTTP/event loop; era una ràfega curta però monopolitzava el GIL.
+- Mateix doble després, sense persistència per aïllar merge/poda: 1.975,28 ms
+  totals, 1.973 ticks, percentil 95 de retard 0,39 ms i màxim 2,26 ms. El
+  refresc de fons és deliberadament més lent i HTTP conserva temps de CPU.
+- El worker global en un `thread` evita bloquejar directament l'event loop, però
+  no aïlla el GIL: `sleep(0)` cada 256 entrades no impedia que normalització,
+  còpies i JSON monopolitzessin CPU en ràfegues. Cal una pausa positiva curta
+  per lot, aplicada també a la serialització, i proves concurrents amb dades
+  exclusivament sintètiques.
+- Nota: no fer dependre la regressió d'un únic retard màxim molt estret. Sota
+  càrrega externa del runner pot aparèixer un pic aïllat no causat pel worker.
+  Cal verificar percentil 95, progrés sostingut i una cota màxima defensiva, i
+  recolzar-ho amb la prova determinista que cada lot espera una pausa positiva.
+- Nota: el percentil ha de calcular-se sobre intervals reals entre ticks, no
+  sobre retard contra un calendari acumulatiu. Un sol bloqueig extern deixa el
+  calendari enrere i contaminaria molts punts posteriors encara que el servei
+  ja hagués recuperat la responsivitat.

@@ -58,7 +58,21 @@ _CACHE_PATH = _LOCAL_DATA / "cache" / "vault_file_index.json"
 # Periodic refresh (seconds). The walk is metadata-only (it doesn't download files).
 _REFRESH_SECONDS = int(os.environ.get("GNOSI_FILE_INDEX_REFRESH_SECONDS", "600"))
 _SHUTDOWN_TIMEOUT_SECONDS = float(os.environ.get("GNOSI_FILE_INDEX_SHUTDOWN_TIMEOUT_SECONDS", "5"))
-_GIL_YIELD_EVERY_ENTRIES = 256
+_WORKER_BATCH_ENTRIES = max(
+    1,
+    min(
+        1024,
+        int(os.environ.get("GNOSI_FILE_INDEX_WORKER_BATCH_ENTRIES", "128")),
+    ),
+)
+_WORKER_PAUSE_SECONDS = max(
+    0.0001,
+    min(
+        0.05,
+        float(os.environ.get("GNOSI_FILE_INDEX_WORKER_PAUSE_MS", "1")) / 1000.0,
+    ),
+)
+_JSON_WRITE_BATCH_CHARS = 256 * 1024
 # An entry not seen in any walk during this time is considered deleted and
 # is pruned — but ONLY in a substantial walk (see _PRUNE_MIN_RATIO).
 _STALE_SECONDS = int(os.environ.get("GNOSI_FILE_INDEX_STALE_SECONDS", str(7 * 24 * 3600)))
@@ -108,11 +122,16 @@ def _cooperate_with_event_loop(
     processed_entries: int,
     cancel_event: threading.Event | None,
 ) -> None:
-    """Bound worker GIL occupancy while processing large provider snapshots."""
+    """Give request threads a real, cancellation-aware scheduling window."""
     if cancel_event is not None and cancel_event.is_set():
         raise _BuildCancelled
-    if processed_entries % _GIL_YIELD_EVERY_ENTRIES == 0:
-        time.sleep(0)
+    if processed_entries % _WORKER_BATCH_ENTRIES != 0:
+        return
+    if cancel_event is not None:
+        if cancel_event.wait(_WORKER_PAUSE_SECONDS):
+            raise _BuildCancelled
+    else:
+        time.sleep(_WORKER_PAUSE_SECONDS)
 
 
 def _norm(s: str) -> str:
@@ -173,20 +192,21 @@ def _walk(cancel_event: threading.Event | None = None) -> List[Dict[str, Any]]:
                 and d not in _SKIP_DIRS
                 and not d.endswith((".app", ".photoslibrary", ".musiclibrary"))
             ]
-            for is_dir, name in [(True, d) for d in dirs] + [(False, f) for f in files]:
-                processed_entries += 1
-                _cooperate_with_event_loop(processed_entries, cancel_event)
-                if not is_dir and name.startswith("."):
-                    continue
-                internal = os.path.join(dirpath, name)
-                out.append(
-                    {
-                        "name": name,
-                        "name_norm": _norm(name),
-                        "path": _to_host(internal),
-                        "is_dir": is_dir,
-                    }
-                )
+            for is_dir, names in ((True, dirs), (False, files)):
+                for name in names:
+                    processed_entries += 1
+                    _cooperate_with_event_loop(processed_entries, cancel_event)
+                    if not is_dir and name.startswith("."):
+                        continue
+                    internal = os.path.join(dirpath, name)
+                    out.append(
+                        {
+                            "name": name,
+                            "name_norm": _norm(name),
+                            "path": _to_host(internal),
+                            "is_dir": is_dir,
+                        }
+                    )
     return out
 
 
@@ -218,9 +238,19 @@ def _save_to_disk(
         tmp = Path(tmp_name)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                # `dump` streams encoder chunks through Python instead of one
-                # monolithic `dumps`, so other threads keep receiving GIL turns.
-                json.dump(payload, fh)
+                chunks: list[str] = []
+                chunk_chars = 0
+                for chunk in json.JSONEncoder().iterencode(payload):
+                    chunks.append(chunk)
+                    chunk_chars += len(chunk)
+                    if chunk_chars < _JSON_WRITE_BATCH_CHARS:
+                        continue
+                    fh.write("".join(chunks))
+                    chunks.clear()
+                    chunk_chars = 0
+                    _cooperate_with_event_loop(_WORKER_BATCH_ENTRIES, cancel_event)
+                if chunks:
+                    fh.write("".join(chunks))
             tmp.replace(_CACHE_PATH)
         finally:
             tmp.unlink(missing_ok=True)

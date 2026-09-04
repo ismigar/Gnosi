@@ -140,6 +140,123 @@ def test_slow_traversal_does_not_block_event_loop(
     asyncio.run(exercise())
 
 
+def test_large_refresh_keeps_http_sentinel_responsive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry_count = 81_000
+    entries = [
+        {
+            "name": f"synthetic-{index}.md",
+            "name_norm": f"synthetic-{index}.md",
+            "path": f"/synthetic/provider/{index}.md",
+            "is_dir": False,
+        }
+        for index in range(entry_count)
+    ]
+    monkeypatch.setattr(vault_file_index, "_walk", lambda _stop: entries)
+    monkeypatch.setattr(vault_file_index, "_save_to_disk", lambda _entries, _stop: None)
+
+    async def exercise() -> None:
+        stop_event = threading.Event()
+        worker = threading.Thread(
+            target=vault_file_index.build_index,
+            args=(stop_event,),
+        )
+        interval = 0.005
+        expected_tick = time.perf_counter() + interval
+        last_tick = time.perf_counter()
+        response_gaps: list[float] = []
+        worker.start()
+        while worker.is_alive():
+            await asyncio.sleep(max(0.0, expected_tick - time.perf_counter()))
+            current_tick = time.perf_counter()
+            response_gaps.append(current_tick - last_tick)
+            last_tick = current_tick
+            expected_tick = max(expected_tick + interval, current_tick + interval)
+        worker.join()
+
+        assert len(response_gaps) >= 10
+        ordered_gaps = sorted(response_gaps)
+        percentile_95 = ordered_gaps[int(len(ordered_gaps) * 0.95)]
+        assert percentile_95 < 0.03
+        assert max(response_gaps) < 0.5
+
+    asyncio.run(exercise())
+    assert vault_file_index.status()["entries"] == entry_count
+
+
+def test_worker_pause_is_positive_and_immediately_cancelable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stop_event = threading.Event()
+    waits: list[float] = []
+
+    def cancel_during_wait(timeout: float | None = None) -> bool:
+        assert timeout is not None
+        waits.append(timeout)
+        stop_event.set()
+        return True
+
+    monkeypatch.setattr(stop_event, "wait", cancel_during_wait)
+
+    with pytest.raises(vault_file_index._BuildCancelled):
+        vault_file_index._cooperate_with_event_loop(
+            vault_file_index._WORKER_BATCH_ENTRIES,
+            stop_event,
+        )
+
+    assert waits == [vault_file_index._WORKER_PAUSE_SECONDS]
+    assert waits[0] > 0
+
+
+def test_partial_refresh_merges_without_losing_provider_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous = {
+        "name": "Google Drive note.md",
+        "name_norm": "google drive note.md",
+        "path": "/synthetic/GoogleDrive/note.md",
+        "is_dir": False,
+        "last_seen": 1.0,
+    }
+    discovered = {
+        "name": "Nextcloud note.md",
+        "name_norm": "nextcloud note.md",
+        "path": "/synthetic/Nextcloud/note.md",
+        "is_dir": False,
+    }
+    second_previous = {
+        "name": "OneDrive note.md",
+        "name_norm": "onedrive note.md",
+        "path": "/synthetic/OneDrive/note.md",
+        "is_dir": False,
+        "last_seen": 1.0,
+    }
+    with vault_file_index._lock:
+        vault_file_index._by_path = {
+            str(previous["path"]): previous,
+            str(second_previous["path"]): second_previous,
+        }
+    monkeypatch.setattr(vault_file_index, "_walk", lambda _stop: [discovered])
+    monkeypatch.setattr(vault_file_index, "_save_to_disk", lambda _entries, _stop: None)
+
+    assert vault_file_index.build_index(threading.Event()) == 3
+    assert vault_file_index.query("google drive") == [
+        {
+            "name": previous["name"],
+            "path": previous["path"],
+            "is_dir": False,
+        }
+    ]
+    assert vault_file_index.query("nextcloud") == [
+        {
+            "name": discovered["name"],
+            "path": discovered["path"],
+            "is_dir": False,
+        }
+    ]
+
+
 def test_concurrent_kickoff_starts_only_one_build(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
