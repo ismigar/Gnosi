@@ -46,7 +46,17 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Nota: no interpretar un lint global sense sortida que no finalitza com un resultat vàlid. Cal interrompre'l, validar tots els fitxers modificats de forma explícita i repetir el lint global en la integració canònica, on les dependències no són una còpia temporal del worktree.
 - Nota: no deixar que diversos muntatges inicials consultin directament el mateix recurs. Cal compartir la clau i la promesa en curs, separar les claus dependents del vault i fer que la cancel·lació d'un consumidor no cancel·li els altres.
 - Nota: no confondre coalescència amb una cache immutable. Els canvis de vault i els refrescos explícits han d'invalidar la clau corresponent abans de tornar a consultar.
+- Nota: una promesa compartida només elimina solapaments mentre la consulta és
+  activa. Els remuntatges seqüencials de Knowledge poden repetir l'arbre un cop
+  resolta si `staleTime` és zero. Cal reutilitzar-lo durant una finestra curta i
+  invalidar la mateixa clau després de crear, desar, moure, duplicar, eliminar,
+  restaurar o aplicar plantilles; no s'ha de mantenir una cache sense límit.
 - Nota: no executar el binari de Vitest del frontend des de l'arrel del repositori, perquè no carregarà la configuració jsdom del paquet i les proves d'emmagatzematge fallaran falsament. Cal executar-lo amb `frontend/` com a directori de treball.
+- Nota: un cop el directori de treball ja és `frontend/`, no s'han de repetir
+  prefixes `frontend/` en crear dependències temporals o invocar binaris; això
+  apunta a un arbre inexistent `frontend/frontend` i produeix falsos errors de
+  mòdul no trobat. Cal resoldre i verificar el directori de treball abans de
+  construir les rutes de validació.
 - Nota: no introduir `QueryClient.fetchQuery` en la versió actual de TanStack, perquè està deprecat i el lint estricte ho rebutja. Cal usar `QueryClient.query` per compartir consultes imperatives.
 - Nota: no comptar imports dinàmics repetits a les façanes públiques i al router com
   si fossin chunks diferents. El contracte de composició ha de comparar el
@@ -207,3 +217,21 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   responien en 61 ms (HTML), 93 ms (vaults) i 157 ms (resum lateral). El resum
   compacte real ocupava 706.876 bytes, de manera que la següent optimització ha
   de reduir-ne la projecció i el cost de processament al navegador.
+
+## Resultat de la reutilització acotada de l'arbre
+
+- Amb 1.849 pàgines sintètiques i navegació Knowledge → Correu → Knowledge,
+  `origin/main` demanava dues vegades el mateix arbre: 2 × 209.540 = 419.080
+  bytes de JSON sense comprimir.
+- Una finestra de frescor de 15 segons redueix el recorregut a una petició de
+  209.540 bytes: 209.540 bytes i un parse/build d'arbre menys, un 50% d'estalvi.
+- La creació, desament, patch, eliminació, duplicació, restauració i aplicació
+  massiva de plantilles invaliden explícitament la clau; canviar de vault usa
+  una clau diferent. L'API pública, el payload i la UX no canvien.
+- La prova Playwright bloqueja xarxa externa, usa exclusivament dades sintètiques
+  i confirma zero peticions al catàleg complet `/api/vault/pages` durant aquest
+  recorregut.
+- Ajornar manualment la consulta fins després del primer pintat es va descartar:
+  la mesura equivalent mostrava que `origin/main` ja començava la consulta
+  després del primer contingut i l'ajornament afegia latència sense estalviar
+  bytes.

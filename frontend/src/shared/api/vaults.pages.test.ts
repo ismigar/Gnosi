@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requestAt, resetApiTestStorage } from '../../../tests/api-request';
+import { queryClient } from './query-client';
 import {
   createVaultPage,
   deleteVaultPage,
@@ -14,7 +15,7 @@ import {
   warmVaultPagePreviews,
 } from './vaults';
 
-afterEach(() => { resetApiTestStorage(); vi.unstubAllGlobals(); });
+afterEach(() => { queryClient.clear(); resetApiTestStorage(); vi.unstubAllGlobals(); });
 
 describe('vault pages API', () => {
   it('loads page lists and details with exact query, path and abort signal', async () => {
@@ -70,6 +71,27 @@ describe('vault pages API', () => {
     const summaryUrl = new URL(requestAt(fetchMock.mock.calls, 0).url);
     expect(summaryUrl.pathname).toBe('/api/vault/sidebar/tree');
     expect(Object.fromEntries(summaryUrl.searchParams)).toEqual({});
+  });
+
+
+  it('invalidates the reusable sidebar projection after a page mutation', async () => {
+    const pages = [{ id: 'page-1', title: 'Page one' }];
+    const created = { id: 'page-2', message: 'created', status: 'ok' };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(pages))
+      .mockResolvedValueOnce(Response.json(created))
+      .mockResolvedValueOnce(Response.json([...pages, created]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchVaultSidebarSummary();
+    await createVaultPage({ content: '', title: 'Page two' });
+    await fetchVaultSidebarSummary();
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(new URL(requestAt(fetchMock.mock.calls, 0).url).pathname).toBe('/api/vault/sidebar/tree');
+    expect(new URL(requestAt(fetchMock.mock.calls, 1).url).pathname).toBe('/api/vault/pages');
+    expect(new URL(requestAt(fetchMock.mock.calls, 2).url).pathname).toBe('/api/vault/sidebar/tree');
   });
 
 

@@ -1,6 +1,6 @@
 import type { components, operations } from '../../generated/openapi';
 import { bootstrapQueryKeys } from './bootstrap-query-keys';
-import { fetchCachedQuery } from './cached-query';
+import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
@@ -238,7 +238,10 @@ export async function fetchVaultSidebarSummary(
   const pages = await fetchCachedQuery({
     queryKey: bootstrapQueryKeys.vaultSidebar(),
     signal,
-    staleTime: 0,
+    // Route transitions can remount Knowledge consumers sequentially after the
+    // first promise has settled. Reuse the immutable projection briefly instead
+    // of downloading the complete tree again.
+    staleTime: 15_000,
     queryFn: async (sharedSignal) => unwrapApiResult<VaultSidebarTreePage[], unknown>(
       await apiClient.GET('/api/vault/sidebar/tree', { signal: sharedSignal }),
     ),
@@ -251,6 +254,18 @@ export async function fetchVaultSidebarSummary(
     folder: page.folder ?? '',
     resolved_table_id: page.resolved_table_id ?? null,
   }));
+}
+
+
+export async function invalidateVaultSidebarSummary(): Promise<void> {
+  await invalidateCachedQuery(bootstrapQueryKeys.vaultSidebar());
+}
+
+
+async function invalidateSidebarAfter<T>(request: Promise<T>): Promise<T> {
+  const result = await request;
+  await invalidateVaultSidebarSummary();
+  return result;
 }
 
 
@@ -320,11 +335,11 @@ export async function warmVaultPagePreviews(
 export async function createVaultPage(
   input: VaultPageSaveInput,
 ): Promise<VaultPageMutation> {
-  return unwrapApiResult<VaultPageMutation, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultPageMutation, unknown>(
     await apiClient.POST('/api/vault/pages', {
       body: materializeVaultPageSaveRequest(input),
     }),
-  );
+  ));
 }
 
 
@@ -332,12 +347,12 @@ export async function saveVaultPage(
   pageId: string,
   input: VaultPageSaveInput,
 ): Promise<VaultPageMutation> {
-  return unwrapApiResult<VaultPageMutation, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultPageMutation, unknown>(
     await apiClient.PUT('/api/vault/pages/{page_id}', {
       body: materializeVaultPageSaveRequest(input),
       params: { path: { page_id: pageId } },
     }),
-  );
+  ));
 }
 
 
@@ -345,43 +360,43 @@ export async function patchVaultPage(
   pageId: string,
   input: VaultPagePatchInput,
 ): Promise<VaultPageMutation> {
-  return unwrapApiResult<VaultPageMutation, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultPageMutation, unknown>(
     await apiClient.PATCH('/api/vault/pages/{page_id}', {
       body: materializeVaultPagePatchRequest(input),
       params: { path: { page_id: pageId } },
     }),
-  );
+  ));
 }
 
 
 export async function deleteVaultPage(
   pageId: string,
 ): Promise<VaultPageDeletion> {
-  return unwrapApiResult<VaultPageDeletion, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultPageDeletion, unknown>(
     await apiClient.DELETE('/api/vault/pages/{page_id}', {
       params: { path: { page_id: pageId } },
     }),
-  );
+  ));
 }
 
 
 export async function duplicateVaultPage(
   pageId: string,
 ): Promise<VaultPageDuplicate> {
-  return unwrapApiResult<VaultPageDuplicate, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultPageDuplicate, unknown>(
     await apiClient.POST('/api/vault/pages/{page_id}/duplicate', {
       params: { path: { page_id: pageId } },
     }),
-  );
+  ));
 }
 
 
 export async function bulkApplyVaultTemplate(
   input: VaultBulkTemplateInput,
 ): Promise<VaultBulkTemplateResult> {
-  return unwrapApiResult<VaultBulkTemplateResult, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultBulkTemplateResult, unknown>(
     await apiClient.POST('/api/vault/bulk-apply-template', { body: input }),
-  );
+  ));
 }
 
 
@@ -414,11 +429,11 @@ export async function fetchVaultTrash(
 export async function restoreVaultPage(
   pageId: string,
 ): Promise<VaultPageRestore> {
-  return unwrapApiResult<VaultPageRestore, unknown>(
+  return invalidateSidebarAfter(unwrapApiResult<VaultPageRestore, unknown>(
     await apiClient.POST('/api/vault/pages/{page_id}/restore', {
       params: { path: { page_id: pageId } },
     }),
-  );
+  ));
 }
 
 
