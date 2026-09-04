@@ -34,6 +34,7 @@ from backend.services import (
     llm_wiki_pdf_annotations as llm_wiki_pdf_annotations,
     llm_wiki_storage as llm_wiki_storage,
 )
+from backend.utils.open_values import float_value, iterable_values, length_value
 
 logger = get_logger(__name__)
 
@@ -105,7 +106,10 @@ def read_source(
         config,
     )
     text = "\n\n".join(
-        segment["text"] for origin in origins for segment in origin.get("segments") or []
+        str(segment.get("text") or "")
+        for origin in origins
+        for segment in iterable_values(origin.get("segments") or [])
+        if isinstance(segment, dict)
     )
     kinds = "+".join(dict.fromkeys(str(origin.get("kind") or "") for origin in origins))
     return text, kinds or "empty"
@@ -413,6 +417,7 @@ def process_resource(
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.agent.factory import generate_text
+
     dependencies = llm_wiki_ingestion.IngestionDependencies(
         load_config=llm_wiki_config.load_config,
         source_config=llm_wiki_config.get_source_config,
@@ -485,11 +490,14 @@ def start_ingest(
     previous = llm_wiki_storage.get_job_status(source_page_id, source_table_id)
     resume_checkpoint: dict[str, object] | None = None
     if not force and previous.get("phase") == PHASE_PARTIAL and previous.get("job_id"):
-        resume_checkpoint = llm_wiki_storage.load_checkpoint(
+        loaded_checkpoint = llm_wiki_storage.load_checkpoint(
             str(previous["job_id"]),
             "reduced-plan",
         )
+        if isinstance(loaded_checkpoint, dict):
+            resume_checkpoint = {str(key): value for key, value in loaded_checkpoint.items()}
     job = llm_wiki_storage.create_job(source_table_id, source_page_id)
+    job_id = str(job["job_id"])
     active_vault = cv.get_active_vault_path()
 
     def _worker() -> None:
@@ -508,10 +516,10 @@ def start_ingest(
                 source_table_id=source_table_id,
                 source_table=source_table,
                 source_config=source_config,
-                job_id=job["job_id"],
+                job_id=job_id,
                 resume_checkpoint=resume_checkpoint,
             )
-            llm_wiki_storage.update_job(job["job_id"], phase=PHASE_INDEXING, progress=90)
+            llm_wiki_storage.update_job(job_id, phase=PHASE_INDEXING, progress=90)
             index_report = llm_wiki_indices.rebuild_indexes(
                 brain_table_id,
                 llm_wiki_config.load_config(),
@@ -526,7 +534,7 @@ def start_ingest(
             )
             _on_ingest_success(source_page_id, source_table_id, report)
             llm_wiki_storage.finish_job(
-                job["job_id"],
+                job_id,
                 phase=PHASE_DONE,
                 pages_touched=report["pages_touched"],
                 created=report["created"],
@@ -537,9 +545,9 @@ def start_ingest(
             )
         except Exception as exc:  # noqa: BLE001
             logger.error("llm_wiki ingest failed for %s: %s", source_page_id, exc)
-            checkpoint = llm_wiki_storage.load_checkpoint(job["job_id"], "reduced-plan")
+            checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
             phase = PHASE_PARTIAL if checkpoint else PHASE_ERROR
-            llm_wiki_storage.finish_job(job["job_id"], phase=phase, error=str(exc))
+            llm_wiki_storage.finish_job(job_id, phase=phase, error=str(exc))
         finally:
             if token is not None:
                 cv.active_vault_path.reset(token)
@@ -570,8 +578,8 @@ def _on_ingest_success(
                 "page_id": source_page_id,
                 "source_table_id": source_table_id,
                 "pages_touched": report.get("pages_touched", 0),
-                "created": len(report.get("created", [])),
-                "updated": len(report.get("updated", [])),
+                "created": length_value(report.get("created", [])),
+                "updated": length_value(report.get("updated", [])),
             },
         )
     except Exception as exc:  # noqa: BLE001
@@ -645,7 +653,7 @@ def _locator_label(locator: dict[str, object]) -> str:
         end = locator.get("line_end") or locator["line_start"]
         return f"l. {locator['line_start']}–{end}"
     if locator.get("start") is not None:
-        return _format_timestamp(float(locator.get("start") or 0))
+        return _format_timestamp(float_value(locator.get("start") or 0))
     if locator.get("image"):
         return str(locator["image"])
     return str(locator.get("label") or "fragment")

@@ -81,6 +81,13 @@
 - Note: FastAPI's Pydantic-v2 compatibility `ModelField` does not expose a
   `.required` attribute. Assert body optionality through
   `body_field.field_info.is_required()` in contract tests.
+- Note: replacing `Any` with `object` does not make opaque JSON values iterable,
+  indexable or numeric. Preserve Python's native runtime behavior through the
+  shared `open_values` adapters, and narrow documented records with their owning
+  type guards; do not hide cross-module errors by skipping imports in focal mypy.
+- Note: focused LLM Wiki and agent tests can otherwise resolve the machine-local
+  tool registry and capability-health databases. Set `GNOSI_DATA_DIR` to an
+  explicit temporary directory so validation cannot touch personal runtime data.
 
 ## 6. Verification
 

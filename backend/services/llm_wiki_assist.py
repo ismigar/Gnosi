@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from backend.config.logger_config import get_logger
+from backend.utils.open_values import iterable_values
 from backend.domains.llm_wiki import legacy_ports
 
 logger = get_logger(__name__)
@@ -83,7 +84,7 @@ def learn_pair(heard: str, meant: str) -> int:
 
 
 def _suggestion_context(sug: Dict[str, object]) -> str:
-    members = ", ".join(sug.get("member_titles") or [])
+    members = ", ".join(str(member) for member in iterable_values(sug.get("member_titles") or []))
     return (
         f"QUESTION answered by the note: {sug.get('question') or '(none)'}\n"
         f"WHY the notes connect: {sug.get('why') or '(not specified)'}\n"

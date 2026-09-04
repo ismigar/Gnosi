@@ -8,6 +8,7 @@ import json
 import re
 import uuid
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Iterable, Optional, cast
 
 from backend.config.logger_config import get_logger
@@ -17,6 +18,12 @@ from backend.domains.llm_wiki import search_index as llm_wiki_search_index
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
 from backend.services import llm_wiki_config, llm_wiki_storage
+from backend.utils.open_values import (
+    get_value,
+    integer_value,
+    iterable_values,
+    length_value,
+)
 from backend.utils.safe_io import safe_write_json
 
 logger = get_logger(__name__)
@@ -60,7 +67,7 @@ def ensure_system_pages(brain_table_id: object, config: dict[str, object]) -> di
     brain_table = _table(brain_table_id) or {}
     props_by_id = {
         str(prop.get("id") or ""): prop
-        for prop in brain_table.get("properties") or []
+        for prop in iterable_values(brain_table.get("properties") or [])
         if isinstance(prop, dict) and prop.get("id")
     }
     index_metadata: dict[str, object] = {}
@@ -93,9 +100,9 @@ def ensure_system_pages(brain_table_id: object, config: dict[str, object]) -> di
         system_metadata,
     )
     return {
-        ROLE_GENERAL_INDEX: general["id"],
-        ROLE_SCHEMA: schema["id"],
-        ROLE_LOG: log_page["id"],
+        ROLE_GENERAL_INDEX: str(general["id"]),
+        ROLE_SCHEMA: str(schema["id"]),
+        ROLE_LOG: str(log_page["id"]),
     }
 
 
@@ -127,7 +134,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, object]) -> dict[str,
     brain_table = _table(brain_table_id)
     props_by_id = {
         str(prop.get("id") or ""): prop
-        for prop in (brain_table or {}).get("properties") or []
+        for prop in iterable_values((brain_table or {}).get("properties") or [])
         if isinstance(prop, dict) and prop.get("id")
     }
 
@@ -150,7 +157,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, object]) -> dict[str,
         source_cfg: dict[str, object] = next(
             (
                 dict(item)
-                for item in config.get("source_tables") or []
+                for item in iterable_values(config.get("source_tables") or [])
                 if isinstance(item, dict) and item.get("table_id") == source_table_id
             ),
             {},
@@ -168,7 +175,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, object]) -> dict[str,
         )
 
     dimension_pages: list[dict[str, object]] = []
-    for field_id in config.get("index_field_ids") or []:
+    for field_id in iterable_values(config.get("index_field_ids") or []):
         prop = props_by_id.get(str(field_id))
         if not prop:
             continue
@@ -204,12 +211,12 @@ def sync_source_dimensions(
     brain_table = _table(brain_table_id) or {}
     brain_props = {
         str(prop.get("id") or ""): prop
-        for prop in brain_table.get("properties") or []
+        for prop in iterable_values(brain_table.get("properties") or [])
         if isinstance(prop, dict) and prop.get("id")
     }
     source_configs = {
         str(item.get("table_id") or ""): item
-        for item in config.get("source_tables") or []
+        for item in iterable_values(config.get("source_tables") or [])
         if isinstance(item, dict) and item.get("table_id")
     }
     source_tables = {
@@ -308,12 +315,12 @@ def append_log(
     entry = (
         f"- **{timestamp}** · {_wikilink(resource_id, resource_title)} · "
         f"table `{source_table_id}` · {report.get('source_count', 0)} sources · "
-        f"{len(report.get('created') or [])} created · "
-        f"{len(report.get('updated') or [])} updated · "
+        f"{length_value(report.get('created') or [])} created · "
+        f"{length_value(report.get('updated') or [])} updated · "
         f"model `{report.get('model') or '—'}`"
     )
     if warnings:
-        entry += f" · {len(warnings)} warnings"
+        entry += f" · {length_value(warnings)} warnings"
     updated = (existing.rstrip() + "\n" + entry).strip()
     _save_existing_page(
         cast(Path, path),
@@ -324,6 +331,7 @@ def append_log(
 
 def rebuild_search_cache(brain_table_id: str) -> int:
     """Write a rebuildable Brain-only lexical cache outside the synced vault."""
+
     def clear_search_cache(table_id: str) -> None:
         from backend.agent.vault_tools import clear_wiki_search_cache
 
@@ -445,7 +453,7 @@ def search_vector(text: str, dimensions: int = 192) -> list[float]:
     return llm_wiki_search_index.search_vector(text, dimensions)
 
 
-def vector_similarity(left: list[object], right: list[object]) -> float:
+def vector_similarity(left: Sequence[object], right: Sequence[object]) -> float:
     """Cosine similarity for normalized cache vectors."""
     return llm_wiki_search_index.vector_similarity(left, right)
 
@@ -538,11 +546,13 @@ def _index_prefix(config: dict[str, object]) -> str:
 
 def _schema_content(config: dict[str, object]) -> str:
     source_lines = []
-    for source in config.get("source_tables") or []:
+    for source in iterable_values(config.get("source_tables") or []):
+        if not is_record(source):
+            continue
         source_lines.append(
             f"- Table `{source.get('table_id')}` · attachments "
-            f"{', '.join(source.get('attachment_property_ids') or []) or '—'} · URL "
-            f"{', '.join(source.get('url_property_ids') or []) or '—'}"
+            f"{', '.join(str(item) for item in iterable_values(source.get('attachment_property_ids') or [])) or '—'} · URL "
+            f"{', '.join(str(item) for item in iterable_values(source.get('url_property_ids') or [])) or '—'}"
         )
     return "\n".join(
         [
@@ -551,7 +561,7 @@ def _schema_content(config: dict[str, object]) -> str:
             "",
             f"- Configuration version: `{config.get('version', 2)}`",
             f"- Brain table: `{config.get('brain_table_id') or '—'}`",
-            f"- Index fields: `{', '.join(config.get('index_field_ids') or []) or '—'}`",
+            f"- Index fields: `{', '.join(str(item) for item in iterable_values(config.get('index_field_ids') or [])) or '—'}`",
             "- Sources:",
             *(source_lines or ["  - No configured sources"]),
             "",
@@ -567,7 +577,7 @@ def _set_visible_note_type(
     props_by_id: dict[str, dict[str, object]],
     kind: str,
 ) -> None:
-    role_id = str((config.get("brain_roles") or {}).get("note_type") or "")
+    role_id = str(get_value(config.get("brain_roles") or {}, "note_type") or "")
     prop = props_by_id.get(role_id)
     if prop and prop.get("name"):
         metadata[str(prop["name"])] = llm_wiki_config.note_type_value(
@@ -614,9 +624,7 @@ def _upsert_managed_page(
             "title": str(old_meta.get("title") or title),
         }
 
-    brain_dir = llm_wiki_legacy_ports.resolve_table_folder(
-        {"table_id": brain_table_id}
-    )
+    brain_dir = llm_wiki_legacy_ports.resolve_table_folder({"table_id": brain_table_id})
     if not brain_dir:
         raise RuntimeError("Could not resolve the Brain table folder")
     brain_dir.mkdir(parents=True, exist_ok=True)
@@ -679,9 +687,7 @@ def _save_existing_page(path: Path, metadata: PageMetadata, body: str) -> None:
 def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
     if not path or not path.exists():
         return {}, ""
-    return llm_wiki_legacy_ports.parse_frontmatter(
-        path.read_text(encoding="utf-8"), path
-    )
+    return llm_wiki_legacy_ports.parse_frontmatter(path.read_text(encoding="utf-8"), path)
 
 
 def _brain_pages(brain_table_id: object) -> list[object]:
@@ -755,7 +761,7 @@ def _safe_token(value: object) -> str:
 def _sortable_integer(value: object) -> int:
     """Return a stable numeric sort key for typed or legacy position values."""
     try:
-        return int(value or 0)
+        return integer_value(value or 0)
     except (TypeError, ValueError):
         match = re.search(r"-?\d+", str(value or ""))
         return int(match.group(0)) if match else 0

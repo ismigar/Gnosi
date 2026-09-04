@@ -12,6 +12,7 @@ frontmatter) is in PURE functions at the top, testable without a backend (cf. di
 pages or a vault in /tmp, NEVER real notes (cf. memories vault_editor_qa_safety and
 collab_ws_bypasses_fetch_block).
 """
+
 from __future__ import annotations
 
 import re
@@ -25,6 +26,7 @@ from typing import Any, Dict, List, Optional, cast
 from langchain_core.tools import BaseTool, StructuredTool, tool
 
 from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
+from backend.utils.open_values import list_values
 
 MAX_PAGE_READ_CHARS = 16_000
 MAX_PDF_READ_CHARS = 20_000
@@ -52,6 +54,7 @@ def _read_text_prefix(path: Path, max_chars: int) -> tuple[str, bool]:
         text = handle.read(max_chars + 1)
     return text[:max_chars], len(text) > max_chars
 
+
 def _tool_function(value: BaseTool) -> Callable[..., str]:
     """Expose the callable wrapped by LangChain's typed tool boundary."""
     if not isinstance(value, StructuredTool):
@@ -66,6 +69,7 @@ def build_page_frontmatter(title: str, metadata: Optional[Dict[str, Any]] = None
     """Models the YAML frontmatter of a new page (title + metadata + id if needed)."""
     import yaml
     import uuid
+
     meta = dict(metadata or {})
     meta.setdefault("title", title)
     if not meta.get("id"):
@@ -77,7 +81,7 @@ def build_cornell_note(title: str, *, cues: List[str], notes: str, summary: str)
     """Builds a Cornell-method study note in Markdown (pure).
 
     Structure: Notes (body) | Cues/questions (left column as a list) | Summary (footer).
-    
+
     """
     cue_block = "\n".join(f"- {c.strip()}" for c in cues if c.strip()) or "_—_"
     return (
@@ -127,20 +131,21 @@ def _expanded_search_terms(query: str) -> set[str]:
     return expanded
 
 
-def rank_link_candidates(page_text: str, candidates: List[Dict[str, Any]],
-                         top_k: int = 8) -> List[Dict[str, Any]]:
+def rank_link_candidates(
+    page_text: str, candidates: List[Dict[str, Any]], top_k: int = 8
+) -> List[Dict[str, Any]]:
     """Ranks {title,id,content} candidates by vocabulary overlap with the page (pure).
 
     Cheap heuristic (Jaccard of words ≥4 letters) for `propose_links`. The final
     decision is made by the LLM; this only prioritizes what we show it.
-    
+
     """
     base = _tokenize(page_text)
     if not base:
         return []
     scored = []
     for c in candidates:
-        toks = _tokenize(f"{c.get('title','')} {c.get('content','')}")
+        toks = _tokenize(f"{c.get('title', '')} {c.get('content', '')}")
         if not toks:
             continue
         inter = len(base & toks)
@@ -158,11 +163,13 @@ def rank_link_candidates(page_text: str, candidates: List[Dict[str, Any]],
 def _resolve_page_path(page_id_or_title: str) -> Path | None:
     """Resolves id or title → Path of the .md within the active vault (via page index)."""
     from backend.services.context_vars import get_active_vault_path
+
     vault = get_active_vault_path()
     if not vault:
         return None
     needle = str(page_id_or_title).strip()
     from backend.services.path_resolver import path_resolver
+
     indexed = path_resolver.find_path(needle, vault)
     if indexed:
         return indexed
@@ -198,6 +205,7 @@ def read_page(page_id_or_title: str) -> str:
 def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
     """Extracts text from a PDF (from Assets/Library). Materializes it if online-only."""
     from backend.services.context_vars import get_active_vault_path
+
     vault = get_active_vault_path()
     if not vault:
         return "Error: there is no active vault."
@@ -216,6 +224,7 @@ def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
         return f"PDF does not exist: {target}"
     try:
         from pypdf import PdfReader  # dep present in the backend
+
         reader = PdfReader(str(target))
         requested_chars = max(1, min(int(max_chars or DEFAULT_PDF_READ_CHARS), MAX_PDF_READ_CHARS))
         chunks = []
@@ -224,20 +233,29 @@ def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
             if extracted >= requested_chars:
                 break
             chunk = page.extract_text() or ""
-            chunks.append(chunk[:requested_chars - extracted])
+            chunks.append(chunk[: requested_chars - extracted])
             extracted += len(chunks[-1])
         text = "\n".join(chunks)
-        return text[:requested_chars] if text.strip() else "(PDF has no extractable text; it may be scanned)"
+        return (
+            text[:requested_chars]
+            if text.strip()
+            else "(PDF has no extractable text; it may be scanned)"
+        )
     except Exception as e:
         return f"Error reading the PDF: {e}"
 
 
 @tool
-def create_page(title: str, content: str = "", folder: str = "Imported",
-                metadata: Optional[Dict[str, Any]] = None) -> str:
+def create_page(
+    title: str,
+    content: str = "",
+    folder: str = "Imported",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> str:
     """Creates a new page in the Vault (folder `folder`) and registers it in the index. Returns the id."""
     from backend.services.context_vars import get_active_vault_path
     from backend.domains.vault.links.runtime import register_page_in_index
+
     vault = get_active_vault_path()
     if not vault:
         return "Error: there is no active vault."
@@ -259,6 +277,7 @@ def create_page(title: str, content: str = "", folder: str = "Imported",
     try:
         from backend.agent.gnosi_tools import _page_lock
         from backend.utils.safe_io import safe_write_text
+
         with _page_lock(path):
             if path.exists():
                 path = target_dir / f"{safe} {page_id[:8]}.md"
@@ -281,8 +300,10 @@ def propose_links(page_id_or_title: str, k: int = 8) -> str:
     if page.startswith("No page was found"):
         return page
     results = get_vault_store().search_vault(page[:1500], k=max(k * 2, 12)) or []
-    candidates = [{"title": (r.get("metadata") or {}).get("source", "?"),
-                   "content": r.get("content", "")} for r in results]
+    candidates = [
+        {"title": (r.get("metadata") or {}).get("source", "?"), "content": r.get("content", "")}
+        for r in results
+    ]
     ranked = rank_link_candidates(page, candidates, top_k=k)
     if not ranked:
         return "No clear connections were found for this page."
@@ -296,12 +317,9 @@ def propose_links(page_id_or_title: str, k: int = 8) -> str:
 def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries") -> str:
     """Summarizes a page or PDF into a Cornell note and saves it as a new Vault page."""
     from .factory import generate_text
+
     is_pdf = str(source).lower().endswith(".pdf")
-    raw = (
-        _tool_function(read_pdf)(source)
-        if is_pdf
-        else _tool_function(read_page)(source)
-    )
+    raw = _tool_function(read_pdf)(source) if is_pdf else _tool_function(read_page)(source)
     if raw.startswith("No ") or raw.startswith("Error"):
         return raw
     prompt = (
@@ -321,6 +339,7 @@ def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries"
 def _parse_cornell_json(text: str) -> tuple[str, list[str], str]:
     """Tolerant: extracts notes/cues/summary from a JSON (or degrades to plain text)."""
     import json
+
     m = re.search(r"\{.*\}", text or "", re.DOTALL)
     if m:
         try:
@@ -358,8 +377,10 @@ def query_wiki(query: str, k: int = 5) -> str:
 
     brain_id = llm_wiki_config.get_brain_table_id()
     if not brain_id:
-        return ("No Brain table is assigned (Settings → Plugins → Brain). "
-                "The knowledge wiki cannot be queried.")
+        return (
+            "No Brain table is assigned (Settings → Plugins → Brain). "
+            "The knowledge wiki cannot be queried."
+        )
 
     normalized_query = " ".join(str(query or "").casefold().split())
     interpretation = interpret_request(query, mode="lookup")
@@ -392,7 +413,7 @@ def query_wiki(query: str, k: int = 5) -> str:
         inter = len(base & toks)
         lexical_ratio = inter / max(1, len(base))
         vector_score = llm_wiki_indices.vector_similarity(
-            record.get("vector") or [],
+            list_values(record.get("vector") or []),
             query_vector,
         )
         if inter == 0 and vector_score < 0.08:
@@ -401,15 +422,17 @@ def query_wiki(query: str, k: int = 5) -> str:
         index_boost = 3 if role in {"general-index", "dimension-index", "resource-index"} else 0
         normalized_title = " ".join(title.casefold().split())
         exact_title_boost = 4 if normalized_query and normalized_query in normalized_title else 0
-        scored.append({
-            "title": title,
-            "type": str(record.get("note_type") or ""),
-            "excerpt": body.strip()[:800],
-            "source_table_id": str(record.get("source_table_id") or ""),
-            "resource_id": str(record.get("resource_id") or ""),
-            "role": role,
-            "score": (lexical_ratio * 4) + exact_title_boost + index_boost + (vector_score * 2),
-        })
+        scored.append(
+            {
+                "title": title,
+                "type": str(record.get("note_type") or ""),
+                "excerpt": body.strip()[:800],
+                "source_table_id": str(record.get("source_table_id") or ""),
+                "resource_id": str(record.get("resource_id") or ""),
+                "role": role,
+                "score": (lexical_ratio * 4) + exact_title_boost + index_boost + (vector_score * 2),
+            }
+        )
 
     if not scored:
         return f"No Brain note related to «{query}» was found."
@@ -417,11 +440,12 @@ def query_wiki(query: str, k: int = 5) -> str:
 
     out = [f"Relevant Brain notes for «{query}»:\n"]
     injection_count = 0
-    for n in scored[:max(1, k)]:
+    for n in scored[: max(1, k)]:
         head = f"## {n['title']}" + (f" ({n['type']})" if n["type"] else "")
         out.append(head)
         if n["excerpt"]:
             from backend.agent.context_safety import sanitize_untrusted_context
+
             safe_excerpt, flags = sanitize_untrusted_context(n["excerpt"], max_chars=800)
             injection_count += len(flags)
             out.append(safe_excerpt)
@@ -448,5 +472,10 @@ def query_wiki(query: str, k: int = 5) -> str:
 
 
 VAULT_KNOWLEDGE_TOOLS = [
-    read_page, read_pdf, create_page, propose_links, summarize_to_cornell, query_wiki,
+    read_page,
+    read_pdf,
+    create_page,
+    propose_links,
+    summarize_to_cornell,
+    query_wiki,
 ]

@@ -8,6 +8,7 @@ The file lives at ``<vault>/.gnosi/llm_wiki.json`` so it follows the vault
 between devices.  Large derived artifacts and transient jobs do not live here;
 see :mod:`backend.services.llm_wiki_storage`.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,7 @@ from typing import Callable, Iterable, Optional, TypeGuard, cast
 
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
-from backend.utils.open_values import get_value, item_value, iterable_values
+from backend.utils.open_values import get_value, integer_value, item_value, iterable_values
 
 Config = dict[str, object]
 
@@ -177,16 +178,14 @@ def metadata_note_type(metadata: object) -> str:
 
 def _revision(value: object) -> int:
     try:
-        return max(0, int(value or 0))
+        return max(0, integer_value(value or 0))
     except (TypeError, ValueError):
         return 0
 
 
 def _properties(table: RecordReader | None) -> list[RegistryData]:
     return [
-        prop
-        for prop in iterable_values((table or {}).get("properties") or [])
-        if is_record(prop)
+        prop for prop in iterable_values((table or {}).get("properties") or []) if is_record(prop)
     ]
 
 
@@ -234,15 +233,17 @@ def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
         if not table_id or table_id in seen:
             continue
         normalized = _empty_source(table_id)
-        normalized.update({
-            "title_property_id": str(item.get("title_property_id") or "").strip(),
-            "attachment_property_ids": _unique_strings(item.get("attachment_property_ids")),
-            "url_property_ids": _unique_strings(item.get("url_property_ids")),
-            "language_property_id": str(item.get("language_property_id") or "").strip(),
-            "include_body": bool(item.get("include_body", False)),
-            "relation_property_id": str(item.get("relation_property_id") or "").strip(),
-            "dimension_mappings": _normalize_dimension_mappings(item.get("dimension_mappings")),
-        })
+        normalized.update(
+            {
+                "title_property_id": str(item.get("title_property_id") or "").strip(),
+                "attachment_property_ids": _unique_strings(item.get("attachment_property_ids")),
+                "url_property_ids": _unique_strings(item.get("url_property_ids")),
+                "language_property_id": str(item.get("language_property_id") or "").strip(),
+                "include_body": bool(item.get("include_body", False)),
+                "relation_property_id": str(item.get("relation_property_id") or "").strip(),
+                "dimension_mappings": _normalize_dimension_mappings(item.get("dimension_mappings")),
+            }
+        )
         sources.append(normalized)
         seen.add(table_id)
 
@@ -400,25 +401,30 @@ def auto_detect_source(
     if result["title_property_id"] not in by_id:
         title = next((p for p in props if _property_type(p) == "title"), None)
         if title is None:
-            title = next((p for p in props if _norm(p.get("name")) in {"title", "titol", "nom", "name"}), None)
+            title = next(
+                (p for p in props if _norm(p.get("name")) in {"title", "titol", "nom", "name"}),
+                None,
+            )
         result["title_property_id"] = _property_id(title or {})
 
-    valid_files = set(result["attachment_property_ids"]) & set(by_id)
+    valid_files = set(iterable_values(result["attachment_property_ids"])) & set(by_id)
     if not valid_files:
         valid_files = {
             _property_id(prop)
             for prop in props
             if _property_type(prop) in FILE_TYPES
-            or _norm(prop.get("name")) in {"files", "fitxers", "arxius", "arxiusadjunt", "adjunts", "attachments"}
+            or _norm(prop.get("name"))
+            in {"files", "fitxers", "arxius", "arxiusadjunt", "adjunts", "attachments"}
         }
     result["attachment_property_ids"] = [pid for pid in by_id if pid in valid_files]
 
-    valid_urls = set(result["url_property_ids"]) & set(by_id)
+    valid_urls = set(iterable_values(result["url_property_ids"])) & set(by_id)
     if not valid_urls:
         valid_urls = {
             _property_id(prop)
             for prop in props
-            if _property_type(prop) in URL_TYPES or _norm(prop.get("name")) in {"url", "enllac", "link"}
+            if _property_type(prop) in URL_TYPES
+            or _norm(prop.get("name")) in {"url", "enllac", "link"}
         }
     result["url_property_ids"] = [pid for pid in by_id if pid in valid_urls]
 
@@ -430,9 +436,7 @@ def auto_detect_source(
         result["language_property_id"] = _property_id(lang or {})
 
     brain_props = {
-        _property_id(prop): prop
-        for prop in _properties(brain_table)
-        if _property_id(prop)
+        _property_id(prop): prop for prop in _properties(brain_table) if _property_id(prop)
     }
     source_by_name = {_norm(prop.get("name")): prop for prop in props}
     mappings = _normalize_dimension_mappings(result.get("dimension_mappings"))
@@ -442,8 +446,7 @@ def auto_detect_source(
             continue
         existing = mappings.get(brain_field_id)
         if existing and (
-            existing["mode"] != "source"
-            or existing.get("source_property_id") in by_id
+            existing["mode"] != "source" or existing.get("source_property_id") in by_id
         ):
             continue
         source_prop = source_by_name.get(_norm(brain_prop.get("name")))

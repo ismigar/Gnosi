@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Protocol, cast
 
+from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import get_value, iterable_values
 
 
@@ -109,8 +110,8 @@ def start_source_process(
         language_property = next(
             (
                 prop
-                for prop in source_table.get("properties") or []
-                if str(prop.get("id") or "") == language_property_id
+                for prop in iterable_values(source_table.get("properties") or [])
+                if is_record(prop) and str(prop.get("id") or "") == language_property_id
             ),
             None,
         )

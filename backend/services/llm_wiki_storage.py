@@ -14,7 +14,7 @@ from typing import Optional
 from backend.domains.llm_wiki import legacy_ports
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
-from backend.utils.open_values import get_value
+from backend.utils.open_values import float_value, get_value
 from backend.utils.safe_io import safe_write_json
 
 _LOCK = threading.RLock()
@@ -24,6 +24,13 @@ _PAGE_STATE_CACHE: dict[str, tuple[int, int, dict[str, object]]] = {}
 
 PAGE_STATE_VERSION = 1
 MANAGED_METADATA_PREFIX = "llm_wiki_"
+
+
+def _string_record(value: object) -> dict[str, object] | None:
+    """Return a JSON object with textual keys without coercing malformed input."""
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        return None
+    return {key: item for key, item in value.items() if isinstance(key, str)}
 
 
 def _safe_component(value: object) -> str:
@@ -202,8 +209,9 @@ def create_job(source_table_id: str, resource_id: str) -> dict[str, object]:
             "updated_at": now,
             "finished_at": None,
         }
-        _JOBS[job["job_id"]] = job
-        _RUNNING_BY_RESOURCE[key] = job["job_id"]
+        job_id = str(job["job_id"])
+        _JOBS[job_id] = job
+        _RUNNING_BY_RESOURCE[key] = job_id
         _persist_job(job)
         return deepcopy(job)
 
@@ -270,20 +278,24 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, obje
         job = deepcopy(_JOBS.get(wanted)) if wanted in _JOBS else None
         if job is None and source_table_id:
             latest = _read_json(_latest_path(source_table_id, wanted))
-            job_id = str((latest or {}).get("job_id") or "")
-            job = deepcopy(_JOBS.get(job_id)) if job_id in _JOBS else _read_json(_job_path(job_id))
+            job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
+            job = (
+                deepcopy(_JOBS[job_id])
+                if job_id in _JOBS
+                else _string_record(_read_json(_job_path(job_id)))
+            )
         if job is None:
             # Compatibility lookup for the old status/{resource_id} endpoint.
             latest_dir = local_root() / "latest"
             if latest_dir.exists():
                 for candidate in latest_dir.glob(f"*/{_safe_component(wanted)}.json"):
                     latest = _read_json(candidate)
-                    job_id = str((latest or {}).get("job_id") or "")
-                    candidate_job = _read_json(_job_path(job_id))
-                    if candidate_job and (
+                    job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
+                    candidate_job = _string_record(_read_json(_job_path(job_id)))
+                    if candidate_job is not None and (
                         job is None
-                        or float(candidate_job.get("updated_at") or 0)
-                        > float(job.get("updated_at") or 0)
+                        or float_value(candidate_job.get("updated_at") or 0)
+                        > float_value(job.get("updated_at") or 0)
                     ):
                         job = candidate_job
         if not job:
@@ -381,9 +393,9 @@ def processed_resources(source_table_ids: list[str]) -> dict[str, dict[str, obje
         table_root = manifests_root / _safe_component(source_table_id)
         for path in table_root.glob("*.json") if table_root.exists() else []:
             manifest = _read_json(path)
-            resource_id = str((manifest or {}).get("resource_id") or "")
+            resource_id = str(manifest.get("resource_id") or "") if is_record(manifest) else ""
             if resource_id:
-                table_items[resource_id] = (manifest or {}).get("updated_at")
+                table_items[resource_id] = get_value(manifest, "updated_at")
         out[str(source_table_id)] = table_items
     return out
 
@@ -397,7 +409,7 @@ def resource_statuses(source_table_ids: list[str]) -> dict[str, dict[str, dict[s
         table_root = latest_root / _safe_component(source_table_id)
         for path in table_root.glob("*.json") if table_root.exists() else []:
             latest = _read_json(path)
-            job_id = str((latest or {}).get("job_id") or "")
+            job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
             status = get_job_status(job_id) if job_id else {}
             resource_id = str(status.get("resource_id") or "")
             if resource_id:
@@ -412,7 +424,9 @@ def save_manifest(source_table_id: str, resource_id: str, manifest: dict[str, ob
     safe_write_json(path, manifest, indent=2, ensure_ascii=False)
 
 
-def load_evidence(resource_id: str, snapshot_id: str, segment_id: str) -> Optional[dict[str, object]]:
+def load_evidence(
+    resource_id: str, snapshot_id: str, segment_id: str
+) -> Optional[dict[str, object]]:
     """Resolve a citation without trusting a client-supplied filesystem path."""
     wanted_resource = _safe_component(resource_id)
     wanted_snapshot = _safe_component(snapshot_id)

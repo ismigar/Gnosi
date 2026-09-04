@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import legacy_ports
+from backend.utils.open_values import iterable_values
 
 logger = get_logger(__name__)
 
@@ -74,9 +75,9 @@ def add_suggestions(new_items: List[Dict[str, object]]) -> int:
     added = 0
     with _lock:
         items = load_queue()
-        pending_keys = {frozenset(s.get("member_ids") or []) for s in items}
+        pending_keys = {frozenset(iterable_values(s.get("member_ids") or [])) for s in items}
         for s in new_items:
-            members = frozenset(s.get("member_ids") or [])
+            members = frozenset(iterable_values(s.get("member_ids") or []))
             if not members or members in pending_keys:
                 continue
             s.setdefault("id", str(uuid.uuid4()))
@@ -117,7 +118,9 @@ def list_graph_edges() -> List[Dict[str, object]]:
 
     edges: List[Dict[str, object]] = []
     for suggestion in load_queue():
-        members = [str(member) for member in suggestion.get("member_ids") or [] if member]
+        members = [
+            str(member) for member in iterable_values(suggestion.get("member_ids") or []) if member
+        ]
         if len(members) < 2:
             continue
         source = members[0]
@@ -186,7 +189,7 @@ def generate_suggestions(
         parsed = _parse_suggestions(raw, {n["id"] for n in notes}, {n["id"]: n for n in notes})
         if focus_ids:
             focus = set(focus_ids)
-            parsed = [s for s in parsed if focus & set(s["member_ids"])]
+            parsed = [s for s in parsed if focus & set(iterable_values(s["member_ids"]))]
         return add_suggestions(parsed)
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki: suggestion pass skipped: %s", exc)

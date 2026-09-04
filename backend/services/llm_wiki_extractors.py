@@ -27,7 +27,7 @@ from backend.domains.llm_wiki import origins as origin_domain
 from backend.domains.vault.registry.records import RecordReader
 from backend.services import llm_wiki_config
 from backend.services.optional_module_capabilities import module_available
-from backend.utils.open_values import iterable_values
+from backend.utils.open_values import append_value, iterable_values
 
 logger = get_logger(__name__)
 
@@ -106,11 +106,11 @@ def extract_resource_sources(
         if isinstance(prop, dict) and prop.get("id")
     }
     raw_inputs: list[tuple[str, str]] = []
-    for prop_id in source_config.get("attachment_property_ids") or []:
+    for prop_id in iterable_values(source_config.get("attachment_property_ids") or []):
         prop = props_by_id.get(str(prop_id))
         for value in _values_for_property(metadata, prop):
             raw_inputs.append(("attachment", value))
-    for prop_id in source_config.get("url_property_ids") or []:
+    for prop_id in iterable_values(source_config.get("url_property_ids") or []):
         prop = props_by_id.get(str(prop_id))
         for value in _values_for_property(metadata, prop):
             if value.lower().startswith(("http://", "https://")):
@@ -169,9 +169,7 @@ def chunk_origins(
     return origin_domain.chunk_origins(origins, max_chars=max_chars)
 
 
-def _values_for_property(
-    metadata: RecordReader, prop: RecordReader | None
-) -> list[str]:
+def _values_for_property(metadata: RecordReader, prop: RecordReader | None) -> list[str]:
     if not prop:
         return []
     names = [str(prop.get("name") or ""), str(prop.get("id") or "")]
@@ -361,7 +359,8 @@ def _attach_http_source(
 ) -> list[dict[str, object]]:
     for origin in origins:
         if origin.get("requested_url") and origin.get("requested_url") != metadata["requested_url"]:
-            origin.setdefault("http_sources", []).append(
+            append_value(
+                origin.setdefault("http_sources", []),
                 {
                     "requested_url": origin.get("requested_url"),
                     "final_url": origin.get("http_final_url"),
@@ -369,7 +368,7 @@ def _attach_http_source(
                     "last_modified": origin.get("http_last_modified"),
                     "content_hash": origin.get("http_content_hash"),
                     "checked_at": origin.get("http_checked_at"),
-                }
+                },
             )
         origin["requested_url"] = metadata["requested_url"]
         origin["http_final_url"] = metadata["final_url"]
@@ -520,13 +519,14 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, object]]:
             raise ExtractionError("The feed did not contain a public media enclosure")
         origins = _extract_url(media_url, input_order)
         for origin in origins:
-            origin.setdefault("aliases", []).append(
+            append_value(
+                origin.setdefault("aliases", []),
                 {
                     "kind": "feed",
                     "label": final_url,
                     "source_url": final_url,
                     "input_order": input_order,
-                }
+                },
             )
         return _attach_http_source(origins, http_metadata)
     if content_type in {"text/html", "application/xhtml+xml"} or suffix in HTML_EXTENSIONS:

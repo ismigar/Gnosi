@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Iterable, Protocol
+from typing import Iterable, Protocol, runtime_checkable
 
 from backend.services.provider_health import (
     is_available,
@@ -46,6 +46,7 @@ def _model_label(model: object) -> str:
     return str(getattr(model, "model_name", None) or getattr(model, "model", None) or "ai")
 
 
+@runtime_checkable
 class ProviderCandidate(Protocol):
     """Minimal runnable surface required by the failover proxy."""
 
@@ -57,6 +58,13 @@ class ProviderCandidate(Protocol):
     ) -> object: ...
 
     def bind_tools(self, tools: object, **kwargs: object) -> "ProviderCandidate": ...
+
+
+def require_provider_candidate(value: object) -> ProviderCandidate:
+    """Validate the minimal LangChain surface at the third-party boundary."""
+    if not isinstance(value, ProviderCandidate):
+        raise TypeError("provider model must expose invoke() and bind_tools()")
+    return value
 
 
 class ProviderFallbackModel:

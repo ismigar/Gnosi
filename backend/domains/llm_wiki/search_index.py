@@ -10,7 +10,7 @@ import math
 import re
 import sqlite3
 import unicodedata
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -281,7 +281,7 @@ def search_vector(text: str, dimensions: int = 192) -> list[float]:
     return [round(value / norm, 7) for value in vector] if norm else vector
 
 
-def vector_similarity(left: list[object], right: list[object]) -> float:
+def vector_similarity(left: Sequence[object], right: Sequence[object]) -> float:
     """Return cosine similarity for normalized cache vectors."""
     if not left or not right or len(left) != len(right):
         return 0.0

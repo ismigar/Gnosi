@@ -17,6 +17,7 @@ from backend.agent.agent_context import (
 from backend.agent.model_router import load_registry
 from backend.agent.provider_resilience import (
     ProviderFallbackModel,
+    require_provider_candidate,
     wrap_provider_candidates,
 )
 from backend.agent.system_tools import READ_ONLY_SYSTEM_TOOLS
@@ -259,7 +260,7 @@ def resolve_model(
     ]
     if fallback_candidates:
         llm = wrap_provider_candidates(
-            (provider_name, str(model_name or ""), llm),
+            (provider_name, str(model_name or ""), require_provider_candidate(llm)),
             fallback_candidates,
         )
     return (
