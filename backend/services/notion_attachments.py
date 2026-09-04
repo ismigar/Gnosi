@@ -13,6 +13,7 @@ Design: the localization helpers (`localize_values`, `localize_body`) are PURE �
 `download_to`, which does download). This way they can be tested without a network. cf. directive
 `notion_import_configurable_schema.md`.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,7 +21,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from urllib.parse import unquote, urlparse
 
 log = logging.getLogger(__name__)
@@ -57,8 +58,11 @@ def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optiona
         return None
     try:
         import httpx
-        ua = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+
+        ua = (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+        )
         # Streaming with a TOTAL DEADLINE: httpx's timeout is per read operation, so a
         # file that trickles (slow but steady chunks) never times out and can stall the clone
         # for minutes. We cap the TOTAL time: if it exceeds `timeout` seconds, we abort and skip the file.
@@ -82,7 +86,9 @@ def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optiona
         return None
 
 
-def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 60.0) -> Optional[str]:
+def download_to(
+    url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 60.0
+) -> Optional[str]:
     """Downloads `url` to `dest_dir` (inside the vault) and returns the path RELATIVE to `vault_root` with `/`
     (e.g. `Assets/DB/Taula/Camp/foto_ab12cd34.png`). None if it's not remote or fails."""
     fname = download_file(url, dest_dir, timeout=timeout)
@@ -99,13 +105,18 @@ def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 
 def _ext_from_content_type(ct: str) -> str:
     ct = (ct or "").split(";")[0].strip().lower()
     return {
-        "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp",
-        "image/svg+xml": "svg", "application/pdf": "pdf",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/gif": "gif",
+        "image/webp": "webp",
+        "image/svg+xml": "svg",
+        "application/pdf": "pdf",
     }.get(ct, "")
 
 
-def localize_values(values: Dict[str, Any], properties: List[Dict[str, Any]],
-                    save_asset: SaveAsset) -> Tuple[Dict[str, Any], int]:
+def localize_values(
+    values: Dict[str, object], properties: List[Dict[str, object]], save_asset: SaveAsset
+) -> Tuple[Dict[str, object], int]:
     """Rewrites file-field values: remote URLs → local paths (via `save_asset`).
     Keeps the original URL if the download fails. Returns (values, number downloaded)."""
     by_name = {p.get("name"): p for p in (properties or [])}
@@ -118,6 +129,9 @@ def localize_values(values: Dict[str, Any], properties: List[Dict[str, Any]],
         urls = val if isinstance(val, list) else ([val] if val else [])
         new_list = []
         for u in urls:
+            if not isinstance(u, str):
+                new_list.append(u)
+                continue
             local = save_asset(u, name) if is_remote(u) else None
             if local:
                 n += 1
@@ -151,8 +165,9 @@ def localize_body(md: str, save_asset: SaveAsset) -> Tuple[str, int]:
 FetchFileUrl = Callable[[str], Optional[str]]
 
 
-def resolve_file_markers(md: str, fetch_file_url: FetchFileUrl,
-                         save_asset: Optional[SaveAsset]) -> Tuple[str, int, int]:
+def resolve_file_markers(
+    md: str, fetch_file_url: FetchFileUrl, save_asset: Optional[SaveAsset]
+) -> Tuple[str, int, int]:
     """Resolves the `<!-- gnosi-notion-file:<block_id>:<filename> -->` markers emitted by
     `notion_mcp_md` for Notion-hosted attachments (their `attachment:` URIs are NOT public
     URLs; only the REST block API can produce a fresh signed URL, hence `fetch_file_url`).
@@ -160,6 +175,7 @@ def resolve_file_markers(md: str, fetch_file_url: FetchFileUrl,
     failed download) → readable plain text `📎 filename`, so no marker/tag ever reaches the
     editor (BlockNote silently drops unknown HTML on save). Returns (md, downloaded, failed)."""
     from .notion_mcp_md import FILE_MARKER_RE
+
     if not md or "gnosi-notion-file:" not in md:
         return md, 0, 0
     stats = {"ok": 0, "fail": 0}

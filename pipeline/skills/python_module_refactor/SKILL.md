@@ -79,6 +79,11 @@ no-op before deleting the temporary snippets.
   route registrations, signatures, callbacks, and observable behavior instead.
 - Preserve lazy callback resolution when tests or integrations monkeypatch a
   legacy facade symbol after import.
+- Note: do not remove an otherwise-unused `typing` name from a compatibility
+  facade when its historical `__all__` exported that name. Downstream star
+  imports observe the export set even when production annotations no longer use
+  it. Preserve the legacy symbol only at the facade boundary and verify the
+  exact `__all__`; do not use it to weaken the typed domain implementation.
 - Pydantic response annotations and docstrings can change OpenAPI. Compare the
   complete generated artifact, not only route counts.
 - When extracting an existing Pydantic response model, preserve its class

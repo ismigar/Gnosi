@@ -14,19 +14,29 @@ from __future__ import annotations
 
 import time as time
 import uuid as uuid
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, TypedDict
 
 if TYPE_CHECKING:
     import httpx
 
-JsonMap = Dict[str, Any]
+JsonMap = Dict[str, object]
+QueryParams = Dict[str, str | int | float | bool | None]
 
 
-def _as_dict(value: Any) -> JsonMap:
+class MappedDatabaseSchema(TypedDict):
+    """Exact table shape produced by :func:`map_database_schema`."""
+
+    id: str
+    name: str
+    icon: Optional[str]
+    properties: List[Dict[str, object]]
+
+
+def _as_dict(value: object) -> JsonMap:
     return dict(value) if isinstance(value, dict) else {}
 
 
-def _as_dict_list(value: Any) -> List[JsonMap]:
+def _as_dict_list(value: object) -> List[JsonMap]:
     if not isinstance(value, list):
         return []
     return [dict(item) for item in value if isinstance(item, dict)]
@@ -121,14 +131,14 @@ READ_ONLY_TYPES = {
 }
 
 
-def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
+def map_property_schema(name: str, prop: Dict[str, object]) -> Dict[str, object]:
     """A Notion schema property → a Gnosi table property.
 
     `prop` is the value of the `properties` dict from `GET /v1/databases/{id}`.
 
     """
-    ntype = prop.get("type", "rich_text")
-    field: Dict[str, Any] = {
+    ntype = str(prop.get("type", "rich_text"))
+    field: Dict[str, object] = {
         "id": str(uuid.uuid5(_GNOSI_NS, f"prop:{prop.get('id') or name}")),
         "name": name,
     }
@@ -139,20 +149,24 @@ def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
         field["type"] = "date"
     elif ntype == "relation":
         field["type"] = "relation"
-        target = (prop.get("relation") or {}).get("database_id")
+        target = _as_dict(prop.get("relation")).get("database_id")
         if target:
-            field["relation_database_id"] = table_id_for(target)
+            field["relation_database_id"] = table_id_for(str(target))
     elif ntype in ("select", "status"):
         field["type"] = "select" if ntype == "select" else "status"
-        opts = (prop.get(ntype) or {}).get("options") or []
+        opts = _as_dict(prop.get(ntype)).get("options")
+        option_rows = _as_dict_list(opts)
         field["options"] = [
-            {"name": o.get("name", ""), "color": _color(o.get("color"))} for o in opts
+            {"name": o.get("name", ""), "color": _color(str(o.get("color") or ""))}
+            for o in option_rows
         ]
     elif ntype == "multi_select":
         field["type"] = "multi_select"
-        opts = (prop.get("multi_select") or {}).get("options") or []
+        opts = _as_dict(prop.get("multi_select")).get("options")
+        option_rows = _as_dict_list(opts)
         field["options"] = [
-            {"name": o.get("name", ""), "color": _color(o.get("color"))} for o in opts
+            {"name": o.get("name", ""), "color": _color(str(o.get("color") or ""))}
+            for o in option_rows
         ]
     else:
         field["type"] = _PROP_TYPE_MAP.get(ntype, "text")
@@ -162,7 +176,7 @@ def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
     return field
 
 
-def map_database_schema(db: Dict[str, Any]) -> Dict[str, Any]:
+def map_database_schema(db: Dict[str, object]) -> MappedDatabaseSchema:
     """`GET /v1/databases/{id}` → Gnosi table dict (for `POST /api/vault/tables`)."""
     title = _plain_title(db.get("title")) or "Sense títol"
     props = _as_dict(db.get("properties"))
@@ -175,7 +189,7 @@ def map_database_schema(db: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _plain_title(title_array: Any) -> str:
+def _plain_title(title_array: object) -> str:
     if not isinstance(title_array, list):
         return ""
     return "".join(
@@ -183,7 +197,7 @@ def _plain_title(title_array: Any) -> str:
     )
 
 
-def _emoji_icon(icon: Any) -> Optional[str]:
+def _emoji_icon(icon: object) -> Optional[str]:
     if isinstance(icon, dict) and icon.get("type") == "emoji":
         emoji = icon.get("emoji")
         return str(emoji) if emoji is not None else None
@@ -193,7 +207,7 @@ def _emoji_icon(icon: Any) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Rich text → Markdown
 # ---------------------------------------------------------------------------
-def rich_text_to_md(rich: Any) -> str:
+def rich_text_to_md(rich: object) -> str:
     """Notion rich_text array → inline Markdown (bold/italic/code/strike/link)."""
     if not isinstance(rich, list):
         return ""
@@ -221,7 +235,7 @@ def rich_text_to_md(rich: Any) -> str:
 # ---------------------------------------------------------------------------
 # Property values of a page (row) → Gnosi values (by field name)
 # ---------------------------------------------------------------------------
-def _basic_property_value(prop_type: str, value: Any) -> tuple[bool, Any]:
+def _basic_property_value(prop_type: str, value: object) -> tuple[bool, object]:
     if prop_type in ("title", "rich_text"):
         return True, rich_text_to_md(value)
     if prop_type == "number":
@@ -233,7 +247,7 @@ def _basic_property_value(prop_type: str, value: Any) -> tuple[bool, Any]:
     return False, None
 
 
-def _selection_property_value(prop_type: str, value: Any) -> tuple[bool, Any]:
+def _selection_property_value(prop_type: str, value: object) -> tuple[bool, object]:
     if prop_type in ("select", "status"):
         return True, _as_dict(value).get("name") if isinstance(value, dict) else None
     if prop_type == "multi_select":
@@ -249,9 +263,9 @@ def _selection_property_value(prop_type: str, value: Any) -> tuple[bool, Any]:
 
 def _collection_property_value(
     prop_type: str,
-    value: Any,
+    value: object,
     users: Dict[str, str],
-) -> tuple[bool, Any]:
+) -> tuple[bool, object]:
     items = _as_dict_list(value)
     if prop_type == "people":
         return True, ", ".join(
@@ -267,9 +281,9 @@ def _collection_property_value(
 
 def _computed_property_value(
     prop_type: str,
-    value: Any,
+    value: object,
     users: Dict[str, str],
-) -> tuple[bool, Any]:
+) -> tuple[bool, object]:
     value_map = _as_dict(value)
     if prop_type == "formula":
         value_type = str(value_map.get("type") or "")
@@ -292,7 +306,7 @@ def _computed_property_value(
     return False, None
 
 
-def value_to_gnosi(prop: Dict[str, Any], users: Optional[Dict[str, str]] = None) -> Any:
+def value_to_gnosi(prop: Dict[str, object], users: Optional[Dict[str, str]] = None) -> object:
     """A property value from `GET /v1/pages/{id}` → a flat value for Gnosi."""
     prop_type = str(prop.get("type") or "")
     value = prop.get(prop_type)
@@ -312,7 +326,7 @@ def value_to_gnosi(prop: Dict[str, Any], users: Optional[Dict[str, str]] = None)
     return None
 
 
-def _file_url(f: Dict[str, Any]) -> Optional[str]:
+def _file_url(f: Dict[str, object]) -> Optional[str]:
     ftype = f.get("type")
     if ftype == "external":
         url = _as_dict(f.get("external")).get("url")
@@ -323,9 +337,11 @@ def _file_url(f: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def page_to_values(page: Dict[str, Any], users: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def page_to_values(
+    page: Dict[str, object], users: Optional[Dict[str, str]] = None
+) -> Dict[str, object]:
     """`GET /v1/pages/{id}` → {field_name: value} for `POST /api/vault/pages`."""
-    out: Dict[str, Any] = {}
+    out: Dict[str, object] = {}
     for name, prop in _as_dict(page.get("properties")).items():
         out[name] = value_to_gnosi(_as_dict(prop), users)
     return out
@@ -385,13 +401,13 @@ def _linked_block_to_md(block_type: str, data: JsonMap) -> Optional[str]:
         caption = rich_text_to_md(data.get("caption"))
         return f"![{caption}]({url})"
     if block_type == "bookmark":
-        url = data.get("url", "")
+        url = str(data.get("url", ""))
         return f"[bookmark: {url}]({url})"
     if block_type in ("child_page", "child_database"):
         return f"[[{data.get('title', '')}]]"
     if block_type == "table_row":
-        raw_cells: Any = data.get("cells")
-        cells: List[Any] = list(raw_cells) if isinstance(raw_cells, list) else []
+        raw_cells: object = data.get("cells")
+        cells: List[object] = list(raw_cells) if isinstance(raw_cells, list) else []
         md_cells = [rich_text_to_md(cell).replace("|", "\\|").replace("\n", " ") for cell in cells]
         return "| " + " | ".join(md_cells) + " |"
     if block_type == "synced_block":
@@ -399,7 +415,7 @@ def _linked_block_to_md(block_type: str, data: JsonMap) -> Optional[str]:
     return None
 
 
-def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
+def block_to_md(block: Dict[str, object], depth: int = 0) -> str:
     """A single Notion block → Markdown line(s). NOT recursive (children are preprocessed)."""
     block_type = str(block.get("type") or "")
     data = _as_dict(block.get(block_type))
@@ -415,7 +431,7 @@ def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
     return rich_text or ""
 
 
-def blocks_to_md(blocks: List[Dict[str, Any]], depth: int = 0) -> str:
+def blocks_to_md(blocks: List[Dict[str, object]], depth: int = 0) -> str:
     """List of blocks (with `_children` already resolved) → Markdown.
 
     Each block can carry `_children` (list of child blocks, e.g. inside toggles/lists).
@@ -427,7 +443,7 @@ def blocks_to_md(blocks: List[Dict[str, Any]], depth: int = 0) -> str:
         md = block_to_md(b, depth)
         if md or md == "":
             lines.append(md)
-        children = b.get("_children") or []
+        children = _as_dict_list(b.get("_children"))
         if children:
             lines.append(blocks_to_md(children, depth + 1))
     return "\n\n".join(l for l in lines if l != "")
@@ -465,7 +481,7 @@ class NotionClient:
         self._last = time.monotonic()
 
     @staticmethod
-    def _next_cursor(data: Dict[str, Any], current: Optional[str]) -> Optional[str]:
+    def _next_cursor(data: Dict[str, object], current: Optional[str]) -> Optional[str]:
         """Cursor for the next page, or None if pagination should stop.
 
         Defensive against malformed responses: if `has_more` is true but
@@ -480,7 +496,14 @@ class NotionClient:
             return None
         return str(nxt)
 
-    def _request(self, method: str, path: str, **kw: Any) -> Dict[str, Any]:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: QueryParams | None = None,
+        json: object = None,
+    ) -> Dict[str, object]:
         import httpx
 
         last_exc: Exception | None = None
@@ -488,7 +511,7 @@ class NotionClient:
         for attempt in range(6):
             self._throttle()
             try:
-                response = self._http().request(method, path, **kw)
+                response = self._http().request(method, path, params=params, json=json)
             except (
                 httpx.ConnectError,
                 httpx.ConnectTimeout,
@@ -520,14 +543,14 @@ class NotionClient:
             response.raise_for_status()
         return {}
 
-    def me(self) -> Dict[str, Any]:
+    def me(self) -> Dict[str, object]:
         return dict(self._request("GET", "/users/me"))
 
     def list_users(self) -> Dict[str, str]:
         users: Dict[str, str] = {}
         cursor: Optional[str] = None
         while True:
-            params: Dict[str, Any] = {"page_size": 100}
+            params: QueryParams = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
             data = self._request("GET", "/users", params=params)
@@ -539,11 +562,11 @@ class NotionClient:
                 break
         return users
 
-    def search_databases(self) -> List[Dict[str, Any]]:
-        results: List[Dict[str, Any]] = []
+    def search_databases(self) -> List[Dict[str, object]]:
+        results: List[Dict[str, object]] = []
         cursor: Optional[str] = None
         while True:
-            body: Dict[str, Any] = {
+            body: Dict[str, object] = {
                 "filter": {"property": "object", "value": "database"},
                 "page_size": 100,
             }
@@ -556,12 +579,12 @@ class NotionClient:
                 break
         return results
 
-    def search_pages(self) -> List[Dict[str, Any]]:
+    def search_pages(self) -> List[Dict[str, object]]:
         """All pages shared with the integration (object=page), paginated."""
-        results: List[Dict[str, Any]] = []
+        results: List[Dict[str, object]] = []
         cursor: Optional[str] = None
         while True:
-            body: Dict[str, Any] = {
+            body: Dict[str, object] = {
                 "filter": {"property": "object", "value": "page"},
                 "page_size": 100,
             }
@@ -574,19 +597,19 @@ class NotionClient:
                 break
         return results
 
-    def get_database(self, db_id: str) -> Dict[str, Any]:
+    def get_database(self, db_id: str) -> Dict[str, object]:
         return self._request("GET", f"/databases/{db_id}")
 
-    def get_page(self, page_id: str) -> Dict[str, Any]:
+    def get_page(self, page_id: str) -> Dict[str, object]:
         return self._request("GET", f"/pages/{page_id}")
 
-    def get_block(self, block_id: str) -> Dict[str, Any]:
+    def get_block(self, block_id: str) -> Dict[str, object]:
         return self._request("GET", f"/blocks/{block_id}")
 
-    def query_database(self, db_id: str) -> Iterable[Dict[str, Any]]:
+    def query_database(self, db_id: str) -> Iterable[Dict[str, object]]:
         cursor: Optional[str] = None
         while True:
-            body: Dict[str, Any] = {"page_size": 100}
+            body: Dict[str, object] = {"page_size": 100}
             if cursor:
                 body["start_cursor"] = cursor
             data = self._request("POST", f"/databases/{db_id}/query", json=body)
@@ -596,12 +619,12 @@ class NotionClient:
             if cursor is None:
                 break
 
-    def get_block_children(self, block_id: str) -> List[Dict[str, Any]]:
+    def get_block_children(self, block_id: str) -> List[Dict[str, object]]:
         """Children of a block/page, recursive: fills `_children` when `has_children`."""
-        results: List[Dict[str, Any]] = []
+        results: List[Dict[str, object]] = []
         cursor: Optional[str] = None
         while True:
-            params: Dict[str, Any] = {"page_size": 100}
+            params: QueryParams = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
             data = self._request("GET", f"/blocks/{block_id}/children", params=params)
@@ -614,13 +637,13 @@ class NotionClient:
                 break
         return results
 
-    def get_block_children_shallow(self, block_id: str) -> List[Dict[str, Any]]:
+    def get_block_children_shallow(self, block_id: str) -> List[Dict[str, object]]:
         """DIRECT children of a block/page (a single level, no recursion) — to quickly
         scan which blocks exist without downloading the whole tree."""
-        results: List[Dict[str, Any]] = []
+        results: List[Dict[str, object]] = []
         cursor: Optional[str] = None
         while True:
-            params: Dict[str, Any] = {"page_size": 100}
+            params: QueryParams = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
             data = self._request("GET", f"/blocks/{block_id}/children", params=params)
@@ -642,7 +665,7 @@ class NotionClient:
             body = _as_dict(resp.json())
         except Exception:  # noqa: BLE001
             return "error"
-        msg = (body.get("message") or "").lower()
+        msg = str(body.get("message") or "").lower()
         code = body.get("code") or ""
         if "linked database" in msg:
             return "linked"
@@ -653,7 +676,7 @@ class NotionClient:
         return "error"
 
 
-def _page_title(page: Dict[str, Any]) -> str:
+def _page_title(page: Dict[str, object]) -> str:
     """Title of a Notion page (value of the `title` field)."""
     for raw_prop in _as_dict(page.get("properties")).values():
         prop = _as_dict(raw_prop)

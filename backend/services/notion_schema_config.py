@@ -7,27 +7,28 @@ with the fields form they already know (including `storage_folder` for file fiel
 
 PURE → testable without a backend. cf. directive `notion_import_configurable_schema.md`.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Dict, List
 
 ASSET_TYPES = {"files", "file", "image", "images"}
 
 
-def notion_props_to_modal_schema(properties: List[Dict[str, Any]]) -> Dict[str, Any]:
+def notion_props_to_modal_schema(properties: List[Dict[str, object]]) -> Dict[str, object]:
     """`properties` (from map_database_schema) → SchemaConfigModal shape `{nom:tipus, nom_config}`.
 
     File fields get `storage_folder: "assets"` by default (the user can change it).
-    
+
     """
-    out: Dict[str, Any] = {}
+    out: Dict[str, object] = {}
     for p in properties or []:
         name = p.get("name")
-        if not name:
+        if not isinstance(name, str) or not name:
             continue
-        t = p.get("type") or "text"
+        t = str(p.get("type") or "text")
         out[name] = t
-        cfg: Dict[str, Any] = {"id": p.get("id"), "type": t}
+        cfg: Dict[str, object] = {"id": p.get("id"), "type": t}
         if p.get("options"):
             cfg["options"] = p["options"]
         if p.get("relation_database_id"):
@@ -41,19 +42,20 @@ def notion_props_to_modal_schema(properties: List[Dict[str, Any]]) -> Dict[str, 
     return out
 
 
-def modal_schema_to_props(schema: Dict[str, Any]) -> List[Dict[str, Any]]:
+def modal_schema_to_props(schema: Dict[str, object]) -> List[Dict[str, object]]:
     """SchemaConfigModal shape → `properties: [...]` for the vault table.
 
     Preserves the field ORDER (dict insertion order). The `*_config` keys provide id, options,
     relation, `storage_folder`, etc.
-    
+
     """
-    props: List[Dict[str, Any]] = []
+    props: List[Dict[str, object]] = []
     for name, t in (schema or {}).items():
         if name.endswith("_config"):
             continue
-        cfg = schema.get(f"{name}_config") or {}
-        p: Dict[str, Any] = {"name": name, "type": t}
+        raw_cfg = schema.get(f"{name}_config")
+        cfg = raw_cfg if isinstance(raw_cfg, dict) else {}
+        p: Dict[str, object] = {"name": name, "type": t}
         if cfg.get("id"):
             p["id"] = cfg["id"]
         if cfg.get("options"):
@@ -74,12 +76,14 @@ def modal_schema_to_props(schema: Dict[str, Any]) -> List[Dict[str, Any]]:
     return props
 
 
-def apply_override(base_table: Dict[str, Any], override_schema: Dict[str, Any]) -> Dict[str, Any]:
+def apply_override(
+    base_table: Dict[str, object], override_schema: Dict[str, object]
+) -> Dict[str, object]:
     """Applies a SchemaConfigModal override to a table derived from Notion.
 
     The override GOVERNS type and config (storage_folder, etc.); the base table provides id, name,
     folder, icon. Fields absent from the override (the user removed them) are NOT included.
-    
+
     """
     table = dict(base_table)
     if override_schema:

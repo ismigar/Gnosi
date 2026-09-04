@@ -5,14 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
-from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol
+from typing import Callable, Dict, Iterable, List, Optional, Protocol
 
 import yaml
 
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 
-JsonMap = Dict[str, Any]
+JsonMap = Dict[str, object]
 
 
 class VerificationClient(Protocol):

@@ -22,31 +22,47 @@ toggles, mentions) in a «Notion-flavored» Markdown with its own tags and annot
 
 PURE (no network) → testable with the MCP's real markdown.
 """
+
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple, TypedDict
 from urllib.parse import quote, unquote
 
 # Notion color palette → hex (text and background)
 _TEXT_HEX = {
-    "gray": "#787774", "brown": "#9f6b53", "orange": "#d9730d", "yellow": "#cb912f",
-    "green": "#448361", "blue": "#337ea9", "purple": "#9065b0", "pink": "#c14d8a", "red": "#d44c47",
+    "gray": "#787774",
+    "brown": "#9f6b53",
+    "orange": "#d9730d",
+    "yellow": "#cb912f",
+    "green": "#448361",
+    "blue": "#337ea9",
+    "purple": "#9065b0",
+    "pink": "#c14d8a",
+    "red": "#d44c47",
 }
 _BG_HEX = {
-    "gray": "#f1f1ef", "brown": "#f3eeee", "orange": "#fbecdd", "yellow": "#fbf3db",
-    "green": "#edf3ec", "blue": "#e7f3f8", "purple": "#f6f3f9", "pink": "#faf1f8", "red": "#fdebec",
+    "gray": "#f1f1ef",
+    "brown": "#f3eeee",
+    "orange": "#fbecdd",
+    "yellow": "#fbf3db",
+    "green": "#edf3ec",
+    "blue": "#e7f3f8",
+    "purple": "#f6f3f9",
+    "pink": "#faf1f8",
+    "red": "#fdebec",
 }
 
 # inline="true" might NOT be the last attribute: the MCP's new format adds
 # data-source-url="collection://…" afterward → later attributes must be tolerated ([^>]*).
 _DB_RE = re.compile(
-    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"[^>]*>.*?</database>', re.DOTALL)
-_DB_SELFCLOSE_RE = re.compile(
-    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"[^>]*/?>')
+    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"[^>]*>.*?</database>', re.DOTALL
+)
+_DB_SELFCLOSE_RE = re.compile(r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"[^>]*/?>')
 _MENTION_RE = re.compile(
-    r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*>(.*?)</mention-page>', re.DOTALL)
+    r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*>(.*?)</mention-page>', re.DOTALL
+)
 _MENTION_SELF_RE = re.compile(r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*/>')
 # Sub-pages: the MCP lists them as <page url=".../<id>">Title</page> → wikilink (by title, which
 # resolves in the clone; the clone already follows sub-pages as their own pages).
@@ -60,25 +76,28 @@ _CODE_RE = re.compile(r"```.*?```", re.DOTALL)
 # vault and BlockNote silently drops them on the first save (171 attachments lost on
 # «Curs de narrativa i conte I, II», 2026-07-19) → they always become a marker or plain text.
 _FILE_TAG_RE = re.compile(
-    r'<(file|pdf|audio|video|embed)\s+src="([^"]*)"[^>]*>(.*?)</\1>', re.DOTALL)
+    r'<(file|pdf|audio|video|embed)\s+src="([^"]*)"[^>]*>(.*?)</\1>', re.DOTALL
+)
 _FILE_SELF_RE = re.compile(r'<(file|pdf|audio|video|embed)\s+src="([^"]*)"[^>]*/>')
 # Block toggles, new MCP format (block-level, unindented children — cf. enhanced-markdown spec):
 # <details color?="X">\n<summary>Title</summary>\n…children…\n</details> → :::toggle fence.
-_DETAILS_SUMMARY_RE = re.compile(r'<details([^>]*)>\s*<summary>(.*?)</summary>', re.DOTALL)
-_DETAILS_LONE_RE = re.compile(r'<details[^>]*>')
-_DETAILS_CLOSE_RE = re.compile(r'</details>')
+_DETAILS_SUMMARY_RE = re.compile(r"<details([^>]*)>\s*<summary>(.*?)</summary>", re.DOTALL)
+_DETAILS_LONE_RE = re.compile(r"<details[^>]*>")
+_DETAILS_CLOSE_RE = re.compile(r"</details>")
 # Intentional empty line («Empty line: <empty-block/>» in the enhanced-markdown spec), always
 # alone on its own line, tab-indented when nested. No children by definition → the whole line
 # can be dropped without reshaping the indentation tree.
-_EMPTY_BLOCK_RE = re.compile(r'^[ \t]*<empty-block\s*/>[ \t]*$', re.MULTILINE)
+_EMPTY_BLOCK_RE = re.compile(r"^[ \t]*<empty-block\s*/>[ \t]*$", re.MULTILINE)
 
 # Marker emitted for Notion-hosted attachments; resolved by the clone orchestrator
 # (`notion_attachments.resolve_file_markers`). Filename is percent-encoded (no spaces/`>`).
-FILE_MARKER_RE = re.compile(r'<!--\s*gnosi-notion-file:([0-9a-f]{32}):([^\s>]*)\s*-->')
+FILE_MARKER_RE = re.compile(r"<!--\s*gnosi-notion-file:([0-9a-f]{32}):([^\s>]*)\s*-->")
 # {k="v" ...} annotation at the END of the line
 _ANNOT_RE = re.compile(r'\s*\{([a-zA-Z_]+="[^"]*"(?:\s+[a-zA-Z_]+="[^"]*")*)\}\s*$')
 # Markdown prefix (heading/list/quote) to wrap only the content with color
-_MD_PREFIX_RE = re.compile(r'^(\s*(?:#{1,6}\s+|[-*]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s+)?)(.*)$', re.DOTALL)
+_MD_PREFIX_RE = re.compile(
+    r"^(\s*(?:#{1,6}\s+|[-*]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s+)?)(.*)$", re.DOTALL
+)
 
 
 def file_marker(block_id: str, filename: str) -> str:
@@ -90,7 +109,7 @@ def file_marker(block_id: str, filename: str) -> str:
 def _parse_file_src(src: str) -> Tuple[str, str]:
     """(block_id, filename) from the MCP's `file://{urlencoded json}` src ('' when missing)."""
     try:
-        obj = json.loads(unquote(src[len("file://"):]))
+        obj = json.loads(unquote(src[len("file://") :]))
         source = str(obj.get("source") or "")
         fname = source.split(":", 2)[2] if source.startswith("attachment:") else ""
         bid = str((obj.get("permissionRecord") or {}).get("id") or "")
@@ -124,6 +143,7 @@ def _file_tag_to_md(src: str, caption: str) -> str:
 def _details_to_fences(text: str) -> str:
     """`<details><summary>T</summary>…</details>` → `:::toggle T` … `:::` (line-level, so the
     indentation-tree serializer sees plain fence lines; nested details keep working)."""
+
     def _open(m: "re.Match[str]") -> str:
         cm = re.search(r'color="([^"]*)"', m.group(1) or "")
         title = " ".join((m.group(2) or "").split())
@@ -132,14 +152,18 @@ def _details_to_fences(text: str) -> str:
         return f":::toggle {title}".rstrip()
 
     text = _DETAILS_SUMMARY_RE.sub(_open, text)
-    text = _DETAILS_LONE_RE.sub(":::toggle", text)   # details without summary (rare)
+    text = _DETAILS_LONE_RE.sub(":::toggle", text)  # details without summary (rare)
     return _DETAILS_CLOSE_RE.sub(":::", text)
 
 
 def extract_db_ids(page_md: str) -> List[str]:
     """ids (32-hex) of the embedded views, in order of appearance."""
-    return [m.group(1) for m in re.finditer(
-        r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"', page_md or "")]
+    return [
+        m.group(1)
+        for m in re.finditer(
+            r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"', page_md or ""
+        )
+    ]
 
 
 def _color_style(token: str) -> str:
@@ -147,7 +171,7 @@ def _color_style(token: str) -> str:
     if token in ("", "default"):
         return ""
     if token.endswith("_background"):
-        token = token[:-len("_background")] + "_bg"
+        token = token[: -len("_background")] + "_bg"
     if token.endswith("_bg"):
         h = _BG_HEX.get(token[:-3])
         return f"background-color:{h}" if h else ""
@@ -161,7 +185,7 @@ def _parse_annot(line: str) -> Tuple[str, Dict[str, str]]:
     if not m:
         return line, {}
     attrs = dict(re.findall(r'([a-zA-Z_]+)="([^"]*)"', m.group(1)))
-    return line[:m.start()].rstrip(), attrs
+    return line[: m.start()].rstrip(), attrs
 
 
 def _color_inline(content: str, attrs: Dict[str, str]) -> str:
@@ -182,7 +206,7 @@ def _apply_color(text: str, attrs: Dict[str, str]) -> str:
     prefix, content = m.group(1), m.group(2)
     if not content.strip():
         return text
-    return f'{prefix}{_color_inline(content, attrs)}'
+    return f"{prefix}{_color_inline(content, attrs)}"
 
 
 def _indent_and_text(line: str) -> Tuple[int, str]:
@@ -195,25 +219,32 @@ def _indent_and_text(line: str) -> Tuple[int, str]:
     return n, line[n:]
 
 
-def _build_tree(pairs: List[Tuple[int, str]]) -> List[list[Any]]:
+class _TreeNode(TypedDict):
+    text: str
+    children: List["_TreeNode"]
+
+
+def _build_tree(pairs: List[Tuple[int, str]]) -> List[_TreeNode]:
     """[(indent, text)] → tree [[text, [children…]], …] according to indentation (tabs)."""
-    root: List[list[Any]] = []
-    stack: List[Tuple[int, List[list[Any]]]] = [(-1, root)]
+    root: List[_TreeNode] = []
+    stack: List[Tuple[int, List[_TreeNode]]] = [(-1, root)]
     for indent, text in pairs:
-        node: list[Any] = [text, []]
+        node = _TreeNode(text=text, children=[])
         while stack and stack[-1][0] >= indent:
             stack.pop()
         stack[-1][1].append(node)
-        stack.append((indent, node[1]))
+        stack.append((indent, node["children"]))
     return root
 
 
 def _is_list_item(text: str) -> bool:
-    return bool(re.match(r'^\s*(?:[-*]\s+|\d+\.\s+)', text))
+    return bool(re.match(r"^\s*(?:[-*]\s+|\d+\.\s+)", text))
 
 
-def _serialize(nodes: List[list[Any]], out: List[str]) -> None:
-    for text, children in nodes:
+def _serialize(nodes: List[_TreeNode], out: List[str]) -> None:
+    for node in nodes:
+        text = node["text"]
+        children = node["children"]
         low = text.strip().lower()
         if low.startswith("<columns"):
             out.append(":::column-list")
@@ -228,7 +259,7 @@ def _serialize(nodes: List[list[Any]], out: List[str]) -> None:
         else:
             clean, attrs = _parse_annot(text.strip())
             if attrs.get("toggle") == "true":
-                hm = re.match(r'^(#{1,6})\s+(.*)$', clean)
+                hm = re.match(r"^(#{1,6})\s+(.*)$", clean)
                 if hm:
                     title = _color_inline(hm.group(2), attrs)
                     out.append(f":::toggle-heading{{level={len(hm.group(1))}}} {title}")
@@ -256,6 +287,7 @@ def mcp_to_markdown(page_md: str) -> str:
     def _stash(mm: re.Match[str]) -> str:
         codes.append(mm.group(0))
         return f"§§CODE{len(codes) - 1}§§"
+
     text = _CODE_RE.sub(_stash, text)
 
     # 0b) `<empty-block/>` (intentional empty line) → dropped: the blank line it stands for
@@ -287,12 +319,17 @@ def mcp_to_markdown(page_md: str) -> str:
     cleaned = "\n".join(out)
 
     # 4) block equations $$…$$ → `latex` code block (Gnosi has no native equations)
-    cleaned = re.sub(r"\$\$(.+?)\$\$", lambda mm: f"```latex\n{mm.group(1).strip()}\n```",
-                     cleaned, flags=re.DOTALL)
+    cleaned = re.sub(
+        r"\$\$(.+?)\$\$",
+        lambda mm: f"```latex\n{mm.group(1).strip()}\n```",
+        cleaned,
+        flags=re.DOTALL,
+    )
 
     # 5) placeholders → marcadors finals
-    cleaned = re.sub(r"§§GNOSIDB:([0-9a-f]{32})§§",
-                     lambda mm: f"<!-- gnosi-notion-db:{mm.group(1)} -->", cleaned)
+    cleaned = re.sub(
+        r"§§GNOSIDB:([0-9a-f]{32})§§", lambda mm: f"<!-- gnosi-notion-db:{mm.group(1)} -->", cleaned
+    )
     cleaned = re.sub(r"§§CODE(\d+)§§", lambda mm: codes[int(mm.group(1))], cleaned)
 
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
