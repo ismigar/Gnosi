@@ -207,6 +207,8 @@ def test_ci_runs_docker_http_and_volume_persistence_smoke_after_both_builds() ->
         "/data/.gnosi-smoke-persistence",
         "compose down --remove-orphans",
         "compose down --volumes --remove-orphans",
+        'GNOSI_DOCKER_STARTUP_ATTEMPTS:-300',
+        "GNOSI_DOCKER_STARTUP_ATTEMPTS must be a positive integer",
     ):
         assert required in script
     assert script.count("compose up --detach --no-build backend frontend") == 2

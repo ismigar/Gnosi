@@ -13,6 +13,10 @@ o intermitents al registre npm sense relaxar el lockfile ni amagar errors reals.
 3. Mantenir `pnpm install --frozen-lockfile` com a única frontera d'instal·lació.
 4. Fixar el contracte amb proves estàtiques i validar la construcció real de la
    imatge quan el runner estigui disponible.
+5. Aplicar els límits de xarxa també com a variables dels workflows, perquè la
+   instal·lació inicial de pnpm ocorre abans que pnpm pugui llegir el workspace.
+6. Permetre fins a cinc minuts perquè el backend Docker arribi a `healthy` sota
+   pressió de CPU/I/O, mantenint un límit finit i configurable.
 
 ## Restriccions i casos límit
 
@@ -32,6 +36,15 @@ o intermitents al registre npm sense relaxar el lockfile ni amagar errors reals.
   camelCase keys in `pnpm-workspace.yaml` and verify their resolved values.
 - No s'ha d'introduir una espera o un bucle infinit: una caiguda sostinguda del
   registre ha de continuar fallant amb un error visible.
+- Note: Do not assume `pnpm-workspace.yaml` protects `pnpm/action-setup`; that
+  installer runs before the project pnpm exists. Export the same bounded npm
+  retry and timeout settings at workflow scope.
+- Note: Do not insert a workflow-level `env` by matching an arbitrary nested
+  `env` block. It can corrupt step indentation in release YAML. Place it after
+  root permissions and parse every workflow before committing.
+- Note: Do not use the one-minute Docker readiness window as evidence that a
+  valid backend image is broken under a saturated ARM64 runner. Keep a bounded
+  five-minute readiness budget and print container state and logs on expiry.
 - No s'ha de desactivar SSL, la verificació d'integritat ni les polítiques de
   cadena de subministrament.
 - No s'ha d'augmentar la concurrència per compensar una connexió lenta; això
