@@ -63,17 +63,22 @@ def _source_paths(inventory: dict[str, object]) -> dict[str, list[str]]:
 def _tag_evidence(
     tag: str,
     expected_commit: str,
+    filtered_commit: object,
     source_prefix: str,
     source_paths: dict[str, list[str]],
 ) -> tuple[ReleaseEvidence, dict[str, tuple[str, ...]]]:
     commit = _git("rev-parse", f"{tag}^{{commit}}")
     if commit != expected_commit:
-        raise RuntimeError(f"{tag} resolves to {commit}, expected {expected_commit}")
+        if not isinstance(filtered_commit, str) or commit != filtered_commit:
+            raise RuntimeError(f"{tag} resolves to {commit}, expected {expected_commit}")
+    source_ref = expected_commit
+    if _git("cat-file", "-t", source_ref) != "commit":
+        raise RuntimeError(f"public evidence commit is unavailable for {tag}: {source_ref}")
     family_blobs: dict[str, tuple[str, ...]] = {}
     ordered_blobs: list[str] = []
     for family, paths in source_paths.items():
         blobs = tuple(
-            _git("rev-parse", f"{tag}:{source_prefix}{source_file}")
+            _git("rev-parse", f"{source_ref}:{source_prefix}{source_file}")
             for source_file in paths
         )
         family_blobs[family] = blobs
@@ -81,12 +86,15 @@ def _tag_evidence(
     digest = hashlib.sha256(
         "".join(f"{blob}\n" for blob in ordered_blobs).encode("ascii")
     ).hexdigest()
-    return {"commit": commit, "ddl_blob_set_sha256": digest}, family_blobs
+    return {"commit": expected_commit, "ddl_blob_set_sha256": digest}, family_blobs
 
 
 def audit() -> dict[str, object]:
     inventory = _load_inventory()
     release_groups = _object(inventory["release_groups"], "release_groups")
+    filtered_tag_commits = _object(
+        inventory.get("filtered_tag_commits", {}), "filtered_tag_commits"
+    )
     source_paths = _source_paths(inventory)
     report: dict[str, ReleaseEvidence] = {}
     blobs_by_tag: dict[str, dict[str, tuple[str, ...]]] = {}
@@ -101,21 +109,24 @@ def audit() -> dict[str, object]:
             if not isinstance(expected_commit, str):
                 raise ValueError(f"release_groups.{group_name}.tags.{tag} must be text")
             evidence, blobs = _tag_evidence(
-                tag, expected_commit, source_prefix, source_paths
+                tag,
+                expected_commit,
+                filtered_tag_commits.get(tag),
+                source_prefix,
+                source_paths,
             )
             report[tag] = evidence
             blobs_by_tag[tag] = blobs
 
-    early_group = _object(
-        release_groups["v2.0.0-v2.0.5"], "release_groups.v2.0.0-v2.0.5"
-    )
-    expected_digest = early_group["ddl_blob_set_sha256"]
-    if not isinstance(expected_digest, str):
-        raise ValueError("early release DDL digest must be text")
-    for patch in range(6):
-        tag = f"v2.0.{patch}"
-        if report[tag]["ddl_blob_set_sha256"] != expected_digest:
-            raise RuntimeError(f"{tag} no longer matches the reviewed DDL blob set")
+    for group_name in ("v2.0.0-v2.0.4", "v2.0.5"):
+        early_group = _object(release_groups[group_name], f"release_groups.{group_name}")
+        expected_digest = early_group["ddl_blob_set_sha256"]
+        if not isinstance(expected_digest, str):
+            raise ValueError(f"{group_name} DDL digest must be text")
+        tags = _object(early_group["tags"], f"release_groups.{group_name}.tags")
+        for tag in tags:
+            if report[tag]["ddl_blob_set_sha256"] != expected_digest:
+                raise RuntimeError(f"{tag} no longer matches the reviewed DDL blob set")
 
     changed_families = sorted(
         family

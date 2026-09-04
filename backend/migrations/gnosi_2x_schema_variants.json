@@ -1,17 +1,26 @@
 {
   "format": "gnosi-2x-schema-variants-v1",
   "scope": "Public stable tags v2.0.0 through v2.0.6 plus source-demonstrable predecessor DDL",
+  "filtered_tag_commits": {
+    "v2.0.5": "b3674dd671c9d9c408e9e3c729bdbdf53718144b"
+  },
   "release_groups": {
-    "v2.0.0-v2.0.5": {
+    "v2.0.0-v2.0.4": {
       "tags": {
         "v2.0.0": "92d1edcef867a862028723a3d44ce4168787a8c8",
         "v2.0.1": "671b405c86669d0ae1c57a471eac7e7bf566790b",
         "v2.0.2": "671b405c86669d0ae1c57a471eac7e7bf566790b",
         "v2.0.3": "671b405c86669d0ae1c57a471eac7e7bf566790b",
-        "v2.0.4": "671b405c86669d0ae1c57a471eac7e7bf566790b",
-        "v2.0.5": "b3674dd671c9d9c408e9e3c729bdbdf53718144b"
+        "v2.0.4": "671b405c86669d0ae1c57a471eac7e7bf566790b"
       },
       "source_prefix": "",
+      "ddl_blob_set_sha256": "9fc236e72714a926f29577347d72e49e3299546a110c76a12dc54ea800ccfe3c"
+    },
+    "v2.0.5": {
+      "tags": {
+        "v2.0.5": "d334b8039133e637ab20216ff12aa1ff2a847d25"
+      },
+      "source_prefix": "apps/gnosi/",
       "ddl_blob_set_sha256": "9fc236e72714a926f29577347d72e49e3299546a110c76a12dc54ea800ccfe3c"
     },
     "v2.0.6": {
