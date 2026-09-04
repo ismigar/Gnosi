@@ -123,7 +123,9 @@ Source and dependencies belong to the images: no host-source hot reload or
 anonymous `node_modules` volumes. Rebuild after code or lock changes.
 
 The frontend image pins Node 22.22.2 and pnpm 11.19.0, installs with
-`--frozen-lockfile` and runs Vite on strict port 5173. The backend exports
+`--frozen-lockfile` and runs Vite on strict port 5173. Its Corepack bootstrap
+retries transient npm-registry failures before giving up; it never changes the
+required pnpm version. The backend exports
 `uv.lock` with `--frozen`, installs the pinned CPU-only Torch wheel before
 the exported requirements, and runs uvicorn without `--reload`. Wheel
 availability and actual build/startup remain platform acceptance requirements.
