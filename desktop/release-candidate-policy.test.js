@@ -201,10 +201,18 @@ test('candidate and reused CI have read-only authority and no release publisher'
   assertReadOnly(ci);
 });
 
-test('shared CI uses only the owner self-hosted Linux ARM64 runner', () => {
-  for (const [name, job] of Object.entries(ci.jobs)) {
-    assert.deepEqual(job['runs-on'], ['self-hosted', 'Linux', 'ARM64'],
-      `${name} must not consume a hosted runner`);
+test('shared CI uses only the reviewed owner self-hosted runners', () => {
+  const expectedRunners = {
+    documentation: ['self-hosted', 'macOS', 'X64'],
+    frontend: ['self-hosted', 'macOS', 'ARM64'],
+    backend: ['self-hosted', 'Linux', 'ARM64'],
+    'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
+    docker: ['self-hosted', 'Linux', 'ARM64'],
+  };
+  assert.deepEqual(Object.keys(ci.jobs).sort(), Object.keys(expectedRunners).sort());
+  for (const [name, runner] of Object.entries(expectedRunners)) {
+    assert.deepEqual(ci.jobs[name]['runs-on'], runner,
+      `${name} must use its reviewed self-hosted runner`);
   }
 });
 
