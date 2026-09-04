@@ -11,6 +11,8 @@ import { queryClient } from './query-client';
 import { fetchSystemHealth, invalidateSystemHealth } from './system';
 import { fetchVaultCatalog, invalidateVaultCatalog } from './vaults';
 import { fetchPluginLlmWikiConfig } from './plugins';
+import { fetchConfiguration } from './configuration';
+import { fetchVaultRegistry, fetchVaultSidebarSummary } from './vaults';
 
 function responseFor(input: RequestInfo | URL): Response {
   const request = input instanceof Request ? input : new Request(input);
@@ -22,6 +24,9 @@ function responseFor(input: RequestInfo | URL): Response {
     });
   }
   if (path === '/api/vaults') return Response.json({ vaults: [] });
+  if (path === '/api/config') return Response.json({ ai: {} });
+  if (path === '/api/vault/registry') return Response.json({ databases: [], tables: [], views: [] });
+  if (path === '/api/vault/sidebar/tree') return Response.json([]);
   if (path === '/api/vault/brain-table') {
     return Response.json({ configured: true, table_id: 'brain' });
   }
@@ -80,6 +85,9 @@ describe('bootstrap query coalescing', () => {
       fetchBrainTableStatus(), fetchBrainTableStatus(),
       fetchReferenceTable(), fetchReferenceTable(),
       fetchLlmWikiConfig(), fetchPluginLlmWikiConfig(),
+      fetchConfiguration(), fetchConfiguration(),
+      fetchVaultRegistry(), fetchVaultRegistry(),
+      fetchVaultSidebarSummary(), fetchVaultSidebarSummary(),
     ]);
 
     expect(endpointCounts(fetchMock)).toEqual({
@@ -88,6 +96,9 @@ describe('bootstrap query coalescing', () => {
       '/api/vault/reference-table': 1,
       '/api/vault/llm-wiki/config': 1,
       '/api/vaults': 1,
+      '/api/config': 1,
+      '/api/vault/registry': 1,
+      '/api/vault/sidebar/tree': 1,
     });
   });
 

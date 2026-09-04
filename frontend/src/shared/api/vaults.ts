@@ -169,9 +169,14 @@ export async function fetchVaultTables(
 export async function fetchVaultRegistry(
   signal?: AbortSignal,
 ): Promise<VaultRegistry> {
-  return unwrapApiResult<VaultRegistry, unknown>(
-    await apiClient.GET('/api/vault/registry', { signal }),
-  );
+  return fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultRegistry(),
+    signal,
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultRegistry, unknown>(
+      await apiClient.GET('/api/vault/registry', { signal: sharedSignal }),
+    ),
+  });
 }
 
 
@@ -242,11 +247,14 @@ export async function fetchVaultPages(
 export async function fetchVaultSidebarSummary(
   signal?: AbortSignal,
 ): Promise<VaultSidebarPageSummary[]> {
-  const pages = unwrapApiResult<VaultSidebarTreePage[], unknown>(
-    await apiClient.GET('/api/vault/sidebar/tree', {
-      signal,
-    }),
-  );
+  const pages = await fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultSidebar(),
+    signal,
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultSidebarTreePage[], unknown>(
+      await apiClient.GET('/api/vault/sidebar/tree', { signal: sharedSignal }),
+    ),
+  });
   return pages.map((page) => ({
     ...page,
     parent_id: page.parent_id ?? null,

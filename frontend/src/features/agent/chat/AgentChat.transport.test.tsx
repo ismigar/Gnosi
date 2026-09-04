@@ -99,6 +99,20 @@ describe('AgentChat shared transport integration', () => {
     expect(mocks.databases).toHaveBeenCalledTimes(1);
   });
 
+  it('stops confirmation polling while an activated floating chat is closed', async () => {
+    vi.useFakeTimers();
+    await render(<AgentChat />);
+    const openChat = container.querySelector('.premium-chat-trigger');
+    if (!(openChat instanceof HTMLButtonElement)) throw new Error('Missing chat launcher');
+    await act(async () => { openChat.click(); await Promise.resolve(); });
+    expect(mocks.transport.mock.calls.filter(([input]) => requestPath(input).startsWith('/api/chat/confirmations?'))).toHaveLength(1);
+    const closeChat = container.querySelector('button[aria-label="Close chat"]');
+    if (!(closeChat instanceof HTMLButtonElement)) throw new Error('Missing close chat button');
+    await act(async () => { closeChat.click(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(mocks.transport.mock.calls.filter(([input]) => requestPath(input).startsWith('/api/chat/confirmations?'))).toHaveLength(1);
+  });
+
   it('renders split UTF-8 NDJSON and persists the same scoped conversation', async () => {
     mocks.stream.mockImplementation(() => {
       const bytes = new TextEncoder().encode('{"type":"message","sequence":1,"content":"Reunió 🧠"}\n{"type":"done","sequence":2}');

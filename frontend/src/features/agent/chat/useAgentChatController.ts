@@ -192,6 +192,7 @@ export function useAgentChatController({
     } = useAgentConfirmations({
         browserStorageScope, scopeReady, selectedAgentId, sessionId, activeScopeRef,
         setMessages, pendingConfirmation, setPendingConfirmation,
+        pollingEnabled: embedded || isOpen,
     });
     const { focusComposerWith, copyMessage, quoteMessage, markMessage, submitMessageFeedback, refreshMessageJob, previousUserPrompt, retryMessage } = useChatMessageActions({
         messages, setMessages, agentName: agentConfig?.name, selectedAgentId, sessionId, isLoading,
