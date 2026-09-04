@@ -7,28 +7,37 @@ action.  The client can offer a deliberate retry of the original prompt.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 
-RETRYABLE_ERROR_CODES = frozenset({
-    "agent_loop_exhausted",
-    "agent_turn_timeout",
-    "timeout",
-    "server_error",
-    "service_unavailable",
-    "rate_limit",
-    "rate_limit_exceeded",
-    "network_error",
-})
+class RecoveryMetadata(TypedDict):
+    retryable: bool
+    action: str
+    automatic: bool
+    max_attempts: int
 
 
-def is_retryable_error_code(code: Any) -> bool:
+RETRYABLE_ERROR_CODES = frozenset(
+    {
+        "agent_loop_exhausted",
+        "agent_turn_timeout",
+        "timeout",
+        "server_error",
+        "service_unavailable",
+        "rate_limit",
+        "rate_limit_exceeded",
+        "network_error",
+    }
+)
+
+
+def is_retryable_error_code(code: object) -> bool:
     """Return whether retrying the same prompt is a safe user option."""
     normalized = str(code or "").strip().lower()
     return normalized in RETRYABLE_ERROR_CODES
 
 
-def recovery_metadata(code: Any) -> dict[str, Any]:
+def recovery_metadata(code: object) -> RecoveryMetadata:
     """Return bounded UI metadata without exposing exception internals."""
     retryable = is_retryable_error_code(code)
     return {

@@ -9,7 +9,6 @@ from __future__ import annotations
 import sys
 import tempfile as tempfile
 import types
-from typing import Any
 
 from backend.domains.agent import gnosi_confirmations as confirmations
 from backend.domains.agent import gnosi_dispatch as dispatch
@@ -147,7 +146,7 @@ _IMPLEMENTATION_MODULES = (
 class _CompatibilityModule(types.ModuleType):
     """Propagate documented monkeypatch seams to canonical module globals."""
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    def __setattr__(self, name: str, value: object) -> None:
         super().__setattr__(name, value)
         if name not in _PATCHABLE_SEAMS:
             return

@@ -6,8 +6,8 @@ Features:
 - Execute approved tools through a child-process proxy
 - Refresh without restart
 """
+
 from pathlib import Path
-from typing import Any, cast
 from langchain_core.tools import BaseTool
 
 from .registry import ToolRecord, registry
@@ -19,22 +19,23 @@ class ToolLoader:
     """
     Dynamically loads approved tools from the registry and file system.
     """
-    
+
     def __init__(self) -> None:
         from backend.config.app_config import load_params
+
         cfg = load_params(strict_env=False)
-        
+
         # Priority: Vault-based approved tools > Local approved tools
         tools_base = cfg.paths.get("AGENT_TOOLS")
         if tools_base:
             self.approved_dir = tools_base / "approved"
         else:
             self.approved_dir = Path(__file__).parent / "approved"
-            
+
         self.approved_dir.mkdir(parents=True, exist_ok=True)
         self._loaded_tools: dict[str, BaseTool] = {}
         self._validator = ToolValidator()
-    
+
     def load_all_approved(self) -> list[BaseTool]:
         """
         Load all approved tools from the registry.
@@ -42,19 +43,19 @@ class ToolLoader:
         """
         tools: list[BaseTool] = []
         approved_records = registry.list_approved()
-        
+
         for record in approved_records:
             tool = self._load_tool(record.name, record.code)
             if tool:
                 tools.append(tool)
                 self._loaded_tools[record.name] = tool
-        
+
         return tools
-    
+
     def get_loaded_tool(self, name: str) -> BaseTool | None:
         """Get a specific loaded tool by name."""
         return self._loaded_tools.get(name)
-    
+
     def refresh(self) -> list[BaseTool]:
         """Reload all approved tools (useful after new approvals)."""
         self._loaded_tools.clear()
@@ -70,10 +71,11 @@ class ToolLoader:
         if tool is not None:
             self._loaded_tools[record.name] = tool
         return tool
-    
+
     def _load_tool(self, name: str, code: str) -> BaseTool | None:
         """Load a validated tool as a subprocess-backed LangChain proxy."""
         from backend.config.logger_config import get_logger
+
         log = get_logger(__name__)
         try:
             validation = self._validator.validate(str(code or ""), name)
@@ -82,9 +84,7 @@ class ToolLoader:
                 return None
             described = run_process(str(code or ""), action="describe", timeout_seconds=10)
             raw_schema = described.get("input_schema")
-            input_schema = (
-                cast(dict[str, Any], raw_schema) if isinstance(raw_schema, dict) else {}
-            )
+            input_schema = raw_schema if isinstance(raw_schema, dict) else {}
             tool = SandboxedGeneratedTool(
                 name=str(described.get("name") or name)[:128],
                 description=str(described.get("description") or "")[:2_000],
@@ -96,7 +96,7 @@ class ToolLoader:
         except Exception as e:
             log.exception(f"Failed to load generated tool {name!r}: {e}")
             return None
-    
+
     def is_loaded(self, name: str) -> bool:
         """Check if a tool is already loaded."""
         return name in self._loaded_tools

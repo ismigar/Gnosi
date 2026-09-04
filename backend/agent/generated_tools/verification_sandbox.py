@@ -1,11 +1,12 @@
 """Run generated-tool tests in a short-lived subprocess sandbox."""
+
 from __future__ import annotations
 
 # This is a production sandbox service, not a pytest module.
 __test__ = False
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from backend.agent.generated_tools.sandbox_runner import run_process
 
@@ -15,7 +16,7 @@ class TestCase:
     """A single test case for a tool."""
 
     name: str
-    inputs: Dict[str, Any]
+    inputs: Dict[str, object]
     expected_contains: Optional[str] = None
     should_not_contain: Optional[str] = None
     should_succeed: bool = True
@@ -45,7 +46,9 @@ class SandboxResult:
     def summary(self) -> str:
         if self.success:
             return f"✅ {self.passed_tests}/{self.total_tests} tests passats"
-        return f"❌ {self.passed_tests}/{self.total_tests} tests passats. Errors: {len(self.errors)}"
+        return (
+            f"❌ {self.passed_tests}/{self.total_tests} tests passats. Errors: {len(self.errors)}"
+        )
 
 
 class TestSandbox:
