@@ -14,6 +14,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_MANAGED_PYTHON: '1'
+
 jobs:
   documentation:
     if: >-
@@ -197,6 +200,8 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           submodules: recursive
+      - name: Verify dedicated Docker runner capacity
+        run: python3 scripts/ci/prepare_docker_runner.py
       - run: docker compose config --quiet
         env:
           GNOSI_JWT_SECRET: ci-configuration-placeholder-only
@@ -207,3 +212,6 @@ jobs:
           GNOSI_DOCKER_SMOKE_PROJECT: gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}
           GNOSI_JWT_SECRET: synthetic-ci-smoke-secret-not-for-production
         run: scripts/smoke_docker.sh
+      - name: Release unused Docker resources
+        if: always()
+        run: docker system prune --all --force --volumes

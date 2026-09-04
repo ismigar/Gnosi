@@ -122,3 +122,11 @@ def test_python_workflows_prepare_every_uv_project_environment() -> None:
             assert prepare_index < min(uv_project_steps), f"{workflow_path.name}:{job_name}"
             prepare_step = steps[prepare_index]
             assert prepare_step.get("run") == "python scripts/ci/prepare_python_environment.py"
+
+
+def test_ci_requires_relocatable_uv_managed_python() -> None:
+    workflow = yaml.safe_load((REPOSITORY / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    assert isinstance(workflow, dict)
+    environment = workflow.get("env")
+    assert isinstance(environment, dict)
+    assert environment.get("UV_MANAGED_PYTHON") == "1"

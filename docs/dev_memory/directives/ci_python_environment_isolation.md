@@ -46,6 +46,16 @@ que ja no existeix.
   ownership, because it legitimately resolves to uv's managed base runtime.
   Instead, verify the un-resolved `sys.executable` path and `sys.prefix` against
   the job environment; subprocesses must report that same scoped executable.
+- Note: do not build CI virtual environments from `actions/setup-python` on a
+  self-hosted Linux ARM64 runner. That interpreter requires its injected
+  `LD_LIBRARY_PATH`, so hermetic subprocess tests fail to resolve
+  `libpython3.11.so.1.0`. Keep setup-python only as the bootstrap interpreter
+  and set `UV_MANAGED_PYTHON=1` globally so every uv environment uses the
+  relocatable managed runtime.
+- Note: Docker builds of the full backend can consume all runner storage while
+  extracting large ARM64 wheels. On the dedicated Docker runner, check for at
+  least 12 GiB before the build, prune only unused Docker resources when below
+  that threshold, recheck, and release unused resources in an `always()` step.
 
 ## Validació
 
