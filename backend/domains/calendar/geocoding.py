@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping
+from typing import Mapping
 
 import httpx
 
 log = logging.getLogger(__name__)
 
 
-def photon_label(properties: Mapping[str, Any]) -> str:
+def photon_label(properties: Mapping[str, object]) -> str:
     """Build a human-readable address label from Photon properties."""
 
     name = properties.get("name")
@@ -52,7 +52,7 @@ def photon_label(properties: Mapping[str, Any]) -> str:
     return ", ".join(deduped)
 
 
-async def search_photon(query: str) -> list[dict[str, Any]]:
+async def search_photon(query: str) -> list[dict[str, object]]:
     """Return at most six contained Photon address suggestions."""
 
     normalized = query.strip()
@@ -66,7 +66,7 @@ async def search_photon(query: str) -> list[dict[str, Any]]:
                 headers={"User-Agent": "Gnosi-Calendar/1.0 (self-hosted personal use)"},
             )
             response.raise_for_status()
-            payload = response.json()
+            payload: object = response.json()
     except Exception as exc:
         log.warning("Photon geocoding failed for %r: %s", normalized, exc)
         return []
@@ -74,7 +74,7 @@ async def search_photon(query: str) -> list[dict[str, Any]]:
     features = payload.get("features", []) if isinstance(payload, dict) else []
     if not isinstance(features, list):
         return []
-    results: list[dict[str, Any]] = []
+    results: list[dict[str, object]] = []
     seen: set[str] = set()
     for feature in features:
         if not isinstance(feature, dict):
