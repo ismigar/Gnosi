@@ -23,6 +23,13 @@ Fer que qualsevol bloqueig durant la importació de l'aplicació o l'arrencada n
   `WAYLAND_DISPLAY`. Pot obrir un prompt DBus invisible i bloquejar l'arrencada
   indefinidament. En lloc d'això, cal ometre el keyring interactiu i usar el
   fallback xifrat dins `GNOSI_DATA_DIR`.
+- Nota: no s'ha de tallar el probe natiu perquè mori el PID d'un wrapper
+  `pnpm` o `uv`; aquests llançadors poden transferir el procés i deixar Vite o
+  Uvicorn vius amb un PID diferent. La decisió d'arrencada ha de dependre dels
+  dos endpoints HTTP dins un termini finit, i el log s'ha de mostrar només si
+  aquest termini expira.
+- El smoke sintètic ha de desactivar el scheduler: no és necessari per provar
+  els ports i pot introduir treball de fons aliè a l'arrencada.
 - El diagnòstic ha de quedar inactiu després d'una importació correcta i no ha d'afectar el servidor en execució.
 
 ## Verificació
