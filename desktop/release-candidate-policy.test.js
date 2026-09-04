@@ -67,7 +67,10 @@ function assertFatalGates(workflow, reusableCI = false) {
     `${name} must not override successful dependency gating`);
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
-      assert.equal(step.if, undefined, `${label} must not skip validation or use always()`);
+      const expectedIf = reusableCI && name === 'docker'
+        && step.name === 'Release unused Docker resources' ? 'always()' : undefined;
+      assert.equal(step.if, expectedIf,
+        `${label} must not skip validation; only the exact Docker cleanup may use always()`);
       assert.equal(step['continue-on-error'], undefined, `${label} must fail the job`);
     }
   }
