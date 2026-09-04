@@ -68,6 +68,9 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   pot intentar purgar-lo i avortar amb `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
   Cal executar el generador Python i el binari frontend ja instal·lat de manera
   directa, sense reinstal·lar ni alterar les dependències canòniques.
+- Nota: no executar el binari `vite build` des de l'arrel encara que el binari
+  sigui el correcte: Vite resol `index.html` respecte del directori de treball.
+  Cal executar-lo amb `frontend/` com a directori de treball.
 - Nota: no carregar `GET /api/vault/pages` per construir el shell inicial. El
   contracte existent `GET /api/vault/sidebar/summary?compact=true` conserva
   jerarquia, classificació, favorits, etiquetes i icones, mentre les pàgines i
@@ -91,6 +94,27 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   la configuració de marcadors estricta no el declara i la col·lecció falla.
   Per a una corutina pura i acotada, cal executar-la amb `asyncio.run` des d'una
   prova síncrona.
+- Nota: filtrar només `metadata` no elimina el cost lineal dels camps estructurals
+  buits repetits a cada pàgina. La projecció inicial 3.0 ha de poder ometre de
+  manera optativa valors `null`, col·leccions buides i defaults (`false` i cadena
+  buida), mantenint `id`, `title` i `last_modified`; els paràmetres antics han de
+  conservar exactament la resposta anterior. El client ha de reconstruir els
+  defaults a la seva frontera tipada, no repartir objectes parcialment tipats per
+  la UI.
+- Nota: un `React.lazy` global no és diferit si el component es munta encara que
+  visualment retorni només el botó tancat. El shell ha de renderitzar un
+  llançador autònom i lleuger, i importar el controlador, transport i vistes
+  d'Agent només després d'una acció explícita. El xat incrustat continua usant
+  directament el component complet.
+- Nota: no barrejar una projecció sparse amb el model de resposta legacy: la
+  serialització de FastAPI torna a materialitzar camps amb defaults i anul·la
+  l'estalvi, o bé el JSON deixa de complir l'OpenAPI. Cal exposar un endpoint
+  additiu amb model sparse explícit i `exclude_none`, i mantenir intacte el
+  resum anterior.
+- Nota: el model sparse no pot estrènyer les claus de metadata a `str` mentre
+  l'índex preserva frontmatter YAML amb claus `object`. Ha de reutilitzar el
+  contracte `IndexedPageMetadata`; la conversió JSON continua sent
+  responsabilitat de la frontera HTTP existent.
 
 ## Criteris d'acceptació
 
@@ -99,6 +123,9 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Les pàgines no actives no formen part del graf inicial de Knowledge.
 - Typecheck, lint, proves enfocades i build passen.
 - Les mesures abans/després queden documentades i són reproduïbles.
+- La vista inicial no descarrega el chunk complet d'Agent abans d'obrir el xat.
+- La resposta compacta sparse és optativa, restaura defaults al client i no
+  modifica la forma dels consumidors legacy.
 
 ## Resultat verificat
 

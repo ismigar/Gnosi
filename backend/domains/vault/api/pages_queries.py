@@ -22,6 +22,7 @@ from backend.domains.vault.schemas.pages import (
     PageIndexerStatusResponse,
     PagePreviewResponse,
     SidebarPageInfo,
+    SidebarTreePageInfo,
     TablePagesSnapshot,
     _BulkWarmPayload,
 )
@@ -271,6 +272,23 @@ async def list_sidebar_summary(
     ]
 
 
+async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
+    """Return the sparse initial Knowledge tree without changing legacy APIs."""
+    return [
+        SidebarTreePageInfo(
+            id=page.id,
+            title=page.title,
+            last_modified=page.last_modified,
+            parent_id=page.parent_id,
+            is_database=True if page.is_database else None,
+            metadata=_compact_sidebar_metadata(page.metadata) or None,
+            folder=page.folder or None,
+            resolved_table_id=page.resolved_table_id,
+        )
+        for page in _deps().get_pages_snapshot()
+    ]
+
+
 async def get_page(page_id: str) -> dict[str, object]:
     """Returns the full content of a page by ID."""
     dependencies = _deps()
@@ -463,6 +481,13 @@ def register_status_routes(router: APIRouter) -> None:
         list_sidebar_summary,
         methods=["GET"],
         response_model=list[SidebarPageInfo],
+    )
+    router.add_api_route(
+        "/sidebar/tree",
+        list_sidebar_tree,
+        methods=["GET"],
+        response_model=list[SidebarTreePageInfo],
+        response_model_exclude_none=True,
     )
 
 

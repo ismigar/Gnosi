@@ -1,4 +1,5 @@
 {
+  "features/agent/AgentChatLauncher.tsx": "Lightweight global launcher that defers the complete agent chat until explicit use.",
   "features/agent-context/AgentContextSources.tsx": "Agent context picker embedded in settings.",
   "features/agent-context/agent-context/agentContextModel.ts": "Context-reference contract shared with settings.",
   "features/agent-context/model/vaultAgentContext.ts": "Vault context construction for application and editor composition.",

@@ -28,10 +28,11 @@ import { useChatPanelState } from './useChatPanelState';
 export function useAgentChatController({
   storageIdentity = '', contextRefs = [], embedded = false, forcedSessionId = '',
   forcedAgentId = '', notebookId = '', conversationMode = 'private_member', readOnly = false,
+  initiallyOpen = false,
 }: AgentChatProps) {
     const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
-    const { isOpen, setIsOpen, isMinimized, setIsMinimized } = useChatPanelState(embedded);
+    const { isOpen, setIsOpen, isMinimized, setIsMinimized } = useChatPanelState(embedded, initiallyOpen);
     const [messages, setMessages] = useState<readonly StoredChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);

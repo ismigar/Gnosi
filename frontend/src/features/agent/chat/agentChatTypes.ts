@@ -9,4 +9,5 @@ export interface AgentChatProps {
   readonly notebookId?: string;
   readonly conversationMode?: string;
   readonly readOnly?: boolean;
+  readonly initiallyOpen?: boolean;
 }

@@ -1,6 +1,5 @@
 import { ApplicationRoutes, SharedRoutes } from './routes';
 import {
-  lazy,
   Suspense,
   useEffect,
   useLayoutEffect,
@@ -15,8 +14,8 @@ import { AppSidebar } from './navigation/AppSidebar';
 import { NotebookCreateDialog } from '../features/notebooks';
 import { MeetingRecorder, MeetingReminderWatcher } from '../features/meetings';
 
-const AgentChat = lazy(() => import('../features/agent').then(module => ({ default: module.AgentChat })));
 import { Toaster } from '../shared/notifications/toast';
+import { AgentChatLauncher } from '../features/agent/AgentChatLauncher';
 
 import PageOutline from './outline/PageOutline';
 import CommandPalette from './navigation/CommandPalette';
@@ -256,11 +255,9 @@ function App() {
       <CommandPalette />
       <PageOutline key={`outline-${String(vaultRevision)}`} />
       <PluginSurface pluginIds="ai-platform">
-        <Suspense fallback={null}>
-          {vaultAppFromPath(location.pathname) !== 'notebooks' && (
-            <AgentChat key={`chat-${String(vaultRevision)}`} storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
-          )}
-        </Suspense>
+        {vaultAppFromPath(location.pathname) !== 'notebooks' && (
+          <AgentChatLauncher key={`chat-${String(vaultRevision)}`} storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
+        )}
       </PluginSurface>
       <PluginSurface pluginIds="grounded-notebooks">
         <Suspense fallback={null}>

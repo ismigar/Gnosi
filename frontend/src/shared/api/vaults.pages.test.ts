@@ -58,11 +58,18 @@ describe('vault pages API', () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(pages));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(fetchVaultSidebarSummary()).resolves.toEqual(pages);
+    await expect(fetchVaultSidebarSummary()).resolves.toEqual([{
+      ...pages[0],
+      folder: '',
+      is_database: false,
+      metadata: {},
+      parent_id: null,
+      resolved_table_id: null,
+    }]);
 
     const summaryUrl = new URL(requestAt(fetchMock.mock.calls, 0).url);
-    expect(summaryUrl.pathname).toBe('/api/vault/sidebar/summary');
-    expect(Object.fromEntries(summaryUrl.searchParams)).toEqual({ compact: 'true' });
+    expect(summaryUrl.pathname).toBe('/api/vault/sidebar/tree');
+    expect(Object.fromEntries(summaryUrl.searchParams)).toEqual({});
   });
 
 

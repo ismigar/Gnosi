@@ -8573,6 +8573,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/sidebar/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sidebar Tree
+         * @description Return the sparse initial Knowledge tree without changing legacy APIs.
+         */
+        get: operations["list_sidebar_tree_api_vault_sidebar_tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/skills/execute-button-action": {
         parameters: {
             query?: never;
@@ -20391,6 +20411,30 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Resolved Table Id */
+            resolved_table_id?: string | null;
+            /** Title */
+            title: string;
+        };
+        /**
+         * SidebarTreePageInfo
+         * @description Sparse, opt-in wire model for the initial Knowledge navigation tree.
+         */
+        SidebarTreePageInfo: {
+            /** Folder */
+            folder?: string | null;
+            /** Id */
+            id: string;
+            /** Is Database */
+            is_database?: boolean | null;
+            /** Last Modified */
+            last_modified: string;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
             /** Parent Id */
             parent_id?: string | null;
             /** Resolved Table Id */
@@ -40663,6 +40707,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SidebarPageInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sidebar_tree_api_vault_sidebar_tree_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarTreePageInfo"][];
                 };
             };
             /** @description Validation Error */

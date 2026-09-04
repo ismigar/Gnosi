@@ -133,6 +133,19 @@ class SidebarPageInfo(BaseModel):
     resolved_table_id: Optional[str] = None
 
 
+class SidebarTreePageInfo(BaseModel):
+    """Sparse, opt-in wire model for the initial Knowledge navigation tree."""
+
+    id: str
+    title: str
+    last_modified: str
+    parent_id: Optional[str] = None
+    is_database: Optional[bool] = None
+    metadata: Optional[IndexedPageMetadata] = None
+    folder: Optional[str] = None
+    resolved_table_id: Optional[str] = None
+
+
 class TablePagesSnapshot(BaseModel):
     table_id: str
     raw_count: int

@@ -32,6 +32,7 @@ export type VaultTableDeleteQuery = NonNullable<
 >;
 export type VaultPageSummary = components['schemas']['PageInfo'];
 export type VaultSidebarPageSummary = components['schemas']['SidebarPageInfo'];
+type VaultSidebarTreePage = components['schemas']['SidebarTreePageInfo'];
 export type VaultPage = components['schemas']['PageDetailResponse'];
 export type VaultPageMutation = components['schemas']['PageMutationResponse'];
 export type VaultPageDeletion = components['schemas']['PageDeleteResponse'];
@@ -241,12 +242,19 @@ export async function fetchVaultPages(
 export async function fetchVaultSidebarSummary(
   signal?: AbortSignal,
 ): Promise<VaultSidebarPageSummary[]> {
-  return unwrapApiResult<VaultSidebarPageSummary[], unknown>(
-    await apiClient.GET('/api/vault/sidebar/summary', {
-      params: { query: { compact: true } },
+  const pages = unwrapApiResult<VaultSidebarTreePage[], unknown>(
+    await apiClient.GET('/api/vault/sidebar/tree', {
       signal,
     }),
   );
+  return pages.map((page) => ({
+    ...page,
+    parent_id: page.parent_id ?? null,
+    is_database: page.is_database ?? false,
+    metadata: page.metadata ?? {},
+    folder: page.folder ?? '',
+    resolved_table_id: page.resolved_table_id ?? null,
+  }));
 }
 
 
