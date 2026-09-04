@@ -26,6 +26,7 @@ from backend.domains.llm_wiki import documents as document_domain
 from backend.domains.llm_wiki import origins as origin_domain
 from backend.domains.vault.registry.records import RecordReader
 from backend.services import llm_wiki_config
+from backend.services.optional_module_capabilities import module_available
 from backend.utils.open_values import iterable_values
 
 logger = get_logger(__name__)
@@ -50,13 +51,10 @@ class ExtractionError(RuntimeError):
 
 def capability_report() -> dict[str, Any]:
     """Report optional runtime capabilities for Settings diagnostics."""
-    modules = {}
-    for module in ("pypdfium2", "docx", "ebooklib", "yt_dlp", "faster_whisper"):
-        try:
-            __import__(module)
-            modules[module] = True
-        except Exception:
-            modules[module] = False
+    modules = {
+        module: module_available(module)
+        for module in ("pypdfium2", "docx", "ebooklib", "yt_dlp", "faster_whisper")
+    }
     binaries = {
         "ffmpeg": bool(shutil.which("ffmpeg")),
         "ffprobe": bool(shutil.which("ffprobe")),
