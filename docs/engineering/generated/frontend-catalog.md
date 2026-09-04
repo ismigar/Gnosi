@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | --- | --- |
 | `/s/:token` | `SharedPage` | [`frontend/src/features/sharing/SharedPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/SharedPage.tsx) |
 | `/` | `HomePage` | [`frontend/src/app/HomePage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/HomePage.tsx) |
-| `/dashboard` | `Dashboard` | [`frontend/src/features/control-center/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/Dashboard.tsx) |
+| `/dashboard` | `Dashboard` | [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) |
 | `/:vaultHandle/graph/*` | `VaultRouteScope` | [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) |
 | `/:vaultHandle/knowledge/document` | `VaultRouteScope` | [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) |
 | `/:vaultHandle/knowledge/*` | `VaultRouteScope` | [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) |
@@ -47,7 +47,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
-| `app` | 18 | 2475 | 0 |
+| `app` | 19 | 2492 | 0 |
 | `features` | 1047 | 122604 | 33 |
 | `generated` | 2 | 43477 | 445 |
 | `shared` | 230 | 29669 | 384 |
@@ -59,7 +59,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/app/App.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/App.tsx) | 286 | `App` | — |
 | [`frontend/src/app/AppProviders.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/AppProviders.tsx) | 16 | `AppProviders` | — |
 | [`frontend/src/app/HomePage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/HomePage.tsx) | 205 | `HomePage` | — |
-| [`frontend/src/app/bootstrap.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.tsx) | 33 | `bootstrap` | — |
+| [`frontend/src/app/bootstrap.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.tsx) | 37 | `bootstrap` | — |
 | [`frontend/src/app/desktop/DesktopUpdateNotice.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/DesktopUpdateNotice.tsx) | 170 | `DesktopUpdateNotice` | — |
 | [`frontend/src/app/desktop/desktopMenu.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/desktopMenu.ts) | 75 | `getDesktopMenuLabels`, `installDesktopApplicationMenu`, `syncDesktopApplicationMenu` | — |
 | [`frontend/src/app/initialization/interfaceLanguage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/initialization/interfaceLanguage.ts) | 116 | `DEFAULT_INTERFACE_LANGUAGE`, `INTERFACE_LANGUAGE_STORAGE_KEY`, `SUPPORTED_INTERFACE_LANGUAGES`, `getStoredInterfaceLanguage`, `initializeInterfaceLanguage`, `normalizeInterfaceLanguage`, `resolveInitialInterfaceLanguage`, `setInterfaceLanguage` | — |
@@ -72,7 +72,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/app/navigation/sidebar/appSidebarModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/appSidebarModel.ts) | 41 | `APP_SIDEBAR_ITEMS`, `ENGINEERING_DOCUMENTATION_URL` | — |
 | [`frontend/src/app/outline/PageOutline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/PageOutline.tsx) | 269 | `PageOutline`, `function` | — |
 | [`frontend/src/app/outline/pageOutlineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/pageOutlineModel.ts) | 84 | `collectOutlineHeadings`, `hasScrollableAncestor`, `isOutlineRoute`, `outlineHeadingId`, `outlineHeadingText` | — |
-| [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) | 154 | `ApplicationRoutes`, `SharedRoutes` | — |
+| [`frontend/src/app/routePreload.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routePreload.ts) | 11 | `loadVaultDashboard`, `preloadApplicationRoute` | — |
+| [`frontend/src/app/routes.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routes.tsx) | 156 | `ApplicationRoutes`, `SharedRoutes` | — |
 | [`frontend/src/app/vite-env.d.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/vite-env.d.ts) | 16 | — | — |
 
 ## features

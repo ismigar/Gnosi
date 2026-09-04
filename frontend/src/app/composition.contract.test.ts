@@ -33,7 +33,7 @@ describe('application composition extraction contracts', () => {
   it('keeps the twenty optional imports deferred and the Home page eager', () => {
     const sourceRoot = new URL('../', import.meta.url).pathname;
     const entries = ['automations', 'calendar', 'contacts', 'control-center', 'graph', 'literature', 'mail', 'media', 'meetings', 'notebooks', 'planning', 'reader', 'sharing', 'social'];
-    const files = ['./App.tsx', './routes.tsx', ...entries.map(feature => `../features/${feature}/index.ts`)];
+    const files = ['./App.tsx', './routes.tsx', './routePreload.ts', ...entries.map(feature => `../features/${feature}/index.ts`)];
     const imports = [...new Set(files.flatMap(name => collect(source(name), node => {
       if (!ts.isCallExpression(node) || node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
       const target = node.arguments[0];

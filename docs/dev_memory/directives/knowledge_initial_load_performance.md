@@ -52,6 +52,17 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   catàlegs purs; una prova o arrencada anterior a la inicialització pot retornar
   un valor buit. Les etiquetes de comandes han de preservar un fallback textual
   explícit abans de filtrar-les o convertir-les a minúscules.
+- Nota: no serialitzar catàleg de vaults, idioma i preload de la ruta abans de
+  muntar React. Són inicialitzacions independents després de sincronitzar la
+  cookie activa i s'han d'esperar amb una única barrera paral·lela. En una
+  mesura de producció real, la serialització deixava React sense muntar fins al
+  segon 2,05 i Knowledge utilitzable entre 2,5 i 3,9 segons.
+- Nota: no exportar el preloader des del mateix fitxer que els components de
+  ruta, perquè `react-refresh/only-export-components` deixa de garantir Fast
+  Refresh. Els carregadors compartits pertanyen a un mòdul pur separat.
+- Nota: per executar scripts d'un paquet des de l'arrel cal usar
+  `pnpm --dir <paquet> exec <binari>`; `pnpm --dir <paquet> <binari>` intenta
+  resoldre el nom com una ordre recursiva i no executa la prova.
 
 ## Criteris d'acceptació
 
@@ -75,3 +86,15 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Editor, Zotero, dibuix, taules i configuració queden en chunks independents i només es resolen quan la vista corresponent és activa.
 - Els diàlegs de cerca, presentació, traducció, IA, esquema, comentaris i compartició no es descarreguen mentre estan tancats.
 - El guardrail de build limita el chunk inicial de Knowledge a 200.000 bytes perquè una regressió no torni a incorporar funcionalitats diferides.
+
+## Resultat del bootstrap paral·lel
+
+- Catàleg de vaults, idioma actiu i chunk inicial de Knowledge comparteixen una
+  única barrera paral·lela després de sincronitzar la cookie del vault.
+- En cinc navegacions sobre el build de producció i el backend real, les
+  càrregues estables baixen de 2,5–3,9 segons a 1,49–2,01 segons.
+- Una primera arrencada amb procés Chromium i caches completament fredes encara
+  pot arribar a 6,15 segons; s'ha de registrar separadament de la latència
+  estable i no es pot ocultar ampliant el pressupost de navegació.
+- El chunk inicial de Knowledge continua en 158.455 bytes i no incorpora cap
+  altra ruta de forma eager.

@@ -7,11 +7,16 @@ import { installDesktopApplicationMenu } from './desktop/desktopMenu';
 import { initializeVaultRouting, legacyBrowserPathToCanonical } from '../shared/routing/vaultRouting';
 import App from './App';
 import { AppProviders } from './AppProviders';
+import { preloadApplicationRoute } from './routePreload';
 
 export async function bootstrap(): Promise<void> {
   // Native images, streams and sockets need the active vault before any request.
   syncActiveVaultCookie();
-  await initializeVaultRouting();
+  await Promise.all([
+    initializeVaultRouting(),
+    initializeInterfaceLanguage(i18n),
+    preloadApplicationRoute(window.location.pathname),
+  ]);
   const canonicalPath = legacyBrowserPathToCanonical(window.location.pathname);
   if (canonicalPath !== window.location.pathname && canonicalPath.startsWith('/@')) {
     window.history.replaceState(
@@ -20,7 +25,6 @@ export async function bootstrap(): Promise<void> {
       `${canonicalPath}${window.location.search}${window.location.hash}`,
     );
   }
-  await initializeInterfaceLanguage(i18n);
   installDesktopApplicationMenu(i18n);
   const rootElement = document.getElementById('root');
   if (!rootElement) throw new Error('Gnosi root element was not found.');

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import HomePage from './HomePage';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
 import { PluginRoute } from '../shared/plugins/PluginGate';
+import { loadVaultDashboard } from './routePreload';
 import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../shared/routing/vaultRouting';
 
 // ── Lazily loaded routes (code-splitting) ──────────────────────────
@@ -13,7 +14,7 @@ import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, va
 // initial: the browser only downloads the route's chunk when it's navigated to.
 // HomePage stays EAGER because it's the most common startup (without a flash of
 // Suspense at the start).
-const VaultDashboard = lazy(() => import('../features/vault/VaultDashboard'));
+const VaultDashboard = lazy(loadVaultDashboard);
 const Dashboard = lazy(() => import('../features/control-center/Dashboard'));
 const SocialDashboard = lazy(() => import('../features/social/SocialDashboard'));
 const ComposerPage = lazy(() => import('../features/social/ComposerPage'));
@@ -31,6 +32,7 @@ const ProjectPlanningPage = lazy(() => import('../features/planning/ProjectPlann
 const ZoteroReaderPage = lazy(() =>
   import('../features/reader/zotero/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
 );
+
 interface VaultRouteScopeProps {
   readonly children: ReactNode;
 }
