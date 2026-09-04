@@ -12,7 +12,11 @@ import { fetchSystemHealth, invalidateSystemHealth } from './system';
 import { fetchVaultCatalog, invalidateVaultCatalog } from './vaults';
 import { fetchPluginLlmWikiConfig } from './plugins';
 import { fetchConfiguration } from './configuration';
-import { fetchVaultRegistry, fetchVaultSidebarSummary } from './vaults';
+import {
+  fetchVaultRegistry,
+  fetchVaultSidebarSummary,
+  invalidateVaultSidebarSummary,
+} from './vaults';
 
 function responseFor(input: RequestInfo | URL): Response {
   const request = input instanceof Request ? input : new Request(input);
@@ -100,6 +104,19 @@ describe('bootstrap query coalescing', () => {
       '/api/vault/registry': 1,
       '/api/vault/sidebar/tree': 1,
     });
+  });
+
+  it('reuses a settled sidebar tree briefly and honors explicit invalidation', async () => {
+    const fetchMock = vi.fn<typeof fetch>((input) => Promise.resolve(responseFor(input)));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchVaultSidebarSummary();
+    await fetchVaultSidebarSummary();
+    expect(endpointCounts(fetchMock)).toEqual({ '/api/vault/sidebar/tree': 1 });
+
+    await invalidateVaultSidebarSummary();
+    await fetchVaultSidebarSummary();
+    expect(endpointCounts(fetchMock)).toEqual({ '/api/vault/sidebar/tree': 2 });
   });
 
   it('invalidates explicit refreshes and separates vault-scoped data', async () => {
