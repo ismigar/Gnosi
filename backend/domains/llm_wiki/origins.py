@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable
-from typing import Any
 
 
-Origin = dict[str, Any]
-Segment = dict[str, Any]
+
+Origin = dict[str, object]
+Segment = dict[str, object]
 
 
 def chunk_origins(

@@ -15,7 +15,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, cast
+from typing import Dict, List, Optional, Protocol, cast
 from urllib.parse import urlencode
 
 from backend.config.logger_config import get_logger
@@ -53,7 +53,7 @@ _MANAGED_NOTE_START = "<!-- gnosi:llm-wiki:start note:{key} -->"
 _MANAGED_NOTE_END = "<!-- gnosi:llm-wiki:end note:{key} -->"
 
 
-def get_job_status(identifier: str, source_table_id: str = "") -> Dict[str, Any]:
+def get_job_status(identifier: str, source_table_id: str = "") -> Dict[str, object]:
     return llm_wiki_storage.get_job_status(identifier, source_table_id)
 
 
@@ -73,7 +73,7 @@ def is_running(page_id: str, source_table_id: str = "") -> bool:
 
 
 def read_source(
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     body: str,
     vault_root: str | Path,
 ) -> tuple[str, str]:
@@ -91,7 +91,7 @@ def read_source(
         else:
             ptype = "text"
         properties.append({"id": name, "name": name, "type": ptype})
-    table: dict[str, Any] = {
+    table: dict[str, object] = {
         "id": str(metadata.get("table_id") or "legacy"),
         "properties": properties,
     }
@@ -111,7 +111,7 @@ def read_source(
     return text, kinds or "empty"
 
 
-def _first_value(metadata: dict[str, Any], keys: tuple[str, ...]) -> Any:
+def _first_value(metadata: dict[str, object], keys: tuple[str, ...]) -> object:
     for key in keys:
         value = (metadata or {}).get(key)
         if value not in (None, "", [], {}):
@@ -127,7 +127,7 @@ class _MetadataItems(Protocol):
 
 def _fonts_ids(meta: _MetadataItems) -> List[str]:
     """Extract linked page ids from any known source relation metadata."""
-    values: list[Any] = []
+    values: list[object] = []
     for key, raw in (meta or {}).items():
         normalized = re.sub(r"[^a-z0-9]+", "", str(key).casefold())
         if normalized in {"fonts", "font", "sources", "source"} or str(key).startswith("Font ·"):
@@ -140,7 +140,7 @@ def _fonts_ids(meta: _MetadataItems) -> List[str]:
     return list(dict.fromkeys(out))
 
 
-def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dict[str, Any]]:
+def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dict[str, object]]:
     """Compact, bounded context packet for cross-links and connection proposals."""
     out = []
     try:
@@ -171,11 +171,11 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
 
 
 def _build_chunk_prompt(
-    chunk: dict[str, Any],
+    chunk: dict[str, object],
     source_title: str,
-    brain_index: List[Dict[str, Any]],
+    brain_index: List[Dict[str, object]],
     language: str,
-    ai_dimensions: list[dict[str, Any]],
+    ai_dimensions: list[dict[str, object]],
 ) -> str:
     return llm_wiki_planning.build_chunk_prompt(
         chunk,
@@ -187,15 +187,15 @@ def _build_chunk_prompt(
     )
 
 
-def _parse_plan(text: str) -> Dict[str, Any]:
+def _parse_plan(text: str) -> Dict[str, object]:
     return llm_wiki_planning.parse_plan(text, logger=logger)
 
 
 def _validate_and_reduce_plans(
-    plans: list[tuple[dict[str, Any], dict[str, Any]]],
-    origins: list[dict[str, Any]],
-    ai_dimensions: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], list[str]]:
+    plans: list[tuple[dict[str, object], dict[str, object]]],
+    origins: list[dict[str, object]],
+    ai_dimensions: list[dict[str, object]],
+) -> tuple[list[dict[str, object]], list[str]]:
     """Validate evidence, classify dimensions, and assign stable managed keys."""
     return llm_wiki_planning.validate_and_reduce_plans(
         plans,
@@ -207,9 +207,9 @@ def _validate_and_reduce_plans(
 
 
 def _validate_ai_dimensions(
-    raw: Any,
-    allowed_by_field: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
+    raw: object,
+    allowed_by_field: dict[str, dict[str, object]],
+) -> dict[str, object]:
     return llm_wiki_planning.validate_ai_dimensions(raw, allowed_by_field)
 
 
@@ -238,7 +238,7 @@ def _parse_page(locator: str) -> Optional[int]:
 
 
 def _render_citations(
-    citations: Any,
+    citations: object,
     _source_title: str,
     source_id: str,
     source_table_id: str = "",
@@ -273,7 +273,7 @@ def _render_citations(
 
 
 def _base_note_metadata(
-    note: dict[str, Any],
+    note: dict[str, object],
     source_title: str,
     source_id: str,
     position: Optional[int] = None,
@@ -298,15 +298,15 @@ def _base_note_metadata(
 
 
 def _apply_plan(
-    plan: dict[str, Any],
+    plan: dict[str, object],
     source_page_id: str,
     source_title: str,
     brain_table_id: str,
     *,
     source_table_id: str = "",
-    source_config: Optional[dict[str, Any]] = None,
-    config: Optional[dict[str, Any]] = None,
-    source_dimensions: Optional[dict[str, Any]] = None,
+    source_config: Optional[dict[str, object]] = None,
+    config: Optional[dict[str, object]] = None,
+    source_dimensions: Optional[dict[str, object]] = None,
 ) -> Dict[str, List[str]]:
     """Apply validated reading notes idempotently using stable managed keys."""
     from backend.api.vault_routes import (
@@ -371,7 +371,7 @@ def _replace_note_block(body: str, managed_key: str, content: str) -> str:
 
 def _apply_dimensions_to_metadata(
     metadata: PageMetadata,
-    dimensions: dict[str, Any],
+    dimensions: dict[str, object],
     props_by_id: dict[str, RegistryData],
 ) -> None:
     for field_id, value in dimensions.items():
@@ -382,9 +382,9 @@ def _apply_dimensions_to_metadata(
 
 
 def _effective_dimensions(
-    generated: Any,
-    source_mapped: Any,
-) -> dict[str, Any]:
+    generated: object,
+    source_mapped: object,
+) -> dict[str, object]:
     """Merge dimensions while keeping explicit source mappings authoritative."""
     generated_values = generated if isinstance(generated, dict) else {}
     source_values = source_mapped if isinstance(source_mapped, dict) else {}
@@ -399,18 +399,18 @@ def _effective_dimensions(
 def process_resource(
     source_page_id: str,
     source_title: str,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     body: str,
     brain_table_id: str,
     vault_root: str | Path,
     language: str = "English",
     *,
     source_table_id: str = "",
-    source_table: Optional[dict[str, Any]] = None,
-    source_config: Optional[dict[str, Any]] = None,
+    source_table: Optional[dict[str, object]] = None,
+    source_config: Optional[dict[str, object]] = None,
     job_id: str = "",
-    resume_checkpoint: Optional[dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    resume_checkpoint: Optional[dict[str, object]] = None,
+) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.agent.factory import generate_text
     dependencies = llm_wiki_ingestion.IngestionDependencies(
@@ -460,17 +460,17 @@ def process_resource(
 def start_ingest(
     source_page_id: str,
     source_title: str,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     body: str,
     brain_table_id: str,
     vault_root: str | Path,
     language: str = "English",
     *,
     source_table_id: str = "",
-    source_table: Optional[dict[str, Any]] = None,
-    source_config: Optional[dict[str, Any]] = None,
+    source_table: Optional[dict[str, object]] = None,
+    source_config: Optional[dict[str, object]] = None,
     force: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Start a durable background job and return its initial state."""
     from backend.services import context_vars as cv
 
@@ -483,7 +483,7 @@ def start_ingest(
     if existing:
         return existing
     previous = llm_wiki_storage.get_job_status(source_page_id, source_table_id)
-    resume_checkpoint: dict[str, Any] | None = None
+    resume_checkpoint: dict[str, object] | None = None
     if not force and previous.get("phase") == PHASE_PARTIAL and previous.get("job_id"):
         resume_checkpoint = llm_wiki_storage.load_checkpoint(
             str(previous["job_id"]),
@@ -555,7 +555,7 @@ def start_ingest(
 def _on_ingest_success(
     source_page_id: str,
     source_table_id: str,
-    report: Dict[str, Any],
+    report: Dict[str, object],
 ) -> None:
     try:
         legacy_ports.mark_resource_processed(source_page_id, _today())
@@ -584,11 +584,11 @@ def _on_ingest_success(
 
 
 def _dimension_context(
-    config: dict[str, Any],
-    source_table: dict[str, Any],
-    source_config: dict[str, Any],
+    config: dict[str, object],
+    source_table: dict[str, object],
+    source_config: dict[str, object],
     metadata: RecordReader,
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+) -> tuple[dict[str, object], list[dict[str, object]]]:
     from backend.api.vault_routes import _get_pages_for_table, _table_by_id
 
     dependencies = llm_wiki_dimensions.DimensionDependencies(
@@ -608,29 +608,29 @@ def _dimension_context(
 
 
 def _canonical_dimension_value(
-    prop: dict[str, Any],
-    raw: Any,
-    options: list[dict[str, Any]],
-) -> Any:
+    prop: dict[str, object],
+    raw: object,
+    options: list[dict[str, object]],
+) -> object:
     """Map source/fixed values only to options that already exist."""
     return llm_wiki_dimensions.canonical_dimension_value(prop, raw, options)
 
 
 def _dimension_options(
-    prop: dict[str, Any],
-    pages_for_table: Callable[[str], Iterable[Any]],
-) -> list[dict[str, Any]]:
+    prop: dict[str, object],
+    pages_for_table: Callable[[str], Iterable[object]],
+) -> list[dict[str, object]]:
     return llm_wiki_dimensions.dimension_options(prop, pages_for_table)
 
 
 def _metadata_property_value(
     metadata: RecordReader,
-    prop: dict[str, Any],
+    prop: dict[str, object],
 ) -> object:
     return llm_wiki_dimensions.metadata_property_value(metadata, prop)
 
 
-def _locator_label(locator: dict[str, Any]) -> str:
+def _locator_label(locator: dict[str, object]) -> str:
     if locator.get("page"):
         label = f"p. {locator['page']}"
         if locator.get("paragraph"):
@@ -658,10 +658,10 @@ def _format_timestamp(seconds: float) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
 
 
-def _normalized_text(value: Any) -> str:
+def _normalized_text(value: object) -> str:
     return " ".join(str(value or "").casefold().split())
 
 
-def _page_path(page: Any) -> Optional[Path]:
+def _page_path(page: object) -> Optional[Path]:
     value = page.get("path") if isinstance(page, dict) else getattr(page, "path", None)
     return Path(value) if value else None

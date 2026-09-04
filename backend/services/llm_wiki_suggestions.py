@@ -14,7 +14,7 @@ import json
 import threading
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import legacy_ports
@@ -38,7 +38,7 @@ def _queue_path() -> Path:
     return legacy_ports.path_for("GNOSI_CONFIG") / QUEUE_FILENAME
 
 
-def load_queue() -> List[Dict[str, Any]]:
+def load_queue() -> List[Dict[str, object]]:
     """Pending suggestions (newest last). Malformed/missing → empty."""
     try:
         data = json.loads(_queue_path().read_text(encoding="utf-8"))
@@ -52,7 +52,7 @@ def load_queue() -> List[Dict[str, Any]]:
         return []
 
 
-def _save_queue(items: List[Dict[str, Any]]) -> None:
+def _save_queue(items: List[Dict[str, object]]) -> None:
     from backend.utils.safe_io import safe_write_json
 
     path = _queue_path()
@@ -68,7 +68,7 @@ def _invalidate_graph_cache() -> None:
     GraphService.invalidate_response_cache()
 
 
-def add_suggestions(new_items: List[Dict[str, Any]]) -> int:
+def add_suggestions(new_items: List[Dict[str, object]]) -> int:
     """Appends suggestions to the queue, skipping near-duplicates (same member
     set already pending). Returns how many were added."""
     added = 0
@@ -90,12 +90,12 @@ def add_suggestions(new_items: List[Dict[str, Any]]) -> int:
     return added
 
 
-def get_suggestion(suggestion_id: str) -> Optional[Dict[str, Any]]:
+def get_suggestion(suggestion_id: str) -> Optional[Dict[str, object]]:
     """A pending suggestion by id, without removing it (assist endpoints)."""
     return next((s for s in load_queue() if s.get("id") == suggestion_id), None)
 
 
-def pop_suggestion(suggestion_id: str) -> Optional[Dict[str, Any]]:
+def pop_suggestion(suggestion_id: str) -> Optional[Dict[str, object]]:
     """Removes and returns a suggestion by id (accept and reject both end here)."""
     with _lock:
         items = load_queue()
@@ -112,10 +112,10 @@ def pop_suggestion(suggestion_id: str) -> Optional[Dict[str, Any]]:
     return found
 
 
-def list_graph_edges() -> List[Dict[str, Any]]:
+def list_graph_edges() -> List[Dict[str, object]]:
     """Return canonical pending proposals as graph-compatible edge objects."""
 
-    edges: List[Dict[str, Any]] = []
+    edges: List[Dict[str, object]] = []
     for suggestion in load_queue():
         members = [str(member) for member in suggestion.get("member_ids") or [] if member]
         if len(members) < 2:
@@ -233,7 +233,7 @@ def _parse_suggestions(
     raw: str,
     valid_ids: set[str],
     notes_by_id: Dict[str, Dict[str, str]],
-) -> List[Dict[str, Any]]:
+) -> List[Dict[str, object]]:
     """Tolerant parse + validation: members must exist, be ≥2, and span ≥2
     DIFFERENT sources (the whole point of a permanent note)."""
     import re
@@ -246,7 +246,7 @@ def _parse_suggestions(
         logger.warning("llm_wiki: could not parse suggestions JSON")
         return []
     items = data.get("suggestions") if isinstance(data, dict) else None
-    out: List[Dict[str, Any]] = []
+    out: List[Dict[str, object]] = []
     for s in items if isinstance(items, list) else []:
         if not isinstance(s, dict):
             continue
@@ -289,7 +289,7 @@ def accept_suggestion(
     brain_table_id: str,
     edited_title: Optional[str] = None,
     edited_draft: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> Dict[str, object]:
     """Compatibility guard: permanent-note creation is intentionally disabled."""
     raise RuntimeError(
         "LLM Wiki connection proposals are read-only and cannot create permanent notes"

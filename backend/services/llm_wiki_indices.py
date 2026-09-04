@@ -8,7 +8,7 @@ import json
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Iterable, Optional, cast
+from typing import Iterable, Optional, cast
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import index_rendering as llm_wiki_index_rendering
@@ -54,7 +54,7 @@ SYSTEM_TITLES = {
 }
 
 
-def ensure_system_pages(brain_table_id: object, config: dict[str, Any]) -> dict[str, str]:
+def ensure_system_pages(brain_table_id: object, config: dict[str, object]) -> dict[str, str]:
     """Create the three system pages without adopting same-title manual pages."""
     migrate_managed_frontmatter(brain_table_id)
     brain_table = _table(brain_table_id) or {}
@@ -63,8 +63,8 @@ def ensure_system_pages(brain_table_id: object, config: dict[str, Any]) -> dict[
         for prop in brain_table.get("properties") or []
         if isinstance(prop, dict) and prop.get("id")
     }
-    index_metadata: dict[str, Any] = {}
-    system_metadata: dict[str, Any] = {}
+    index_metadata: dict[str, object] = {}
+    system_metadata: dict[str, object] = {}
     _set_visible_note_type(index_metadata, config, props_by_id, "index")
     _set_visible_note_type(system_metadata, config, props_by_id, "system")
     schema_content = _schema_content(config)
@@ -119,7 +119,7 @@ def migrate_managed_frontmatter(brain_table_id: object) -> int:
     return migrated
 
 
-def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, Any]:
+def rebuild_indexes(brain_table_id: str, config: dict[str, object]) -> dict[str, object]:
     """Rebuild every managed resource/dimension/general index and search cache."""
     ensure_system_pages(brain_table_id, config)
     source_records_synced = sync_source_dimensions(brain_table_id, config)
@@ -137,7 +137,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
         if _note_kind(page) == "lectura" and not _meta(page).get("llm_wiki_stale")
     ]
     permanents = [page for page in pages if _note_kind(page) == "permanent"]
-    resources: dict[tuple[str, str], list[Any]] = {}
+    resources: dict[tuple[str, str], list[object]] = {}
     for page in readings:
         meta = _meta(page)
         source_table_id = str(meta.get("llm_wiki_source_table_id") or "")
@@ -145,9 +145,9 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
         if source_table_id and resource_id:
             resources.setdefault((source_table_id, resource_id), []).append(page)
 
-    resource_pages: list[dict[str, Any]] = []
+    resource_pages: list[dict[str, object]] = []
     for (source_table_id, resource_id), resource_readings in resources.items():
-        source_cfg: dict[str, Any] = next(
+        source_cfg: dict[str, object] = next(
             (
                 dict(item)
                 for item in config.get("source_tables") or []
@@ -167,7 +167,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
             )
         )
 
-    dimension_pages: list[dict[str, Any]] = []
+    dimension_pages: list[dict[str, object]] = []
     for field_id in config.get("index_field_ids") or []:
         prop = props_by_id.get(str(field_id))
         if not prop:
@@ -196,7 +196,7 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
 
 def sync_source_dimensions(
     brain_table_id: str,
-    config: dict[str, Any],
+    config: dict[str, object],
 ) -> int:
     """Synchronize configured source fields into existing managed reading notes."""
     from backend.services import llm_wiki
@@ -221,7 +221,7 @@ def sync_source_dimensions(
         for table_id in source_configs
     }
 
-    mapped_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    mapped_cache: dict[tuple[str, str], dict[str, object]] = {}
     updated = 0
     for page in _brain_pages(brain_table_id):
         meta = _meta(page)
@@ -290,7 +290,7 @@ def append_log(
     resource_title: str,
     resource_id: str,
     source_table_id: str,
-    report: dict[str, Any],
+    report: dict[str, object],
 ) -> None:
     """Append one compact semantic entry to the managed Brain log."""
     ensure_system_pages(brain_table_id, llm_wiki_config.load_config())
@@ -371,7 +371,7 @@ def _write_search_json(
 
 def upsert_search_records(
     brain_table_id: str,
-    records: Iterable[dict[str, Any]],
+    records: Iterable[dict[str, object]],
     *,
     replace_snapshot: bool = False,
 ) -> int:
@@ -390,7 +390,7 @@ def upsert_search_records(
     )
 
 
-def _rebuild_fts_index(brain_table_id: str, records: list[dict[str, Any]]) -> None:
+def _rebuild_fts_index(brain_table_id: str, records: list[dict[str, object]]) -> None:
     """Compatibility wrapper for callers that still request a full rebuild."""
     llm_wiki_search_index.rebuild_fts_index(
         brain_table_id,
@@ -413,7 +413,7 @@ def search_index_candidates(
     brain_table_id: str,
     query: str,
     limit: int = 128,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Return lexical candidates from FTS5, falling back to the JSON cache."""
     return llm_wiki_search_index.search_index_candidates(
         brain_table_id,
@@ -424,7 +424,7 @@ def search_index_candidates(
     )
 
 
-def search_index_status(brain_table_id: str) -> dict[str, Any]:
+def search_index_status(brain_table_id: str) -> dict[str, object]:
     """Expose bounded freshness metadata for diagnostics and UX progress."""
     return llm_wiki_search_index.search_index_status(
         brain_table_id,
@@ -432,7 +432,7 @@ def search_index_status(brain_table_id: str) -> dict[str, Any]:
     )
 
 
-def load_search_cache(brain_table_id: str) -> list[dict[str, Any]]:
+def load_search_cache(brain_table_id: str) -> list[dict[str, object]]:
     return llm_wiki_search_index.load_search_cache(
         brain_table_id,
         local_data=llm_wiki_legacy_ports.local_data_path,
@@ -445,7 +445,7 @@ def search_vector(text: str, dimensions: int = 192) -> list[float]:
     return llm_wiki_search_index.search_vector(text, dimensions)
 
 
-def vector_similarity(left: list[Any], right: list[Any]) -> float:
+def vector_similarity(left: list[object], right: list[object]) -> float:
     """Cosine similarity for normalized cache vectors."""
     return llm_wiki_search_index.vector_similarity(left, right)
 
@@ -473,11 +473,11 @@ def _upsert_resource_index(
     brain_table_id: str,
     source_table_id: str,
     resource_id: str,
-    readings: list[Any],
-    source_config: dict[str, Any],
-    config: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
+    readings: list[object],
+    source_config: dict[str, object],
+    config: dict[str, object],
+    props_by_id: dict[str, dict[str, object]],
+) -> dict[str, object]:
     return llm_wiki_index_rendering.upsert_resource_index(
         brain_table_id,
         source_table_id,
@@ -492,11 +492,11 @@ def _upsert_resource_index(
 
 def _rebuild_dimension_indexes(
     brain_table_id: str,
-    prop: dict[str, Any],
-    readings: list[Any],
-    permanents: list[Any],
-    config: dict[str, Any],
-) -> list[dict[str, Any]]:
+    prop: dict[str, object],
+    readings: list[object],
+    permanents: list[object],
+    config: dict[str, object],
+) -> list[dict[str, object]]:
     return llm_wiki_index_rendering.rebuild_dimension_indexes(
         brain_table_id,
         prop,
@@ -509,9 +509,9 @@ def _rebuild_dimension_indexes(
 
 def _rebuild_general_index(
     brain_table_id: str,
-    resource_pages: list[dict[str, Any]],
-    dimension_pages: list[dict[str, Any]],
-    config: dict[str, Any],
+    resource_pages: list[dict[str, object]],
+    dimension_pages: list[dict[str, object]],
+    config: dict[str, object],
 ) -> None:
     llm_wiki_index_rendering.rebuild_general_index(
         brain_table_id,
@@ -522,13 +522,13 @@ def _rebuild_general_index(
     )
 
 
-def _system_title(role: str, config: dict[str, Any]) -> str:
+def _system_title(role: str, config: dict[str, object]) -> str:
     locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
     titles = SYSTEM_TITLES.get(locale) or SYSTEM_TITLES["en"]
     return titles[role]
 
 
-def _index_prefix(config: dict[str, Any]) -> str:
+def _index_prefix(config: dict[str, object]) -> str:
     locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
     return {"ca": "Índex", "en": "Index", "es": "Índice", "fr": "Index"}.get(
         locale,
@@ -536,7 +536,7 @@ def _index_prefix(config: dict[str, Any]) -> str:
     )
 
 
-def _schema_content(config: dict[str, Any]) -> str:
+def _schema_content(config: dict[str, object]) -> str:
     source_lines = []
     for source in config.get("source_tables") or []:
         source_lines.append(
@@ -562,9 +562,9 @@ def _schema_content(config: dict[str, Any]) -> str:
 
 
 def _set_visible_note_type(
-    metadata: dict[str, Any],
-    config: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
+    metadata: dict[str, object],
+    config: dict[str, object],
+    props_by_id: dict[str, dict[str, object]],
     kind: str,
 ) -> None:
     role_id = str((config.get("brain_roles") or {}).get("note_type") or "")
@@ -583,9 +583,9 @@ def _upsert_managed_page(
     role: str,
     managed_key: str,
     content: str,
-    extra_metadata: Optional[dict[str, Any]] = None,
-    selector: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
+    extra_metadata: Optional[dict[str, object]] = None,
+    selector: Optional[dict[str, object]] = None,
+) -> dict[str, object]:
     page = _find_managed_page(brain_table_id, role, selector=selector)
     metadata: object = {
         "title": title,
@@ -635,8 +635,8 @@ def _find_managed_page(
     brain_table_id: object,
     role: str,
     *,
-    selector: Optional[dict[str, Any]] = None,
-) -> Any:
+    selector: Optional[dict[str, object]] = None,
+) -> object:
     for page in _brain_pages(brain_table_id):
         meta = _meta(page)
         if meta.get("llm_wiki_role") != role:
@@ -684,11 +684,11 @@ def _read_page(path: Optional[Path]) -> tuple[PageMetadata, str]:
     )
 
 
-def _brain_pages(brain_table_id: object) -> list[Any]:
+def _brain_pages(brain_table_id: object) -> list[object]:
     return llm_wiki_legacy_ports.table_pages(brain_table_id)
 
 
-def _table(table_id: object) -> Optional[dict[str, Any]]:
+def _table(table_id: object) -> Optional[dict[str, object]]:
     return llm_wiki_legacy_ports.table_by_id(table_id)
 
 
@@ -696,44 +696,44 @@ def _meta(page: object) -> PageMetadata:
     return llm_wiki_storage.page_metadata(page)
 
 
-def _page_id(page: Any) -> str:
+def _page_id(page: object) -> str:
     if isinstance(page, dict):
         return str(page.get("id") or _meta(page).get("id") or "")
     return str(getattr(page, "id", "") or _meta(page).get("id") or "")
 
 
-def _wikilink(target_id: Any, title: Any) -> str:
+def _wikilink(target_id: object, title: object) -> str:
     """Create a stable-ID wikilink with a human-readable visible alias."""
     return f"[[{str(target_id or '')}|{str(title or '')}]]"
 
 
-def _page_wikilink(page: Any) -> str:
+def _page_wikilink(page: object) -> str:
     """Create a stable-ID wikilink for a Brain page."""
     return _wikilink(_page_id(page), _title(page))
 
 
-def _title(page: Any) -> str:
+def _title(page: object) -> str:
     if isinstance(page, dict):
         return str(page.get("title") or _meta(page).get("title") or "")
     return str(getattr(page, "title", "") or _meta(page).get("title") or "")
 
 
-def _path(page: Any) -> Optional[Path]:
+def _path(page: object) -> Optional[Path]:
     value = page.get("path") if isinstance(page, dict) else getattr(page, "path", None)
     return Path(value) if value else None
 
 
-def _note_kind(page: Any) -> str:
+def _note_kind(page: object) -> str:
     return str(llm_wiki_config.metadata_note_type(_meta(page)))
 
 
-def _as_values(value: Any) -> list[Any]:
+def _as_values(value: object) -> list[object]:
     if value in (None, "", [], {}):
         return []
     return value if isinstance(value, list) else [value]
 
 
-def _value_label(value: Any) -> str:
+def _value_label(value: object) -> str:
     if isinstance(value, dict):
         return str(value.get("name") or value.get("title") or value.get("id") or "")
     raw = str(value or "").strip()
@@ -742,17 +742,17 @@ def _value_label(value: Any) -> str:
     return raw
 
 
-def _value_key(value: Any) -> str:
+def _value_key(value: object) -> str:
     return hashlib.sha256(
         json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()[:16]
 
 
-def _safe_token(value: Any) -> str:
+def _safe_token(value: object) -> str:
     return "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"-", "_"})[:120]
 
 
-def _sortable_integer(value: Any) -> int:
+def _sortable_integer(value: object) -> int:
     """Return a stable numeric sort key for typed or legacy position values."""
     try:
         return int(value or 0)
@@ -761,5 +761,5 @@ def _sortable_integer(value: Any) -> int:
         return int(match.group(0)) if match else 0
 
 
-def _normalized(value: Any) -> str:
+def _normalized(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())

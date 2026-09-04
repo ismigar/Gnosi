@@ -10,13 +10,30 @@ import subprocess
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
 
-Segment = dict[str, Any]
+
+Segment = dict[str, object]
 TextExtractor = Callable[[Path], str]
 SegmentsExtractor = Callable[[Path], list[Segment]]
 TemporaryRoot = Callable[[], Path]
+
+
+class _PillowImage(Protocol):
+    def save(self, path: str) -> object: ...
+
+
+class _PdfBitmap(Protocol):
+    def to_pil(self) -> _PillowImage: ...
+
+
+class _PdfPage(Protocol):
+    def render(self, *, scale: float) -> _PdfBitmap: ...
+
+
+class _PdfDocument(Protocol):
+    def __getitem__(self, page_index: int) -> _PdfPage: ...
 
 
 def extract_pdf(
@@ -31,7 +48,7 @@ def extract_pdf(
 
     reader = PdfReader(str(path))
     segments: list[Segment] = []
-    pdfium: Any = None
+    pdfium: _PdfDocument | None = None
     for page_number, page in enumerate(reader.pages, start=1):
         text = str(page.extract_text() or "").strip()
         if len(re.sub(r"\s+", "", text)) < 30 and shutil.which("tesseract"):

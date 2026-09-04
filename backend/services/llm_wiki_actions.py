@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Protocol, cast
+from typing import Dict, Protocol, cast
 
 from backend.utils.open_values import get_value, iterable_values
 
@@ -29,11 +29,11 @@ class LlmWikiActionError(ValueError):
 class VaultActionsPort(Protocol):
     """Legacy Vault seams consumed by the LLM Wiki action boundary."""
 
-    def _load_plugins_state(self) -> dict[str, Any]: ...
+    def _load_plugins_state(self) -> dict[str, object]: ...
 
-    def _llm_wiki_enabled(self, state: dict[str, Any]) -> bool: ...
+    def _llm_wiki_enabled(self, state: dict[str, object]) -> bool: ...
 
-    def _table_by_id(self, table_id: str) -> dict[str, Any] | None: ...
+    def _table_by_id(self, table_id: str) -> dict[str, object] | None: ...
 
     def find_page_path(self, page_id: str) -> Path | None: ...
 
@@ -41,16 +41,16 @@ class VaultActionsPort(Protocol):
         self,
         text: str,
         path: Path,
-    ) -> tuple[dict[str, Any], str]: ...
+    ) -> tuple[dict[str, object], str]: ...
 
-    def _resource_processed_value(self, metadata: dict[str, Any]) -> str: ...
+    def _resource_processed_value(self, metadata: dict[str, object]) -> str: ...
 
     def _llm_wiki_source_title(
         self,
-        metadata: dict[str, Any],
+        metadata: dict[str, object],
         path: Path,
-        source_table: dict[str, Any],
-        source_config: dict[str, Any],
+        source_table: dict[str, object],
+        source_config: dict[str, object],
     ) -> str: ...
 
     def get_p(self, key: str) -> Path: ...
@@ -62,7 +62,7 @@ def start_source_process(
     source_table_id: str = "",
     force: bool = False,
     language: str = "",
-) -> Dict[str, Any]:
+) -> Dict[str, object]:
     """Start one validated durable Brain ingest or reprocess job."""
 
     from backend.api import vault_routes as legacy_vault_routes
@@ -163,7 +163,7 @@ def start_source_process(
     }
 
 
-def process_status(item_id: str, *, source_table_id: str = "") -> Dict[str, Any]:
+def process_status(item_id: str, *, source_table_id: str = "") -> Dict[str, object]:
     """Return the durable current or latest process status."""
 
     from backend.services import llm_wiki
@@ -174,7 +174,7 @@ def process_status(item_id: str, *, source_table_id: str = "") -> Dict[str, Any]
     return llm_wiki.get_job_status(normalized, str(source_table_id or "").strip())
 
 
-def run_maintenance(*, semantic: bool = False) -> Dict[str, Any]:
+def run_maintenance(*, semantic: bool = False) -> Dict[str, object]:
     """Rebuild Brain indexes/cache, lint, and optionally propose connections."""
 
     from backend.services import (
@@ -204,7 +204,7 @@ def run_maintenance(*, semantic: bool = False) -> Dict[str, Any]:
     }
 
 
-async def run_maintenance_async(*, semantic: bool = False) -> Dict[str, Any]:
+async def run_maintenance_async(*, semantic: bool = False) -> Dict[str, object]:
     """Async adapter that keeps blocking maintenance off the event loop."""
 
     return await asyncio.to_thread(run_maintenance, semantic=semantic)

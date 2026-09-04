@@ -16,7 +16,7 @@ import threading
 import unicodedata
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional, TypeGuard, cast
+from typing import Callable, Iterable, Optional, TypeGuard, cast
 
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
@@ -89,7 +89,7 @@ def config_path() -> Path:
     return Path(get_p("GNOSI_CONFIG")) / CONFIG_FILENAME
 
 
-def _norm(value: Any) -> str:
+def _norm(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
 
 
@@ -101,7 +101,7 @@ def _property_type(prop: RecordReader) -> str:
     return str(prop.get("type") or "").strip().lower()
 
 
-def _semantic_token(value: Any) -> str:
+def _semantic_token(value: object) -> str:
     ascii_text = "".join(
         char
         for char in unicodedata.normalize("NFKD", str(value or "").casefold())
@@ -147,7 +147,7 @@ def note_type_value(
     return labels[semantic_kind]
 
 
-def note_type_kind(value: Any) -> str:
+def note_type_kind(value: object) -> str:
     """Return the canonical semantic kind represented by a stored label."""
     token = _semantic_token(value)
     if any(marker in token for marker in ("reading", "lectura", "lecture")):
@@ -175,7 +175,7 @@ def metadata_note_type(metadata: object) -> str:
     return ""
 
 
-def _revision(value: Any) -> int:
+def _revision(value: object) -> int:
     try:
         return max(0, int(value or 0))
     except (TypeError, ValueError):
@@ -201,7 +201,7 @@ def _legacy_reference_table_id() -> str:
         return ""
 
 
-def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, Any]:
+def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, object]:
     return {
         "table_id": table_id,
         "title_property_id": "",
@@ -214,7 +214,7 @@ def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, Any
     }
 
 
-def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
+def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
     """Normalize a v1/v2 payload without touching disk.
 
     A v1 ``target_table`` becomes ``brain_table_id``.  When v1 had a
@@ -222,7 +222,7 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
     """
     data = raw if isinstance(raw, dict) else {}
     brain_id = str(data.get("brain_table_id") or data.get("target_table") or "").strip()
-    sources: list[dict[str, Any]] = []
+    sources: list[dict[str, object]] = []
     seen: set[str] = set()
     raw_sources = data.get("source_tables")
     for item in raw_sources if isinstance(raw_sources, list) else []:
@@ -276,13 +276,13 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
     }
 
 
-def _unique_strings(value: Any) -> list[str]:
+def _unique_strings(value: object) -> list[str]:
     values = value if isinstance(value, list) else ([] if value in (None, "") else [value])
     return list(dict.fromkeys(str(item).strip() for item in values if str(item).strip()))
 
 
-def _normalize_dimension_mappings(value: Any) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
+def _normalize_dimension_mappings(value: object) -> dict[str, dict[str, object]]:
+    out: dict[str, dict[str, object]] = {}
     if not isinstance(value, dict):
         return out
     for brain_field_id, mapping in value.items():
@@ -380,7 +380,7 @@ def auto_detect_source(
     brain_table: RecordReader | None = None,
     index_field_ids: Optional[Iterable[str]] = None,
     current: RecordReader | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Fill missing source roles from property types and semantic names.
 
     Explicit current choices always win.  Missing dimension mappings use a

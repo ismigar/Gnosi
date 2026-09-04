@@ -16,7 +16,7 @@ import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 from urllib.parse import unquote, urljoin, urlparse
 
 import requests
@@ -49,7 +49,7 @@ class ExtractionError(RuntimeError):
     """A source exists but cannot be converted into readable segments."""
 
 
-def capability_report() -> dict[str, Any]:
+def capability_report() -> dict[str, object]:
     """Report optional runtime capabilities for Settings diagnostics."""
     modules = {
         module: module_available(module)
@@ -88,12 +88,12 @@ def capability_report() -> dict[str, Any]:
 
 
 def extract_resource_sources(
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     body: str,
     vault_root: Path,
     source_table: RecordReader,
-    source_config: dict[str, Any],
-) -> tuple[list[dict[str, Any]], list[str]]:
+    source_config: dict[str, object],
+) -> tuple[list[dict[str, object]], list[str]]:
     """Extract every configured attachment followed by every configured URL.
 
     Exact duplicate content is represented once and records all equivalent
@@ -116,7 +116,7 @@ def extract_resource_sources(
             if value.lower().startswith(("http://", "https://")):
                 raw_inputs.append(("url", value))
 
-    origins: list[dict[str, Any]] = []
+    origins: list[dict[str, object]] = []
     warnings: list[str] = []
     for input_order, (input_kind, value) in enumerate(raw_inputs):
         try:
@@ -161,10 +161,10 @@ def extract_resource_sources(
 
 
 def chunk_origins(
-    origins: list[dict[str, Any]],
+    origins: list[dict[str, object]],
     *,
     max_chars: int = 12000,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Create complete ordered LLM chunks without dropping any segment."""
     return origin_domain.chunk_origins(origins, max_chars=max_chars)
 
@@ -245,7 +245,7 @@ def _materialize(path: Path) -> None:
         raise ExtractionError(f"Cloud file could not be materialized: {path.name}")
 
 
-def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict[str, Any]]:
+def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict[str, object]]:
     suffix = path.suffix.lower()
     if suffix in PDF_EXTENSIONS:
         kind, segments = "pdf", _extract_pdf(path)
@@ -284,7 +284,7 @@ def _extract_path(path: Path, input_order: int, *, label: str = "") -> list[dict
     ]
 
 
-def _extract_pdf(path: Path) -> list[dict[str, Any]]:
+def _extract_pdf(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_pdf(
         path,
         run_tesseract=_run_tesseract,
@@ -293,27 +293,27 @@ def _extract_pdf(path: Path) -> list[dict[str, Any]]:
     )
 
 
-def _extract_docx(path: Path) -> list[dict[str, Any]]:
+def _extract_docx(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_docx(path)
 
 
-def _extract_epub(path: Path) -> list[dict[str, Any]]:
+def _extract_epub(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_epub(path)
 
 
-def _extract_html(raw_html: str) -> list[dict[str, Any]]:
+def _extract_html(raw_html: str) -> list[dict[str, object]]:
     return document_domain.extract_html(raw_html)
 
 
-def _extract_text_file(path: Path) -> list[dict[str, Any]]:
+def _extract_text_file(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_text_file(path)
 
 
-def _paragraph_segments(raw: str, *, locator_prefix: str) -> list[dict[str, Any]]:
+def _paragraph_segments(raw: str, *, locator_prefix: str) -> list[dict[str, object]]:
     return document_domain.paragraph_segments(raw, locator_prefix=locator_prefix)
 
 
-def _extract_image(path: Path) -> list[dict[str, Any]]:
+def _extract_image(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_image(path, run_tesseract=_run_tesseract)
 
 
@@ -325,11 +325,11 @@ def _available_tesseract_languages(binary: str) -> set[str]:
     return document_domain.available_tesseract_languages(binary)
 
 
-def _extract_audio(path: Path) -> list[dict[str, Any]]:
+def _extract_audio(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_audio(path)
 
 
-def _extract_video(path: Path) -> list[dict[str, Any]]:
+def _extract_video(path: Path) -> list[dict[str, object]]:
     return document_domain.extract_video(
         path,
         extract_audio_segments=_extract_audio,
@@ -356,9 +356,9 @@ def _http_source_metadata(
 
 
 def _attach_http_source(
-    origins: list[dict[str, Any]],
+    origins: list[dict[str, object]],
     metadata: dict[str, str],
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     for origin in origins:
         if origin.get("requested_url") and origin.get("requested_url") != metadata["requested_url"]:
             origin.setdefault("http_sources", []).append(
@@ -385,7 +385,7 @@ def is_streaming_url(url: str) -> bool:
     return _looks_like_streaming_page(url)
 
 
-def _streaming_metadata_fingerprint(info: dict[str, Any]) -> str:
+def _streaming_metadata_fingerprint(info: dict[str, object]) -> str:
     """Build a stable fingerprint without downloading streaming media bytes."""
     payload = {
         key: info.get(key)
@@ -414,7 +414,7 @@ def _streaming_metadata_fingerprint(info: dict[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def probe_streaming_url(url: str, *, fingerprint: str = "") -> dict[str, Any]:
+def probe_streaming_url(url: str, *, fingerprint: str = "") -> dict[str, object]:
     """Probe streaming metadata without downloading or transcribing the media."""
     from backend.agent.web_context import is_public_http_url
 
@@ -452,7 +452,7 @@ def probe_public_url(
     etag: str = "",
     last_modified: str = "",
     content_hash: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Conditionally revalidate a public URL through the secure downloader."""
     request_headers = {}
     if str(etag).strip():
@@ -487,7 +487,7 @@ def probe_public_url(
     }
 
 
-def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
+def _extract_url(url: str, input_order: int) -> list[dict[str, object]]:
     if _looks_like_streaming_page(url):
         origins = _extract_streaming_url(url, input_order)
         checked_at = datetime.now(timezone.utc).isoformat()
@@ -634,7 +634,7 @@ def _looks_like_streaming_page(url: str) -> bool:
     )
 
 
-def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, Any]]:
+def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, object]]:
     from backend.agent.web_context import is_public_http_url
 
     ok, reason = is_public_http_url(str(url))
@@ -729,15 +729,15 @@ def _split_paragraphs(text: str) -> list[str]:
     return document_domain.split_paragraphs(text)
 
 
-def _finalize_origin(origin: dict[str, Any]) -> dict[str, Any]:
+def _finalize_origin(origin: dict[str, object]) -> dict[str, object]:
     return origin_domain.finalize_origin(origin)
 
 
-def _origin_id(origin: dict[str, Any]) -> str:
+def _origin_id(origin: dict[str, object]) -> str:
     return origin_domain.origin_id(origin)
 
 
 def _deduplicate_origins(
-    origins: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    origins: list[dict[str, object]],
+) -> list[dict[str, object]]:
     return origin_domain.deduplicate_origins(origins)

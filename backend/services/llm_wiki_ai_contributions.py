@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, cast
+from typing import Callable, Iterable, cast
 
 from backend.agent.llm_wiki_tools import LLM_WIKI_TOOL_HANDLERS
 from backend.models.agent_skills import (
