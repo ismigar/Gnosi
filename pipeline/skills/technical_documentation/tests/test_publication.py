@@ -26,6 +26,7 @@ DOCUMENTATION_IF = (
 )
 CI_COMMANDS = {
     "documentation": [
+        "python scripts/ci/prepare_python_environment.py",
         "uv sync --frozen --group docs",
         'test -n "$PR_BASE_SHA"',
         'git cat-file -e "${PR_BASE_SHA}^{commit}"',
@@ -34,6 +35,7 @@ CI_COMMANDS = {
         '--check-only --base-ref "$PR_BASE_SHA"',
     ],
     "frontend": [
+        "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm check:api-client",
@@ -47,6 +49,7 @@ CI_COMMANDS = {
         "pnpm --filter @gnosi/desktop typecheck:ipc",
     ],
     "backend": [
+        "python scripts/ci/prepare_python_environment.py",
         "uv sync --frozen",
         "uv run python scripts/check_public_pipeline.py",
         "uv run python scripts/check_public_pipeline.py --structure",
@@ -64,6 +67,7 @@ CI_COMMANDS = {
         "uv run pytest",
     ],
     "native-smoke": [
+        "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm test:e2e:install",
@@ -75,10 +79,7 @@ for attempt in $(seq 1 180); do
   curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
     && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
     && exit 0
-  if ! kill -0 "${backend_pid}" 2>/dev/null || ! kill -0 "${frontend_pid}" 2>/dev/null; then
-    break
-  fi
-  sleep 2
+sleep 2
 done
 tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
 tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
@@ -86,10 +87,12 @@ exit 1'''.splitlines(),
         "pnpm test:e2e:smoke",
     ],
     "docker": [
+        "python3 scripts/ci/prepare_docker_runner.py",
         "docker compose config --quiet",
         "docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .",
         "docker build --file Dockerfile.backend --tag gnosi-backend:ci .",
         "scripts/smoke_docker.sh",
+        "docker system prune --all --force --volumes",
     ],
 }
 
@@ -219,9 +222,12 @@ def test_ci_documentation_gate_uses_frozen_docs_and_check_only(
     assert workflow_mapping(python["with"])["python-version"] == "3.11"
     assert workflow_mapping(uv["with"])["version"] == "0.9.15"
     commands = [workflow_text(step["run"]) for step in steps if "run" in step]
-    assert len(commands) == 2
-    assert commands[0] == "uv sync --frozen --group docs"
-    assert shlex.split(commands[1].splitlines()[-1]) == [
+    assert len(commands) == 3
+    assert commands[:2] == [
+        "python scripts/ci/prepare_python_environment.py",
+        "uv sync --frozen --group docs",
+    ]
+    assert shlex.split(commands[2].splitlines()[-1]) == [
         "uv",
         "run",
         "--frozen",
@@ -251,7 +257,13 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
             DOCUMENTATION_IF if name == "documentation" else TRUSTED_PR_IF
         )
         steps = workflow_steps(job)
-        assert all("if" not in step and "continue-on-error" not in step for step in steps)
+        assert all("continue-on-error" not in step for step in steps)
+        conditional_steps = [step for step in steps if "if" in step]
+        if name == "docker":
+            assert conditional_steps == [steps[-1]]
+            assert steps[-1]["if"] == "always()"
+        else:
+            assert conditional_steps == []
         commands = [
             line for step in steps if "run" in step
             for line in workflow_text(step["run"]).splitlines()

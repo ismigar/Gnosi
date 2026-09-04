@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 19 | 2492 | 0 |
-| `features` | 1047 | 122604 | 33 |
+| `features` | 1047 | 122610 | 33 |
 | `generated` | 2 | 43477 | 445 |
 | `shared` | 230 | 29669 | 384 |
 
@@ -750,7 +750,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageLinksPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageLinksPanel.tsx) | 223 | `PageLinksPanel` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PageModals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageModals.tsx) | 93 | `PageModals` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PagePropertiesPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PagePropertiesPanel.tsx) | 166 | `PagePropertiesPanel` | — |
-| [`frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx) | 121 | `PageTitle` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PageTitle.tsx) | 122 | `PageTitle` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/PropertyValue.tsx) | 128 | `PropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ScalarPropertyValue.tsx) | 102 | `ScalarPropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/SchemaPropertyRow.tsx) | 65 | `SchemaPropertyRow` | — |
@@ -777,7 +777,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.ts) | 42 | `createEditorSchema` | — |
 | [`frontend/src/features/vault/editor/block-editor/useDropBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useDropBridge.ts) | 12 | `useDropBridge` | — |
 | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 122 | `useEditorPersistence` | — |
-| [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 53 | `useEditorRuntime` | — |
+| [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 58 | `useEditorRuntime` | — |
 | [`frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts) | 32 | `useGeneratedContent` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.ts) | 58 | `useInitialDocument` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInlineIcon.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInlineIcon.ts) | 26 | `useInlineIcon` | — |

@@ -176,5 +176,7 @@ def test_frontend_routes_inventory_preserves_current_application_routes() -> Non
     assert {route.path for route in routes} == expected_paths
     assert len(routes) == len(expected_paths) == 32
     assert all(route.source != "unresolved" for route in routes)
-    assert FrontendRoute("/s/:token", "SharedPage", "frontend/src/features/sharing/index.ts") in routes
+    assert FrontendRoute(
+        "/s/:token", "SharedPage", "frontend/src/features/sharing/SharedPage.tsx"
+    ) in routes
     assert FrontendRoute("/vault/*", "LegacyVaultRedirect", "frontend/src/app/routes.tsx") in routes
