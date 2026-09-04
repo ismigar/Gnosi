@@ -76,7 +76,8 @@ export function PageTitle({ context }: { context: PageEditorController }) {
         type="button"
         onClick={() => { setSpellEnabled((v) => !v); }}
         title={spellEnabled ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() }) : t('editor.spellcheck_disabled')}
-        className={`vault-page-spell-action flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${spellEnabled ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]'}`}
+        aria-label={spellEnabled ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() }) : t('editor.spellcheck_disabled')}
+        className={`vault-page-spell-action flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${spellEnabled ? 'bg-[var(--gnosi-primary)]/10 text-blue-700 dark:text-blue-400' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
       >
         <SpellCheck2 size={12} /> {spellLang.toUpperCase()}
       </button>

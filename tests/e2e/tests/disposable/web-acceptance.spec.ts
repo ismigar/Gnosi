@@ -64,6 +64,10 @@ test.describe('disposable synthetic web acceptance', () => {
       await expect(page).toHaveURL(/\/@synthetic\/knowledge\/page\/synthetic-page$/);
       await expect(page.getByText('Disposable knowledge content', { exact: true }).first())
         .toBeVisible({ timeout: 10_000 });
+      const editorResults = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+      expect(editorResults.violations).toEqual([]);
       await testInfo.attach('knowledge-readiness.json', {
         body: JSON.stringify({ milliseconds: Date.now() - started }),
         contentType: 'application/json',

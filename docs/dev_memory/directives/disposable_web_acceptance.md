@@ -33,12 +33,9 @@ proveïdors externs.
 - No considerar aquesta suite prova del backend, persistència real, proveïdors,
   migracions ni instal·ladors. És acceptació del frontend amb contractes API
   sintètics.
-- El gate axe d'aquesta suite cobreix la superfície inicial de Knowledge. En
-  obrir la nota sintètica s'han detectat dues incidències de producció fora de
-  l'abast d'aquest canvi: l'editor Tiptap amb `role=textbox` no té nom accessible
-  i el botó del corrector ortogràfic té contrast 3,28:1 en tema clar. La suite
-  valida que el document s'obre i mostra contingut, però no certifica
-  l'accessibilitat de l'editor fins que aquests propietaris es corregeixin.
+- El gate axe ha de cobrir tant la superfície inicial de Knowledge com la nota
+  sintètica oberta. L'editor Tiptap ha de tenir nom accessible i els controls
+  compactes de l'editor han de conservar contrast suficient en clar i fosc.
 - No usar `networkidle`; l'aplicació pot mantenir polling o WebSockets.
 - No ampliar timeouts per amagar una càrrega bloquejada. La suite adjunta el
   temps fins al document visible, però no imposa un pressupost de release sobre
@@ -67,6 +64,8 @@ proveïdors externs.
   `frontend/node_modules/.bin/eslint --config frontend/eslint.config.js --no-ignore`
   des de l'arrel. `pnpm --dir frontend exec eslint` els ignora encara que se li
   indiqui la configuració explícitament.
+- Nota: el nom de l'ordre és `typecheck`, no `type-check`, i s'ha d'invocar amb
+  el filtre del workspace (`pnpm --filter @gnosi/frontend typecheck`).
 - Els callbacks Playwright que només executen una operació `void` han d'usar un
   bloc explícit; la forma abreujada incompleix `no-confusing-void-expression`.
 
@@ -95,8 +94,8 @@ proveïdors externs.
   variat entre 13,7 i 18,0 segons. El recorregut de quatre rutes ha trigat fins a
   1,3 minuts. Confirma que el mode de desenvolupament continua lent i variable;
   no és una acceptació de rendiment ni substitueix la mesura de producció.
-- El gate no certifica l'accessibilitat de l'editor obert: continuen pendents les
-  dues incidències de producció documentades més amunt.
+- L'editor obert queda inclòs en el gate: el cos editable té nom accessible i el
+  control ortogràfic usa un color de text amb contrast suficient.
 - Nota: no convertir un temps de Vite en pressupost de release. La compilació
   sota demanda ha fet variar el mateix flux entre 7,3 i 18,0 segons. Cal adjuntar
   la mesura disposable per diagnòstic i aplicar el gate només al build de
