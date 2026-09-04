@@ -17,6 +17,7 @@ from backend.scheduler import task_handlers as scheduler_task_handlers
 from backend.scheduler.bounded_executor import SchedulerExecutionRuntime
 from backend.scheduler.contracts import ScheduledTask, TaskSpec
 from backend.scheduler.notifications import notify
+from backend.scheduler.startup_policy import wait_before_automatic_dispatch
 from backend.utils.open_values import get_value, iterable_values
 
 
@@ -379,7 +380,7 @@ class SchedulerManager:
         from backend.config.logger_config import get_logger
 
         log = get_logger(__name__)
-
+        if wait_before_automatic_dispatch(self._stop_event): return
         while self._running:
             try:
                 now = datetime.now()
@@ -794,7 +795,6 @@ class SchedulerManager:
     def _task_update_memories(self) -> dict[str, Any]:
         """Refresh the graph response and analytics without invoking an LLM."""
         return scheduler_task_handlers.update_memories(self._task_update_analytics)
-
 
 # Singleton
 scheduler_manager = SchedulerManager()

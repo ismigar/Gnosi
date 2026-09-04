@@ -127,6 +127,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     # Test the default startup path only after replacing the scheduler itself.
     # Other tests and the outer validation process retain their disabled policy.
     monkeypatch.delenv("GNOSI_DISABLE_SCHEDULER", raising=False)
+    monkeypatch.setenv("GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS", "0")
     monkeypatch.setattr(
         durable_job_worker.durable_job_worker,
         "start",
@@ -226,6 +227,8 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     async def exercise() -> None:
         async with application_lifespan(FastAPI()):
             record("yield")
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
     asyncio.run(exercise())
 
@@ -235,7 +238,6 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "migrations",
         "auth.secret",
         "health.snapshot",
-        "scheduler.start",
         "worker.start",
         "plugins.load",
         "plugin.enabled:ai-platform",
@@ -247,6 +249,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "registry.lock",
         "registry.load",
         "yield",
+        "scheduler.start",
         "file-index.stop",
         "worker.stop",
         "imap.stop",

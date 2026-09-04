@@ -233,14 +233,36 @@ def _start_mail_idle(*, enabled: bool) -> None:
         log.warning("⚠️ Could not start IMAP IDLE workers: %s", error)
 
 
+async def _start_deferred_integrations(
+    *,
+    scheduler_enabled: bool,
+    mail_enabled: bool,
+) -> None:
+    """Start external background integrations only after HTTP startup can finish."""
+    delay = max(
+        0.0,
+        float(os.getenv("GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS", "5")),
+    )
+    await asyncio.sleep(delay)
+    if scheduler_enabled:
+        scheduler_manager.start()
+    else:
+        log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
+    await asyncio.to_thread(_start_mail_idle, enabled=mail_enabled)
+
+
 async def _shutdown_runtime(
     app: FastAPI,
     confirmation_maintenance_task: asyncio.Task[None],
+    integration_startup_task: asyncio.Task[None],
 ) -> None:
     """Stop workers and MCP without allowing one shutdown path to hang reload."""
     from backend.services.durable_job_worker import durable_job_worker
 
     log.info("🛑 Shutting down...")
+    integration_startup_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await integration_startup_task
     scheduler_stopped = await asyncio.to_thread(scheduler_manager.stop)
     if not scheduler_stopped:
         log.warning("⚠️ Scheduler workers exceeded their shutdown bound.")
@@ -292,10 +314,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await asyncio.to_thread(refresh_health_snapshot, app)
 
-    if _scheduler_start_enabled():
-        scheduler_manager.start()
-    else:
-        log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
     durable_job_worker.start()
     confirmation_task = asyncio.create_task(_confirmation_maintenance_loop())
 
@@ -309,12 +327,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _warm_vault_indexes()
     _wire_plugin_system()
     _repair_main_views()
-    _start_mail_idle(enabled=mail_enabled)
+    integration_startup_task = asyncio.create_task(
+        _start_deferred_integrations(
+            scheduler_enabled=_scheduler_start_enabled(),
+            mail_enabled=mail_enabled,
+        )
+    )
 
     try:
         yield
     finally:
-        await _shutdown_runtime(app, confirmation_task)
+        await _shutdown_runtime(app, confirmation_task, integration_startup_task)
 
 
 __all__ = ["lifespan"]
