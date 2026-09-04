@@ -10,6 +10,7 @@ import pytest
 
 from backend.domains.vault.api import pages_queries
 from backend.domains.vault.api.pages_queries import _compact_sidebar_metadata
+from backend.domains.vault.api.pages_queries import _sparse_sidebar_metadata
 from backend.domains.vault.schemas.pages import PageInfo, SidebarPageInfo
 
 
@@ -58,6 +59,28 @@ def test_compact_sidebar_projection_removes_large_unneeded_user_fields() -> None
     )
 
     assert compact_bytes < full_bytes * 0.01
+
+
+def test_sparse_sidebar_metadata_removes_only_exact_top_level_duplicates() -> None:
+    page = PageInfo(
+        id="00000000-0000-4000-8000-000000000001",
+        title="Synthetic page",
+        metadata={
+            "id": "00000000-0000-4000-8000-000000000001",
+            "table_id": "notes",
+            "database_table_id": "legacy-notes",
+            "resolved_table_id": "notes",
+            "icon": "🧠",
+        },
+        resolved_table_id="notes",
+        last_modified="2026-09-04T00:00:00+00:00",
+        size=64,
+    )
+
+    assert _sparse_sidebar_metadata(page) == {
+        "database_table_id": "legacy-notes",
+        "icon": "🧠",
+    }
 
 
 def test_sidebar_projection_is_opt_in_and_keeps_legacy_metadata(

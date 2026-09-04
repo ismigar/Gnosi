@@ -65,6 +65,18 @@ def _compact_sidebar_metadata(metadata: dict[object, object]) -> dict[object, ob
     }
 
 
+def _sparse_sidebar_metadata(page: PageInfo) -> dict[object, object]:
+    """Remove values duplicated by canonical top-level sidebar fields."""
+    metadata = _compact_sidebar_metadata(page.metadata)
+    if metadata.get("id") == page.id:
+        metadata.pop("id")
+    if page.resolved_table_id is not None:
+        for key in ("table_id", "database_table_id", "resolved_table_id"):
+            if metadata.get(key) == page.resolved_table_id:
+                metadata.pop(key)
+    return metadata
+
+
 class SnapshotReader(Protocol):
     def __call__(
         self,
@@ -281,7 +293,7 @@ async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
             last_modified=page.last_modified,
             parent_id=page.parent_id,
             is_database=True if page.is_database else None,
-            metadata=_compact_sidebar_metadata(page.metadata) or None,
+            metadata=_sparse_sidebar_metadata(page) or None,
             folder=page.folder or None,
             resolved_table_id=page.resolved_table_id,
         )

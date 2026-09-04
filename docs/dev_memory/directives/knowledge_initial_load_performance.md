@@ -36,6 +36,9 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Nota: Chromium headless pot fallar dins del sandbox de macOS amb `MachPortRendezvousServer: Permission denied`. Cal executar només el procés de navegador amb permís local ampliat i bloquejar explícitament qualsevol host que no sigui loopback.
 - Nota: `vite preview` pot rebre `listen EPERM` dins el sandbox de macOS. Cal iniciar-lo amb autorització local abans d'interpretar un `ERR_CONNECTION_REFUSED` del perfilador.
 - No considerar `networkidle` una condició obligatòria: Gnosi pot mantenir polling o WebSockets.
+- Nota: en mesurar endpoints amb paràmetres des de zsh, cal citar l'URL completa;
+  un `?` sense citar s'interpreta com un patró i pot impedir que s'executi tota
+  la bateria de mesures.
 - No confondre la primera compilació sota demanda de Vite amb latència estable. Cal mesurar càrrega freda, càrrega calenta i build de producció.
 - No ampliar timeouts per ocultar consultes lentes; cal mesurar la petició concreta i corregir-ne el propietari.
 - No registrar payloads, textos de pàgines, credencials ni contingut del vault durant el perfilat.
@@ -198,3 +201,9 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   no com a latència estable de Gnosi.
 - La captura visual va confirmar el vault Principal, la navegació, els grups de
   l'arbre lateral i la vista de benvinguda sense errors visibles.
+- Mesura de seguiment del 2026-09-04 sobre la mateixa màquina: Vite de
+  desenvolupament va mostrar el shell en 1,76 s amb 235 respostes locals; el
+  build de producció el va mostrar en 1,04 s amb 91 respostes. Els serveis
+  responien en 61 ms (HTML), 93 ms (vaults) i 157 ms (resum lateral). El resum
+  compacte real ocupava 706.876 bytes, de manera que la següent optimització ha
+  de reduir-ne la projecció i el cost de processament al navegador.

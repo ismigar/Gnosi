@@ -21,7 +21,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 68 | 18 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 136 | 37 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 41 | 27 | 0 |
-| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 17 | 9 | 0 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 103 | 30 | 0 |
 
 ## Platform foundation and runtime
