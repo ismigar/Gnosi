@@ -36,6 +36,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen --only-group docs

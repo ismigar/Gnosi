@@ -85,6 +85,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Install frozen Node dependencies
         run: pnpm install --frozen-lockfile
       - name: Build frontend
@@ -147,6 +148,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Install and build
         env:
           GNOSI_PYTHON_CMD: python
@@ -208,6 +210,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Install and build
         env:
           GNOSI_PYTHON_CMD: python
@@ -259,6 +262,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - name: Define release tag
