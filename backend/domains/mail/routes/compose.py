@@ -32,6 +32,7 @@ from backend.domains.mail.services.accounts import (
     _is_microsoft_account,
     _resolve_gmail_id,
 )
+from backend.domains.mail.services.analysis import analyze_mail_entities
 from backend.domains.mail.services.attachments import _embed_quoted_cid_images
 from backend.services.contacts_service import ContactsService
 from backend.services.google_mail_service import (
@@ -717,68 +718,9 @@ async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
     response_model_exclude_unset=True,
 )
 async def extract_entities(payload: mail_schemas.MailExtractEntitiesRequest) -> Any:
-    import json
-
-    from pipeline.ai_client import call_ai_with_fallback
-
-    context = payload.context
-    if not context:
-        return {"events": [], "contacts": []}
-
-    from datetime import date
-
-    today = date.today().isoformat()
-
-    system_prompt = f"""Analyze this email and extract calendar events and contacts.
-The email may be in any language (Catalan, Spanish, English, French, etc.).
-Today's date is {today}.
-
-Return ONLY a JSON object with the fields 'events' and 'contacts'. Do not add
-other text or Markdown. Return empty arrays when there are no entities.
-
-Date formats to recognize (non-exhaustive examples):
-- "dia 6 de maig de 2026 a les 09.30 hores" → 2026-05-06T09:30:00
-- "el proper dilluns a les 10h" → calculate relative to {today}
-- "6 de mayo de 2026 a las 10:00" → 2026-05-06T10:00:00
-- "May 6th 2026 at 10am" → 2026-05-06T10:00:00
-
-Each event must contain:
-- title: string (short descriptive event name)
-- start: ISO 8601 string (use T09:00:00 when no time is provided)
-- end: ISO 8601 string (one hour after start when not specified)
-- location: string (empty when not mentioned)
-- description: string (brief summary)
-
-Each contact must contain:
-- name: string
-- email: string
-- phone: string
-- company: string
-- notes: string
-
-EMAIL CONTENT:
-"""
-    ai_prompt = system_prompt + context
-    content, provider = call_ai_with_fallback(ai_prompt)
-
-    try:
-        clean_content = content.strip()
-        if clean_content.startswith("```json"):
-            clean_content = clean_content[7:-3].strip()
-        elif clean_content.startswith("```"):
-            clean_content = clean_content[3:-3].strip()
-
-        data = json.loads(clean_content)
-        return {
-            "events": data.get("events", []),
-            "contacts": data.get("contacts", []),
-            "provider": provider,
-        }
-    except Exception as e:
-        log.error(f"Error parsing AI response for entities: {e}")
-        return {
-            "events": [],
-            "contacts": [],
-            "error": safe_error_detail(e, "AI parse mail entities"),
-            "raw": content,
-        }
+    return await analyze_mail_entities(
+        payload.context,
+        sender=payload.sender,
+        recipients=tuple(payload.recipients),
+        attachments=tuple(payload.attachments),
+    )

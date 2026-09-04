@@ -7,7 +7,7 @@ import { fetchReferenceTable } from '../../../shared/api/literature-resources';
 import { emitCancelableAppEvent } from '../../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import { tableBodyCallbacks } from './table-callbacks';
-import { PAGE_ID, OTHER_ID, installApiDefaults } from './test-support';
+import { CATALOG, PAGE_ID, OTHER_ID, installApiDefaults } from './test-support';
 import { renderController } from './__tests__/controller-support';
 vi.mock('../../../shared/api/vaults');
 vi.mock('../../../shared/api/vault-views');
@@ -26,9 +26,37 @@ describe('dashboard lifecycle and integrations', () => {
   it('loads the initial catalog once and exposes a rendered controller state', async () => {
     harness = await renderController();
     expect(harness.container.textContent).toBe('editor');
-    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultSidebarSummary).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPages).not.toHaveBeenCalled();
     expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(1);
     expect(harness.current.loading).toBe(false);
+  });
+  it('does not duplicate initial catalogs when StrictMode replays mount effects', async () => {
+    harness = await renderController('', undefined, true);
+    expect(vault.fetchVaultSidebarSummary).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPages).not.toHaveBeenCalled();
+    expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(1);
+    expect(harness.current.loading).toBe(false);
+    expect(harness.current.isRegistryLoading).toBe(false);
+  });
+  it('preserves an explicit special view when the initial registry finishes later', async () => {
+    const fetchedRegistry: vault.VaultRegistry = {
+      databases: CATALOG.databases.map(item => ({ ...item })),
+      tables: CATALOG.tables.map(item => ({ ...item })),
+      views: CATALOG.views.map(item => ({ ...item })),
+    };
+    let resolveRegistry: ((registry: vault.VaultRegistry) => void) | undefined;
+    vi.mocked(vault.fetchVaultRegistry).mockImplementation(() => new Promise<vault.VaultRegistry>(resolve => {
+      resolveRegistry = resolve;
+    }));
+    harness = await renderController();
+    await harness.run(state => { state.setViewMode('trash'); });
+    expect(harness.current.viewMode).toBe('trash');
+    await act(async () => {
+      resolveRegistry?.(fetchedRegistry);
+      await Promise.resolve();
+    });
+    expect(harness.current.viewMode).toBe('trash');
   });
   it('restores a direct table route with its schema without creating duplicate views', async () => {
     harness = await renderController('table/table/view/main');
@@ -39,6 +67,12 @@ describe('dashboard lifecycle and integrations', () => {
   });
   it('opens a direct page without pruning its newly loaded tab', async () => {
     harness = await renderController(`page/${PAGE_ID}`);
+    expect(vault.fetchVaultSidebarSummary).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPage).toHaveBeenCalledWith(
+      PAGE_ID,
+      expect.any(AbortSignal),
+    );
+    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
     expect(harness.current.activeTabId).toBe(PAGE_ID);
     expect(harness.current.tabs[0]?.content).toBe('body');
     expect(vault.saveVaultPage).not.toHaveBeenCalled();

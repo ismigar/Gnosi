@@ -1,6 +1,8 @@
-import inspect
+import asyncio
+import copy
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, cast
 
@@ -8,12 +10,18 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.config.app_config import load_params
+from backend.domains.configuration.config_response_cache import ConfigResponseCache
 from backend.domains.configuration.settings_schemas import (
     ConfigurationDocument,
     ConfigurationUpdateRequest,
     ConfigurationUpdateResponse,
 )
-from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitize_ai_config
+from backend.security.ai_credentials import (
+    migrate_ai_provider_secrets,
+    sanitize_ai_config,
+    sanitize_ai_config_concurrently,
+)
+from backend.services.context_vars import active_vault_path
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
@@ -23,52 +31,69 @@ from backend.utils.safe_io import safe_write_text
 # blocks access in organization mode.
 router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
+_CONFIG_RESPONSE_CACHE = ConfigResponseCache()
 
 # Note: We now fetch the dynamic path from app_config at runtime
+
+
+def _config_context_key() -> str:
+    """Identify a vault without reading configuration or including secrets."""
+    active = active_vault_path.get()
+    configured = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
+    host_path = os.environ.get("VAULT_HOST_PATH")
+    return "\x1f".join((str(active or ""), configured or "", host_path or ""))
+
+
+def _read_config_document() -> dict[str, object]:
+    """Read and sanitize Settings data in one blocking worker unit."""
+    cfg = load_params(strict_env=False)
+
+    safe_params: dict[str, Any] = copy.deepcopy(cfg.params or {})
+    if "paths" not in safe_params:
+        safe_params["paths"] = {}
+
+    vault_ui_path = os.environ.get("VAULT_HOST_PATH") or (
+        str(cfg.paths.get("VAULT")) if cfg.paths.get("VAULT") else ""
+    )
+    if vault_ui_path:
+        safe_params["paths"]["vault"] = vault_ui_path
+
+    settings = safe_params.get("settings", {})
+    check_system_password = isinstance(settings, dict) and (
+        "password" in settings or "gnosi_mode" in settings
+    )
+
+    def has_system_password() -> bool:
+        from backend.security.keychain_manager import get_keychain
+
+        assert isinstance(settings, dict)
+        return bool(settings.get("password")) or get_keychain().has_credential("system_password")
+
+    ai_config = dict(safe_params.get("ai") or {})
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="config-secrets") as pool:
+        ai_future = pool.submit(sanitize_ai_config_concurrently, ai_config)
+        password_future = pool.submit(has_system_password) if check_system_password else None
+        sanitized_ai = ai_future.result()
+        has_pwd = password_future.result() if password_future is not None else None
+
+    if isinstance(settings, dict) and check_system_password:
+        settings["has_password"] = has_pwd
+        settings.pop("password", None)
+        safe_params["settings"] = settings
+
+    safe_params["ai"] = sanitized_ai
+    return safe_params
 
 
 @router.get("/config", response_model=ConfigurationDocument)
 async def get_config() -> Any:
     try:
-        # Reload params to get the latest version from disk
-        cfg = load_params(strict_env=False)
-        # Absolute origin trace of the function for debugging
-        source_file = inspect.getfile(load_params)
-        log.info(f"DEBUG: load_params loaded from: {source_file}")
-
-        safe_params = dict(cfg.params or {})
-
-        # 1. Resolve and inject paths for UI display
-        # We ensure that the frontend sees the actual path being used by the backend.
-        if "paths" not in safe_params:
-            safe_params["paths"] = {}
-
-        # If vault is not in params but we have it resolved, inject it.
-        # This fixes the issue where the vault path appears empty in settings.
-        # We prioritize VAULT_HOST_PATH (if set via Docker) so the user sees the real path on their machine.
-        vault_ui_path = os.environ.get("VAULT_HOST_PATH") or (
-            str(cfg.paths.get("VAULT")) if cfg.paths.get("VAULT") else ""
+        key = _config_context_key()
+        return await asyncio.to_thread(
+            _CONFIG_RESPONSE_CACHE.get_or_load,
+            key,
+            _read_config_document,
         )
-        if vault_ui_path:
-            safe_params["paths"]["vault"] = vault_ui_path
-
-        # 2. Sanitize system password
-        settings = safe_params.get("settings", {})
-        if "password" in settings or "gnosi_mode" in settings:
-            from backend.security.keychain_manager import get_keychain
-
-            # We don't want to send the actual password to the frontend
-            # but we want to let it know if one is set.
-            has_pwd = bool(settings.get("password")) or get_keychain().has_credential(
-                "system_password"
-            )
-            settings["has_password"] = has_pwd
-            settings.pop("password", None)
-            safe_params["settings"] = settings
-
-        safe_params["ai"] = sanitize_ai_config(dict(safe_params.get("ai") or {}))
-        log.info("DEBUG: Config loaded and AI secrets sanitized for API response")
-        return safe_params
     except Exception as e:
         log.error(f"Error reading config: {e}")
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /config"))
@@ -211,68 +236,47 @@ def _evict_agent_cache(request: Request, new_config: dict[str, Any]) -> None:
         log.info("Agent graph cache evicted after an AI configuration change.")
 
 
+def _update_config_document(new_config: dict[str, Any]) -> None:
+    """Apply one complete configuration transaction in a blocking worker."""
+    # Retrieve the current configuration
+    cfg = load_params(strict_env=False)
+    params_path = cfg.params_source
+
+    # The LLM Wiki profile is created by the plugin lifecycle and may be
+    # edited here like any other agent. It must not be silently removed by
+    # a generic Settings save: disabling the plugin is the deliberate,
+    # confirmed removal path.
+    if isinstance(new_config.get("ai"), dict):
+        _validate_llm_wiki_agent(cfg.ai, new_config)
+    current_config = _load_current_config(params_path)
+
+    _migrate_system_password(new_config)
+    merged_config = deep_merge(current_config, new_config)
+    _validate_agent_strategies(new_config, merged_config)
+    _replace_provider_map(new_config, merged_config)
+    _secure_ai_config(merged_config)
+
+    if "ai" in merged_config:
+        log.info(
+            "Final AI Config to save (sanitized): %s",
+            sanitize_ai_config(merged_config["ai"]),
+        )
+    log.info("Final configuration to save (summary): %s", list(merged_config.keys()))
+    _write_config(params_path, merged_config)
+    log.info("File params.yaml updated successfully.")
+
+
 @router.post("/config", response_model=ConfigurationUpdateResponse)
 async def update_config(payload: ConfigurationUpdateRequest, request: Request) -> Any:
     try:
         new_config = _request_config(payload)
-
-        # Never log the raw payload: it carries the system password and AI API
-        # keys in cleartext. Log only which top-level sections were sent.
-        log.info(f"POST /config received. Sections: {list(new_config.keys())}")
-
-        # Retrieve the current configuration
-        cfg = load_params(strict_env=False)
-        params_path = cfg.params_source
-
-        # The LLM Wiki profile is created by the plugin lifecycle and may be
-        # edited here like any other agent. It must not be silently removed by
-        # a generic Settings save: disabling the plugin is the deliberate,
-        # confirmed removal path.
-        if isinstance(new_config.get("ai"), dict):
-            _validate_llm_wiki_agent(cfg.ai, new_config)
-        current_config = _load_current_config(params_path)
-
-        # 1. Migrate system password if sent
-        _migrate_system_password(new_config)
-
-        # Merge data and preserve unsent keys
-        merged_config = deep_merge(current_config, new_config)
-
-        _validate_agent_strategies(new_config, merged_config)
-
-        # For AI providers, frontend sends the full desired map.
-        # Replace instead of deep-merging to allow deleting removed providers.
-        _replace_provider_map(new_config, merged_config)
-        _secure_ai_config(merged_config)
-
-        # Do not log the raw AI config: it contains provider api_key values.
-        # The sanitized summary below is enough for debugging.
-        if "ai" in merged_config:
-            log.info(
-                f"Final AI Config to save (sanitized): {sanitize_ai_config(merged_config['ai'])}"
-            )
-
-        log.info(f"Final configuration to save (summary): {list(merged_config.keys())}")
-
-        # Atomic write: params.yaml is the app's main config. A crash
-        # mid safe_dump would leave the YAML truncated and the next restart
-        # from the backend would expire on load_params.
-        _write_config(params_path, merged_config)
-
-        # We do NOT force any server restart. Previously we did `touch backend/server.py`
-        # so uvicorn --reload would reload the process on EVERY config save, but:
-        #   - load_params() re-reads params.yaml fresh on every request → changes already
-        #     they are applied without restarting;
-        #   - the restart brings down the backend for 30-60s (reindexing), kills any work in
-        #     course (e.g. a full Notion CLONE, 2026-07-04 incident) and chains
-        #     the native watchdog (kickstart -k) when startup takes longer than the grace period;
-        #   - with the Settings panel's autosave, this used to happen on every edit.
-        log.info("File params.yaml updated successfully.")
-
-        # The agent graph IS cached per agent (app.state.agent_cache) and bakes in the
-        # persona, the model and the tools scoped to the attached context sources. Without
-        # this eviction an edited agent keeps answering with its previous configuration
-        # until the process restarts.
+        log.info("POST /config received. Sections: %s", list(new_config.keys()))
+        key = _config_context_key()
+        await asyncio.to_thread(
+            _CONFIG_RESPONSE_CACHE.update,
+            key,
+            lambda: _update_config_document(new_config),
+        )
         _evict_agent_cache(request, new_config)
 
         return {"status": "success", "message": "Configuration updated"}

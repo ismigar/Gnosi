@@ -6,7 +6,7 @@ import datetime as dt
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional, Protocol, TypedDict
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from backend.config.logger_config import get_logger
 from backend.data.db import get_engine_for_path
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services.context_vars import get_active_vault_path
+from backend.utils.open_values import iterable_values
 
 logger = get_logger(__name__)
 
@@ -22,14 +23,69 @@ _MANAGED_PREFIX = "llm-wiki"
 _ZOTERO_BLOB_PREFIX = "__ZOTERO_JSON__"
 
 
-def _load_pdfium() -> Any:
+class _PdfSearcher(Protocol):
+    def get_next(self) -> tuple[int, int] | None: ...
+
+    def close(self) -> object: ...
+
+
+class _PdfTextPage(Protocol):
+    def search(self, text: str, *, match_case: bool) -> _PdfSearcher: ...
+
+    def count_rects(self, start: int, count: int) -> int: ...
+
+    def get_rect(self, index: int) -> tuple[float, float, float, float]: ...
+
+    def close(self) -> object: ...
+
+
+class _PdfPage(Protocol):
+    def get_textpage(self) -> _PdfTextPage: ...
+
+    def get_height(self) -> float: ...
+
+    def close(self) -> object: ...
+
+
+class _PdfDocument(Protocol):
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, page_index: int) -> _PdfPage: ...
+
+    def close(self) -> object: ...
+
+
+class _PdfiumModule(Protocol):
+    def open_document(self, path: str) -> _PdfDocument: ...
+
+
+class _PdfiumAdapter:
+    def __init__(self, document_factory: Callable[[str], _PdfDocument]) -> None:
+        self._document_factory = document_factory
+
+    def open_document(self, path: str) -> _PdfDocument:
+        return self._document_factory(path)
+
+
+class _CitationCandidate(TypedDict):
+    managed_key: str
+    source_uri: str
+    pdf_path: Path
+    page: int
+    quote: str
+
+
+PositionResolver = Callable[[Path, int, str], Optional[dict[str, object]]]
+
+
+def _load_pdfium() -> _PdfiumModule:
     """Load the optional PDF adapter at the one untyped vendor boundary."""
     import pypdfium2  # type: ignore[import-untyped]
 
-    return pypdfium2
+    return _PdfiumAdapter(pypdfium2.PdfDocument)
 
 
-def _normalized_text(value: Any) -> str:
+def _normalized_text(value: object) -> str:
     return " ".join(str(value or "").split()).strip()
 
 
@@ -49,7 +105,7 @@ def _search_queries(quote: str) -> list[str]:
     return list(dict.fromkeys(candidate for candidate in candidates if len(candidate) >= 12))
 
 
-def _managed_key(resource_id: str, citation: dict[str, Any]) -> str:
+def _managed_key(resource_id: str, citation: dict[str, object]) -> str:
     stable_value = "|".join(
         (
             str(citation.get("origin_id") or ""),
@@ -62,10 +118,10 @@ def _managed_key(resource_id: str, citation: dict[str, Any]) -> str:
 
 
 def _find_quote_position_in_document(
-    document: Any,
+    document: _PdfDocument,
     page_number: int,
     quote: str,
-) -> Optional[dict[str, Any]]:
+) -> Optional[dict[str, object]]:
     page_index = page_number - 1
     if page_index < 0 or page_index >= len(document):
         return None
@@ -110,10 +166,10 @@ def _find_quote_position_in_document(
     return None
 
 
-def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, Any]]:
+def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Optional[dict[str, object]]:
     """Resolve one citation to Zotero-compatible PDF coordinates."""
     pypdfium2 = _load_pdfium()
-    document = pypdfium2.PdfDocument(str(pdf_path))
+    document = pypdfium2.open_document(str(pdf_path))
     try:
         return _find_quote_position_in_document(document, page_number, quote)
     finally:
@@ -121,18 +177,18 @@ def _find_quote_position(pdf_path: Path, page_number: int, quote: str) -> Option
 
 
 def _citation_candidates(
-    notes: list[dict[str, Any]],
-    origins: list[dict[str, Any]],
+    notes: list[dict[str, object]],
+    origins: list[dict[str, object]],
     resource_id: str,
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, _CitationCandidate]:
     origins_by_id = {
         str(origin.get("origin_id") or ""): origin
         for origin in origins
         if str(origin.get("kind") or "").lower() == "pdf"
     }
-    candidates: dict[str, dict[str, Any]] = {}
+    candidates: dict[str, _CitationCandidate] = {}
     for note in notes:
-        for citation in note.get("citations") or []:
+        for citation in iterable_values(note.get("citations") or []):
             if not isinstance(citation, dict):
                 continue
             origin = origins_by_id.get(str(citation.get("origin_id") or ""))
@@ -156,11 +212,11 @@ def _citation_candidates(
 
 
 def _zotero_annotation(
-    candidate: dict[str, Any],
-    position: dict[str, Any],
+    candidate: _CitationCandidate,
+    position: dict[str, object],
     *,
     created_at: Optional[dt.datetime] = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     now = dt.datetime.now(dt.timezone.utc)
     created = created_at or now
     if created.tzinfo is None:
@@ -186,24 +242,24 @@ def _zotero_annotation(
 
 
 def _resolve_annotation_candidates(
-    candidates: dict[str, dict[str, Any]],
-    position_resolver: Optional[Callable[[Path, int, str], Optional[dict[str, Any]]]],
-) -> tuple[dict[str, tuple[dict[str, Any], dict[str, Any]]], list[str]]:
+    candidates: dict[str, _CitationCandidate],
+    position_resolver: Optional[PositionResolver],
+) -> tuple[dict[str, tuple[_CitationCandidate, dict[str, object]]], list[str]]:
     """Resolve PDF geometry while reusing opened documents per attachment."""
-    resolved: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+    resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]] = {}
     warnings: list[str] = []
-    documents: dict[str, Any] = {}
-    resolver: Callable[[Path, int, str], Optional[dict[str, Any]]]
+    documents: dict[str, _PdfDocument] = {}
+    resolver: PositionResolver
     if position_resolver is None:
         pypdfium2 = _load_pdfium()
 
         def cached_resolver(
             pdf_path: Path, page_number: int, quote: str
-        ) -> Optional[dict[str, Any]]:
+        ) -> Optional[dict[str, object]]:
             path_key = str(pdf_path)
             document = documents.get(path_key)
             if document is None:
-                document = pypdfium2.PdfDocument(path_key)
+                document = pypdfium2.open_document(path_key)
                 documents[path_key] = document
             return _find_quote_position_in_document(document, page_number, quote)
 
@@ -257,7 +313,7 @@ def _annotation_session(session: Optional[Session]) -> tuple[Session, bool]:
 
 def _upsert_resolved_annotations(
     session: Session,
-    resolved: dict[str, tuple[dict[str, Any], dict[str, Any]]],
+    resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]],
     existing_by_key: dict[str, PdfAnnotation],
 ) -> tuple[int, int]:
     """Create or update all resolved managed annotations."""
@@ -296,7 +352,7 @@ def _persist_managed_annotations(
     session: Session,
     resource_id: str,
     desired_keys: set[str],
-    resolved: dict[str, tuple[dict[str, Any], dict[str, Any]]],
+    resolved: dict[str, tuple[_CitationCandidate, dict[str, object]]],
 ) -> tuple[int, int, int]:
     """Apply one transaction and return created, updated and removed counts."""
     prefix = f"{_MANAGED_PREFIX}:{resource_id}:"
@@ -319,13 +375,13 @@ def _persist_managed_annotations(
 
 
 def sync_generated_pdf_annotations(
-    notes: list[dict[str, Any]],
-    origins: list[dict[str, Any]],
+    notes: list[dict[str, object]],
+    origins: list[dict[str, object]],
     resource_id: str,
     *,
     session: Optional[Session] = None,
-    position_resolver: Optional[Callable[[Path, int, str], Optional[dict[str, Any]]]] = None,
-) -> dict[str, Any]:
+    position_resolver: Optional[PositionResolver] = None,
+) -> dict[str, object]:
     """Upsert managed citation highlights and remove only obsolete managed ones."""
     candidates = _citation_candidates(notes, origins, resource_id)
     desired_keys = set(candidates)

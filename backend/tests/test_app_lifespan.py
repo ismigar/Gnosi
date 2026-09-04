@@ -10,6 +10,7 @@ import pytest
 from fastapi import FastAPI
 
 import backend.app.lifespan as lifespan_module
+import backend.app.factory as app_factory
 from backend.api import vault_routes
 from backend.app.lifespan import lifespan as application_lifespan
 from backend.config import app_config, data_dir
@@ -51,6 +52,33 @@ def test_scheduler_remains_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -
     assert lifespan_module._scheduler_start_enabled() is True
 
 
+def test_agent_workflow_is_deferred_until_first_chat() -> None:
+    events: list[str] = []
+
+    class FakeMcpClient:
+        async def start(self) -> None:
+            events.append("mcp.start")
+
+        async def get_all_tools(self) -> list[dict[str, str]]:
+            events.append("mcp.tools")
+            return [{"name": "ready"}]
+
+    app = FastAPI()
+
+    async def exercise() -> None:
+        client = FakeMcpClient()
+        await lifespan_module._start_agent_runtime(app, client, enabled=True)
+        assert app.state.mcp_client is client
+        assert app.state.tools_list == [{"name": "ready"}]
+        assert app.state.agent_cache == {}
+        assert not hasattr(app.state, "agent_workflow")
+        assert not hasattr(app.state, "agent_app")
+
+    asyncio.run(exercise())
+
+    assert events == ["mcp.start", "mcp.tools"]
+
+
 def test_lifespan_preserves_startup_and_shutdown_order(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -87,6 +115,11 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         lambda: record("auth.secret"),
     )
     monkeypatch.setattr(
+        app_factory,
+        "refresh_health_snapshot",
+        lambda _app: record("health.snapshot"),
+    )
+    monkeypatch.setattr(
         scheduler_manager,
         "start",
         lambda: record("scheduler.start"),
@@ -94,6 +127,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     # Test the default startup path only after replacing the scheduler itself.
     # Other tests and the outer validation process retain their disabled policy.
     monkeypatch.delenv("GNOSI_DISABLE_SCHEDULER", raising=False)
+    monkeypatch.setenv("GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS", "0")
     monkeypatch.setattr(
         durable_job_worker.durable_job_worker,
         "start",
@@ -152,6 +186,10 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "load_params",
         load_params,
     )
+    # lifespan imports load_params directly, so patch the bound owner as well.
+    # Otherwise index warmup can touch the configured real Vault before the
+    # facade-level registry doubles below are exercised.
+    monkeypatch.setattr(lifespan_module, "load_params", load_params)
     monkeypatch.setattr(
         plugin_dispatcher,
         "wire",
@@ -160,8 +198,13 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     monkeypatch.setattr(
         vault_file_index,
         "kickoff_file_index_rebuild",
-        lambda: record("file-index.start"),
+        lambda: pytest.fail("lifespan must not scan provider trees"),
     )
+    def stop_file_index() -> bool:
+        record("file-index.stop")
+        return True
+
+    monkeypatch.setattr(vault_file_index, "shutdown_file_index", stop_file_index)
 
     @contextmanager
     def registry_mutation() -> Iterator[None]:
@@ -184,6 +227,8 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     async def exercise() -> None:
         async with application_lifespan(FastAPI()):
             record("yield")
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
 
     asyncio.run(exercise())
 
@@ -192,7 +237,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "data.resolve",
         "migrations",
         "auth.secret",
-        "scheduler.start",
+        "health.snapshot",
         "worker.start",
         "plugins.load",
         "plugin.enabled:ai-platform",
@@ -201,10 +246,11 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "mcp.create",
         "vault.config",
         "plugins.wire",
-        "file-index.start",
         "registry.lock",
         "registry.load",
         "yield",
+        "scheduler.start",
+        "file-index.stop",
         "worker.stop",
         "imap.stop",
     ]

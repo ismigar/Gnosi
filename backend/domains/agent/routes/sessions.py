@@ -1,7 +1,7 @@
 import asyncio
 import copy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Mapping, Optional, cast
 
 from fastapi import Depends, HTTPException, Query
 from langgraph.checkpoint.base import create_checkpoint
@@ -17,6 +17,10 @@ from backend.domains.agent.routes.checkpoints import (
 )
 from backend.domains.agent.routes.contracts import ChatRewindRequest
 from backend.domains.agent.routes.router import router
+from backend.domains.agent.routes.response_models import (
+    AgentDeleteResponse,
+    AgentSessionMessagesResponse,
+)
 from backend.domains.agent.routes.shared import (
     _notebook_conversation_scope,
     _validated_identifier,
@@ -28,14 +32,14 @@ from backend.services.workspace_service import WorkspaceContext, require_role
 
 @router.delete(
     "/chat/sessions/{agent_id}/{session_id}",
-    response_model=None,
+    response_model=AgentDeleteResponse,
 )
 async def delete_chat_session(
     agent_id: str,
     session_id: str,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
     notebook_id: Optional[str] = Query(default=None, max_length=64),
-) -> Any:
+) -> Mapping[str, object]:
     """Remove the persisted LangGraph checkpoints for one scoped chat thread."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
     notebook_scope = _notebook_conversation_scope(notebook_id, workspace_context, mutation="clear")
@@ -78,7 +82,8 @@ async def delete_chat_session(
 
 @router.post(
     "/chat/sessions/{agent_id}/{session_id}/rewind",
-    response_model=None,
+    response_model=AgentSessionMessagesResponse,
+    response_model_exclude_none=True,
 )
 async def rewind_chat_session(
     agent_id: str,
@@ -86,7 +91,7 @@ async def rewind_chat_session(
     payload: ChatRewindRequest,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
     notebook_id: Optional[str] = Query(default=None, max_length=64),
-) -> Any:
+) -> Mapping[str, object]:
     """Remove one turn and its suffix from the scoped canonical checkpoint."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
     notebook_scope = _notebook_conversation_scope(notebook_id, workspace_context, mutation="rewind")
@@ -197,13 +202,17 @@ async def rewind_chat_session(
     return {"messages": public_messages}
 
 
-@router.get("/chat/sessions/{agent_id}/{session_id}", response_model=None)
+@router.get(
+    "/chat/sessions/{agent_id}/{session_id}",
+    response_model=AgentSessionMessagesResponse,
+    response_model_exclude_none=True,
+)
 async def get_chat_session(
     agent_id: str,
     session_id: str,
     workspace_context: WorkspaceContext = Depends(require_role("viewer")),
     notebook_id: Optional[str] = Query(default=None, max_length=64),
-) -> Any:
+) -> Mapping[str, object]:
     """Return the canonical persisted transcript for one scoped session."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
     notebook_scope = _notebook_conversation_scope(notebook_id, workspace_context)

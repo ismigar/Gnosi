@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -37,6 +38,11 @@ def get_identity_path() -> Path:
     response_model_exclude_unset=True,
 )
 async def get_identity() -> dict[str, Any]:
+    return await asyncio.to_thread(_read_identity)
+
+
+def _read_identity() -> dict[str, Any]:
+    """Read the synchronized identity document outside the event loop."""
     path = get_identity_path()
     if not path.exists():
         return IdentityProfile().model_dump()

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from _thread import LockType
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, tzinfo
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import BackgroundTasks
 
@@ -27,6 +29,37 @@ SKIP_DIRECTORIES = frozenset({"assets", "drawings", "mail", ".history", ".trash"
 ALLOWED_HIDDEN_DIRECTORIES = frozenset({".dashboards"})
 EXCLUDED_RELATIVE_DIRECTORIES = frozenset({"Calendar/External"})
 SIDEBAR_FOLDER_PREFIXES = ("Wiki", ".Dashboards")
+
+
+def _system_timezone() -> tzinfo | None:
+    """Resolve the local IANA zone once, avoiding macOS per-call TZ lookup."""
+    candidates: list[str] = []
+    configured = os.environ.get("TZ", "").lstrip(":")
+    if configured:
+        candidates.append(configured)
+    try:
+        resolved = str(Path("/etc/localtime").resolve())
+        marker = "/zoneinfo/"
+        if marker in resolved:
+            candidates.append(resolved.split(marker, 1)[1])
+    except OSError:
+        pass
+    for candidate in candidates:
+        try:
+            return ZoneInfo(candidate)
+        except (ZoneInfoNotFoundError, ValueError):
+            continue
+    return None
+
+
+_LOCAL_TIMEZONE = _system_timezone()
+
+
+def _local_timestamp_iso(timestamp: float) -> str:
+    """Keep the legacy local-naive ISO contract through a fast timezone path."""
+    if _LOCAL_TIMEZONE is None:
+        return datetime.fromtimestamp(timestamp).isoformat()
+    return datetime.fromtimestamp(timestamp, _LOCAL_TIMEZONE).replace(tzinfo=None).isoformat()
 
 
 @dataclass(frozen=True)
@@ -49,7 +82,6 @@ class PageIndexDependencies:
     resolve_table_id: Callable[[Metadata, str, dict[str, str], list[str] | None], str | None]
     enabled_calendar_tables: Callable[[], list[str]]
     hidden_event_ids: Callable[[], set[str]]
-    sync_calendars: Callable[[], object]
     update_path_resolver: Callable[[Path, dict[object, str], list[Path]], None]
     get_last_vault_sync: Callable[[], float]
     set_last_vault_sync: Callable[[float], None]
@@ -62,13 +94,11 @@ class PageIndexDependencies:
     body_cache: dict[str, tuple[int, str]]
     last_stale_check: dict[str, float]
     vault_sync_cooldown_seconds: float
-    calendar_sync_cooldown_seconds: float
     stale_check_ttl: float
     logger: logging.Logger
 
 
 _dependencies: PageIndexDependencies | None = None
-_last_calendar_sync_time = 0.0
 
 
 def configure(dependencies: PageIndexDependencies) -> None:
@@ -402,10 +432,8 @@ def _calendar_scope(
 
 def _schedule_background_syncs(
     background_tasks: BackgroundTasks | None,
-    only_calendar: bool,
     search_paths: list[Path] | None,
 ) -> None:
-    global _last_calendar_sync_time
     if background_tasks is None:
         return
     dependencies = _deps()
@@ -414,13 +442,6 @@ def _schedule_background_syncs(
         dependencies.set_last_vault_sync(now)
         background_tasks.add_task(get_cached_page_entries, search_paths, True)
         dependencies.logger.info("Background sync triggered for page index.")
-    if (
-        only_calendar
-        and now - _last_calendar_sync_time > dependencies.calendar_sync_cooldown_seconds
-    ):
-        _last_calendar_sync_time = now
-        background_tasks.add_task(dependencies.sync_calendars)
-        dependencies.logger.info("Background calendar sync triggered.")
 
 
 def _remove_stale_entries(stale_paths: list[str]) -> None:
@@ -453,6 +474,17 @@ def _without_stale_entries(
     dependencies = _deps()
     now = time.monotonic()
     if now - dependencies.last_stale_check["ts"] <= dependencies.stale_check_ttl:
+        return list(raw_entries)
+    vault_path = dependencies.active_vault_path()
+    if (
+        vault_path is not None
+        and sys.platform == "darwin"
+        and "/Library/CloudStorage/" in str(vault_path)
+    ):
+        # A mass exists()/stat() pass can synchronously hydrate online-only
+        # files or wedge on EDEADLK.  The periodic background index refresh is
+        # the authoritative stale-entry cleanup for File Provider mounts.
+        dependencies.last_stale_check["ts"] = now
         return list(raw_entries)
     entries: list[PageCacheEntry] = []
     stale_paths: list[str] = []
@@ -506,8 +538,8 @@ def _page_from_entry(
         parent_id=entry["parent_id"],
         is_database=bool(entry["is_database"]),
         metadata=metadata,
-        last_modified=datetime.fromtimestamp(modified).isoformat(),
-        created_time=datetime.fromtimestamp(created).isoformat(),
+        last_modified=_local_timestamp_iso(modified),
+        created_time=_local_timestamp_iso(created),
         size=integer_value(entry["size"]),
         folder=folder,
         path=str(entry.get("path")) if entry.get("path") else None,
@@ -579,19 +611,30 @@ def get_pages_snapshot(
 ) -> list[PageInfo]:
     """Build the canonical, deduplicated page snapshot for one vault."""
     dependencies = _deps()
-    cache_key = f"snapshot:{dependencies.vault_cache_key()}:{'cal' if only_calendar else 'all'}"
+    vault_key = dependencies.vault_cache_key()
+    registry: RegistryData | None = None
+    if only_calendar:
+        registry = dependencies.load_registry()
+        try:
+            search_paths, enabled_tables = _calendar_scope(True, registry)
+        except Exception as error:
+            dependencies.logger.warning(
+                "Could not prepare selective search paths for calendar: %s", error
+            )
+            search_paths, enabled_tables = (None, set())
+    else:
+        search_paths, enabled_tables = (None, set())
+    _schedule_background_syncs(background_tasks, search_paths)
+    with dependencies.index_lock:
+        index_version = dependencies.index_version.get(vault_key, 0)
+    cache_key = (
+        f"snapshot:{vault_key}:{'cal' if only_calendar else 'all'}:v{index_version}"
+    )
     cached = dependencies.cache_get(cache_key)
     if cached is not None:
         return cached
-    registry = dependencies.load_registry()
-    try:
-        search_paths, enabled_tables = _calendar_scope(only_calendar, registry)
-    except Exception as error:
-        dependencies.logger.warning(
-            "Could not prepare selective search paths for calendar: %s", error
-        )
-        search_paths, enabled_tables = (None, set())
-    _schedule_background_syncs(background_tasks, only_calendar, search_paths)
+    if registry is None:
+        registry = dependencies.load_registry()
     raw_entries = get_cached_page_entries(search_paths=search_paths)
     if not raw_entries:
         return []

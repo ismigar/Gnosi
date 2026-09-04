@@ -223,6 +223,14 @@ export function graphSettingsFromDocument(
 
 
 export function seedGraphConfigurationDocument(
+  document: ConfigurationDocument,
+  selection: GraphSourceSelection,
+): ConfigurationDocument;
+export function seedGraphConfigurationDocument(
+  document: null,
+  selection: GraphSourceSelection,
+): null;
+export function seedGraphConfigurationDocument(
   document: ConfigurationDocument | null,
   selection: GraphSourceSelection,
 ): ConfigurationDocument | null {

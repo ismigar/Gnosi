@@ -92,6 +92,7 @@ export function useDashboardState() {
     const [refTableId, setRefTableId] = useState<string | null>(null);
     const [brainTableId, setBrainTableId] = useState<string | null>(null);
     const fetchPagesRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const fullPageCatalogLoadedRef = useRef(false);
     const isCreatingNoteRef = useRef(false);
     const onViewConfigSavedRef = useRef<((view: ViewDraft) => unknown) | null | undefined>(null);
     const loadPageRef = useRef<((id: string) => Promise<void>) | null>(null);
@@ -119,6 +120,7 @@ export function useDashboardState() {
         createSourceTableId,
         editLockedByPageId,
         fetchPagesRetryTimerRef,
+        fullPageCatalogLoadedRef,
         globalIndex,
         historyOpenSignal,
         historyPointer,

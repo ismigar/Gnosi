@@ -8,6 +8,10 @@ import type {
   MailExtractedContact,
   MailExtractedEntities,
   MailExtractedEvent,
+  MailAnalysisEvidence,
+  MailAnalysisReason,
+  MailLocalAnalysis,
+  MailProviderAttempt,
   MailViewerMessage,
 } from './mailViewerTypes';
 
@@ -17,6 +21,10 @@ export const MAIL_DARK_BODY_KEY = defineStorageKey(
   'gnosi_mail_dark_body',
   stringStorageCodec,
 );
+
+const MAX_INLINE_DATA_IMAGE_CHARS = 11_200_000;
+const SAFE_INLINE_DATA_IMAGE = /^data:image\/(?:avif|gif|jpeg|png|webp);base64,[a-z0-9+/=\s]+$/i;
+const SAFE_LOCAL_MAIL_IMAGE = /^\/api\/mail\/messages\/[^/?#]+\/(?:cid|attachments)\/[^?#]+(?:\?[^#]*)?$/i;
 
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -37,6 +45,12 @@ function recordString(record: Readonly<Record<string, unknown>>, key: string): s
 }
 
 
+function recordNumber(record: Readonly<Record<string, unknown>>, key: string): number {
+  const value = record[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+
 export function cleanMailAddress(value: string | readonly string[] | null | undefined): string {
   const address = isReadonlyStringArray(value) ? value.join(', ') : value || '';
   return address.split('<')[0]?.trim().replace(/^["']+|["']+$/g, '').trim()
@@ -48,6 +62,137 @@ export function sanitizeMailHtml(html: string): string {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
+}
+
+
+interface MailHtmlDocumentOptions {
+  readonly email?: string | null;
+  readonly folder?: string | null;
+  readonly messageId?: string | null;
+  readonly registerRemoteSource?: (source: string) => string;
+  readonly theme?: 'dark' | 'light';
+  readonly themeCss: string;
+}
+
+
+function deferredImageSource(image: HTMLImageElement): string {
+  for (const name of [
+    'data-src',
+    'data-original',
+    'data-lazy-src',
+    'data-original-src',
+    'data-image-src',
+  ]) {
+    const value = image.getAttribute(name)?.trim() || '';
+    if (/^(?:https?:|\/\/|\/api\/|data:image\/(?:avif|gif|jpeg|png|webp);)/i.test(value)) {
+      return value.startsWith('//') ? `https:${value}` : value;
+    }
+  }
+  return '';
+}
+
+
+function isSafeInlineDataImage(source: string): boolean {
+  return source.length <= MAX_INLINE_DATA_IMAGE_CHARS
+    && SAFE_INLINE_DATA_IMAGE.test(source);
+}
+
+
+export function buildMailHtmlDocument(
+  html: string,
+  options: MailHtmlDocumentOptions,
+): string {
+  const document = new DOMParser().parseFromString(sanitizeMailHtml(html), 'text/html');
+  if (options.theme) document.documentElement.dataset.gnosiMailTheme = options.theme;
+  document.querySelectorAll('base').forEach((element) => { element.remove(); });
+  document.querySelectorAll('source').forEach((element) => {
+    element.removeAttribute('src');
+    element.removeAttribute('srcset');
+  });
+  let remoteImageIndex = 0;
+  for (const image of document.querySelectorAll('img')) {
+    image.removeAttribute('srcset');
+    const currentSource = image.getAttribute('src')?.trim() || '';
+    if (currentSource.toLocaleLowerCase().startsWith('cid:')
+      && options.messageId && options.email) {
+      image.src = mailCidUrl(
+        options.messageId,
+        currentSource.slice(4),
+        options.email,
+        options.folder || 'INBOX',
+      );
+    } else if (currentSource.toLocaleLowerCase().startsWith('cid:')) {
+      image.removeAttribute('src');
+      image.dataset.gnosiRemoteImage = 'blocked';
+    } else {
+      // Lazy-loading scripts cannot run inside the sandboxed mail canvas.
+      // A deferred source is therefore authoritative even when the sender
+      // supplied a transparent placeholder in src.
+      const deferredSource = deferredImageSource(image);
+      if (deferredSource) image.src = deferredSource;
+    }
+    // Set attributes explicitly so the policy is preserved in the serialized
+    // srcDoc in every DOM implementation, not only in browsers that reflect
+    // these properties back to attributes.
+    image.setAttribute('decoding', 'async');
+    image.setAttribute('loading', 'eager');
+    image.setAttribute('referrerpolicy', 'no-referrer');
+    const finalSource = image.getAttribute('src')?.trim() || '';
+    if (/^(?:https?:)?\/\//i.test(finalSource)) {
+      try {
+        const normalizedSource = finalSource.startsWith('//')
+          ? `https:${finalSource}`
+          : finalSource;
+        const parsed = new URL(normalizedSource);
+        if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+          image.removeAttribute('src');
+          image.dataset.gnosiRemoteImage = 'blocked';
+        } else {
+          remoteImageIndex += 1;
+          image.dataset.gnosiRemoteToken = options.registerRemoteSource?.(
+            normalizedSource,
+          ) ?? `remote-image-${String(remoteImageIndex)}`;
+          image.removeAttribute('src');
+          image.dataset.gnosiRemoteImage = 'pending';
+        }
+      } catch {
+        image.removeAttribute('src');
+        image.dataset.gnosiRemoteImage = 'blocked';
+      }
+    } else if (finalSource.startsWith('data:')) {
+      if (isSafeInlineDataImage(finalSource)) {
+        image.dataset.gnosiLocalImage = 'pending';
+      } else {
+        image.removeAttribute('src');
+        image.dataset.gnosiRemoteImage = 'blocked';
+      }
+    } else if (SAFE_LOCAL_MAIL_IMAGE.test(finalSource)) {
+      image.dataset.gnosiLocalImage = 'pending';
+    } else if (finalSource) {
+      image.removeAttribute('src');
+      image.dataset.gnosiRemoteImage = 'blocked';
+    }
+  }
+  const policy = document.createElement('meta');
+  policy.httpEquiv = 'Content-Security-Policy';
+  policy.content = [
+    "default-src 'none'",
+    "img-src 'self' data: blob:",
+    "style-src 'unsafe-inline'",
+    "font-src 'none'",
+    "media-src 'none'",
+    "object-src 'none'",
+    "frame-src 'none'",
+    "connect-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+  document.head.prepend(policy);
+  const theme = document.createElement('style');
+  theme.dataset.gnosiMailTheme = 'true';
+  theme.textContent = options.themeCss;
+  document.head.append(theme);
+  return `<!doctype html>${document.documentElement.outerHTML}`;
 }
 
 
@@ -119,17 +264,99 @@ function normalizeEvent(value: unknown): MailExtractedEvent | null {
 }
 
 
-export function normalizeMailEntities(value: {
-  readonly contacts?: readonly unknown[];
-  readonly events?: readonly unknown[];
-}): MailExtractedEntities {
+function normalizeEvidence(value: unknown): MailAnalysisEvidence | null {
+  if (!isRecord(value)) return null;
+  const kind = recordString(value, 'kind');
+  const origin = recordString(value, 'origin');
+  const allowedKinds = new Set(['summary', 'participant', 'attachment', 'indicator', 'task', 'date']);
+  const allowedOrigins = new Set(['message_body', 'message_header', 'attachment_metadata', 'message_metadata', 'vevent']);
+  const evidenceValue = recordString(value, 'value');
+  if (!allowedKinds.has(kind) || !allowedOrigins.has(origin) || !evidenceValue) return null;
   return {
+    confidence: Math.max(0, Math.min(1, recordNumber(value, 'confidence'))),
+    kind: kind as MailAnalysisEvidence['kind'],
+    label: recordString(value, 'label'),
+    origin: origin as MailAnalysisEvidence['origin'],
+    value: evidenceValue,
+  };
+}
+
+
+function normalizeEvidenceList(value: unknown): MailAnalysisEvidence[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeEvidence)
+    .filter((item): item is MailAnalysisEvidence => item !== null);
+}
+
+
+function normalizeLocalAnalysis(value: unknown): MailLocalAnalysis | null {
+  if (!isRecord(value)) return null;
+  const summary = normalizeEvidence(value.summary);
+  const result = {
+    attachments: normalizeEvidenceList(value.attachments),
+    dates: normalizeEvidenceList(value.dates),
+    indicators: normalizeEvidenceList(value.indicators),
+    participants: normalizeEvidenceList(value.participants),
+    summary,
+    tasks: normalizeEvidenceList(value.tasks),
+  };
+  return summary || Object.values(result).some((item) => Array.isArray(item) && item.length > 0)
+    ? result
+    : null;
+}
+
+
+function normalizeProviderAttempts(value: unknown): MailProviderAttempt[] {
+  if (!Array.isArray(value)) return [];
+  const allowed = new Set([
+    'success', 'timeout', 'unauthorized', 'rate_limited', 'server_error',
+    'network_error', 'invalid_response', 'unavailable',
+  ]);
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const provider = recordString(item, 'provider');
+    const status = recordString(item, 'status');
+    return provider && allowed.has(status)
+      ? [{ provider, status: status as MailProviderAttempt['status'] }]
+      : [];
+  });
+}
+
+
+export function normalizeMailEntities(value: {
+  readonly analysis_reason?: unknown;
+  readonly contacts?: readonly unknown[];
+  readonly degraded_reason?: unknown;
+  readonly events?: readonly unknown[];
+  readonly local_analysis?: unknown;
+  readonly provider_attempts?: unknown;
+  readonly result_source?: unknown;
+}): MailExtractedEntities {
+  const allowedAnalysisReasons = new Set<MailAnalysisReason>([
+    'not_configured', 'disabled', 'timeout', 'credentials', 'quota',
+    'temporarily_unavailable', 'invalid_response', 'internal_error',
+  ]);
+  const analysisReason = value.analysis_reason;
+  const degradedReason = value.degraded_reason;
+  const resultSource = value.result_source;
+  return {
+    analysisReason: typeof analysisReason === 'string'
+      && allowedAnalysisReasons.has(analysisReason as MailAnalysisReason)
+      ? analysisReason as MailAnalysisReason
+      : null,
     contacts: (value.contacts ?? [])
       .map(normalizeContact)
       .filter((item): item is MailExtractedContact => item !== null),
+    degradedReason: degradedReason === 'not_configured' || degradedReason === 'providers_failed'
+      ? degradedReason
+      : null,
     events: (value.events ?? [])
       .map(normalizeEvent)
       .filter((item): item is MailExtractedEvent => item !== null),
+    localAnalysis: normalizeLocalAnalysis(value.local_analysis),
+    providerAttempts: normalizeProviderAttempts(value.provider_attempts),
+    resultSource: resultSource === 'provider' || resultSource === 'local'
+      || resultSource === 'previous_valid' ? resultSource : null,
   };
 }
 

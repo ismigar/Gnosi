@@ -12,15 +12,20 @@ const mocks = vi.hoisted(() => ({
   deleteDraft: vi.fn<typeof import('../../../shared/api/mail').deleteMailDraft>(),
   extractEntities: vi.fn<typeof import('../../../shared/api/mail').extractMailEntities>(),
   fetchMessage: vi.fn<typeof import('../../../shared/api/mail').fetchMailMessage>(),
+  fetchThread: vi.fn<typeof import('../../../shared/api/mail').fetchMailThread>(),
   getTags: vi.fn<() => Promise<string[]>>(),
   markRead: vi.fn<typeof import('../../../shared/api/mail').markMailRead>(),
   trash: vi.fn<typeof import('../../../shared/api/mail').trashMailMessage>(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
   t: (key: string, fallback?: unknown): string => typeof fallback === 'string' ? fallback : key,
 }));
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: mocks.t }) }));
 vi.mock('./MailPdfViewer', () => ({ MailPdfViewer: () => null }));
-vi.mock('../../../shared/notifications/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('../../../shared/notifications/toast', () => ({
+  toast: { error: mocks.toastError, success: mocks.toastSuccess },
+}));
 vi.mock('../hooks/useMailTags', () => ({
   useMailTags: () => ({
     getMessageTags: mocks.getTags,
@@ -33,6 +38,7 @@ vi.mock('../../../shared/api/mail', async (importOriginal) => ({
   deleteMailDraft: mocks.deleteDraft,
   extractMailEntities: mocks.extractEntities,
   fetchMailMessage: mocks.fetchMessage,
+  fetchMailThread: mocks.fetchThread,
   markMailRead: mocks.markRead,
   trashMailMessage: mocks.trash,
 }));
@@ -75,6 +81,13 @@ function action(title: string): HTMLButtonElement {
   return button;
 }
 
+async function runSmartAnalysis(): Promise<void> {
+  await act(async () => {
+    action('Smart analysis').click();
+    await Promise.resolve();
+  });
+}
+
 beforeAll(() => {
   const testGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
   testGlobal.IS_REACT_ACT_ENVIRONMENT = true;
@@ -83,6 +96,7 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.extractEntities.mockResolvedValue({ contacts: [], events: [] });
+  mocks.fetchThread.mockResolvedValue({ messages: [] });
   mocks.getTags.mockResolvedValue([]);
   mocks.markRead.mockResolvedValue({ status: 'success' });
   mocks.archive.mockResolvedValue({ status: 'success' });
@@ -100,6 +114,21 @@ afterEach(() => {
 
 
 describe('MailViewer', () => {
+  it('renders the selected summary while the local detail request is pending', async () => {
+    let resolveDetail: (value: MailMessage) => void = () => undefined;
+    mocks.fetchMessage.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveDetail = resolve;
+    }));
+    await render({ mail: message('pending', { body_text: null, snippet: 'Synthetic preview' }) });
+    expect(container.textContent).toContain('Subject pending');
+    expect(container.textContent).toContain('Synthetic preview');
+    expect(container.textContent).not.toContain('mail.loading');
+    await act(async () => {
+      resolveDetail(message('pending'));
+      await Promise.resolve();
+    });
+  });
+
   it('marks the loaded folder read without reloading the same message', async () => {
     const selected = message('one', { imap_folder: undefined, is_read: false });
     mocks.fetchMessage.mockResolvedValue(message('one', { imap_folder: 'Inbox/Personal', is_read: false }));
@@ -108,7 +137,308 @@ describe('MailViewer', () => {
     expect(container.textContent).toContain('Subject one');
     expect(mocks.fetchMessage).toHaveBeenCalledTimes(1);
     expect(mocks.markRead).toHaveBeenCalledWith('one', account.email, 'Inbox/Personal');
-    expect(onMailRead).toHaveBeenCalledWith('one');
+    expect(onMailRead).toHaveBeenCalledWith(expect.objectContaining({ account: account.email, id: 'one' }));
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+  });
+
+  it('runs smart analysis only after the explicit toolbar action', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('analysis'));
+    await render({ mail: message('analysis') });
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+
+    await runSmartAnalysis();
+    expect(mocks.extractEntities).toHaveBeenCalledWith('Message body', {
+      attachments: [],
+      recipients: [account.email],
+      sender: 'Ada <ada@example.test>',
+    }, expect.any(AbortSignal));
+    expect(container.querySelector('[data-mail-analysis-status="no_entities"]'))
+      .not.toBeNull();
+  });
+
+  it('cancels analysis when the same raw id changes account scope', async () => {
+    let analysisSignal: AbortSignal | undefined;
+    mocks.fetchMessage.mockImplementation((id) => Promise.resolve(message(id)));
+    mocks.extractEntities.mockImplementation((_context, _metadata, signal) => {
+      analysisSignal = signal;
+      return new Promise(() => undefined);
+    });
+    await render({ mail: message('shared-analysis') });
+    await runSmartAnalysis();
+    expect(analysisSignal?.aborted).toBe(false);
+    await render({ mail: message('shared-analysis', {
+      account: 'other@example.test',
+    }) });
+    expect(analysisSignal?.aborted).toBe(true);
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes every actionable analysis failure without automatic toasts', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('analysis-status'));
+    await render({ mail: message('analysis-status') });
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-mail-analysis-status]')).toBeNull();
+    for (const reason of [
+      'not_configured', 'disabled', 'timeout', 'credentials', 'quota',
+      'temporarily_unavailable', 'invalid_response', 'internal_error',
+    ] as const) {
+      mocks.extractEntities.mockResolvedValueOnce({
+        analysis_reason: reason,
+        contacts: [], events: [], error: reason, status: 'degraded',
+      });
+      await runSmartAnalysis();
+      expect(container.querySelector(`[data-mail-analysis-status="${reason}"]`))
+        .not.toBeNull();
+    }
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it('shows deterministic local results only after manual provider failure', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('local-analysis'));
+    mocks.extractEntities.mockResolvedValue({
+      contacts: [{
+        company: '',
+        email: 'ada@example.test',
+        name: 'Ada Lovelace',
+        notes: '',
+        phone: '',
+      }],
+      analysis_reason: 'timeout',
+      events: [],
+      degraded_reason: 'providers_failed',
+      local_analysis: {
+        attachments: [],
+        dates: [],
+        indicators: [],
+        participants: [],
+        summary: {
+          confidence: 1,
+          kind: 'summary',
+          label: 'extractive_summary',
+          origin: 'message_body',
+          value: 'Message body',
+        },
+        tasks: [],
+      },
+      provider: 'local_deterministic',
+      provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
+      result_source: 'local',
+      status: 'complete',
+    });
+    await render({ mail: message('local-analysis') });
+    expect(mocks.extractEntities).not.toHaveBeenCalled();
+
+    await runSmartAnalysis();
+
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
+      .not.toBeNull();
+    expect(container.textContent)
+      .toContain('Analyzed locally from explicit message content');
+    expect(container.textContent).toContain('Ada Lovelace');
+    expect(container.textContent).toContain('Message body');
+    expect(container.textContent).not.toContain('fixture: timeout');
+    expect(container.textContent).toContain('Try online analysis');
+    expect(container.querySelector('[data-mail-analysis-provenance="local"]'))
+      .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-degradation="timeout"]'))
+      .not.toBeNull();
+    expect([action('Smart analysis').disabled, mocks.toastError.mock.calls]).toEqual([false, []]);
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('shows literal local results when no AI provider is configured', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('local-without-provider'));
+    mocks.extractEntities.mockResolvedValue({
+      contacts: [{
+        company: '',
+        email: 'ada@example.test',
+        name: 'Ada Lovelace',
+        notes: '',
+        phone: '',
+      }],
+      analysis_reason: 'not_configured',
+      events: [],
+      provider: 'local_deterministic',
+      result_source: 'local',
+    });
+    await render({ mail: message('local-without-provider') });
+
+    await runSmartAnalysis();
+
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
+      .not.toBeNull();
+    expect(container.textContent).toContain('Ada Lovelace');
+    expect(container.querySelector('[data-mail-analysis-status="not_configured"]'))
+      .toBeNull();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+  it('keeps previous valid results when every provider fails on retry', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('preserve-analysis'));
+    mocks.extractEntities
+      .mockResolvedValueOnce({
+        contacts: [{
+          company: '',
+          email: 'ada@example.test',
+          name: 'Ada Lovelace',
+          notes: '',
+          phone: '',
+        }],
+        events: [],
+        provider: 'fixture',
+        result_source: 'provider',
+        status: 'complete',
+      })
+      .mockResolvedValueOnce({
+        analysis_reason: 'timeout',
+        contacts: [{
+          company: '',
+          email: 'ada@example.test',
+          name: 'Ada Lovelace',
+          notes: '',
+          phone: '',
+        }],
+        degraded_reason: 'providers_failed',
+        events: [],
+        local_analysis: {
+          attachments: [],
+          dates: [],
+          indicators: [],
+          participants: [],
+          summary: {
+            confidence: 1,
+            kind: 'summary',
+            label: 'extractive_summary',
+            origin: 'message_body',
+            value: 'Message body',
+          },
+          tasks: [],
+        },
+        provider: 'previous_valid',
+        provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
+        result_source: 'previous_valid',
+        status: 'complete',
+      });
+    await render({ mail: message('preserve-analysis') });
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain('Ada Lovelace');
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('Ada Lovelace');
+    expect(container.textContent).not.toContain('fixture: timeout');
+    expect(container.textContent).toContain('previous valid analysis for this exact message');
+    expect(container.querySelector('[data-mail-analysis-source="previous_valid"]'))
+      .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
+      .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-provenance="previous"]'))
+      .not.toBeNull();
+    expect(container.querySelector('[data-mail-analysis-degradation="timeout"]')).not.toBeNull();
+    expect([action('Smart analysis').disabled, mocks.toastError.mock.calls]).toEqual([false, []]);
+    expect(mocks.markRead).not.toHaveBeenCalled();
+  });
+
+  it('recovers from a degraded timeout on a later manual retry', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('analysis-recovery'));
+    mocks.extractEntities
+      .mockResolvedValueOnce({
+        contacts: [],
+        analysis_reason: 'timeout',
+        degraded_reason: 'providers_failed',
+        events: [],
+        local_analysis: {
+          attachments: [], dates: [], indicators: [], participants: [],
+          summary: {
+            confidence: 1, kind: 'summary', label: 'extractive_summary',
+            origin: 'message_body', value: 'Message body',
+          },
+          tasks: [],
+        },
+        provider: 'local_deterministic',
+        provider_attempts: [{ provider: 'fixture', status: 'timeout' }],
+        result_source: 'local',
+        status: 'complete',
+      })
+      .mockResolvedValueOnce({
+        contacts: [],
+        events: [{
+          description: '', end: '2026-09-03T11:00:00', location: '',
+          start: '2026-09-03T10:00:00', title: 'Explicit review',
+        }],
+        provider: 'fixture',
+        provider_attempts: [{ provider: 'fixture', status: 'success' }],
+        status: 'complete',
+      });
+    await render({ mail: message('analysis-recovery') });
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
+      .not.toBeNull();
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-mail-analysis-status="results"]'))
+      .not.toBeNull();
+    expect(container.textContent).toContain('Explicit review');
+  });
+
+  it('shows an actionable error only when deterministic local processing also fails', async () => {
+    mocks.fetchMessage.mockResolvedValue(message('local-analysis-failure'));
+    mocks.extractEntities.mockResolvedValue({
+      contacts: [],
+      analysis_reason: 'internal_error',
+      degraded_reason: 'providers_failed',
+      error: 'internal_error',
+      events: [],
+      provider: 'local_deterministic',
+      result_source: 'local',
+      status: 'degraded',
+    });
+    await render({ mail: message('local-analysis-failure') });
+
+    await act(async () => {
+      action('Smart analysis').click();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-mail-analysis-status="internal_error"]')).not.toBeNull();
+    expect(container.textContent).toContain('Message body');
+    expect(container.textContent).toContain('Try again; if it persists');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it('waits for the selected detail before fetching its complete thread', async () => {
+    let resolveDetail: ((value: MailMessage) => void) | undefined;
+    mocks.fetchMessage.mockImplementation(() => new Promise<MailMessage>((resolve) => {
+      resolveDetail = resolve;
+    }));
+    const selected = message('thread-message', { thread_id: 'thread' });
+    await render({ mail: selected });
+    expect(mocks.fetchThread).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveDetail?.(selected);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mocks.fetchThread).toHaveBeenCalledWith(
+      'thread',
+      account.email,
+      expect.any(AbortSignal),
+    );
   });
 
   it('ignores a late message after selection has changed', async () => {
@@ -117,7 +447,9 @@ describe('MailViewer', () => {
       ? new Promise<MailMessage>((resolve) => { resolveFirst = resolve; })
       : Promise.resolve(message('second')));
     await render({ mail: message('first') });
+    const firstSignal = mocks.fetchMessage.mock.calls[0]?.[2];
     await render({ mail: message('second') });
+    expect(firstSignal?.aborted).toBe(true);
     await act(async () => {
       resolveFirst?.(message('first', { is_read: false }));
       await Promise.resolve();
@@ -148,7 +480,7 @@ describe('MailViewer', () => {
     });
     expect(onActionDone).toHaveBeenCalledWith('reply', 'archive', account.email, {
       imap_folder: 'INBOX', imap_uid: '42',
-    });
+    }, expect.objectContaining({ account: account.email, id: 'reply' }));
   });
 
   it('deletes vault drafts through the draft endpoint without IMAP trash', async () => {
@@ -162,6 +494,7 @@ describe('MailViewer', () => {
     });
     expect(mocks.deleteDraft).toHaveBeenCalledWith('draft');
     expect(mocks.trash).not.toHaveBeenCalled();
-    expect(onActionDone).toHaveBeenCalledWith('draft', 'delete_draft', account.email);
+    expect(onActionDone).toHaveBeenCalledWith('draft', 'delete_draft', account.email, {},
+      expect.objectContaining({ account: account.email, id: 'draft' }));
   });
 });

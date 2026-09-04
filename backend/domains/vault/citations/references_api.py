@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.params import Depends as DependsParameter
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 REFERENCE_SCHEMA: list[tuple[str, str]] = [
     ("Citation Key", "text"),
@@ -49,6 +49,33 @@ class ReferenceTableResponse(BaseModel):
     created: bool | None = None
 
 
+class ReferenceTableSelectionRequest(BaseModel):
+    """Designation command; unknown keys were ignored by the 2.x route."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    table_id: JsonValue | None = None
+
+
+class ReferenceTableCreateRequest(BaseModel):
+    """Optional create command; unknown keys were ignored by the 2.x route."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: JsonValue | None = None
+
+
+def _request_value(payload: object, key: str) -> object:
+    """Read one 2.x command field from a model or a direct legacy mapping call."""
+    if isinstance(payload, ReferenceTableSelectionRequest):
+        return payload.table_id if key == "table_id" else None
+    if isinstance(payload, ReferenceTableCreateRequest):
+        return payload.name if key == "name" else None
+    if isinstance(payload, Mapping):
+        return payload.get(key)
+    return None
+
+
 @dataclass(frozen=True)
 class ReferenceApiDependencies:
     resolve_get_table_id: Callable[[], Callable[[], str | None]]
@@ -81,11 +108,12 @@ def register_routes(
         }
 
     async def set_reference_table(
-        payload: dict[str, object] = Body(...),
+        payload: ReferenceTableSelectionRequest | None = Body(...),
     ) -> dict[str, object]:
         """Designates an existing table as the references table and guarantees
         its citable schema. The user doesn't need to know anything about 'Citation Key'."""
-        table_id = str((payload or {}).get("table_id") or "").strip()
+        raw_table_id = _request_value(payload, "table_id")
+        table_id = str(raw_table_id or "").strip()
         if not table_id:
             raise HTTPException(status_code=400, detail="table_id is required")
         if not dependencies.resolve_table()(table_id):
@@ -102,10 +130,11 @@ def register_routes(
         }
 
     async def create_reference_table(
-        payload: dict[str, object] = Body(default=None),
+        payload: ReferenceTableCreateRequest | None = Body(default=None),
     ) -> dict[str, object]:
         """Creates a new, already-citable table and designates it as the references table."""
-        name = str((payload or {}).get("name") or "").strip() or "Referències"
+        raw_name = _request_value(payload, "name")
+        name = str(raw_name or "").strip() or "Referències"
         table: dict[str, object] = {
             "name": name,
             "database_id": "gnosi_vault_db",
@@ -173,6 +202,8 @@ def register_routes(
 __all__ = [
     "REFERENCE_SCHEMA",
     "ReferenceApiDependencies",
+    "ReferenceTableCreateRequest",
     "ReferenceTableResponse",
+    "ReferenceTableSelectionRequest",
     "register_routes",
 ]

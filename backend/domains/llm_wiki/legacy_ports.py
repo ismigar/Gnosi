@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
 
@@ -21,11 +21,11 @@ def local_data_path() -> Path:
     return path_for("LOCAL_DATA")
 
 
-def resolve_table_folder(metadata: dict[str, Any]) -> Path | None:
+def resolve_table_folder(metadata: dict[str, object]) -> Path | None:
     from backend.api import vault_routes
 
     resolve = cast(
-        Callable[[dict[str, Any]], Path | None],
+        Callable[[dict[str, object]], Path | None],
         vault_routes._resolve_table_folder_from_metadata,
     )
     return resolve(metadata)
@@ -62,18 +62,18 @@ def parse_frontmatter(raw: str, path: Path) -> tuple[PageMetadata, str]:
     return parse(raw, path)
 
 
-def table_pages(table_id: object) -> list[Any]:
+def table_pages(table_id: object) -> list[object]:
     from backend.api import vault_routes
 
-    get_pages = cast(Callable[[object], Iterable[Any]], vault_routes._get_pages_for_table)
+    get_pages = cast(Callable[[object], Iterable[object]], vault_routes._get_pages_for_table)
     return list(get_pages(table_id) or [])
 
 
-def table_by_id(table_id: object) -> dict[str, Any] | None:
+def table_by_id(table_id: object) -> dict[str, object] | None:
     from backend.api import vault_routes
 
     get_table = cast(
-        Callable[[object], dict[str, Any] | None],
+        Callable[[object], dict[str, object] | None],
         vault_routes._table_by_id,
     )
     return get_table(table_id)

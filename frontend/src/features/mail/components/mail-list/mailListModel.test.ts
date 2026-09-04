@@ -4,9 +4,13 @@ import type { MailView } from '../../../../shared/api/mail';
 import {
   accountEmails,
   buildMailListQuery,
+  deduplicateMailListMessages,
   filterOutMailThread,
   groupMailListMessages,
+  mailListMessageIdentity,
+  mapMailTagsByIdentity,
   processMailListMessages,
+  setMailTagsByIdentity,
   threadMailListMessages,
 } from './mailListModel';
 import type { MailListMessage } from './mailListTypes';
@@ -48,9 +52,35 @@ const view: MailView = {
 
 
 describe('mail list model', () => {
+  it('maps tag visuals by composite identity for colliding raw ids', () => {
+    const first = message('shared', {
+      account: 'first@example.test',
+      imap_folder: 'INBOX',
+      imap_uid: '42',
+      source: 'imap',
+    });
+    const second = message('shared', {
+      account: 'second@example.test',
+      imap_folder: 'Archive',
+      imap_uid: '42',
+      source: 'imap',
+    });
+    const firstIdentity = mailListMessageIdentity(first);
+    const secondIdentity = mailListMessageIdentity(second);
+
+    expect(mapMailTagsByIdentity([first, second], {
+      [firstIdentity]: ['tag-a'],
+      [secondIdentity]: ['tag-b'],
+    })).toEqual({
+      [firstIdentity]: ['tag-a'],
+      [secondIdentity]: ['tag-b'],
+    });
+  });
+
   it('builds account and pagination queries without changing folder semantics', () => {
     expect(accountEmails(null, [
       { email: 'one@example.com' },
+      { email: 'ONE@example.com' },
       { username: 'two@example.com' },
     ])).toEqual(['one@example.com', 'two@example.com']);
     expect(buildMailListQuery(
@@ -67,6 +97,114 @@ describe('mail list model', () => {
       offset: 50,
       pageToken: 'next',
     });
+  });
+
+  it('removes only exact provider copies without colliding IMAP UIDs by scope', () => {
+    const original = message('imap_42', {
+      account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '42',
+      recipient: 'reader@example.com',
+      sender: 'Sender <sender@example.com>',
+      source: 'imap',
+      subject: 'Same delivery',
+      timestamp: 123,
+    });
+    const duplicateUid = message('imap_43', {
+      ...original,
+      id: 'imap_43',
+      imap_uid: '43',
+    });
+    const otherAccount = message('imap_42', {
+      ...original,
+      account: 'two@example.com',
+    });
+    const otherFolder = message('imap_42', {
+      ...original,
+      imap_folder: 'Archive',
+    });
+
+    expect(deduplicateMailListMessages([
+      original,
+      duplicateUid,
+      original,
+      otherAccount,
+      otherFolder,
+    ])).toEqual([original, duplicateUid, otherAccount, otherFolder]);
+  });
+
+  it('preserves distinct account deliveries by default', () => {
+    const first = message('imap_7', {
+      account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '7',
+      internet_message_id: '<delivery@example.test>',
+      recipient: 'one@example.com',
+      sender: 'Sender <sender@example.com>',
+      source: 'imap',
+      subject: 'Shared subject',
+      timestamp: 100,
+    });
+    const mirrored = message('imap_91', {
+      ...first,
+      account: 'two@example.com',
+      id: 'imap_91',
+      imap_uid: '91',
+      recipient: 'two@example.com',
+      timestamp: 120,
+    });
+    const distinct = message('imap_92', {
+      ...mirrored,
+      id: 'imap_92',
+      imap_uid: '92',
+    });
+
+    expect(deduplicateMailListMessages([first, mirrored, distinct])).toEqual([
+      first,
+      mirrored,
+      distinct,
+    ]);
+  });
+
+  it('collapses exact Internet Message-ID mirrors in the aggregate account view', () => {
+    const first = message('imap_7', {
+      account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '7',
+      internet_message_id: '<delivery@example.test>',
+      source: 'imap',
+    });
+    const mirrored = message('imap_91', {
+      ...first,
+      account: 'two@example.com',
+      id: 'imap_91',
+      imap_uid: '91',
+      internet_message_id: '  <DELIVERY@example.test> ',
+    });
+    const sameDisplayWithoutStrongIdentity = message('imap_92', {
+      ...mirrored,
+      id: 'imap_92',
+      imap_uid: '92',
+      internet_message_id: null,
+    });
+    const distinctDelivery = message('imap_93', {
+      ...mirrored,
+      id: 'imap_93',
+      imap_uid: '93',
+      internet_message_id: '<other@example.test>',
+    });
+
+    expect(deduplicateMailListMessages(
+      [first, mirrored, sameDisplayWithoutStrongIdentity, distinctDelivery],
+      { collapseInternetCopies: true },
+    )).toEqual([first, sameDisplayWithoutStrongIdentity, distinctDelivery]);
+  });
+
+  it('fails open when provider identity is incomplete', () => {
+    const first = message('same', { account: 'one@example.com' });
+    const second = message('same', { account: 'one@example.com' });
+
+    expect(deduplicateMailListMessages([first, second])).toEqual([first, second]);
   });
 
   it('applies search, tag, unread and advanced filters before sorting', () => {
@@ -87,7 +225,10 @@ describe('mail list model', () => {
         sortDir: 'asc',
       },
       folder: 'INBOX',
-      messageTags: { a: ['important'], b: ['important'] },
+      messageTags: Object.fromEntries(messages.map((candidate) => [
+        mailListMessageIdentity(candidate),
+        ['important'],
+      ])),
       searchQuery: 'a',
       unreadOnly: true,
     }).map((candidate) => candidate.id)).toEqual(['a', 'b']);
@@ -95,12 +236,14 @@ describe('mail list model', () => {
 
   it('removes full threads and derives newest thread summaries', () => {
     const messages = [
-      message('one', { sender: 'First <first@example.com>', thread_id: 'thread', timestamp: 1 }),
-      message('two', { is_read: true, sender: 'Second <second@example.com>', thread_id: 'thread', timestamp: 2 }),
-      message('three'),
+      message('one', { account: 'one@example.com', sender: 'First <first@example.com>', source: 'gmail', thread_id: 'thread', timestamp: 1 }),
+      message('two', { account: 'one@example.com', is_read: true, sender: 'Second <second@example.com>', source: 'gmail', thread_id: 'thread', timestamp: 2 }),
+      message('three', { account: 'one@example.com', source: 'gmail' }),
     ];
 
-    expect(filterOutMailThread(messages, 'two', 'thread').map((candidate) => candidate.id))
+    const target = messages.at(1);
+    if (!target) throw new Error('Missing scoped thread target');
+    expect(filterOutMailThread(messages, target).map((candidate) => candidate.id))
       .toEqual(['three']);
     const threaded = threadMailListMessages(messages);
     expect(threaded[0]).toMatchObject({
@@ -108,6 +251,48 @@ describe('mail list model', () => {
       thread_count: 2,
       thread_senders: ['First', 'Second'],
       thread_unread: 1,
+    });
+  });
+
+  it('scopes provider threads by account and IMAP folder', () => {
+    const first = message('imap_1', {
+      account: 'one@example.com',
+      imap_folder: 'INBOX',
+      imap_uid: '1',
+      source: 'imap',
+      thread_id: 'shared-thread',
+    });
+    const otherAccount = message('imap_1', {
+      ...first,
+      account: 'two@example.com',
+    });
+    const otherFolder = message('imap_1', {
+      ...first,
+      imap_folder: 'Archive',
+    });
+
+    expect(threadMailListMessages([first, otherAccount, otherFolder])).toHaveLength(3);
+    expect(filterOutMailThread(
+      [first, otherAccount, otherFolder],
+      first,
+    )).toEqual([otherAccount, otherFolder]);
+  });
+
+  it('updates visual tags only for the exact structural identity', () => {
+    const first = message('shared', {
+      account: 'one@example.test', source: 'gmail', thread_id: 'thread',
+    });
+    const second = message('shared', {
+      account: 'two@example.test', source: 'gmail', thread_id: 'thread',
+    });
+    const initial = {
+      [mailListMessageIdentity(first)]: ['first-tag'],
+      [mailListMessageIdentity(second)]: ['second-tag'],
+    };
+
+    expect(setMailTagsByIdentity(initial, second, ['updated-tag'])).toEqual({
+      [mailListMessageIdentity(first)]: ['first-tag'],
+      [mailListMessageIdentity(second)]: ['updated-tag'],
     });
   });
 

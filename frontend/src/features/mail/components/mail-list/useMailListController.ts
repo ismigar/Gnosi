@@ -15,12 +15,15 @@ import {
   effectiveMailListConfig,
   groupMailListMessages,
   mailFolderTitleKey,
+  mailListMessageIdentity,
+  mapMailTagsByIdentity,
   processMailListMessages,
   threadMailListMessages,
 } from './mailListModel';
 import type {
   ContextMenuState,
   InlineTagPickerState,
+  MailListMessage,
   MailListProps,
 } from './mailListTypes';
 import { useMailListActions } from './useMailListActions';
@@ -46,13 +49,14 @@ export function useMailListController(props: MailListProps) {
 
   const data = useMailListData({
     account: props.account,
+    accountsLoading: props.accountsLoading ?? false,
     accounts,
     category: props.category,
     folder: props.folder,
     listRefreshToken: props.listRefreshToken,
     onMessagesLoaded: props.onMessagesLoaded,
-    readMailId: props.readMailId,
-    removedMailId: props.removedMailId,
+    readMail: props.readMail,
+    removedMail: props.removedMail,
   });
   const {
     createTag,
@@ -125,9 +129,9 @@ export function useMailListController(props: MailListProps) {
   useEffect(() => {
     let active = true;
     if (data.messages.length > 0) {
-      void getBatchMessageTags(data.messages.map((message) => message.id))
+      void getBatchMessageTags(data.messages)
         .then((value) => {
-          if (active) setMessageTags(value);
+          if (active) setMessageTags(mapMailTagsByIdentity(data.messages, value));
         })
         .catch(() => undefined);
     }
@@ -150,16 +154,16 @@ export function useMailListController(props: MailListProps) {
   }, [accounts, props.account, props.category, props.folder]);
 
   useEffect(() => {
-    if (!props.selectedMailId) return;
+    if (!props.selectedMailIdentity) return;
     const index = flatMessagesRef.current.findIndex(
-      (message) => message.id === props.selectedMailId,
+      (message) => mailListMessageIdentity(message) === props.selectedMailIdentity,
     );
     if (index >= 0) {
       queueMicrotask(() => {
         setFocusedIndex(index);
       });
     }
-  }, [data.messages, props.selectedMailId]);
+  }, [data.messages, props.selectedMailIdentity]);
 
   useEffect(() => {
     if (focusedIndex < 0) return;
@@ -170,13 +174,14 @@ export function useMailListController(props: MailListProps) {
 
   const toggleSelect = useCallback((
     event: Pick<ReactMouseEvent<HTMLElement>, 'stopPropagation'>,
-    id: string,
+    message: MailListMessage,
   ): void => {
     event.stopPropagation();
+    const identity = mailListMessageIdentity(message);
     setSelectedIds((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
       return next;
     });
   }, []);
@@ -185,7 +190,7 @@ export function useMailListController(props: MailListProps) {
     setSelectedIds((current) => (
       current.size === data.messages.length
         ? new Set()
-        : new Set(data.messages.map((message) => message.id))
+        : new Set(data.messages.map(mailListMessageIdentity))
     ));
   }, [data.messages]);
 
@@ -227,8 +232,9 @@ export function useMailListController(props: MailListProps) {
       if (focusedIndex >= 0 && focusedIndex < flat.length && message) {
         setSelectedIds((current) => {
           const next = new Set(current);
-          if (next.has(message.id)) next.delete(message.id);
-          else next.add(message.id);
+          const identity = mailListMessageIdentity(message);
+          if (next.has(identity)) next.delete(identity);
+          else next.add(identity);
           return next;
         });
       }
@@ -336,6 +342,7 @@ export function useMailListController(props: MailListProps) {
       tags,
       threadedMessages,
       toggleSelect,
+      unavailableAccountCount: data.unavailableAccountCount,
       unreadOnly,
     },
   };

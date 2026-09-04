@@ -11,6 +11,8 @@ import { subscribeAppEvent } from '../platform/app-events';
 import { BUILTIN_PLUGINS } from './registry';
 import type { BuiltinPluginDefinition } from './registry';
 
+export const PLUGIN_BOOTSTRAP_TIMEOUT_MS = 10_000;
+
 type UnknownRecord = Record<string, unknown>;
 
 interface PluginSnapshot {
@@ -82,10 +84,32 @@ function _apply(payload: PluginState): PluginSnapshot {
     return _state;
 }
 
+async function _fetchPluginStateWithTimeout(): Promise<PluginState> {
+    const controller = new AbortController();
+    let clearRequestTimeout = (): void => undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new DOMException('Plugin request timed out', 'TimeoutError'));
+        }, PLUGIN_BOOTSTRAP_TIMEOUT_MS);
+        clearRequestTimeout = () => {
+            clearTimeout(timeoutId);
+        };
+    });
+    try {
+        return await Promise.race([
+            fetchPluginState(controller.signal),
+            timeout,
+        ]);
+    } finally {
+        clearRequestTimeout();
+    }
+}
+
 async function _load(force = false): Promise<PluginSnapshot> {
     if (_state.loaded && !force) return _state;
     if (!_loading) {
-        _loading = fetchPluginState()
+        _loading = _fetchPluginStateWithTimeout()
             .then((payload) => _apply(payload))
             .catch(() => {
                 _state = { ...EMPTY_STATE, loaded: true };

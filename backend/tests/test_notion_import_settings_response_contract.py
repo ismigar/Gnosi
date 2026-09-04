@@ -5,22 +5,21 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, get_type_hints
 
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
 import pytest
 
 from backend.api import notion_oauth_routes, notion_routes
-from backend.services import notion_importer, notion_schema_config
+from backend.services import notion_importer, notion_mcp, notion_schema_config
 
 
 def _route(router: Any, method: str, path: str) -> APIRoute:
     return next(
         route
         for route in router.routes
-        if isinstance(route, APIRoute)
-        and route.path == path
-        and method in (route.methods or set())
+        if isinstance(route, APIRoute) and route.path == path and method in (route.methods or set())
     )
 
 
@@ -61,6 +60,66 @@ def test_import_settings_routes_publish_typed_json_contracts() -> None:
     oauth_status = _route(notion_oauth_routes.router, "GET", "/notion-oauth/status")
     assert oauth_status.response_model is notion_oauth_routes.NotionOAuthStatusResponse
 
+    import_config_put = _route(
+        notion_routes.router,
+        "PUT",
+        "/notion/import-config",
+    )
+    assert import_config_put.body_field is not None
+    assert (
+        get_type_hints(import_config_put.endpoint)["payload"]
+        is notion_routes.NotionImportConfigRequest
+    )
+
+
+def test_import_config_request_names_current_fields_and_allows_future_json() -> None:
+    schema = notion_routes.NotionImportConfigRequest.model_json_schema()
+    assert set(schema["properties"]) == {
+        "cloneVaultId",
+        "databases",
+        "loosePages",
+        "loosePageTypes",
+        "looseSelected",
+        "newVaultName",
+        "schemaOverrides",
+        "selected",
+    }
+    assert schema["additionalProperties"] == {"$ref": "#/$defs/JsonValue"}
+
+    payload = {
+        "databases": [{"id": "db-1", "title": "Research"}],
+        "selected": ["db-1"],
+        "schemaOverrides": {"db-1": {"Status": "select"}},
+        "loosePages": True,
+        "loosePageTypes": {"page-1": "wiki"},
+        "looseSelected": ["page-1"],
+        "cloneVaultId": "vault-1",
+        "newVaultName": "Imported",
+        "futureField": {"nested": [1, 2.5, True, None]},
+    }
+    model = notion_routes.NotionImportConfigRequest.model_validate(payload)
+    assert model.model_dump(exclude_unset=True) == payload
+
+
+def test_import_config_request_preserves_malformed_legacy_values_and_omission() -> None:
+    payload = {
+        "databases": "legacy-not-a-list",
+        "selected": {"legacy": "mapping"},
+        "loosePages": None,
+        "cloneVaultId": 17,
+        "futureScalar": False,
+    }
+    model = notion_routes.NotionImportConfigRequest.model_validate(payload)
+
+    assert model.model_dump(exclude_unset=True) == payload
+    assert "newVaultName" not in model.model_dump(exclude_unset=True)
+
+
+@pytest.mark.parametrize("payload", [None, [], "legacy", 17, True])
+def test_import_config_request_keeps_object_root_validation(payload: object) -> None:
+    with pytest.raises(ValidationError):
+        notion_routes.NotionImportConfigRequest.model_validate(payload)
+
 
 def test_models_preserve_dynamic_config_discovery_clone_and_verification_json() -> None:
     config = {
@@ -71,9 +130,9 @@ def test_models_preserve_dynamic_config_discovery_clone_and_verification_json() 
     }
     config_payload = {"config": config}
     assert (
-        notion_routes.NotionImportConfigResponse.model_validate(
-            config_payload
-        ).model_dump(exclude_unset=True)
+        notion_routes.NotionImportConfigResponse.model_validate(config_payload).model_dump(
+            exclude_unset=True
+        )
         == config_payload
     )
 
@@ -90,9 +149,9 @@ def test_models_preserve_dynamic_config_discovery_clone_and_verification_json() 
         "capped": False,
     }
     assert (
-        notion_routes.NotionLinkedDatabasesResponse.model_validate(
-            linked_payload
-        ).model_dump(exclude_unset=True)
+        notion_routes.NotionLinkedDatabasesResponse.model_validate(linked_payload).model_dump(
+            exclude_unset=True
+        )
         == linked_payload
     )
 
@@ -100,17 +159,14 @@ def test_models_preserve_dynamic_config_discovery_clone_and_verification_json() 
         "name": "Research",
         "schema": {"Title": "title", "field_config": {"Title": {}}},
     }
-    schema_model = notion_routes.NotionDatabaseSchemaResponse.model_validate(
-        schema_payload
-    )
+    schema_model = notion_routes.NotionDatabaseSchemaResponse.model_validate(schema_payload)
     assert schema_model.schema_ == schema_payload["schema"]
     assert schema_model.model_dump(by_alias=True, exclude_unset=True) == schema_payload
-    assert "schema" in notion_routes.NotionDatabaseSchemaResponse.model_json_schema()[
-        "properties"
-    ]
-    assert "schema_" not in notion_routes.NotionDatabaseSchemaResponse.model_json_schema()[
-        "properties"
-    ]
+    assert "schema" in notion_routes.NotionDatabaseSchemaResponse.model_json_schema()["properties"]
+    assert (
+        "schema_"
+        not in notion_routes.NotionDatabaseSchemaResponse.model_json_schema()["properties"]
+    )
 
     progress_payload = {
         "running": True,
@@ -130,9 +186,9 @@ def test_models_preserve_dynamic_config_discovery_clone_and_verification_json() 
         "extension": {"heartbeat": True},
     }
     assert (
-        notion_routes.NotionCloneProgressResponse.model_validate(
-            progress_payload
-        ).model_dump(exclude_unset=True)
+        notion_routes.NotionCloneProgressResponse.model_validate(progress_payload).model_dump(
+            exclude_unset=True
+        )
         == progress_payload
     )
 
@@ -185,9 +241,9 @@ def test_models_preserve_dynamic_config_discovery_clone_and_verification_json() 
         "extension": {"checked_at": "now"},
     }
     assert (
-        notion_routes.NotionVerificationResponse.model_validate(
-            verification_payload
-        ).model_dump(exclude_unset=True)
+        notion_routes.NotionVerificationResponse.model_validate(verification_payload).model_dump(
+            exclude_unset=True
+        )
         == verification_payload
     )
 
@@ -206,7 +262,8 @@ def test_import_config_round_trip_keeps_free_form_server_state(
     }
 
     missing = asyncio.run(notion_routes.get_import_config())
-    saved = asyncio.run(notion_routes.put_import_config(payload))
+    request = notion_routes.NotionImportConfigRequest.model_validate(payload)
+    saved = asyncio.run(notion_routes.put_import_config(request))
     loaded = asyncio.run(notion_routes.get_import_config())
 
     assert missing == {"config": None}
@@ -250,9 +307,7 @@ def test_connection_and_discovery_handlers_keep_historical_mapping(
         notion_routes,
         "_find_linked_databases",
         lambda _token: {
-            "linked": [
-                {"title": "Tasks", "page_title": "Home", "kind": "linked"}
-            ],
+            "linked": [{"title": "Tasks", "page_title": "Home", "kind": "linked"}],
             "scanned": 2,
             "capped": False,
         },
@@ -325,8 +380,8 @@ def test_clone_poll_abort_verify_and_oauth_status_keep_runtime_semantics(
     }
 
     monkeypatch.setattr(notion_routes, "_destination_vault_exists", lambda _id: True)
-    monkeypatch.setattr(notion_routes.notion_mcp, "is_connected", lambda: True)
-    monkeypatch.setattr(notion_routes.notion_mcp, "healthcheck", lambda: (True, "ok"))
+    monkeypatch.setattr(notion_mcp, "is_connected", lambda: True)
+    monkeypatch.setattr(notion_mcp, "healthcheck", lambda: (True, "ok"))
     monkeypatch.setattr(notion_routes, "_run_clone_sync", lambda *_args: clone_report)
     monkeypatch.setattr(notion_routes, "_clear_clone_heartbeat", lambda: None)
     monkeypatch.setattr(notion_routes, "_get_token", lambda: "secret")

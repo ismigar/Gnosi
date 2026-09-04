@@ -107,6 +107,7 @@ MIGRATIONS = (
     "evaluations_0001",
     "health_0001",
     "jobs_0001",
+    "literature_0001",
     "management_0001",
     "management_0002",
     "management_0003",
@@ -127,6 +128,7 @@ MIGRATIONS = (
     "vault_0001",
     "vault_0002",
     "vault_0003",
+    "vault_0004",
 )
 # Keep paths relative to __file__ in model_catalog, runner, directive_tools,
 # plugin_sandbox, plugin_catalog and csl_styles. Vault Templates are user data;
@@ -434,10 +436,14 @@ def validate_analysis(
         for index in range(1, name.count(".") + 1)
     }
     for name, source, _kind in pure:
+        root_owned = name.split(".")[0].casefold() in OWNED_ROOTS
+        # PyInstaller uses '-' for implicit namespace packages. Third-party
+        # namespaces such as jaraco have no source file to classify; resolving
+        # the sentinel as a relative path would falsely place it in the repo.
+        if source == "-" and not root_owned:
+            continue
         source_path = Path(source).absolute()
-        if name.split(".")[0].casefold() in OWNED_ROOTS or source_path.resolve().is_relative_to(
-            plan.repository
-        ):
+        if root_owned or source_path.resolve().is_relative_to(plan.repository):
             # PyInstaller6 uses '-' for implicit namespace packages (for
             # example backend.data). They have no source to inspect or copy.
             if name in parents and name not in module_sources and source == "-":

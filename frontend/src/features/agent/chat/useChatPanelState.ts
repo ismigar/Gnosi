@@ -17,8 +17,8 @@ export function chatPanelReducer(state: PanelState, action: PanelAction): PanelS
   return value === state[field] ? state : { ...state, [field]: value };
 }
 
-export function useChatPanelState(embedded: boolean) {
-  const [state, dispatch] = useReducer(chatPanelReducer, { embedded, isOpen: embedded, isMinimized: false });
+export function useChatPanelState(embedded: boolean, initiallyOpen = false) {
+  const [state, dispatch] = useReducer(chatPanelReducer, { embedded, isOpen: embedded || initiallyOpen, isMinimized: false });
   // Adjust before committing a changed mode; there is no effect-driven second paint.
   if (state.embedded !== embedded) dispatch({ type: 'embedding', value: embedded });
   const setIsOpen = useCallback((value: SetStateAction<boolean>) => { dispatch({ type: 'open', value }); }, []);

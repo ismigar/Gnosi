@@ -30,6 +30,9 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+# Match the real application bootstrap before loading the compatibility facade
+# under an isolated module name.
+from backend.api import mail_routes as _mail_routes_bootstrap  # noqa: F401
 from backend.services.mail_inline_images import (
     build_mail_content,
     extract_inline_parts_from_mime,

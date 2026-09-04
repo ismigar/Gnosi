@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - desktop/README.md
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
@@ -273,9 +275,31 @@ els recursos d’Alembic, les instruccions dels agents, les skills de traducció
 dinàmiques, els complements d’exemple i els estils de citació. Rebutja recursos
 absents, modificats, no revisats o insegurs, en lloc d’incloure recursivament
 vaults, bases de dades, configuració, secrets o eines generades. El hook
-`afterPack` comprova l’ASAR i els recursos Python reals abans de signar.
+`afterPack` comprova l’ASAR i els recursos Python reals abans de signar. L’escaneig
+complet en fred continua sent fail-closed i té un límit de procés de deu minuts
+perquè els paquets Windows acabats de copiar no morin durant la primera inspecció.
 Els recursos gràfics pertanyen a `desktop/assets/`; els paquets generats
 pertanyen a `desktop/dist/` i `desktop/dist-python/`.
+
+El projecte arrel declara els `required-environments` d’uv per a macOS arm64 i
+x64, Linux arm64 i Windows x64. Regenera `uv.lock` amb uv perquè els marcadors
+de resolució puguin seleccionar versions de dependències diferents i compatibles
+amb els wheels de cada destinació; no editis mai el lock manualment. Cada
+dependència binària seleccionada ha de publicar un wheel per a la destinació
+abans de començar l’empaquetatge.
+
+PyInstaller informa dels paquets d’espai de noms implícits amb l’origen `-`. La
+política de recursos només accepta aquest sentinella per a arrels de tercers. Un
+espai de noms desconegut sota les arrels pròpies `backend`, `pipeline`, `config`,
+`frontend` o `extensions` continua fallant de manera tancada, mentre que un espai
+de noms d’una dependència com `jaraco` no es classifica erròniament com a codi
+del repositori.
+
+El verificador de plugins empaquetat importa l’arrel pública de confiança immutable
+des de `backend/security/plugin_trust_root.py`. Les eines de release del marketplace
+reutilitzen aquesta constant, però el carregador de la clau privada queda fora del
+pla de recursos desktop. L’anàlisi de PyInstaller ha de fallar si el mòdul de
+signatura del marketplace entra al paquet de runtime.
 
 | Destinació configurada | Arquitectura del runner | Instal·lador i artefactes d’actualització |
 | --- | --- | --- |
@@ -327,12 +351,16 @@ deixar canvis parcials. Revisa les diferències respecte de la base registrada
 de la branca de preparació abans de reintentar-ho. Encara cal validar el catàleg
 i el registre de canvis i revisar els fitxers de bloqueig actualitzats.
 
-`desktop/release.sh` prepara les versions i els artefactes locals. No crea cap
-etiqueta ni publica cap versió. Utilitza una branca de preparació explícita i
-mantén-ne fora els canvis que no hi estiguin relacionats. Les noves correccions
-d’empaquetatge exigeixen una etiqueta nova revisada, no codi font diferent
-publicat sota una etiqueta antiga. Afegeix enllaços de descàrrega per plataforma
-només quan els artefactes públics immutables corresponents existeixin realment.
+`desktop/release.sh` té els modes explícits `prepare`, `package` i `promote`.
+La preparació exigeix un arbre net, només actualitza la versió revisada i les
+metadades pendents, genera el registre de canvis transaccionalment i no altera
+cap lock. L’empaquetatge exigeix l’arbre net i commitat, consumeix els locks de
+pnpm i uv en mode congelat i fora de línia, i no pot mutar versions, locks,
+catàleg ni registre de canvis. Les caches s’han de preparar fora d’aquest pas
+immutable. La promoció és un commit de metadades posterior a la publicació:
+exigeix el tag local coincident, els quatre grups d’artefactes verificats i l’URL
+exacte de la release publicada abans de marcar-la com a estable i afegir-hi
+l’enllaç. Així, el paquet etiquetat mai anuncia una release estable inexistent.
 
 `desktop/release-version.js` és la frontera compartida de versió de release per
 a l’actualitzador i el col·lector d’artefactes. Utilitza la implementació SemVer
@@ -340,13 +368,22 @@ fixada amb `electron-updater`, accepta metadades de build canòniques i rebutja
 espais adjacents, prefixos `v` i versions invàlides o no canòniques. La política
 d’actualització i l’empaquetatge no han d’introduir un segon parser.
 
-`Build Release Candidate` verifica que l’etiqueta sol·licitada existeixi i es
-resolgui al commit exacte del checkout, `github.sha`, tant en enviaments
-d’etiquetes com en execucions manuals. Una entrada malformada, etiquetes absents,
+`Build Release Candidate` és un workflow opcional i exclusivament manual.
+Enviar una etiqueta de versió no inicia Actions allotjades. Quan s’executa
+explícitament, verifica que l’etiqueta sol·licitada existeixi i es resolgui al
+commit exacte del checkout, `github.sha`. Una entrada malformada, etiquetes absents,
 destinacions que no siguin commits o discrepàncies aturen el procés abans
 d’instal·lar dependències. L’eina auxiliar d’identitat utilitza Git local i no
 mou referències ni recupera dades remotes pel seu compte. La protecció de les
 etiquetes remotes continua sent un requisit separat.
+La publicació sense pressupost allotjat construeix i verifica localment els quatre
+grups de plataforma i publica només aquells artefactes exactes; no executis el
+workflow allotjat opcional sense una aprovació explícita de pressupost.
+Com que el repositori és públic, cada job del CI compartit només permet execució
+autoallotjada quan la branca d'una PR pertany al repositori canònic. Les PRs de
+forks no poden arribar a les màquines del propietari; un mantenidor les ha de
+revisar i reproduir el canvi en una branca interna de confiança abans d'executar
+les comprovacions protegides.
 El mateix preflight també exigeix que la versió de l’etiqueta coincideixi amb
 els manifests de l’arrel, del frontend, de l’escriptori i de Python abans
 d’iniciar la CI o qualsevol construcció per arquitectura.

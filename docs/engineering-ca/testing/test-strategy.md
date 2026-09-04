@@ -168,6 +168,9 @@ els temes clar i fosc.
 Actualment, la CI de Docker valida Compose i construeix les imatges del backend
 i del frontend; no arrenca contenidors ni verifica el seu estat i la persistència.
 Aquestes proves d'execució continuen sent necessàries abans d'una release.
+El job de frontend autoallotjat aplica el pressupost revisat de 4 GiB de heap de
+Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
+comparteixin el mateix contracte de memòria previsible.
 
 La CI d'Electron configura paquets per a macOS arm64/x64, Linux arm64 i Windows
 x64. Configurar aquesta matriu, passar proves unitàries desktop o comprovar una

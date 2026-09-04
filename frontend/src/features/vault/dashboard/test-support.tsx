@@ -22,6 +22,7 @@ export const CREATED: VaultPageMutation = { ...DETAIL, status: 'created', messag
 export function installApiDefaults() {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.mocked(vault.fetchVaultPages).mockResolvedValue([PAGE]);
+    vi.mocked(vault.fetchVaultSidebarSummary).mockResolvedValue([PAGE]);
     vi.mocked(vault.fetchVaultPage).mockResolvedValue(DETAIL);
     vi.mocked(vault.fetchVaultPagesByTable).mockResolvedValue([PAGE]);
     vi.mocked(vault.fetchVaultRegistry).mockResolvedValue({ ...CATALOG });

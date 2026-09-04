@@ -132,7 +132,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
 async def get_integrations() -> Any:
     """Returns safe masked integration configuration for the UI."""
     try:
-        return integration_manager.get_all_safe()
+        return await asyncio.to_thread(integration_manager.get_all_safe)
     except Exception as e:
         log.error(f"Error getting integrations: {e}")
         raise HTTPException(

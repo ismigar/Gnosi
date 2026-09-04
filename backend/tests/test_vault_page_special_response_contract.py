@@ -24,6 +24,24 @@ def test_special_page_routes_publish_typed_models() -> None:
     assert _route("bulk_apply_template").response_model is pages.BulkPageMutationResponse
 
 
+def test_page_indexer_status_has_a_forward_compatible_response_model() -> None:
+    from backend.domains.vault.schemas.pages import PageIndexerStatusResponse
+
+    route = _route("get_indexer_status_endpoint")
+    assert route.response_model is PageIndexerStatusResponse
+    assert route.response_model_exclude_unset is True
+
+    payload = {
+        "state": "future_state",
+        "files_indexed": 7,
+        "cached_entries": 5,
+        "opaque": [False, None],
+    }
+    assert PageIndexerStatusResponse.model_validate(payload).model_dump(
+        exclude_unset=True
+    ) == payload
+
+
 def test_bulk_template_contract_preserves_etag_results() -> None:
     from backend.domains.vault.schemas.pages import BulkPageMutationResponse
 

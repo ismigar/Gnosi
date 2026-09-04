@@ -6,9 +6,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 const frontend = fileURLToPath(new URL('../..', import.meta.url));
 const lint = new ESLint({ cwd: frontend });
+const eslintBootstrapTimeoutMs = 60_000;
 
 // Resolve the actual plugin configuration once, outside each snippet's deadline.
-beforeAll(async () => { await lint.calculateConfigForFile('src/ApiBoundaryFixture.jsx'); });
+beforeAll(async () => {
+  await lint.calculateConfigForFile('src/ApiBoundaryFixture.jsx');
+}, eslintBootstrapTimeoutMs);
 
 describe('domain-specific API imports', () => {
   it('does not retain a root aggregator that eagerly imports unrelated domains', () => {

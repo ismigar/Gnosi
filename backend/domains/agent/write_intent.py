@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any, Optional, Sequence
+from typing import Optional, Sequence
 
 
 def _mask_quoted_text(text: str) -> str:
@@ -146,7 +146,7 @@ def _base_write_tools(
 
 def _mention_write_tools(
     text: str,
-    mentions: Sequence[Any],
+    mentions: Sequence[object],
 ) -> set[str]:
     mention_types = {
         str(mention.get("type", "") if isinstance(mention, dict) else getattr(mention, "type", ""))
@@ -183,7 +183,7 @@ def _mention_write_tools(
 
 def _explicit_brain_write_tool_names(
     message: str,
-    mentions: Optional[Sequence[Any]] = None,
+    mentions: Optional[Sequence[object]] = None,
 ) -> set[str]:
     """Authorize fail-closed Brain mutations from the current human wording."""
     text = " ".join((message or "").strip().lower().split())

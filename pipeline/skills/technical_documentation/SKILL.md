@@ -147,6 +147,24 @@ requires documentation evidence.
 
 ## Restrictions and edge cases
 
+- Note: Do not add or remove inline-code literals in a reviewed English guide
+  without applying the same literal set to its Catalan, Spanish, and French
+  mirrors, because the locale parity gate rejects code-span drift even when the
+  translated prose remains readable. Update all reviewed mirrors together, then
+  run `localize.py --check`; never weaken the parity check or regenerate reviewed
+  prose automatically to hide the mismatch.
+
+- Note: Do not run the automatic documentation build or Pages deployment on a
+  GitHub-hosted runner, because the project intentionally operates without a
+  hosted Actions budget. Use the provisioned self-hosted Linux ARM64 runner for
+  both jobs and keep a source-level regression test for the runner labels.
+
+- Note: Do not let a public fork pull request reach any self-hosted runner,
+  because checked-out PR code can execute arbitrary commands on the owner machine.
+  Require the exact same-repository head condition on every shared CI job, combine
+  it with the documentation candidate condition, and keep source-level regression
+  tests that reject removing or weakening the guard.
+
 - Note: Do not classify source using absolute ancestor names, because a checkout
   below `tests`, `e2e`, `vendor` or a scratch directory changes public catalogs.
   Instead, classify paths relative to the explicit scan/application root, while
@@ -158,6 +176,13 @@ requires documentation evidence.
   make local output differ from a clean CI checkout and may expose private
   source. Apply the same exclusions to source discovery, inventory and domain
   coverage; test catalog invariance after adding local scratch fixtures.
+
+- Note: Do not exclude only the literal `.venv` and `.venv-python` directory
+  names, because architecture or relocation diagnostics such as
+  `.venv-arm64-relocated` then leak thousands of dependency tests into the
+  generated public catalog. Treat every path component beginning with `.venv`
+  as a local runtime artifact and prove source, frontend, inventory and coverage
+  discovery stay invariant when suffixed environments exist.
 
 - Note: Do not machine-translate generated catalogs or accept presence/marker
   checks as parity, because source labels and paths can be mangled while French

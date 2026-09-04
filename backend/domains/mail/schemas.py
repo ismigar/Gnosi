@@ -12,6 +12,7 @@ from pydantic import (
     JsonValue,
     RootModel,
     field_serializer,
+    model_validator,
 )
 
 from backend.models._datetime_utils import normalize_utc
@@ -74,6 +75,7 @@ class MailMessageResponse(MailProviderPayload):
     imap_uid: str | None = None
     imap_folder: str | None = None
     gm_thrid: str | None = None
+    internet_message_id: str | None = None
 
 
 class MailMessagesResponse(BaseModel):
@@ -192,6 +194,46 @@ class MailGenerateDraftResponse(BaseModel):
 
 class MailExtractEntitiesRequest(MailRequestPayload):
     context: str = ""
+    sender: str = ""
+    recipients: list[str] = Field(default_factory=list, max_length=50)
+    attachments: list[str] = Field(default_factory=list, max_length=50)
+
+
+class MailAnalysisEvidence(BaseModel):
+    kind: Literal["summary", "participant", "attachment", "indicator", "task", "date"]
+    label: str
+    value: str
+    confidence: float = Field(ge=0, le=1)
+    origin: Literal[
+        "message_body",
+        "message_header",
+        "attachment_metadata",
+        "message_metadata",
+        "vevent",
+    ]
+
+
+class MailLocalAnalysisResponse(BaseModel):
+    summary: MailAnalysisEvidence | None = None
+    participants: list[MailAnalysisEvidence] = Field(default_factory=list)
+    attachments: list[MailAnalysisEvidence] = Field(default_factory=list)
+    indicators: list[MailAnalysisEvidence] = Field(default_factory=list)
+    tasks: list[MailAnalysisEvidence] = Field(default_factory=list)
+    dates: list[MailAnalysisEvidence] = Field(default_factory=list)
+
+
+class MailProviderAttemptResponse(BaseModel):
+    provider: str
+    status: Literal[
+        "success",
+        "timeout",
+        "unauthorized",
+        "rate_limited",
+        "server_error",
+        "network_error",
+        "invalid_response",
+        "unavailable",
+    ]
 
 
 class MailExtractEntitiesResponse(BaseModel):
@@ -200,6 +242,21 @@ class MailExtractEntitiesResponse(BaseModel):
     provider: str | None = None
     error: str | None = None
     raw: str | None = None
+    status: Literal["complete", "degraded"] | None = None
+    result_source: Literal["provider", "local", "previous_valid"] | None = None
+    degraded_reason: Literal["not_configured", "providers_failed"] | None = None
+    analysis_reason: Literal[
+        "not_configured",
+        "disabled",
+        "timeout",
+        "credentials",
+        "quota",
+        "temporarily_unavailable",
+        "invalid_response",
+        "internal_error",
+    ] | None = None
+    provider_attempts: list[MailProviderAttemptResponse] = Field(default_factory=list)
+    local_analysis: MailLocalAnalysisResponse | None = None
 
 
 class MailViewFieldSchema(BaseModel):
@@ -268,12 +325,39 @@ class MailTagResponse(BaseModel):
     created_at: str | None
 
 
+class MailMessageIdentityScope(BaseModel):
+    """Provider-scoped identity for one persisted mail association."""
+
+    account_email: str
+    source: str
+    imap_folder: str | None = None
+    imap_uid: str | None = None
+
+    @model_validator(mode="after")
+    def validate_complete_scope(self) -> MailMessageIdentityScope:
+        if not self.account_email.strip() or not self.source.strip():
+            raise ValueError("account_email and source are required")
+        if self.source.strip().lower() == "imap" and (
+            not (self.imap_folder or "").strip()
+            or not (self.imap_uid or "").strip()
+        ):
+            raise ValueError("IMAP identity requires imap_folder and imap_uid")
+        return self
+
+
+class MailMessageTagDescriptor(MailMessageIdentityScope):
+    """Batch descriptor carrying both raw and provider-scoped identity."""
+
+    message_id: str
+
+
 class MailMessageTagsSetSchema(BaseModel):
     tag_ids: list[str]
     account_email: str = ""
     subject: str = ""
     sender: str = ""
     date_str: str = ""
+    identity_scope: MailMessageIdentityScope | None = None
 
 
 class MailMessageTagsResponse(BaseModel):
@@ -287,6 +371,11 @@ class MailTaggedMessageResponse(BaseModel):
     subject: str
     sender: str
     date_str: str
+    message_identity: str | None = None
+    identity_kind: Literal["legacy", "scoped"] | None = None
+    source: str | None = None
+    imap_folder: str | None = None
+    provider_uid: str | None = None
 
 
 class MailTaggedMessagesResponse(BaseModel):
@@ -296,10 +385,11 @@ class MailTaggedMessagesResponse(BaseModel):
 
 class MailTagsBatchRequest(MailRequestPayload):
     message_ids: list[str] = Field(default_factory=list)
+    messages: list[MailMessageTagDescriptor] = Field(default_factory=list)
 
 
 class MailTagsByMessageResponse(RootModel[dict[str, list[str]]]):
-    """Tag identifiers keyed by message identifier."""
+    """Tag identifiers keyed by raw legacy ID or composite scoped identity."""
 
 
 class MailMessageSchema(BaseModel):

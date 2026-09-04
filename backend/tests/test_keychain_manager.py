@@ -73,6 +73,15 @@ def test_missing_key_never_overwrites_existing_ciphertext(tmp_path, monkeypatch)
     assert not (tmp_path / "secrets" / "credentials.key").exists()
 
 
+def test_headless_linux_skips_prompting_system_keyring(tmp_path, monkeypatch):
+    manager = _fallback_manager(tmp_path, monkeypatch)
+
+    assert manager._portable_store_available() is False
+
+    keychain_module.os.environ["DISPLAY"] = ":0"
+    assert manager._portable_store_available() is True
+
+
 def test_legacy_plaintext_is_read_only_input_and_migrates_encrypted(tmp_path, monkeypatch):
     manager = _fallback_manager(tmp_path, monkeypatch)
     legacy = tmp_path / "legacy.enc"

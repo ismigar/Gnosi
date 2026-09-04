@@ -91,6 +91,12 @@ create verified backups and apply forward-only upgrades. Unknown or drifted
 schemas abort without mutation. Derived caches and externally owned databases
 remain outside Gnosi's migration heads.
 
+The scoped `academic_index.sqlite3` files belong to the `literature_index`
+family. OAI records and `oai_sync_state` are durable; the FTS virtual table is
+rebuildable but remains in the same reviewed migration because its row IDs are
+kept in lockstep with the durable records. Runtime connections set only SQLite
+operational pragmas and never execute schema DDL.
+
 Only PAT hashes and a recognizable prefix are persisted. Public share tokens
 are opaque identifiers whose rows retain creator, vault, permission, expiry, and
 revocation state.

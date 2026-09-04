@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { authStorageStatePath } from './support/auth-state.ts';
 
@@ -8,7 +9,8 @@ import { authStorageStatePath } from './support/auth-state.ts';
 // serves HTTPS if the mkcert certs exist at frontend/certs/, otherwise HTTP.
 // So local-with-certs uses https and CI/other-Mac (without certs) uses http, without
 // break either of them. Manual override: GNOSI_BASE_URL. See frontend_https_dev.
-const CERT_FILE = path.join(__dirname, '..', '..', 'frontend', 'certs', 'localhost.pem');
+const CONFIG_DIR = path.dirname(fileURLToPath(import.meta.url));
+const CERT_FILE = path.join(CONFIG_DIR, '..', '..', 'frontend', 'certs', 'localhost.pem');
 const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
   ? 'https://localhost:5173'
   : 'http://localhost:5173';
@@ -28,10 +30,11 @@ const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
  *   caches the real session at .auth/state.json. Its file-level setup.use disables
  *   trace/video/screenshots before authentication, including retries.
  * - chromium-anon: smoke tests that don't need auth.
+ * - disposable-web: synthetic API/browser acceptance with external networking blocked.
  * - chromium-auth: feature tests that need workspace context.
  */
 
-const STORAGE_STATE = authStorageStatePath(process.env.GNOSI_TEST_STORAGE_STATE, __dirname);
+const STORAGE_STATE = authStorageStatePath(process.env.GNOSI_TEST_STORAGE_STATE, CONFIG_DIR);
 
 export default defineConfig({
   testDir: './tests',
@@ -76,6 +79,19 @@ export default defineConfig({
       name: 'chromium-anon',
       testDir: './tests/anon',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'disposable-web',
+      testDir: './tests/disposable',
+      fullyParallel: false,
+      retries: 0,
+      workers: 1,
+      use: {
+        ...devices['Desktop Chrome'],
+        trace: 'off',
+        video: 'off',
+        screenshot: 'only-on-failure',
+      },
     },
     {
       name: 'chromium-auth',

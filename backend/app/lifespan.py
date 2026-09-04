@@ -8,11 +8,10 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import FastAPI
 
-from backend.agent.factory import create_agent_workflow
 from backend.api import vault_routes
 from backend.config.app_config import load_params
 from backend.config.mcp_config import MCP_SERVERS
@@ -22,6 +21,14 @@ from backend.utils.open_values import get_value, iterable_values
 
 
 log = logging.getLogger(__name__)
+
+
+class AgentRuntimeMcpClient(Protocol):
+    """Minimal MCP boundary required during application startup."""
+
+    async def start(self) -> None: ...
+
+    async def get_all_tools(self) -> list[dict[str, Any]]: ...
 
 
 def _scheduler_start_enabled() -> bool:
@@ -97,11 +104,11 @@ def _reconcile_plugin_contributions(
 
 async def _start_agent_runtime(
     app: FastAPI,
-    mcp_client: MultiServerMCPClient,
+    mcp_client: AgentRuntimeMcpClient,
     *,
     enabled: bool,
 ) -> None:
-    """Start MCP discovery and compile the default agent workflow when enabled."""
+    """Start MCP discovery while deferring workflow creation to the first chat."""
     if not enabled:
         app.state.tools_list = []
         log.info("AI platform plugin is disabled; MCP and agent startup are paused.")
@@ -115,16 +122,8 @@ async def _start_agent_runtime(
         tools_list = await mcp_client.get_all_tools()
         log.info("🛠️ Found %s tools.", len(tools_list))
         app.state.tools_list = tools_list
-
-        workflow, _ = await create_agent_workflow(
-            tools_list,
-            mcp_client,
-            agent_id="gnosy",
-        )
-        if workflow:
-            app.state.agent_workflow = workflow
-            app.state.agent_app = workflow.compile()
-            log.info("🧠 Agent Graph built and ready.")
+        app.state.agent_cache = {}
+        log.info("🧠 Agent workflow creation deferred until the first chat request.")
     except Exception as error:
         log.error("❌ Error during startup: %s", error)
 
@@ -191,16 +190,6 @@ def _wire_plugin_system() -> None:
         log.warning("⚠️ Could not connect the plugin system: %s", error)
 
 
-def _start_file_index() -> None:
-    """Start the independent Vault filename index."""
-    try:
-        from backend.services.vault_file_index import kickoff_file_index_rebuild
-
-        kickoff_file_index_rebuild()
-    except Exception as error:
-        log.warning("⚠️ Could not launch vault file-index: %s", error)
-
-
 def _repair_main_views() -> None:
     """Ensure every registered table has a main view under one mutation lock."""
     try:
@@ -244,14 +233,49 @@ def _start_mail_idle(*, enabled: bool) -> None:
         log.warning("⚠️ Could not start IMAP IDLE workers: %s", error)
 
 
+async def _start_deferred_integrations(
+    *,
+    scheduler_enabled: bool,
+    mail_enabled: bool,
+) -> None:
+    """Start external background integrations only after HTTP startup can finish."""
+    delay = max(
+        0.0,
+        float(os.getenv("GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS", "5")),
+    )
+    await asyncio.sleep(delay)
+    if scheduler_enabled:
+        scheduler_manager.start()
+    else:
+        log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
+    await asyncio.to_thread(_start_mail_idle, enabled=mail_enabled)
+
+
 async def _shutdown_runtime(
     app: FastAPI,
     confirmation_maintenance_task: asyncio.Task[None],
+    integration_startup_task: asyncio.Task[None],
 ) -> None:
     """Stop workers and MCP without allowing one shutdown path to hang reload."""
     from backend.services.durable_job_worker import durable_job_worker
 
     log.info("🛑 Shutting down...")
+    integration_startup_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await integration_startup_task
+    scheduler_stopped = await asyncio.to_thread(scheduler_manager.stop)
+    if not scheduler_stopped:
+        log.warning("⚠️ Scheduler workers exceeded their shutdown bound.")
+    try:
+        from backend.services.vault_file_index import shutdown_file_index
+
+        stopped = await asyncio.to_thread(shutdown_file_index)
+        if stopped:
+            log.info("🗂️ Vault file-index worker stopped.")
+        else:
+            log.warning("⚠️ Vault file-index worker exceeded its shutdown bound.")
+    except Exception as error:
+        log.warning("⚠️ Vault file-index shutdown failed: %s", error)
     durable_job_worker.stop()
     confirmation_maintenance_task.cancel()
     with suppress(asyncio.CancelledError):
@@ -286,11 +310,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     migrated_databases = migrate_existing_databases(resolve_data_dir())
     log.info("Database schema verification complete (%s stores).", len(migrated_databases))
     assert_signing_secret_safe()
+    from backend.app.factory import refresh_health_snapshot
 
-    if _scheduler_start_enabled():
-        scheduler_manager.start()
-    else:
-        log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
+    await asyncio.to_thread(refresh_health_snapshot, app)
+
     durable_job_worker.start()
     confirmation_task = asyncio.create_task(_confirmation_maintenance_loop())
 
@@ -303,14 +326,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await _start_agent_runtime(app, mcp_client, enabled=ai_enabled)
     _warm_vault_indexes()
     _wire_plugin_system()
-    _start_file_index()
     _repair_main_views()
-    _start_mail_idle(enabled=mail_enabled)
+    integration_startup_task = asyncio.create_task(
+        _start_deferred_integrations(
+            scheduler_enabled=_scheduler_start_enabled(),
+            mail_enabled=mail_enabled,
+        )
+    )
 
     try:
         yield
     finally:
-        await _shutdown_runtime(app, confirmation_task)
+        await _shutdown_runtime(app, confirmation_task, integration_startup_task)
 
 
 __all__ = ["lifespan"]

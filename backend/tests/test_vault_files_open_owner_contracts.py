@@ -38,9 +38,6 @@ def _trash_dependencies(root: Path) -> trash_api.TrashDependencies:
     async def materialize(page_id: str) -> None:
         return None
 
-    async def materialize_all() -> None:
-        return None
-
     def purged(page_id: str) -> purge.PurgeResult:
         return {"id": page_id, "freed_bytes": 7}
 
@@ -54,7 +51,6 @@ def _trash_dependencies(root: Path) -> trash_api.TrashDependencies:
         remove_page_index=lambda page_id, path: None,
         emit_page_deleted=lambda page_id: None,
         materialize_sidecar=materialize,
-        materialize_all_sidecars=materialize_all,
         restore_page=lambda page_id: {},
         add_page_index=lambda path: None,
         vault_root=lambda: root,
@@ -155,6 +151,31 @@ def test_restore_keeps_error_mapping_and_materializes_first(
     assert actual.value.status_code == status and actual.value.detail == detail
     assert actual.value.__cause__ is error
     assert events == ["materialize", "restore"]
+
+
+def test_list_trash_never_waits_for_bulk_cloud_hydration(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+
+    def read_entries() -> list[TrashMetadata]:
+        events.append("read")
+        return [{"id": "synthetic", "title": "Synthetic"}]
+
+    dependencies = replace(
+        _trash_dependencies(tmp_path),
+        read_entries=read_entries,
+    )
+    monkeypatch.setattr(trash_api, "_dependencies", dependencies)
+
+    result = asyncio.run(trash_api.list_trash(None))
+
+    assert result == {
+        "items": [{"id": "synthetic", "title": "Synthetic"}],
+        "retention_days": 90,
+    }
+    assert events == ["read"]
 
 
 @pytest.mark.parametrize("purging", [False, True])

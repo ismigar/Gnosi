@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 
 import { MailAttachments } from './MailAttachments';
 import { MailBody } from './MailBody';
+import { isSameMailMessage, mailMessageIdentity } from '../mailIdentity';
 import { cleanMailAddress } from './mailViewerModel';
 import type { MailViewerController } from './useMailViewerController';
 
@@ -13,21 +14,35 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
   return (
     <div className="space-y-2 mb-8">
       {controller.allThreadMessages.map((message, index) => {
-        const main = message.id === controller.mailData?.id
+        const identity = mailMessageIdentity(message, controller.account?.email);
+        const scopedMain = isSameMailMessage(
+          message,
+          controller.mailData,
+          controller.account?.email,
+        );
+        const summaryHasAccount = Boolean(message.account || message.account_email);
+        const main = scopedMain
+          || (!summaryHasAccount && controller.mailData?.id === message.id)
           || (index === 0 && !controller.mailData);
-        const expanded = controller.expandedThreadIds.has(message.id);
+        const expanded = controller.expandedThreadIds.has(identity);
         const sent = controller.isSentMessage(message);
         const sender = sent
           ? t('mail.you_label', 'You')
           : cleanMailAddress(message.sender);
         const content = main
           ? controller.mailData
-          : controller.threadMessageData[message.id];
+          : controller.threadMessageData[identity];
+        const contentEmail = content?.account
+          || content?.account_email
+          || message.account
+          || message.account_email
+          || controller.account?.email;
+        const contentFolder = content?.imap_folder || message.imap_folder;
         const date = message.timestamp
           ? format(new Date(message.timestamp * 1000), 'd MMM yyyy · HH:mm', { locale: ca })
           : '';
         return (
-          <div className={`rounded-xl overflow-hidden border transition-all ${sent ? 'border-[var(--gnosi-blue)]/40 bg-[var(--sidebar-item-active)]/40' : 'border-[var(--border-primary)] bg-[var(--bg-primary)]'}`} key={message.id}>
+          <div className={`rounded-xl overflow-hidden border transition-all ${sent ? 'border-[var(--gnosi-blue)]/40 bg-[var(--sidebar-item-active)]/40' : 'border-[var(--border-primary)] bg-[var(--bg-primary)]'}`} key={identity}>
             <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-secondary)]/60 transition-colors text-left" onClick={() => { controller.toggleThreadMessage(message); }} type="button">
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-bold shrink-0 ${sent ? 'bg-[var(--gnosi-blue)] text-white' : 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'}`}>
                 {sender[0]?.toLocaleUpperCase() || '?'}
@@ -54,9 +69,9 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
               <div className="border-t border-[var(--border-primary)]/60 px-5 py-5">
                 {content ? (
                   <>
-                    <MailBody bodyHtml={content.body_html} bodyText={content.body_text || message.snippet} email={message.account || controller.account?.email} folder={message.imap_folder} messageId={message.id} />
+                    <MailBody bodyHtml={content.body_html} bodyText={content.body_text || message.snippet} email={contentEmail} folder={contentFolder} messageId={content.id || message.id} remoteImageBlockedDetail={t('mail.remote_image_blocked_detail', 'Gnosi blocked this source because it is not safe to request.')} remoteImageBlockedLabel={t('mail.remote_image_blocked', 'Remote image blocked for privacy')} remoteImageOpenOriginalLabel={t('mail.remote_image_open_original', 'Open original')} remoteImageRecoveryLabel={t('mail.remote_image_recovery', 'Load safely')} remoteImageRecoveringLabel={t('mail.remote_image_recovering', 'Loading safely…')} remoteImageRetryLabel={t('common.retry', 'Try again')} remoteImageTimeoutDetail={t('mail.remote_image_timeout_detail', 'The image server did not respond before the safe time limit.')} remoteImageTooLargeDetail={t('mail.remote_image_too_large_detail', 'The image exceeds the safe download limit.')} remoteImageUnavailableDetail={t('mail.remote_image_unavailable_detail', 'The origin blocked access or requires data that Gnosi does not send.')} remoteImageUnavailableLabel={t('mail.remote_image_unavailable', 'Remote image unavailable')} remoteImageUnsupportedDetail={t('mail.remote_image_unsupported_detail', 'The source is not a verified supported raster image.')} />
                     {(content.attachments?.length ?? 0) > 0 && (
-                      <MailAttachments attachments={content.attachments ?? []} email={message.account || controller.account?.email || ''} folder={message.imap_folder} messageId={message.id} />
+                      <MailAttachments attachments={content.attachments ?? []} email={contentEmail || ''} folder={contentFolder} messageId={content.id || message.id} />
                     )}
                   </>
                 ) : (

@@ -16,6 +16,10 @@ from sqlalchemy.pool import StaticPool
 
 from backend.api import workspace_routes
 from backend.data.management_db import Base, get_mgmt_db
+from backend.domains.workspace.api.schemas import (
+    WorkspaceMemberOperationResponse,
+    WorkspaceMemberVaultResponse,
+)
 from backend.models.management import (
     MemberResponse,
     Membership,
@@ -26,7 +30,6 @@ from backend.models.management import (
     Workspace,
 )
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
-
 
 WORKSPACE_ID = "workspace-contract"
 ADMIN_ID = "admin-contract"
@@ -133,46 +136,46 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
 
 def test_workspace_member_routes_publish_exact_response_models() -> None:
-    mutation = workspace_routes.WorkspaceMemberOperationResponse
+    mutation = WorkspaceMemberOperationResponse
     routes = _routes()
     expected: dict[str, tuple[str, set[str], object]] = {
         "list_workspace_members": (
-            f"/api/workspaces/{{workspace_id}}/members",
+            "/api/workspaces/{workspace_id}/members",
             {"GET"},
             list[MemberResponse],
         ),
         "list_workspace_vaults": (
-            f"/api/workspaces/{{workspace_id}}/vaults",
+            "/api/workspaces/{workspace_id}/vaults",
             {"GET"},
-            list[workspace_routes.WorkspaceMemberVaultResponse],
+            list[WorkspaceMemberVaultResponse],
         ),
         "list_member_vault_access": (
-            f"/api/workspaces/{{workspace_id}}/members/{{user_id}}/vaults",
+            "/api/workspaces/{workspace_id}/members/{user_id}/vaults",
             {"GET"},
             list[VaultAccessResponse],
         ),
         "add_workspace_member": (
-            f"/api/workspaces/{{workspace_id}}/members",
+            "/api/workspaces/{workspace_id}/members",
             {"POST"},
             mutation,
         ),
         "remove_workspace_member": (
-            f"/api/workspaces/{{workspace_id}}/members/{{target_user_id}}",
+            "/api/workspaces/{workspace_id}/members/{target_user_id}",
             {"DELETE"},
             mutation,
         ),
         "update_member_role": (
-            f"/api/workspaces/{{workspace_id}}/members/{{target_user_id}}/role",
+            "/api/workspaces/{workspace_id}/members/{target_user_id}/role",
             {"PUT"},
             mutation,
         ),
         "grant_vault_access": (
-            f"/api/workspaces/{{workspace_id}}/members/{{user_id}}/vaults",
+            "/api/workspaces/{workspace_id}/members/{user_id}/vaults",
             {"POST"},
             mutation,
         ),
         "revoke_vault_access": (
-            f"/api/workspaces/{{workspace_id}}/members/{{user_id}}/vaults/{{vault_id}}",
+            "/api/workspaces/{workspace_id}/members/{user_id}/vaults/{vault_id}",
             {"DELETE"},
             mutation,
         ),
@@ -215,16 +218,13 @@ def test_workspace_member_models_preserve_dynamic_keys() -> None:
 
     assert MemberResponse.model_validate(member).model_dump() == member
     assert VaultAccessResponse.model_validate(access).model_dump() == access
-    assert (
-        workspace_routes.WorkspaceMemberVaultResponse.model_validate(vault).model_dump()
-        == vault
-    )
-    assert (
-        workspace_routes.WorkspaceMemberOperationResponse.model_validate(
-            mutation
-        ).model_dump()
-        == mutation
-    )
+    assert WorkspaceMemberVaultResponse.model_validate(vault).model_dump() == vault
+    assert WorkspaceMemberOperationResponse.model_validate(mutation).model_dump() == mutation
+
+
+def test_workspace_facade_reexports_domain_owned_models() -> None:
+    assert workspace_routes.WorkspaceMemberOperationResponse is WorkspaceMemberOperationResponse
+    assert workspace_routes.WorkspaceMemberVaultResponse is WorkspaceMemberVaultResponse
 
 
 def test_workspace_member_http_operations_keep_status_and_payload_shapes(
@@ -246,9 +246,7 @@ def test_workspace_member_http_operations_keep_status_and_payload_shapes(
         {"id": SECOND_VAULT_ID, "name": "Archive"},
     ]
 
-    access_response = client.get(
-        f"/api/workspaces/{WORKSPACE_ID}/members/{MEMBER_ID}/vaults"
-    )
+    access_response = client.get(f"/api/workspaces/{WORKSPACE_ID}/members/{MEMBER_ID}/vaults")
     assert access_response.status_code == 200
     assert access_response.json() == [
         {
@@ -315,13 +313,9 @@ def test_workspace_member_http_operations_keep_status_and_payload_shapes(
 
     refreshed_members = client.get(f"/api/workspaces/{WORKSPACE_ID}/members").json()
     invitee_id = next(
-        item["user_id"]
-        for item in refreshed_members
-        if item["email"] == "invitee@corp.com"
+        item["user_id"] for item in refreshed_members if item["email"] == "invitee@corp.com"
     )
-    remove_response = client.delete(
-        f"/api/workspaces/{WORKSPACE_ID}/members/{invitee_id}"
-    )
+    remove_response = client.delete(f"/api/workspaces/{WORKSPACE_ID}/members/{invitee_id}")
     assert remove_response.status_code == 200
     assert remove_response.json() == {
         "status": "ok",

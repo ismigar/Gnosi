@@ -224,6 +224,13 @@ describe('page shell, navigation and knowledge contracts', () => {
     expect(readStorage(spellEnabledKey)).toBe('1');
     expect(innerProps?.spellLang).toBe('es');
   });
+  it('gives the compact spelling control a descriptive accessible name and readable inactive color', async () => {
+    expect(writeStorage(spellEnabledKey, '0')).toBe(true);
+    await mount({ view: true });
+    const spellButton = container.querySelector<HTMLButtonElement>('.vault-page-spell-action');
+    expect(spellButton?.getAttribute('aria-label')).toBe('editor.spellcheck_disabled');
+    expect(spellButton?.className).toContain('text-[var(--text-secondary)]');
+  });
   it('hides knowledge panels and skips their requests on dashboard pages', async () => {
     await mount({ view: true, initialMetadata: { title: 'Dashboard', is_dashboard: true } });
     expect(container.querySelector('.vault-page-summary-grid')).toBeNull();

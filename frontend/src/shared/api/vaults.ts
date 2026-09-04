@@ -1,11 +1,22 @@
 import type { components, operations } from '../../generated/openapi';
+import { bootstrapQueryKeys } from './bootstrap-query-keys';
+import { fetchCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
-
-export type VaultCatalog = components['schemas']['VaultListResponse'];
-export type VaultMutation = components['schemas']['VaultMutationResponse'];
-export type VaultDeletion = components['schemas']['VaultDeleteResponse'];
+export {
+  createVault,
+  deleteVault,
+  fetchVaultCatalog,
+  fetchVaultCatalogUncached,
+  invalidateVaultCatalog,
+  renameVault,
+} from './vault-catalog';
+export type {
+  VaultCatalog,
+  VaultDeletion,
+  VaultMutation,
+} from './vault-catalog';
 export type VaultSummary = components['schemas']['VaultSummaryResponse'];
 export type VaultRegistry = components['schemas']['VaultRegistryResponse'];
 export type VaultRegistryRecord = components['schemas']['RegistryRecord'];
@@ -30,6 +41,8 @@ export type VaultTableDeleteQuery = NonNullable<
   ]['parameters']['query']
 >;
 export type VaultPageSummary = components['schemas']['PageInfo'];
+export type VaultSidebarPageSummary = components['schemas']['SidebarPageInfo'];
+type VaultSidebarTreePage = components['schemas']['SidebarTreePageInfo'];
 export type VaultPage = components['schemas']['PageDetailResponse'];
 export type VaultPageMutation = components['schemas']['PageMutationResponse'];
 export type VaultPageDeletion = components['schemas']['PageDeleteResponse'];
@@ -83,7 +96,6 @@ export type VaultTrashQuery = NonNullable<
   operations['list_trash_api_vault_trash_get']['parameters']['query']
 >;
 
-
 function materializeVaultPageSaveRequest(
   input: VaultPageSaveInput,
 ): VaultPageSaveRequest {
@@ -95,22 +107,11 @@ function materializeVaultPageSaveRequest(
   };
 }
 
-
 function materializeVaultPagePatchRequest(
   input: VaultPagePatchInput,
 ): VaultPagePatchRequest {
   return { force: false, ...input };
 }
-
-
-export async function fetchVaultCatalog(
-  signal?: AbortSignal,
-): Promise<VaultCatalog> {
-  return unwrapApiResult<VaultCatalog, unknown>(
-    await apiClient.GET('/api/vaults', { signal }),
-  );
-}
-
 
 export async function fetchVaultDatabases(
   signal?: AbortSignal,
@@ -119,7 +120,6 @@ export async function fetchVaultDatabases(
     await apiClient.GET('/api/vault/databases', { signal }),
   );
 }
-
 
 export async function createVaultDatabase(
   input: VaultDatabaseInput,
@@ -157,9 +157,14 @@ export async function fetchVaultTables(
 export async function fetchVaultRegistry(
   signal?: AbortSignal,
 ): Promise<VaultRegistry> {
-  return unwrapApiResult<VaultRegistry, unknown>(
-    await apiClient.GET('/api/vault/registry', { signal }),
-  );
+  return fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultRegistry(),
+    signal,
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultRegistry, unknown>(
+      await apiClient.GET('/api/vault/registry', { signal: sharedSignal }),
+    ),
+  });
 }
 
 
@@ -224,6 +229,28 @@ export async function fetchVaultPages(
       signal,
     }),
   );
+}
+
+
+export async function fetchVaultSidebarSummary(
+  signal?: AbortSignal,
+): Promise<VaultSidebarPageSummary[]> {
+  const pages = await fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultSidebar(),
+    signal,
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultSidebarTreePage[], unknown>(
+      await apiClient.GET('/api/vault/sidebar/tree', { signal: sharedSignal }),
+    ),
+  });
+  return pages.map((page) => ({
+    ...page,
+    parent_id: page.parent_id ?? null,
+    is_database: page.is_database ?? false,
+    metadata: page.metadata ?? {},
+    folder: page.folder ?? '',
+    resolved_table_id: page.resolved_table_id ?? null,
+  }));
 }
 
 
@@ -445,39 +472,5 @@ export async function fetchVaultAliasIndex(
 ): Promise<VaultAliasIndex> {
   return unwrapApiResult<VaultAliasIndex, unknown>(
     await apiClient.GET('/api/vault/alias-index', { signal }),
-  );
-}
-
-
-export async function createVault(name: string, path?: string): Promise<VaultMutation> {
-  return unwrapApiResult<VaultMutation, unknown>(
-    await apiClient.POST('/api/vaults', {
-      body: path ? { name, path } : { name },
-    }),
-  );
-}
-
-
-export async function renameVault(vaultId: string, name: string): Promise<VaultMutation> {
-  return unwrapApiResult<VaultMutation, unknown>(
-    await apiClient.PATCH('/api/vaults/{vault_id}', {
-      body: { name },
-      params: { path: { vault_id: vaultId } },
-    }),
-  );
-}
-
-
-export async function deleteVault(
-  vaultId: string,
-  deleteFiles = false,
-): Promise<VaultDeletion> {
-  return unwrapApiResult<VaultDeletion, unknown>(
-    await apiClient.DELETE('/api/vaults/{vault_id}', {
-      params: {
-        path: { vault_id: vaultId },
-        query: { delete_files: deleteFiles },
-      },
-    }),
   );
 }

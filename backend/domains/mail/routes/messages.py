@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Any, Optional, cast
 
 import yaml
@@ -298,7 +299,7 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
 
 
 @router.get("/events", response_class=StreamingResponse, response_model=None)
-async def mail_events(email: Optional[str] = Query(None)) -> Any:
+async def mail_events(email: Optional[str] = Query(None)) -> StreamingResponse:
     """Server-Sent Events stream with IMAP IDLE push notifications.
 
     The client (frontend) can subscribe via `EventSource` and will receive:
@@ -314,7 +315,7 @@ async def mail_events(email: Optional[str] = Query(None)) -> Any:
 
     sub = idle_manager.subscribe(account_filter=email)
 
-    async def event_generator() -> Any:
+    async def event_generator() -> AsyncIterator[str]:
         last_ping = time.monotonic()
         try:
             yield "event: ready\ndata: {}\n\n"

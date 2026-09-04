@@ -1,4 +1,6 @@
 import type { components } from '../../generated/openapi';
+import { bootstrapQueryKeys } from './bootstrap-query-keys';
+import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import {
   GnosiApiError,
@@ -318,18 +320,26 @@ export async function resumeLiteratureSynchronization(
 export async function fetchReferenceTable(
   signal?: AbortSignal,
 ): Promise<ReferenceTableStatus> {
-  return validated(
-    await apiClient.GET('/api/vault/reference-table', { signal }),
-    isReferenceTableStatus,
-    'The API returned an invalid Resources table designation',
-  );
+  return fetchCachedQuery({
+    queryFn: async (sharedSignal) => validated(
+      await apiClient.GET('/api/vault/reference-table', { signal: sharedSignal }),
+      isReferenceTableStatus,
+      'The API returned an invalid Resources table designation',
+    ),
+    queryKey: bootstrapQueryKeys.referenceTable(),
+    signal,
+  });
+}
+
+export async function invalidateReferenceTable(): Promise<void> {
+  await invalidateCachedQuery(bootstrapQueryKeys.referenceTable());
 }
 
 export async function setReferenceTable(
   tableId: string,
   signal?: AbortSignal,
 ): Promise<ReferenceTableStatus> {
-  return validated(
+  const result = validated(
     await apiClient.POST('/api/vault/reference-table', {
       body: { table_id: tableId },
       signal,
@@ -337,22 +347,26 @@ export async function setReferenceTable(
     isReferenceTableStatus,
     'The API returned an invalid Resources table designation',
   );
+  await invalidateReferenceTable();
+  return result;
 }
 
 export async function clearReferenceTable(
   signal?: AbortSignal,
 ): Promise<ReferenceTableStatus> {
-  return validated(
+  const result = validated(
     await apiClient.DELETE('/api/vault/reference-table', { signal }),
     isReferenceTableStatus,
     'The API returned an invalid Resources table designation',
   );
+  await invalidateReferenceTable();
+  return result;
 }
 
 export async function createReferenceTable(
   signal?: AbortSignal,
 ): Promise<ReferenceTableStatus> {
-  return validated(
+  const result = validated(
     await apiClient.POST('/api/vault/reference-table/create', {
       body: {},
       signal,
@@ -360,4 +374,6 @@ export async function createReferenceTable(
     isReferenceTableStatus,
     'The API returned an invalid Resources table designation',
   );
+  await invalidateReferenceTable();
+  return result;
 }

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-03
 source_paths:
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
@@ -8,7 +8,6 @@ source_paths:
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
   - backend/services/hybrid_calendar_service.py
-  - backend/services/vault_calendar_sync_service.py
   - backend/services/meeting_reminders.py
   - frontend/src/features/calendar
   - frontend/src/features/meetings
@@ -27,58 +26,27 @@ tests:
 
 # Calendari i reunions
 
-## Responsabilitat
+## Reversió
 
-Calendari agrega els esdeveniments locals del vault amb els comptes connectats
-de Google Calendar i CalDAV. Permet seleccionar calendaris, crear, llegir,
-actualitzar i eliminar esdeveniments, gestionar invitacions i respostes RSVP,
-consultar disponibilitat, geocodificar, generar recordatoris, ocultar esdeveniments,
-exportar ICS, gravar reunions, transcriure-les i generar notes amb IA.
+Els esdeveniments de calendari agrega els esdeveniments locals amb contactes de Google Calendar i CalDAV. Permet la selecció de calendari, les invitacions de l' esdeveniment, les explondes, les consultes de lliure/buss, geocoding, recordatoris, estat ocult, exportació d' exportació, la reunió, la transcripció i les notes de l' IA- validades.
 
-El frontend amb tipatge estricte `features/calendar/` gestiona la pàgina de
-calendari, la selecció de fonts, la cerca, la coordinació de recurrències i els
-diàlegs. L'entrada pública conserva el límit de càrrega diferida original.
-Els renderitzadors utilitzats també per Vault i Correu es mantenen compartits
-fora de la funcionalitat de ruta; els adaptadors de proveïdor, els observadors
-de recordatoris i els payloads d'esdeveniment no canvien.
+El escrit estrictament `features/calendar/` El frontal és propietari de la pàgina de calendari, selecció d' origen, cerca, coordinació i diàlegs de la pàgina. La seva entrada pública manté el límit d' enviament mandrós original. Els renderitzadors de calendari també consumeixen per Vulta i correu que es comparteixen fora de la característica de ruta; els proveïdors d' adaptadors, els vigilants de recordatoris i els esdeveniments no canvien.
 
-`features/meetings/` gestiona la gravadora flotant, el controlador de captura
-i pujada i la presentació de recordatoris. La seva entrada pública difereix
-independentment els mòduls de gravació i recordatoris. L'estructura principal
-els munta amb els mateixos controls de plugins; el trasllat no canvia permisos
-de gravació, sondeig, navegació ni payloads.
+`features/meetings/` El seu controlador de captura/ droga, i presentació de recordatoris. La seva entrada pública de registre i mòduls de recordatori independentment. L' intèrpret d' ordres els munta a través de les mateixes portes de connectors que abans; la relocalització no canvia els permisos de gravació, l' enquestament, la navegació o els carregadors.
 
-La frontera HTTP està tipada estrictament i conserva el contracte de resposta
-existent. La normalització d'etiquetes de Photon, el rebuig d'URL, la validació
-de resultats i la deduplicació pertanyen al domini de geocodificació de
-Calendar, no al mòdul de rutes; els payloads dels proveïdors es validen en
-aquesta frontera d'adaptació.
+El límit HTTP és estrictament teclejat mentre es preserva el contracte de resposta existent. L' etiqueta Photon etiqueta normalization, rebuig d' URL, validació de resultats i desenganyació pertanyen al domini de calendari en comptes del mòdul de ruta; els proveïdors de proveïdors encara segueixen validats en aquest límit d' adaptador.
 
-El servei híbrid de proveïdors està estrictament tipat i manté Google com un
-adaptador al costat del CalDAV genèric. La detecció de comptes CalDAV admet així
-Nextcloud, iCloud, Fastmail, Radicale i servidors compatibles mitjançant URL
-configurats, sense comportament lligat al proveïdor d'emmagatzematge.
+El servei de proveïdor híbrid és estrictament escrit i manté Google com un adaptador al costat de la detecció genèrica de comptes CalDAV. CalDAV, per tant, implementa el Nextcloud, iCloud, Fmail ràpid, els servidors radicals i compatibles mitjançant URL configurats, sense bodefinar el comportament específic de l' espai de treball d' emmagatzematge.
 
-La còpia opcional de Google al vault concreta els payloads de calendari i
-esdeveniment abans d'accedir al sistema de fitxers, exigeix un vault configurat,
-utilitza els identificadors del proveïdor com a noms estables de fitxer i
-confina les carpetes de compte i calendari sota `Calendar/External`. Omet les
-identitats absents i cada carpeta de calendari només elimina les files Markdown
-obsoletes de la finestra acotada de sincronització.
+La ruta híbrid consultes externes directament als proveïdors. Obrir el calendari no inicia un segon mirall de proveïdor a Vulta, de manera que les actualitzacions de pàgina no poden duplicar o retardar Google i CalDAV llegeix. La marca existent a sota `Calendar/External` Encara hi ha dades d'usuari i mai s' esborra aquesta transició, però el temps d' execució web ja no refresca el mirall antic.
 
-## Agregació d'esdeveniments
+## Esdeveniment agregregació
 
-La capa de rutes resol el context de l'espai de treball i les integracions
-seleccionades i normalitza els esdeveniments dels proveïdors i del Markdown
-local en una resposta compartida. Els identificadors del proveïdor es mantenen
-vinculats al compte i calendari d'origen; un ID sol no és prou únic globalment
-per fer una mutació.
+La capa de ruta resol el context de l' espai de treball i les integració seleccionades, després normalitza els esdeveniments del proveïdor i els esdeveniments locals Markdown en una resposta compartida. Els identificadors del proveïdor es troben aparellats amb el seu origen del compte/calendar, un ID únic no és prou únic globalment per a la mutació.
 
-Els esdeveniments ocults són registres d'una capa local superposada. Ocultar
-no elimina l'esdeveniment del proveïdor. Tornar-lo a mostrar elimina aquesta
-capa perquè l'agregació següent el torni a incloure.
+Els esdeveniments ocults són registres de recobriment locals. Ocultar no esborra un esdeveniment del proveïdor. El no Oculta elimina el recobriment de manera que la següent acceleració ho inclogui de nou.
 
-## Flux de mutació
+## Flux de la mutació
 
 ```mermaid
 sequenceDiagram
@@ -99,44 +67,24 @@ sequenceDiagram
     API-->>UI: Unified response
 ```
 
-## Recordatoris i notes de reunió
+## Recordatoris i notes de reunió@ info: whatsthis
 
-La configuració dels recordatoris selecciona l'antelació i el comportament.
-La recollida combina els esdeveniments propers i deduplica peticions concurrents
-per evitar recordatoris duplicats. L'observador del frontend mostra els actius
-i permet navegar al calendari o descartar-los.
+Els arranjaments del recordatori seleccionen el temps i el comportament. La col· lecció fusionarà els esdeveniments propers i despensi els requeriments recurrents per tal que els recordatoris duplicats no siguin creats. El visor de la botiga mostra recordatoris actius i pot navegar fins al calendari o rebutjar- los. @ info
 
-La persistència dels recordatoris concreta el seu estat JSON en configuració,
-claus ja notificades i objectes de recordatori actiu explícits. Les dades
-temporals del proveïdor s'interpreten en un únic límit, les etiquetes dels
-assistents es normalitzen a cadenes i la sortida d'IA es converteix abans de
-desar-la. El bloqueig de tot el cicle i la fusió amb l'estat actualitzat
-continuen governant les curses entre planificador i API.
+El recordatori persisteix a l' estat JSON en arranjaments explícits, claus no confirmades i objectes de recordatori actius. L' anàlisi del temps accepta els valors del proveïdor a un límit, les etiquetes de l' assistent són normalitzades a cadenes, i la sortida de l' IA s' ha convertit abans d' emmagatzemar. La blocació de cicle i el flux d' estat fresc romanen l' autoritat per al planificador/ racesAPI.
 
-La gravació puja àudio de mida acotada a un flux en segon pla. El sondeig
-d'estat distingeix gravació, transcripció, resum, creació de notes, finalització
-i fallada. Les notes generades s'escriuen amb operacions segures del vault i
-conserven el context d'esdeveniment i font. El servei en segon pla normalitza
-el resultat de la ruta antiga de Vault a un mapatge concret abans de llegir
-l'identificador de pàgina creada; els gestors dinàmics de compatibilitat no
-arriben al límit tipat del treball. Les respostes de gravació i sondeig passen
-per models Pydantic específics i retornen els mateixos diccionaris directament
-indexables que utilitzen els consumidors existents.
+Les pujades de la junta han lligat àudio a un flux de treball de fons. Els col· legis electorals de l' estat s' apliquen, la transcripció, la suma de notes, la creació de la compleció i el fracàs. Les notes generades s' escriuen a través de les operacions de seguretat Vulta i es mantenen en el context de l' esdeveniment/ codi. El servei de fons normalitza el resultat de la ruta de la crida a un mapatge de formigó abans de llegir l' identificador creat de pàgina; els gestors dinàmics de compatibilitat no es filtra en el límit de treball teclejat. Enregistra i les respostes electorals passen per models Pytant mentre tornen a la mateixa índex directament emprada pels diccionaris que es poden llegir els existents.
 
 ## Invariants
 
-- La identitat d'esdeveniment del proveïdor inclou el compte i el calendari.
-- Les escriptures de calendari requereixen un context amb permisos d'edició.
-- Els esdeveniments locals basats en rutes es mantenen dins del vault actiu.
-- Ocultar és local i reversible; eliminar utilitza el proveïdor autoritatiu.
-- Els recordatoris toleren la concurrència i no es dupliquen per al mateix esdeveniment i finestra temporal.
-- L'absència de proveïdors de transcripció o IA fa fallar el treball de reunió, no el calendari.
-- La sortida ICS utilitza zones horàries normalitzades i no exposa credencials privades.
+- El proveïdor d' esdeveniments inclou compte i context del calendari.
+- El calendari escriu que requereix un context executable.
+- Els esdeveniments locals basats en camins es queden dins de la volta activa.
+- Ocultar és local i reversible; l' eliminació utilitza el proveïdor autoriu.
+- Els recordatoris són de seguretat racial i no duplicats pel mateix esdeveniment/ window. @ info
+- Falta la transcripció o els proveïdors de l'AI han fallat la feina de reunió, no el calendari.
+- La sortida ICS utilitza zones horàries normalitzades i no exposen credencials privades.
 
-## Aspectes que cal verificar
+## Concentrat de verificació
 
-Proveu el confinament de rutes locals, la normalització d'esdeveniments, les
-recurrències, l'estat ocult, les curses de recordatoris, la selecció de comptes,
-les zones horàries i els fluxos de creació, edició i eliminació amb Playwright.
-La QA de reunions ha de gravar o pujar un fitxer de prova, observar l'estat en
-segon pla i verificar la pàgina resultant del vault.
+Prova el contenidor de la ruta local, esdeveniment normalització, repetició, estat ocult, dependències de recordatori, selecció de comptes, zones horàries i crea/ info/ repetició de la ruta local. S' hauria de gravar o pujar un estat de fons d' anàlisi, observar l' estat resultant de la pàgina Vulta.

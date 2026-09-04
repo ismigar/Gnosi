@@ -73,8 +73,10 @@ magatzem d'estat compartit per tot el procés.
 2. Iniciar el planificador i el manteniment de retenció de confirmacions.
 3. Reconciliar les contribucions dels connectors abans de construir les capacitats d'agent.
 4. Connectar clients MCP, descobrir eines i compilar el graf d'agent predeterminat.
-5. Precarregar síncronament els índexs de vault desats i actualitzar-los després
-   en segon pla quan la política del proveïdor de fitxers ho permeti.
+5. Precarregar síncronament els índexs de vault imprescindibles per a les
+   peticions. Iniciar la càrrega de la memòria cau global de noms de fitxer de
+   CloudStorage i la seva travessa en un únic worker gestionat en segon pla,
+   amb estat `preparing`, `ready` o `error`.
 6. Carregar les memòries cau derivades abans que cap desament les pugui truncar.
 7. Iniciar els processos IMAP IDLE de cada compte.
 

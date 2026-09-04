@@ -29,6 +29,7 @@ import {
   isSpamMail,
   mailErrorDetail,
 } from './mailViewerModel';
+import { selectMailDisplayMessage } from '../mailIdentity';
 import { useMailViewerData } from './useMailViewerData';
 import type {
   MailComposeRequest,
@@ -40,6 +41,15 @@ import type {
 
 
 type SnoozeOption = '1h' | 'next_week' | 'tomorrow';
+
+
+function mailAddressValues(
+  value: string | readonly string[] | null | undefined,
+): string[] {
+  if (typeof value === 'string') return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
 
 
 export function useMailViewerController({
@@ -74,11 +84,14 @@ export function useMailViewerController({
   });
   const {
     activeTagIds,
+    analysisStatus,
     allThreadMessages,
+    analyzing,
     expandedThreadIds,
     extractedEntities,
     loading,
     mailData,
+    scanEntities,
     setActiveTagIds,
     setExtractedEntities,
     setMailData,
@@ -101,6 +114,31 @@ export function useMailViewerController({
     () => detectMailFormLinks(mailData?.body_html, mailData?.body_text),
     [mailData?.body_html, mailData?.body_text],
   );
+
+  const analysisContext = mailData?.body_text
+    || mailData?.body_html
+    || mailData?.snippet
+    || '';
+  const displayMailData = selectMailDisplayMessage(
+    mailData,
+    selectedMail,
+    account?.email,
+  );
+  const analyzeMessage = (): void => {
+    const context = analysisContext;
+    const recipientValues = [mailData?.recipient, mailData?.cc]
+      .flatMap(mailAddressValues);
+    const attachmentNames = (mailData?.attachments ?? []).flatMap((attachment) => (
+      typeof attachment.filename === 'string' && attachment.filename
+        ? [attachment.filename]
+        : []
+    ));
+    if (context) void scanEntities(context, {
+      attachments: attachmentNames,
+      recipients: recipientValues,
+      sender: mailData?.sender || '',
+    });
+  };
 
   const addExtractedContact = async (contact: MailExtractedContact): Promise<void> => {
     try {
@@ -246,7 +284,7 @@ export function useMailViewerController({
   const archive = (): void => {
     if (!mailData || !effectiveEmail) return;
     void archiveMailMessage(mailData.id, effectiveEmail, mailData.imap_folder || undefined)
-      .then(() => { onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }); })
+      .then(() => { onActionDone?.(mailData.id, 'archive', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }, mailData); })
       .catch((error: unknown) => {
         logError('mail-viewer.archive', error);
         toast.error(t('mail.archive_error'));
@@ -257,7 +295,7 @@ export function useMailViewerController({
     if (!mailData) return;
     if (mailData.source === 'vault' || selectedMail?.source === 'vault') {
       void deleteMailDraft(mailData.id)
-        .then(() => { onActionDone?.(mailData.id, 'delete_draft', effectiveEmail); })
+        .then(() => { onActionDone?.(mailData.id, 'delete_draft', effectiveEmail, {}, mailData); })
         .catch((error: unknown) => {
           logError('mail-viewer.delete-draft', error);
           toast.error(t('mail.delete_error'));
@@ -266,7 +304,7 @@ export function useMailViewerController({
     }
     if (!effectiveEmail) return;
     void trashMailMessage(mailData.id, effectiveEmail, mailData.imap_folder || undefined)
-      .then(() => { onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }); })
+      .then(() => { onActionDone?.(mailData.id, 'trash', effectiveEmail, { imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }, mailData); })
       .catch((error: unknown) => {
         logError('mail-viewer.trash', error);
         toast.error(t('mail.delete_error'));
@@ -323,7 +361,7 @@ export function useMailViewerController({
         target_folder: folderName,
       });
       toast.success(t('mail.moved_to_folder', 'Moved to {{folder}}', { folder: folderName }));
-      if (onMoved) onMoved(mailData.id);
+      if (onMoved) onMoved(mailData);
       else onClose?.();
     } catch (error) {
       logError('mail-viewer.move', error);
@@ -337,12 +375,13 @@ export function useMailViewerController({
     if (!selectedMail) return;
     setActiveTagIds(next);
     try {
-      await mailTags.setMessageTags(selectedMail.id, next, {
+      const saved = await mailTags.setMessageTags(selectedMail, next, {
         account_email: account?.email || selectedMail.account || '',
         date: selectedMail.date || '',
         sender: selectedMail.sender || '',
         subject: selectedMail.subject || '',
       });
+      setActiveTagIds(saved.tag_ids);
     } catch (error) {
       logError('mail-viewer.set-tags', error);
     }
@@ -364,6 +403,10 @@ export function useMailViewerController({
     addExtractedEvent,
     addToVault,
     allThreadMessages,
+    analyzeMessage,
+    analysisStatus,
+    analyzing,
+    canAnalyze: Boolean(analysisContext),
     archive,
     availableCalendars,
     calendarPickerEvent,
@@ -377,7 +420,7 @@ export function useMailViewerController({
     formLinks,
     isSentMessage: (message: MailViewerMessage) => isSentMail(message, account?.email || ''),
     loading,
-    mailData,
+    mailData: displayMailData,
     mailTags,
     moveButtonRef,
     moveFolders,

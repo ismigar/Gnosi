@@ -64,7 +64,7 @@ export interface CalendarEventDeleteInput {
 
 
 export interface CalendarFreeBusyInput {
-  readonly calendarIds?: unknown[];
+  readonly calendarIds?: string[];
   readonly email: string;
   readonly timeMax: string;
   readonly timeMin: string;

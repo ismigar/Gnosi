@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from io import BytesIO
 from pathlib import Path
 
@@ -20,6 +21,21 @@ from backend.domains.vault.files.local_service import (
 from backend.domains.vault.files.serving import serve_file_with_containment
 from backend.domains.vault.files.state import FileServingState, LocalLinkStore
 from backend.platform.files.local import LocalProvider
+
+
+class PendingImageProvider(LocalProvider):
+    def __init__(self) -> None:
+        self.scheduled: list[Path] = []
+
+    def is_online_only(
+        self,
+        _container_path: Path,
+        _stat_result: os.stat_result | None = None,
+    ) -> bool:
+        return True
+
+    def schedule_warmup(self, container_path: Path) -> None:
+        self.scheduled.append(container_path)
 
 
 def _path_provider(vault: Path):
@@ -67,6 +83,33 @@ def test_contained_serving_preserves_headers_and_rejects_escape(tmp_path: Path) 
         )
     assert exc_info.value.status_code == 403
     assert outside.read_text(encoding="utf-8") == "secret"
+
+
+def test_online_only_image_schedules_warmup_and_fails_fast_with_retry(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "Assets"
+    root.mkdir()
+    image = root / "icon.png"
+    image.write_bytes(b"logical cloud image")
+    provider = PendingImageProvider()
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(
+            serve_file_with_containment(
+                root,
+                "icon.png",
+                state=FileServingState(),
+                provider=provider,
+            )
+        )
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.headers == {
+        "Cache-Control": "no-store, must-revalidate",
+        "Retry-After": "3",
+    }
+    assert provider.scheduled == [image]
 
 
 def test_local_link_store_reuses_tokens_and_persists_once(tmp_path: Path) -> None:

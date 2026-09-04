@@ -14,33 +14,32 @@ from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_session
 from backend.models.scheduler import TaskExecutionHistory
 from backend.scheduler import task_handlers as scheduler_task_handlers
+from backend.scheduler.bounded_executor import SchedulerExecutionRuntime
 from backend.scheduler.contracts import ScheduledTask, TaskSpec
 from backend.scheduler.notifications import notify
+from backend.scheduler.startup_policy import wait_before_automatic_dispatch
 from backend.utils.open_values import get_value, iterable_values
 
 
 class SchedulerManager:
-    """
-    Manages scheduled background tasks.
-    Uses a simple file-based persistence for task configurations.
-    """
+    """Manage persisted scheduled background tasks."""
 
     AVAILABLE_TASKS: dict[str, TaskSpec] = {
         "fetch_feeds": {
             "description": "Fetch RSS/YouTube feeds",
-            "default_interval": 120,  # 2 hours
+            "default_interval": 120,
         },
         "fetch_newsletters": {
             "description": "Fetch POP3 newsletters",
-            "default_interval": 180,  # 3 hours
+            "default_interval": 180,
         },
         "generate_podcast": {
             "description": "Generate daily podcast from unread articles",
-            "default_interval": 1440,  # 24 hours
+            "default_interval": 1440,
         },
         "system_maintenance": {
             "description": "System maintenance (application log and memory cache)",
-            "default_interval": 1440,  # 24 hours
+            "default_interval": 1440,
         },
         "llm_wiki_maintenance": {
             "description": "Rebuild LLM Wiki indexes and run deterministic checks",
@@ -61,46 +60,43 @@ class SchedulerManager:
         },
         "update_analytics": {
             "description": "Update statistics",
-            "default_interval": 60,  # 1 hour
+            "default_interval": 60,
         },
         "suggest_connections": {
             "description": "Analyze connections between notes",
-            "default_interval": 300,  # 5 hours
+            "default_interval": 300,
         },
         "fetch_calendar": {
             "description": "Calendar token verification",
-            "default_interval": 60,  # 1 hour
+            "default_interval": 60,
         },
         "fetch_mail": {
             "description": "Mail synchronization (Gmail, IMAP)",
-            "default_interval": 30,  # 30 minutes
+            "default_interval": 30,
         },
         "fetch_contacts": {
             "description": "Account synchronization (Google, CardDAV)",
-            "default_interval": 1440,  # 24 hours
+            "default_interval": 1440,
         },
         "update_memories": {
             "description": "General memory update (graph and connections)",
-            "default_interval": 1440,  # 24 hours
+            "default_interval": 1440,
         },
         "purge_trash": {
             "description": "Empty the Vault trash (entries older than 90 days)",
-            "default_interval": 1440,  # 24 hours
+            "default_interval": 1440,
         },
         "publish_scheduled_social": {
             "description": "Publish due scheduled social posts",
-            "default_interval": 5,  # 5 minutes
+            "default_interval": 5,
         },
         "materialize_view_snapshots": {
             "description": "Materialize view snapshots into Markdown for portable migration",
-            "default_interval": 1440,  # 24 hours
+            "default_interval": 1440,
         },
         "meeting_reminders": {
             "description": "Upcoming meeting reminders with an AI agenda",
             "default_interval": 1,  # every minute
-            # quiet: do NOT emit the "Task Started/Finished" notifications
-            # (it would run every minute and flood macOS with bubbles). The alerts
-            # for actual meetings are sent by the service itself.
             "quiet": True,
         },
         "run_capability_automations": {
@@ -130,10 +126,7 @@ class SchedulerManager:
         cfg = load_params(strict_env=False)
         self.config_path = cfg.paths.get("SCHEDULER")
 
-        # Local mirror of scheduler_config: ALWAYS readable, immune to OneDrive
-        # online-only. This is the safety net that prevents losing the config when
-        # the vault file (.gnosi/) is dataless on startup. It lives at
-        # local_data, like management.sqlite (see paths_config.py).
+        # The local mirror remains readable when a cloud-backed vault is dataless.
         local_data = cfg.paths.get("LOCAL_DATA")
         self.local_mirror_path = (
             local_data / "system" / "scheduler_config.local.json" if local_data else None
@@ -149,8 +142,11 @@ class SchedulerManager:
         self._tasks: dict[str, ScheduledTask] = {}
         self._running = False
         self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
+        self._execution = SchedulerExecutionRuntime()
+        self._lifecycle_lock = threading.Lock()
         self._lock_file: TextIO | None = None
-        self._degraded = False  # True if we start up without being able to read any source
+        self._degraded = False
 
         self._load_config()
 
@@ -236,13 +232,9 @@ class SchedulerManager:
             self._save_mirror()
             return
 
-        # No readable source.
         vault_exists = bool(self.config_path and self.config_path.exists())
         mirror_exists = bool(self.local_mirror_path and self.local_mirror_path.exists())
         if vault_exists or mirror_exists:
-            # The file exists but is currently unreadable. We do NOT touch it: we start up
-            # in degraded mode with IN-MEMORY defaults (without persisting), so as not to
-            # destroy the good config. It will recover on the next readable restart.
             log.error(
                 "❌ Scheduler: the configuration file exists but is unreadable "
                 "(online-only or corrupted). Degraded mode: using in-memory defaults; "
@@ -285,8 +277,6 @@ class SchedulerManager:
 
         if self.config_path and not self._degraded:
             try:
-                # Atomic write: the file is modified dozens of times per
-                # task execution; a crash halfway through would leave the JSON corrupted.
                 safe_write_json(self.config_path, data, indent=2)
             except Exception as e:
                 from backend.config.logger_config import get_logger
@@ -329,9 +319,10 @@ class SchedulerManager:
 
         log = get_logger(__name__)
 
-        if self._running:
-            log.info("⏰ SchedulerManager is already running.")
-            return
+        with self._lifecycle_lock:
+            if self._running:
+                log.info("⏰ SchedulerManager is already running.")
+                return
 
         # File-based mutex: prevent multiple scheduler instances on the same
         # host from racing on the same tasks (duplicate mail fetches, racing
@@ -374,6 +365,10 @@ class SchedulerManager:
 
         log.info("⏰ Starting SchedulerManager background loop...")
 
+        worker_count = max(1, int(os.getenv("GNOSI_SCHEDULER_WORKERS", "2")))
+        queue_size = max(worker_count, int(os.getenv("GNOSI_SCHEDULER_QUEUE_SIZE", "8")))
+        self._execution.start(max_workers=worker_count, max_queue_size=queue_size)
+        self._stop_event.clear()
         self._running = True
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
@@ -385,7 +380,7 @@ class SchedulerManager:
         from backend.config.logger_config import get_logger
 
         log = get_logger(__name__)
-
+        if wait_before_automatic_dispatch(self._stop_event): return
         while self._running:
             try:
                 now = datetime.now()
@@ -404,12 +399,46 @@ class SchedulerManager:
 
                     if should_run:
                         log.info(f"⏰ Scheduler: Triggering task '{name}'")
-                        self.run_task_now(name)
+                        if not self.submit_task(name):
+                            log.info(
+                                "Scheduler task '%s' is already pending or capacity is full",
+                                name,
+                            )
 
             except Exception as e:
                 log.error(f"❌ Error in scheduler loop: {e}")
 
-            time.sleep(60)  # Check every minute
+            self._stop_event.wait(60)  # Check every minute or stop promptly.
+
+    def submit_task(self, name: str) -> bool:
+        """Submit a task to the scheduler-owned bounded executor."""
+        if name not in self._tasks:
+            raise ValueError(f"Task '{name}' not found")
+        workers = max(1, int(os.getenv("GNOSI_SCHEDULER_WORKERS", "2")))
+        queue_size = max(workers, int(os.getenv("GNOSI_SCHEDULER_QUEUE_SIZE", "8")))
+        return self._execution.submit(
+            name,
+            lambda: self.run_task_now(name),
+            max_workers=workers,
+            max_queue_size=queue_size,
+        )
+
+    def stop(self, *, timeout: float = 5.0) -> bool:
+        """Stop scheduling and release resources without hanging application exit."""
+        with self._lifecycle_lock:
+            self._running = False
+            self._stop_event.set()
+            scheduler_thread = self._thread
+            self._thread = None
+        if scheduler_thread is not None:
+            scheduler_thread.join(min(max(timeout, 0.0), 1.0))
+        workers_stopped = self._execution.shutdown(timeout=max(0.0, timeout - 1.0))
+        if self._lock_file is not None:
+            try:
+                self._lock_file.close()
+            finally:
+                self._lock_file = None
+        return (scheduler_thread is None or not scheduler_thread.is_alive()) and workers_stopped
 
     def update_task(self, name: str, interval_minutes: float, enabled: bool) -> dict[str, Any]:
         """Update a task's configuration."""
@@ -432,7 +461,6 @@ class SchedulerManager:
 
         self._save_config()
 
-        # Also clear DB history
         try:
             with get_mgmt_session() as db:
                 db.query(TaskExecutionHistory).delete()
@@ -459,7 +487,6 @@ class SchedulerManager:
         task_spec = self.AVAILABLE_TASKS.get(name)
         quiet = bool(task_spec and task_spec.get("quiet"))
 
-        # Log task start
         if not quiet:
             notify(
                 f"Task started: {name.replace('_', ' ').title()}",
@@ -467,10 +494,8 @@ class SchedulerManager:
                 level="INFO",
             )
 
-        # Save state immediately so UI sees "running"
         self._save_config()
 
-        # Database record for history
         execution_id = None
         try:
             with get_mgmt_session() as db:
@@ -487,7 +512,6 @@ class SchedulerManager:
             get_logger(__name__).error(f"Failed to create task history record: {e}")
 
         try:
-            # Execute the task
             start_time = datetime.now()
             result = self._execute_task(name)
             self._raise_for_task_failure(result)
@@ -496,16 +520,13 @@ class SchedulerManager:
 
             task.status = "success"
 
-            # Extract meaningful message from result if possible
             msg = result.get("message") or f"Task {name} completed successfully."
             if "details" in result and isinstance(result["details"], list):
-                # Add summary of details if available
                 success_count = sum(1 for d in result["details"] if d.get("success"))
                 total_count = len(result["details"])
                 if total_count > 0:
                     msg = f"Completed: {success_count}/{total_count} subtasks succeeded."
 
-            # Update DB history
             if execution_id:
                 try:
                     with get_mgmt_session() as db:
@@ -543,7 +564,6 @@ class SchedulerManager:
             error_msg = str(e)
             log.error(f"❌ Error executing task {name}: {error_msg}")
 
-            # Update DB history on error
             if execution_id:
                 try:
                     with get_mgmt_session() as db:
@@ -775,7 +795,6 @@ class SchedulerManager:
     def _task_update_memories(self) -> dict[str, Any]:
         """Refresh the graph response and analytics without invoking an LLM."""
         return scheduler_task_handlers.update_memories(self._task_update_analytics)
-
 
 # Singleton
 scheduler_manager = SchedulerManager()

@@ -16,6 +16,7 @@ from backend.domains.vault.links.document_inventory import (
 )
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.index_entries import PageCacheEntry as PageCacheEntry
+from backend.domains.vault.schemas.pages import PagePatchRequest
 
 Metadata = PageMetadata
 PageIndexEntries = dict[str, dict[str, PageCacheEntry]]
@@ -29,6 +30,22 @@ PatchReadResult = tuple[
     str | None,
     str | None,
 ]
+
+
+def apply_patch_request(metadata: Metadata, request: PagePatchRequest) -> str | None:
+    """Apply user-provided partial fields and return the optional replacement body."""
+    if request.title is not None:
+        metadata["title"] = request.title
+    if request.parent_id is not None:
+        metadata["parent_id"] = request.parent_id
+    if request.is_database is not None:
+        metadata["is_database"] = request.is_database
+    if request.metadata is not None:
+        metadata.update(request.metadata)
+    if request.remove_metadata_keys:
+        for key in request.remove_metadata_keys:
+            metadata.pop(key, None)
+    return request.content
 
 
 @dataclass(frozen=True)
@@ -279,6 +296,7 @@ __all__ = [
     "Metadata",
     "PatchHelperDependencies",
     "PatchReadResult",
+    "apply_patch_request",
     "find_and_read_patch_page",
     "prepare_patch_metadata",
     "relocate_patch_file",

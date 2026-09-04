@@ -58,6 +58,21 @@ describe('MailBody', () => {
     expect(iframe?.srcdoc).not.toContain('onerror');
     expect(iframe?.srcdoc).toContain('/api/mail/messages/message-1/cid/logo');
     expect(iframe?.srcdoc).toContain('folder=Sent');
+    expect(iframe?.srcdoc).toContain('referrerpolicy="no-referrer"');
+    expect(iframe?.srcdoc).toContain('loading="eager"');
+  });
+
+  it('promotes script-dependent deferred images and appends the theme override', async () => {
+    act(() => {
+      root.render(<MailBody bodyHtml={'<style>body{background:#000}</style><img data-src="https://images.example.test/logo.png">'} />);
+    });
+    await settleIframe();
+    const source = container.querySelector('iframe')?.srcdoc || '';
+    expect(source).toContain('src="https://images.example.test/logo.png"');
+    expect(source).toContain('data-gnosi-remote-image="pending"');
+    expect(source).toContain('background: #fff !important');
+    expect(source.lastIndexOf('background: #fff !important'))
+      .toBeGreaterThan(source.indexOf('body{background:#000}'));
   });
 
   it('updates the isolated canvas when the mail theme changes', async () => {
@@ -69,6 +84,38 @@ describe('MailBody', () => {
       emitAppEvent(MAIL_DARK_BODY_EVENT);
     });
     await settleIframe();
-    expect(container.querySelector('iframe')?.srcdoc).toContain('background: #1a1a1a');
+    const darkSource = container.querySelector('iframe')?.srcdoc || '';
+    expect(darkSource).toContain('background: #1a1a1a');
+    expect(darkSource).toContain('.gnosi-remote-image-alt');
+    expect(darkSource).toContain('color: #e2e8f0');
+  });
+
+  it('applies the selected palette to nested sender surfaces and text', async () => {
+    writeStorage(MAIL_DARK_BODY_KEY, '1');
+    act(() => {
+      root.render(<MailBody bodyHtml={'<div style="background:#fff;color:#000"><h2>Nested content</h2></div>'} />);
+    });
+    await settleIframe();
+
+    const source = container.querySelector('iframe')?.srcdoc || '';
+    const document = new DOMParser().parseFromString(source, 'text/html');
+    const theme = document.querySelector<HTMLStyleElement>(
+      'style[data-gnosi-mail-theme="true"]',
+    );
+    expect(source).toContain('data-gnosi-mail-theme="dark"');
+    expect(theme?.textContent).toContain('body :where(');
+    expect(theme?.textContent).toContain('background-color: transparent !important');
+    expect(theme?.textContent).toContain('color: inherit !important');
+  });
+
+  it('keeps the remote-image fallback readable in the light canvas', async () => {
+    act(() => {
+      root.render(<MailBody bodyHtml={'<img alt="Fixture chart" height="180" width="320" src="https://images.example.test/chart.png">'} />);
+    });
+    await settleIframe();
+    const source = container.querySelector('iframe')?.srcdoc || '';
+    expect(source).toContain('color: #334155');
+    expect(source).toContain('background: #f5f6f8');
+    expect(source).not.toContain('https://images.example.test/chart.png');
   });
 });

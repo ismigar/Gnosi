@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { MailMessageRow } from './MailMessageRow';
+import { mailListMessageIdentity } from './mailListModel';
 import type { MailListController } from './useMailListController';
 
 
@@ -8,7 +9,7 @@ interface MailListBodyProps {
   readonly accountEmail?: string | null;
   readonly controller: MailListController;
   readonly listElementRef: (element: HTMLDivElement | null) => void;
-  readonly selectedMailId?: string;
+  readonly selectedMailIdentity?: string;
   readonly sentinelElementRef: (element: HTMLDivElement | null) => void;
 }
 
@@ -17,7 +18,7 @@ export function MailListBody({
   accountEmail,
   controller,
   listElementRef,
-  selectedMailId,
+  selectedMailIdentity,
   sentinelElementRef,
 }: MailListBodyProps) {
   const { t } = useTranslation();
@@ -26,6 +27,26 @@ export function MailListBody({
 
   return (
     <>
+      {controller.unavailableAccountCount > 0 && (
+        <div
+          className="flex items-center justify-between gap-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] px-4 py-2 text-xs text-[var(--text-secondary)]"
+          data-mail-partial-status="unavailable"
+          role="status"
+        >
+          <span>
+            {accountEmail
+              ? t('mail.account_temporarily_unavailable')
+              : t('mail.some_accounts_temporarily_unavailable')}
+          </span>
+          <button
+            className="shrink-0 font-semibold text-[var(--gnosi-blue)] hover:underline"
+            onClick={() => { controller.fetchMessages({ force: true }); }}
+            type="button"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      )}
       <div
         ref={listElementRef}
         className="flex-1 overflow-y-auto"
@@ -42,7 +63,9 @@ export function MailListBody({
         ) : isEmpty ? (
           <div className="p-12 text-center">
             <p className="text-[var(--text-secondary)] font-medium">
-              {t('mail.no_messages')}
+              {controller.unavailableAccountCount > 0
+                ? t('mail.messages_temporarily_unavailable')
+                : t('mail.no_messages')}
             </p>
           </div>
         ) : Object.entries(controller.groupedMessages).map(([title, messages]) => (
@@ -55,15 +78,17 @@ export function MailListBody({
             <div className="border-t border-[var(--border-primary)]">
               {messages.map((message) => (
                 <MailMessageRow
-                  key={message.id}
+                  key={mailListMessageIdentity(message)}
                   accountEmail={accountEmail}
                   controller={controller}
                   index={controller.threadedMessages.findIndex(
-                    (candidate) => candidate.id === message.id,
+                    (candidate) => (
+                      mailListMessageIdentity(candidate) === mailListMessageIdentity(message)
+                    ),
                   )}
                   isComposing={controller.isComposing}
                   message={message}
-                  selectedMailId={selectedMailId}
+                  selectedMailIdentity={selectedMailIdentity}
                 />
               ))}
             </div>

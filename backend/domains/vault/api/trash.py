@@ -41,7 +41,6 @@ class TrashDependencies:
     remove_page_index: Callable[[str, Path | None], None]
     emit_page_deleted: Callable[[str], None]
     materialize_sidecar: Callable[[str], Awaitable[None]]
-    materialize_all_sidecars: Callable[[], Awaitable[None]]
     restore_page: Callable[[str], TrashMetadata]
     add_page_index: Callable[[Path], None]
     vault_root: Callable[[], Path]
@@ -160,10 +159,11 @@ async def restore_page(page_id: str) -> dict[str, object]:
 async def list_trash(q: str | None = Query(None)) -> dict[str, object]:
     """Lists the trash entries, ordered by `deleted_at` desc.
 
-    Optional `?q=` filter support on the title (case-insensitive).
+    Optional `?q=` filter support on the title (case-insensitive). Listing is
+    intentionally read-only and never hydrates every cloud sidecar: an exact
+    restore or purge still materializes the one entry it operates on.
     """
     dependencies = _deps()
-    await dependencies.materialize_all_sidecars()
     try:
         entries = await asyncio.to_thread(dependencies.read_entries)
     except Exception as exc:

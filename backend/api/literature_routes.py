@@ -6,17 +6,27 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from collections.abc import AsyncIterator
-from typing import Any, Literal
+from typing import TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from backend.domains.literature.schemas import (
+    ActivityRequest,
+    AiOperationRequest,
+    CandidateRequest,
+    ConfigurationPatch,
+    ConflictRequest,
+    DecisionRequest,
+    FullTextRequest,
+    ImportRequest,
     LiteratureActivityResponse,
     LiteratureAiResponse,
     LiteratureCandidateMutationResponse,
     LiteratureCandidateResponse,
+    LiteratureCandidatesResponse,
+    LiteratureCatalogResponse,
     LiteratureConfigurationResponse,
     LiteratureDecisionMutationResponse,
     LiteratureImportResponse,
@@ -27,10 +37,19 @@ from backend.domains.literature.schemas import (
     LiteratureReviewDetailResponse,
     LiteratureReviewResponse,
     LiteratureReviewsResponse,
+    LiteratureReviewTablesResponse,
     LiteratureSearchResponse,
     LiteratureSearchesResponse,
     LiteratureSnowballResponse,
     LiteratureSyncResponse,
+    LiteratureWorkResponse,
+    ManualCaptureRequest,
+    RepositoryPayload,
+    RepositoryTestPayload,
+    ReviewCreateRequest,
+    ReviewScheduleRequest,
+    SearchRequest,
+    SnowballRequest,
 )
 from backend.services import (
     literature_ai_service,
@@ -42,130 +61,11 @@ from backend.services.workspace_service import WorkspaceContext, require_role
 
 
 router = APIRouter(prefix="/api/vault/literature", tags=["Literature"])
+ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 
 
-class ConfigurationPatch(BaseModel):
-    contact_email: str | None = Field(default=None, max_length=320)
-    ai_agent_id: str | None = Field(default=None, max_length=160)
-    source_defaults: dict[str, bool] | None = None
-    hidden_sources: list[str] | None = None
-
-
-class RepositoryPayload(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
-    kind: Literal["oai", "rest"]
-    base_url: str = Field(min_length=8, max_length=4_000)
-    default_enabled: bool = True
-    metadata_prefix: str = Field(default="oai_dc", max_length=100)
-    set: str = Field(default="", max_length=500)
-    sync_mode: Literal["full", "incremental"] = "incremental"
-    tombstones: bool = True
-    query_parameter: str = Field(default="q", max_length=100)
-    limit_parameter: str = Field(default="limit", max_length=100)
-    results_path: str = Field(default="results", max_length=300)
-    pagination: Literal["none", "page", "offset", "cursor", "link"] = "none"
-    page_parameter: str = Field(default="page", max_length=100)
-    offset_parameter: str = Field(default="offset", max_length=100)
-    cursor_parameter: str = Field(default="cursor", max_length=100)
-    next_cursor_path: str = Field(default="next_cursor", max_length=300)
-    static_filters: dict[str, str] = Field(default_factory=dict)
-    mapping: dict[str, str] = Field(default_factory=dict)
-
-
-class RepositoryTestPayload(RepositoryPayload):
-    query: str = Field(default="test", max_length=500)
-
-
-class SearchRequest(BaseModel):
-    query: str = Field(min_length=1, max_length=2_000)
-    filters: dict[str, Any] = Field(default_factory=dict)
-    source_ids: list[str] = Field(default_factory=list, max_length=100)
-    source_queries: dict[str, str] = Field(default_factory=dict)
-    ai_audits: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
-    limit_per_source: int = Field(default=25, ge=1, le=100)
-
-
-class ImportRequest(BaseModel):
-    works: list[dict[str, Any]] = Field(min_length=1, max_length=500)
-    notebook_id: str = Field(default="", max_length=64)
-    notebook_title: str = Field(default="", max_length=160)
-
-
-class ReviewCreateRequest(BaseModel):
-    title: str = Field(default="", max_length=300)
-    question: str = Field(min_length=1, max_length=2_000)
-    protocol: str = Field(default="", max_length=50_000)
-    criteria: dict[str, Any] = Field(default_factory=dict)
-    reviewer_mode: Literal["single", "dual_blind"] = "single"
-    reviewers: list[str] = Field(default_factory=list, max_length=20)
-    configuration: dict[str, Any] = Field(default_factory=dict)
-
-
-class ActivityRequest(BaseModel):
-    activity_type: str = Field(min_length=1, max_length=100)
-    strategy: dict[str, Any] = Field(default_factory=dict)
-    exact_queries: dict[str, Any] = Field(default_factory=dict)
-    source_snapshot: list[dict[str, Any]] = Field(default_factory=list)
-    errors: list[dict[str, Any]] = Field(default_factory=list)
-    counts: dict[str, Any] = Field(default_factory=dict)
-    ai_audit: dict[str, Any] = Field(default_factory=dict)
-    export_format: str = Field(default="", max_length=100)
-    notes: str = Field(default="", max_length=50_000)
-
-
-class ReviewScheduleRequest(BaseModel):
-    enabled: bool = False
-    interval_days: int = Field(default=7, ge=1, le=365)
-    strategy: dict[str, Any] = Field(default_factory=dict)
-
-
-class CandidateRequest(BaseModel):
-    works: list[dict[str, Any]] = Field(min_length=1, max_length=1_000)
-    activity_id: str = Field(default="", max_length=64)
-
-
-class DecisionRequest(BaseModel):
-    phase: str | None = Field(default=None, max_length=80)
-    decision: Literal["include", "exclude", "uncertain"]
-    reason: str = Field(default="", max_length=4_000)
-    notes: str = Field(default="", max_length=20_000)
-
-
-class ConflictRequest(BaseModel):
-    decision: Literal["include", "exclude"]
-    reason: str = Field(default="Conflict resolution", max_length=4_000)
-    notes: str = Field(default="", max_length=20_000)
-
-
-class FullTextRequest(BaseModel):
-    status: Literal[
-        "not_requested", "requested", "available_oa", "attached", "unavailable", "assessed"
-    ]
-    location_url: str = Field(default="", max_length=4_000)
-    license: str = Field(default="", max_length=500)
-    resource_id: str = Field(default="", max_length=160)
-    notes: str = Field(default="", max_length=20_000)
-
-
-class SnowballRequest(BaseModel):
-    seeds: list[dict[str, Any]] = Field(min_length=1, max_length=20)
-    direction: Literal["backward", "forward", "both"] = "both"
-    limit_per_seed: int = Field(default=25, ge=1, le=100)
-
-
-class ManualCaptureRequest(BaseModel):
-    value: str = Field(min_length=1, max_length=4_000)
-    kind: Literal["auto", "doi", "pmid", "arxiv", "isbn", "url"] = "auto"
-
-
-class AiOperationRequest(BaseModel):
-    operation: Literal[
-        "query_strategy", "translate_query", "rerank", "screen", "synthesize", "snowball"
-    ]
-    payload: dict[str, Any] = Field(default_factory=dict)
-    review_id: str = Field(default="", max_length=64)
-    search_id: str = Field(default="", max_length=64)
-    agent_id: str = Field(default="", max_length=160)
+def _validated_response(model: type[ResponseModelT], payload: object) -> ResponseModelT:
+    return model.model_validate(payload)
 
 
 @router.get(
@@ -175,8 +75,11 @@ class AiOperationRequest(BaseModel):
 )
 def get_configuration(
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
-    return literature_service.public_configuration(context.vault_path)
+) -> LiteratureConfigurationResponse:
+    return _validated_response(
+        LiteratureConfigurationResponse,
+        literature_service.public_configuration(context.vault_path),
+    )
 
 
 @router.put(
@@ -187,14 +90,26 @@ def get_configuration(
 def update_configuration(
     payload: ConfigurationPatch,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> LiteratureConfigurationResponse:
     literature_service.save_config(context.vault_path, payload.model_dump(exclude_none=True))
-    return literature_service.public_configuration(context.vault_path)
+    return _validated_response(
+        LiteratureConfigurationResponse,
+        literature_service.public_configuration(context.vault_path),
+    )
 
 
-@router.get("/catalog", response_model=None)
-def get_catalog(context: WorkspaceContext = Depends(require_role("viewer"))) -> Any:
-    return {"sources": literature_service.catalog(context.vault_path)}
+@router.get(
+    "/catalog",
+    response_model=LiteratureCatalogResponse,
+    response_model_exclude_unset=True,
+)
+def get_catalog(
+    context: WorkspaceContext = Depends(require_role("viewer")),
+) -> LiteratureCatalogResponse:
+    return _validated_response(
+        LiteratureCatalogResponse,
+        {"sources": literature_service.catalog(context.vault_path)},
+    )
 
 
 @router.post(
@@ -205,10 +120,13 @@ def get_catalog(context: WorkspaceContext = Depends(require_role("viewer"))) -> 
 async def test_repository(
     payload: RepositoryTestPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> LiteratureRepositoryTestResponse:
     del context
-    return await literature_service.test_repository(
-        payload.model_dump(exclude={"query"}), payload.query
+    return _validated_response(
+        LiteratureRepositoryTestResponse,
+        await literature_service.test_repository(
+            payload.model_dump(exclude={"query"}), payload.query
+        ),
     )
 
 
@@ -221,8 +139,11 @@ async def test_repository(
 def create_repository(
     payload: RepositoryPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
-    return literature_service.save_repository(context.vault_path, payload.model_dump())
+) -> LiteratureRepositoryResponse:
+    return _validated_response(
+        LiteratureRepositoryResponse,
+        literature_service.save_repository(context.vault_path, payload.model_dump()),
+    )
 
 
 @router.put(
@@ -234,9 +155,10 @@ def update_repository(
     repository_id: str,
     payload: RepositoryPayload,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
-    return literature_service.save_repository(
-        context.vault_path, payload.model_dump(), repository_id
+) -> LiteratureRepositoryResponse:
+    return _validated_response(
+        LiteratureRepositoryResponse,
+        literature_service.save_repository(context.vault_path, payload.model_dump(), repository_id),
     )
 
 
@@ -250,13 +172,16 @@ def delete_repository(
     delete_index: bool = Query(default=False),
     confirm: bool = Query(default=False),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> LiteratureRepositoryDeletionResponse:
     if not confirm:
         raise HTTPException(
             status_code=409, detail="Repository deletion requires explicit confirmation."
         )
-    return literature_service.delete_repository(
-        context.vault_path, repository_id, delete_index=delete_index
+    return _validated_response(
+        LiteratureRepositoryDeletionResponse,
+        literature_service.delete_repository(
+            context.vault_path, repository_id, delete_index=delete_index
+        ),
     )
 
 
@@ -270,16 +195,26 @@ def start_synchronization(
     source_id: str,
     full: bool = Body(default=False, embed=True),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
-    return literature_service.enqueue_sync(context.vault_path, source_id, full=full)
+) -> LiteratureSyncResponse:
+    return _validated_response(
+        LiteratureSyncResponse,
+        literature_service.enqueue_sync(context.vault_path, source_id, full=full),
+    )
 
 
-@router.get("/synchronizations/{source_id}", response_model=None)
+@router.get(
+    "/synchronizations/{source_id}",
+    response_model=LiteratureSyncResponse,
+    response_model_exclude_unset=True,
+)
 def get_synchronization(
     source_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
-    return literature_service.sync_status(context.vault_path, source_id)
+) -> LiteratureSyncResponse:
+    return _validated_response(
+        LiteratureSyncResponse,
+        literature_service.sync_status(context.vault_path, source_id),
+    )
 
 
 @router.delete(
@@ -290,8 +225,11 @@ def get_synchronization(
 def cancel_synchronization(
     source_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
-    return literature_service.cancel_sync(context.vault_path, source_id)
+) -> LiteratureSyncResponse:
+    return _validated_response(
+        LiteratureSyncResponse,
+        literature_service.cancel_sync(context.vault_path, source_id),
+    )
 
 
 @router.post(
@@ -303,8 +241,11 @@ def cancel_synchronization(
 def resume_synchronization(
     source_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
-    return literature_service.enqueue_sync(context.vault_path, source_id, full=False)
+) -> LiteratureSyncResponse:
+    return _validated_response(
+        LiteratureSyncResponse,
+        literature_service.enqueue_sync(context.vault_path, source_id, full=False),
+    )
 
 
 @router.get(
@@ -315,8 +256,11 @@ def resume_synchronization(
 def list_searches(
     limit: int = Query(default=50, ge=1, le=200),
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
-    return {"searches": literature_service.list_searches(context.vault_path, limit)}
+) -> LiteratureSearchesResponse:
+    return _validated_response(
+        LiteratureSearchesResponse,
+        {"searches": literature_service.list_searches(context.vault_path, limit)},
+    )
 
 
 @router.post(
@@ -328,16 +272,19 @@ def list_searches(
 async def create_search(
     payload: SearchRequest,
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
-    return literature_service.start_search(
-        context.vault_path,
-        query=payload.query,
-        filters=payload.filters,
-        source_ids=payload.source_ids,
-        source_queries=payload.source_queries,
-        ai_audits=payload.ai_audits,
-        limit_per_source=payload.limit_per_source,
-        owner_user_id=context.user_id,
+) -> LiteratureSearchResponse:
+    return _validated_response(
+        LiteratureSearchResponse,
+        literature_service.start_search(
+            context.vault_path,
+            query=payload.query,
+            filters=payload.filters,
+            source_ids=payload.source_ids,
+            source_queries=payload.source_queries,
+            ai_audits=payload.ai_audits,
+            limit_per_source=payload.limit_per_source,
+            owner_user_id=context.user_id,
+        ),
     )
 
 
@@ -351,14 +298,14 @@ def get_search(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
+) -> LiteratureSearchResponse:
     payload = literature_service.get_search(
         context.vault_path, search_id, offset=offset, limit=limit
     )
     payload["results"] = literature_import_service.mark_resource_membership(
         payload.get("results") or [], context
     )
-    return payload
+    return _validated_response(LiteratureSearchResponse, payload)
 
 
 @router.delete(
@@ -369,18 +316,28 @@ def get_search(
 def cancel_search(
     search_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
-    return literature_service.cancel_search(context.vault_path, search_id)
+) -> LiteratureSearchResponse:
+    return _validated_response(
+        LiteratureSearchResponse,
+        literature_service.cancel_search(context.vault_path, search_id),
+    )
 
 
-@router.get("/searches/{search_id}/results/{result_id}", response_model=None)
+@router.get(
+    "/searches/{search_id}/results/{result_id}",
+    response_model=LiteratureWorkResponse,
+    response_model_exclude_unset=True,
+)
 def get_result(
     search_id: str,
     result_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
+) -> LiteratureWorkResponse:
     result = literature_service.get_search_result(context.vault_path, search_id, result_id)
-    return literature_import_service.mark_resource_membership([result], context)[0]
+    return _validated_response(
+        LiteratureWorkResponse,
+        literature_import_service.mark_resource_membership([result], context)[0],
+    )
 
 
 @router.get("/searches/{search_id}/events", response_model=None)
@@ -423,22 +380,33 @@ async def import_results(
     payload: ImportRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_import_service.import_works(
-        payload.works,
-        background_tasks,
-        context,
-        notebook_id=payload.notebook_id,
-        notebook_title=payload.notebook_title,
+) -> LiteratureImportResponse:
+    return _validated_response(
+        LiteratureImportResponse,
+        await literature_import_service.import_works(
+            payload.works,
+            background_tasks,
+            context,
+            notebook_id=payload.notebook_id,
+            notebook_title=payload.notebook_title,
+        ),
     )
 
 
-@router.post("/reviews/tables", status_code=201, response_model=None)
+@router.post(
+    "/reviews/tables",
+    status_code=201,
+    response_model=LiteratureReviewTablesResponse,
+    response_model_exclude_unset=True,
+)
 async def ensure_review_tables(
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> LiteratureReviewTablesResponse:
     del context
-    return await literature_review_service.ensure_tables()
+    return _validated_response(
+        LiteratureReviewTablesResponse,
+        await literature_review_service.ensure_tables(),
+    )
 
 
 @router.get(
@@ -446,9 +414,14 @@ async def ensure_review_tables(
     response_model=LiteratureReviewsResponse,
     response_model_exclude_unset=True,
 )
-def list_reviews(context: WorkspaceContext = Depends(require_role("viewer"))) -> Any:
+def list_reviews(
+    context: WorkspaceContext = Depends(require_role("viewer")),
+) -> LiteratureReviewsResponse:
     del context
-    return {"reviews": literature_review_service.list_reviews()}
+    return _validated_response(
+        LiteratureReviewsResponse,
+        {"reviews": literature_review_service.list_reviews()},
+    )
 
 
 @router.post(
@@ -461,9 +434,12 @@ async def create_review(
     payload: ReviewCreateRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_review_service.create_review(
-        payload.model_dump(), background_tasks, context
+) -> LiteratureReviewResponse:
+    return _validated_response(
+        LiteratureReviewResponse,
+        await literature_review_service.create_review(
+            payload.model_dump(), background_tasks, context
+        ),
     )
 
 
@@ -475,14 +451,17 @@ async def create_review(
 def get_review(
     review_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
+) -> LiteratureReviewDetailResponse:
     audit = literature_review_service.review_audit(review_id, context)
-    return {
-        "review": audit["review"],
-        "activities": audit["activities"],
-        "candidates": audit["candidates"],
-        "prisma": audit["prisma"],
-    }
+    return _validated_response(
+        LiteratureReviewDetailResponse,
+        {
+            "review": audit["review"],
+            "activities": audit["activities"],
+            "candidates": audit["candidates"],
+            "prisma": audit["prisma"],
+        },
+    )
 
 
 @router.post(
@@ -496,13 +475,16 @@ async def create_activity(
     payload: ActivityRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_review_service.append_activity(
-        review_id,
-        payload.activity_type,
-        payload.model_dump(exclude={"activity_type"}),
-        background_tasks,
-        context,
+) -> LiteratureActivityResponse:
+    return _validated_response(
+        LiteratureActivityResponse,
+        await literature_review_service.append_activity(
+            review_id,
+            payload.activity_type,
+            payload.model_dump(exclude={"activity_type"}),
+            background_tasks,
+            context,
+        ),
     )
 
 
@@ -516,11 +498,14 @@ async def update_review_schedule(
     payload: ReviewScheduleRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> LiteratureReviewResponse:
     schedule = payload.model_dump()
     schedule["updated_at"] = datetime.now(timezone.utc).isoformat()
-    return await literature_review_service.update_configuration(
-        review_id, {"schedule": schedule}, background_tasks, context
+    return _validated_response(
+        LiteratureReviewResponse,
+        await literature_review_service.update_configuration(
+            review_id, {"schedule": schedule}, background_tasks, context
+        ),
     )
 
 
@@ -535,19 +520,29 @@ async def add_candidates(
     payload: CandidateRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_review_service.add_candidates(
-        review_id, payload.works, background_tasks, context, payload.activity_id
+) -> LiteratureCandidateMutationResponse:
+    return _validated_response(
+        LiteratureCandidateMutationResponse,
+        await literature_review_service.add_candidates(
+            review_id, payload.works, background_tasks, context, payload.activity_id
+        ),
     )
 
 
-@router.get("/reviews/{review_id}/candidates", response_model=None)
+@router.get(
+    "/reviews/{review_id}/candidates",
+    response_model=LiteratureCandidatesResponse,
+    response_model_exclude_unset=True,
+)
 def list_candidates(
     review_id: str,
     phase: str = Query(default="", max_length=80),
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
-    return {"candidates": literature_review_service.list_candidates(review_id, context, phase)}
+) -> LiteratureCandidatesResponse:
+    return _validated_response(
+        LiteratureCandidatesResponse,
+        {"candidates": literature_review_service.list_candidates(review_id, context, phase)},
+    )
 
 
 @router.post(
@@ -562,9 +557,12 @@ async def submit_decision(
     payload: DecisionRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_review_service.submit_decision(
-        review_id, candidate_id, payload.model_dump(), background_tasks, context
+) -> LiteratureDecisionMutationResponse:
+    return _validated_response(
+        LiteratureDecisionMutationResponse,
+        await literature_review_service.submit_decision(
+            review_id, candidate_id, payload.model_dump(), background_tasks, context
+        ),
     )
 
 
@@ -580,9 +578,12 @@ async def resolve_conflict(
     payload: ConflictRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_review_service.resolve_conflict(
-        review_id, candidate_id, payload.model_dump(), background_tasks, context
+) -> LiteratureDecisionMutationResponse:
+    return _validated_response(
+        LiteratureDecisionMutationResponse,
+        await literature_review_service.resolve_conflict(
+            review_id, candidate_id, payload.model_dump(), background_tasks, context
+        ),
     )
 
 
@@ -597,9 +598,12 @@ async def update_candidate_full_text(
     payload: FullTextRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
-    return await literature_review_service.update_full_text(
-        review_id, candidate_id, payload.model_dump(), background_tasks, context
+) -> LiteratureCandidateResponse:
+    return _validated_response(
+        LiteratureCandidateResponse,
+        await literature_review_service.update_full_text(
+            review_id, candidate_id, payload.model_dump(), background_tasks, context
+        ),
     )
 
 
@@ -613,7 +617,7 @@ async def discover_review_citations(
     payload: SnowballRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> LiteratureSnowballResponse:
     literature_review_service.get_review(review_id)
     result = await literature_service.discover_citation_neighbors(
         context.vault_path,
@@ -637,7 +641,10 @@ async def discover_review_citations(
         background_tasks,
         context,
     )
-    return {**result, "activity_id": activity.get("id")}
+    return _validated_response(
+        LiteratureSnowballResponse,
+        {**result, "activity_id": activity.get("id")},
+    )
 
 
 @router.post(
@@ -648,7 +655,7 @@ async def discover_review_citations(
 async def manual_capture(
     payload: ManualCaptureRequest,
     context: WorkspaceContext = Depends(require_role("viewer")),
-) -> Any:
+) -> LiteratureManualCaptureResponse:
     from backend.api.vault_routes import lookup_metadata
 
     value = payload.value.strip()
@@ -673,10 +680,13 @@ async def manual_capture(
         provider=str(result.get("source") or "manual"),
         provider_id=str(result.get("identifier") or value),
     )
-    return {
-        "lookup": {key: result.get(key) for key in ("source", "identifier", "error")},
-        "work": literature_import_service.mark_resource_membership([work], context)[0],
-    }
+    return _validated_response(
+        LiteratureManualCaptureResponse,
+        {
+            "lookup": {key: result.get(key) for key in ("source", "identifier", "error")},
+            "work": literature_import_service.mark_resource_membership([work], context)[0],
+        },
+    )
 
 
 @router.post(
@@ -688,7 +698,7 @@ async def run_ai_operation(
     payload: AiOperationRequest,
     background_tasks: BackgroundTasks,
     context: WorkspaceContext = Depends(require_role("editor")),
-) -> Any:
+) -> LiteratureAiResponse:
     result = await asyncio.to_thread(
         literature_ai_service.run_operation, payload.operation, payload.payload, payload.agent_id
     )
@@ -707,7 +717,7 @@ async def run_ai_operation(
         literature_service.append_search_ai_audit(
             context.vault_path, payload.search_id, payload.operation, result["audit"]
         )
-    return result
+    return _validated_response(LiteratureAiResponse, result)
 
 
 @router.get(

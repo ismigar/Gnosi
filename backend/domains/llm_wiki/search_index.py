@@ -10,11 +10,12 @@ import math
 import re
 import sqlite3
 import unicodedata
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
+from backend.utils.open_values import float_value
 from backend.domains.vault.registry.records import RecordReader
 
 
@@ -33,7 +34,7 @@ class UpsertRecords(Protocol):
     def __call__(
         self,
         brain_table_id: str,
-        records: Iterable[dict[str, Any]],
+        records: Iterable[dict[str, object]],
         *,
         replace_snapshot: bool = False,
     ) -> int: ...
@@ -43,14 +44,14 @@ class UpsertRecords(Protocol):
 class SearchDependencies:
     """Late-bound storage and facade collaborators for cache rebuilding."""
 
-    brain_pages: Callable[[str], list[Any]]
+    brain_pages: Callable[[str], list[object]]
     metadata: Callable[[object], RecordReader]
-    note_kind: Callable[[Any], str]
-    page_id: Callable[[Any], str]
-    page_path: Callable[[Any], Path | None]
+    note_kind: Callable[[object], str]
+    page_id: Callable[[object], str]
+    page_path: Callable[[object], Path | None]
     read_page: Callable[[Path | None], tuple[RecordReader, str]]
-    safe_token: Callable[[Any], str]
-    title: Callable[[Any], str]
+    safe_token: Callable[[object], str]
+    title: Callable[[object], str]
     vector: Callable[[str], list[float]]
     local_data: Callable[[], Path]
     json_writer: JsonWriter
@@ -64,7 +65,7 @@ def rebuild_search_cache(
     dependencies: SearchDependencies,
 ) -> int:
     """Write a rebuildable Brain-only lexical cache outside the synced vault."""
-    records: list[dict[str, Any]] = []
+    records: list[dict[str, object]] = []
     for page in dependencies.brain_pages(brain_table_id):
         metadata = dependencies.metadata(page)
         if metadata.get("is_template"):
@@ -112,7 +113,7 @@ def fts_path(
     brain_table_id: str,
     *,
     local_data: Callable[[], Path],
-    safe_token: Callable[[Any], str],
+    safe_token: Callable[[object], str],
 ) -> Path:
     """Resolve and create the private FTS5 sidecar directory."""
     root = local_data() / "llm_wiki"
@@ -122,7 +123,7 @@ def fts_path(
 
 def upsert_search_records(
     brain_table_id: str,
-    records: Iterable[dict[str, Any]],
+    records: Iterable[dict[str, object]],
     *,
     replace_snapshot: bool = False,
     path_for_index: Callable[[str], Path],
@@ -152,7 +153,7 @@ def upsert_search_records(
 
 def rebuild_fts_index(
     brain_table_id: str,
-    records: list[dict[str, Any]],
+    records: list[dict[str, object]],
     *,
     upsert_records: UpsertRecords,
 ) -> None:
@@ -187,8 +188,8 @@ def search_index_candidates(
     limit: int = 128,
     *,
     path_for_index: Callable[[str], Path],
-    load_cache: Callable[[str], list[dict[str, Any]]],
-) -> list[dict[str, Any]]:
+    load_cache: Callable[[str], list[dict[str, object]]],
+) -> list[dict[str, object]]:
     """Return lexical candidates from FTS5, falling back to the JSON cache."""
     bounded_limit = max(1, min(int(limit), 256))
     tokens = [word for word in re.findall(r"[\wÀ-ÿ]{2,}", str(query or ""))[:32] if word]
@@ -201,7 +202,7 @@ def search_index_candidates(
                 "SELECT record_json FROM notes_fts WHERE notes_fts MATCH ? ORDER BY rank LIMIT ?",
                 (match, bounded_limit),
             ).fetchall()
-        values: list[dict[str, Any]] = []
+        values: list[dict[str, object]] = []
         for row in rows:
             raw = row[0]
             try:
@@ -219,7 +220,7 @@ def search_index_status(
     brain_table_id: str,
     *,
     path_for_index: Callable[[str], Path],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Expose bounded freshness metadata for diagnostics and UX progress."""
     try:
         with sqlite3.connect(path_for_index(brain_table_id), timeout=5) as connection:
@@ -246,8 +247,8 @@ def load_search_cache(
     brain_table_id: str,
     *,
     local_data: Callable[[], Path],
-    safe_token: Callable[[Any], str],
-) -> list[dict[str, Any]]:
+    safe_token: Callable[[object], str],
+) -> list[dict[str, object]]:
     """Load the rebuildable JSON fallback for one Brain table."""
     path = local_data() / "llm_wiki" / f"search-{safe_token(brain_table_id)}.json"
     try:
@@ -280,12 +281,12 @@ def search_vector(text: str, dimensions: int = 192) -> list[float]:
     return [round(value / norm, 7) for value in vector] if norm else vector
 
 
-def vector_similarity(left: list[Any], right: list[Any]) -> float:
+def vector_similarity(left: Sequence[object], right: Sequence[object]) -> float:
     """Return cosine similarity for normalized cache vectors."""
     if not left or not right or len(left) != len(right):
         return 0.0
     try:
-        return float(sum(float(a) * float(b) for a, b in zip(left, right)))
+        return float(sum(float_value(a) * float_value(b) for a, b in zip(left, right)))
     except (TypeError, ValueError):
         return 0.0
 
@@ -313,7 +314,7 @@ def _delete_stale_records(
 
 def _write_changed_records(
     connection: sqlite3.Connection,
-    records: list[dict[str, Any]],
+    records: list[dict[str, object]],
     existing: dict[str, str],
 ) -> int:
     changed = 0

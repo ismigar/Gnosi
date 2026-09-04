@@ -14,9 +14,17 @@ from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import schema as table_schema
 from backend.domains.vault.tables.composition import TableDomainDependencies
 from backend.domains.vault.tables.contracts import (
+    DatabaseUpsertRequest,
+    FolderSchemaRequest,
+    OptionCatalogDeleteResponse,
+    OptionCatalogUpsertRequest,
     RegistryRecord,
+    TableOptionRemoveRequest,
+    TableOptionRenameRequest,
     TablePropertyPatchRequest,
     TablePropertyPatchResponse,
+    TableRenameRequest,
+    TableUpsertRequest,
 )
 from backend.domains.vault.tables.security import get_workspace_context, require_role
 from backend.domains.vault.views import api as vault_views
@@ -67,8 +75,11 @@ async def list_databases() -> list[RegistryData]:
     dependencies=[Depends(require_role("editor"))],
     response_model=RegistryRecord,
 )
-async def create_database(db: RegistryData = Body(...)) -> RegistryData:
-    return await table_collection_api.create_database(db, _configured().collections)
+async def create_database(db: DatabaseUpsertRequest = Body(...)) -> RegistryData:
+    return await table_collection_api.create_database(
+        db.registry_data(),
+        _configured().collections,
+    )
 
 
 @router.delete(
@@ -104,8 +115,16 @@ def _ensure_main_view(
     dependencies=[Depends(require_role("editor"))],
     response_model=RegistryRecord,
 )
-async def create_table(table: RegistryData = Body(...)) -> RegistryData:
-    return await table_lifecycle.create_table(table, _configured().create_table)
+async def create_table(table: TableUpsertRequest = Body(...)) -> RegistryData:
+    return await create_table_from_registry(table.registry_data())
+
+
+async def create_table_from_registry(table: RegistryData) -> RegistryData:
+    """Create a table from trusted internal registry data."""
+    return await table_lifecycle.create_table(
+        table,
+        _configured().create_table,
+    )
 
 
 def _table_schema_signature(properties: object) -> str:
@@ -169,11 +188,11 @@ async def delete_table(
 )
 async def rename_table(
     table_id: str,
-    data: RegistryData = Body(...),
+    data: TableRenameRequest = Body(...),
 ) -> RegistryData:
     return await table_lifecycle.rename_table(
         table_id,
-        data,
+        data.registry_data(),
         _configured().rename_table,
     )
 
@@ -319,7 +338,7 @@ async def table_option_usage(table_id: str, field_id: str) -> RegistryData:
 )
 async def rename_table_option(
     table_id: str,
-    payload: RegistryData = Body(...),
+    payload: TableOptionRenameRequest = Body(...),
 ) -> RegistryData:
     """Renames an option in the catalog AND in all rows that use it (the
     values are persisted by name → eager rewrite of the affected .md files).
@@ -329,7 +348,7 @@ async def rename_table_option(
     """
     return await table_options.rename_table_option(
         table_id,
-        payload,
+        payload.registry_data(),
         _configured().options,
     )
 
@@ -341,7 +360,7 @@ async def rename_table_option(
 )
 async def remove_table_option(
     table_id: str,
-    payload: RegistryData = Body(...),
+    payload: TableOptionRemoveRequest = Body(...),
 ) -> RegistryData:
     """Deletes an option from the catalog and from ALL rows that use it, clearing
     the value or REASSIGNING it to another option (Notion-style).
@@ -351,7 +370,7 @@ async def remove_table_option(
     """
     return await table_options.remove_table_option(
         table_id,
-        payload,
+        payload.registry_data(),
         _configured().options,
     )
 
@@ -368,12 +387,15 @@ async def list_option_catalogs() -> RegistryData:
 )
 async def put_option_catalog(
     name: str,
-    payload: RegistryData = Body(...),
+    payload: OptionCatalogUpsertRequest = Body(...),
 ) -> RegistryData:
     """Creates or replaces a shared catalog. Body: ``{options: [...]}``."""
+    payload_data = (
+        payload.registry_data() if isinstance(payload, OptionCatalogUpsertRequest) else payload
+    )
     return await table_options.put_option_catalog(
         name,
-        payload,
+        payload_data,
         _configured().options,
     )
 
@@ -381,7 +403,7 @@ async def put_option_catalog(
 @router.delete(
     "/option-catalogs/{name}",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=OptionCatalogDeleteResponse,
 )
 async def delete_option_catalog(name: str) -> RegistryData:
     """Deletes a shared catalog. 409 if any field still references it."""
@@ -498,20 +520,21 @@ def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
 )
 async def save_schema(
     folder: str,
-    schema: RegistryData = Body(...),
+    schema: FolderSchemaRequest = Body(...),
 ) -> RegistryData:
     """
     Legacy route to save schemas per folder.
     Now we redirect it to table creation if needed, or save it as a local file.
     """
+    schema_data = schema.registry_data() if isinstance(schema, FolderSchemaRequest) else schema
     return await vault_view_schema.save_schema(
         folder,
-        schema,
+        schema_data,
         _configured().folder_schema,
     )
 
 
-@router.get("/schema", response_model=None)
+@router.get("/schema", response_model=RegistryRecord)
 async def get_schema(folder: str) -> RegistryData:
     return await vault_view_schema.get_schema(folder, _configured().folder_schema)
 

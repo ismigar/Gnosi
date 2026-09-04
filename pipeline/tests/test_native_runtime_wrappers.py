@@ -155,7 +155,7 @@ class Harness:
         env.update(settings)
         return subprocess.run(
             ["/bin/bash", str(self.repo / "scripts/runtime" / script), *args],
-            cwd=self.root, env=env, text=True, capture_output=True, timeout=10, check=False,
+            cwd=self.root, env=env, text=True, capture_output=True, timeout=20, check=False,
         )
 
     def calls(self, name: str | None = None) -> list[Call]:
@@ -403,7 +403,7 @@ def test_frontend_root_arguments_and_checkout_label(harness: Harness) -> None:
     child = harness.child("corepack")
     assert child.args == ["pnpm", "--filter", "@gnosi/frontend", "dev", *arguments]
     assert child.env == {
-        "VITE_BACKEND_HOST": "localhost", "VITE_BACKEND_PORT": "5002",
+        "VITE_BACKEND_HOST": "127.0.0.1", "VITE_BACKEND_PORT": "5002",
         "COREPACK_ENABLE_NETWORK": "0",
         "VITE_GNOSI_CHECKOUT_LABEL": "codex/native-fixture@abc1234",
         "VITE_GNOSI_STALE_CHECKOUT": "0",

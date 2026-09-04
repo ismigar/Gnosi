@@ -19,12 +19,15 @@ a survey found 50 routes that never touch `get_workspace_context` and would
 otherwise have stayed open.
 """
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import backend.models.management  # noqa: F401 — registers the tables on Base
+from backend.app import factory as app_factory
 from backend.data.management_db import Base
 from backend.models.management import User
 from backend.services.auth_service import (
@@ -53,6 +56,18 @@ def _clear_policy_cache():
     reset_auth_policy_cache()
     yield
     reset_auth_policy_cache()
+
+
+def _refresh_health_snapshot(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def load_test_params(*, strict_env: bool = False) -> SimpleNamespace:
+        _ = strict_env
+        return SimpleNamespace(gnosi_mode="personal", paths={})
+
+    monkeypatch.setattr(app_factory, "load_params", load_test_params)
+    app_factory.refresh_health_snapshot(client.app)
 
 
 @pytest.fixture
@@ -273,13 +288,23 @@ def test_on_the_liveness_probe_stays_open(client, enforcement_on):
     assert r.status_code != 401, r.text
 
 
-def test_health_advertises_the_effective_policy(client, enforcement_on):
+def test_health_advertises_the_effective_policy(
+    client,
+    enforcement_on,
+    monkeypatch,
+):
     """The frontend gates <LoginPage> on this field (App.jsx): without it,
     personal mode renders the app shell and every call 401s silently."""
+    _refresh_health_snapshot(client, monkeypatch)
     assert client.get("/api/health").json()["require_auth"] is True
 
 
-def test_health_advertises_enforcement_off(client, enforcement_off):
+def test_health_advertises_enforcement_off(
+    client,
+    enforcement_off,
+    monkeypatch,
+):
+    _refresh_health_snapshot(client, monkeypatch)
     assert client.get("/api/health").json()["require_auth"] is False
 
 

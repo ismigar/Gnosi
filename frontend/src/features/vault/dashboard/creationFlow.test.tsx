@@ -94,7 +94,7 @@ describe.each(['Create a DB', 'sidebar.add_database'])('database group via %s', 
     expect(vault.createVaultTable).not.toHaveBeenCalled();
     expect(views.createVaultView).not.toHaveBeenCalled();
     expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(2);
-    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPages).not.toHaveBeenCalled();
     expect(harness.current.promptModal.isOpen).toBe(false);
     expect(toast.success).toHaveBeenCalledWith('success.app_created');
   });

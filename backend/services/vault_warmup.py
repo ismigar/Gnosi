@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from backend.platform.files import get_files_provider
+from backend.platform.files import FilesProvider, get_files_provider
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,32 @@ _MAX_CONCURRENT = 6
 
 # Guard against re-entrancy: one warmup pass per vault path at a time.
 _running: set[str] = set()
+
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+
+
+def _critical_warmup_enabled(provider: FilesProvider) -> bool:
+    """Return whether bulk hydration is safe for the current runtime.
+
+    Native File Provider hydration uses GUI applications. Hydrating an entire
+    critical tree that way can starve the API and restart the service, so
+    ``open`` mode is lazy by default. Daemon-backed runtimes preserve the
+    existing proactive behavior. An explicit override always wins.
+    """
+    configured = os.environ.get("GNOSI_CRITICAL_WARMUP")
+    if configured is not None:
+        normalized = configured.strip().lower()
+        if normalized in _TRUE_VALUES:
+            return True
+        if normalized in _FALSE_VALUES:
+            return False
+        log.warning(
+            "Invalid GNOSI_CRITICAL_WARMUP=%r; bulk warmup disabled.",
+            configured,
+        )
+        return False
+    return getattr(provider, "warmup_mode", None) != "open"
 
 
 def _scan_online_only(root: Path) -> List[Path]:
@@ -62,6 +88,12 @@ def _scan_online_only(root: Path) -> List[Path]:
 async def _warm_critical(vault_path: str) -> None:
     """Materialize the online-only files under the vault's critical folders."""
     provider = get_files_provider()
+    if not _critical_warmup_enabled(provider):
+        log.info(
+            "☁️ Critical-warmup skipped for %s mode; files remain on demand.",
+            getattr(provider, "warmup_mode", "local"),
+        )
+        return
     base = Path(vault_path)
     targets = [base.joinpath(*parts) for parts in _CRITICAL_SUBDIRS]
 

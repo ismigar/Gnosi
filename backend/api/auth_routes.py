@@ -18,8 +18,7 @@ members register with the same email and can log in.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -27,27 +26,20 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.data.management_db import get_mgmt_db
-from backend.models.management import User, Membership, Workspace
+from backend.models.management import Membership, User, Workspace
 from backend.services.auth_service import (
     BCRYPT_MAX_PASSWORD_BYTES,
-    is_auto_provisioned_account,
     COOKIE_NAME,
     DEFAULT_TTL_DAYS,
     create_access_token,
     get_current_user_id,
     hash_password,
+    is_auto_provisioned_account,
     normalize_email,
     verify_password,
 )
 
-
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-_LEGACY_JSON_200: dict[int | str, dict[str, Any]] = {
-    200: {"content": {"application/json": {"schema": {}}}}
-}
-_LEGACY_JSON_201: dict[int | str, dict[str, Any]] = {
-    201: {"content": {"application/json": {"schema": {}}}}
-}
 
 
 # ---------- Payloads ----------
@@ -94,12 +86,22 @@ class UpdateProfilePayload(BaseModel):
     current_password: str | None = None
 
 
+class AuthWorkspaceInfo(BaseModel):
+    id: str
+    name: str
+    role: str
+
+
 class UserInfo(BaseModel):
     id: str
     email: str
     name: str | None = None
     avatar_url: str | None = None
-    workspaces: list[dict[str, Any]] = Field(default_factory=list)
+    workspaces: list[AuthWorkspaceInfo] = Field(default_factory=list)
+
+
+class AuthOperationResponse(BaseModel):
+    ok: Literal[True]
 
 
 # ---------- Helpers ----------
@@ -140,16 +142,16 @@ def _find_user_by_email(db: Session, email: str) -> User | None:
 def _user_to_info(user: User, db: Session) -> UserInfo:
     """Loads the workspaces the user belongs to."""
     memberships = db.query(Membership).filter(Membership.user_id == user.id).all()
-    ws_info: list[dict[str, Any]] = []
+    ws_info: list[AuthWorkspaceInfo] = []
     for m in memberships:
         ws = db.query(Workspace).filter(Workspace.id == m.workspace_id).first()
         if ws:
             ws_info.append(
-                {
-                    "id": cast(str, ws.id),
-                    "name": cast(str, ws.name),
-                    "role": cast(str, m.role),
-                }
+                AuthWorkspaceInfo(
+                    id=cast(str, ws.id),
+                    name=cast(str, ws.name),
+                    role=cast(str, m.role),
+                )
             )
     return UserInfo(
         id=cast(str, user.id),
@@ -166,14 +168,13 @@ def _user_to_info(user: User, db: Session) -> UserInfo:
 @router.post(
     "/register",
     status_code=201,
-    response_model=None,
-    responses=_LEGACY_JSON_201,
+    response_model=UserInfo,
 )
 def register(
     payload: RegisterPayload,
     response: Response,
     db: Session = Depends(get_mgmt_db),
-) -> Any:
+) -> UserInfo:
     """Creates a new user with email + password.
 
     If a user with this email already exists **without a password** (legacy
@@ -247,12 +248,12 @@ def register(
 # management DB and therefore has no remote attack surface at all.
 
 
-@router.post("/login", response_model=None, responses=_LEGACY_JSON_200)
+@router.post("/login", response_model=UserInfo)
 def login(
     payload: LoginPayload,
     response: Response,
     db: Session = Depends(get_mgmt_db),
-) -> Any:
+) -> UserInfo:
     """Login via email + password. 401 if credentials are incorrect."""
     user = _find_user_by_email(db, payload.email)
     if not user or not user.password_hash:
@@ -266,18 +267,18 @@ def login(
     return _user_to_info(user, db)
 
 
-@router.post("/logout", response_model=None, responses=_LEGACY_JSON_200)
-def logout(response: Response) -> Any:
+@router.post("/logout", response_model=AuthOperationResponse)
+def logout(response: Response) -> dict[str, bool]:
     """Deletes the session cookie. Idempotent."""
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True}
 
 
-@router.get("/me", response_model=None, responses=_LEGACY_JSON_200)
+@router.get("/me", response_model=UserInfo)
 def me(
     uid: str | None = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
-) -> Any:
+) -> UserInfo:
     """Current authenticated user. 401 if there's no session.
 
     The frontend uses this at bootstrap to decide whether to render the
@@ -319,12 +320,12 @@ def _require_credentialed_user(uid: str | None, db: Session) -> User:
     return user
 
 
-@router.post("/change-password", response_model=None, responses=_LEGACY_JSON_200)
+@router.post("/change-password", response_model=AuthOperationResponse)
 def change_password(
     payload: ChangePasswordPayload,
     uid: str | None = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
-) -> Any:
+) -> dict[str, bool]:
     """Rotates the authenticated user's password.
 
     Safe as an HTTP endpoint (unlike first credentials, see the NOTE above)
@@ -345,12 +346,12 @@ def change_password(
     return {"ok": True}
 
 
-@router.patch("/me", response_model=None, responses=_LEGACY_JSON_200)
+@router.patch("/me", response_model=UserInfo)
 def update_me(
     payload: UpdateProfilePayload,
     uid: str | None = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
-) -> Any:
+) -> UserInfo:
     """Updates the authenticated user's name and/or email.
 
     The email is the login identifier, so changing it requires the current

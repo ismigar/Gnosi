@@ -191,9 +191,15 @@ def test_scheduler_skips_external_work_but_keeps_core_maintenance(monkeypatch):
 def test_agent_internal_sources_do_not_touch_disabled_plugins(monkeypatch):
     from backend.agent import internal_sources
     from backend.api import vault_routes
+    from backend.domains.vault.api import configuration_routes
 
     state, _ = builtin_plugins.normalize_state({})
     monkeypatch.setattr(vault_routes, "_load_plugins_state", lambda: dict(state))
+    monkeypatch.setattr(
+        configuration_routes,
+        "_load_plugins_state",
+        lambda: dict(state),
+    )
     monkeypatch.setattr(internal_sources, "_reference_table", lambda: None)
     monkeypatch.setattr(
         internal_sources,

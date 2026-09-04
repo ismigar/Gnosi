@@ -4,7 +4,7 @@ import importlib as _legacy_importlib
 from typing import TYPE_CHECKING, Never
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 from backend.domains.llm_wiki.lint_contracts import LintReport
 from backend.domains.vault.knowledge.native_calls import capture_append
@@ -105,6 +105,135 @@ class LlmWikiMaintenanceResponse(BaseModel):
     lint: LlmWikiLintReportResponse
     suggestions_queued: int
     suggestions_pending: int
+
+
+class _ForwardCompatibleResponse(BaseModel):
+    """Preserve future JSON fields while publishing today's known contract."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class LlmWikiEvidenceSegmentResponse(_ForwardCompatibleResponse):
+    """One immutable normalized segment and its source locator."""
+
+    id: JsonValue
+    order: JsonValue | None = None
+    text: JsonValue | None = None
+    locator: JsonValue | None = None
+
+
+class LlmWikiEvidenceResponse(_ForwardCompatibleResponse):
+    """Persisted citation evidence resolved without exposing filesystem paths."""
+
+    snapshot_id: JsonValue
+    resource_id: JsonValue
+    kind: JsonValue
+    label: JsonValue
+    source_url: JsonValue
+    segment: LlmWikiEvidenceSegmentResponse
+
+
+class LlmWikiNoteFindingResponse(_ForwardCompatibleResponse):
+    id: str
+    title: str
+
+
+class LlmWikiStaleFindingResponse(LlmWikiNoteFindingResponse):
+    review: str | None
+    days: int | None
+
+
+class LlmWikiMissingCrossReferenceResponse(LlmWikiNoteFindingResponse):
+    should_link: str
+    target_id: str
+
+
+class LlmWikiReprocessCandidateResponse(LlmWikiNoteFindingResponse):
+    processed: str
+    modified: str
+
+
+class LlmWikiDuplicateManagedKeyResponse(_ForwardCompatibleResponse):
+    key: str
+    notes: list[LlmWikiNoteFindingResponse]
+
+
+class LlmWikiBrokenCitationResponse(LlmWikiNoteFindingResponse):
+    resource_id: str
+    snapshot_id: str
+    segment_id: str
+
+
+class LlmWikiResourceIndexDriftResponse(_ForwardCompatibleResponse):
+    source_table_id: str
+    resource_id: str
+
+
+class LlmWikiLintCountsResponse(_ForwardCompatibleResponse):
+    orphans: int
+    stale: int
+    missing_xref: int
+    reprocess: int
+    duplicate_keys: int
+    stale_managed: int
+    broken_cites: int
+    index_drift: int
+
+
+class LlmWikiLintResponse(_ForwardCompatibleResponse):
+    """Complete deterministic Brain lint report and optional suggestion totals."""
+
+    note_count: int
+    orphans: list[LlmWikiNoteFindingResponse]
+    stale: list[LlmWikiStaleFindingResponse]
+    missing_xref: list[LlmWikiMissingCrossReferenceResponse]
+    reprocess: list[LlmWikiReprocessCandidateResponse]
+    duplicate_keys: list[LlmWikiDuplicateManagedKeyResponse]
+    stale_managed: list[LlmWikiNoteFindingResponse]
+    broken_cites: list[LlmWikiBrokenCitationResponse]
+    index_drift: list[LlmWikiResourceIndexDriftResponse]
+    counts: LlmWikiLintCountsResponse
+    truncated_missing_xref: bool
+    suggestions_queued: int | None = None
+    suggestions_pending: int | None = None
+
+
+class BrainSuggestionReadOnlyErrorResponse(BaseModel):
+    """Permanent-note creation refusal returned by the retired accept route."""
+
+    detail: str
+
+
+class BrainSuggestionAcceptRequest(BaseModel):
+    """Ignored legacy payload retained for the permanently read-only route."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class BrainSuggestionVariantResponse(BaseModel):
+    label: str
+    text: str
+
+
+class BrainSuggestionVariantsResponse(BaseModel):
+    variants: list[BrainSuggestionVariantResponse]
+
+
+class BrainDictationResponse(BaseModel):
+    transcript: str
+    proposed: str
+    corrected: bool
+
+
+class BrainGlossaryResponse(BaseModel):
+    pairs: int
+
+
+class BrainGlossaryRequest(BaseModel):
+    """User-confirmed correction pair with legacy endpoint coercion."""
+
+    heard: object | None = None
+    meant: object | None = None
 
 
 def ensure_llm_wiki_column(reference_table_id: str) -> bool:
@@ -269,7 +398,8 @@ async def llm_wiki_status(
 @router.get(
     "/llm-wiki/evidence/{resource_id}/{snapshot_id}/{segment_id}",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiEvidenceResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_evidence(
     resource_id: str, snapshot_id: str, segment_id: str
@@ -308,7 +438,8 @@ async def llm_wiki_maintenance(semantic: bool = _legacy.Query(default=False)) ->
 @router.get(
     "/llm-wiki/lint",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=LlmWikiLintResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_lint(suggest: bool = _legacy.Query(default=False)) -> LintReport:
     """Run deterministic lint and optionally request a manual semantic pass."""
@@ -343,10 +474,13 @@ async def llm_wiki_list_suggestions() -> dict[str, list[dict[str, object]]]:
 @router.post(
     "/llm-wiki/suggestions/{suggestion_id}/accept",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainSuggestionReadOnlyErrorResponse,
+    response_model_exclude_unset=True,
+    responses={410: {"model": BrainSuggestionReadOnlyErrorResponse}},
 )
 async def llm_wiki_accept_suggestion(
-    suggestion_id: str, payload: dict[object, object] = _legacy.Body(default=None)
+    suggestion_id: str,
+    payload: BrainSuggestionAcceptRequest | None = _legacy.Body(default=None),
 ) -> Never:
     """Permanent-note creation was removed; proposals are read-only."""
     raise _legacy.HTTPException(
@@ -384,7 +518,8 @@ async def llm_wiki_dismiss_suggestion(suggestion_id: str) -> dict[str, str]:
 @router.post(
     "/llm-wiki/suggestions/{suggestion_id}/reformulate",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainSuggestionVariantsResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_reformulate(suggestion_id: str) -> dict[str, list[dict[str, str]]]:
     """Labeled variants of a suggestion's draft, to pick with one click."""
@@ -409,7 +544,8 @@ async def llm_wiki_reformulate(suggestion_id: str) -> dict[str, list[dict[str, s
 @router.post(
     "/llm-wiki/suggestions/{suggestion_id}/dictate",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainDictationResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_dictate(
     suggestion_id: str, audio: _legacy.UploadFile = _legacy.File(...)
@@ -455,16 +591,17 @@ async def llm_wiki_dictate(
 @router.post(
     "/llm-wiki/glossary",
     dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
-    response_model=None,
+    response_model=BrainGlossaryResponse,
+    response_model_exclude_unset=True,
 )
 async def llm_wiki_glossary_learn(
-    payload: dict[object, object] = _legacy.Body(...),
+    payload: BrainGlossaryRequest = _legacy.Body(...),
 ) -> dict[str, int]:
     """Stores a user-confirmed correction pair (heard → meant): the personal
     glossary the dictation corrector learns from."""
     from backend.services import llm_wiki_assist
 
-    heard = str((payload or {}).get("heard") or "")
-    meant = str((payload or {}).get("meant") or "")
+    heard = str(payload.heard or "")
+    meant = str(payload.meant or "")
     count = await _legacy.asyncio.to_thread(llm_wiki_assist.learn_pair, heard, meant)
     return {"pairs": count}

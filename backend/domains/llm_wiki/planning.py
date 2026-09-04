@@ -7,22 +7,23 @@ import json
 import logging
 import re
 from collections.abc import Callable
-from typing import Any
 
-LocatorLabel = Callable[[dict[str, Any]], str]
-NormalizeText = Callable[[Any], str]
+from backend.utils.open_values import integer_value
+
+LocatorLabel = Callable[[dict[str, object]], str]
+NormalizeText = Callable[[object], str]
 ValidateDimensions = Callable[
-    [Any, dict[str, dict[str, Any]]],
-    dict[str, Any],
+    [object, dict[str, dict[str, object]]],
+    dict[str, object],
 ]
 
 
 def build_chunk_prompt(
-    chunk: dict[str, Any],
+    chunk: dict[str, object],
     source_title: str,
-    brain_index: list[dict[str, Any]],
+    brain_index: list[dict[str, object]],
     language: str,
-    ai_dimensions: list[dict[str, Any]],
+    ai_dimensions: list[dict[str, object]],
     *,
     locator_label: LocatorLabel,
 ) -> str:
@@ -93,7 +94,7 @@ Return only valid JSON:
 }}"""
 
 
-def parse_plan(text: str, *, logger: logging.Logger) -> dict[str, Any]:
+def parse_plan(text: str, *, logger: logging.Logger) -> dict[str, object]:
     """Parse and normalize the model's JSON write plan."""
     if not text:
         return {"summary": "", "notes": []}
@@ -112,7 +113,7 @@ def parse_plan(text: str, *, logger: logging.Logger) -> dict[str, Any]:
         return {"summary": "", "notes": []}
     if not isinstance(loaded, dict):
         return {"summary": "", "notes": []}
-    data: dict[str, Any] = dict(loaded)
+    data: dict[str, object] = dict(loaded)
     notes = data.get("notes")
     data["notes"] = (
         [dict(note) for note in notes if isinstance(note, dict) and note.get("title")]
@@ -123,19 +124,19 @@ def parse_plan(text: str, *, logger: logging.Logger) -> dict[str, Any]:
 
 
 def validate_and_reduce_plans(
-    plans: list[tuple[dict[str, Any], dict[str, Any]]],
-    origins: list[dict[str, Any]],
-    ai_dimensions: list[dict[str, Any]],
+    plans: list[tuple[dict[str, object], dict[str, object]]],
+    origins: list[dict[str, object]],
+    ai_dimensions: list[dict[str, object]],
     *,
     normalized_text: NormalizeText,
     validate_dimensions: ValidateDimensions,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[dict[str, object]], list[str]]:
     """Validate evidence, classify dimensions, and assign stable managed keys."""
     segments = {
         str(segment.get("id")): {
             **segment,
             "origin_id": origin["origin_id"],
-            "origin_order": int(origin.get("input_order") or 0),
+            "origin_order": integer_value(origin.get("input_order") or 0),
             "origin_label": origin.get("label") or origin.get("kind"),
             "snapshot_id": origin.get("snapshot_id"),
             "source_url": origin.get("source_url"),
@@ -145,7 +146,7 @@ def validate_and_reduce_plans(
     }
     allowed_by_field = {str(item["field_id"]): item for item in ai_dimensions}
     counters: dict[tuple[str, str], int] = {}
-    reduced: list[dict[str, Any]] = []
+    reduced: list[dict[str, object]] = []
     warnings: list[str] = []
     seen_evidence: set[tuple[str, str, str]] = set()
 
@@ -193,7 +194,7 @@ def validate_and_reduce_plans(
                     "origin_order": first_segment["origin_order"],
                     "origin_label": first_segment["origin_label"],
                     "source_segment_id": first_segment_id,
-                    "segment_order": int(first_segment.get("order") or 0),
+                    "segment_order": integer_value(first_segment.get("order") or 0),
                 }
             )
 
@@ -204,13 +205,13 @@ def validate_and_reduce_plans(
 
 
 def validate_ai_dimensions(
-    raw: Any,
-    allowed_by_field: dict[str, dict[str, Any]],
-) -> dict[str, Any]:
+    raw: object,
+    allowed_by_field: dict[str, dict[str, object]],
+) -> dict[str, object]:
     """Map model labels to the configured canonical field values."""
     if not isinstance(raw, dict):
         return {}
-    output: dict[str, Any] = {}
+    output: dict[str, object] = {}
     for raw_field_id, values in raw.items():
         field_id = str(raw_field_id)
         spec = allowed_by_field.get(field_id)
@@ -230,12 +231,12 @@ def validate_ai_dimensions(
 
 
 def _validated_citations(
-    note: dict[str, Any],
-    segments: dict[str, dict[str, Any]],
+    note: dict[str, object],
+    segments: dict[str, dict[str, object]],
     chunk_segment_ids: set[str],
     normalized_text: NormalizeText,
-) -> list[dict[str, Any]]:
-    citations: list[dict[str, Any]] = []
+) -> list[dict[str, object]]:
+    citations: list[dict[str, object]] = []
     for citation in _mapping_list(note.get("citations")):
         segment_id = str(citation.get("segment_id") or note.get("source_segment_id") or "")
         segment = segments.get(segment_id)
@@ -258,19 +259,19 @@ def _validated_citations(
     return citations
 
 
-def _reduced_note_order(note: dict[str, Any]) -> tuple[int, int, str]:
+def _reduced_note_order(note: dict[str, object]) -> tuple[int, int, str]:
     return (
-        int(note.get("origin_order") or 0),
-        int(note.get("segment_order") or 0),
+        integer_value(note.get("origin_order") or 0),
+        integer_value(note.get("segment_order") or 0),
         str(note.get("managed_key") or ""),
     )
 
 
-def _mapping(value: object) -> dict[str, Any]:
+def _mapping(value: object) -> dict[str, object]:
     return dict(value) if isinstance(value, dict) else {}
 
 
-def _mapping_list(value: object) -> list[dict[str, Any]]:
+def _mapping_list(value: object) -> list[dict[str, object]]:
     return (
         [dict(item) for item in value if isinstance(item, dict)] if isinstance(value, list) else []
     )

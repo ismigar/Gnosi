@@ -8,7 +8,10 @@ import os
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-OFFICIAL_PUBLIC_KEY_B64 = "E2CjszyBQSLgm0D1FejG/1j835WBmGRoghnyiXAOrk0="
+from backend.security.plugin_trust_root import OFFICIAL_PLUGIN_PUBLIC_KEY_B64
+
+
+OFFICIAL_PUBLIC_KEY_B64 = OFFICIAL_PLUGIN_PUBLIC_KEY_B64
 
 
 def _decode_private_key(raw: str) -> Ed25519PrivateKey:

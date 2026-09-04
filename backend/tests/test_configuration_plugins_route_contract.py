@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from pydantic import BaseModel
 
 from backend.api import vault_routes
 from backend.domains.configuration.api import plugin_models
@@ -181,17 +184,25 @@ def test_plugin_route_status_models_and_dependencies_are_unchanged() -> None:
     response_models = {
         "fetch_for_ui_plugin": plugin_models.ConfigurationPluginNetworkFetchResponse,
         "get_installed_plugins": plugin_models.ConfigurationInstalledPluginsResponse,
-        "get_plugins_catalog": (
-            plugin_models.ConfigurationPluginPermissionsCatalogResponse
-        ),
+        "get_plugins_catalog": (plugin_models.ConfigurationPluginPermissionsCatalogResponse),
         "get_plugins_state": plugin_models.ConfigurationPluginStateResponse,
         "get_plugin_settings": plugin_models.PluginSettingsResponse,
         "get_registry_url": plugin_models.ConfigurationPluginRegistryUrlResponse,
+        "add_trusted_key": plugin_models.PluginTrustedKeyAdditionResponse,
+        "install_from_catalog": plugin_models.PluginInstallationResponse,
+        "install_plugin": plugin_models.PluginInstallationResponse,
         "list_plugin_catalog": plugin_models.ConfigurationPluginCatalogResponse,
         "list_trusted_keys": plugin_models.ConfigurationPluginTrustedKeysResponse,
+        "remove_trusted_key": plugin_models.PluginTrustedKeyRemovalResponse,
+        "set_llm_wiki_lifecycle": plugin_models.ConfigurationPluginStateResponse,
         "set_plugin_lifecycle": plugin_models.ConfigurationPluginStateResponse,
+        "set_plugin_permissions": plugin_models.PluginPermissionsMutationResponse,
         "set_plugin_settings": plugin_models.PluginSettingsResponse,
+        "set_plugins_state": plugin_models.ConfigurationPluginStateResponse,
+        "set_registry_url": plugin_models.ConfigurationPluginRegistryUrlResponse,
+        "submit_plugin_package": plugin_models.PluginSubmissionResponse,
         "summarize_with_vault_plugin": plugin_models.VaultPluginSummaryResponse,
+        "uninstall_plugin": plugin_models.PluginUninstallResponse,
     }
     routes = _plugin_routes()
     assert len(routes) == len(EXPECTED_ROUTES)
@@ -199,9 +210,7 @@ def test_plugin_route_status_models_and_dependencies_are_unchanged() -> None:
         assert route.operation_id is None
         assert route.status_code is None
         assert route.response_model is response_models.get(route.endpoint.__name__)
-        assert route.response_model_exclude_unset is (
-            route.endpoint.__name__ in response_models
-        )
+        assert route.response_model_exclude_unset is (route.endpoint.__name__ in response_models)
         methods = route.methods or set()
         assert len(methods) == 1
         method = next(iter(methods))
@@ -219,3 +228,93 @@ def test_plugin_handlers_are_canonical_domain_exports() -> None:
             plugins_api,
             handler_name,
         )
+
+
+def test_every_plugin_http_response_has_an_explicit_contract() -> None:
+    binary_handlers = {"export_plugin_package", "get_plugin_asset"}
+    for route in _plugin_routes():
+        if route.endpoint.__name__ in binary_handlers:
+            assert route.response_model is None
+        else:
+            assert route.response_model is not None
+            assert route.response_model_exclude_unset is True
+
+
+def test_plugin_openapi_uses_named_json_request_and_response_schemas() -> None:
+    app = FastAPI()
+    app.include_router(vault_routes.router, prefix="/api/vault")
+    document = app.openapi()
+    binary_paths = {
+        "/api/vault/plugins/{plugin_id}/asset/{asset_path}",
+        "/api/vault/plugins/{plugin_id}/export",
+    }
+
+    for path, path_item in document["paths"].items():
+        if "/plugins" not in path:
+            continue
+        for method, operation in path_item.items():
+            if method not in {"get", "post", "put", "patch", "delete"}:
+                continue
+            response_schema = (
+                operation["responses"]
+                .get("200", {})
+                .get("content", {})
+                .get("application/json", {})
+                .get("schema")
+            )
+            if path in binary_paths:
+                assert response_schema is None
+            else:
+                assert response_schema.get("$ref", "").startswith("#/components/schemas/")
+
+            request_schema = (
+                operation.get("requestBody", {})
+                .get("content", {})
+                .get("application/json", {})
+                .get("schema")
+            )
+            if request_schema is not None:
+                assert request_schema.get("$ref", "").startswith("#/components/schemas/")
+
+
+@pytest.mark.parametrize(
+    ("model", "payload"),
+    (
+        (
+            plugin_models.PluginInstallationResponse,
+            {
+                "installed": {
+                    "id": "fixture-plugin",
+                    "version": "1.0.0",
+                    "apiVersion": 2,
+                    "customManifestField": {"nested": [True, None, 4.5]},
+                }
+            },
+        ),
+        (
+            plugin_models.PluginPermissionsMutationResponse,
+            {"id": "fixture-plugin", "granted": ["vault:read"]},
+        ),
+        (
+            plugin_models.PluginSubmissionResponse,
+            {"status": 202, "brokerExtension": {"queued": True}},
+        ),
+        (
+            plugin_models.PluginTrustedKeyAdditionResponse,
+            {"added": "fixture-publisher"},
+        ),
+        (
+            plugin_models.PluginTrustedKeyRemovalResponse,
+            {"removed": "fixture-publisher"},
+        ),
+        (
+            plugin_models.PluginUninstallResponse,
+            {"uninstalled": "fixture-plugin"},
+        ),
+    ),
+)
+def test_plugin_response_models_preserve_historical_json_payloads(
+    model: type[BaseModel],
+    payload: dict[str, object],
+) -> None:
+    assert model.model_validate(payload).model_dump(exclude_unset=True) == payload

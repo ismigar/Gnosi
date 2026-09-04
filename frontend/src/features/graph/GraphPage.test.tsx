@@ -1,4 +1,5 @@
 import React, { act, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,6 +7,7 @@ import { fetchConfiguration, updateConfiguration } from '../../shared/api/config
 import { fetchVaultGraph } from '../../shared/api/graph';
 import { fetchVaultGlobalIndex, fetchVaultTables } from '../../shared/api/vaults';
 import { dispatchWindowEvent } from '../../shared/platform/browser-events';
+import { emitConfigChanged } from '../../shared/platform/configEvents';
 import GraphPage from './GraphPage';
 
 
@@ -45,7 +47,10 @@ vi.mock('../../shared/api/configuration', () => ({
 }));
 
 
-vi.mock('../../shared/api/graph', () => ({ fetchVaultGraph: vi.fn() }));
+vi.mock('../../shared/api/graph', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../shared/api/graph')>(),
+  fetchVaultGraph: vi.fn(),
+}));
 vi.mock('../../shared/api/vaults', () => ({
   fetchVaultGlobalIndex: vi.fn(),
   fetchVaultTables: vi.fn(),
@@ -164,11 +169,18 @@ const mockedUpdateConfiguration = vi.mocked(updateConfiguration);
 
 
 let container: HTMLDivElement;
+let queryClient: QueryClient;
 let root: Root;
 
 
 beforeEach(() => {
   vi.useFakeTimers();
+  queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false },
+    },
+  });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -215,7 +227,11 @@ afterEach(() => {
 
 async function renderLoadedPage(): Promise<void> {
   await act(async () => {
-    root.render(<GraphPage />);
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <GraphPage />
+      </QueryClientProvider>,
+    );
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -265,6 +281,31 @@ describe('GraphPage', () => {
     expect(container.textContent).toContain('Done (1)');
     expect(container.textContent).toContain('Counts 1/0');
     expect(mockedUpdateConfiguration).not.toHaveBeenCalled();
+    expect(mockedFetchGraph).toHaveBeenCalledTimes(1);
+    expect(mockedFetchConfiguration).toHaveBeenCalledTimes(1);
+    expect(mockedFetchTables).toHaveBeenCalledTimes(1);
+    expect(mockedFetchGlobalIndex).toHaveBeenCalledTimes(1);
+    expect(mockedFetchGraph).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(mockedFetchConfiguration).toHaveBeenCalledWith(expect.any(AbortSignal));
+    expect(mockedFetchTables).toHaveBeenCalledWith(
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(mockedFetchGlobalIndex).toHaveBeenCalledWith(expect.any(AbortSignal));
+  });
+
+  it('refreshes only the cached configuration after a configuration event', async () => {
+    await renderLoadedPage();
+
+    await act(async () => {
+      emitConfigChanged();
+      await Promise.resolve();
+    });
+
+    expect(mockedFetchConfiguration).toHaveBeenCalledTimes(2);
+    expect(mockedFetchGraph).toHaveBeenCalledTimes(1);
+    expect(mockedFetchTables).toHaveBeenCalledTimes(1);
+    expect(mockedFetchGlobalIndex).toHaveBeenCalledTimes(1);
   });
 
   it('navigates searches through GraphViewer and cycles cluster color mode', async () => {

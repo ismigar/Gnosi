@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Callable
 from contextlib import AbstractContextManager
@@ -21,6 +22,12 @@ class TableCollectionDependencies:
 
 
 async def list_databases(
+    dependencies: TableCollectionDependencies,
+) -> list[RegistryData]:
+    return await asyncio.to_thread(_list_databases, dependencies)
+
+
+def _list_databases(
     dependencies: TableCollectionDependencies,
 ) -> list[RegistryData]:
     registry = dependencies.load_registry()
@@ -93,6 +100,13 @@ def _remove_database_children(
 
 
 async def list_tables(
+    database_id: str | None,
+    dependencies: TableCollectionDependencies,
+) -> list[RegistryData]:
+    return await asyncio.to_thread(_list_tables, database_id, dependencies)
+
+
+def _list_tables(
     database_id: str | None,
     dependencies: TableCollectionDependencies,
 ) -> list[RegistryData]:

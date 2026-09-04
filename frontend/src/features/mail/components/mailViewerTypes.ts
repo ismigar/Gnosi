@@ -18,6 +18,7 @@ export interface MailViewerAttachment extends Readonly<Record<string, unknown>> 
 
 export interface MailViewerMessage extends Readonly<Record<string, unknown>> {
   readonly account?: string | null;
+  readonly account_email?: string | null;
   readonly attachments?: readonly MailViewerAttachment[] | null;
   readonly body_html?: string | null;
   readonly body_text?: string | null;
@@ -61,10 +62,67 @@ export interface MailExtractedEvent {
 }
 
 
-export interface MailExtractedEntities {
-  readonly contacts: readonly MailExtractedContact[];
-  readonly events: readonly MailExtractedEvent[];
+export interface MailAnalysisEvidence {
+  readonly confidence: number;
+  readonly kind: 'summary' | 'participant' | 'attachment' | 'indicator' | 'task' | 'date';
+  readonly label: string;
+  readonly origin: 'message_body' | 'message_header' | 'attachment_metadata' | 'message_metadata' | 'vevent';
+  readonly value: string;
 }
+
+
+export interface MailLocalAnalysis {
+  readonly attachments: readonly MailAnalysisEvidence[];
+  readonly dates: readonly MailAnalysisEvidence[];
+  readonly indicators: readonly MailAnalysisEvidence[];
+  readonly participants: readonly MailAnalysisEvidence[];
+  readonly summary: MailAnalysisEvidence | null;
+  readonly tasks: readonly MailAnalysisEvidence[];
+}
+
+
+export interface MailProviderAttempt {
+  readonly provider: string;
+  readonly status: 'success' | 'timeout' | 'unauthorized' | 'rate_limited' | 'server_error' | 'network_error' | 'invalid_response' | 'unavailable';
+}
+
+
+export interface MailExtractedEntities {
+  readonly analysisReason: MailAnalysisReason | null;
+  readonly contacts: readonly MailExtractedContact[];
+  readonly degradedReason: 'not_configured' | 'providers_failed' | null;
+  readonly events: readonly MailExtractedEvent[];
+  readonly localAnalysis: MailLocalAnalysis | null;
+  readonly providerAttempts: readonly MailProviderAttempt[];
+  readonly resultSource: 'provider' | 'local' | 'previous_valid' | null;
+}
+
+
+export type MailAnalysisReason =
+  | 'not_configured'
+  | 'disabled'
+  | 'timeout'
+  | 'credentials'
+  | 'quota'
+  | 'temporarily_unavailable'
+  | 'invalid_response'
+  | 'internal_error';
+
+
+export type MailAnalysisStatus =
+  | 'idle'
+  | 'analyzing'
+  | 'results'
+  | 'local_results'
+  | 'no_entities'
+  | 'not_configured'
+  | 'disabled'
+  | 'timeout'
+  | 'credentials'
+  | 'quota'
+  | 'temporarily_unavailable'
+  | 'invalid_response'
+  | 'internal_error';
 
 
 export interface MailComposeRequest {
@@ -92,11 +150,12 @@ export interface MailViewerProps {
     action?: string,
     email?: string,
     extra?: MailActionExtra,
+    mail?: MailViewerMessage,
   ) => void;
   readonly onClose?: () => void;
   readonly onCompose?: (request: MailComposeRequest) => void;
-  readonly onMailRead?: (id: string) => void;
-  readonly onMoved?: (id: string) => void;
+  readonly onMailRead?: (mail: MailViewerMessage) => void;
+  readonly onMoved?: (mail: MailViewerMessage) => void;
 }
 
 

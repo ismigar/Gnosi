@@ -87,6 +87,8 @@ else
     PYTHON_VENV="$VENV_DIR/bin/python"
 fi
 
+"$PYTHON_VENV" "$ELECTRON_DIR/scripts/probe-python-abi.py"
+
 echo ""
 echo "4. Running PyInstaller..."
 mkdir -p "$PYTHON_BUILD_DIR"

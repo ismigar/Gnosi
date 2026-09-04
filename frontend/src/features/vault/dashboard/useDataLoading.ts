@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { fetchVaultSidebarSummary } from '../../../shared/api/vaults';
 import { fetchVaultPages } from '../../../shared/api/vaults';
 import { fetchVaultPagesByTable } from '../../../shared/api/vaults';
 import { fetchVaultRegistry } from '../../../shared/api/vaults';
@@ -14,14 +15,18 @@ import type { Page, TranslatedResult } from './types';
 import type { DashboardState } from './useDashboardState';
 import type { useGlobalIndex } from './useGlobalIndex';
 import type { useRecordCatalog } from './useRecordCatalog';
-type Context = Pick<DashboardState, 'fetchPagesRetryTimerRef' | 'pages' | 'setGlobalIndex' | 'setIsRegistryLoading' | 'setLoading' | 'setPages' | 'setRegistry' | 'setTableCountsById' | 'setTableTemplates' | 'setVisibleTableRecordsById' | 't'> & Pick<ReturnType<typeof useGlobalIndex>, 'fetchGlobalIndex'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId' | 'shouldIncludeTableRecord' | 'syncPagesState'>;
+type Context = Pick<DashboardState, 'fetchPagesRetryTimerRef' | 'fullPageCatalogLoadedRef' | 'pages' | 'setGlobalIndex' | 'setIsRegistryLoading' | 'setLoading' | 'setPages' | 'setRegistry' | 'setTableCountsById' | 'setTableTemplates' | 'setVisibleTableRecordsById' | 't'> & Pick<ReturnType<typeof useGlobalIndex>, 'fetchGlobalIndex'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId' | 'shouldIncludeTableRecord' | 'syncPagesState'>;
 export function useDataLoading(context: Context) {
-    const { fetchGlobalIndex, fetchPagesRetryTimerRef, resolvePageTableId, setGlobalIndex, setIsRegistryLoading, setLoading, setPages, setRegistry, setTableCountsById, setTableTemplates, setVisibleTableRecordsById, shouldIncludeTableRecord, syncPagesState, t } = context;
+    const { fetchGlobalIndex, fetchPagesRetryTimerRef, fullPageCatalogLoadedRef, resolvePageTableId, setGlobalIndex, setIsRegistryLoading, setLoading, setPages, setRegistry, setTableCountsById, setTableTemplates, setVisibleTableRecordsById, shouldIncludeTableRecord, syncPagesState, t } = context;
     const FETCH_PAGES_MAX_ATTEMPTS = 8;
     const fetchPages = useCallback(async function fetchPages(attempt = 0): Promise<Page[]> {
         try {
             setLoading(true);
-            const nextPages = readPages(await fetchVaultPages());
+            const nextPages = readPages(await (
+                fullPageCatalogLoadedRef.current
+                    ? fetchVaultPages()
+                    : fetchVaultSidebarSummary()
+            ));
             if (nextPages.length === 0 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
                 // Backend cache may still be warming up — retry with backoff
                 if (fetchPagesRetryTimerRef.current)
@@ -53,7 +58,11 @@ export function useDataLoading(context: Context) {
             setLoading(false);
             return [];
         }
-    }, [setLoading, syncPagesState, fetchPagesRetryTimerRef, t]);
+    }, [setLoading, syncPagesState, fetchPagesRetryTimerRef, fullPageCatalogLoadedRef, t]);
+    const fetchFullPages = useCallback(async (): Promise<Page[]> => {
+        fullPageCatalogLoadedRef.current = true;
+        return fetchPages();
+    }, [fetchPages, fullPageCatalogLoadedRef]);
     const fetchRegistry = useCallback(async function fetchRegistry(attempt = 0): Promise<void> {
         if (attempt === 0) {
             setIsRegistryLoading(true);
@@ -149,5 +158,5 @@ export function useDataLoading(context: Context) {
         }
         await fetchPages();
     }, [fetchPagesByTable, fetchPages]);
-    return { fetchPages, fetchRegistry, fetchPagesByTable, refreshTableAfterTranslate };
+    return { fetchPages, fetchFullPages, fetchRegistry, fetchPagesByTable, refreshTableAfterTranslate };
 }

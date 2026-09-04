@@ -74,6 +74,21 @@ test('repeated identical synchronization does not rewrite files', (t) => {
   assert.deepEqual(f.files.map((file) => fs.statSync(file).mtimeMs), before);
 });
 
+test('check mode is read-only and fails on any version mismatch', (t) => {
+  const f = fixture(t);
+  const before = f.contents();
+  const passing = spawnSync(process.execPath, [script, '--check', '2.0.6', ...f.files], {
+    encoding: 'utf8', timeout: 5000,
+  });
+  assert.equal(passing.status, 0, passing.stderr);
+  const failing = spawnSync(process.execPath, [script, '--check', '3.0.0', ...f.files], {
+    encoding: 'utf8', timeout: 5000,
+  });
+  assert.equal(failing.status, 1);
+  assert.match(failing.stderr, /Release version mismatch/);
+  assert.deepEqual(f.contents(), before);
+});
+
 for (const position of [0, 1, 2, 3]) {
   test(`unreadable or malformed input ${position + 1} leaves the other files unchanged`, (t) => {
     const f = fixture(t);

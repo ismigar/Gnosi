@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass, field
 import re
 import time
-from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, cast
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, TypedDict, cast
 
 from backend.services import relation_sync
 from backend.services.notion_attachments import (
@@ -20,11 +20,30 @@ from backend.services.relation_links import (
     relation_keys_from_table,
 )
 
-JsonMap = Dict[str, Any]
+JsonMap = Dict[str, object]
 SaveAsset = Callable[[str, Optional[str], JsonMap], Optional[str]]
 ProgressCallback = Callable[[str, int, int, JsonMap], None]
 CollectedRow = tuple[JsonMap, JsonMap, JsonMap, str, set[str]]
 InverseAdds = Dict[str, Dict[str, set[str]]]
+
+
+class CloneReport(TypedDict):
+    tables: int
+    pages: int
+    views: int
+    attachments: int
+    collected: int
+    tables_total: int
+    pages_total: int
+    scan_done: int
+    scan_total: int
+    errors: List[JsonMap]
+    warnings: List[str]
+    truncated: bool
+
+
+def _map_list(value: object) -> List[JsonMap]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
 class CloneRestClient(Protocol):
@@ -48,15 +67,15 @@ class CloneDependencies:
     aborted_error: type[Exception]
     apply_icon_cover: Callable[[JsonMap, JsonMap, JsonMap, Optional[SaveAsset]], int]
     block_file_url: Callable[[JsonMap], Optional[str]]
-    child_page_ids: Callable[[Any], List[str]]
-    clean_name: Callable[[Any], Any]
+    child_page_ids: Callable[[object], List[str]]
+    clean_name: Callable[[object], object]
     clone_page_id: Callable[[str], str]
     clone_table_id: Callable[[str], str]
     clone_table_schema: Callable[[JsonMap], JsonMap]
     clone_values: Callable[[JsonMap, List[JsonMap]], JsonMap]
     page_title: Callable[[JsonMap], str]
     page_to_values: Callable[[JsonMap, Optional[Dict[str, str]]], JsonMap]
-    plain_title: Callable[[Any], str]
+    plain_title: Callable[[object], str]
     resolve_view_markers: Callable[..., tuple[str, List[JsonMap]]]
     sanitize_title: Callable[..., str]
     strip_icon: Callable[[str], str]
@@ -81,7 +100,7 @@ class CloneRuntime:
     should_cancel: Optional[Callable[[], bool]]
     registry_tables: Optional[List[JsonMap]]
     dependencies: CloneDependencies
-    report: JsonMap = field(init=False)
+    report: CloneReport = field(init=False)
     users: Dict[str, str] = field(init=False)
     clone_tables_by_name: Dict[str, JsonMap] = field(default_factory=dict)
     db_by_id: Dict[str, JsonMap] = field(default_factory=dict)
@@ -98,6 +117,8 @@ class CloneRuntime:
             "collected": 0,
             "tables_total": len(self.database_ids),
             "pages_total": 0,
+            "scan_done": 0,
+            "scan_total": 0,
             "errors": [],
             "warnings": [],
             "truncated": False,
@@ -110,11 +131,11 @@ class CloneRuntime:
         if self.progress_cb is None:
             return
         try:
-            self.progress_cb(phase, done, total, self.report)
+            self.progress_cb(phase, done, total, dict(self.report))
         except Exception:  # noqa: BLE001
             pass
 
-    def table_key(self, name: Any) -> str:
+    def table_key(self, name: object) -> str:
         return self.dependencies.strip_icon(str(name or ""))
 
     def resolve_clone_table(self, name: str) -> Optional[JsonMap]:
@@ -259,7 +280,7 @@ def _normalize_override_relations(runtime: CloneRuntime, table: JsonMap) -> None
     selected_ids = {
         runtime.dependencies.clone_table_id(database_id) for database_id in runtime.database_ids
     }
-    for prop in table.get("properties", []):
+    for prop in _map_list(table.get("properties")):
         prop["name"] = runtime.dependencies.clean_name(prop.get("name"))
         target = prop.get("relation_database_id")
         if prop.get("type") == "relation" and target and target not in selected_ids:
@@ -293,7 +314,7 @@ def _clone_schema_pass(runtime: CloneRuntime) -> None:
 def _warn_unselected_relations(runtime: CloneRuntime) -> None:
     cloned_ids = {table.get("id") for table in runtime.clone_tables_by_name.values()}
     for table in runtime.clone_tables_by_name.values():
-        for prop in table.get("properties", []):
+        for prop in _map_list(table.get("properties")):
             target = prop.get("relation_database_id")
             if prop.get("type") != "relation" or not target or target in cloned_ids:
                 continue
@@ -310,7 +331,7 @@ def _localize_row_values(runtime: CloneRuntime, values: JsonMap, table: JsonMap)
         return values
     localized, downloaded = localize_values(
         values,
-        table.get("properties", []),
+        _map_list(table.get("properties")),
         lambda url, prop: save_asset(url, prop, table),
     )
     runtime.report["attachments"] += downloaded
@@ -335,7 +356,7 @@ def _collect_database_rows(
         try:
             raw_values = runtime.dependencies.page_to_values(row, runtime.users)
             values = runtime.dependencies.clone_values(
-                raw_values, list(table.get("properties", []))
+                raw_values, _map_list(table.get("properties"))
             )
             values = _localize_row_values(runtime, values, table)
             title = runtime.dependencies.page_title(row) or "Untitled"
@@ -428,7 +449,9 @@ def _clone_loose_pages(runtime: CloneRuntime) -> None:
             break
         try:
             page = runtime.rest_client.get_page(page_id)
-            metadata = {"is_dashboard": True} if str(page_type).lower() == "dashboard" else {}
+            metadata: JsonMap = (
+                {"is_dashboard": True} if str(page_type).lower() == "dashboard" else {}
+            )
             runtime.clone_standalone(page_id, page, metadata)
         except Exception as exc:  # noqa: BLE001
             runtime.report["errors"].append({"page": page_id, "stage": "loose", "error": str(exc)})

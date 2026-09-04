@@ -1,6 +1,12 @@
 import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import type { MailMessagesQuery, MailView } from '../../../../shared/api/mail';
+import {
+  mailMessageIdentity,
+  mailThreadIdentity,
+  tryMailMessageIdentity,
+  type MailIdentityMessage,
+} from '../../mailIdentity';
 import type {
   MailAccount,
   MailListConfig,
@@ -39,9 +45,13 @@ export function accountEmails(
   accounts: readonly MailAccount[],
 ): string[] {
   if (account?.email) return [account.email];
+  const seen = new Set<string>();
   return accounts.flatMap((candidate) => {
     const address = candidate.email || candidate.username;
-    return address ? [address] : [];
+    const identity = address?.trim().toLocaleLowerCase();
+    if (!address || !identity || seen.has(identity)) return [];
+    seen.add(identity);
+    return [address];
   });
 }
 
@@ -79,13 +89,42 @@ export function buildMailListQuery(
 
 export function filterOutMailThread(
   messages: readonly MailListMessage[],
-  messageId: string,
-  threadId?: string | null,
+  scope: MailIdentityMessage,
 ): MailListMessage[] {
+  const messageIdentity = mailMessageIdentity(scope);
+  const threadIdentity = mailThreadIdentity(scope);
   return messages.filter((message) => (
-    message.id !== messageId
-    && !(threadId && threadId !== messageId && message.thread_id === threadId)
+    mailListMessageIdentity(message) !== messageIdentity
+    && mailListThreadIdentity(message) !== threadIdentity
   ));
+}
+
+
+export function mapMailTagsByIdentity(
+  messages: readonly MailListMessage[],
+  tagsByIdentity: Readonly<Record<string, readonly string[]>>,
+): Record<string, string[]> {
+  return Object.fromEntries(messages.map((message) => [
+    mailListMessageIdentity(message),
+    [...(tagsByIdentity[mailListMessageIdentity(message)] ?? [])],
+  ]));
+}
+
+
+export function setMailTagsByIdentity(
+  current: Readonly<Record<string, readonly string[]>>,
+  message: MailListMessage,
+  tagIds: readonly string[],
+): Record<string, string[]> {
+  return {
+    ...Object.fromEntries(
+      Object.entries(current).map(([identity, currentTagIds]) => [
+        identity,
+        [...currentTagIds],
+      ]),
+    ),
+    [mailListMessageIdentity(message)]: [...tagIds],
+  };
 }
 
 
@@ -103,6 +142,52 @@ function legacyString(value: unknown): string {
     )).join(',');
   }
   return Object.prototype.toString.call(value);
+}
+
+
+function providerMessageKey(message: MailListMessage): string | null {
+  return tryMailMessageIdentity(message);
+}
+
+
+function internetMessageKey(message: MailListMessage): string | null {
+  const value = message.internet_message_id?.trim().toLowerCase();
+  return value || null;
+}
+
+
+export function mailListMessageIdentity(message: MailListMessage): string {
+  return mailMessageIdentity(message);
+}
+
+
+export function mailListThreadIdentity(message: MailListMessage): string {
+  return mailThreadIdentity(message);
+}
+
+
+export function deduplicateMailListMessages(
+  messages: readonly MailListMessage[],
+  options: { readonly collapseInternetCopies?: boolean } = {},
+): MailListMessage[] {
+  const providerMessages = new Set<string>();
+  const internetMessages = new Set<string>();
+  return messages.filter((message) => {
+    if (!message.id) return false;
+    const providerKey = providerMessageKey(message);
+    if (providerKey) {
+      if (providerMessages.has(providerKey)) return false;
+      providerMessages.add(providerKey);
+    }
+    if (options.collapseInternetCopies) {
+      const internetKey = internetMessageKey(message);
+      if (internetKey) {
+        if (internetMessages.has(internetKey)) return false;
+        internetMessages.add(internetKey);
+      }
+    }
+    return true;
+  });
 }
 
 
@@ -159,7 +244,7 @@ export function processMailListMessages(
   messages: readonly MailListMessage[],
   options: ProcessMessagesOptions,
 ): MailListMessage[] {
-  let result = [...messages];
+  let result = deduplicateMailListMessages(messages);
   if (options.folder === 'NOT_ARCHIVED') {
     result = result.filter((message) => !message.archived);
   }
@@ -174,7 +259,9 @@ export function processMailListMessages(
   }
   if (options.activeTagId) {
     result = result.filter((message) => (
-      options.messageTags[message.id]?.includes(options.activeTagId ?? '')
+      options.messageTags[mailListMessageIdentity(message)]?.includes(
+        options.activeTagId ?? '',
+      )
     ));
   }
   if (options.activeView?.filters.length) {
@@ -217,8 +304,8 @@ export function threadMailListMessages(
   messages: readonly MailListMessage[],
 ): MailListMessage[] {
   const threads = new Map<string, MailListMessage[]>();
-  messages.forEach((message) => {
-    const threadId = message.thread_id || message.id;
+  deduplicateMailListMessages(messages).forEach((message) => {
+    const threadId = mailListThreadIdentity(message);
     const current = threads.get(threadId) ?? [];
     current.push(message);
     threads.set(threadId, current);

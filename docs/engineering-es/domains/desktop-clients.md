@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - desktop/README.md
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
@@ -279,9 +281,31 @@ traducción dinámica, los plugins de ejemplo y los estilos bibliográficos.
 Rechaza recursos ausentes, modificados, no revisados o inseguros, en lugar de
 incluir recursivamente vaults, bases de datos, configuración, secretos o
 herramientas generadas. El hook `afterPack` comprueba el ASAR real y los recursos
-de Python antes de la firma. Los recursos gráficos pertenecen a
+de Python antes de la firma. El escaneo completo en frío sigue siendo fail-closed
+y tiene un límite de proceso de diez minutos para que los paquetes Windows recién
+copiados no terminen durante la primera inspección. Los recursos gráficos pertenecen a
 `desktop/assets/`; los paquetes generados, a `desktop/dist/` y
 `desktop/dist-python/`.
+
+El proyecto raíz declara los `required-environments` de uv para macOS arm64 y
+x64, Linux arm64 y Windows x64. Regenera `uv.lock` con uv para que los marcadores
+de resolución puedan seleccionar distintas versiones de dependencias compatibles
+con los wheels de cada destino; nunca edites el lock manualmente. Cada dependencia
+binaria seleccionada debe publicar un wheel para su destino antes de iniciar el
+empaquetado.
+
+PyInstaller informa de los paquetes de espacio de nombres implícitos con origen
+`-`. La política de recursos solo acepta ese centinela para raíces de terceros.
+Un espacio de nombres desconocido bajo las raíces propias `backend`, `pipeline`,
+`config`, `frontend` o `extensions` sigue fallando de forma cerrada, mientras que
+un espacio de nombres de una dependencia como `jaraco` no se clasifica por error
+como código del repositorio.
+
+El verificador de plugins empaquetado importa la raíz pública de confianza inmutable
+desde `backend/security/plugin_trust_root.py`. Las herramientas de release del
+marketplace reutilizan esa constante, pero el cargador de la clave privada queda
+fuera del plan de recursos de escritorio. El análisis de PyInstaller debe fallar si
+el módulo de firma del marketplace entra en el paquete de runtime.
 
 | Destino configurado | Arquitectura del ejecutor | Instaladores y artefactos de actualización |
 | --- | --- | --- |
@@ -335,12 +359,17 @@ la base registrada de la rama de preparación antes de reintentar. Siguen siendo
 necesarias la validación del catálogo y del registro de cambios y la revisión
 de los archivos de bloqueo actualizados.
 
-`desktop/release.sh` prepara versiones y artefactos locales. No crea etiquetas
-ni publica versiones. Usa una rama explícita de preparación y excluye los
-cambios ajenos a ella. Las nuevas correcciones de empaquetado requieren una
-nueva etiqueta revisada, no publicar código distinto bajo una etiqueta antigua.
-Añade enlaces de descarga por plataforma solo cuando existan realmente los
-artefactos públicos inmutables correspondientes.
+`desktop/release.sh` ofrece los modos explícitos `prepare`, `package` y
+`promote`. La preparación exige un árbol limpio, cambia únicamente la versión
+revisada y los metadatos pendientes, genera el changelog de forma transaccional
+y no altera los locks. El empaquetado exige el árbol limpio y confirmado,
+consume los locks de pnpm y uv congelados y sin conexión, y no puede modificar
+versiones, locks, catálogo ni changelog. Las cachés se preparan fuera de este
+paso inmutable. La promoción es un commit de metadatos posterior a la
+publicación: exige el tag local coincidente, los cuatro grupos de artefactos
+verificados y la URL exacta de la release publicada antes de marcarla como
+estable y añadir el enlace. El paquete etiquetado nunca anuncia así una release
+estable inexistente.
 
 `desktop/release-version.js` es el límite compartido de versión de lanzamiento
 para el actualizador y el recopilador de artefactos. Usa la implementación
@@ -349,13 +378,22 @@ y rechaza espacios adyacentes, prefijos `v` y versiones no válidas o no
 canónicas. La política de actualización y el empaquetado no deben introducir
 un segundo analizador.
 
-`Build Release Candidate` comprueba que la etiqueta solicitada existe y que,
-al resolverla hasta su commit, coincide exactamente con el `github.sha` extraído,
-tanto en envíos de etiquetas como en ejecuciones manuales. Las entradas mal
+`Build Release Candidate` es un workflow opcional y exclusivamente manual.
+Enviar una etiqueta de versión no inicia Actions alojadas. Cuando se ejecuta
+explícitamente, comprueba que la etiqueta solicitada existe y que, al resolverla
+hasta su commit, coincide exactamente con el `github.sha` extraído. Las entradas mal
 formadas, las etiquetas ausentes, los destinos que no son commits o las
 discrepancias detienen el proceso antes de instalar dependencias. La herramienta
 de identidad usa Git local y no mueve referencias ni descarga referencias por
 sí sola. La protección de etiquetas remotas sigue siendo un requisito aparte.
+La publicación sin presupuesto alojado construye y verifica localmente los cuatro
+grupos de plataforma y publica solo esos artefactos exactos; no ejecutes el
+workflow alojado opcional sin aprobación explícita de presupuesto.
+Como el repositorio es público, cada trabajo del CI compartido solo permite la
+ejecución en infraestructura propia cuando la rama de una PR pertenece al
+repositorio canónico. Las PR de forks no pueden llegar a los equipos del
+propietario; un mantenedor debe revisarlas y reproducir el cambio en una rama
+interna de confianza antes de ejecutar las comprobaciones protegidas.
 El mismo preflight también exige que la versión de la etiqueta coincida con
 los manifiestos de la raíz, del frontend, del escritorio y de Python antes de
 iniciar la CI o cualquier compilación por arquitectura.

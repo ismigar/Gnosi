@@ -10,8 +10,10 @@ from typing import Any, Optional
 from urllib.parse import urlencode
 
 from backend.domains.notebooks.repository import _bounded_text
+from backend.domains.vault.registry.records import is_record
 from backend.services import llm_wiki_extractors
 from backend.services.llm_wiki_indices import search_vector
+from backend.utils.open_values import iterable_values
 
 
 def _insert_source(
@@ -55,16 +57,18 @@ def _insert_source(
     )
     chunks = llm_wiki_extractors.chunk_origins([origin])
     for ordinal, chunk in enumerate(chunks):
-        segments = chunk.get("segments") or []
+        segments = list(iterable_values(chunk.get("segments") or []))
         text = "\n\n".join(
             str(segment.get("text") or "")
             for segment in segments
-            if str(segment.get("text") or "").strip()
+            if is_record(segment) and str(segment.get("text") or "").strip()
         )
         if not text:
             continue
-        locator = (segments[0].get("locator") or {}) if segments else {}
-        segment_id = str((segments[0] if segments else {}).get("id") or "")
+        first_segment = segments[0] if segments and is_record(segments[0]) else {}
+        raw_locator = first_segment.get("locator") or {}
+        locator = raw_locator if is_record(raw_locator) else {}
+        segment_id = str(first_segment.get("id") or "")
         chunk_id = hashlib.sha256(
             f"{source_id}:{ordinal}:{segment_id}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}".encode(
                 "utf-8"

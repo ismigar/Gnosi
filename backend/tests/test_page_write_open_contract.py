@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -335,6 +336,46 @@ def test_patch_complete_read_conflict_still_returns_409(tmp_path: Path) -> None:
             )
         )
     assert caught.value.status_code == 409 and events == []
+
+
+def test_patch_transient_cloud_read_returns_retryable_503(tmp_path: Path) -> None:
+    path = tmp_path / "page.md"
+    events: list[str] = []
+
+    async def prepare_read(page_id: str) -> None:
+        assert page_id == "page"
+        events.append("prepare")
+
+    def transient_read(
+        page_id: str,
+        expected_etag: str | None,
+        force: bool,
+    ) -> patch_helpers.PatchReadResult:
+        assert (page_id, expected_etag, force) == ("page", None, False)
+        events.append("read")
+        raise OSError(errno.EDEADLK, "synthetic File Provider contention")
+
+    dependencies = replace(
+        _patch_dependencies(path, {}, events),
+        prepare_read=prepare_read,
+        find_and_read=transient_read,
+    )
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(
+            patch_service.patch_page(
+                "page",
+                PagePatchRequest(),
+                BackgroundTasks(),
+                None,
+                dependencies,
+            )
+        )
+    assert caught.value.status_code == 503
+    assert caught.value.headers == {
+        "Cache-Control": "no-store, must-revalidate",
+        "Retry-After": "2",
+    }
+    assert events == ["prepare", "read"]
 
 
 @pytest.mark.parametrize("dashboard,force", [(False, False), (False, True), (True, True)])

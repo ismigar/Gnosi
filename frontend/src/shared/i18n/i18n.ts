@@ -1,41 +1,49 @@
-import i18n from 'i18next';
+import { createInstance } from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
-
 import {
     applyDocumentLocale,
     availableLocales,
     FALLBACK_LOCALE,
-    localeResources,
+    loadLocaleResource,
     resolveLocale,
 } from './locales/registry';
 
-void i18n
-    // detect user language
-    // learn more: https://github.com/i18next/i18next-browser-languageDetector
-    .use(LanguageDetector)
-    // pass the i18n instance to react-i18next.
-    .use(initReactI18next)
-    // init i18next
-    // for all options read: https://www.i18next.com/overview/configuration-options
-    .init({
+const i18n = createInstance();
+
+let initialization: Promise<void> | null = null;
+
+export function initializeI18n(language?: string | null): Promise<void> {
+    const locale = resolveLocale(language);
+    initialization ??= loadLocaleResource(locale).then(async (resource) => {
+        await i18n.use(initReactI18next).init({
         debug: false,
-        fallbackLng: FALLBACK_LOCALE,
+        lng: locale,
+        fallbackLng: false,
         supportedLngs: availableLocales.map(({ code }) => code),
-        detection: {
-            convertDetectedLanguage: resolveLocale,
-        },
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default
         },
-        resources: localeResources,
+        resources: { [locale]: resource },
+        });
     });
+    return initialization;
+}
+
+export async function changeI18nLanguage(language?: string | null): Promise<string> {
+    const locale = resolveLocale(language);
+    if (!i18n.isInitialized) await initializeI18n(locale);
+    if (!i18n.hasResourceBundle(locale, 'translation')) {
+        const resource = await loadLocaleResource(locale);
+        i18n.addResourceBundle(locale, 'translation', resource.translation, true, true);
+    }
+    await i18n.changeLanguage(locale);
+    return locale;
+}
 
 const syncDocumentLocale = (language?: string): void => {
     applyDocumentLocale(i18n.resolvedLanguage || language || FALLBACK_LOCALE);
 };
 
 i18n.on('languageChanged', syncDocumentLocale);
-syncDocumentLocale(i18n.language);
 
 export default i18n;

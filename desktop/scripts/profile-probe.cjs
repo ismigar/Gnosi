@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app, BrowserWindow, protocol, session } = require('electron');
 const { prepareDesktopProfile } = require('../profile-startup');
+const { profileCookieStores } = require('../cookie-schema-guard');
 
 let window;
 let timer;
@@ -102,7 +103,11 @@ try {
   } else {
     // The previous process has exited; retain this tiny synthetic DB for diagnosis.
     if (stage === 'upgrade') {
-      fs.copyFileSync(path.join(profile, 'Cookies'), path.join(root, 'seed-cookies.sqlite'), fs.constants.COPYFILE_EXCL);
+      const cookieStores = profileCookieStores(profile).filter(filename => fs.existsSync(filename));
+      assert.ok(cookieStores.length > 0, 'The seed runtime did not persist a cookie database');
+      cookieStores.forEach((filename, index) => {
+        fs.copyFileSync(filename, path.join(root, `seed-cookies-${index}.sqlite`), fs.constants.COPYFILE_EXCL);
+      });
     }
     assert.equal(prepareDesktopProfile(app, {}), true);
     assert.equal(app.isReady(), false);

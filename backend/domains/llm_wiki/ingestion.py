@@ -6,22 +6,23 @@ import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
+from backend.utils.open_values import iterable_values
 
 class UpdateJob(Protocol):
-    def __call__(self, job_id: str, **fields: Any) -> object: ...
+    def __call__(self, job_id: str, **fields: object) -> object: ...
 
 
 class ExtractSources(Protocol):
     def __call__(
         self,
-        metadata: dict[str, Any],
+        metadata: dict[str, object],
         body: str,
         vault_root: Path,
-        source_table: dict[str, Any],
-        source_config: dict[str, Any],
-    ) -> tuple[list[dict[str, Any]], list[str]]: ...
+        source_table: dict[str, object],
+        source_config: dict[str, object],
+    ) -> tuple[list[dict[str, object]], list[str]]: ...
 
 
 class GenerateText(Protocol):
@@ -37,15 +38,15 @@ class GenerateText(Protocol):
 class ApplyPlan(Protocol):
     def __call__(
         self,
-        plan: dict[str, Any],
+        plan: dict[str, object],
         source_page_id: str,
         source_title: str,
         brain_table_id: str,
         *,
         source_table_id: str = "",
-        source_config: dict[str, Any] | None = None,
-        config: dict[str, Any] | None = None,
-        source_dimensions: dict[str, Any] | None = None,
+        source_config: dict[str, object] | None = None,
+        config: dict[str, object] | None = None,
+        source_dimensions: dict[str, object] | None = None,
     ) -> dict[str, list[str]]: ...
 
 
@@ -60,40 +61,40 @@ class IngestionPhases:
 class IngestionDependencies:
     """Late-bound collaborators exposed by the compatibility facade."""
 
-    load_config: Callable[[], dict[str, Any]]
-    source_config: Callable[[str], dict[str, Any] | None]
-    table_by_id: Callable[[str], dict[str, Any] | None]
+    load_config: Callable[[], dict[str, object]]
+    source_config: Callable[[str], dict[str, object] | None]
+    table_by_id: Callable[[str], dict[str, object] | None]
     update_job: UpdateJob
     extract_sources: ExtractSources
-    save_snapshot: Callable[[str, str, dict[str, Any]], dict[str, Any]]
-    chunk_origins: Callable[[list[dict[str, Any]]], list[dict[str, Any]]]
-    load_brain_index: Callable[[str, str], list[dict[str, Any]]]
+    save_snapshot: Callable[[str, str, dict[str, object]], dict[str, object]]
+    chunk_origins: Callable[[list[dict[str, object]]], list[dict[str, object]]]
+    load_brain_index: Callable[[str, str], list[dict[str, object]]]
     dimension_context: Callable[
-        [dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]],
-        tuple[dict[str, Any], list[dict[str, Any]]],
+        [dict[str, object], dict[str, object], dict[str, object], dict[str, object]],
+        tuple[dict[str, object], list[dict[str, object]]],
     ]
     build_prompt: Callable[
-        [dict[str, Any], str, list[dict[str, Any]], str, list[dict[str, Any]]],
+        [dict[str, object], str, list[dict[str, object]], str, list[dict[str, object]]],
         str,
     ]
     generate_text: GenerateText
-    parse_plan: Callable[[str], dict[str, Any]]
-    save_checkpoint: Callable[[str, str, dict[str, Any]], object]
+    parse_plan: Callable[[str], dict[str, object]]
+    save_checkpoint: Callable[[str, str, dict[str, object]], object]
     reduce_plans: Callable[
         [
-            list[tuple[dict[str, Any], dict[str, Any]]],
-            list[dict[str, Any]],
-            list[dict[str, Any]],
+            list[tuple[dict[str, object], dict[str, object]]],
+            list[dict[str, object]],
+            list[dict[str, object]],
         ],
-        tuple[list[dict[str, Any]], list[str]],
+        tuple[list[dict[str, object]], list[str]],
     ]
     apply_plan: ApplyPlan
     sync_annotations: Callable[
-        [list[dict[str, Any]], list[dict[str, Any]], str],
-        dict[str, Any],
+        [list[dict[str, object]], list[dict[str, object]], str],
+        dict[str, object],
     ]
-    load_manifest: Callable[[str, str], dict[str, Any]]
-    save_manifest: Callable[[str, str, dict[str, Any]], object]
+    load_manifest: Callable[[str, str], dict[str, object]]
+    save_manifest: Callable[[str, str, dict[str, object]], object]
     clock: Callable[[], float]
     logger: logging.Logger
     phases: IngestionPhases
@@ -101,28 +102,28 @@ class IngestionDependencies:
 
 @dataclass(frozen=True)
 class _PreparedSources:
-    origins: list[dict[str, Any]]
+    origins: list[dict[str, object]]
     warnings: list[str]
-    snapshots: list[dict[str, Any]]
-    chunks: list[dict[str, Any]]
+    snapshots: list[dict[str, object]]
+    chunks: list[dict[str, object]]
 
 
 def process_resource(
     source_page_id: str,
     source_title: str,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     body: str,
     brain_table_id: str,
     vault_root: str | Path,
     language: str = "English",
     *,
     source_table_id: str = "",
-    source_table: dict[str, Any] | None = None,
-    source_config: dict[str, Any] | None = None,
+    source_table: dict[str, object] | None = None,
+    source_config: dict[str, object] | None = None,
     job_id: str = "",
-    resume_checkpoint: dict[str, Any] | None = None,
+    resume_checkpoint: dict[str, object] | None = None,
     dependencies: IngestionDependencies,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Run one complete blocking ingest through explicit application ports."""
     config = dependencies.load_config()
     resolved_table_id = source_table_id or str(metadata.get("table_id") or "")
@@ -217,11 +218,11 @@ def process_resource(
 def _prepare_sources(
     source_table_id: str,
     source_page_id: str,
-    metadata: dict[str, Any],
+    metadata: dict[str, object],
     body: str,
     vault_root: Path,
-    source_table: dict[str, Any],
-    source_config: dict[str, Any],
+    source_table: dict[str, object],
+    source_config: dict[str, object],
     job_id: str,
     dependencies: IngestionDependencies,
 ) -> _PreparedSources:
@@ -241,7 +242,7 @@ def _prepare_sources(
     if not origins:
         details = "; ".join(warnings[:3])
         raise RuntimeError(f"No readable configured attachment or URL was found. {details}".strip())
-    snapshots: list[dict[str, Any]] = []
+    snapshots: list[dict[str, object]] = []
     for origin in origins:
         descriptor = dependencies.save_snapshot(
             source_table_id,
@@ -268,16 +269,16 @@ def _resolve_plan(
     source_title: str,
     language: str,
     sources: _PreparedSources,
-    brain_index: list[dict[str, Any]],
-    ai_dimensions: list[dict[str, Any]],
-    resume_checkpoint: dict[str, Any] | None,
+    brain_index: list[dict[str, object]],
+    ai_dimensions: list[dict[str, object]],
+    resume_checkpoint: dict[str, object] | None,
     job_id: str,
     dependencies: IngestionDependencies,
-) -> tuple[dict[str, Any], list[str]]:
+) -> tuple[dict[str, object], list[str]]:
     current_hashes = [str(origin.get("content_hash") or "") for origin in sources.origins]
     checkpoint_plan = _checkpoint_plan(resume_checkpoint)
     checkpoint_hashes = (
-        [str(item) for item in resume_checkpoint.get("origin_hashes") or []]
+        [str(item) for item in iterable_values(resume_checkpoint.get("origin_hashes") or [])]
         if resume_checkpoint
         else []
     )
@@ -307,12 +308,12 @@ def _generate_plan(
     source_title: str,
     language: str,
     sources: _PreparedSources,
-    brain_index: list[dict[str, Any]],
-    ai_dimensions: list[dict[str, Any]],
+    brain_index: list[dict[str, object]],
+    ai_dimensions: list[dict[str, object]],
     job_id: str,
     dependencies: IngestionDependencies,
-) -> tuple[dict[str, Any], list[str]]:
-    plans: list[tuple[dict[str, Any], dict[str, Any]]] = []
+) -> tuple[dict[str, object], list[str]]:
+    plans: list[tuple[dict[str, object], dict[str, object]]] = []
     models: list[str] = []
     for chunk_index, chunk in enumerate(sources.chunks, start=1):
         prompt = dependencies.build_prompt(
@@ -357,8 +358,8 @@ def _generate_plan(
 
 def _record_chunk_progress(
     chunk_index: int,
-    chunk: dict[str, Any],
-    chunk_plan: dict[str, Any],
+    chunk: dict[str, object],
+    chunk_plan: dict[str, object],
     model: str,
     chunk_count: int,
     job_id: str,
@@ -380,9 +381,9 @@ def _record_chunk_progress(
 
 
 def _persist_reduced_plan(
-    plan: dict[str, Any],
+    plan: dict[str, object],
     models: list[str],
-    origins: list[dict[str, Any]],
+    origins: list[dict[str, object]],
     job_id: str,
     dependencies: IngestionDependencies,
 ) -> None:
@@ -405,12 +406,12 @@ def _persist_reduced_plan(
 
 
 def _sync_annotations(
-    notes: list[dict[str, Any]],
-    origins: list[dict[str, Any]],
+    notes: list[dict[str, object]],
+    origins: list[dict[str, object]],
     source_page_id: str,
     warnings: list[str],
     dependencies: IngestionDependencies,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     try:
         report = dependencies.sync_annotations(notes, origins, source_page_id)
         warnings.extend(cast(Iterable[str], report.get("warnings") or []))
@@ -433,11 +434,11 @@ def _sync_annotations(
 def _build_report(
     sources: _PreparedSources,
     result: dict[str, list[str]],
-    plan: dict[str, Any],
-    notes: list[dict[str, Any]],
+    plan: dict[str, object],
+    notes: list[dict[str, object]],
     model: str,
-    annotation_report: dict[str, Any],
-) -> dict[str, Any]:
+    annotation_report: dict[str, object],
+) -> dict[str, object]:
     return {
         "source_kind": "+".join(
             dict.fromkeys(str(origin.get("kind")) for origin in sources.origins)
@@ -463,7 +464,7 @@ def _save_manifest(
     job_id: str,
     model: str,
     sources: _PreparedSources,
-    report: dict[str, Any],
+    report: dict[str, object],
     dependencies: IngestionDependencies,
 ) -> None:
     manifest = dependencies.load_manifest(source_table_id, source_page_id)
@@ -485,15 +486,15 @@ def _save_manifest(
 
 
 def _checkpoint_plan(
-    resume_checkpoint: dict[str, Any] | None,
-) -> dict[str, Any] | None:
+    resume_checkpoint: dict[str, object] | None,
+) -> dict[str, object] | None:
     raw_plan = resume_checkpoint.get("plan") if resume_checkpoint else None
-    return cast(dict[str, Any], raw_plan) if isinstance(raw_plan, dict) else None
+    return cast(dict[str, object], raw_plan) if isinstance(raw_plan, dict) else None
 
 
-def _plan_notes(plan: dict[str, Any]) -> list[dict[str, Any]]:
+def _plan_notes(plan: dict[str, object]) -> list[dict[str, object]]:
     raw_notes = plan.get("notes")
-    return cast(list[dict[str, Any]], raw_notes) if isinstance(raw_notes, list) else []
+    return cast(list[dict[str, object]], raw_notes) if isinstance(raw_notes, list) else []
 
 
 __all__ = ["IngestionDependencies", "IngestionPhases", "process_resource"]

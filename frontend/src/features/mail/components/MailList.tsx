@@ -26,7 +26,7 @@ export default function MailList(props: MailListProps) {
           accountEmail={props.account?.email}
           controller={controller}
           listElementRef={setListElement}
-          selectedMailId={props.selectedMailId}
+          selectedMailIdentity={props.selectedMailIdentity}
           sentinelElementRef={setSentinelElement}
         />
         <MailListMenus controller={controller} />

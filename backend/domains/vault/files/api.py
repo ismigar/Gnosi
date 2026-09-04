@@ -14,7 +14,13 @@ from backend.domains.vault.files import host_trash, local_service, property_serv
 from backend.domains.vault.files.contracts import (
     LinkedExistingFileResponse,
     LocalFileRegistrationResponse,
+    PhysicalFileDeletionResponse,
     PropertyFileUploadResponse,
+)
+from backend.domains.vault.files.request_contracts import (
+    LinkedExistingFileRequest,
+    LocalFileRegistrationRequest,
+    PhysicalFileDeletionRequest,
 )
 from backend.domains.vault.files.serving import serve_file_with_containment
 from backend.domains.vault.files.state import FileServingState, LocalLinkStore
@@ -194,7 +200,9 @@ async def serve_thumb(
     return await serve_thumb_service(rel_url, size, v, _deps().thumbnails)
 
 
-async def register_local_file(body: dict[str, object]) -> dict[str, object]:
+async def register_local_file(
+    body: LocalFileRegistrationRequest,
+) -> dict[str, object]:
     """Registers an absolute path and returns a token + servable URL.
 
     Body: { "file_path": "/abs/path/to/file" }
@@ -205,7 +213,7 @@ async def register_local_file(body: dict[str, object]) -> dict[str, object]:
     the user registers the same file twice we don't accumulate entries.
 
     """
-    return await local_service.register_local_file(body, _deps().local_files)
+    return await local_service.register_local_file(body.as_payload(), _deps().local_files)
 
 
 async def serve_local_file(
@@ -266,7 +274,7 @@ async def upload_property_file(
     )
 
 
-async def link_existing_file(body: dict[str, object]) -> dict[str, object]:
+async def link_existing_file(body: LinkedExistingFileRequest) -> dict[str, object]:
     """Variant B: register an existing local file path without copying it.
 
     Body: { "file_path": "/absolute/path/to/file.pdf", "target_name": "..." }
@@ -278,10 +286,10 @@ async def link_existing_file(body: dict[str, object]) -> dict[str, object]:
     attachment from Zotero, renaming it will break the link to Zotero.
 
     """
-    return await local_service.link_existing_file(body, _deps().link_files)
+    return await local_service.link_existing_file(body.as_payload(), _deps().link_files)
 
 
-async def delete_physical_file(body: dict[str, object]) -> dict[str, str]:
+async def delete_physical_file(body: PhysicalFileDeletionRequest) -> dict[str, str]:
     """Deletes the physical file referenced by `target` (does not touch any page).
 
     `target` is the value saved in the `files` field: `file://…`,
@@ -295,7 +303,7 @@ async def delete_physical_file(body: dict[str, object]) -> dict[str, str]:
     Containment: only under the host's HOME or under the vault's Assets. Never outside.
 
     """
-    return await local_service.delete_physical_file(body, _deps().delete_files)
+    return await local_service.delete_physical_file(body.as_payload(), _deps().delete_files)
 
 
 def register_serving_routes(
@@ -309,18 +317,21 @@ def register_serving_routes(
         "/library/{rel_path:path}",
         serve_library_file,
         methods=["GET"],
+        # Intentional binary boundary: streams a contained Library file.
         response_model=None,
     )
     router.add_api_route(
         "/raw/{rel_path:path}",
         serve_vault_raw_file,
         methods=["GET"],
+        # Intentional binary boundary: streams an arbitrary contained Vault file.
         response_model=None,
     )
     router.add_api_route(
         "/thumb/{rel_url:path}",
         serve_thumb,
         methods=["GET"],
+        # Intentional binary boundary: returns a PNG or a raw no-store error Response.
         response_model=None,
     )
     router.add_api_route(
@@ -335,12 +346,14 @@ def register_serving_routes(
         "/local-file/{token}/{filename:path}",
         serve_local_file,
         methods=["GET"],
+        # Intentional binary boundary: streams the token-owned local file.
         response_model=None,
     )
     router.add_api_route(
         "/local-file/{token}",
         serve_local_file,
         methods=["GET"],
+        # Intentional binary boundary: legacy unnamed URL for the same file stream.
         response_model=None,
     )
 
@@ -371,7 +384,7 @@ def register_property_routes(
         delete_physical_file,
         methods=["POST"],
         dependencies=protected,
-        response_model=None,
+        response_model=PhysicalFileDeletionResponse,
     )
 
 

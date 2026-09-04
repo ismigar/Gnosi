@@ -14,10 +14,16 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_MANAGED_PYTHON: '1'
+
 jobs:
   documentation:
-    if: github.event_name == 'pull_request' || inputs.release_candidate
-    runs-on: ubuntu-latest
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      inputs.release_candidate
+    runs-on: [self-hosted, macOS, X64]
     permissions:
       contents: read
     steps:
@@ -32,6 +38,8 @@ jobs:
       - uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+      - name: Prepare isolated Python environment
+        run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen --group docs
       - name: Check documentation against the exact PR base or candidate SHA
         env:
@@ -42,11 +50,17 @@ jobs:
           uv run --frozen --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
   frontend:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
       - uses: pnpm/action-setup@v6
@@ -63,9 +77,11 @@ jobs:
         with:
           version: '0.9.15'
           enable-cache: true
+      - name: Prepare isolated Python environment
+        run: python scripts/ci/prepare_python_environment.py
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen
-      - name: Check deterministic OpenAPI and generated frontend client
+      - name: Check OpenAPI, 2.x compatibility, and generated frontend client
         run: pnpm check:api-client
       - name: Enforce frontend migration guardrails
         run: pnpm guardrails:frontend
@@ -75,19 +91,24 @@ jobs:
         run: pnpm test:e2e:contracts
       - run: pnpm test:frontend
       - run: pnpm build:frontend
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
       - run: pnpm test:desktop
       - run: pnpm --filter @gnosi/desktop typecheck:ipc
 
   backend:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.22.2'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
@@ -95,6 +116,8 @@ jobs:
         with:
           version: '0.9.15'
           enable-cache: true
+      - name: Prepare isolated Python environment
+        run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen
       - name: Reject private tools and generated pipeline state
         run: uv run python scripts/check_public_pipeline.py
@@ -117,7 +140,10 @@ jobs:
       - run: uv run pytest
 
   native-smoke:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -138,6 +164,8 @@ jobs:
         with:
           version: '0.9.15'
           enable-cache: true
+      - name: Prepare isolated Python environment
+        run: python scripts/ci/prepare_python_environment.py
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen
       - run: pnpm test:e2e:install
@@ -145,14 +173,18 @@ jobs:
         env:
           DIGITAL_BRAIN_VAULT_PATH: ${{ github.workspace }}/vault
           GNOSI_DATA_DIR: ${{ runner.temp }}/gnosi-data
+          GNOSI_DISABLE_SCHEDULER: '1'
+          PYTHONUNBUFFERED: '1'
         run: |
-          uv run uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-          pnpm dev:frontend -- --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-          for attempt in $(seq 1 60); do
+          uv run python -c 'import faulthandler; faulthandler.dump_traceback_later(60, repeat=True); import uvicorn; uvicorn.run("backend.server:app", host="127.0.0.1", port=5002)' > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
+          backend_pid=$!
+          pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
+          frontend_pid=$!
+          for attempt in $(seq 1 180); do
             curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
               && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
               && exit 0
-            sleep 2
+          sleep 2
           done
           tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
           tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
@@ -162,20 +194,28 @@ jobs:
           GNOSI_BASE_URL: http://127.0.0.1:5173
 
   docker:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
           submodules: recursive
+      - name: Verify dedicated Docker runner capacity
+        run: python3 scripts/ci/prepare_docker_runner.py
       - run: docker compose config --quiet
         env:
           GNOSI_JWT_SECRET: ci-configuration-placeholder-only
-      - run: docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .
-      - run: docker build --file Dockerfile.backend --tag gnosi-backend:ci .
+      - run: python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend --tag gnosi-frontend:ci --context .
+      - run: python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend --tag gnosi-backend:ci --context .
       - name: Start Docker bundle and verify persistence
         env:
           GNOSI_DOCKER_SMOKE_PROJECT: gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}
           GNOSI_JWT_SECRET: synthetic-ci-smoke-secret-not-for-production
         run: scripts/smoke_docker.sh
+      - name: Release unused Docker resources
+        if: always()
+        run: docker system prune --all --force --volumes

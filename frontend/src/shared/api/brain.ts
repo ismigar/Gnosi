@@ -1,6 +1,12 @@
 import type { components } from '../../generated/openapi';
+import { bootstrapQueryKeys } from './bootstrap-query-keys';
+import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import {
+  fetchLlmWikiConfigResult,
+  invalidateLlmWikiConfig,
+} from './llm-wiki-config-query';
 
 
 export type BrainSuggestion = components['schemas']['BrainSuggestionResponse'];
@@ -15,9 +21,17 @@ export type LlmWikiConfiguration = components['schemas']['LlmWikiConfigResponse'
 export async function fetchBrainTableStatus(
   signal?: AbortSignal,
 ): Promise<BrainTableStatus> {
-  return unwrapApiResult<BrainTableStatus, unknown>(
-    await apiClient.GET('/api/vault/brain-table', { signal }),
-  );
+  return fetchCachedQuery({
+    queryFn: async (sharedSignal) => unwrapApiResult<BrainTableStatus, unknown>(
+      await apiClient.GET('/api/vault/brain-table', { signal: sharedSignal }),
+    ),
+    queryKey: bootstrapQueryKeys.brainTable(),
+    signal,
+  });
+}
+
+export async function invalidateBrainTableStatus(): Promise<void> {
+  await invalidateCachedQuery(bootstrapQueryKeys.brainTable());
 }
 
 
@@ -25,9 +39,12 @@ export async function fetchLlmWikiConfig(
   signal?: AbortSignal,
 ): Promise<LlmWikiConfiguration> {
   return unwrapApiResult<LlmWikiConfiguration, unknown>(
-    await apiClient.GET('/api/vault/llm-wiki/config', { signal }),
+    await fetchLlmWikiConfigResult(signal),
   );
 }
+
+
+export { invalidateLlmWikiConfig };
 
 
 export async function fetchBrainSuggestions(

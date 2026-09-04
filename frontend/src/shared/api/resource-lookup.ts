@@ -125,7 +125,10 @@ export async function promoteZoteroExtra(
 ): Promise<ZoteroExtraPromotionResponse> {
   return unwrapApiResult<ZoteroExtraPromotionResponse, unknown>(
     await apiClient.POST('/api/vault/promote-zotero-extra', {
-      body: { ...input },
+      body: {
+        ...input,
+        page_ids: input.page_ids ? [...input.page_ids] : input.page_ids,
+      },
       signal,
     }),
   );

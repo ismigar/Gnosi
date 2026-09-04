@@ -14,6 +14,11 @@ const ci = readWorkflow('ci');
 const desktopScripts = JSON.parse(fs.readFileSync(
   path.join(__dirname, 'package.json'), 'utf8',
 )).scripts;
+const TRUSTED_PR_IF = "github.event_name != 'pull_request' || "
+  + 'github.event.pull_request.head.repo.full_name == github.repository';
+const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
+  + 'github.event.pull_request.head.repo.full_name == github.repository) || inputs.release_candidate';
+const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
 const DEPENDENCIES = {
   preflight: [],
   quality: ['preflight'],
@@ -57,12 +62,15 @@ function assertQualityDependencies(workflow) {
 function assertFatalGates(workflow, reusableCI = false) {
   for (const [name, job] of Object.entries(workflow.jobs)) {
     assert.equal(job['continue-on-error'], undefined, `${name} failure must remain fatal by default`);
-    assert.equal(job.if, reusableCI && name === 'documentation'
-      ? "github.event_name == 'pull_request' || inputs.release_candidate" : undefined,
+    assert.equal(job.if, reusableCI
+      ? (name === 'documentation' ? DOCUMENTATION_IF : TRUSTED_PR_IF) : undefined,
     `${name} must not override successful dependency gating`);
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
-      assert.equal(step.if, undefined, `${label} must not skip validation or use always()`);
+      const expectedIf = reusableCI && name === 'docker'
+        && step.name === 'Release unused Docker resources' ? 'always()' : undefined;
+      assert.equal(step.if, expectedIf,
+        `${label} must not skip validation; only the exact Docker cleanup may use always()`);
       assert.equal(step['continue-on-error'], undefined, `${label} must fail the job`);
     }
   }
@@ -114,6 +122,16 @@ function assertCandidateUpload(workflow) {
   assert.equal(upload['continue-on-error'], undefined);
 }
 
+function assertFrontendMemoryBudget(workflow) {
+  assert.deepEqual(workflow.jobs.frontend.env, {
+    NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
+  }, 'the complete frontend job must use the reviewed Node heap budget');
+  for (const step of workflow.jobs.frontend.steps) {
+    assert.equal(step.env?.NODE_OPTIONS, undefined,
+      'the heap budget belongs at job level so lint, tests and build share it');
+  }
+}
+
 function assertNonPublishingBuilds(scripts) {
   assert.equal(scripts.build, 'pnpm run build:python && electron-builder --publish never',
     'the generic desktop build must not use implicit publication defaults');
@@ -157,9 +175,11 @@ for (const platform of ['mac', 'linux', 'win']) {
   });
 }
 
-test('tag and manual builds retain their explicit source inputs without a publish switch', () => {
-  assert.deepEqual(Object.keys(candidate.on).sort(), ['push', 'workflow_dispatch']);
-  assert.deepEqual(candidate.on.push, { tags: ['v*'] });
+test('candidate builds require an explicit manual dispatch without automatic tag runs', () => {
+  assert.deepEqual(Object.keys(candidate.on), ['workflow_dispatch']);
+  assert.equal(candidate.on.push, undefined);
+  assert.equal(candidate.on.pull_request, undefined);
+  assert.equal(candidate.on.schedule, undefined);
   const { inputs } = candidate.on.workflow_dispatch;
   assert.deepEqual(Object.keys(inputs), ['tag']);
   assert.equal(inputs.tag.type, 'string');
@@ -179,6 +199,50 @@ test('candidate and reused CI gates fail by default without conditional bypasses
 test('candidate and reused CI have read-only authority and no release publisher', () => {
   assertReadOnly(candidate);
   assertReadOnly(ci);
+});
+
+test('shared CI uses only the reviewed owner self-hosted runners', () => {
+  const expectedRunners = {
+    documentation: ['self-hosted', 'macOS', 'X64'],
+    frontend: ['self-hosted', 'macOS', 'ARM64'],
+    backend: ['self-hosted', 'Linux', 'ARM64'],
+    'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
+    docker: ['self-hosted', 'Linux', 'ARM64'],
+  };
+  assert.deepEqual(Object.keys(ci.jobs).sort(), Object.keys(expectedRunners).sort());
+  for (const [name, runner] of Object.entries(expectedRunners)) {
+    assert.deepEqual(ci.jobs[name]['runs-on'], runner,
+      `${name} must use its reviewed self-hosted runner`);
+  }
+});
+
+test('shared CI prevents fork pull requests from reaching self-hosted runners', () => {
+  assertFatalGates(ci, true);
+  for (const name of Object.keys(ci.jobs)) {
+    for (const weakened of [undefined, "github.event_name == 'pull_request'", '${{ always() }}']) {
+      const changed = structuredClone(ci);
+      changed.jobs[name].if = weakened;
+      assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
+    }
+  }
+});
+
+test('shared CI gives every frontend validation step the reviewed Node heap budget', () => {
+  assertFrontendMemoryBudget(ci);
+  for (const value of [undefined, '--max-old-space-size=2048', '--max-old-space-size=8192']) {
+    const changed = structuredClone(ci);
+    if (value === undefined) {
+      delete changed.jobs.frontend.env;
+    } else {
+      changed.jobs.frontend.env.NODE_OPTIONS = value;
+    }
+    assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);
+  }
+
+  const stepScoped = structuredClone(ci);
+  delete stepScoped.jobs.frontend.env;
+  stepScoped.jobs.frontend.steps.at(-1).env = { NODE_OPTIONS: FRONTEND_NODE_OPTIONS };
+  assert.throws(() => assertFrontendMemoryBudget(stepScoped), assert.AssertionError);
 });
 
 test('candidate upload retains exactly the validated review payload with a unique rerun identity', () => {

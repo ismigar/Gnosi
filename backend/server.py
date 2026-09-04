@@ -19,6 +19,13 @@ if str(BASE_DIR) not in sys.path:
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from backend.config.startup_vault import materialize_startup_vault_files
+
+
+# Cloud providers can evict small critical Vault files between native restarts.
+# Recover those read-only inputs before modules cache configuration and state.
+materialize_startup_vault_files()
+
 from backend.app.factory import create_app
 from backend.app.lifespan import lifespan as lifespan
 from backend.config.app_config import load_params

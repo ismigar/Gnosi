@@ -12,8 +12,8 @@ import time as time
 from typing import Any, Callable, Dict, List, Optional, cast
 import uuid as uuid
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 import yaml as yaml
 
 from backend.api import vault_routes
@@ -68,6 +68,51 @@ class NotionMutationResponse(BaseModel):
 
 class NotionImportConfigResponse(BaseModel):
     config: Optional[JsonMap]
+
+
+class NotionImportConfigRequest(BaseModel):
+    """Forward-compatible snapshot of the Notion import panel settings.
+
+    The 2.x endpoint persisted every JSON value without field validation.  The
+    named properties document the current panel while ``extra="allow"`` and the
+    JSON-value boundary preserve malformed legacy and future settings exactly.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    __pydantic_extra__: dict[str, JsonValue] = Field(init=False)
+    databases: JsonValue = Field(
+        default=None,
+        description="Databases discovered by the Notion integration.",
+    )
+    selected: JsonValue = Field(
+        default=None,
+        description="Identifiers of databases selected for cloning.",
+    )
+    schemaOverrides: JsonValue = Field(  # noqa: N815
+        default=None,
+        description="Per-database schema overrides from the import panel.",
+    )
+    loosePages: JsonValue = Field(  # noqa: N815
+        default=None,
+        description="Whether standalone Notion pages are included.",
+    )
+    loosePageTypes: JsonValue = Field(  # noqa: N815
+        default=None,
+        description="Standalone page identifiers mapped to their clone kind.",
+    )
+    looseSelected: JsonValue = Field(  # noqa: N815
+        default=None,
+        description="Identifiers of standalone pages selected for cloning.",
+    )
+    cloneVaultId: JsonValue = Field(  # noqa: N815
+        default=None,
+        description="Destination vault selected by the import panel.",
+    )
+    newVaultName: JsonValue = Field(  # noqa: N815
+        default=None,
+        description="Name proposed when creating a destination vault.",
+    )
 
 
 class NotionDatabaseResponse(BaseModel):
@@ -263,7 +308,7 @@ async def get_import_config() -> JsonMap:
     dependencies=[Depends(require_role("editor"))],
     response_model=NotionMutationResponse,
 )
-async def put_import_config(payload: Dict[str, Any] = Body(...)) -> JsonMap:
+async def put_import_config(payload: NotionImportConfigRequest) -> JsonMap:
     """Saves the import panel config (free-form JSON, same shape as the frontend's
     localStorage). Overwrites it wholesale (last-write-wins)."""
     from backend.utils.safe_io import safe_write_json
@@ -271,7 +316,12 @@ async def put_import_config(payload: Dict[str, Any] = Body(...)) -> JsonMap:
     path = _import_cfg_path()
     with _IMPORT_CFG_LOCK:
         path.parent.mkdir(parents=True, exist_ok=True)
-        safe_write_json(path, payload, ensure_ascii=False, indent=2)
+        safe_write_json(
+            path,
+            payload.model_dump(exclude_unset=True),
+            ensure_ascii=False,
+            indent=2,
+        )
     return {"status": "success"}
 
 

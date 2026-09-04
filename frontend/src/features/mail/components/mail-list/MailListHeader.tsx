@@ -12,6 +12,10 @@ import { useTranslation } from 'react-i18next';
 
 import MailTagPicker from '../MailTagPicker';
 import type { MailView } from '../../../../shared/api/mail';
+import {
+  mailListMessageIdentity,
+  setMailTagsByIdentity,
+} from './mailListModel';
 import type { MailAccount } from './mailListTypes';
 import type { MailListController } from './useMailListController';
 
@@ -126,24 +130,28 @@ export function MailListHeader({
                       controller.setInlineTagPicker(null);
                     }}
                     onToggleTag={async (tagId) => {
-                      await Promise.all([...controller.selectedIds].map(async (messageId) => {
-                        const current = controller.messageTags[messageId] ?? [];
+                      await Promise.all([...controller.selectedIds].map(async (identity) => {
+                        const message = controller.messages.find(
+                          (candidate) => mailListMessageIdentity(candidate) === identity,
+                        );
+                        if (!message) return;
+                        const current = controller.messageTags[identity] ?? [];
                         const next = current.includes(tagId)
                           ? current.filter((id) => id !== tagId)
                           : [...current, tagId];
-                        const message = controller.messages.find(
-                          (candidate) => candidate.id === messageId,
-                        );
-                        await controller.saveMessageTags(messageId, next, {
-                          account_email: account?.email || message?.account || '',
-                          date: message?.date || '',
-                          sender: message?.sender || '',
-                          subject: message?.subject || '',
-                        }).catch(() => undefined);
-                        controller.setMessageTags((previous) => ({
-                          ...previous,
-                          [messageId]: next,
-                        }));
+                        const saved = await controller.saveMessageTags(message, next, {
+                          account_email: account?.email || message.account || '',
+                          date: message.date || '',
+                          sender: message.sender || '',
+                          subject: message.subject || '',
+                        }).catch(() => null);
+                        controller.setMessageTags((previous) => (
+                          setMailTagsByIdentity(
+                            previous,
+                            message,
+                            saved?.tag_ids ?? next,
+                          )
+                        ));
                       }));
                     }}
                     onCreateTag={async (input) => {

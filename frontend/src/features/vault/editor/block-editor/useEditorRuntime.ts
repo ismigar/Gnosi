@@ -12,7 +12,7 @@ import type { PageEditorBodyProps } from './page-editor/types';
 import { useDropBridge } from './useDropBridge';
 
 export function useEditorRuntime({ noteFilename, initialContent, contextValue, metadata, metadataRef }: PageEditorBodyProps) {
-    const { i18n } = useTranslation();
+    const { i18n, t } = useTranslation();
     const [dictionary] = useState(() => resolveBlockNoteDictionary(i18n.resolvedLanguage || i18n.language));
     const schema = useMemo(() => createEditorSchema(contextValue), [contextValue]);
     const [blocks, setBlocks] = useState<PartialEditorBlock[] | null>(null);
@@ -25,7 +25,12 @@ export function useEditorRuntime({ noteFilename, initialContent, contextValue, m
     const { collaboration, ready: collabReady } = useYjsCollaboration(noteFilename);
     const baseOptions = {
         schema, dictionary, uploadFile: uploadFileToAssetsDirect, dropCursor: multiColumnDropCursor,
-        _tiptapOptions: { editorProps: { handleDrop } },
+        _tiptapOptions: {
+            editorProps: {
+                attributes: { 'aria-label': t('editor.content_label', 'Page content') },
+                handleDrop,
+            },
+        },
         tables: { splitCells: true, cellBackgroundColor: true, cellTextColor: true, headers: true },
     };
     // Metadata and callbacks never recreate the editor; only collaboration activation does.

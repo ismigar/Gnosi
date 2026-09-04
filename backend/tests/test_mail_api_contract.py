@@ -16,6 +16,7 @@ SPECIALIZED_RESPONSES = {
     ("GET", "/api/mail/events"),
     ("GET", "/api/mail/messages/{message_id}/attachments/{att_id:path}"),
     ("GET", "/api/mail/messages/{message_id}/cid/{cid:path}"),
+    ("POST", "/api/mail/remote-images/fetch"),
 }
 NO_CONTENT_RESPONSES = {
     ("DELETE", "/api/mail/tags/{tag_id}"),
@@ -31,6 +32,7 @@ JSON_REQUEST_MODELS = {
     ("POST", "/api/mail/messages/{message_id}/snooze"): "MailSnoozeRequest",
     ("POST", "/api/mail/ai/generate_draft"): "MailGenerateDraftRequest",
     ("POST", "/api/mail/ai/extract_entities"): "MailExtractEntitiesRequest",
+    ("POST", "/api/mail/remote-images/fetch"): "RemoteMailImageRequest",
     ("POST", "/api/mail/views"): "MailViewCreateSchema",
     ("PUT", "/api/mail/views/{view_id}"): "MailViewUpdateSchema",
     ("PATCH", "/api/mail/accounts/{email:path}/enabled"): ("MailAccountEnabledRequest"),
@@ -58,15 +60,19 @@ def _focused_openapi() -> dict[str, Any]:
 
 
 def _route(method: str, path: str) -> APIRoute:
-    return next(route for route in _api_routes() if route.path == path and method in route.methods)
+    return next(
+        route
+        for route in _api_routes()
+        if route.path == path and method in (route.methods or set())
+    )
 
 
 def test_mail_json_routes_all_have_concrete_response_models() -> None:
     routes = _api_routes()
 
-    assert len(routes) == 39
+    assert len(routes) == 40
     for route in routes:
-        for method in route.methods:
+        for method in route.methods or set():
             operation = (method, route.path)
             assert (route.status_code or 200) == NON_DEFAULT_SUCCESS_CODES.get(
                 operation,
@@ -83,10 +89,12 @@ def test_mail_json_routes_all_have_concrete_response_models() -> None:
         "/api/mail/messages/{message_id}/attachments/{att_id:path}",
     )
     cid = _route("GET", "/api/mail/messages/{message_id}/cid/{cid:path}")
+    remote_image = _route("POST", "/api/mail/remote-images/fetch")
 
     assert events.response_class is StreamingResponse
     assert attachment.response_class is Response
     assert cid.response_class is Response
+    assert remote_image.response_class is Response
 
 
 def test_mail_openapi_types_every_json_response_and_request_body() -> None:
@@ -94,7 +102,7 @@ def test_mail_openapi_types_every_json_response_and_request_body() -> None:
     paths = openapi["paths"]
 
     for route in _api_routes():
-        for method in route.methods:
+        for method in route.methods or set():
             operation_key = (method, route.path)
             operation = paths[route.path_format][method.lower()]
             success_code = str(route.status_code or 200)

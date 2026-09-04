@@ -20,9 +20,16 @@ from backend.domains.vault.citations import pdf_fallback as citation_pdf_fallbac
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations import web_capture as citation_web_capture
 from backend.domains.vault.citations.authors import MetadataKey
+from backend.domains.vault.citations.request_contracts import (
+    MetadataLookupRequest,
+    UrlTranslationRequest,
+    ZoteroExtraPromotionRequest,
+    request_payload,
+)
 from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.schemas.pages import (
     BulkApplyTemplateRequest,
+    BulkMetadataUpdateRequest,
     BulkPageMutationResponse,
 )
 from backend.platform import translation_server as translation_server_transport
@@ -289,7 +296,7 @@ def _pubmed_to_recursos(doc: dict[str, object]) -> dict[str, object]:
     response_model=MetadataLookupResponse,
 )
 async def lookup_metadata(
-    payload: dict[str, object] = Body(...),
+    payload: MetadataLookupRequest,
 ) -> metadata_lookup.LookupResponse:
     """Resolves external metadata for a given identifier.
 
@@ -324,7 +331,7 @@ async def lookup_metadata(
         inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
         normalize_item_type=lambda metadata: _vault._normalize_suggested_item_type(metadata),
     )
-    return await metadata_lookup.resolve_metadata(payload, dependencies)
+    return await metadata_lookup.resolve_metadata(request_payload(payload), dependencies)
 
 
 generate_citation_key_endpoint = citation_keys_api.register_route(
@@ -469,7 +476,7 @@ async def recognize_pdf(
     text = await asyncio.to_thread(_extract_text_from_pdf, data)
     ids = _identifiers_from_text(text) if text.strip() else {}
     if ids:
-        result = await lookup_metadata(ids)
+        result = await lookup_metadata(MetadataLookupRequest.model_validate(ids))
         if result.get("suggested"):
             return {
                 "identifiers": ids,
@@ -535,7 +542,7 @@ def _zotero_item_to_recursos(item: dict[str, object]) -> dict[str, object]:
     response_model_exclude_unset=True,
 )
 async def translate_url(
-    payload: dict[str, object] = Body(...),
+    payload: UrlTranslationRequest = Body(...),
 ) -> ResourceMetadata:
     """Captures a reference from a URL via Zotero translation-server.
 
@@ -554,7 +561,7 @@ async def translate_url(
         inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
         normalize_item_type=lambda metadata: _vault._normalize_suggested_item_type(metadata),
     )
-    return await citation_web_capture.capture_url(payload, dependencies)
+    return await citation_web_capture.capture_url(request_payload(payload), dependencies)
 
 
 def _build_dedup_indexes(v_str: str) -> dict[str, dict[str, str]]:
@@ -604,7 +611,7 @@ def _metadata_mutation_dependencies() -> metadata_mutations.MetadataMutationDepe
     response_model=ZoteroExtraPromotionResponse,
 )
 async def promote_zotero_extra(
-    payload: dict[str, object] = Body(...),
+    payload: ZoteroExtraPromotionRequest,
 ) -> ResourceMetadata:
     """Promotes a `Zotero Extras` field to its own registry column.
 
@@ -628,16 +635,20 @@ async def promote_zotero_extra(
       4. Rewrites via `save_page_md`.
 
     """
-    return await metadata_mutations.promote_zotero_extra(payload, _metadata_mutation_dependencies())
+    return await metadata_mutations.promote_zotero_extra(
+        request_payload(payload),
+        _metadata_mutation_dependencies(),
+    )
 
 
 @router.post(
     "/bulk-update-metadata",
     dependencies=[Depends(require_role("editor"))],
-    response_model=None,
+    response_model=BulkPageMutationResponse,
+    response_model_exclude_unset=True,
 )
 async def bulk_update_metadata(
-    payload: dict[str, object] = Body(...),
+    payload: BulkMetadataUpdateRequest = Body(...),
 ) -> ResourceMetadata:
     """Applies the same metadata patch to a collection of pages.
 
@@ -671,7 +682,11 @@ async def bulk_update_metadata(
     with the new etag.
 
     """
-    return await metadata_mutations.bulk_update_metadata(payload, _metadata_mutation_dependencies())
+    payload_data = payload.payload() if isinstance(payload, BulkMetadataUpdateRequest) else payload
+    return await metadata_mutations.bulk_update_metadata(
+        payload_data,
+        _metadata_mutation_dependencies(),
+    )
 
 
 @router.post(

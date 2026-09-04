@@ -228,17 +228,32 @@ def test_owned_source_discovery_excludes_suffixed_runtime_artifacts(
     """Packaged Python runtimes and desktop builds are never owned source."""
     owned_python = tmp_path / "backend" / "service.py"
     runtime_python = tmp_path / "electron" / ".venv-python" / "test_vendor.py"
+    relocated_python = tmp_path / ".venv-arm64-relocated" / "test_vendor.py"
+    retained_python = tmp_path / "desktop" / ".venv-x86-retained" / "test_vendor.py"
     owned_frontend = tmp_path / "electron" / "main.js"
     packaged_frontend = tmp_path / "electron" / "dist-python" / "bundle.js"
-    for path in (owned_python, runtime_python, owned_frontend, packaged_frontend):
+    relocated_frontend = tmp_path / ".venv-release" / "vendor.test.js"
+    for path in (
+        owned_python,
+        runtime_python,
+        relocated_python,
+        retained_python,
+        owned_frontend,
+        packaged_frontend,
+        relocated_frontend,
+    ):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("VALUE = 1\n", encoding="utf-8")
 
     assert python_files(tmp_path) == [owned_python]
     assert frontend_files(tmp_path / "electron") == [owned_frontend]
+    assert frontend_files(tmp_path) == [owned_frontend]
     assert is_owned_inventory_file(owned_python)
     assert not is_owned_inventory_file(runtime_python)
+    assert not is_owned_inventory_file(relocated_python)
+    assert not is_owned_inventory_file(retained_python)
     assert not is_owned_inventory_file(packaged_frontend)
+    assert not is_owned_inventory_file(relocated_frontend)
 
 
 def test_inventory_excludes_local_state_and_packaging_outputs(tmp_path: Path) -> None:

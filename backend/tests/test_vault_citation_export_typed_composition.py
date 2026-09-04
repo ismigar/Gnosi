@@ -298,7 +298,9 @@ def check_facade_routes_and_openapi(citation: CitationFixture) -> None:
 
     from backend.api import vault_routes as vr
     from backend.domains.vault.citations import export_routes as routes
+    from backend.domains.vault.citations import formatting
     from backend.domains.vault.citations import references_api
+    from backend.domains.vault.citations.request_contracts import CitationFormattingRequest
 
     assert routes.router is vr.router
     owned = [
@@ -311,8 +313,20 @@ def check_facade_routes_and_openapi(citation: CitationFixture) -> None:
         assert getattr(vr, route.endpoint.__name__) is route.endpoint
         if "reference_table" in route.endpoint.__name__:
             assert route.response_model is references_api.ReferenceTableResponse
+    assert owned[0].response_model is formatting.FormattedCitationResponse
+    assert owned[1].response_model is formatting.FormattedCitationsResponse
+    assert owned[2].response_model is formatting.FormattedBibliographyResponse
+    assert owned[1].dependant.body_params[0].field_info.annotation is CitationFormattingRequest
+    assert owned[2].dependant.body_params[0].field_info.annotation is CitationFormattingRequest
     baseline = json.loads((ROOT / "openapi/openapi.json").read_text())
     actual = citation.client.get("/openapi.json").json()
+    for path in ("/api/vault/format-citations", "/api/vault/format-bibliography"):
+        request_schema = actual["paths"][path]["post"]["requestBody"]["content"][
+            "application/json"
+        ]["schema"]
+        assert request_schema == {
+            "$ref": "#/components/schemas/CitationFormattingRequest"
+        }
     pending: set[str] = set()
     io_routes = [
         route
@@ -320,7 +334,8 @@ def check_facade_routes_and_openapi(citation: CitationFixture) -> None:
         if isinstance(route, APIRoute)
         and route.path in {"/import-references", "/csl/styles", "/export-references"}
     ]
-    for route in [*owned, *io_routes]:
+    unchanged_routes = [*owned[3:], *io_routes]
+    for route in unchanged_routes:
         path = "/api/vault" + route.path
         assert actual["paths"][path] == baseline["paths"][path]
         pending.update(_schema_refs(actual["paths"][path]))
@@ -558,6 +573,36 @@ def check_formatting_http(
         assert result["entries"] == ["Rodoreda & obra"]
         assert result["resolved"] == 1 and result["missing"] == ["missing"]
     assert response.status_code == 200
+
+
+def check_formatting_request_compatibility(citation: CitationFixture) -> None:
+    for path in ("/format-citations", "/format-bibliography"):
+        malformed = citation.client.post(
+            f"/api/vault{path}",
+            json={"keys": "not-a-list", "future_extension": {"enabled": True}},
+        )
+        assert malformed.status_code == 400
+        assert malformed.json() == {"detail": "keys must be a list"}
+
+    empty_batch = citation.client.post(
+        "/api/vault/format-citations",
+        json={"keys": None, "style": 0, "locale": False, "future_extension": [1]},
+    )
+    assert empty_batch.status_code == 200
+    assert empty_batch.json() == {"items": [], "style": "apa", "locale": "en-US"}
+
+    empty_bibliography = citation.client.post(
+        "/api/vault/format-bibliography",
+        json={"future_extension": [1]},
+    )
+    assert empty_bibliography.status_code == 200
+    assert empty_bibliography.json() == {
+        "entries": [],
+        "style": "apa",
+        "locale": "en-US",
+        "resolved": 0,
+        "missing": [],
+    }
 
 
 def check_import_reference_flow(

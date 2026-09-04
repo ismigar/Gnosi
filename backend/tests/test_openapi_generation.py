@@ -86,3 +86,43 @@ def test_generator_activates_complete_isolation_before_loading_configuration(
     assert "private_probe_sentinel" not in params.params
     assert params.params_source == tmp_path / "vault/.gnosi/params.yaml"
     assert local_params.read_text(encoding="utf-8") == "private_probe_sentinel: must-not-load\n"
+
+
+def test_check_rejects_a_stale_frozen_hash(tmp_path: Path) -> None:
+    schema = tmp_path / "openapi.json"
+    frozen_hash = tmp_path / "openapi.sha256"
+    generated = subprocess.run(
+        [
+            sys.executable,
+            str(GENERATOR),
+            "--output",
+            str(schema),
+            "--hash-output",
+            str(frozen_hash),
+        ],
+        cwd=REPOSITORY_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert generated.returncode == 0, generated.stderr
+    frozen_hash.write_text("0" * 64 + "\n", encoding="utf-8")
+
+    checked = subprocess.run(
+        [
+            sys.executable,
+            str(GENERATOR),
+            "--output",
+            str(schema),
+            "--hash-output",
+            str(frozen_hash),
+            "--check",
+        ],
+        cwd=REPOSITORY_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert checked.returncode == 1
+    assert "OpenAPI hash artifact is stale" in checked.stderr

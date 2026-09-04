@@ -10,10 +10,7 @@ import { useLocation } from 'react-router-dom';
 import type { MinimapRenderer } from '../../../shared/graph/minimap/minimapRuntime';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { logError } from '../../../shared/notifications/notifyError';
-import { fetchConfiguration, updateConfiguration } from '../../../shared/api/configuration';
-import { fetchVaultGraph } from '../../../shared/api/graph';
 import type { VaultGlobalIndex, VaultRegistryRecord } from '../../../shared/api/vaults';
-import { fetchVaultGlobalIndex, fetchVaultTables } from '../../../shared/api/vaults';
 import { subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { applyFilters } from '../../../shared/graph/filtering/graphFilters';
 import { getConnectionTypeCounts } from '../model/graphLegend';
@@ -37,9 +34,17 @@ import {
   type GraphData,
   type GraphPageGraph,
 } from './graphPageModel';
+import { useGraphServerData } from './useGraphServerData';
 
 
 const MINIMUM_LOADING_DURATION_MS = 900;
+const EMPTY_GRAPH: GraphData = {
+  edges: [],
+  legend: { clusters: [], kinds: [] },
+  nodes: [],
+};
+const EMPTY_GLOBAL_INDEX: VaultGlobalIndex = {};
+const EMPTY_TABLES: VaultRegistryRecord[] = [];
 
 
 export interface GraphViewerHandle {
@@ -68,7 +73,15 @@ export function useGraphPageController() {
   const location = useLocation();
   const initialSearch = useRef(location.search);
   const graphViewerRef = useRef<GraphViewerHandle>(null);
-  const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const server = useGraphServerData();
+  const configurationQuery = server.configuration;
+  const graphQuery = server.graph;
+  const globalIndexQuery = server.globalIndex;
+  const tablesQuery = server.tables;
+  const replaceConfiguration = server.replaceConfiguration;
+  const mutateConfiguration = server.updateConfiguration;
+  const refetchConfiguration = configurationQuery.refetch;
+  const refetchGraph = graphQuery.refetch;
   const [graphInstance, setGraphInstance] = useState<GraphPageGraph | null>(null);
   const [rendererInstance, setRendererInstance] = useState<MinimapRenderer | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(
@@ -90,8 +103,6 @@ export function useGraphPageController() {
   const [activeTableFilters, setActiveTableFilters] = useState<Set<string>>(() => new Set());
   const [activeMediaTags, setActiveMediaTags] = useState<Set<string>>(() => new Set());
   const [fieldFilters, setFieldFilters] = useState<FieldFilters>({});
-  const [availableTables, setAvailableTables] = useState<VaultRegistryRecord[]>([]);
-  const [idTitleMap, setIdTitleMap] = useState<VaultGlobalIndex>({});
   const [showArrows, setShowArrows] = useState(true);
   const [labelThreshold, setLabelThreshold] = useState(14);
   const [nodeSize, setNodeSize] = useState(0.4);
@@ -112,9 +123,7 @@ export function useGraphPageController() {
   const [isPathfindingMode, setPathfindingModeState] = useState(false);
   const [pathSource, setPathSource] = useState<string | null>(null);
   const [pathTarget, setPathTarget] = useState<string | null>(null);
-  const [config, setConfig] = useState<Awaited<ReturnType<typeof fetchConfiguration>> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(15);
+  const [minimumLoadingElapsed, setMinimumLoadingElapsed] = useState(false);
   const [timelineDate, setTimelineDate] = useState<number | null>(null);
   const [timelineRange, setTimelineRange] = useState<readonly [number, number] | null>(null);
 
@@ -135,58 +144,58 @@ export function useGraphPageController() {
     return () => { clearTimeout(timer); };
   }, [edgeInfluenceUI]);
 
+  const graphData = graphQuery.data ?? (graphQuery.isError ? EMPTY_GRAPH : null);
+  const config = configurationQuery.data ?? null;
+  const availableTables = tablesQuery.data ?? EMPTY_TABLES;
+  const idTitleMap = globalIndexQuery.data ?? EMPTY_GLOBAL_INDEX;
+  const loading = graphQuery.isPending || !minimumLoadingElapsed;
+  const loadingProgress = graphQuery.isPending ? 15 : 100;
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setMinimumLoadingElapsed(true); },
+      MINIMUM_LOADING_DURATION_MS);
+    return () => { clearTimeout(timer); };
+  }, []);
+
   const fetchGraphData = useCallback(async (isBackground = false): Promise<void> => {
     const startedAt = Date.now();
-    if (!isBackground) {
-      setLoadingProgress(15);
-      setLoading(true);
-    }
+    if (!isBackground) setMinimumLoadingElapsed(false);
     try {
-      const graph = await fetchVaultGraph();
-      if (!isBackground) setLoadingProgress(70);
-      setGraphData(graph);
-    } catch (caught: unknown) {
-      logError('graph-load', caught);
-      setGraphData({
-        edges: [],
-        legend: { clusters: [], kinds: [] },
-        nodes: [],
-      });
+      await refetchGraph();
     } finally {
       if (!isBackground) {
-        setLoadingProgress(100);
         const delay = Math.max(
           0,
           MINIMUM_LOADING_DURATION_MS - (Date.now() - startedAt),
         );
-        setTimeout(() => { setLoading(false); }, delay);
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delay);
+        });
+        setMinimumLoadingElapsed(true);
       }
     }
-  }, []);
+  }, [refetchGraph]);
 
-  const fetchConfigData = useCallback(async (): Promise<void> => {
-    try {
-      setConfig(await fetchConfiguration());
-    } catch (caught: unknown) {
-      logError('graph-config-load', caught);
-    }
-  }, []);
-
-  useConfigChanged(() => { void fetchConfigData(); });
+  useConfigChanged(() => { void refetchConfiguration(); });
 
   useEffect(() => {
-    void Promise.resolve().then(async () => {
-      await Promise.all([
-        fetchGraphData(),
-        fetchConfigData(),
-        fetchVaultTables()
-          .then(setAvailableTables)
-          .catch((caught: unknown) => { logError('graph-filter-tables', caught); }),
-        fetchVaultGlobalIndex()
-          .then(setIdTitleMap)
-          .catch((caught: unknown) => { logError('graph-global-index', caught); }),
-      ]);
-    });
+    if (graphQuery.error) logError('graph-load', graphQuery.error);
+  }, [graphQuery.error]);
+  useEffect(() => {
+    if (configurationQuery.error) {
+      logError('graph-config-load', configurationQuery.error);
+    }
+  }, [configurationQuery.error]);
+  useEffect(() => {
+    if (tablesQuery.error) logError('graph-filter-tables', tablesQuery.error);
+  }, [tablesQuery.error]);
+  useEffect(() => {
+    if (globalIndexQuery.error) {
+      logError('graph-global-index', globalIndexQuery.error);
+    }
+  }, [globalIndexQuery.error]);
+
+  useEffect(() => {
     const root = document.documentElement;
     const observer = new MutationObserver(() => {
       setIsDarkMode(root.classList.contains('dark'));
@@ -200,7 +209,7 @@ export function useGraphPageController() {
       }, 1500);
     }
     return () => { observer.disconnect(); };
-  }, [fetchConfigData, fetchGraphData]);
+  }, []);
 
   const settings = useMemo(() => graphSettingsFromDocument(config), [config]);
   useEffect(() => {
@@ -261,7 +270,10 @@ export function useGraphPageController() {
   }, [settings]);
 
   useEffect(() => {
-    if (!settings || settings.sources_initialized || !graphData?.nodes.length) return;
+    if (!config || !settings || settings.sources_initialized || !graphData?.nodes.length) {
+      return;
+    }
+    const currentConfig = config;
     const selection = deriveGraphSources(graphData.nodes);
     if (selection.databases.length === 0 && selection.tables.length === 0) return;
     let active = true;
@@ -270,7 +282,7 @@ export function useGraphPageController() {
       setVisibleDatabases(selection.databases);
       setVisibleTables(selection.tables);
       setSourcesInitialized(true);
-      void updateConfiguration({
+      void mutateConfiguration({
         graph: {
           sources_initialized: true,
           visible_databases: selection.databases,
@@ -278,12 +290,20 @@ export function useGraphPageController() {
         },
       })
         .then(() => {
-          setConfig((current) => seedGraphConfigurationDocument(current, selection));
+          replaceConfiguration(
+            seedGraphConfigurationDocument(currentConfig, selection),
+          );
         })
         .catch((caught: unknown) => { logError('graph-source-seed', caught); });
     });
     return () => { active = false; };
-  }, [graphData, settings]);
+  }, [
+    config,
+    graphData,
+    mutateConfiguration,
+    replaceConfiguration,
+    settings,
+  ]);
 
   const hasClusterData = useMemo(
     () => graphData?.nodes.some((node) => Boolean(node.cluster)) ?? false,

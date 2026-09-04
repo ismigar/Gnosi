@@ -6,7 +6,6 @@ import {
   useState,
 } from 'react';
 
-import { toast } from '../../../../shared/notifications/toast';
 import {
   fetchMailMessages,
   type MailMessages,
@@ -14,29 +13,33 @@ import {
 import { mailEventsUrl } from '../../../../shared/api/mail-specialized';
 import { openEventStream } from '../../../../shared/api/specialized-transports';
 import {
-  purgeMailListCacheIds,
+  purgeMailListCacheMessages,
   readMailListCache,
   writeMailListCache,
 } from './mailListCache';
 import {
   accountEmails,
   buildMailListQuery,
+  deduplicateMailListMessages,
   enabledMailAccounts,
   filterOutMailThread,
   mailListCacheKey,
 } from './mailListModel';
+import { mailMessageIdentity } from '../../mailIdentity';
+import type { MailIdentityMessage } from '../../mailIdentity';
 import type { MailAccount, MailListMessage } from './mailListTypes';
 
 
 interface UseMailListDataOptions {
   readonly account: MailAccount | null;
+  readonly accountsLoading: boolean;
   readonly accounts: readonly MailAccount[];
   readonly category: string | null;
   readonly folder: string | null;
   readonly listRefreshToken: number;
   readonly onMessagesLoaded?: (messages: readonly MailListMessage[]) => void;
-  readonly readMailId: string | null;
-  readonly removedMailId: string | null;
+  readonly readMail: MailIdentityMessage | null;
+  readonly removedMail: MailIdentityMessage | null;
 }
 
 
@@ -57,25 +60,29 @@ const EMPTY_MAIL_MESSAGES: MailMessages = {
 };
 
 
-function uniqueMessages(messages: readonly MailListMessage[]): MailListMessage[] {
-  const seen = new Set<string>();
-  return messages.filter((message) => {
-    if (!message.id || seen.has(message.id)) return false;
-    seen.add(message.id);
-    return true;
-  });
+export function markMailReadInList(
+  messages: readonly MailListMessage[],
+  target: MailIdentityMessage,
+): MailListMessage[] {
+  const identity = mailMessageIdentity(target);
+  return messages.map((message) => (
+    mailMessageIdentity(message) === identity
+      ? { ...message, is_read: true }
+      : message
+  ));
 }
 
 
 export function useMailListData({
   account,
+  accountsLoading,
   accounts,
   category,
   folder,
   listRefreshToken,
   onMessagesLoaded,
-  readMailId,
-  removedMailId,
+  readMail,
+  removedMail,
 }: UseMailListDataOptions) {
   const enabledAccounts = useMemo(() => enabledMailAccounts(accounts), [accounts]);
   const emails = useMemo(
@@ -90,96 +97,116 @@ export function useMailListData({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [unavailableAccountCount, setUnavailableAccountCount] = useState(0);
   const [pageTokens, setPageTokens] = useState<TokenByAccount>({});
   const [offsets, setOffsets] = useState<NumberByAccount>({});
   const [totals, setTotals] = useState<NumberByAccount>({});
   const messageCacheRef = useRef<MessageMemoryCache>({});
+  const fetchAbortRef = useRef<AbortController | null>(null);
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
 
   const fetchMessages = useCallback((options: FetchMessagesOptions = {}): void => {
+    fetchAbortRef.current?.abort();
+    loadMoreAbortRef.current?.abort();
+    setLoadingMore(false);
+    const abortController = new AbortController();
+    fetchAbortRef.current = abortController;
     setPageTokens({});
     setOffsets({});
     setTotals({});
+    setUnavailableAccountCount(0);
     if (emails.length === 0) {
       setMessages([]);
-      setLoading(false);
-      onMessagesLoaded?.([]);
+      setLoading(accountsLoading);
+      if (!accountsLoading) onMessagesLoaded?.([]);
       return;
     }
 
     const stale = messageCacheRef.current[cacheKey]
       || (!options.force && readMailListCache(cacheKey));
-    if (stale && !options.force) {
-      setMessages(stale);
+    const staleMessages = Array.isArray(stale) ? stale : undefined;
+    if (staleMessages && !options.force) {
+      setMessages(staleMessages);
       setLoading(false);
-      onMessagesLoaded?.(stale);
+      onMessagesLoaded?.(staleMessages);
       setSyncing(true);
     } else {
       setLoading(true);
     }
 
-    void Promise.all(emails.map(async (email) => {
-      try {
-        return await fetchMailMessages(buildMailListQuery(
-          email,
-          folder,
-          category,
-          { force: options.force },
-        ));
-      } catch {
-        return EMPTY_MAIL_MESSAGES;
+    const settledResults = new Map<string, MailMessages>();
+    const staleByAccount = new Map<string, MailListMessage[]>();
+    const unscopedStale: MailListMessage[] = [];
+    for (const message of staleMessages ?? []) {
+      const messageAccount = message.account?.trim();
+      if (!messageAccount) {
+        unscopedStale.push(message);
+        continue;
       }
-    })).then((results) => {
+      const accountMessages = staleByAccount.get(messageAccount) ?? [];
+      accountMessages.push(message);
+      staleByAccount.set(messageAccount, accountMessages);
+    }
+    let settledCount = 0;
+    let unavailableCount = 0;
+
+    const publishResult = (
+      email: string,
+      result: MailMessages,
+      unavailable: boolean,
+    ): void => {
+      if (abortController.signal.aborted) return;
+      settledResults.set(email, result);
+      settledCount += 1;
+      if (unavailable) unavailableCount += 1;
       const newTokens: TokenByAccount = {};
       const newOffsets: NumberByAccount = {};
       const newTotals: NumberByAccount = {};
-      results.forEach((result, index) => {
-        const email = emails[index];
-        if (!email) return;
-        newTokens[email] = result.next_page_token;
-        newTotals[email] = result.total;
-        newOffsets[email] = result.messages.length;
-        if (result.error) toast.error(result.error, { duration: 6000 });
+      const scopedMessages = emails.flatMap((accountEmail) => {
+        const accountResult = settledResults.get(accountEmail);
+        if (!accountResult) return staleByAccount.get(accountEmail) ?? [];
+        newTokens[accountEmail] = accountResult.next_page_token;
+        newTotals[accountEmail] = accountResult.total;
+        newOffsets[accountEmail] = accountResult.messages.length;
+        if (accountResult.error && accountResult.messages.length === 0) {
+          return staleByAccount.get(accountEmail) ?? [];
+        }
+        return accountResult.messages;
       });
+      const visibleMessages = (
+        settledCount < emails.length || unavailableCount > 0
+      ) ? [...scopedMessages, ...unscopedStale] : scopedMessages;
       setPageTokens(newTokens);
       setOffsets(newOffsets);
       setTotals(newTotals);
+      setUnavailableAccountCount(unavailableCount);
 
-      const merged = uniqueMessages(results.flatMap((result) => result.messages));
+      const merged = deduplicateMailListMessages(
+        visibleMessages,
+        { collapseInternetCopies: account === null },
+      );
       messageCacheRef.current[cacheKey] = merged;
       writeMailListCache(cacheKey, merged);
       setMessages(merged);
       setLoading(false);
-      setSyncing(false);
+      setSyncing(settledCount < emails.length);
       onMessagesLoaded?.(merged);
+    };
 
-      if ((folder === 'INBOX' || !folder) && !options.force) {
-        ['SENT', 'DRAFTS', 'TRASH'].forEach((prefetchFolder) => {
-          const prefetchKey = mailListCacheKey(emails, prefetchFolder, null);
-          if (messageCacheRef.current[prefetchKey]) return;
-          void Promise.all(emails.map(async (email) => {
-            try {
-              return await fetchMailMessages({
-                email,
-                folder: prefetchFolder,
-                limit: 50,
-              });
-            } catch {
-              return EMPTY_MAIL_MESSAGES;
-            }
-          })).then((prefetchResults) => {
-            const prefetched = uniqueMessages(
-              prefetchResults.flatMap((result) => result.messages),
-            );
-            messageCacheRef.current[prefetchKey] = prefetched;
-            writeMailListCache(prefetchKey, prefetched);
-          }).catch(() => undefined);
-        });
-      }
-    }).catch(() => {
-      setLoading(false);
-      setSyncing(false);
+    emails.forEach((email) => {
+      void fetchMailMessages(buildMailListQuery(
+        email,
+        folder,
+        category,
+        { force: options.force },
+      ), abortController.signal).then((result) => {
+        publishResult(email, result, Boolean(result.error));
+      }).catch(() => {
+        if (abortController.signal.aborted) return;
+        publishResult(email, EMPTY_MAIL_MESSAGES, true);
+      });
     });
-  }, [cacheKey, category, emails, folder, onMessagesLoaded]);
+  }, [account, accountsLoading, cacheKey, category, emails, folder, onMessagesLoaded]);
 
   const hasMore = emails.some((email) => (
     Boolean(pageTokens[email])
@@ -188,6 +215,9 @@ export function useMailListData({
 
   const loadMore = useCallback((): void => {
     if (loadingMore) return;
+    loadMoreAbortRef.current?.abort();
+    const abortController = new AbortController();
+    loadMoreAbortRef.current = abortController;
     setLoadingMore(true);
     void Promise.all(emails.map(async (email) => {
       const token = pageTokens[email];
@@ -202,11 +232,13 @@ export function useMailListData({
           folder,
           category,
           { offset, pageToken: token },
-        ));
-      } catch {
+        ), abortController.signal);
+      } catch (error) {
+        if (abortController.signal.aborted) throw error;
         return EMPTY_MAIL_MESSAGES;
       }
     })).then((results) => {
+      if (abortController.signal.aborted) return;
       const newTokens = { ...pageTokens };
       const newOffsets = { ...offsets };
       results.forEach((result, index) => {
@@ -218,17 +250,17 @@ export function useMailListData({
       setPageTokens(newTokens);
       setOffsets(newOffsets);
       setMessages((current) => {
-        const seen = new Set(current.map((message) => message.id));
-        const added = results
-          .flatMap((result) => result.messages)
-          .filter((message) => message.id && !seen.has(message.id));
-        return [...current, ...added];
+        return deduplicateMailListMessages([
+          ...current,
+          ...results.flatMap((result) => result.messages),
+        ], { collapseInternetCopies: account === null });
       });
       setLoadingMore(false);
     }).catch(() => {
+      if (abortController.signal.aborted) return;
       setLoadingMore(false);
     });
-  }, [category, emails, folder, loadingMore, offsets, pageTokens, totals]);
+  }, [account, category, emails, folder, loadingMore, offsets, pageTokens, totals]);
 
   const fetchRef = useRef(fetchMessages);
   useEffect(() => {
@@ -246,8 +278,10 @@ export function useMailListData({
     });
     return () => {
       active = false;
+      fetchAbortRef.current?.abort();
+      loadMoreAbortRef.current?.abort();
     };
-  }, [account, accounts, cacheKey]);
+  }, [account, accounts, accountsLoading, cacheKey]);
 
   useEffect(() => {
     let stream: EventSource;
@@ -276,31 +310,22 @@ export function useMailListData({
   }, [account?.email, cacheKey]);
 
   useEffect(() => {
-    if (!removedMailId) return;
+    if (!removedMail) return;
     setMessages((current) => {
-      const threadId = current.find(
-        (message) => message.id === removedMailId,
-      )?.thread_id;
       Object.entries(messageCacheRef.current).forEach(([key, cached]) => {
-        messageCacheRef.current[key] = filterOutMailThread(
-          cached,
-          removedMailId,
-          threadId,
-        );
+        messageCacheRef.current[key] = filterOutMailThread(cached, removedMail);
       });
-      purgeMailListCacheIds([removedMailId]);
-      return filterOutMailThread(current, removedMailId, threadId);
+      purgeMailListCacheMessages([removedMail]);
+      return filterOutMailThread(current, removedMail);
     });
-  }, [removedMailId]);
+  }, [removedMail]);
 
   useEffect(() => {
-    if (!readMailId) return;
+    if (!readMail) return;
     queueMicrotask(() => {
-      setMessages((current) => current.map((message) => (
-        message.id === readMailId ? { ...message, is_read: true } : message
-      )));
+      setMessages((current) => markMailReadInList(current, readMail));
     });
-  }, [readMailId]);
+  }, [readMail]);
 
   useEffect(() => {
     if (listRefreshToken <= 0) return;
@@ -309,28 +334,21 @@ export function useMailListData({
     });
   }, [listRefreshToken]);
 
-  const purgeMessageFromCaches = useCallback((
-    messageId: string,
-    threadId?: string | null,
-  ): void => {
+  const purgeMessageFromCaches = useCallback((message: MailListMessage): void => {
     Object.entries(messageCacheRef.current).forEach(([key, cached]) => {
-      messageCacheRef.current[key] = filterOutMailThread(
-        cached,
-        messageId,
-        threadId,
-      );
+      messageCacheRef.current[key] = filterOutMailThread(cached, message);
     });
-    purgeMailListCacheIds([messageId]);
+    purgeMailListCacheMessages([message]);
   }, []);
 
-  const purgeMessagesFromCaches = useCallback((ids: readonly string[]): void => {
-    const selected = new Set(ids);
+  const purgeMessagesFromCaches = useCallback((targets: readonly MailListMessage[]): void => {
+    const selected = new Set(targets.map((message) => mailMessageIdentity(message)));
     Object.entries(messageCacheRef.current).forEach(([key, cached]) => {
       messageCacheRef.current[key] = cached.filter(
-        (message) => !selected.has(message.id),
+        (message) => !selected.has(mailMessageIdentity(message)),
       );
     });
-    purgeMailListCacheIds(ids);
+    purgeMailListCacheMessages(targets);
   }, []);
 
   const clearCurrentMemoryCache = useCallback((): void => {
@@ -353,5 +371,6 @@ export function useMailListData({
     setLoading,
     setMessages,
     syncing,
+    unavailableAccountCount,
   };
 }

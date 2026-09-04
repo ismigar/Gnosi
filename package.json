@@ -1,6 +1,6 @@
 {
   "name": "gnosi",
-  "version": "3.0.0-rc.1",
+  "version": "3.0.0",
   "private": true,
   "description": "Gnosi — local-first, open-source knowledge workspace",
   "license": "AGPL-3.0-or-later",
@@ -24,8 +24,9 @@
     "typecheck": "pnpm --filter @gnosi/frontend typecheck && pnpm typecheck:backend-boundaries && pnpm typecheck:pipeline && uv run python -m compileall -q backend pipeline scripts extensions",
     "generate:openapi": "uv run python scripts/generate_openapi.py",
     "check:openapi": "uv run python scripts/generate_openapi.py --check",
+    "check:api-compatibility": "uv run python scripts/check_api_compatibility.py",
     "generate:api-client": "pnpm generate:openapi && pnpm --filter @gnosi/frontend generate:api",
-    "check:api-client": "pnpm check:openapi && pnpm --filter @gnosi/frontend check:api && pnpm check:api-boundary",
+    "check:api-client": "pnpm check:openapi && pnpm check:api-compatibility && pnpm --filter @gnosi/frontend check:api && pnpm check:api-boundary",
     "check:api-boundary": "uv run python scripts/check_frontend_api_boundary.py",
     "check:pipeline": "uv run python scripts/check_public_pipeline.py",
     "check:pipeline:structure": "uv run python scripts/check_public_pipeline.py --structure",

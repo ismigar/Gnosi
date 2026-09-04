@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMailView,
   deleteMailTag,
+  fetchMailMessageTags,
   fetchMailMessages,
+  fetchTagsForScopedMailMessages,
   moveMailMessage,
   saveMailDraft,
   setMailMessageTags,
@@ -132,6 +134,51 @@ describe('mail API', () => {
       sender: '',
       subject: '',
       tag_ids: ['tag-1'],
+    });
+  });
+
+  it('sends provider-scoped tag descriptors without raw-id collisions', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(['tag-a']))
+      .mockResolvedValueOnce(Response.json({
+        '["message","first@example.test","imap","INBOX","42"]': ['tag-a'],
+        '["message","second@example.test","imap","Archive","42"]': ['tag-b'],
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+    const first = {
+      account_email: 'first@example.test',
+      imap_folder: 'INBOX',
+      imap_uid: '42',
+      source: 'imap',
+    };
+
+    await fetchMailMessageTags('shared-id', first);
+    const getUrl = new URL(requestAt(fetchMock).url);
+    expect(Object.fromEntries(getUrl.searchParams)).toEqual(first);
+
+    await fetchTagsForScopedMailMessages([
+      { ...first, message_id: 'shared-id' },
+      {
+        account_email: 'second@example.test',
+        imap_folder: 'Archive',
+        imap_uid: '42',
+        message_id: 'shared-id',
+        source: 'imap',
+      },
+    ]);
+    await expect(requestAt(fetchMock, 1).clone().json()).resolves.toEqual({
+      message_ids: [],
+      messages: [
+        { ...first, message_id: 'shared-id' },
+        {
+          account_email: 'second@example.test',
+          imap_folder: 'Archive',
+          imap_uid: '42',
+          message_id: 'shared-id',
+          source: 'imap',
+        },
+      ],
     });
   });
 

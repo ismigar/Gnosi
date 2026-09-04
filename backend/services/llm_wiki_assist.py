@@ -20,9 +20,10 @@ import json
 import re
 import threading
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from backend.config.logger_config import get_logger
+from backend.utils.open_values import iterable_values
 from backend.domains.llm_wiki import legacy_ports
 
 logger = get_logger(__name__)
@@ -82,8 +83,8 @@ def learn_pair(heard: str, meant: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _suggestion_context(sug: Dict[str, Any]) -> str:
-    members = ", ".join(sug.get("member_titles") or [])
+def _suggestion_context(sug: Dict[str, object]) -> str:
+    members = ", ".join(str(member) for member in iterable_values(sug.get("member_titles") or []))
     return (
         f"QUESTION answered by the note: {sug.get('question') or '(none)'}\n"
         f"WHY the notes connect: {sug.get('why') or '(not specified)'}\n"
@@ -92,7 +93,7 @@ def _suggestion_context(sug: Dict[str, Any]) -> str:
     )
 
 
-def reformulate(sug: Dict[str, Any], language: str = "English") -> List[Dict[str, str]]:
+def reformulate(sug: Dict[str, object], language: str = "English") -> List[Dict[str, str]]:
     """LLM variants of a suggestion's draft, one per editorial angle.
 
     Raises RuntimeError when no AI provider is available (endpoint → 503)."""
@@ -140,8 +141,8 @@ def _parse_variants(raw: str) -> List[Dict[str, str]]:
 
 
 def correct_dictation(
-    sug: Dict[str, Any], transcript: str, language: str = "English"
-) -> Dict[str, Any]:
+    sug: Dict[str, object], transcript: str, language: str = "English"
+) -> Dict[str, object]:
     """Reconstructs what the user MEANT from a noisy ASR transcript.
 
     The corrector is context-first: it gets the suggestion being edited plus

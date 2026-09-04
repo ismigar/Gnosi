@@ -1,5 +1,39 @@
 [
   {
+    "version": "3.0.0",
+    "date": "2026-09-02",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v3_0_0.highlights.canonical_architecture",
+        "release_notes.entries.v3_0_0.highlights.typed_experience"
+      ],
+      "improvements": [
+        "release_notes.entries.v3_0_0.improvements.portable_data",
+        "release_notes.entries.v3_0_0.improvements.desktop_runtime"
+      ],
+      "fixes": [
+        "release_notes.entries.v3_0_0.fixes.reproducible_toolchain",
+        "release_notes.entries.v3_0_0.fixes.release_safety",
+        "release_notes.entries.v3_0_0.fixes.windows_cold_scan",
+        "release_notes.entries.v3_0_0.fixes.intel_numpy_abi"
+      ]
+    }
+  },
+  {
+    "version": "3.0.0-rc.2",
+    "date": "2026-09-01",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v3_0_0_rc_2.fixes.universal_desktop_lock",
+        "release_notes.entries.v3_0_0_rc_2.fixes.namespace_policy"
+      ]
+    }
+  },
+  {
     "version": "3.0.0-rc.1",
     "date": "2026-09-01",
     "channel": "prerelease",

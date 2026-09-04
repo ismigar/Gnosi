@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -20,6 +21,19 @@ from desktop.scripts import backend_resources as policy
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "desktop/scripts/backend_resources.py"
 BUILD = ROOT / "desktop/build-python.sh"
+
+RELEASE_ENVIRONMENTS = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+LOCK_RELEASE_MARKERS = [
+    "platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "platform_machine == 'AMD64' and sys_platform == 'win32'",
+]
 
 
 def write(root: Path, name: str, text: str = "synthetic runtime resource\n") -> Path:
@@ -40,8 +54,10 @@ def repository(tmp_path: Path) -> Path:
     for name in policy.MODULE_TREES:
         write(root, f"{name}/runtime.py", "raise AssertionError('do not import')\n")
     for name in (
+        "backend/agent/generated_tools/verification_sandbox.py",
         "backend/domains/mail/routes/messages.py",
         "backend/domains/configuration/api/credentials.py",
+        "backend/security/plugin_trust_root.py",
         "pipeline/skills/translate_row/scripts/translate_text.py",
         "pipeline/skills/translate_page/scripts/markdown_segmenter.py",
     ):
@@ -81,7 +97,13 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert "pipeline.skills.translate_row.scripts.translate_text" in first.modules
     assert "pipeline.skills.translate_page.scripts.markdown_segmenter" in first.modules
     assert "backend.server" in first.modules
+    assert "backend.security.plugin_trust_root" in first.modules
+    assert "backend.agent.generated_tools.verification_sandbox" in first.modules
+    assert "backend.agent.generated_tools.test_sandbox" not in first.modules
+    assert "extensions.marketplace.signing_policy" not in first.modules
+    assert "backend/migrations/alembic/versions/literature_0001.py" in first.resources
     assert "backend/migrations/alembic/versions/management_0005.py" in first.resources
+    assert "backend/migrations/alembic/versions/vault_0004.py" in first.resources
     assert "backend/migrations/alembic/script.py.mako" in first.resources
     assert "backend/agent/instructions/gnosy.md" in first.resources
     assert "backend/data/model_catalog.json" in first.resources
@@ -91,6 +113,51 @@ def test_plan_keeps_required_runtime_without_importing_application(repository: P
     assert all(Path(source).is_file() for source, _ in first.datas)
     assert (str(repository / "backend"), "backend") not in first.datas
     assert first.resources == tuple(sorted(first.resources))
+
+
+def test_universal_lock_covers_every_release_environment() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    required = cast(list[str], project["tool"]["uv"]["required-environments"])
+    assert required == RELEASE_ENVIRONMENTS
+
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    assert cast(list[str], lock["required-markers"]) == LOCK_RELEASE_MARKERS
+    packages = cast(list[dict[str, object]], lock["package"])
+    intel_marker = ["platform_machine == 'x86_64' and sys_platform == 'darwin'"]
+
+    for package_name in ("onnxruntime", "torch"):
+        candidates = [
+            package
+            for package in packages
+            if package.get("name") == package_name
+            and package.get("resolution-markers") == intel_marker
+        ]
+        assert len(candidates) == 1
+        wheels = cast(list[dict[str, object]], candidates[0].get("wheels"))
+        assert wheels
+        assert all("macosx" in str(wheel.get("url")) for wheel in wheels)
+        assert all("x86_64" in str(wheel.get("url")) for wheel in wheels)
+
+    numpy_candidates = [package for package in packages if package.get("name") == "numpy"]
+    intel_numpy = [
+        package
+        for package in numpy_candidates
+        if package.get("resolution-markers") == intel_marker
+    ]
+    modern_numpy = [
+        package
+        for package in numpy_candidates
+        if package not in intel_numpy
+    ]
+    assert len(intel_numpy) == 1
+    assert str(intel_numpy[0]["version"]).startswith("1.26.")
+    assert len(modern_numpy) == 1
+    assert all(int(str(package["version"]).split(".", 1)[0]) >= 2 for package in modern_numpy)
+    assert cast(list[str], modern_numpy[0].get("resolution-markers")) == [
+        "sys_platform == 'linux'",
+        "(platform_machine != 'x86_64' and sys_platform == 'darwin') or "
+        "(sys_platform != 'darwin' and sys_platform != 'linux')",
+    ]
 
 
 def test_unselected_local_state_is_never_read_or_collected(
@@ -235,11 +302,20 @@ def test_selected_symlink_or_ancestor_cannot_escape(
 def test_analysis_supports_namespace_packages_and_dependency_resources(repository: Path) -> None:
     plan = policy.build_plan(repository)
     data, modules = toc(plan)
+    modules.append(("jaraco", "-", "PYMODULE"))
     data.append(("certifi/cacert.pem", "/synthetic-environment/certifi/cacert.pem", "DATA"))
     data.append(("base_library.zip", "/synthetic-work/base_library.zip", "DATA"))
     policy.validate_analysis(data, modules, [], plan)
     windows_destinations = [(name.replace("/", "\\"), source, kind) for name, source, kind in data]
     policy.validate_analysis(windows_destinations, modules, [], plan)
+
+
+def test_analysis_rejects_unknown_owned_namespace_without_source(repository: Path) -> None:
+    plan = policy.build_plan(repository)
+    data, modules = toc(plan)
+    modules.append(("backend.unreviewed_namespace", "-", "PYMODULE"))
+    with pytest.raises(policy.ResourcePolicyError, match="Unreviewed owned Analysis module"):
+        policy.validate_analysis(data, modules, [], plan)
 
 
 def test_analysis_keeps_relative_library_and_framework_links(repository: Path) -> None:
@@ -597,15 +673,23 @@ elif args[:2] == ['-m', 'PyInstaller']:
 elif args and args[0].endswith('smoke-packaged-backend.py'):
     # Deliberately do not execute the real smoke script or any application.
     pass
+elif args and args[0].endswith('probe-python-abi.py'):
+    # The synthetic interpreter has no release dependencies or target ABI.
+    pass
 else:
     sys.argv = args
     runpy.run_path(args[0], run_name='__main__')
 """
 FAKE_UV = r"""
-import json, os, shutil
+import json, os, shutil, sys
 from pathlib import Path
+args = sys.argv[1:]
 with Path(os.environ['FIXTURE_EVENTS']).open('a') as handle:
-    handle.write(json.dumps(['uv', __import__('sys').argv[1:]]) + '\n')
+    handle.write(json.dumps(['uv', args]) + '\n')
+if os.environ.get('FIXTURE_FAILURE') == 'uv-sync':
+    raise SystemExit(8)
+if args[0] != 'sync':
+    raise SystemExit(9)
 layout = os.environ['FIXTURE_VENV_LAYOUT']
 output = Path(os.environ['UV_PROJECT_ENVIRONMENT']) / layout
 output.parent.mkdir(parents=True)
@@ -616,7 +700,8 @@ output.chmod(0o755)
 
 @pytest.mark.parametrize("layout", ("bin/python", "Scripts/python.exe"))
 @pytest.mark.parametrize(
-    "failure", ("", "pyinstaller", "no-output", "contaminated", "missing", "source")
+    "failure",
+    ("", "uv-sync", "pyinstaller", "no-output", "contaminated", "missing", "source"),
 )
 def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
     repository: Path,
@@ -661,6 +746,7 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         timeout=30,
     )
     events = [json.loads(line) for line in events_path.read_text().splitlines()]
+    uv_calls = [entry[1] for entry in events if entry[0] == "uv"]
     python_calls = [entry[1] for entry in events if entry[0] == "python"]
     smoke = [args for args in python_calls if args[0].endswith("smoke-packaged-backend.py")]
     assert not list(temp.iterdir()), "unique temporary build environment was not cleaned"
@@ -668,7 +754,7 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         assert result.returncode != 0, result.stdout + result.stderr
         assert not smoke
         if failure == "source":
-            assert not [entry for entry in events if entry[0] == "uv"]
+            assert not uv_calls
         if failure in {"contaminated", "missing"}:
             assert "Backend resource policy failed" in result.stderr
         assert previous.read_text() == "preserve on failure"
@@ -687,6 +773,13 @@ def test_real_shell_with_simulated_build_commands_and_paths_with_spaces(
         assert verification
         assert python_calls.index(verification[-1]) < python_calls.index(smoke[0])
         policy.verify_bundle(desktop / "dist-python", policy.build_plan(repository))
+
+    if failure != "source":
+        assert len(uv_calls) == 1
+        assert uv_calls[0][0] == "sync"
+        assert "--frozen" in uv_calls[0]
+        assert "--group" in uv_calls[0]
+        assert uv_calls[0][uv_calls[0].index("--group") + 1] == "desktop"
 
 
 def test_cli_failure_is_redacted(repository: Path, caplog: pytest.LogCaptureFixture) -> None:

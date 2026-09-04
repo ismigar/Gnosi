@@ -7,6 +7,8 @@ import {
   writeStorage,
 } from '../../../../shared/platform/browser-storage';
 import type { MailListMessage } from './mailListTypes';
+import type { MailIdentityMessage } from '../../mailIdentity';
+import { filterOutMailThread } from './mailListModel';
 
 
 const MAIL_LIST_CACHE_PREFIX = 'gnosi_mail_v1_';
@@ -94,16 +96,18 @@ export function writeMailListCache(
 }
 
 
-export function purgeMailListCacheIds(
-  ids: readonly string[],
+export function purgeMailListCacheMessages(
+  targets: readonly MailIdentityMessage[],
   storage?: Storage | null,
 ): void {
-  const idSet = new Set(ids);
   listStorageKeyNames('local', MAIL_LIST_CACHE_PREFIX, storage).forEach((name) => {
     const key = cacheStorageKey(name);
     const stored = readStorage(key, storage);
     if (!stored) return;
-    const messages = stored.m.filter((message) => !idSet.has(message.id));
+    const messages = targets.reduce(
+      (current, target) => filterOutMailThread(current, target),
+      stored.m,
+    );
     if (messages.length !== stored.m.length) {
       writeStorage(key, { m: messages, ts: stored.ts }, storage);
     }

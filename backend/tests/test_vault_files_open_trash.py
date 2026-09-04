@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import errno
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -238,6 +241,66 @@ def test_list_preserves_extensions_fallbacks_and_retention(tmp_path: Path) -> No
     assert by_id["None"] == {"days_remaining": None}
     assert by_id["corrupt"]["title"] == "(corrupt)"
     assert by_id["missing"]["title"] == "(sense metadades)"
+
+
+def test_list_does_not_read_online_only_sidecar(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    slot = _entry(
+        tmp_path,
+        "remote",
+        {"id": "remote", "title": "must not be read while online-only"},
+    )
+    sidecar = slot / "_trash.json"
+    original_stat = Path.stat
+    original_read_text = Path.read_text
+
+    def stat(
+        path: Path, *args: object, **kwargs: object
+    ) -> os.stat_result | SimpleNamespace:
+        if path == sidecar:
+            real = original_stat(path, *args, **kwargs)
+            return SimpleNamespace(st_size=real.st_size, st_blocks=0)
+        return original_stat(path, *args, **kwargs)
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == sidecar:
+            raise AssertionError("an online-only sidecar must not be opened while listing")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", stat)
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    assert _repository(tmp_path).list_entries() == [
+        {
+            "id": "remote",
+            "title": "(sense metadades)",
+            "deleted_at": None,
+            "days_remaining": None,
+        }
+    ]
+
+
+@pytest.mark.parametrize("error_number", [errno.EAGAIN, errno.EDEADLK])
+def test_list_treats_transient_cloud_read_as_unavailable_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    error_number: int,
+) -> None:
+    slot = _entry(tmp_path, "remote", {"id": "remote"})
+    sidecar = slot / "_trash.json"
+    original_read_text = Path.read_text
+
+    def read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == sidecar:
+            raise OSError(error_number, "synthetic cloud placeholder")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    result = _repository(tmp_path).list_entries()
+    assert result[0]["title"] == "(sense metadades)"
+    assert result[0]["deleted_at"] is None
 
 
 def test_list_copies_envelope_without_rewriting_keys_or_values(

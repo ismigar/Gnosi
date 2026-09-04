@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfigFromFile, type ConfigEnv } from 'vite';
+import { loadConfigFromFile, type ConfigEnv, type UserConfig } from 'vite';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const configPath = fileURLToPath(new URL('../vite.config.js', import.meta.url));
@@ -24,12 +24,16 @@ afterEach(() => {
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 
-async function configuredBase(environment: ConfigEnv): Promise<string | undefined> {
+async function configured(environment: ConfigEnv): Promise<UserConfig> {
   const result = await loadConfigFromFile(
     environment, configPath, temporaryDirectory, 'silent', undefined, 'native',
   );
   if (!result) throw new Error('Expected the real frontend configuration');
-  return result.config.base;
+  return result.config;
+}
+
+async function configuredBase(environment: ConfigEnv): Promise<string | undefined> {
+  return (await configured(environment)).base;
 }
 
 const environments: ConfigEnv[] = [
@@ -59,3 +63,19 @@ it('retains process-over-local-file precedence for explicit asset bases', async 
   vi.stubEnv('VITE_BASE_PATH', '/process-assets/');
   expect(await configuredBase({ command: 'build', mode: 'production' })).toBe('/process-assets/');
 });
+
+it.each(environments)(
+  'deduplicates Yjs for $command/$mode/$isPreview',
+  async environment => {
+    const config = await configured(environment);
+    expect(config.resolve?.dedupe).toContain('yjs');
+  },
+);
+
+it.each(environments)(
+  'keeps per-icon Lucide imports lazy for $command/$mode/$isPreview',
+  async environment => {
+    const config = await configured(environment);
+    expect(config.optimizeDeps?.exclude).toContain('lucide-react/dynamic');
+  },
+);

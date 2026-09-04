@@ -57,6 +57,15 @@
         ]
       }
     },
+    "literature_index": {
+      "branch": "literature_index",
+      "head": "literature_0001",
+      "revisions": {
+        "literature_0001": [
+          "e509e55bf2fb15d84103f8741dcf8563f73dcd7713daa58d1b9e75a5c1013d29"
+        ]
+      }
+    },
     "management": {
       "branch": "management",
       "head": "mgmt_0005",
@@ -164,16 +173,20 @@
     },
     "vault": {
       "branch": "vault",
-      "head": "vault_0003",
+      "head": "vault_0004",
       "revisions": {
         "vault_0001": [
-          "052cdba1380f92bc46d65efdd3b62a94b157db4530df5a05a390611b60b8b363"
+          "052cdba1380f92bc46d65efdd3b62a94b157db4530df5a05a390611b60b8b363",
+          "40c728fccb59d6f02a0590d7c86ba4ce6b78f20ea720fc17545c78b979d919cb"
         ],
         "vault_0002": [
           "607f30411129b1af58e961e2a310ad75af6de06d3857235225a6f5f7b3e56cc1"
         ],
         "vault_0003": [
           "a2268b99896693af1af19a6238f79b1446740f8885de296f2f7bde4975037ef1"
+        ],
+        "vault_0004": [
+          "d6151d4e3d2be0e4c9dfac19af929524f26d96844d57b658cff468c567b3a176"
         ]
       }
     }

@@ -6,7 +6,10 @@ set -euo pipefail
 
 BASE="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd -- "$BASE"
-export VITE_BACKEND_HOST="${VITE_BACKEND_HOST-localhost}"
+# Uvicorn binds IPv4 explicitly. Using `localhost` here lets some macOS
+# resolvers try ::1 first and adds a multi-second fallback to every proxied
+# request even though the backend itself is healthy.
+export VITE_BACKEND_HOST="${VITE_BACKEND_HOST-127.0.0.1}"
 export VITE_BACKEND_PORT="${VITE_BACKEND_PORT-5002}"
 
 validate_port() {

@@ -138,7 +138,11 @@ def _synced_block_path(sync_id: str) -> Path:
     return d / f"{safe}.md"
 
 
-@router.get("/synced-events", response_model=None)
+@router.get(
+    "/synced-events",
+    # Intentional streaming boundary: an unbounded Server-Sent Events response.
+    response_model=None,
+)
 async def synced_events() -> StreamingResponse:
     """SSE: notifies REAL-TIME changes of synced blocks to all connected
     clients (any device). The frontend subscribes to it with EventSource

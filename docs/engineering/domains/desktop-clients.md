@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - desktop/README.md
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
@@ -246,8 +248,28 @@ Alembic resources, agent instructions, dynamic translation skills, example
 plugins and citation styles. It rejects missing, changed, unreviewed or unsafe
 resources rather than recursively bundling vaults, databases, configuration,
 secrets or generated tools. The `afterPack` hook checks the actual ASAR and
-Python resources before signing. Assets belong under `desktop/assets/`;
+Python resources before signing. Its complete cold scan remains fail-closed and
+has a ten-minute process deadline so newly copied Windows bundles are not killed
+during first-access inspection. Assets belong under `desktop/assets/`;
 generated bundles belong under `desktop/dist/` and `desktop/dist-python/`.
+
+The root project declares uv `required-environments` for macOS arm64 and x64,
+Linux arm64 and Windows x64. Regenerate `uv.lock` with uv so its resolution
+markers may select different wheel-compatible dependency versions per target;
+never edit the lock manually. Every selected binary dependency must publish a
+wheel for its target before packaging starts.
+
+PyInstaller reports implicit namespace packages with source `-`. The resource
+policy accepts that sentinel only for third-party roots. An unknown namespace
+under the owned `backend`, `pipeline`, `config`, `frontend` or `extensions`
+roots still fails closed, while a dependency namespace such as `jaraco` is not
+misclassified as repository source.
+
+The packaged plugin verifier imports its immutable public trust root from
+`backend/security/plugin_trust_root.py`. Marketplace release tooling reuses that
+constant, but its private-key environment loader remains outside the desktop
+resource plan. PyInstaller analysis must fail if the marketplace signing module
+enters the runtime bundle.
 
 | Configured target | Runner architecture | Installer and update artifacts |
 | --- | --- | --- |
@@ -291,11 +313,17 @@ transaction: an I/O failure or interruption can leave partial changes. Review
 the diff against the preparation branch's recorded baseline before retrying.
 Catalog/changelog validation and review of refreshed locks remain required.
 
-`desktop/release.sh` prepares versions and local artifacts. It neither creates
-a tag nor publishes a release. Use an explicit preparation branch and keep
-unrelated changes out of it. New packaging fixes require a new reviewed tag,
-not different source published under an old tag. Add platform download links
-only once the corresponding immutable public artifacts actually exist.
+`desktop/release.sh` has explicit `prepare`, `package` and `promote` modes.
+Preparation requires a clean tree, updates only reviewed version and pending
+release metadata, renders the changelog transactionally and leaves both locks
+unchanged. Packaging requires a committed clean tree, consumes the pnpm and uv
+locks in frozen offline mode and must not mutate versions, locks, catalog or
+changelog. Prewarm dependency caches outside this immutable step. Promotion is
+a separate post-publication metadata commit: it requires the matching local tag,
+all four verified artifact groups and the exact published release URL before it
+marks the entry stable and adds its link. The tagged package therefore never
+claims an unpublished stable release. New packaging fixes require a new reviewed
+tag, not different source published under an old tag.
 
 `desktop/release-version.js` is the shared release-version boundary for the
 updater and artifact collector. It uses the SemVer implementation locked with
@@ -303,11 +331,19 @@ updater and artifact collector. It uses the SemVer implementation locked with
 whitespace, `v` prefixes and invalid or non-canonical versions. Packaging and
 update policy must not introduce a second parser.
 
-`Build Release Candidate` verifies that the requested tag exists and peels to
-the exact checked-out `github.sha`, for both tag pushes and manual dispatch.
+`Build Release Candidate` is an optional, manual-only workflow. Pushing a
+version tag never starts hosted Actions. When explicitly dispatched, it verifies
+that the requested tag exists and peels to the exact checked-out `github.sha`.
 Malformed input, missing tags, non-commit targets or mismatches stop before
 dependency installation. The identity helper uses local Git and does not move
 refs or fetch by itself. Remote tag protection remains a separate requirement.
+The zero-hosted-budget publication path builds and verifies all four platform
+groups locally and publishes only those exact artifacts; do not dispatch the
+optional hosted workflow without explicit budget approval.
+Because the repository is public, every shared CI job permits self-hosted execution
+only when a pull request's head belongs to the canonical repository. Fork pull
+requests cannot reach owner machines; a maintainer must review them and reproduce
+the change on a trusted internal branch before protected checks can run.
 The same preflight also requires the tag version to match the root, frontend,
 desktop and Python manifests before CI or any architecture build starts.
 

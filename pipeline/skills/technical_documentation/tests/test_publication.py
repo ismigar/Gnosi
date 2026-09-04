@@ -15,8 +15,18 @@ RELEASE_WORKFLOW = APP_ROOT / ".github/workflows/build-release.yml"
 SIDEBAR_SOURCE = APP_ROOT / "frontend/src/app/navigation/sidebar/appSidebarModel.ts"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
 WorkflowMapping: TypeAlias = dict[str | bool, object]
+TRUSTED_PR_IF = (
+    "github.event_name != 'pull_request' || "
+    "github.event.pull_request.head.repo.full_name == github.repository"
+)
+DOCUMENTATION_IF = (
+    "(github.event_name == 'pull_request' && "
+    "github.event.pull_request.head.repo.full_name == github.repository) || "
+    "inputs.release_candidate"
+)
 CI_COMMANDS = {
     "documentation": [
+        "python scripts/ci/prepare_python_environment.py",
         "uv sync --frozen --group docs",
         'test -n "$PR_BASE_SHA"',
         'git cat-file -e "${PR_BASE_SHA}^{commit}"',
@@ -25,6 +35,7 @@ CI_COMMANDS = {
         '--check-only --base-ref "$PR_BASE_SHA"',
     ],
     "frontend": [
+        "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm check:api-client",
@@ -38,6 +49,7 @@ CI_COMMANDS = {
         "pnpm --filter @gnosi/desktop typecheck:ipc",
     ],
     "backend": [
+        "python scripts/ci/prepare_python_environment.py",
         "uv sync --frozen",
         "uv run python scripts/check_public_pipeline.py",
         "uv run python scripts/check_public_pipeline.py --structure",
@@ -55,16 +67,19 @@ CI_COMMANDS = {
         "uv run pytest",
     ],
     "native-smoke": [
+        "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm test:e2e:install",
-        *r'''uv run uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-pnpm dev:frontend -- --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-for attempt in $(seq 1 60); do
+        *r'''uv run python -c 'import faulthandler; faulthandler.dump_traceback_later(60, repeat=True); import uvicorn; uvicorn.run("backend.server:app", host="127.0.0.1", port=5002)' > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
+backend_pid=$!
+pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
+frontend_pid=$!
+for attempt in $(seq 1 180); do
   curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
     && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
     && exit 0
-  sleep 2
+sleep 2
 done
 tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
 tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
@@ -72,10 +87,14 @@ exit 1'''.splitlines(),
         "pnpm test:e2e:smoke",
     ],
     "docker": [
+        "python3 scripts/ci/prepare_docker_runner.py",
         "docker compose config --quiet",
-        "docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .",
-        "docker build --file Dockerfile.backend --tag gnosi-backend:ci .",
+        "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend "
+        "--tag gnosi-frontend:ci --context .",
+        "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend "
+        "--tag gnosi-backend:ci --context .",
         "scripts/smoke_docker.sh",
+        "docker system prune --all --force --volumes",
     ],
 }
 
@@ -139,7 +158,7 @@ def test_ci_documentation_gate_runs_on_every_pr_and_candidate(
     assert candidate["default"] is False
     assert candidate.get("required", False) is False
     job = workflow_job(ci_workflow, "documentation")
-    assert job["if"] == "github.event_name == 'pull_request' || inputs.release_candidate"
+    assert job["if"] == DOCUMENTATION_IF
     assert "continue-on-error" not in job
     assert "needs" not in job
 
@@ -205,9 +224,12 @@ def test_ci_documentation_gate_uses_frozen_docs_and_check_only(
     assert workflow_mapping(python["with"])["python-version"] == "3.11"
     assert workflow_mapping(uv["with"])["version"] == "0.9.15"
     commands = [workflow_text(step["run"]) for step in steps if "run" in step]
-    assert len(commands) == 2
-    assert commands[0] == "uv sync --frozen --group docs"
-    assert shlex.split(commands[1].splitlines()[-1]) == [
+    assert len(commands) == 3
+    assert commands[:2] == [
+        "python scripts/ci/prepare_python_environment.py",
+        "uv sync --frozen --group docs",
+    ]
+    assert shlex.split(commands[2].splitlines()[-1]) == [
         "uv",
         "run",
         "--frozen",
@@ -233,12 +255,17 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         assert "uses" not in job
         assert "needs" not in job
         assert "continue-on-error" not in job
-        if name == "documentation":
-            assert job["if"] == "github.event_name == 'pull_request' || inputs.release_candidate"
-        else:
-            assert "if" not in job
+        assert job.get("if") == (
+            DOCUMENTATION_IF if name == "documentation" else TRUSTED_PR_IF
+        )
         steps = workflow_steps(job)
-        assert all("if" not in step and "continue-on-error" not in step for step in steps)
+        assert all("continue-on-error" not in step for step in steps)
+        conditional_steps = [step for step in steps if "if" in step]
+        if name == "docker":
+            assert conditional_steps == [steps[-1]]
+            assert steps[-1]["if"] == "always()"
+        else:
+            assert conditional_steps == []
         commands = [
             line for step in steps if "run" in step
             for line in workflow_text(step["run"]).splitlines()
@@ -287,6 +314,31 @@ def test_candidate_documentation_rejects_caller_event_shortcuts(
     ci_workflow["jobs"] = jobs
     with pytest.raises(AssertionError):
         test_ci_documentation_gate_runs_on_every_pr_and_candidate(ci_workflow)
+
+
+@pytest.mark.parametrize("name", CI_COMMANDS)
+@pytest.mark.parametrize("condition", [
+    None,
+    "github.event_name == 'pull_request'",
+    "github.event_name != 'pull_request'",
+    "github.event.pull_request.head.repo.full_name == github.repository",
+    "always()",
+])
+def test_ci_rejects_fork_guard_removal_or_weakening(
+    ci_workflow: WorkflowMapping, name: str, condition: str | None,
+) -> None:
+    """Public fork code must never reach an owner self-hosted runner."""
+    test_ci_preserves_all_five_jobs_commands_and_fatal_gates(ci_workflow)
+    job = workflow_job(ci_workflow, name)
+    if condition is None:
+        del job["if"]
+    else:
+        job["if"] = condition
+    jobs = workflow_mapping(ci_workflow["jobs"])
+    jobs[name] = job
+    ci_workflow["jobs"] = jobs
+    with pytest.raises(AssertionError):
+        test_ci_preserves_all_five_jobs_commands_and_fatal_gates(ci_workflow)
 
 
 @pytest.mark.parametrize("base", [

@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
 class PluginsUpdateRequest(BaseModel):
     # List of plugin ids the user has turned OFF. Everything else is on.
-    disabled: list[Any] = []
+    disabled: list[JsonValue] = []
     # Per-plugin configuration, keyed by plugin id. Free-form so each plugin
     # owns its own schema (e.g. daily-notes → {"source_table_id", "date_property"}).
-    settings: dict[str, Any] = {}
+    settings: dict[str, JsonValue] = {}
 
 
 class PluginLifecycleRequest(BaseModel):
@@ -30,19 +28,19 @@ class LlmWikiLifecycleRequest(PluginLifecycleRequest):
 class PluginPermissionsRequest(BaseModel):
     # List of permissions the user GRANTS to the plugin (subset of the
     # catalog). Empty = revoke all of them.
-    permissions: list[Any] = []
+    permissions: list[JsonValue] = []
 
 
 class PluginSettingsRequest(BaseModel):
     # Patch to merge with the plugin's own configuration (key `settings`).
-    settings: dict[str, Any] = {}
+    settings: dict[str, JsonValue] = {}
 
 
 class PluginNetworkFetchRequest(BaseModel):
     """Permission-gated network request from a UI plugin frame."""
 
     url: str
-    opts: dict[str, Any] = Field(default_factory=dict)
+    opts: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class VaultSummaryRequest(BaseModel):
@@ -57,7 +55,7 @@ class PluginSettingsResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    settings: dict[str, Any]
+    settings: dict[str, JsonValue]
 
 
 class ConfigurationPluginStateResponse(BaseModel):
@@ -69,9 +67,9 @@ class ConfigurationPluginStateResponse(BaseModel):
     enabled_builtin: list[str] = Field(default_factory=list)
     enabled_third_party: list[str] = Field(default_factory=list)
     disabled: list[str] = Field(default_factory=list)
-    settings: dict[str, Any] = Field(default_factory=dict)
-    granted: dict[str, Any] = Field(default_factory=dict)
-    builtins: list[dict[str, Any]] | None = None
+    settings: dict[str, JsonValue] = Field(default_factory=dict)
+    granted: dict[str, JsonValue] = Field(default_factory=dict)
+    builtins: list[dict[str, JsonValue]] | None = None
     registry_url: str | None = None
 
 
@@ -107,7 +105,7 @@ class ConfigurationInstalledPluginResponse(BaseModel):
     manifest: ConfigurationPluginManifestResponse | None = None
     enabled: bool | None = None
     granted: list[str] = Field(default_factory=list)
-    provenance: dict[str, Any] | None = None
+    provenance: dict[str, JsonValue] | None = None
 
 
 class ConfigurationInstalledPluginsResponse(BaseModel):
@@ -169,6 +167,45 @@ class VaultPluginSummaryResponse(BaseModel):
 
     summary: str
     model: str
+
+
+class PluginPermissionsMutationResponse(BaseModel):
+    """Permissions retained after one plugin grant mutation."""
+
+    id: str
+    granted: list[str]
+
+
+class PluginInstallationResponse(BaseModel):
+    """Validated manifest of a newly installed quarantined plugin."""
+
+    installed: ConfigurationPluginManifestResponse
+
+
+class PluginUninstallResponse(BaseModel):
+    """Identifier of the plugin removed from the current vault."""
+
+    uninstalled: str
+
+
+class PluginSubmissionResponse(BaseModel):
+    """Forward-compatible response from the configured moderation broker."""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: JsonValue = None
+
+
+class PluginTrustedKeyAdditionResponse(BaseModel):
+    """Name of the public signing key added to the trust store."""
+
+    added: str
+
+
+class PluginTrustedKeyRemovalResponse(BaseModel):
+    """Name of the public signing key removed from the trust store."""
+
+    removed: str
 
 
 class CatalogInstallRequest(BaseModel):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
@@ -26,36 +26,36 @@ class NoteTypeValue(Protocol):
     def __call__(
         self,
         kind: str,
-        config: dict[str, Any],
+        config: dict[str, object],
         prop: RegistryData | None = None,
-    ) -> Any: ...
+    ) -> object: ...
 
 
 @dataclass(frozen=True)
 class WritingDependencies:
     """Late-bound facade and Vault collaborators for one write operation."""
 
-    get_pages_for_table: Callable[[str], Iterable[Any]]
+    get_pages_for_table: Callable[[str], Iterable[object]]
     get_unique_filepath: Callable[[Path, str, str], Path]
     resolve_table_folder: Callable[[PageMetadata], Path | None]
     table_by_id: Callable[[str], RegistryData | None]
     parse_frontmatter: Callable[[str, Path], tuple[PageMetadata, str]]
     register_page_in_index: Callable[[Path], object]
     save_page_md: SavePage
-    load_config: Callable[[], dict[str, Any]]
+    load_config: Callable[[], dict[str, object]]
     note_type_value: NoteTypeValue
-    page_metadata: Callable[[Any], PageMetadata]
+    page_metadata: Callable[[object], PageMetadata]
     merge_page_metadata: Callable[[PageMetadata, str], PageMetadata]
     prepare_managed_markdown: Callable[[PageMetadata], PageMetadata]
-    base_note_metadata: Callable[[dict[str, Any], str, str, int | None], PageMetadata]
+    base_note_metadata: Callable[[dict[str, object], str, str, int | None], PageMetadata]
     fonts_ids: Callable[[PageMetadata], list[str]]
-    page_path: Callable[[Any], Path | None]
+    page_path: Callable[[object], Path | None]
     apply_dimensions: Callable[
-        [PageMetadata, dict[str, Any], dict[str, RegistryData]],
+        [PageMetadata, dict[str, object], dict[str, RegistryData]],
         None,
     ]
-    effective_dimensions: Callable[[Any, Any], dict[str, Any]]
-    render_citations: Callable[[Any, str, str, str], str]
+    effective_dimensions: Callable[[object, object], dict[str, object]]
+    render_citations: Callable[[object, str, str, str], str]
     replace_note_block: Callable[[str, str, str], str]
     today: Callable[[], str]
     uuid_factory: Callable[[], str]
@@ -64,9 +64,9 @@ class WritingDependencies:
 
 @dataclass
 class _ExistingNotes:
-    by_key: dict[str, Any]
-    legacy_by_position: dict[int, list[Any]]
-    managed_for_resource: list[Any]
+    by_key: dict[str, object]
+    legacy_by_position: dict[int, list[object]]
+    managed_for_resource: list[object]
 
 
 @dataclass(frozen=True)
@@ -76,8 +76,8 @@ class _WriteContext:
     source_table_id: str
     brain_table_id: str
     brain_dir: Path
-    config: dict[str, Any]
-    source_dimensions: dict[str, Any]
+    config: dict[str, object]
+    source_dimensions: dict[str, object]
     props_by_id: dict[str, RegistryData]
     role_names: dict[str, str]
     relation_name: str
@@ -86,15 +86,15 @@ class _WriteContext:
 
 
 def apply_plan(
-    plan: dict[str, Any],
+    plan: dict[str, object],
     source_page_id: str,
     source_title: str,
     brain_table_id: str,
     *,
     source_table_id: str = "",
-    source_config: dict[str, Any] | None = None,
-    config: dict[str, Any] | None = None,
-    source_dimensions: dict[str, Any] | None = None,
+    source_config: dict[str, object] | None = None,
+    config: dict[str, object] | None = None,
+    source_dimensions: dict[str, object] | None = None,
     dependencies: WritingDependencies,
 ) -> dict[str, list[str]]:
     """Apply validated reading notes idempotently using stable managed keys."""
@@ -155,7 +155,7 @@ def apply_plan(
 
 
 def _apply_note(
-    note: dict[str, Any],
+    note: dict[str, object],
     context: _WriteContext,
     active_keys: set[str],
 ) -> tuple[str, str, str] | None:
@@ -203,12 +203,12 @@ def _apply_note(
 
 
 def _build_note_metadata(
-    note: dict[str, Any],
+    note: dict[str, object],
     title: str,
     managed_key: str,
     context: _WriteContext,
 ) -> PageMetadata:
-    position = int(note.get("position") or 0)
+    position = integer_value(note.get("position") or 0)
     metadata = context.dependencies.base_note_metadata(
         note,
         context.source_title,
@@ -239,7 +239,7 @@ def _build_note_metadata(
 
 def _replace_role_metadata(
     metadata: PageMetadata,
-    note: dict[str, Any],
+    note: dict[str, object],
     position: int,
     context: _WriteContext,
 ) -> None:
@@ -265,7 +265,7 @@ def _replace_role_metadata(
 
 def _apply_role_values(
     metadata: PageMetadata,
-    note: dict[str, Any],
+    note: dict[str, object],
     position: int,
     context: _WriteContext,
 ) -> None:
@@ -279,7 +279,7 @@ def _apply_role_values(
         metadata[context.role_names["last_reviewed"]] = context.dependencies.today()
     if context.role_names.get("tags") and note.get("tags"):
         metadata[context.role_names["tags"]] = list(
-            dict.fromkeys(str(tag) for tag in note["tags"] if tag)
+            dict.fromkeys(str(tag) for tag in iterable_values(note["tags"]) if tag)
         )
 
 
@@ -309,14 +309,14 @@ def _collect_existing_notes(
 
 
 def _existing_page(
-    note: dict[str, Any],
+    note: dict[str, object],
     managed_key: str,
     existing: _ExistingNotes,
-) -> Any:
+) -> object:
     page = existing.by_key.get(managed_key)
     if page is not None:
         return page
-    position = int(note.get("position") or 0)
+    position = integer_value(note.get("position") or 0)
     candidates = existing.legacy_by_position.get(position, [])
     if len(candidates) == 1:
         existing.legacy_by_position[position] = []
@@ -325,7 +325,7 @@ def _existing_page(
 
 
 def _update_existing_page(
-    page: Any,
+    page: object,
     metadata: PageMetadata,
     managed_key: str,
     managed_body: str,
@@ -389,7 +389,7 @@ def _properties_by_id(table: RegistryData) -> dict[str, RegistryData]:
 
 
 def _role_names(
-    config: dict[str, Any],
+    config: dict[str, object],
     props_by_id: dict[str, RegistryData],
 ) -> dict[str, str]:
     return {
@@ -399,8 +399,8 @@ def _role_names(
 
 
 def _relation_name(
-    config: dict[str, Any],
-    source_config: dict[str, Any],
+    config: dict[str, object],
+    source_config: dict[str, object],
     props_by_id: dict[str, RegistryData],
 ) -> str:
     relation_prop = props_by_id.get(str(source_config.get("relation_property_id") or ""))
@@ -414,7 +414,7 @@ def _relation_name(
     return str((relation_prop or {}).get("name") or fallback)
 
 
-def _mapping(value: object) -> dict[str, Any]:
+def _mapping(value: object) -> dict[str, object]:
     return dict(value) if isinstance(value, dict) else {}
 
 

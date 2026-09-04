@@ -1,10 +1,6 @@
-import { DynamicIcon, iconNames, type IconName } from 'lucide-react/dynamic';
 import { withActiveVault } from '../../resources/fileResourcePaths';
-
-const DYNAMIC_ICON_NAMES: ReadonlySet<string> = new Set(iconNames);
-const normalizeLucideIconName = (name: string): string => name
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .toLowerCase();
+import { DeferredLucideIcon } from './DeferredLucideIcon';
+import { VaultAssetImage } from './VaultAssetImage';
 
 const normalizeVaultAssetUrl = (value: string): string => {
     if (value.startsWith('Assets/')) {
@@ -62,10 +58,23 @@ export const IconRenderer = ({ icon, size = 16, className = '', color }: IconRen
             'red': '#e03e3e'
         };
 
-        const normalizedName = normalizeLucideIconName(iconName || '');
-        if (DYNAMIC_ICON_NAMES.has(normalizedName)) {
-            return <DynamicIcon name={normalizedName as IconName} size={size} color={color || colorMap[colorName] || 'currentColor'} className={className} />;
-        }
+        const invalidFallback = (
+            <span
+                className={`flex items-center justify-center shrink-0 ${className}`}
+                style={{ fontSize: `${String(size * 0.8)}px`, width: size, height: size }}
+            >
+                {icon}
+            </span>
+        );
+        return (
+            <DeferredLucideIcon
+                name={iconName || ''}
+                size={size}
+                color={color || colorMap[colorName] || 'currentColor'}
+                className={className}
+                invalidFallback={invalidFallback}
+            />
+        );
     }
 
     // 2. Check if it's a URL or path
@@ -75,7 +84,7 @@ export const IconRenderer = ({ icon, size = 16, className = '', color }: IconRen
         const src = typeof activeVaultUrl === 'string' ? activeVaultUrl : normalizedUrl;
 
         return (
-            <img
+            <VaultAssetImage
                 src={src}
                 alt="page icon"
                 style={{ width: size, height: size, objectFit: 'cover', display: 'block' }}

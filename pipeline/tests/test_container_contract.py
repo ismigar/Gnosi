@@ -32,7 +32,8 @@ def test_default_bundle_has_no_host_bind_or_dependency_mounts() -> None:
     definitions = services()
     assert set(definitions) == {"backend", "frontend", "translation-server"}
     assert mapping(definitions["backend"])["volumes"] == [
-        "gnosi_local_data:/data", "gnosi_vaults:/vaults",
+        "gnosi_local_data:/data",
+        "gnosi_vaults:/vaults",
     ]
     for raw in definitions.values():
         service = mapping(raw)
@@ -42,7 +43,8 @@ def test_default_bundle_has_no_host_bind_or_dependency_mounts() -> None:
     assert not mapping(definitions["frontend"]).get("volumes")
     assert not mapping(definitions["translation-server"]).get("volumes")
     assert set(mapping(load("docker-compose.yml")["volumes"])) == {
-        "gnosi_local_data", "gnosi_vaults",
+        "gnosi_local_data",
+        "gnosi_vaults",
     }
 
 
@@ -71,7 +73,8 @@ def test_shared_input_precedes_local_input_and_is_not_mounted() -> None:
 
 @pytest.mark.parametrize("service,port", [("backend", "5002"), ("frontend", "5173")])
 def test_ports_are_loopback_by_default_and_do_not_block_parallel_projects(
-    service: str, port: str,
+    service: str,
+    port: str,
 ) -> None:
     config = mapping(services()[service])
     variable = f"GNOSI_{service.upper()}_PORT"
@@ -84,7 +87,9 @@ def test_host_vault_override_keeps_data_volume_and_requires_existing_explicit_pa
     mounts = override["volumes"]
     assert isinstance(mounts, list) and len(mounts) == 2
     for raw, variable, target in zip(
-        mounts, ("VAULT_HOST_PATH", "VAULTS_ROOT_HOST_PATH"), ("/vault", "/vaults"),
+        mounts,
+        ("VAULT_HOST_PATH", "VAULTS_ROOT_HOST_PATH"),
+        ("/vault", "/vaults"),
         strict=True,
     ):
         volume = mapping(raw)
@@ -100,7 +105,10 @@ def test_host_vault_override_keeps_data_volume_and_requires_existing_explicit_pa
 def test_images_use_frozen_root_locks_without_copying_arbitrary_checkout_state() -> None:
     backend = (ROOT / "Dockerfile.backend").read_text(encoding="utf-8")
     frontend = (ROOT / "Dockerfile.frontend").read_text(encoding="utf-8")
-    assert "uv export --frozen" in backend
+    assert "uv sync --frozen --no-cache --no-default-groups --no-install-workspace" in backend
+    assert "uv export" not in backend
+    assert "requirements.txt" not in backend
+    assert 'PATH="/app/.venv/bin:$PATH"' in backend
     assert "pnpm install --frozen-lockfile" in frontend
     assert "node:22.22.2-alpine" in frontend
     assert "pnpm@11.19.0" in frontend
@@ -110,12 +118,31 @@ def test_images_use_frozen_root_locks_without_copying_arbitrary_checkout_state()
     assert "ENV GNOSI_DATA_DIR=/data" in backend
 
 
-@pytest.mark.parametrize("pattern", [
-    "**/.env", "**/.env.*", "**/.env_shared", "**/.auth", "**/certs", "**/secrets",
-    "**/*.sqlite", "**/*.sqlite-*", "**/*.sqlite3", "**/*.sqlite3-*",
-    "**/*.db", "**/*.db-*", "**/.tmp", "**/node_modules", "**/.venv",
-    "pipeline/sandbox", "pipeline/private_skills", ".antigravity", ".agents", ".codex",
-])
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "**/.env",
+        "**/.env.*",
+        "**/.env_shared",
+        "**/.auth",
+        "**/certs",
+        "**/secrets",
+        "**/*.sqlite",
+        "**/*.sqlite-*",
+        "**/*.sqlite3",
+        "**/*.sqlite3-*",
+        "**/*.db",
+        "**/*.db-*",
+        "**/.tmp",
+        "**/node_modules",
+        "**/.venv",
+        "pipeline/sandbox",
+        "pipeline/private_skills",
+        ".antigravity",
+        ".agents",
+        ".codex",
+    ],
+)
 def test_sensitive_and_generated_context_exclusions_cannot_disappear(pattern: str) -> None:
     exclusions = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
     assert pattern in exclusions
@@ -123,7 +150,10 @@ def test_sensitive_and_generated_context_exclusions_cannot_disappear(pattern: st
 
 def test_default_configuration_contains_no_maintainer_layout_or_old_source_paths() -> None:
     for name in (
-        "docker-compose.yml", "compose.vaults.yml", "Dockerfile.backend", "Dockerfile.frontend",
+        "docker-compose.yml",
+        "compose.vaults.yml",
+        "Dockerfile.backend",
+        "Dockerfile.frontend",
     ):
         source = (ROOT / name).read_text(encoding="utf-8")
         for forbidden in ("OneDrive-UNED", "$HOME", "/Users/", "monorepo/", "docker.sock"):
@@ -142,7 +172,8 @@ def test_ci_smoke_starts_built_images_without_env_files_or_external_services() -
     assert "env_file" not in backend and "env_file" not in frontend
     assert mapping(backend["environment"])["GNOSI_DATA_DIR"] == "/data"
     assert backend["volumes"] == [
-        "gnosi_smoke_data:/data", "gnosi_smoke_vaults:/vaults",
+        "gnosi_smoke_data:/data",
+        "gnosi_smoke_vaults:/vaults",
     ]
     assert mapping(frontend["depends_on"])["backend"] == {
         "condition": "service_healthy",
@@ -152,8 +183,14 @@ def test_ci_smoke_starts_built_images_without_env_files_or_external_services() -
 def test_ci_runs_docker_http_and_volume_persistence_smoke_after_both_builds() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     docker_job = workflow.split("\n  docker:\n", 1)[1]
-    frontend_build = docker_job.index("docker build --file Dockerfile.frontend")
-    backend_build = docker_job.index("docker build --file Dockerfile.backend")
+    frontend_build = docker_job.index(
+        "scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend "
+        "--tag gnosi-frontend:ci --context ."
+    )
+    backend_build = docker_job.index(
+        "scripts/ci/build_container_image.py --dockerfile Dockerfile.backend "
+        "--tag gnosi-backend:ci --context ."
+    )
     smoke = docker_job.index("scripts/smoke_docker.sh")
     assert frontend_build < smoke and backend_build < smoke
     script = (ROOT / "scripts/smoke_docker.sh").read_text(encoding="utf-8")

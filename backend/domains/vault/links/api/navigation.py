@@ -15,6 +15,8 @@ from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links.index_service import LINK_INDEX_SCHEMA_VERSION
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.links.schemas import (
+    LinkIndexRebuildResponse,
+    LinkIndexStatsResponse,
     VaultBacklinkResponse,
     VaultOutlinksResponse,
 )
@@ -307,14 +309,14 @@ def register_routes(
         "/link-index/stats",
         get_link_index_stats,
         methods=["GET"],
-        response_model=None,
+        response_model=LinkIndexStatsResponse,
     )
     router.add_api_route(
         "/link-index/rebuild",
         post_link_index_rebuild,
         methods=["POST"],
         dependencies=list(admin_dependencies),
-        response_model=None,
+        response_model=LinkIndexRebuildResponse,
     )
     router.add_api_route(
         "/backlinks",

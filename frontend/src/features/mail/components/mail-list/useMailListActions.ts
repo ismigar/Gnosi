@@ -19,7 +19,7 @@ import {
   starMailMessage,
   trashMailMessage,
 } from '../../../../shared/api/mail';
-import { filterOutMailThread } from './mailListModel';
+import { filterOutMailThread, mailListMessageIdentity } from './mailListModel';
 import type {
   BatchMoveMenuState,
   MailAccount,
@@ -46,12 +46,12 @@ interface UseMailListActionsOptions {
     mailId: string,
     email: string,
     extra?: MailUndoExtra,
+    mail?: MailListMessage,
   ) => void;
   readonly purgeMessageFromCaches: (
-    messageId: string,
-    threadId?: string | null,
+    message: MailListMessage,
   ) => void;
-  readonly purgeMessagesFromCaches: (ids: readonly string[]) => void;
+  readonly purgeMessagesFromCaches: (messages: readonly MailListMessage[]) => void;
   readonly selectedIds: ReadonlySet<string>;
   readonly setLoading: Dispatch<SetStateAction<boolean>>;
   readonly setMessages: Dispatch<SetStateAction<MailListMessage[]>>;
@@ -62,12 +62,12 @@ interface UseMailListActionsOptions {
 
 interface EmailIdGroup {
   readonly email: string;
-  readonly ids: string[];
+  readonly messages: MailListMessage[];
 }
 
 
 interface ActionResult {
-  readonly ids: readonly string[];
+  readonly identities: readonly string[];
   readonly ok: boolean;
 }
 
@@ -84,17 +84,22 @@ function messageEmail(message: MailListMessage): string {
 
 function groupMessageIdsByEmail(
   messages: readonly MailListMessage[],
-  ids: readonly string[],
 ): EmailIdGroup[] {
-  const selected = new Set(ids);
   const groups: Record<string, EmailIdGroup> = {};
   messages.forEach((message) => {
-    if (!selected.has(message.id)) return;
     const email = messageEmail(message);
     if (!email) return;
-    (groups[email] ??= { email, ids: [] }).ids.push(message.id);
+    (groups[email] ??= { email, messages: [] }).messages.push(message);
   });
   return Object.values(groups);
+}
+
+
+function selectedMessages(
+  messages: readonly MailListMessage[],
+  identities: ReadonlySet<string>,
+): MailListMessage[] {
+  return messages.filter((message) => identities.has(mailListMessageIdentity(message)));
 }
 
 
@@ -155,11 +160,7 @@ export function useMailListActions({
     setMoveMenu(null);
     const email = account?.email || message.account;
     if (!email) return;
-    setMessages((current) => filterOutMailThread(
-      current,
-      message.id,
-      message.thread_id,
-    ));
+    setMessages((current) => filterOutMailThread(current, message));
     try {
       await moveMailMessage(message.id, email, {
         imap_folder: message.imap_folder,
@@ -195,40 +196,39 @@ export function useMailListActions({
   ): Promise<void> => {
     if (!batchMoveMenu || selectedIds.size === 0) return;
     setBatchMoveMenu(null);
-    const ids = [...selectedIds];
-    setMessages((current) => current.filter((message) => !selectedIds.has(message.id)));
+    const selected = selectedMessages(messages, selectedIds);
+    setMessages((current) => current.filter(
+      (message) => !selectedIds.has(mailListMessageIdentity(message)),
+    ));
     setSelectedIds(new Set());
     const groups = account?.email
-      ? [{ email: account.email, ids }]
-      : groupMessageIdsByEmail(messages, ids);
-    const messageById = new Map(messages.map((message) => [message.id, message]));
-    const removed = ids.flatMap((id) => {
-      const message = messageById.get(id);
-      return message ? [message] : [];
-    });
+      ? [{ email: account.email, messages: selected }]
+      : groupMessageIdsByEmail(selected);
     const results = await Promise.all(groups.map(async (group) => Promise.all(
-      group.ids.map(async (id) => {
-        const message = messageById.get(id);
+      group.messages.map(async (message) => {
+        const identity = mailListMessageIdentity(message);
         try {
-          await moveMailMessage(id, group.email, {
-            imap_folder: message?.imap_folder,
-            imap_uid: message?.imap_uid,
+          await moveMailMessage(message.id, group.email, {
+            imap_folder: message.imap_folder,
+            imap_uid: message.imap_uid,
             target_folder: folderName,
           });
-          return { id, ok: true };
+          return { identity, ok: true };
         } catch {
-          return { id, ok: false };
+          return { identity, ok: false };
         }
       }),
     )));
-    const failedIds = new Set(
-      results.flat().filter((result) => !result.ok).map((result) => result.id),
+    const failedIdentities = new Set(
+      results.flat().filter((result) => !result.ok).map((result) => result.identity),
     );
-    if (failedIds.size > 0) {
-      const failed = removed.filter((message) => failedIds.has(message.id));
+    if (failedIdentities.size > 0) {
+      const failed = selected.filter(
+        (message) => failedIdentities.has(mailListMessageIdentity(message)),
+      );
       setMessages((current) => [...failed, ...current]);
       toast.error(t('mail.move_batch_error', {
-        count: failedIds.size,
+        count: failedIdentities.size,
         defaultValue_one: "Couldn't move {{count}} message",
         defaultValue_other: "Couldn't move {{count}} messages",
       }));
@@ -247,32 +247,26 @@ export function useMailListActions({
     if (action === 'star') {
       const starred = !message.is_starred;
       setMessages((current) => current.map((candidate) => (
-        candidate.id === message.id ? { ...candidate, is_starred: starred } : candidate
+        mailListMessageIdentity(candidate) === mailListMessageIdentity(message)
+          ? { ...candidate, is_starred: starred }
+          : candidate
       )));
       await starMailMessage(message.id, email, starred).catch(() => undefined);
     } else if (action === 'archive') {
-      setMessages((current) => filterOutMailThread(
-        current,
-        message.id,
-        message.thread_id,
-      ));
-      purgeMessageFromCaches(message.id, message.thread_id);
+      setMessages((current) => filterOutMailThread(current, message));
+      purgeMessageFromCaches(message);
       onRecordAction?.('archive', message.id, email, {
         imap_folder: message.imap_folder,
         imap_uid: message.imap_uid,
-      });
+      }, message);
       await archiveMailMessage(message.id, email).catch(() => undefined);
     } else if (action === 'trash') {
-      setMessages((current) => filterOutMailThread(
-        current,
-        message.id,
-        message.thread_id,
-      ));
-      purgeMessageFromCaches(message.id, message.thread_id);
+      setMessages((current) => filterOutMailThread(current, message));
+      purgeMessageFromCaches(message);
       onRecordAction?.('trash', message.id, email, {
         imap_folder: message.imap_folder,
         imap_uid: message.imap_uid,
-      });
+      }, message);
       if (message.source === 'vault') {
         await deleteMailDraft(message.id).catch(() => undefined);
         onBatchDone?.();
@@ -286,68 +280,78 @@ export function useMailListActions({
     action: MailListAction,
   ): Promise<void> => {
     if (selectedIds.size === 0) return;
-    const ids = [...selectedIds];
-    const messageById = new Map(messages.map((message) => [message.id, message]));
-    const removed = ids.flatMap((id) => {
-      const message = messageById.get(id);
-      return message ? [message] : [];
-    });
+    const selected = selectedMessages(messages, selectedIds);
     if (action === 'trash' || action === 'archive') {
-      setMessages((current) => current.filter((message) => !selectedIds.has(message.id)));
-      purgeMessagesFromCaches(ids);
+      setMessages((current) => current.filter(
+        (message) => !selectedIds.has(mailListMessageIdentity(message)),
+      ));
+      purgeMessagesFromCaches(selected);
     } else if (action === 'read') {
       setMessages((current) => current.map((message) => (
-        selectedIds.has(message.id) ? { ...message, is_read: true } : message
+        selectedIds.has(mailListMessageIdentity(message))
+          ? { ...message, is_read: true }
+          : message
       )));
     }
     setSelectedIds(new Set());
 
     if (action === 'trash' || action === 'archive') {
-      const vaultIds = messages
-        .filter((message) => ids.includes(message.id) && message.source === 'vault')
-        .map((message) => message.id);
-      const imapIds = ids.filter((id) => !vaultIds.includes(id));
+      const vaultMessages = selected.filter((message) => message.source === 'vault');
+      const providerMessages = selected.filter((message) => message.source !== 'vault');
       const groups = account?.email
-        ? [{ email: account.email, ids: imapIds }]
-        : groupMessageIdsByEmail(messages, imapIds);
+        ? [{ email: account.email, messages: providerMessages }]
+        : groupMessageIdsByEmail(providerMessages);
       const results: ActionResult[] = await Promise.all([
-        ...vaultIds.map(async (id): Promise<ActionResult> => {
+        ...vaultMessages.map(async (message): Promise<ActionResult> => {
+          const identity = mailListMessageIdentity(message);
           try {
-            await deleteMailDraft(id);
-            return { ids: [id], ok: true };
+            await deleteMailDraft(message.id);
+            return { identities: [identity], ok: true };
           } catch {
-            return { ids: [id], ok: false };
+            return { identities: [identity], ok: false };
           }
         }),
-        ...groups.filter((group) => group.ids.length > 0).map(
+        ...groups.filter((group) => group.messages.length > 0).map(
           async (group): Promise<ActionResult> => {
+            const identities = group.messages.map(mailListMessageIdentity);
             try {
-              await batchMailMessages(group.email, action, group.ids);
-              return { ids: group.ids, ok: true };
+              await batchMailMessages(
+                group.email,
+                action,
+                group.messages.map((message) => message.id),
+              );
+              return { identities, ok: true };
             } catch {
-              return { ids: group.ids, ok: false };
+              return { identities, ok: false };
             }
           },
         ),
       ]);
-      const failedIds = new Set(
-        results.filter((result) => !result.ok).flatMap((result) => result.ids),
+      const failedIdentities = new Set(
+        results.filter((result) => !result.ok)
+          .flatMap((result) => result.identities),
       );
-      if (failedIds.size > 0) {
-        const failed = removed.filter((message) => failedIds.has(message.id));
+      if (failedIdentities.size > 0) {
+        const failed = selected.filter(
+          (message) => failedIdentities.has(mailListMessageIdentity(message)),
+        );
         if (failed.length) setMessages((current) => [...failed, ...current]);
         toast.error(t('mail.batch_action_error', {
-          count: failedIds.size,
+          count: failedIdentities.size,
           defaultValue: 'Could not update {{count}} message(s)',
         }));
       }
     } else {
       const groups = account?.email
-        ? [{ email: account.email, ids }]
-        : groupMessageIdsByEmail(messages, ids);
+        ? [{ email: account.email, messages: selected }]
+        : groupMessageIdsByEmail(selected);
       await Promise.all(groups.map(async (group) => {
         try {
-          await batchMailMessages(group.email, action, group.ids);
+          await batchMailMessages(
+            group.email,
+            action,
+            group.messages.map((message) => message.id),
+          );
         } catch {
           return;
         }

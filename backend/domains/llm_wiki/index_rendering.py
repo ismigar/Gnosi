@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
+from backend.utils.open_values import iterable_values
 from backend.domains.vault.registry.records import RecordReader
 
 
@@ -17,9 +18,9 @@ class UpsertManagedPage(Protocol):
         role: str,
         managed_key: str,
         content: str,
-        extra_metadata: dict[str, Any] | None = None,
-        selector: dict[str, Any] | None = None,
-    ) -> dict[str, Any]: ...
+        extra_metadata: dict[str, object] | None = None,
+        selector: dict[str, object] | None = None,
+    ) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True)
@@ -27,19 +28,19 @@ class RenderingDependencies:
     """Late-bound compatibility seams used while rendering index pages."""
 
     metadata: Callable[[object], RecordReader]
-    note_kind: Callable[[Any], str]
-    page_wikilink: Callable[[Any], str]
-    sortable_integer: Callable[[Any], int]
-    title: Callable[[Any], str]
-    table: Callable[[str], dict[str, Any] | None]
+    note_kind: Callable[[object], str]
+    page_wikilink: Callable[[object], str]
+    sortable_integer: Callable[[object], int]
+    title: Callable[[object], str]
+    table: Callable[[str], dict[str, object] | None]
     set_visible_note_type: Callable[
-        [dict[str, Any], dict[str, Any], dict[str, dict[str, Any]], str],
+        [dict[str, object], dict[str, object], dict[str, dict[str, object]], str],
         None,
     ]
     upsert_managed_page: UpsertManagedPage
-    wikilink: Callable[[Any, Any], str]
-    index_prefix: Callable[[dict[str, Any]], str]
-    system_title: Callable[[str, dict[str, Any]], str]
+    wikilink: Callable[[object, object], str]
+    index_prefix: Callable[[dict[str, object]], str]
+    system_title: Callable[[str, dict[str, object]], str]
     role_resource_index: str
     role_dimension_index: str
     role_general_index: str
@@ -49,13 +50,13 @@ def upsert_resource_index(
     brain_table_id: str,
     source_table_id: str,
     resource_id: str,
-    readings: list[Any],
-    source_config: dict[str, Any],
-    config: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
+    readings: list[object],
+    source_config: dict[str, object],
+    config: dict[str, object],
+    props_by_id: dict[str, dict[str, object]],
     *,
     dependencies: RenderingDependencies,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Render and persist one ordered resource index."""
     ordered = sorted(readings, key=lambda page: _reading_order(page, dependencies))
     resource_title = next(
@@ -97,13 +98,13 @@ def upsert_resource_index(
 
 def rebuild_dimension_indexes(
     brain_table_id: str,
-    prop: dict[str, Any],
-    readings: list[Any],
-    permanents: list[Any],
-    config: dict[str, Any],
+    prop: dict[str, object],
+    readings: list[object],
+    permanents: list[object],
+    config: dict[str, object],
     *,
     dependencies: RenderingDependencies,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     """Render one managed page for each value of a configured dimension."""
     field_name = str(prop.get("name") or prop.get("id") or "")
     field_id = str(prop.get("id") or "")
@@ -113,7 +114,7 @@ def rebuild_dimension_indexes(
         permanents,
         dependencies,
     )
-    output: list[dict[str, Any]] = []
+    output: list[dict[str, object]] = []
     ordered_groups = sorted(
         grouped.items(),
         key=lambda pair: _value_label(pair[1]["value"]).casefold(),
@@ -148,9 +149,9 @@ def rebuild_dimension_indexes(
 
 def rebuild_general_index(
     brain_table_id: str,
-    resource_pages: list[dict[str, Any]],
-    dimension_pages: list[dict[str, Any]],
-    config: dict[str, Any],
+    resource_pages: list[dict[str, object]],
+    dimension_pages: list[dict[str, object]],
+    config: dict[str, object],
     *,
     dependencies: RenderingDependencies,
 ) -> None:
@@ -190,13 +191,13 @@ def _resource_metadata(
     source_table_id: str,
     resource_id: str,
     resource_title: str,
-    readings: list[Any],
-    source_config: dict[str, Any],
-    config: dict[str, Any],
-    props_by_id: dict[str, dict[str, Any]],
+    readings: list[object],
+    source_config: dict[str, object],
+    config: dict[str, object],
+    props_by_id: dict[str, dict[str, object]],
     dependencies: RenderingDependencies,
-) -> dict[str, Any]:
-    metadata: dict[str, Any] = {
+) -> dict[str, object]:
+    metadata: dict[str, object] = {
         "llm_wiki_source_table_id": source_table_id,
         "llm_wiki_resource_id": resource_id,
         "llm_wiki_resource_title": resource_title,
@@ -232,11 +233,11 @@ def _resource_metadata(
 
 def _group_dimension_pages(
     field_name: str,
-    readings: list[Any],
-    permanents: list[Any],
+    readings: list[object],
+    permanents: list[object],
     dependencies: RenderingDependencies,
-) -> dict[str, dict[str, Any]]:
-    grouped: dict[str, dict[str, Any]] = {}
+) -> dict[str, dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
     for page in [*readings, *permanents]:
         value = dependencies.metadata(page).get(field_name)
         for raw_value in _as_values(value):
@@ -256,7 +257,7 @@ def _group_dimension_pages(
 
 
 def _dimension_content(
-    item: dict[str, Any],
+    item: dict[str, object],
     dependencies: RenderingDependencies,
 ) -> str:
     readings = item.get("readings")
@@ -264,7 +265,7 @@ def _dimension_content(
     reading_pages = readings if isinstance(readings, list) else []
     permanent_pages = permanents if isinstance(permanents, list) else []
     lines = ["## Reading notes", ""]
-    groups: dict[str, list[Any]] = {}
+    groups: dict[str, list[object]] = {}
     for page in reading_pages:
         resource = str(dependencies.metadata(page).get("llm_wiki_resource_title") or "No resource")
         groups.setdefault(resource, []).append(page)
@@ -296,7 +297,7 @@ def _dimension_content(
 
 
 def _reading_order(
-    page: Any,
+    page: object,
     dependencies: RenderingDependencies,
 ) -> tuple[int, int, str]:
     metadata = dependencies.metadata(page)
@@ -308,7 +309,7 @@ def _reading_order(
 
 
 def _dimension_reading_order(
-    page: Any,
+    page: object,
     dependencies: RenderingDependencies,
 ) -> tuple[int, int]:
     metadata = dependencies.metadata(page)
@@ -318,20 +319,22 @@ def _dimension_reading_order(
     )
 
 
-def _properties_by_id(table: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _properties_by_id(table: dict[str, object]) -> dict[str, dict[str, object]]:
     raw_properties = table.get("properties") or []
     return {
-        str(prop.get("id") or ""): dict(prop) for prop in raw_properties if isinstance(prop, dict)
+        str(prop.get("id") or ""): dict(prop)
+        for prop in iterable_values(raw_properties)
+        if isinstance(prop, dict)
     }
 
 
-def _as_values(value: Any) -> list[Any]:
+def _as_values(value: object) -> list[object]:
     if value in (None, "", [], {}):
         return []
     return value if isinstance(value, list) else [value]
 
 
-def _value_label(value: Any) -> str:
+def _value_label(value: object) -> str:
     if isinstance(value, dict):
         return str(value.get("name") or value.get("title") or value.get("id") or "")
     raw = str(value or "").strip()
@@ -340,7 +343,7 @@ def _value_label(value: Any) -> str:
     return raw
 
 
-def _value_key(value: Any) -> str:
+def _value_key(value: object) -> str:
     import hashlib
     import json
 

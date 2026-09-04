@@ -2059,6 +2059,9 @@
     "starred_title": "Favoris",
     "all_mail_title": "Tout le courrier",
     "syncing": "Synchronisation en cours...",
+    "account_temporarily_unavailable": "Ce compte est temporairement indisponible.",
+    "some_accounts_temporarily_unavailable": "Certains comptes sont temporairement indisponibles. Les autres messages sont affichés.",
+    "messages_temporarily_unavailable": "Les messages sont temporairement indisponibles.",
     "no_messages": "Aucun message",
     "today": "Aujourd'hui",
     "yesterday": "Hier",
@@ -2165,9 +2168,36 @@
     "pdf_load_error": "Impossible de charger le PDF",
     "preview_attachment": "Aperçu",
     "sent_badge": "envoyé",
+    "smart_analysis_credentials": "Les identifiants de l'analyse intelligente sont manquants ou ont été refusés. Vérifiez le fournisseur dans les paramètres.",
+    "smart_analysis_disabled": "L'analyse intelligente est désactivée. Activez un fournisseur dans les paramètres pour l'utiliser.",
     "smart_analysis_error": "Erreur lors de l'analyse intelligente",
+    "smart_analysis_internal_error": "Gnosi n'a pas pu terminer l'analyse locale. Réessayez ; si le problème persiste, consultez les journaux de l'application.",
+    "smart_analysis_invalid_response": "Le service d'analyse a renvoyé une réponse non valide. Vous pouvez réessayer.",
+    "smart_analysis_no_entities": "Aucun événement de calendrier ni contact n'a été trouvé dans ce message.",
+    "smart_analysis_not_configured": "L'analyse intelligente n'est pas configurée. Ajoutez un fournisseur d'IA dans les paramètres.",
+    "smart_analysis_temporarily_unavailable": "L'analyse intelligente est temporairement indisponible. Vous pouvez réessayer.",
+    "smart_analysis_local_results": "Analyse locale basée sur le contenu explicite du message. Vérifiez les suggestions avant de les ajouter.",
+    "smart_analysis_previous_result": "L'analyse valide précédente de ce message exact est affichée. Les éléments locaux actuels restent visibles ci-dessous.",
+    "smart_analysis_quota": "Les fournisseurs configurés ont atteint leur quota ou leur limite de requêtes. Réessayez plus tard ou choisissez un autre fournisseur.",
+    "smart_analysis_retry_online": "Essayer l'analyse en ligne",
+    "smart_analysis_timeout": "Les fournisseurs configurés n'ont pas répondu à temps. Réessayez ou choisissez un autre fournisseur.",
+    "local_analysis_summary": "Résumé extractif",
+    "local_analysis_participants": "Participants",
+    "local_analysis_attachments": "Pièces jointes",
+    "local_analysis_tasks": "Tâches explicites",
+    "local_analysis_dates": "Dates explicites",
     "smart_suggestions": "Suggestions intelligentes",
     "smart_suggestions_found": "Suggestions intelligentes trouvées",
+    "remote_image_blocked": "Image distante bloquée pour protéger votre vie privée",
+    "remote_image_blocked_detail": "Gnosi a bloqué cette source, car sa récupération n'est pas sûre.",
+    "remote_image_open_original": "Ouvrir l'original",
+    "remote_image_recovery": "Charger de manière sécurisée",
+    "remote_image_recovering": "Chargement sécurisé…",
+    "remote_image_timeout_detail": "Le serveur de l'image n'a pas répondu avant la limite de temps sécurisée.",
+    "remote_image_too_large_detail": "L'image dépasse la limite de téléchargement sécurisée.",
+    "remote_image_unavailable": "Image distante indisponible",
+    "remote_image_unavailable_detail": "La source a bloqué l'accès ou exige des données que Gnosi n'envoie pas.",
+    "remote_image_unsupported_detail": "La source n'est pas une image matricielle compatible et vérifiée.",
     "snooze_error": "Erreur lors de la définition du rappel",
     "thread_messages_count_one": "{{count}} message",
     "thread_messages_count_other": "{{count}} messages",
@@ -5789,6 +5819,30 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v3_0_0": {
+        "highlights": {
+          "canonical_architecture": "Gnosi 3.0 établit un dépôt canonique unique, avec un backend FastAPI modulaire et une interface React 19 organisée par fonctionnalités.",
+          "typed_experience": "Toute l'interface de production utilise TypeScript strict et des contrats OpenAPI déterministes au moyen d'une couche de données partagée."
+        },
+        "improvements": {
+          "portable_data": "Les répertoires de données canoniques et indépendants du fournisseur, ainsi que les migrations 2.x vérifiées, maintiennent les Vaults locaux récupérables dans les installations natives, Docker et desktop.",
+          "desktop_runtime": "Electron 43 fournit un IPC isolé, un démarrage contrôlé du backend et des paquets propres à chaque architecture pour macOS, Windows et Linux."
+        },
+        "fixes": {
+          "reproducible_toolchain": "Node 22.22.2 et les verrous pnpm et uv éliminent les graphes de dépendances dupliqués et rendent les releases locales reproductibles.",
+          "release_safety": "Les barrières de release valident l'identité du code, les clients générés, la documentation, les migrations et les installateurs séparés par architecture avant publication.",
+          "windows_cold_scan": "L'empaquetage Windows permet désormais à une vérification à froid bornée de se terminer sans affaiblir la politique de paquet fermée par défaut.",
+          "intel_numpy_abi": "Le paquet macOS Intel verrouille l'ABI NumPy compatible avec son runtime Torch."
+        }
+      },
+      "v3_0_0_rc_2": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "universal_desktop_lock": "Le graphe Python verrouillé sélectionne désormais des wheels compatibles avec toutes les architectures desktop prises en charge sur macOS, Linux et Windows.",
+          "namespace_policy": "L'empaquetage desktop accepte désormais les métadonnées des espaces de noms tiers tout en continuant à refuser les ressources Gnosi non révisées."
+        }
+      },
       "v3_0_0_rc_1": {
         "highlights": {
           "canonical_architecture": "Gnosi dispose désormais d'un dépôt canonique unique, avec un backend FastAPI modulaire et une interface React organisée par fonctionnalités.",

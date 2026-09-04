@@ -52,6 +52,7 @@ EXPECTED_MAIL_OPERATIONS = {
     ("POST", "/messages/{message_id}/star"),
     ("POST", "/messages/{message_id}/tags"),
     ("POST", "/messages/{message_id}/trash"),
+    ("POST", "/remote-images/fetch"),
     ("POST", "/send"),
     ("POST", "/sync"),
     ("POST", "/tags"),
@@ -69,7 +70,7 @@ def test_mail_facade_preserves_router_and_operation_contract() -> None:
         (method, route.path.removeprefix("/api/mail"))
         for route in routing.router.routes
         if isinstance(route, APIRoute)
-        for method in route.methods
+        for method in route.methods or set()
     }
     assert actual == EXPECTED_MAIL_OPERATIONS
 

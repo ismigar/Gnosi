@@ -151,15 +151,20 @@ class IntegrationManager:
     def _load(self) -> dict[str, Any]:
         """Return resolved integration data, migrating legacy plaintext once."""
         with self._lock:
+            secured = self._load_secured()
+            resolved = self._resolve_secret_refs(secured)
+            return dict(resolved) if isinstance(resolved, dict) else {}
+
+    def _load_secured(self) -> dict[str, Any]:
+        """Return reference-only data, migrating legacy plaintext once."""
+        with self._lock:
             persisted = self._load_persisted()
             secured, changed = self._externalize_secrets(persisted)
             if not isinstance(secured, dict):
                 raise TypeError("persisted integration configuration must remain an object")
             if changed:
                 self._write_persisted(secured)
-                persisted = secured
-            resolved = self._resolve_secret_refs(persisted)
-            return dict(resolved) if isinstance(resolved, dict) else {}
+            return secured
 
     def _write_persisted(self, data: dict[str, Any]) -> None:
         safe_write_json(self.config_file, data, indent=4)
@@ -216,7 +221,10 @@ class IntegrationManager:
 
     def get_all_safe(self) -> dict[str, Any]:
         """Returns the config without raw passwords/tokens, only showing connection status and hints."""
-        config = self._load()
+        # Mask reference-only values directly. Resolving every integration secret
+        # here made harmless Settings and calendar reads wait on the system secure
+        # store even though the caller must never receive those values.
+        config = self._load_secured()
         safe_config: dict[str, Any] = {}
         for key, value in config.items():
             if isinstance(value, list):
@@ -232,7 +240,11 @@ class IntegrationManager:
 
     def get_raw(self, key: str) -> Any:
         """Internal method to get real credentials"""
-        return self._load().get(key, {} if not key.endswith("s") else [])
+        default: dict[str, Any] | list[Any] = {} if not key.endswith("s") else []
+        secured = self._load_secured().get(key, default)
+        # Resolve only the requested integration boundary. Calendar discovery,
+        # for example, must not unlock unrelated mail, AI or cloud credentials.
+        return self._resolve_secret_refs(secured)
 
     def _merge_dict(self, old_d: dict[str, Any], new_d: dict[str, Any]) -> dict[str, Any]:
         merged = old_d.copy()

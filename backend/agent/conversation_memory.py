@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Iterable
+from typing import Iterable
 
 
-def compact_history_digest(messages: Iterable[Any], *, max_chars: int = 2_000) -> str:
+def compact_history_digest(messages: Iterable[object], *, max_chars: int = 2_000) -> str:
     """Create a safe digest of dropped turns without retaining raw transcripts."""
     rows: list[str] = []
     for message in messages:
@@ -23,6 +23,5 @@ def compact_history_digest(messages: Iterable[Any], *, max_chars: int = 2_000) -
         return ""
     return (
         "Earlier conversation memory (bounded deterministic digest; evidence may "
-        "be incomplete):\n- "
-        + "\n- ".join(rows)
-    )[:max(0, int(max_chars))]
+        "be incomplete):\n- " + "\n- ".join(rows)
+    )[: max(0, int(max_chars))]

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   dismissMeetingReminder,
@@ -28,10 +33,13 @@ export function useCalendarList(email?: string) {
 }
 
 
-export function useCalendarEvents(query: CalendarEventsQuery) {
+export function useCalendarEvents(query: CalendarEventsQuery, enabled = true) {
   return useQuery({
-    queryFn: () => fetchCalendarEvents(query),
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => fetchCalendarEvents(query, signal),
     queryKey: calendarQueryKeys.events(query),
+    staleTime: 30_000,
   });
 }
 

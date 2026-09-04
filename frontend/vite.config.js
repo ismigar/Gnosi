@@ -147,6 +147,9 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.join(rootDir, "src"),
       },
+      // Collaboration reaches Yjs through the app, BlockNote and y-protocols.
+      // Keep one constructor identity even if pnpm exposes another peer path.
+      dedupe: ["yjs"],
     },
     // App version injected into the UI (shown in the Control Center). Source
     // single source: frontend/package.json → see src/features/control-center/releases/version.ts and
@@ -164,46 +167,20 @@ export default defineConfig(({ mode }) => {
       // fixtures inside the vendored Zotero Reader and tries to resolve the
       // PDF.js build-only aliases as application dependencies.
       entries: [path.join(rootDir, "index.html")],
+      // Keep Lucide's per-icon dynamic imports visible to Vite. If esbuild
+      // prebundles this entry, opening any stored custom icon makes the dev
+      // browser request the complete icon catalogue instead of one module.
+      exclude: ["lucide-react/dynamic"],
     },
     build: {
-      // We separate large vendors into their own chunks because (1) the chunk
-      // main doesn't grow unchecked and trigger the 500 kB warning, and
-      // (2) each library is cached independently across deployments.
-      // Heavy routes are already loaded with React.lazy (see src/app/routes.tsx);
-      // these groups ensure that dependencies shared between routes
-      // (p.ex. blocknote a Vault i a MailComposer) no es dupliquin.
-      // Chunks that still exceed 500 kB (editor-vendor ~1.4 MB,
-      // tldraw-vendor ~1.1 MB) are heavy vendors loaded ONLY on demand
-      // (Vault editor / tldraw drawing), not at startup. We raise the threshold
-      // so the warning remains focused on exceptional lazy chunks. Exact entry,
-      // route and vendor growth limits are enforced by check-bundle-size.ts;
-      // the initial index has already dropped from ~7 MB to ~1.3 MB.
+      // Heavy screens are route-local dynamic chunks. Some remain intentionally
+      // large (editor and drawing), so this warning threshold stays focused on
+      // exceptional growth. check-bundle-size.ts separately enforces the whole
+      // static startup graph, including modulepreload dependencies.
       chunkSizeWarningLimit: 1500,
-      rollupOptions: {
-        output: {
-          // NOTE: we leave React (react/react-dom/router) in the main chunk on
-          // purpose. Extracting it to its own chunk created cycles
-          // (react-vendor ↔ editor-vendor) because the vendors that depend on it
-          // reference it again; the cycle would force the editor chunk into the
-          // initial load. We only isolate heavy "leaf" libraries that are ONLY
-          // reached via lazy routes, so they don't get bundled at startup.
-          manualChunks(id) {
-            if (!id.includes("node_modules")) return undefined;
-            // Rich text editor + its Mantine bridge (only used by blocknote):
-            // is the heaviest group besides mermaid and tldraw.
-            if (
-              /[\\/]node_modules[\\/](@blocknote|@tiptap|prosemirror-|@mantine)/.test(id)
-            ) {
-              return "editor-vendor";
-            }
-            if (/[\\/]node_modules[\\/]tldraw[\\/]/.test(id)) return "tldraw-vendor";
-            if (/[\\/]node_modules[\\/]@fullcalendar[\\/]/.test(id)) return "calendar-vendor";
-            if (/[\\/]node_modules[\\/](sigma|graphology)/.test(id)) return "graph-vendor";
-            if (/[\\/]node_modules[\\/](react-pdf|pdfjs-dist)[\\/]/.test(id)) return "pdf-vendor";
-            return undefined;
-          },
-        },
-      },
+      // Automatic route-local chunks avoid cycles between shared runtimes and
+      // manually grouped lazy vendors. Those cycles made heavy feature-only
+      // libraries part of the startup graph.
     },
     // `vite preview` (served build) reuses the same /api → backend proxy,
     // so visual tests against the build work without CORS.

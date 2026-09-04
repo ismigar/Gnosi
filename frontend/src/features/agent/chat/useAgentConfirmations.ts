@@ -7,16 +7,19 @@ import { confirmPendingAction, cancelPendingAction } from './confirmationActions
 import type { AgentConfirmation } from './confirmationModel';
 import { mergeLiveConfirmationRecords, type ConfirmationActionContext } from './confirmationState';
 
-type Options = Omit<ConfirmationActionContext, 't'> & { readonly scopeReady: boolean };
+type Options = Omit<ConfirmationActionContext, 't'> & {
+  readonly pollingEnabled: boolean;
+  readonly scopeReady: boolean;
+};
 
 export function useAgentConfirmations(options: Options) {
-  const { browserStorageScope, scopeReady, selectedAgentId, sessionId, activeScopeRef, setMessages } = options;
+  const { browserStorageScope, pollingEnabled, scopeReady, selectedAgentId, sessionId, activeScopeRef, setMessages } = options;
   const { t } = useTranslation();
   const confirmationTitle = useCallback((confirmation: AgentConfirmation) => t(confirmation.title_key || 'chat.confirmations.title', 'Confirm action', confirmation.details ?? {}), [t]);
   const confirmationSummary = useCallback((confirmation: AgentConfirmation) => t(confirmation.summary_key || 'chat.confirmations.summary', 'Review this action before continuing.', confirmation.details ?? {}), [t]);
 
   useEffect(() => {
-    if (!scopeReady || !selectedAgentId || !sessionId) return;
+    if (!pollingEnabled || !scopeReady || !selectedAgentId || !sessionId) return;
     const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
     const controller = new AbortController();
     let inFlight = false;
@@ -36,7 +39,7 @@ export function useAgentConfirmations(options: Options) {
     };
     const stop = startConfirmationRefresh(refresh, window.setInterval.bind(window), window.clearInterval.bind(window));
     return () => { stop(); controller.abort(); };
-  }, [activeScopeRef, browserStorageScope, confirmationSummary, scopeReady, selectedAgentId, sessionId, setMessages]);
+  }, [activeScopeRef, browserStorageScope, confirmationSummary, pollingEnabled, scopeReady, selectedAgentId, sessionId, setMessages]);
 
   return {
     confirmationTitle,

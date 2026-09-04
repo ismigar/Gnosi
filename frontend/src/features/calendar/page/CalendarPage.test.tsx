@@ -31,6 +31,18 @@ function page(): CalendarPageController { if (!current) throw new Error('Calenda
 async function run(action: () => void | Promise<void>) {
     await act(async () => { await action(); await new Promise(resolve => { setTimeout(resolve, 15); }); });
 }
+async function waitForState(assertion: () => void, timeout = 1000) {
+    const deadline = Date.now() + timeout;
+    let lastError: Error | null = null;
+    while (Date.now() < deadline) {
+        await act(async () => { await new Promise(resolve => { setTimeout(resolve, 15); }); });
+        try { assertion(); return; } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+        }
+    }
+    if (lastError) throw lastError;
+    throw new Error('Timed out waiting for calendar state');
+}
 beforeAll(() => { (globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true; });
 beforeEach(() => {
     current = null; container = document.createElement('div'); document.body.append(container); root = createRoot(container);
@@ -65,6 +77,29 @@ describe('calendar page controller', () => {
         await run(() => { page().toggleCalendar('caldav@example.test'); });
         expect(updateCalendarSelection).toHaveBeenLastCalledWith({selection: ['caldav@example.test']});
     });
+    it('inherits a saved account selection for sub-calendars discovered asynchronously', async () => {
+        vi.mocked(fetchIntegrations).mockResolvedValue({
+            vault_calendar: {enabled_tables: []},
+            calendars: [{email: 'google@example.test'}],
+            calendar_selection: ['google@example.test'],
+        });
+        vi.mocked(fetchCalendarList).mockResolvedValue({
+            authError: '',
+            items: [{id: 'work', name: 'Work', account: 'google@example.test', provider: 'google'}],
+        });
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([{
+            ...externalEvent('google'),
+            source: 'google@example.test - Work',
+            calendar_id: 'work',
+            calendar_name: 'Work',
+        }]);
+
+        await mount();
+        await run(() => { page().setDateRange({start: '2026-09-01', end: '2026-10-01'}); });
+        await waitForState(() => {
+            expect(page().selectedCalendars).toContain('google@example.test - Work');
+        });
+    });
     it('persists aliases, colors, default calendar and reminder settings', async () => {
         await mount();
         await run(async () => { await page().renameCalendar('Appointments', ' Visits '); });
@@ -81,6 +116,7 @@ describe('calendar page controller', () => {
     it('fetches external events by visible range/search and opens Google and CalDAV editing contexts', async () => {
         await mount(); await run(() => { page().setDateRange({start: '2026-09-01', end: '2026-10-01'}); });
         expect(fetchCalendarEvents).toHaveBeenCalledWith({timeMin: '2026-09-01', timeMax: '2026-10-01', search: undefined, includeVault: false}, expect.any(AbortSignal));
+        await waitForState(() => { expect(page().externalEvents).toHaveLength(2); });
         for (const provider of ['google','caldav']) {
             await run(async () => { await page().handleEventClick(provider + '-event'); });
             expect(page().eventPanel).toMatchObject({mode: 'edit', isExternal: true, data: {metadata: {_provider: provider}}});
@@ -91,9 +127,35 @@ describe('calendar page controller', () => {
         expect(fetchVaultPage).toHaveBeenCalledWith('local-event');
         expect(page().eventPanel?.mode).toBe('edit');
     });
+    it('reports external loading, preserves local data and recovers through the query retry', async () => {
+        let resolveEvents: ((events: ReturnType<typeof externalEvent>[]) => void) | undefined;
+        vi.mocked(fetchCalendarEvents).mockReturnValueOnce(new Promise((resolve) => { resolveEvents = resolve; }));
+        await mount();
+        await run(() => { page().setDateRange({start: '2026-09-01', end: '2026-10-01'}); });
+        expect(page().pages).toHaveLength(1);
+        expect(page().externalEventsLoading).toBe(true);
+        await run(() => { resolveEvents?.([externalEvent('google')]); });
+        await waitForState(() => {
+            expect(page().externalEventsLoading).toBe(false);
+            expect(page().externalEvents).toHaveLength(1);
+        });
+
+        vi.mocked(fetchCalendarEvents).mockRejectedValueOnce(new Error('offline'));
+        await run(() => { page().setSearchQuery('forces-failure'); });
+        await waitForState(() => { expect(page().externalEventsError).toBe(true); });
+        expect(page().externalEvents).toHaveLength(1);
+
+        vi.mocked(fetchCalendarEvents).mockResolvedValueOnce([externalEvent('caldav')]);
+        await run(async () => { await page().fetchExternalEvents(); });
+        await waitForState(() => {
+            expect(page().externalEventsError).toBe(false);
+            expect(page().externalEvents[0]?.metadata._provider).toBe('caldav');
+        });
+    });
     it('updates selected external attendees optimistically on RSVP', async () => {
         vi.mocked(fetchCalendarEvents).mockResolvedValue([{...externalEvent('caldav'), attendees: [{email: 'caldav@example.test', name: 'Me', self: true, organizer: false, rsvp: 'tentative'}]}]);
         await mount(); await run(() => { page().setDateRange({start: '2026-09-01', end: '2026-10-01'}); });
+        await waitForState(() => { expect(page().externalEvents).toHaveLength(1); });
         await run(async () => { await page().handleEventClick('caldav-event'); await page().handleRsvp('accepted'); });
         // The click and RSVP use the current committed panel, as UI events do.
         await run(async () => { await page().handleRsvp('accepted'); });

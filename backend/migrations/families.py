@@ -36,7 +36,7 @@ FAMILIES = {
         MigrationFamily(
             "vault",
             "vault",
-            ("vault_0001", "vault_0002", "vault_0003"),
+            ("vault_0001", "vault_0002", "vault_0003", "vault_0004"),
         ),
         MigrationFamily(
             "notebooks",
@@ -48,6 +48,11 @@ FAMILIES = {
                 "notebooks_0004",
                 "notebooks_0005",
             ),
+        ),
+        MigrationFamily(
+            "literature_index",
+            "literature_index",
+            ("literature_0001",),
         ),
         MigrationFamily(
             "action_confirmations",

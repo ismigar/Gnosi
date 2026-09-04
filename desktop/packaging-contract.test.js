@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -142,8 +143,9 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /GNOSI_PYTHON_CMD/);
   assert.match(buildScript, /requested Python command not found/);
   assert.match(buildScript, /mktemp -d .*gnosi-python-venv\.XXXXXX/);
-  assert.doesNotMatch(buildScript, /pip install/);
-  assert.doesNotMatch(buildScript, /requirements[^\s]*\.txt/);
+  assert.match(buildScript, /scripts\/probe-python-abi\.py/);
+  assert.doesNotMatch(buildScript, /(?:uv )?pip install/);
+  assert.doesNotMatch(buildScript, /uv export/);
   assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
   assert.match(buildScript, /"\$PYTHON_VENV" "\$RESOURCE_POLICY" spec/);
   assert.match(buildScript, /--repository "\$GNOSI_DIR" --output/);
@@ -151,17 +153,64 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(resourcePolicy, /excludes=\[[^\]]*['"]PIL['"]/s);
   assert.match(pyproject, /"defusedxml>=0\.7\.1"/);
+  assert.match(
+    pyproject,
+    /numpy>=1\.26\.4,<2; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
+  );
+  assert.match(
+    pyproject,
+    /transformers>=4\.41,<5; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
+  );
+  assert.match(
+    pyproject,
+    /torch==2\.2\.2; sys_platform == 'darwin' and platform_machine == 'x86_64'/,
+  );
+  assert.match(
+    pyproject,
+    /torch==2\.13\.0; sys_platform != 'darwin' or platform_machine != 'x86_64'/,
+  );
+  assert.match(
+    pyproject,
+    /torch = \[\s*\{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" \},\s*\]/,
+  );
+  assert.match(pyproject, /url = "https:\/\/download\.pytorch\.org\/whl\/cpu"/);
+  assert.match(pyproject, /explicit = true/);
+  const abiProbe = fs.readFileSync(
+    path.join(__dirname, 'scripts/probe-python-abi.py'),
+    'utf8',
+  );
+  assert.match(abiProbe, /transformers\.is_torch_available\(\)/);
+  assert.match(abiProbe, /from sentence_transformers import SentenceTransformer/);
+  assert.match(abiProbe, /torch\.__version__ != "2\.13\.0\+cpu"/);
+  assert.match(abiProbe, /name\.startswith\(\("cuda-", "nvidia-"\)\)/);
+  assert.doesNotMatch(abiProbe, /probe skipped/);
 });
 
-test('the Docker backend installs CPU-only Torch before runtime requirements', () => {
+test('the Docker backend synchronizes the universal lock in one pass', () => {
   const dockerfile = fs.readFileSync(path.join(gnosiRoot, 'Dockerfile.backend'), 'utf8');
-  const cpuTorchInstall = dockerfile.indexOf('https://download.pytorch.org/whl/cpu');
-  const runtimeInstall = dockerfile.indexOf('uv pip install --system --no-cache --requirements');
+  assert.match(dockerfile, /PATH="\/app\/\.venv\/bin:\$PATH"/);
+  assert.match(
+    dockerfile,
+    /uv sync --frozen --no-cache --no-default-groups --no-install-workspace/,
+  );
+  assert.doesNotMatch(dockerfile, /uv export|uv pip install/);
+  assert.doesNotMatch(dockerfile, /TORCH_VERSION/);
+});
 
-  assert.notEqual(cpuTorchInstall, -1);
-  assert.notEqual(runtimeInstall, -1);
-  assert.ok(cpuTorchInstall < runtimeInstall);
-  assert.match(dockerfile, /torch==\$\{TORCH_VERSION\}\+cpu/);
+test('the frozen Linux ARM64 runtime is CPU-only and fully lock-owned', () => {
+  const lock = fs.readFileSync(path.join(gnosiRoot, 'uv.lock'), 'utf8');
+  const cpuTorch = lock.match(
+    /\[\[package\]\]\nname = "torch"\nversion = "2\.13\.0\+cpu"[\s\S]*?(?=\n\[\[package\]\]|$)/,
+  )?.[0];
+
+  assert.ok(cpuTorch, 'Linux CPU Torch must be present in uv.lock');
+  assert.match(
+    cpuTorch,
+    /source = \{ registry = "https:\/\/download\.pytorch\.org\/whl\/cpu" \}/,
+  );
+  assert.match(cpuTorch, /"sys_platform == 'linux'"/);
+  assert.match(cpuTorch, /manylinux[^"\n]*aarch64\.whl/);
+  assert.doesNotMatch(lock, /^name = "(?:triton|nvidia-|cuda-)/m);
 });
 
 test('macOS Intel uses the final cryptography universal2 wheel release', () => {
@@ -182,9 +231,12 @@ test('macOS release jobs match each frozen backend to its target architecture', 
   const macConfig = builderConfig.match(/^mac:\n([\s\S]*?)^linux:/m)?.[1];
 
   assert.doesNotMatch(workflow, /^\s+runs-on: macos-latest$/m);
-  assert.match(workflow, /- arch: arm64\n\s+runner: macos-15/);
-  assert.match(workflow, /- arch: x64\n\s+runner: macos-15-intel/);
-  assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/);
+  assert.match(workflow, /- arch: arm64\n\s+runner_arch: ARM64/);
+  assert.match(workflow, /- arch: x64\n\s+runner_arch: X64/);
+  assert.match(
+    workflow,
+    /runs-on: \[self-hosted, macOS, "\$\{\{ matrix\.runner_arch \}\}"\]/,
+  );
   assert.doesNotMatch(workflow, /local_only:/);
   assert.match(workflow, /pnpm --filter @gnosi\/desktop build:mac -- --\$\{\{ matrix\.arch \}\}/);
   assert.match(workflow, /name: build-macos-\$\{\{ matrix\.arch \}\}/);
@@ -205,15 +257,29 @@ test('macOS release jobs match each frozen backend to its target architecture', 
   );
 });
 
-test('Linux and Windows releases use hosted architecture-matched runners', () => {
+test('all candidate jobs use private architecture-matched runners', () => {
   const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
   const builderConfig = fs.readFileSync(path.join(electronRoot, 'electron-builder.yml'), 'utf8');
   const linuxConfig = builderConfig.match(/^linux:\n([\s\S]*?)^win:/m)?.[1];
   const linuxJob = workflow.match(/  build-linux:\n([\s\S]*?)\n  build-windows:/)?.[1];
 
+  for (const hostedLabel of [
+    'ubuntu-latest',
+    'ubuntu-24.04-arm',
+    'macos-15',
+    'macos-15-intel',
+    'windows-2025',
+  ]) {
+    assert.doesNotMatch(workflow, new RegExp(hostedLabel.replaceAll('.', '\\.')));
+  }
   assert.ok(linuxJob, 'the release workflow must define a Linux build job');
-  assert.match(linuxJob, /runs-on: ubuntu-24\.04-arm/);
-  assert.match(workflow, /build-windows:[\s\S]*?runs-on: windows-2025/);
+  assert.match(linuxJob, /runs-on: \[self-hosted, Linux, ARM64\]/);
+  assert.match(workflow, /build-windows:[\s\S]*?runs-on: \[self-hosted, Windows, X64\]/);
+  assert.equal(
+    workflow.match(/runs-on: \[self-hosted, Linux, ARM64\]/g)?.length,
+    3,
+    'preflight, Linux packaging and collection share the private Linux runner',
+  );
   assert.match(linuxJob, /pnpm --filter @gnosi\/desktop exec electron-builder --linux --arm64 --publish never/);
   assert.doesNotMatch(linuxJob, /npm run build:linux/);
   assert.ok(linuxConfig, 'electron-builder.yml must define a Linux build block');
@@ -222,6 +288,23 @@ test('Linux and Windows releases use hosted architecture-matched runners', () =>
     /^\s+arch:/m,
     'the builder config must not force x64 around a host-native ARM64 Python backend',
   );
+});
+
+test('Linux desktop identity is safe and stable for scoped workspace packages', () => {
+  const builderConfig = fs.readFileSync(
+    path.join(electronRoot, 'electron-builder.yml'),
+    'utf8',
+  );
+  const desktopPackage = JSON.parse(
+    fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'),
+  );
+  const linuxConfig = builderConfig.match(/^linux:\n([\s\S]*?)^win:/m)?.[1];
+
+  assert.ok(linuxConfig);
+  assert.match(linuxConfig, /^  executableName: gnosi$/m);
+  assert.match(linuxConfig, /^  syncDesktopName: true$/m);
+  assert.equal(desktopPackage.desktopName, 'gnosi.desktop');
+  assert.doesNotMatch(linuxConfig, /@gnosi\/desktop/);
 });
 
 test('manual releases package the workflow commit and provision Windows Git before checkout', () => {

@@ -15,9 +15,9 @@ import type { DashboardState } from './useDashboardState';
 import type { useDataLoading } from './useDataLoading';
 import type { useNavigationHistory } from './useNavigationHistory';
 import type { useRecordCatalog } from './useRecordCatalog';
-type Context = Pick<DashboardState, 'activeLoadAbortRef' | 'setConsumedRecordReturnFocus' | 'consumedRecordReturnFocusRef' | 'globalIndex' | 'navigate' | 'nestedPath' | 'pageRequestAbortersRef' | 'pageRequestInFlightRef' | 'pages' | 'pagesRef' | 'recordReturnFocusSequenceRef' | 'setActiveTabId' | 'setActiveTableId' | 'setRecordReturnFocus' | 'setTabs' | 'setViewMode' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchPagesByTable'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId'>;
+type Context = Pick<DashboardState, 'activeLoadAbortRef' | 'setConsumedRecordReturnFocus' | 'consumedRecordReturnFocusRef' | 'globalIndex' | 'navigate' | 'nestedPath' | 'pageRequestAbortersRef' | 'pageRequestInFlightRef' | 'pages' | 'pagesRef' | 'recordReturnFocusSequenceRef' | 'setActiveTabId' | 'setActiveTableId' | 'setRecordReturnFocus' | 'setTabs' | 'setViewMode' | 't' | 'tabs'> & Pick<ReturnType<typeof useDataLoading>, 'fetchFullPages' | 'fetchPagesByTable'> & Pick<ReturnType<typeof useNavigationHistory>, 'pushToHistory'> & Pick<ReturnType<typeof useRecordCatalog>, 'resolvePageTableId'>;
 export function usePageLoading(context: Context) {
-    const { activeLoadAbortRef, consumedRecordReturnFocusRef, setConsumedRecordReturnFocus, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestAbortersRef, pageRequestInFlightRef, pagesRef, pushToHistory, recordReturnFocusSequenceRef, resolvePageTableId, setActiveTabId, setActiveTableId, setRecordReturnFocus, setTabs, setViewMode, t, tabs } = context;
+    const { activeLoadAbortRef, consumedRecordReturnFocusRef, setConsumedRecordReturnFocus, fetchFullPages, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestAbortersRef, pageRequestInFlightRef, pagesRef, pushToHistory, recordReturnFocusSequenceRef, resolvePageTableId, setActiveTabId, setActiveTableId, setRecordReturnFocus, setTabs, setViewMode, t, tabs } = context;
     const fetchPageById = useCallback(async (pageId: string, maxAbortRetries = 1, externalSignal: AbortSignal | null = null): Promise<PageResponse | null> => {
         if (!pageId)
             return null;
@@ -179,7 +179,10 @@ export function usePageLoading(context: Context) {
         const controller = new AbortController();
         activeLoadAbortRef.current = controller;
         try {
-            const res = await fetchPageById(pageId, 1, controller.signal);
+            const [res] = await Promise.all([
+                fetchPageById(pageId, 1, controller.signal),
+                fetchFullPages(),
+            ]);
             if (wasAborted(controller.signal))
                 return;
             if (!res)
@@ -225,7 +228,7 @@ export function usePageLoading(context: Context) {
                 activeLoadAbortRef.current = null;
             }
         }
-    }, [activeLoadAbortRef, fetchPageById, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestInFlightRef, pagesRef, pushToHistory, resolvePageTableId, setActiveTabId, setActiveTableId, setTabs, setViewMode, t, tabs]);
+    }, [activeLoadAbortRef, fetchFullPages, fetchPageById, fetchPagesByTable, globalIndex, navigate, nestedPath, pageRequestInFlightRef, pagesRef, pushToHistory, resolvePageTableId, setActiveTabId, setActiveTableId, setTabs, setViewMode, t, tabs]);
     const openRecordFromView = useCallback((pageId: string, tableId: string | null, viewId: string | null | undefined, openContext: OpenRecordContext | null = null) => {
         const sourceRecordId = openContext?.returnFocusId;
         if (sourceRecordId && tableId) {

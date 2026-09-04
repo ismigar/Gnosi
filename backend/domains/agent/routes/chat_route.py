@@ -223,6 +223,7 @@ def _unavailable_response(
     )
 
 
+# The endpoint's public contract is an incremental NDJSON stream, not one JSON body.
 @router.post("/chat", response_model=None)
 async def chat_endpoint(
     request: Request,

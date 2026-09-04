@@ -29,6 +29,7 @@ import time
 import pytest
 
 import backend.api.vault_routes as vr
+from backend.domains.vault.tables.contracts import DatabaseUpsertRequest
 
 
 class _FakeRegistryStore:
@@ -131,8 +132,12 @@ def test_concurrent_create_database_both_survive(store):
     db_a = {"id": "db-a", "name": "A"}
     db_b = {"id": "db-b", "name": "B"}
 
-    t1, r1 = _run_async_in_thread(lambda: vr.create_database(dict(db_a)))
-    t2, r2 = _run_async_in_thread(lambda: vr.create_database(dict(db_b)))
+    t1, r1 = _run_async_in_thread(
+        lambda: vr.create_database(DatabaseUpsertRequest.model_validate(db_a))
+    )
+    t2, r2 = _run_async_in_thread(
+        lambda: vr.create_database(DatabaseUpsertRequest.model_validate(db_b))
+    )
     t1.join(timeout=5)
     t2.join(timeout=5)
 

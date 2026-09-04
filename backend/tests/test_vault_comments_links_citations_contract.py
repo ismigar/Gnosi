@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from fastapi.routing import APIRoute
 
 from backend.api import vault_routes as legacy_vault
+from backend.domains.vault.citations import formatting as citation_formatting
 from backend.domains.vault.citations import io_api as citation_io
+from backend.domains.vault.citations import keys_api as citation_keys
+from backend.domains.vault.citations import lookup_routes as citation_lookup
 from backend.domains.vault.citations import references_api as citation_references
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations.state import citation_index_state
@@ -257,14 +260,20 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
             "delete_page_comment": comment_schemas.CommentDeleteResponse,
             "clear_reference_table": citation_references.ReferenceTableResponse,
             "create_reference_table": citation_references.ReferenceTableResponse,
+            "format_bibliography": citation_formatting.FormattedBibliographyResponse,
+            "format_citation": citation_formatting.FormattedCitationResponse,
+            "format_citations": citation_formatting.FormattedCitationsResponse,
+            "generate_citation_key_endpoint": citation_keys.CitationKeyResponse,
             "get_alias_index": link_schemas.AliasIndexResponse,
             "get_backlinks": list[link_schemas.VaultBacklinkResponse],
             "get_global_index": link_schemas.GlobalIndexResponse,
             "get_link_preview": link_preview.LinkPreviewResponse,
+            "get_link_index_stats": link_schemas.LinkIndexStatsResponse,
             "get_outlinks": link_schemas.VaultOutlinksResponse,
             "get_reference_table": citation_references.ReferenceTableResponse,
             "get_unlinked_mentions": list[link_schemas.VaultUnlinkedMentionResponse],
             "import_references": citation_io.ImportReferencesResponse,
+            "bulk_update_metadata": citation_lookup.BulkPageMutationResponse,
             "link_unlinked_mentions": link_schemas.VaultLinkMentionsResponse,
             "list_inline_comments": list[comment_schemas.InlineComment],
             "list_page_comments": comment_schemas.PageCommentThread,
@@ -272,6 +281,7 @@ def test_extracted_routes_preserve_order_contract_and_facade_identity() -> None:
             "resolve_by_citation_key": citation_search.CitationResolutionResponse,
             "search_citations": list[citation_search.CitationSearchItemResponse],
             "set_reference_table": citation_references.ReferenceTableResponse,
+            "post_link_index_rebuild": link_schemas.LinkIndexRebuildResponse,
             "update_inline_comment": comment_schemas.InlineComment,
             "update_page_comment": comment_schemas.PageComment,
             "upload_csl_style": citation_io.CslStyleResponse,
@@ -300,8 +310,7 @@ def test_editor_link_panel_response_models_preserve_payloads() -> None:
         {"id": "source-2", "title": "Related", "kind": "relation"},
     ]
     parsed_backlinks = [
-        link_schemas.VaultBacklinkResponse.model_validate(item).model_dump()
-        for item in backlinks
+        link_schemas.VaultBacklinkResponse.model_validate(item).model_dump() for item in backlinks
     ]
     assert parsed_backlinks == backlinks
 
@@ -310,10 +319,7 @@ def test_editor_link_panel_response_models_preserve_payloads() -> None:
         "relations": [{"id": "target-2", "title": "Related"}],
         "unresolved": [{"title": "Missing"}],
     }
-    assert (
-        link_schemas.VaultOutlinksResponse.model_validate(outlinks).model_dump()
-        == outlinks
-    )
+    assert link_schemas.VaultOutlinksResponse.model_validate(outlinks).model_dump() == outlinks
 
     mention = {
         "id": "source-3",
@@ -321,10 +327,7 @@ def test_editor_link_panel_response_models_preserve_payloads() -> None:
         "count": 2,
         "snippet": "A plain Target mention",
     }
-    assert (
-        link_schemas.VaultUnlinkedMentionResponse.model_validate(mention).model_dump()
-        == mention
-    )
+    assert link_schemas.VaultUnlinkedMentionResponse.model_validate(mention).model_dump() == mention
 
     linked = {
         "status": "success",
@@ -340,10 +343,7 @@ def test_editor_link_panel_response_models_preserve_payloads() -> None:
             }
         ],
     }
-    assert (
-        link_schemas.VaultLinkMentionsResponse.model_validate(linked).model_dump()
-        == linked
-    )
+    assert link_schemas.VaultLinkMentionsResponse.model_validate(linked).model_dump() == linked
 
 
 def test_extracted_domains_are_the_single_mutable_state_owners() -> None:

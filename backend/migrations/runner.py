@@ -6,7 +6,10 @@ import hashlib
 import importlib
 import json
 import os
+import shutil
 import sqlite3
+import subprocess
+import sys
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -28,6 +31,7 @@ FINGERPRINTS_PATH = Path(__file__).resolve().parent / "schema_fingerprints.json"
 VERSION_TABLE = "alembic_version"
 _READY_LOCK = threading.RLock()
 _READY_DATABASES: set[tuple[str, str, int, int]] = set()
+_MIN_BACKUP_HEADROOM_BYTES = 256 * 1024 * 1024
 
 
 class SchemaMigrationError(RuntimeError):
@@ -189,6 +193,47 @@ def _database_lock(path: Path) -> Iterator[None]:
         handle.close()
 
 
+def _try_copy_on_write_clone(source: Path, destination: Path) -> bool:
+    """Create a same-volume snapshot without allocating a second full database."""
+    if sys.platform == "darwin":
+        command_line = ["/bin/cp", "-c", str(source), str(destination)]
+    elif sys.platform.startswith("linux"):
+        cp = shutil.which("cp")
+        if cp is None:
+            return False
+        command_line = [
+            cp,
+            "--reflink=always",
+            "--sparse=always",
+            str(source),
+            str(destination),
+        ]
+    else:
+        return False
+    completed = subprocess.run(
+        command_line,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return True
+    destination.unlink(missing_ok=True)
+    return False
+
+
+def _require_full_backup_capacity(source: Path, backup_dir: Path) -> None:
+    free_bytes = shutil.disk_usage(backup_dir).free
+    required_bytes = source.stat().st_size + _MIN_BACKUP_HEADROOM_BYTES
+    if free_bytes < required_bytes:
+        raise SchemaMigrationError(
+            f"Not enough free space for a verified backup of {source.name}: "
+            f"need at least {required_bytes} bytes, found {free_bytes}. "
+            "The database was not modified."
+        )
+
+
 def _backup_database(path: Path, family: MigrationFamily, data_dir: Path) -> dict[str, Any]:
     _checkpoint(path)
     _integrity_check(path)
@@ -197,10 +242,14 @@ def _backup_database(path: Path, family: MigrationFamily, data_dir: Path) -> dic
     backup_dir = data_dir / "backups" / "schema-migrations"
     backup_dir.mkdir(parents=True, exist_ok=True)
     backup = backup_dir / f"{stamp}-{family.name}-{identity}-{path.name}"
-    with sqlite3.connect(path, timeout=30) as source:
-        with sqlite3.connect(backup) as destination:
-            source.backup(destination)
-            destination.execute("PRAGMA journal_mode=DELETE")
+    cloned = _try_copy_on_write_clone(path, backup)
+    if not cloned:
+        _require_full_backup_capacity(path, backup_dir)
+        with sqlite3.connect(path, timeout=30) as source:
+            with sqlite3.connect(backup) as destination:
+                source.backup(destination)
+    with sqlite3.connect(backup) as destination:
+        destination.execute("PRAGMA journal_mode=DELETE")
     os.chmod(backup, 0o600)
     _integrity_check(backup)
     return {

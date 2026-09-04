@@ -70,7 +70,10 @@ vers le même magasin d'état partagé par le processus.
 2. Démarrer le planificateur et la maintenance de la rétention des confirmations.
 3. Réconcilier les contributions des plugins avant de construire les capacités de l'agent.
 4. Connecter les clients MCP, découvrir les outils et compiler le graphe par défaut de l'agent.
-5. Précharger les index persistés des vaults de manière synchrone, puis les actualiser en arrière-plan lorsque la politique du fournisseur de fichiers le permet.
+5. Précharger de manière synchrone les index persistés des vaults indispensables
+   aux requêtes. Démarrer le chargement du cache global des noms de fichiers
+   CloudStorage et son parcours dans un seul worker géré en arrière-plan, avec
+   l'état `preparing`, `ready` ou `error`.
 6. Charger les caches dérivés avant qu'une sauvegarde puisse les tronquer.
 7. Démarrer les workers IMAP IDLE de chaque compte.
 

@@ -27,6 +27,8 @@ export interface LocaleRegistry {
     readonly resolveLocale: (candidate?: string | null) => string;
 }
 
+type LocaleLoader = () => Promise<unknown>;
+
 interface LocaleEntry {
     readonly code: string;
     readonly meta: LocaleMetadata;
@@ -173,17 +175,70 @@ export function buildLocaleRegistry(
     });
 }
 
-const localeModules = import.meta.glob<TranslationCatalogue>('./*/translation.json', {
-    eager: true,
-    import: 'default',
+const metadata = Object.freeze([
+    { code: 'ca', nativeName: 'Català', intlLocale: 'ca-ES', direction: 'ltr', zoteroLocale: 'ca-AD' },
+    { code: 'en', nativeName: 'English', intlLocale: 'en-US', direction: 'ltr', zoteroLocale: 'en-US' },
+    { code: 'es', nativeName: 'Español', intlLocale: 'es-ES', direction: 'ltr', zoteroLocale: 'es-ES' },
+    { code: 'fr', nativeName: 'Français', intlLocale: 'fr-FR', direction: 'ltr', zoteroLocale: 'fr-FR' },
+] satisfies readonly LocaleMetadata[]);
+
+const localeLoaders: Readonly<Record<string, LocaleLoader>> = Object.freeze({
+    ca: () => import('./ca/translation.json'),
+    en: () => import('./en/translation.json'),
+    es: () => import('./es/translation.json'),
+    fr: () => import('./fr/translation.json'),
 });
 
-const registry = buildLocaleRegistry(localeModules);
+const metadataByCode = new Map(metadata.map((entry) => [entry.code.toLowerCase(), entry]));
+const resourcePromises = new Map<string, Promise<LocaleResource>>();
 
-export const availableLocales = registry.availableLocales;
-export const localeResources = registry.localeResources;
-export const resolveLocale = registry.resolveLocale;
-export const getLocaleMeta = registry.getLocaleMeta;
+export const availableLocales: readonly LocaleMetadata[] = metadata;
+
+export function resolveLocale(candidate?: string | null): string {
+    const canonical = canonicalizeLocale(candidate);
+    if (canonical) {
+        const exact = metadataByCode.get(canonical.toLowerCase());
+        if (exact) return exact.code;
+        const base = canonical.split('-')[0] ?? canonical;
+        const baseEntry = metadataByCode.get(base.toLowerCase());
+        if (baseEntry) return baseEntry.code;
+    }
+    return FALLBACK_LOCALE;
+}
+
+export function getLocaleMeta(candidate?: string | null): LocaleMetadata {
+    const code = resolveLocale(candidate);
+    const entry = metadataByCode.get(code.toLowerCase());
+    if (!entry) throw new Error(`Resolved locale "${code}" has no metadata.`);
+    return entry;
+}
+
+export async function loadLocaleResource(candidate?: string | null): Promise<LocaleResource> {
+    const code = resolveLocale(candidate);
+    const existing = resourcePromises.get(code);
+    if (existing) return existing;
+    const loader = localeLoaders[code];
+    if (!loader) throw new Error(`Locale "${code}" has no catalogue loader.`);
+    const pending = loader().then((moduleValue) => {
+        const catalogue = readCatalogue(moduleValue);
+        const loadedMeta = validateMetadata(code, catalogue._meta);
+        const expectedMeta = getLocaleMeta(code);
+        if (loadedMeta.intlLocale !== expectedMeta.intlLocale
+            || loadedMeta.direction !== expectedMeta.direction
+            || loadedMeta.nativeName !== expectedMeta.nativeName
+            || loadedMeta.zoteroLocale !== expectedMeta.zoteroLocale) {
+            throw new Error(`Locale "${code}" metadata does not match its registry entry.`);
+        }
+        const { _meta: ignoredMeta, ...translation } = catalogue;
+        void ignoredMeta;
+        return Object.freeze({ translation });
+    }).catch((error: unknown) => {
+        resourcePromises.delete(code);
+        throw error;
+    });
+    resourcePromises.set(code, pending);
+    return pending;
+}
 
 export function getIntlLocale(locale?: string | null): string {
     return getLocaleMeta(locale).intlLocale;

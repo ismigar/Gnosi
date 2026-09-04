@@ -93,6 +93,13 @@ revisades, creen còpies verificades i apliquen migracions cap endavant. Els esq
 desconeguts o divergents provoquen una aturada sense modificacions. Les memòries
 cau derivades i les bases de dades externes no formen part d'aquestes migracions.
 
+Els fitxers `academic_index.sqlite3` acotats pertanyen a la família
+`literature_index`. Els registres OAI i `oai_sync_state` són duradors; la taula
+virtual FTS es pot reconstruir, però roman en la mateixa migració revisada perquè
+els seus identificadors de fila es mantenen sincronitzats amb els registres
+duradors. Les connexions en temps d'execució només estableixen pragmes operatius
+de SQLite i mai executen DDL d'esquema.
+
 Només es desen els hashes dels PAT i un prefix recognoscible. Els tokens de
 compartició pública són identificadors opacs; les seves files conserven el creador,
 el vault, el permís, la caducitat i l'estat de revocació.

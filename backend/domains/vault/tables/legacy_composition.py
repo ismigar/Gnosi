@@ -151,6 +151,9 @@ from backend.domains.vault.tables.routes import _schema_revision as _schema_revi
 from backend.domains.vault.tables.routes import _table_schema_signature as _table_schema_signature
 from backend.domains.vault.tables.routes import create_database as create_database
 from backend.domains.vault.tables.routes import create_table as create_table
+from backend.domains.vault.tables.routes import (
+    create_table_from_registry as create_table_from_registry,
+)
 from backend.domains.vault.tables.routes import create_view as create_view
 from backend.domains.vault.tables.routes import delete_database as delete_database
 from backend.domains.vault.tables.routes import delete_option_catalog as delete_option_catalog

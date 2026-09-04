@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-03
 source_paths:
   - backend/api/calendar_routes.py
   - backend/domains/calendar/geocoding.py
@@ -8,7 +8,6 @@ source_paths:
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
   - backend/services/hybrid_calendar_service.py
-  - backend/services/vault_calendar_sync_service.py
   - backend/services/meeting_reminders.py
   - frontend/src/features/calendar
   - frontend/src/features/meetings
@@ -56,13 +55,12 @@ comme adaptateur aux côtés du CalDAV générique. La détection CalDAV prend a
 en charge Nextcloud, iCloud, Fastmail, Radicale et les serveurs compatibles via
 des URL configurées, sans comportement lié au fournisseur de stockage.
 
-Le miroir facultatif de Google vers le vault précise les types des payloads
-de calendriers et d'événements avant toute opération sur les fichiers, exige
-un vault configuré, utilise les identifiants d'événements du fournisseur comme
-noms de fichiers stables et confine les dossiers de comptes et de calendriers
-sous `Calendar/External`. Les éléments sans identité sont ignorés ; chaque
-dossier ne supprime que les enregistrements Markdown obsolètes de la fenêtre
-bornée de synchronisation.
+La route hybride interroge directement les fournisseurs externes. L'ouverture
+du calendrier ne déclenche pas un second miroir du fournisseur vers le vault ;
+les actualisations de l'index des pages ne peuvent donc ni dupliquer ni retarder
+les lectures Google et CalDAV. Le Markdown existant sous `Calendar/External`
+reste une donnée utilisateur que cette transition ne supprime jamais, mais le
+web ne rafraîchit plus ce miroir hérité.
 
 ## Agrégation des événements
 

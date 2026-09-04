@@ -106,20 +106,29 @@ Configured targets are not evidence of successful installation or upgrade.
 
 ## Release preparation is not publication
 
-`desktop/release.sh <version>` updates root/frontend/desktop/Python versions,
-refreshes locks, builds the frontend and packages the current platform. It does
-not create a version tag or a GitHub draft. Use it only on an explicit release
-preparation branch with the corresponding catalog/notes reviewed; the version
-synchronizer itself does not validate catalog content or make an atomic transaction.
-It reads and prepares all four inputs before writing: an unreadable input or
-unsupported version field leaves every file unchanged. Only the top-level JSON
-version and the single-line quoted `[project].version` are replaced; nested
-versions, comments and line endings are preserved. An identical version is a
-no-op. Ambiguous duplicate fields are rejected. The TOML locator is not a full
-TOML validator; lock refresh still validates the Python project. An I/O failure
-or interruption during separate writes can leave partial changes. Review and
-recover from the preparation branch's recorded baseline before retrying, and
-review all changed manifests and locks before integration.
+Release work uses three explicit modes. `desktop/release.sh prepare <version>`
+requires a clean tree, synchronizes only the four reviewed version fields, marks
+the catalog entry as unpublished (`prerelease` without `downloadUrl`) and renders
+the changelog. It snapshots every owned input and restores all of them if a
+later preparation check fails. Both locks must remain byte-identical.
+
+Commit and review that preparation before running
+`desktop/release.sh package <version>`. Packaging again requires a clean tree,
+checks versions and unpublished metadata without writing them, installs only
+from the frozen pnpm lock in offline mode and propagates frozen/offline mode to
+the uv-backed platform build. Prewarm the locked pnpm/uv and Electron caches in
+a separate provisioning step; packaging fails rather than resolving or
+downloading a missing dependency. The build must leave both locks and the
+tracked source tree unchanged.
+
+The tagged source intentionally remains a release candidate. After the same
+tag and all four grouped platform artifacts have been verified and the public
+release URL actually exists, run
+`desktop/release.sh promote <version> <verified-groups> <published-url>` from
+that tagged commit. Promotion revalidates every artifact group and then changes
+only the catalog and generated changelog to `stable`, adding the exact versioned
+GitHub URL. Review and commit this post-publication metadata diff separately.
+Immutable packaging never performs that promotion, creates a tag or publishes.
 
 `release-version.js` is the shared release-version boundary for updater policy
 and artifact validation. It uses the SemVer implementation locked with
@@ -127,7 +136,9 @@ and artifact validation. It uses the SemVer implementation locked with
 whitespace, `v` prefixes and invalid or non-canonical versions. Do not add a
 second parser in packaging or update code.
 
-The current **Build Release Candidate** workflow checks tag/commit identity
+The optional **Build Release Candidate** workflow runs only after an explicit
+manual dispatch; pushing a version tag never starts hosted Actions. It checks
+tag/commit identity
 before any project install and requires the tag version to match the root,
 frontend, desktop and Python manifests. It then runs the shared CI before
 building the four target groups. Its collector verifies
@@ -145,6 +156,11 @@ not publish the candidate.
 The workflow has read-only repository permissions. It does not publish or modify
 GitHub releases or public updater channels. Candidate artifacts must not contain
 credentials or user data and are not confidential storage.
+
+The final zero-hosted-budget release path builds and verifies every platform
+artifact on the maintainer's local machines, then publishes those exact artifacts
+separately. Do not dispatch this optional hosted workflow unless its runner budget
+has been approved explicitly.
 
 Public distribution remains disabled until the complete native, Docker,
 installer and real 2.x upgrade matrix is accepted and a separate publication

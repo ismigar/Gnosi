@@ -9,6 +9,7 @@ import {
   Reply,
   ReplyAll,
   ShieldAlert,
+  Sparkles,
   Star,
   Tag,
   Trash2,
@@ -28,17 +29,20 @@ interface MailViewerToolbarProps {
 function ToolbarButton({
   children,
   className = '',
+  disabled = false,
   onClick,
   title,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
+  readonly disabled?: boolean;
   readonly onClick: () => void;
   readonly title: string;
 }) {
   return (
     <button
-      className={`p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all ${className}`}
+      className={`p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      disabled={disabled}
       onClick={onClick}
       title={title}
       type="button"
@@ -70,6 +74,16 @@ export function MailViewerToolbar({ controller }: MailViewerToolbarProps) {
           <ExternalLink size={16} />
           <span className="hidden xl:block">{t('mail.add_to_vault')}</span>
         </button>
+        <ToolbarButton
+          className="hover:text-amber-500"
+          disabled={controller.analyzing || !controller.canAnalyze}
+          onClick={controller.analyzeMessage}
+          title={controller.t('mail.smart_analysis', 'Smart analysis')}
+        >
+          {controller.analyzing
+            ? <span className="block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            : <Sparkles size={16} />}
+        </ToolbarButton>
         <div className="w-px h-5 bg-[var(--border-primary)] mx-1" />
         <ToolbarButton onClick={() => { controller.compose('reply'); }} title={t('mail.reply_title')}><Reply size={16} /></ToolbarButton>
         <ToolbarButton onClick={() => { controller.compose('reply_all'); }} title={t('mail.reply_all_title')}><ReplyAll size={16} /></ToolbarButton>

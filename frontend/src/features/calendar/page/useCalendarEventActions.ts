@@ -14,7 +14,7 @@ type CalendarMenuInput = Parameters<NonNullable<DigitalBrainCalendarProps['onCon
 export interface PageContextMenu extends CalendarMenuInput { open: boolean; instanceStart: string; allDay: boolean }
 export interface PendingModify { id: string; patchData: NonNullable<CalendarEditUpdate>; action: 'move' | 'resize'; instanceStart: string }
 
-export function useCalendarEventActions(sources: ReturnType<typeof useCalendarSources>, setShowRightSidebar: Dispatch<SetStateAction<boolean>>, dateRange: { start: string; end: string } | null, searchQuery: string) {
+export function useCalendarEventActions(sources: ReturnType<typeof useCalendarSources>, setShowRightSidebar: Dispatch<SetStateAction<boolean>>, dateRange: { start: string; end: string } | null) {
     const { t } = useTranslation();
     const { pages, externalEvents, setPages, setExternalEvents, fetchPages, fetchExternalEvents } = sources;
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -208,9 +208,9 @@ export function useCalendarEventActions(sources: ReturnType<typeof useCalendarSo
             // If no event is passed, refresh everything: Vault and also the events from
             // Google (operations on Google call onSaved() without an argument).
             void fetchPages();
-            if (dateRange) void fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
+            if (dateRange) void fetchExternalEvents();
         }
-    }, [selectedEventId, dateRange, searchQuery, fetchPages, fetchExternalEvents, setExternalEvents, setPages]);
+    }, [selectedEventId, dateRange, fetchPages, fetchExternalEvents, setExternalEvents, setPages]);
 
     // RSVP: accept/decline/maybe a Google Calendar invitation
     const handleRsvp = useCallback(async (rsvpStatus: string) => {
@@ -268,7 +268,7 @@ export function useCalendarEventActions(sources: ReturnType<typeof useCalendarSo
         const wasEditing = eventPanel?.mode === 'edit';
         setEventPanel(null); setSelectedEventId(null); setSelectedEvent(null); setIsEditingEvent(false);
         if (wasEditing && dateRange) window.setTimeout(() => {
-            void fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
+            void fetchExternalEvents();
             void fetchPages();
         }, 700);
     };

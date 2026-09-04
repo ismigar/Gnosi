@@ -8,6 +8,7 @@ The file lives at ``<vault>/.gnosi/llm_wiki.json`` so it follows the vault
 between devices.  Large derived artifacts and transient jobs do not live here;
 see :mod:`backend.services.llm_wiki_storage`.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,11 +17,11 @@ import threading
 import unicodedata
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional, TypeGuard, cast
+from typing import Callable, Iterable, Optional, TypeGuard, cast
 
 from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
-from backend.utils.open_values import get_value, item_value, iterable_values
+from backend.utils.open_values import get_value, integer_value, item_value, iterable_values
 
 Config = dict[str, object]
 
@@ -89,7 +90,7 @@ def config_path() -> Path:
     return Path(get_p("GNOSI_CONFIG")) / CONFIG_FILENAME
 
 
-def _norm(value: Any) -> str:
+def _norm(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
 
 
@@ -101,7 +102,7 @@ def _property_type(prop: RecordReader) -> str:
     return str(prop.get("type") or "").strip().lower()
 
 
-def _semantic_token(value: Any) -> str:
+def _semantic_token(value: object) -> str:
     ascii_text = "".join(
         char
         for char in unicodedata.normalize("NFKD", str(value or "").casefold())
@@ -147,7 +148,7 @@ def note_type_value(
     return labels[semantic_kind]
 
 
-def note_type_kind(value: Any) -> str:
+def note_type_kind(value: object) -> str:
     """Return the canonical semantic kind represented by a stored label."""
     token = _semantic_token(value)
     if any(marker in token for marker in ("reading", "lectura", "lecture")):
@@ -175,18 +176,16 @@ def metadata_note_type(metadata: object) -> str:
     return ""
 
 
-def _revision(value: Any) -> int:
+def _revision(value: object) -> int:
     try:
-        return max(0, int(value or 0))
+        return max(0, integer_value(value or 0))
     except (TypeError, ValueError):
         return 0
 
 
 def _properties(table: RecordReader | None) -> list[RegistryData]:
     return [
-        prop
-        for prop in iterable_values((table or {}).get("properties") or [])
-        if is_record(prop)
+        prop for prop in iterable_values((table or {}).get("properties") or []) if is_record(prop)
     ]
 
 
@@ -201,7 +200,7 @@ def _legacy_reference_table_id() -> str:
         return ""
 
 
-def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, Any]:
+def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, object]:
     return {
         "table_id": table_id,
         "title_property_id": "",
@@ -214,7 +213,7 @@ def _empty_source(table_id: str, *, include_body: bool = False) -> dict[str, Any
     }
 
 
-def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
+def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
     """Normalize a v1/v2 payload without touching disk.
 
     A v1 ``target_table`` becomes ``brain_table_id``.  When v1 had a
@@ -222,7 +221,7 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
     """
     data = raw if isinstance(raw, dict) else {}
     brain_id = str(data.get("brain_table_id") or data.get("target_table") or "").strip()
-    sources: list[dict[str, Any]] = []
+    sources: list[dict[str, object]] = []
     seen: set[str] = set()
     raw_sources = data.get("source_tables")
     for item in raw_sources if isinstance(raw_sources, list) else []:
@@ -234,15 +233,17 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
         if not table_id or table_id in seen:
             continue
         normalized = _empty_source(table_id)
-        normalized.update({
-            "title_property_id": str(item.get("title_property_id") or "").strip(),
-            "attachment_property_ids": _unique_strings(item.get("attachment_property_ids")),
-            "url_property_ids": _unique_strings(item.get("url_property_ids")),
-            "language_property_id": str(item.get("language_property_id") or "").strip(),
-            "include_body": bool(item.get("include_body", False)),
-            "relation_property_id": str(item.get("relation_property_id") or "").strip(),
-            "dimension_mappings": _normalize_dimension_mappings(item.get("dimension_mappings")),
-        })
+        normalized.update(
+            {
+                "title_property_id": str(item.get("title_property_id") or "").strip(),
+                "attachment_property_ids": _unique_strings(item.get("attachment_property_ids")),
+                "url_property_ids": _unique_strings(item.get("url_property_ids")),
+                "language_property_id": str(item.get("language_property_id") or "").strip(),
+                "include_body": bool(item.get("include_body", False)),
+                "relation_property_id": str(item.get("relation_property_id") or "").strip(),
+                "dimension_mappings": _normalize_dimension_mappings(item.get("dimension_mappings")),
+            }
+        )
         sources.append(normalized)
         seen.add(table_id)
 
@@ -276,13 +277,13 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> Config:
     }
 
 
-def _unique_strings(value: Any) -> list[str]:
+def _unique_strings(value: object) -> list[str]:
     values = value if isinstance(value, list) else ([] if value in (None, "") else [value])
     return list(dict.fromkeys(str(item).strip() for item in values if str(item).strip()))
 
 
-def _normalize_dimension_mappings(value: Any) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
+def _normalize_dimension_mappings(value: object) -> dict[str, dict[str, object]]:
+    out: dict[str, dict[str, object]] = {}
     if not isinstance(value, dict):
         return out
     for brain_field_id, mapping in value.items():
@@ -380,7 +381,7 @@ def auto_detect_source(
     brain_table: RecordReader | None = None,
     index_field_ids: Optional[Iterable[str]] = None,
     current: RecordReader | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Fill missing source roles from property types and semantic names.
 
     Explicit current choices always win.  Missing dimension mappings use a
@@ -400,25 +401,30 @@ def auto_detect_source(
     if result["title_property_id"] not in by_id:
         title = next((p for p in props if _property_type(p) == "title"), None)
         if title is None:
-            title = next((p for p in props if _norm(p.get("name")) in {"title", "titol", "nom", "name"}), None)
+            title = next(
+                (p for p in props if _norm(p.get("name")) in {"title", "titol", "nom", "name"}),
+                None,
+            )
         result["title_property_id"] = _property_id(title or {})
 
-    valid_files = set(result["attachment_property_ids"]) & set(by_id)
+    valid_files = set(iterable_values(result["attachment_property_ids"])) & set(by_id)
     if not valid_files:
         valid_files = {
             _property_id(prop)
             for prop in props
             if _property_type(prop) in FILE_TYPES
-            or _norm(prop.get("name")) in {"files", "fitxers", "arxius", "arxiusadjunt", "adjunts", "attachments"}
+            or _norm(prop.get("name"))
+            in {"files", "fitxers", "arxius", "arxiusadjunt", "adjunts", "attachments"}
         }
     result["attachment_property_ids"] = [pid for pid in by_id if pid in valid_files]
 
-    valid_urls = set(result["url_property_ids"]) & set(by_id)
+    valid_urls = set(iterable_values(result["url_property_ids"])) & set(by_id)
     if not valid_urls:
         valid_urls = {
             _property_id(prop)
             for prop in props
-            if _property_type(prop) in URL_TYPES or _norm(prop.get("name")) in {"url", "enllac", "link"}
+            if _property_type(prop) in URL_TYPES
+            or _norm(prop.get("name")) in {"url", "enllac", "link"}
         }
     result["url_property_ids"] = [pid for pid in by_id if pid in valid_urls]
 
@@ -430,9 +436,7 @@ def auto_detect_source(
         result["language_property_id"] = _property_id(lang or {})
 
     brain_props = {
-        _property_id(prop): prop
-        for prop in _properties(brain_table)
-        if _property_id(prop)
+        _property_id(prop): prop for prop in _properties(brain_table) if _property_id(prop)
     }
     source_by_name = {_norm(prop.get("name")): prop for prop in props}
     mappings = _normalize_dimension_mappings(result.get("dimension_mappings"))
@@ -442,8 +446,7 @@ def auto_detect_source(
             continue
         existing = mappings.get(brain_field_id)
         if existing and (
-            existing["mode"] != "source"
-            or existing.get("source_property_id") in by_id
+            existing["mode"] != "source" or existing.get("source_property_id") in by_id
         ):
             continue
         source_prop = source_by_name.get(_norm(brain_prop.get("name")))

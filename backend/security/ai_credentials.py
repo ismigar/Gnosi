@@ -1,4 +1,6 @@
 import os
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
 
 # Single source of truth for which providers run without an API key.
@@ -133,7 +135,10 @@ def env_keys_for_provider(provider_id: str) -> List[str]:
     return keys
 
 
-def normalize_credential_ref(provider_id: str, provider_cfg: Dict[str, Any]) -> Optional[str]:
+def normalize_credential_ref(
+    provider_id: str,
+    provider_cfg: Mapping[str, object],
+) -> Optional[str]:
     ref = (provider_cfg or {}).get("credential_ref")
     if isinstance(ref, str) and ref.strip():
         return ref.strip()
@@ -144,7 +149,8 @@ def normalize_credential_ref(provider_id: str, provider_cfg: Dict[str, Any]) -> 
 
 
 def resolve_provider_api_key(
-    provider_id: str, provider_cfg: Optional[Dict[str, Any]]
+    provider_id: str,
+    provider_cfg: Mapping[str, object] | None,
 ) -> Optional[str]:
     cfg = provider_cfg or {}
     inline_key = cfg.get("api_key")
@@ -183,7 +189,10 @@ def set_provider_api_key(provider_id: str, api_key: str) -> Tuple[bool, Optional
     return True, f"__keychain__:{key}"
 
 
-def has_provider_api_key(provider_id: str, provider_cfg: Optional[Dict[str, Any]]) -> bool:
+def has_provider_api_key(
+    provider_id: str,
+    provider_cfg: Mapping[str, object] | None,
+) -> bool:
     return bool(resolve_provider_api_key(provider_id, provider_cfg))
 
 
@@ -200,6 +209,36 @@ def sanitize_ai_config(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
         cfg["enabled"] = cfg.get("enabled", True)
         sanitized_providers[provider_id] = cfg
 
+    sanitized["providers"] = sanitized_providers
+    return sanitized
+
+
+def sanitize_ai_config_concurrently(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize providers while resolving independent credential flags in parallel.
+
+    System credential stores are blocking APIs. A Settings response must retain
+    the exact ``has_api_key`` semantics, but it need not wait for each provider
+    serially.
+    """
+    sanitized = dict(ai_cfg or {})
+    providers = dict(sanitized.get("providers") or {})
+
+    def sanitize_provider(item: Tuple[str, Any]) -> Tuple[str, Dict[str, Any]]:
+        provider_id, provider_cfg = item
+        cfg = dict(provider_cfg or {})
+        cfg.pop("api_key", None)
+        cfg["credential_ref"] = normalize_credential_ref(provider_id, cfg)
+        cfg["has_api_key"] = has_provider_api_key(provider_id, provider_cfg)
+        cfg["enabled"] = cfg.get("enabled", True)
+        return provider_id, cfg
+
+    items = list(providers.items())
+    if len(items) < 2:
+        sanitized_providers = dict(map(sanitize_provider, items))
+    else:
+        workers = min(8, len(items))
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="config-keychain") as pool:
+            sanitized_providers = dict(pool.map(sanitize_provider, items))
     sanitized["providers"] = sanitized_providers
     return sanitized
 

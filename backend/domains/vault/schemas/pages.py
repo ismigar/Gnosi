@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field, GetPydanticSchema
+from pydantic import BaseModel, ConfigDict, Field, GetPydanticSchema, JsonValue
 
 
 # Index construction and assignment retain open YAML keys. Validated HTTP
@@ -71,6 +71,20 @@ class BulkPreviewWarmResponse(BaseModel):
     failed: int
 
 
+class PageIndexerStatusResponse(BaseModel):
+    """Current index warmup state with forward-compatible diagnostic fields."""
+
+    model_config = ConfigDict(extra="allow")
+
+    __pydantic_extra__: dict[str, JsonValue] = Field(init=False)
+    state: str
+    started_at: float | None = None
+    finished_at: float | None = None
+    files_indexed: int = 0
+    error: str | None = None
+    cached_entries: int | None = None
+
+
 class PageMutationResponse(BaseModel):
     """Canonical page document returned after create, save or patch."""
 
@@ -119,6 +133,19 @@ class SidebarPageInfo(BaseModel):
     resolved_table_id: Optional[str] = None
 
 
+class SidebarTreePageInfo(BaseModel):
+    """Sparse, opt-in wire model for the initial Knowledge navigation tree."""
+
+    id: str
+    title: str
+    last_modified: str
+    parent_id: Optional[str] = None
+    is_database: Optional[bool] = None
+    metadata: Optional[IndexedPageMetadata] = None
+    folder: Optional[str] = None
+    resolved_table_id: Optional[str] = None
+
+
 class TablePagesSnapshot(BaseModel):
     table_id: str
     raw_count: int
@@ -137,6 +164,21 @@ class BulkApplyTemplateRequest(BaseModel):
     page_ids: list[str]
     template_id: str
     expected_etags: dict[str, str] = Field(default_factory=dict)
+
+
+class BulkMetadataUpdateRequest(BaseModel):
+    """Historically loose metadata patch command with ignored extensions."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    page_ids: JsonValue | None = None
+    updates: JsonValue | None = None
+    remove: JsonValue | None = None
+    expected_etags: JsonValue | None = None
+
+    def payload(self) -> dict[str, object]:
+        """Restore the field-by-field dictionary consumed by the 2.x handler."""
+        return {key: value for key, value in self.model_dump(exclude_unset=True).items()}
 
 
 class BulkMutationEtagResponse(BaseModel):
@@ -170,11 +212,13 @@ class _BulkWarmPayload(BaseModel):
 
 __all__ = [
     "BulkApplyTemplateRequest",
+    "BulkMetadataUpdateRequest",
     "BulkMutationConflictResponse",
     "BulkMutationErrorResponse",
     "BulkMutationEtagResponse",
     "BulkPageMutationResponse",
     "PageInfo",
+    "PageIndexerStatusResponse",
     "PageDuplicateResponse",
     "PageDetailResponse",
     "PagePreviewResponse",

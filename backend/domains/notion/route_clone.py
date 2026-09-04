@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Callable, Dict, List, Optional, Protocol
 import uuid
 
 import yaml
@@ -13,7 +13,16 @@ import yaml
 from backend.domains.notion.clone_runtime import CloneRestClient
 from backend.services.notion_attachments import download_file, download_to
 
-JsonMap = Dict[str, Any]
+JsonMap = Dict[str, object]
+
+
+def _map_list(value: object) -> List[JsonMap]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _report_messages(report: JsonMap) -> List[object]:
+    value = report.get("warnings")
+    return value if isinstance(value, list) else []
 
 
 class VaultRoutesPort(Protocol):
@@ -91,7 +100,8 @@ class RouteCloneContext:
 
     @staticmethod
     def _ensure_database(registry: JsonMap) -> None:
-        databases = registry.setdefault("databases", [])
+        databases = _map_list(registry.setdefault("databases", []))
+        registry["databases"] = databases
         entry = next(
             (
                 item
@@ -128,7 +138,7 @@ class RouteCloneContext:
                 "properties list; keeping the %d existing propert(ies).",
                 existing.get("name"),
                 table.get("id"),
-                len(existing["properties"]),
+                len(existing["properties"] if isinstance(existing["properties"], list) else []),
             )
             table["properties"] = existing["properties"]
         previous_revision = self.dependencies.vault_routes._schema_revision(
@@ -150,7 +160,7 @@ class RouteCloneContext:
         with self.dependencies.vault_routes.registry_mutation():
             registry = self.dependencies.vault_routes.load_registry()
             raw_tables = registry.setdefault("tables", [])
-            tables = raw_tables if isinstance(raw_tables, list) else []
+            tables = _map_list(raw_tables)
             registry["tables"] = tables
             registry.setdefault("views", [])
             self._ensure_database(registry)
@@ -165,7 +175,7 @@ class RouteCloneContext:
         with self.dependencies.vault_routes.registry_mutation():
             registry = self.dependencies.vault_routes.load_registry()
             raw_views = registry.setdefault("views", [])
-            views = raw_views if isinstance(raw_views, list) else []
+            views = _map_list(raw_views)
             registry["views"] = views
             index = next(
                 (
@@ -202,7 +212,8 @@ class RouteCloneContext:
         return path
 
     def write_page(self, page: JsonMap) -> None:
-        metadata = dict(page.get("metadata") or {})
+        metadata_value = page.get("metadata")
+        metadata = dict(metadata_value) if isinstance(metadata_value, dict) else {}
         metadata["title"] = page.get("title") or "Untitled"
         metadata["id"] = page.get("id") or str(uuid.uuid4())
         metadata = {key: value for key, value in metadata.items() if value is not None}
@@ -218,7 +229,7 @@ class RouteCloneContext:
         self.dependencies.vault_routes.register_page_in_index(path)
 
     def save_asset(self, url: str, prop: Optional[str], table: JsonMap) -> Optional[str]:
-        properties = table.get("properties") or []
+        properties = _map_list(table.get("properties"))
         prop_dict = (
             next(
                 (
@@ -273,17 +284,22 @@ class RouteCloneContext:
                 self.dependencies.vault_routes._move_page_to_trash(page_id, path)
                 self.dependencies.vault_routes.remove_from_link_index(page_id)
                 self.dependencies.vault_routes._remove_page_from_index_cache(page_id, path)
-                report["orphan_rows_pruned"] += 1
+                pruned = report.get("orphan_rows_pruned")
+                report["orphan_rows_pruned"] = (pruned if isinstance(pruned, int) else 0) + 1
                 return
             except Exception as exc:  # noqa: BLE001
-                report["warnings"].append(
+                warnings = _report_messages(report)
+                warnings.append(
                     f"Could not move orphan row «{path.relative_to(self.vault)}» "
                     f"(id {page_id}) to trash: {exc}"
                 )
-        report["warnings"].append(
+                report["warnings"] = warnings
+        warnings = _report_messages(report)
+        warnings.append(
             f"Orphan row (id no longer exists in Notion): «{path.relative_to(self.vault)}» "
             f"(id {metadata.get('id')}). It was not deleted automatically."
         )
+        report["warnings"] = warnings
 
     def process_orphans(self, report: JsonMap, prune: bool, cancelled: bool) -> None:
         report["orphan_rows_pruned"] = 0

@@ -3,7 +3,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
-const { verifyPackagedBackendResources, getResourcesDirectory } = require('./scripts/packaging-contract.cjs');
+const {
+  BACKEND_RESOURCE_VERIFY_TIMEOUT_MS,
+  verifyPackagedBackendResources,
+  getResourcesDirectory,
+} = require('./scripts/packaging-contract.cjs');
 
 for (const platform of ['darwin', 'linux', 'win32']) {
   const context = { electronPlatformName: platform, appOutDir: '/fixture/path with spaces $literal',
@@ -19,7 +23,8 @@ for (const platform of ['darwin', 'linux', 'win32']) {
       '--repository', path.dirname(__dirname), '--bundle', path.join(getResourcesDirectory(context), 'python')]);
     assert.equal(options.shell, undefined);
     assert.equal(options.cwd, path.dirname(__dirname));
-    assert.equal(options.timeout, 120000);
+    assert.equal(options.timeout, 10 * 60 * 1000);
+    assert.equal(options.timeout, BACKEND_RESOURCE_VERIFY_TIMEOUT_MS);
     const failure = new Error('Synthetic prohibited resource');
     assert.throws(() => verifyPackagedBackendResources(context, () => { throw failure; }), error => error === failure);
   });
@@ -55,3 +60,24 @@ for (const platform of ['darwin', 'linux', 'win32']) {
     });
   }
 }
+
+test('packaging uses the explicitly locked Python interpreter for a cold resource scan', () => {
+  const previous = process.env.GNOSI_PYTHON_CMD;
+  const managedPython = 'C:\\GnosiBuild\\toolchain\\python-managed\\python.exe';
+  process.env.GNOSI_PYTHON_CMD = managedPython;
+  try {
+    const calls = [];
+    const context = {
+      electronPlatformName: 'win32',
+      appOutDir: 'C:\\fixture\\win-unpacked',
+      packager: { appInfo: { productFilename: 'Gnosi' } },
+    };
+    verifyPackagedBackendResources(context, (...args) => calls.push(args));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], managedPython);
+    assert.equal(calls[0][2].timeout, 10 * 60 * 1000);
+  } finally {
+    if (previous === undefined) delete process.env.GNOSI_PYTHON_CMD;
+    else process.env.GNOSI_PYTHON_CMD = previous;
+  }
+});

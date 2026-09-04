@@ -221,6 +221,7 @@ def _parse_message(msg: dict[str, Any], account_email: str) -> dict[str, Any]:
     return {
         "id": msg["id"],
         "thread_id": msg.get("conversationId", msg["id"]),
+        "internet_message_id": msg.get("internetMessageId"),
         "subject": msg.get("subject") or "(sense assumpte)",
         "sender": sender,
         "recipient": _addrs("toRecipients"),

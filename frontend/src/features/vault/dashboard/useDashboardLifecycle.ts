@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { subscribeDocumentEvent, subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import { writeStorage } from '../../../shared/platform/browser-storage';
 import { getTableIdFromTab } from './tab-model';
@@ -6,11 +6,17 @@ import { EDIT_LOCKS } from './storage';
 import type { DashboardActions } from './useDashboardActions';
 export function useDashboardLifecycle(context: DashboardActions) {
     const { nestedPath, registry, activeTableId, visibleTableRecordsById, pages, loading, isRegistryLoading, activeTabId, viewMode, editLockedByPageId, activeLoadAbortRef, pageRequestAbortersRef, fetchPagesRetryTimerRef } = context;
+    const initializedRef = useRef(false);
+    const synchronizedPathRef = useRef<string | undefined>(undefined);
     const initialize = useEffectEvent(() => {
         void context.fetchPages();
         void context.fetchRegistry();
     });
-    useEffect(() => { initialize(); }, []);
+    useEffect(() => {
+        if (initializedRef.current) return;
+        initializedRef.current = true;
+        initialize();
+    }, []);
     useEffect(() => { writeStorage(EDIT_LOCKS, editLockedByPageId); }, [editLockedByPageId]);
     const cancelRetry = useEffectEvent(() => {
         if (fetchPagesRetryTimerRef.current)
@@ -74,7 +80,15 @@ export function useDashboardLifecycle(context: DashboardActions) {
             }
         }
     });
-    useEffect(() => { synchronizeRoute(); }, [nestedPath, registry.tables]);
+    useEffect(() => {
+        const pathChanged = synchronizedPathRef.current !== nestedPath;
+        synchronizedPathRef.current = nestedPath;
+        // Registry hydration must retry direct table/view routes, but it must
+        // not reset a special root view the user selected while bootstrapping.
+        if (!nestedPath && !pathChanged)
+            return;
+        synchronizeRoute();
+    }, [nestedPath, registry.tables]);
     const refreshActiveTable = useEffectEvent(() => {
         if (activeTableId)
             void context.fetchPagesByTable(activeTableId);

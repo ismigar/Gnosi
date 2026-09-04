@@ -435,11 +435,29 @@ def _update_patch_caches(
     )
 
 
+async def _prepare_patch_page_read(page_id: str) -> None:
+    """Schedule cloud hydration before a PATCH attempts to read the page."""
+    file_path = await asyncio.to_thread(_legacy._find_page_path_for_write, page_id)
+    if file_path is None:
+        return
+    provider = _legacy.get_files_provider()
+    try:
+        stat_result = await asyncio.to_thread(file_path.stat)
+    except FileNotFoundError:
+        return
+    except OSError:
+        provider.schedule_warmup(file_path)
+        return
+    if await asyncio.to_thread(provider.is_online_only, file_path, stat_result):
+        provider.schedule_warmup(file_path)
+
+
 _PATCH_PAGE_DEPENDENCIES = _legacy.page_patch_service.PatchPageDependencies(
     find_and_read=lambda page_id, expected_etag, force: _legacy._find_and_read_patch_page(
         page_id, expected_etag, force
     ),
     get_page_write_lock=lambda page_id: _legacy._get_page_write_lock(page_id),
+    prepare_read=_prepare_patch_page_read,
     prepare_metadata=lambda metadata, path: _legacy._prepare_patch_metadata(metadata, path),
     relocate_file=lambda page_id, path, metadata, title: _legacy._relocate_patch_file(
         page_id, path, metadata, title

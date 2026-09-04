@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -121,6 +122,11 @@ def test_search_merges_index_before_host_results(
     monkeypatch.setattr(vault_file_index, "is_ready", lambda: True)
     monkeypatch.setattr(
         vault_file_index,
+        "kickoff_file_index_rebuild",
+        lambda: pytest.fail("a ready index must not start another worker"),
+    )
+    monkeypatch.setattr(
+        vault_file_index,
         "query",
         lambda *_args: [
             {"name": "index", "path": "/index", "is_dir": False},
@@ -140,4 +146,43 @@ def test_search_merges_index_before_host_results(
         ],
         "truncated": False,
         "engine": "index+spotlight",
+    }
+
+
+def test_search_starts_provider_index_lazily_without_waiting_for_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    helper_payload: dict[str, Any] = {
+        "results": [{"name": "host", "path": "/host", "is_dir": False}],
+        "truncated": False,
+    }
+    monkeypatch.setattr(
+        system_routes,
+        "_search_via_host_helper",
+        lambda *_args, **_kwargs: helper_payload,
+    )
+
+    from backend.services import vault_file_index
+
+    ready_checks = iter((False, False))
+    started: list[float] = []
+    monkeypatch.setattr(vault_file_index, "is_ready", lambda: next(ready_checks))
+    monkeypatch.setattr(
+        vault_file_index,
+        "kickoff_file_index_rebuild",
+        lambda: started.append(time.perf_counter()),
+    )
+
+    started_at = time.perf_counter()
+    result = asyncio.run(
+        system_routes.search_filesystem(system_routes.SearchRequest(query="match", limit=10))
+    )
+    elapsed = time.perf_counter() - started_at
+
+    assert len(started) == 1
+    assert elapsed < 0.1
+    assert result == {
+        "results": helper_payload["results"],
+        "truncated": False,
+        "engine": "spotlight",
     }

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 
 from fastapi import Depends, FastAPI
+from starlette.requests import Request
 
 from backend import models as _models
 from backend.app.errors import register_error_handlers
@@ -19,11 +20,13 @@ from backend.services.auth_service import require_auth_enabled
 
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
+GNOSI_VERSION = "3.0.0"
 
 
-async def health_check() -> dict[str, object]:
+def refresh_health_snapshot(app: FastAPI) -> None:
+    """Build the liveness metadata once, outside request handling."""
     config = load_params(strict_env=False)
-    return {
+    app.state.health_snapshot = {
         "status": "ok",
         "mode": "FastAPI",
         "gnosi_mode": config.gnosi_mode,
@@ -32,15 +35,31 @@ async def health_check() -> dict[str, object]:
     }
 
 
+async def health_check(request: Request) -> dict[str, object]:
+    # Keep the public OpenAPI description stable. The implementation deliberately
+    # serves only the snapshot prepared during startup; it must never touch storage.
+    snapshot = request.app.state.health_snapshot
+    if not isinstance(snapshot, dict):
+        raise RuntimeError("Health snapshot is unavailable")
+    return dict(snapshot)
+
+
 def create_app(lifespan: Lifespan) -> FastAPI:
     """Create one fully composed application without starting its workers."""
     _ = _models
     app = FastAPI(
         title="Gnosi Agent",
-        version="0.2.0",
+        version=GNOSI_VERSION,
         lifespan=lifespan,
         dependencies=[Depends(enforce_authentication)],
     )
+    app.state.health_snapshot = {
+        "status": "ok",
+        "mode": "FastAPI",
+        "gnosi_mode": "starting",
+        "require_auth": True,
+        "vault_configured": False,
+    }
     register_middleware(app)
     register_error_handlers(app)
     register_routers(app)

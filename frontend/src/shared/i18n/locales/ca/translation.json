@@ -3250,6 +3250,9 @@
     "all_mail_title": "Tot el correu",
     "not_archived": "No arxivats",
     "syncing": "Sincronitzant correu...",
+    "account_temporarily_unavailable": "Aquest compte no està disponible temporalment.",
+    "some_accounts_temporarily_unavailable": "Alguns comptes no estan disponibles temporalment. Es mostren els altres missatges.",
+    "messages_temporarily_unavailable": "Els missatges no estan disponibles temporalment.",
     "no_messages": "No hi ha missatges",
     "today": "Avui",
     "yesterday": "Ahir",
@@ -3354,9 +3357,36 @@
     "pdf_load_error": "No s'ha pogut carregar el PDF",
     "preview_attachment": "Previsualitzar",
     "sent_badge": "enviat",
+    "smart_analysis_credentials": "Falten les credencials de l'anàlisi intel·ligent o s'han rebutjat. Revisa el proveïdor a Configuració.",
+    "smart_analysis_disabled": "L'anàlisi intel·ligent està desactivada. Activa un proveïdor a Configuració per utilitzar-la.",
     "smart_analysis_error": "Error en l'anàlisi intel·ligent",
+    "smart_analysis_internal_error": "Gnosi no ha pogut completar l'anàlisi local. Torna-ho a provar; si persisteix, revisa els registres de l'aplicació.",
+    "smart_analysis_invalid_response": "El servei d'anàlisi ha retornat una resposta no vàlida. Pots tornar-ho a provar.",
+    "smart_analysis_no_entities": "No s'han trobat esdeveniments de calendari ni contactes en aquest missatge.",
+    "smart_analysis_not_configured": "L'anàlisi intel·ligent no està configurada. Afegeix un proveïdor d'IA a Configuració.",
+    "smart_analysis_temporarily_unavailable": "L'anàlisi intel·ligent no està disponible temporalment. Pots tornar-ho a provar.",
+    "smart_analysis_local_results": "Anàlisi local basada en el contingut explícit del missatge. Revisa els suggeriments abans d'afegir-los.",
+    "smart_analysis_previous_result": "Es mostra l'anàlisi vàlida anterior d'aquest missatge exacte. Les evidències locals actuals continuen visibles a sota.",
+    "smart_analysis_quota": "Els proveïdors configurats han arribat al límit de quota o peticions. Torna-ho a provar més tard o tria un altre proveïdor.",
+    "smart_analysis_retry_online": "Prova l'anàlisi en línia",
+    "smart_analysis_timeout": "Els proveïdors configurats no han respost a temps. Torna-ho a provar o tria un altre proveïdor.",
+    "local_analysis_summary": "Resum extractiu",
+    "local_analysis_participants": "Participants",
+    "local_analysis_attachments": "Adjunts",
+    "local_analysis_tasks": "Tasques explícites",
+    "local_analysis_dates": "Dates explícites",
     "smart_suggestions": "Suggeriments intel·ligents",
     "smart_suggestions_found": "S'han trobat suggeriments intel·ligents",
+    "remote_image_blocked": "Imatge remota bloquejada per privacitat",
+    "remote_image_blocked_detail": "Gnosi ha bloquejat aquesta font perquè no és segur sol·licitar-la.",
+    "remote_image_open_original": "Obre l'original",
+    "remote_image_recovery": "Carrega de forma segura",
+    "remote_image_recovering": "Carregant de forma segura…",
+    "remote_image_timeout_detail": "El servidor de la imatge no ha respost abans del límit de temps segur.",
+    "remote_image_too_large_detail": "La imatge supera el límit segur de baixada.",
+    "remote_image_unavailable": "Imatge remota no disponible",
+    "remote_image_unavailable_detail": "L'origen n'ha bloquejat l'accés o requereix dades que Gnosi no envia.",
+    "remote_image_unsupported_detail": "La font no és una imatge de mapa de bits compatible i verificada.",
     "snooze_error": "Error establint recordatori",
     "thread_messages_count_one": "{{count}} missatge",
     "thread_messages_count_other": "{{count}} missatges",
@@ -5789,6 +5819,30 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v3_0_0": {
+        "highlights": {
+          "canonical_architecture": "Gnosi 3.0 estableix un únic repositori canònic, amb un backend FastAPI modular i una interfície React 19 organitzada per funcionalitats.",
+          "typed_experience": "Tota la interfície de producció utilitza TypeScript estricte i contractes OpenAPI deterministes mitjançant una capa de dades compartida."
+        },
+        "improvements": {
+          "portable_data": "Els directoris de dades canònics i independents del proveïdor, juntament amb les migracions 2.x verificades, mantenen els Vaults locals recuperables en instal·lacions natives, Docker i desktop.",
+          "desktop_runtime": "Electron 43 incorpora IPC aïllat, arrencada controlada del backend i paquets específics per arquitectura per a macOS, Windows i Linux."
+        },
+        "fixes": {
+          "reproducible_toolchain": "Node 22.22.2 i els locks de pnpm i uv eliminen grafs de dependències duplicats i fan reproduïbles les releases locals.",
+          "release_safety": "Les barreres de release validen la identitat del codi, els clients generats, la documentació, les migracions i els instal·ladors separats per arquitectura abans de publicar.",
+          "windows_cold_scan": "L'empaquetat de Windows permet ara completar una verificació en fred amb temps limitat sense debilitar la política de paquet tancada per defecte.",
+          "intel_numpy_abi": "El paquet macOS Intel fixa l'ABI de NumPy compatible amb el seu runtime de Torch."
+        }
+      },
+      "v3_0_0_rc_2": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "universal_desktop_lock": "El graf Python congelat selecciona ara wheels compatibles amb totes les arquitectures desktop admeses de macOS, Linux i Windows.",
+          "namespace_policy": "L'empaquetat desktop accepta ara les metadades de namespaces de tercers i continua rebutjant recursos de Gnosi no revisats."
+        }
+      },
       "v3_0_0_rc_1": {
         "highlights": {
           "canonical_architecture": "Gnosi disposa ara d'un únic repositori canònic, amb un backend FastAPI modular i una interfície React organitzada per funcionalitats.",

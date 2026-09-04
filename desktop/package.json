@@ -1,14 +1,15 @@
 {
   "name": "@gnosi/desktop",
-  "version": "3.0.0-rc.1",
+  "version": "3.0.0",
   "description": "Gnosi — local-first, open-source knowledge workspace",
+  "desktopName": "gnosi.desktop",
   "homepage": "https://github.com/ismigar/Gnosi",
   "main": "main.js",
   "author": {
     "name": "Ismael Garcia Fernandez",
     "email": "ismigar@gmail.com"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "test": "node --test *.test.js",
     "typecheck:ipc": "pnpm --filter @gnosi/frontend exec tsc --project ../desktop/tsconfig.ipc.json",

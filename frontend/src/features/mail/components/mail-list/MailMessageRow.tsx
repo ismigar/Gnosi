@@ -10,7 +10,12 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import MailTagPicker, { TagPill } from '../MailTagPicker';
-import { cleanMailSender, formatMailListTimestamp } from './mailListModel';
+import {
+  cleanMailSender,
+  formatMailListTimestamp,
+  mailListMessageIdentity,
+  setMailTagsByIdentity,
+} from './mailListModel';
 import type { MailListMessage } from './mailListTypes';
 import type { MailListController } from './useMailListController';
 
@@ -21,7 +26,7 @@ interface MailMessageRowProps {
   readonly index: number;
   readonly isComposing: boolean;
   readonly message: MailListMessage;
-  readonly selectedMailId?: string;
+  readonly selectedMailIdentity?: string;
 }
 
 
@@ -31,12 +36,13 @@ export function MailMessageRow({
   index,
   isComposing,
   message,
-  selectedMailId,
+  selectedMailIdentity,
 }: MailMessageRowProps) {
   const { t } = useTranslation();
+  const messageIdentity = mailListMessageIdentity(message);
   const isFocused = controller.focusedIndex === index;
-  const isSelected = controller.selectedIds.has(message.id);
-  const assignedTagIds = controller.messageTags[message.id] ?? [];
+  const isSelected = controller.selectedIds.has(messageIdentity);
+  const assignedTagIds = controller.messageTags[messageIdentity] ?? [];
 
   return (
     <div
@@ -46,7 +52,7 @@ export function MailMessageRow({
         controller.onSelectMail(message);
       }}
       onMouseEnter={() => {
-        controller.setHoveredMailId(message.id);
+        controller.setHoveredMailId(messageIdentity);
       }}
       onMouseLeave={() => {
         controller.setHoveredMailId(null);
@@ -54,14 +60,14 @@ export function MailMessageRow({
       onContextMenu={(event) => {
         event.preventDefault();
         controller.setContextMenu({
-          msgId: message.id,
+          message,
           x: event.clientX,
           y: event.clientY,
         });
       }}
       className={`group flex items-center px-4 py-2 cursor-pointer border-b border-[var(--border-primary)] transition-colors
         ${isFocused ? 'ring-1 ring-inset ring-[var(--gnosi-blue)]' : ''}
-        ${selectedMailId === message.id || isSelected ? 'bg-[var(--mail-row-selected)]' : isFocused ? 'bg-[var(--bg-secondary)]' : 'hover:bg-[var(--bg-secondary)]'}`}
+        ${selectedMailIdentity === messageIdentity || isSelected ? 'bg-[var(--mail-row-selected)]' : isFocused ? 'bg-[var(--bg-secondary)]' : 'hover:bg-[var(--bg-secondary)]'}`}
     >
       <div className="flex items-center gap-3 w-full relative">
         <div className="flex items-center gap-2 min-w-[200px] max-w-[260px]">
@@ -69,7 +75,7 @@ export function MailMessageRow({
             type="checkbox"
             checked={isSelected}
             onChange={(event) => {
-              controller.toggleSelect(event, message.id);
+              controller.toggleSelect(event, message);
             }}
             onClick={(event) => {
               event.stopPropagation();
@@ -103,7 +109,7 @@ export function MailMessageRow({
               {message.snippet}
             </span>
           )}
-          {controller.hoveredMailId === message.id && (
+          {controller.hoveredMailId === messageIdentity && (
             <div className="absolute left-1/3 top-full mt-2 z-[var(--z-modal-dropdown)] w-96 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-5 animate-in fade-in zoom-in-95 duration-200 pointer-events-none origin-top-left">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-8 h-8 rounded-xl bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] flex items-center justify-center text-[11px] font-bold uppercase border border-[var(--border-primary)]">
@@ -144,7 +150,7 @@ export function MailMessageRow({
           {message.has_attachments && (
             <Paperclip size={14} className="text-[var(--text-secondary)]" />
           )}
-          <div className={`flex items-center gap-0.5 transition-opacity ${(selectedMailId || isComposing) ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+          <div className={`flex items-center gap-0.5 transition-opacity ${(selectedMailIdentity || isComposing) ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
             <button
               title={message.is_starred
                 ? t('mail.unstar', 'Remove star')
@@ -189,19 +195,21 @@ export function MailMessageRow({
             </button>
             <button
               title={t('mail.labels', 'Labels')}
-              className={`p-1.5 rounded transition-colors ${controller.inlineTagPicker?.msgId === message.id ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
+              className={`p-1.5 rounded transition-colors ${controller.inlineTagPicker?.msgId === messageIdentity ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
               onClick={(event) => {
                 event.stopPropagation();
                 const rect = event.currentTarget.getBoundingClientRect();
                 controller.setInlineTagPicker((current) => (
-                  current?.msgId === message.id ? null : { msgId: message.id, rect }
+                  current?.msgId === messageIdentity
+                    ? null
+                    : { msgId: messageIdentity, rect }
                 ));
               }}
             >
               <Tag size={15} />
             </button>
           </div>
-          {controller.inlineTagPicker?.msgId === message.id && (
+          {controller.inlineTagPicker?.msgId === messageIdentity && (
             <MailTagPicker
               tags={controller.tags}
               selectedTagIds={assignedTagIds}
@@ -213,16 +221,20 @@ export function MailMessageRow({
                 const next = assignedTagIds.includes(tagId)
                   ? assignedTagIds.filter((id) => id !== tagId)
                   : [...assignedTagIds, tagId];
-                controller.setMessageTags((previous) => ({
-                  ...previous,
-                  [message.id]: next,
-                }));
-                await controller.saveMessageTags(message.id, next, {
+                controller.setMessageTags((previous) => (
+                  setMailTagsByIdentity(previous, message, next)
+                ));
+                const saved = await controller.saveMessageTags(message, next, {
                   account_email: accountEmail || message.account || '',
                   date: message.date,
                   sender: message.sender,
                   subject: message.subject,
-                }).catch(() => undefined);
+                }).catch(() => null);
+                if (saved) {
+                  controller.setMessageTags((previous) => (
+                    setMailTagsByIdentity(previous, message, saved.tag_ids)
+                  ));
+                }
               }}
               onCreateTag={async (input) => {
                 await controller.createTag(input);
@@ -245,7 +257,7 @@ export function MailMessageRow({
           )}
           <MoreVertical
             size={15}
-            className={`text-[var(--text-secondary)] transition-opacity ${selectedMailId ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}
+            className={`text-[var(--text-secondary)] transition-opacity ${selectedMailIdentity ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}
           />
         </div>
       </div>

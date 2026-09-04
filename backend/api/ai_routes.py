@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from backend.config.app_config import load_params
 from backend.config.env_config import remove_env_keys
@@ -18,6 +18,10 @@ from backend.domains.configuration.ai.contracts import (
     ModelRegistryResponse,
     ModelRegistryUpdateResponse,
     ModelsPayload,
+    ProviderCredentialsResponse,
+    ProviderDeletionResponse,
+    ProviderStatusResponse,
+    ProviderValidationResponse,
 )
 from backend.domains.configuration.ai.content_routes import (
     CorrectPayload,
@@ -42,9 +46,6 @@ from backend.utils.safe_io import safe_write_text
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
 JsonObject = dict[str, Any]
-_LEGACY_JSON_RESPONSE: dict[int | str, dict[str, Any]] = {
-    200: {"content": {"application/json": {"schema": {}}}}
-}
 
 
 def _load_yaml_mapping(path: Path) -> JsonObject:
@@ -75,10 +76,13 @@ class ValidatePayload(BaseModel):
 @router.post(
     "/providers/{provider_id}/validate",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
-    responses=_LEGACY_JSON_RESPONSE,
+    response_model=ProviderValidationResponse,
+    response_model_exclude_unset=True,
 )
-async def validate_provider(provider_id: str, payload: ValidatePayload) -> Any:
+async def validate_provider(
+    provider_id: str,
+    payload: ValidatePayload,
+) -> dict[str, JsonValue]:
     """
     Attempts to validate the provider by making a simple 'ping' request.
     If api_key is provided in payload, it uses it. Otherwise, it uses the saved one.
@@ -142,7 +146,9 @@ async def validate_provider(provider_id: str, payload: ValidatePayload) -> Any:
             [HumanMessage(content="Say 'ok'")],
         )
 
-        return {"success": True, "response": response.content}
+        return ProviderValidationResponse.model_validate(
+            {"success": True, "response": response.content}
+        ).model_dump(exclude_unset=True)
     except Exception as e:
         error_msg = str(e)
         # Groq/OpenAI SDKs raise AuthenticationError/401 without the literal
@@ -208,14 +214,13 @@ async def get_ai_catalog() -> JsonObject:
 @router.post(
     "/providers/{provider_id}/credentials",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
-    responses=_LEGACY_JSON_RESPONSE,
+    response_model=ProviderCredentialsResponse,
 )
 async def set_provider_credentials(
     provider_id: str,
     payload: ProviderCredentialPayload,
     request: Request,
-) -> Any:
+) -> dict[str, JsonValue]:
     provider = (provider_id or "").strip().lower()
     if not provider:
         raise HTTPException(status_code=400, detail="provider_id is required")
@@ -283,10 +288,12 @@ def _registry_rows_without_provider(
 @router.delete(
     "/providers/{provider_id}",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
-    responses=_LEGACY_JSON_RESPONSE,
+    response_model=ProviderDeletionResponse,
 )
-async def delete_provider(provider_id: str, request: Request) -> Any:
+async def delete_provider(
+    provider_id: str,
+    request: Request,
+) -> dict[str, JsonValue]:
     """Disconnect a provider: config entry, its stored credential AND its
     router-registry rows.
 
@@ -370,14 +377,13 @@ async def delete_provider(provider_id: str, request: Request) -> Any:
 @router.patch(
     "/providers/{provider_id}/status",
     dependencies=[Depends(require_role("admin"))],
-    response_model=None,
-    responses=_LEGACY_JSON_RESPONSE,
+    response_model=ProviderStatusResponse,
 )
 async def update_provider_status(
     provider_id: str,
     payload: ProviderStatusPayload,
     request: Request,
-) -> Any:
+) -> dict[str, JsonValue]:
     provider = (provider_id or "").strip().lower()
     if not provider:
         raise HTTPException(status_code=400, detail="provider_id is required")
@@ -435,22 +441,24 @@ async def get_model_registry() -> JsonObject:
     )
     from backend.services.fx_rates import parse_currency_code, rate_info
 
-    cfg = load_params(strict_env=False)
-    ai_cfg = dict(cfg.get("ai", {}) or {})
-    configured_models = ai_cfg.get("models")
-    currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
-    effective_models = await asyncio.to_thread(load_registry)
-    configured_models = await asyncio.to_thread(
-        hydrate_registry_metadata,
-        strip_legacy_registry_rows(configured_models),
-    )
-    return {
-        "models": effective_models,
-        "configured_models": configured_models,
-        "budget": dict(ai_cfg.get("budget") or {}),
-        "default": DEFAULT_REGISTRY,
-        "currency": currency,
-    }
+    def _load() -> JsonObject:
+        cfg = load_params(strict_env=False)
+        ai_cfg = dict(cfg.get("ai", {}) or {})
+        configured_models = ai_cfg.get("models")
+        currency = rate_info(
+            parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))
+        )
+        return {
+            "models": load_registry(),
+            "configured_models": hydrate_registry_metadata(
+                strip_legacy_registry_rows(configured_models)
+            ),
+            "budget": dict(ai_cfg.get("budget") or {}),
+            "default": DEFAULT_REGISTRY,
+            "currency": currency,
+        }
+
+    return await asyncio.to_thread(_load)
 
 
 @router.get(
@@ -523,11 +531,17 @@ async def get_model_comparison() -> JsonObject:
     from backend.services.fx_rates import parse_currency_code, rate_info
 
     try:
-        res = await asyncio.to_thread(fetch_all_models)
-        cfg = load_params(strict_env=False)
-        currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
-        if isinstance(res, dict):
-            res["currency"] = currency
+        def _load() -> JsonObject:
+            res = fetch_all_models()
+            cfg = load_params(strict_env=False)
+            currency = rate_info(
+                parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))
+            )
+            if isinstance(res, dict):
+                res["currency"] = currency
+            return res
+
+        res = await asyncio.to_thread(_load)
         return res
     except ArtificialAnalysisError as exc:
         raise HTTPException(

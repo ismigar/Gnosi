@@ -9,24 +9,31 @@ import time
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from backend.domains.llm_wiki import legacy_ports
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
-from backend.utils.open_values import get_value
+from backend.utils.open_values import float_value, get_value
 from backend.utils.safe_io import safe_write_json
 
 _LOCK = threading.RLock()
-_JOBS: dict[str, dict[str, Any]] = {}
+_JOBS: dict[str, dict[str, object]] = {}
 _RUNNING_BY_RESOURCE: dict[tuple[str, str], str] = {}
-_PAGE_STATE_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
+_PAGE_STATE_CACHE: dict[str, tuple[int, int, dict[str, object]]] = {}
 
 PAGE_STATE_VERSION = 1
 MANAGED_METADATA_PREFIX = "llm_wiki_"
 
 
-def _safe_component(value: Any) -> str:
+def _string_record(value: object) -> dict[str, object] | None:
+    """Return a JSON object with textual keys without coercing malformed input."""
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        return None
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def _safe_component(value: object) -> str:
     raw = str(value or "").strip()
     cleaned = "".join(ch for ch in raw if ch.isalnum() or ch in {"-", "_"})
     return cleaned[:120] or "unknown"
@@ -65,7 +72,7 @@ def _legacy_page_state(metadata: object) -> dict[str, object]:
     return state
 
 
-def _read_page_state(path: Path) -> dict[str, Any]:
+def _read_page_state(path: Path) -> dict[str, object]:
     try:
         stat = path.stat()
     except OSError:
@@ -78,7 +85,7 @@ def _read_page_state(path: Path) -> dict[str, Any]:
         return deepcopy(cached[2])
     payload = _read_json(path)
     raw_state = payload.get("metadata") if isinstance(payload, dict) else None
-    state: dict[str, Any] = raw_state if isinstance(raw_state, dict) else {}
+    state: dict[str, object] = raw_state if isinstance(raw_state, dict) else {}
     clean_state = {str(key): deepcopy(value) for key, value in state.items()}
     _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
     return deepcopy(clean_state)
@@ -87,7 +94,7 @@ def _read_page_state(path: Path) -> dict[str, Any]:
 def load_page_state(
     page_id: str,
     legacy_metadata: object = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Load managed metadata, falling back to legacy Markdown frontmatter."""
     try:
         stored = _read_page_state(page_state_path(page_id)) if page_id else {}
@@ -173,7 +180,7 @@ def _latest_path(source_table_id: str, resource_id: str) -> Path:
     )
 
 
-def create_job(source_table_id: str, resource_id: str) -> dict[str, Any]:
+def create_job(source_table_id: str, resource_id: str) -> dict[str, object]:
     """Create and persist a running job, enforcing one worker per resource."""
     key = (str(source_table_id), str(resource_id))
     with _LOCK:
@@ -181,7 +188,7 @@ def create_job(source_table_id: str, resource_id: str) -> dict[str, Any]:
         if running_id:
             return deepcopy(_JOBS[running_id])
         now = time.time()
-        job: dict[str, Any] = {
+        job: dict[str, object] = {
             "job_id": str(uuid.uuid4()),
             "source_table_id": key[0],
             "resource_id": key[1],
@@ -202,13 +209,14 @@ def create_job(source_table_id: str, resource_id: str) -> dict[str, Any]:
             "updated_at": now,
             "finished_at": None,
         }
-        _JOBS[job["job_id"]] = job
-        _RUNNING_BY_RESOURCE[key] = job["job_id"]
+        job_id = str(job["job_id"])
+        _JOBS[job_id] = job
+        _RUNNING_BY_RESOURCE[key] = job_id
         _persist_job(job)
         return deepcopy(job)
 
 
-def _persist_job(job: dict[str, Any]) -> None:
+def _persist_job(job: dict[str, object]) -> None:
     job_path = _job_path(str(job["job_id"]))
     job_path.parent.mkdir(parents=True, exist_ok=True)
     safe_write_json(job_path, job, indent=2, ensure_ascii=False)
@@ -222,7 +230,7 @@ def _persist_job(job: dict[str, Any]) -> None:
     )
 
 
-def update_job(job_id: str, **fields: Any) -> dict[str, Any]:
+def update_job(job_id: str, **fields: object) -> dict[str, object]:
     with _LOCK:
         job = _JOBS.get(job_id) or _read_json(_job_path(job_id))
         if not isinstance(job, dict) or not job.get("job_id"):
@@ -235,8 +243,8 @@ def update_job(job_id: str, **fields: Any) -> dict[str, Any]:
 
 
 def finish_job(
-    job_id: str, *, phase: str, error: Optional[str] = None, **fields: Any
-) -> dict[str, Any]:
+    job_id: str, *, phase: str, error: Optional[str] = None, **fields: object
+) -> dict[str, object]:
     fields.update(
         {
             "running": False,
@@ -259,7 +267,7 @@ def is_running(source_table_id: str, resource_id: str) -> bool:
         return (str(source_table_id), str(resource_id)) in _RUNNING_BY_RESOURCE
 
 
-def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, Any]:
+def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, object]:
     """Return a job by id or the latest job for a resource id.
 
     A persisted job left as ``running`` by a previous backend process is
@@ -270,20 +278,24 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, Any]
         job = deepcopy(_JOBS.get(wanted)) if wanted in _JOBS else None
         if job is None and source_table_id:
             latest = _read_json(_latest_path(source_table_id, wanted))
-            job_id = str((latest or {}).get("job_id") or "")
-            job = deepcopy(_JOBS.get(job_id)) if job_id in _JOBS else _read_json(_job_path(job_id))
+            job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
+            job = (
+                deepcopy(_JOBS[job_id])
+                if job_id in _JOBS
+                else _string_record(_read_json(_job_path(job_id)))
+            )
         if job is None:
             # Compatibility lookup for the old status/{resource_id} endpoint.
             latest_dir = local_root() / "latest"
             if latest_dir.exists():
                 for candidate in latest_dir.glob(f"*/{_safe_component(wanted)}.json"):
                     latest = _read_json(candidate)
-                    job_id = str((latest or {}).get("job_id") or "")
-                    candidate_job = _read_json(_job_path(job_id))
-                    if candidate_job and (
+                    job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
+                    candidate_job = _string_record(_read_json(_job_path(job_id)))
+                    if candidate_job is not None and (
                         job is None
-                        or float(candidate_job.get("updated_at") or 0)
-                        > float(job.get("updated_at") or 0)
+                        or float_value(candidate_job.get("updated_at") or 0)
+                        > float_value(job.get("updated_at") or 0)
                     ):
                         job = candidate_job
         if not job:
@@ -300,14 +312,14 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, Any]
         return deepcopy(job)
 
 
-def save_checkpoint(job_id: str, name: str, payload: Any) -> Path:
+def save_checkpoint(job_id: str, name: str, payload: object) -> Path:
     path = local_root() / "checkpoints" / _safe_component(job_id) / f"{_safe_component(name)}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     safe_write_json(path, payload, indent=2, ensure_ascii=False)
     return path
 
 
-def load_checkpoint(job_id: str, name: str) -> Any:
+def load_checkpoint(job_id: str, name: str) -> object:
     return _read_json(
         local_root() / "checkpoints" / _safe_component(job_id) / f"{_safe_component(name)}.json"
     )
@@ -316,8 +328,8 @@ def load_checkpoint(job_id: str, name: str) -> Any:
 def save_snapshot(
     source_table_id: str,
     resource_id: str,
-    origin: dict[str, Any],
-) -> dict[str, Any]:
+    origin: dict[str, object],
+) -> dict[str, object]:
     """Persist normalized evidence and return its stable snapshot descriptor."""
     stable_payload = {
         "kind": origin.get("kind"),
@@ -367,37 +379,37 @@ def manifest_path(source_table_id: str, resource_id: str) -> Path:
     )
 
 
-def load_manifest(source_table_id: str, resource_id: str) -> dict[str, Any]:
+def load_manifest(source_table_id: str, resource_id: str) -> dict[str, object]:
     data = _read_json(manifest_path(source_table_id, resource_id))
     return data if isinstance(data, dict) else {}
 
 
-def processed_resources(source_table_ids: list[str]) -> dict[str, dict[str, Any]]:
+def processed_resources(source_table_ids: list[str]) -> dict[str, dict[str, object]]:
     """Return manifest-backed processed timestamps grouped by source table."""
-    out: dict[str, dict[str, Any]] = {}
+    out: dict[str, dict[str, object]] = {}
     manifests_root = synced_root() / "manifests"
     for source_table_id in source_table_ids:
-        table_items: dict[str, Any] = {}
+        table_items: dict[str, object] = {}
         table_root = manifests_root / _safe_component(source_table_id)
         for path in table_root.glob("*.json") if table_root.exists() else []:
             manifest = _read_json(path)
-            resource_id = str((manifest or {}).get("resource_id") or "")
+            resource_id = str(manifest.get("resource_id") or "") if is_record(manifest) else ""
             if resource_id:
-                table_items[resource_id] = (manifest or {}).get("updated_at")
+                table_items[resource_id] = get_value(manifest, "updated_at")
         out[str(source_table_id)] = table_items
     return out
 
 
-def resource_statuses(source_table_ids: list[str]) -> dict[str, dict[str, dict[str, Any]]]:
+def resource_statuses(source_table_ids: list[str]) -> dict[str, dict[str, dict[str, object]]]:
     """Return the latest durable job summary for each configured resource."""
-    out: dict[str, dict[str, dict[str, Any]]] = {}
+    out: dict[str, dict[str, dict[str, object]]] = {}
     latest_root = local_root() / "latest"
     for source_table_id in source_table_ids:
-        table_items: dict[str, dict[str, Any]] = {}
+        table_items: dict[str, dict[str, object]] = {}
         table_root = latest_root / _safe_component(source_table_id)
         for path in table_root.glob("*.json") if table_root.exists() else []:
             latest = _read_json(path)
-            job_id = str((latest or {}).get("job_id") or "")
+            job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
             status = get_job_status(job_id) if job_id else {}
             resource_id = str(status.get("resource_id") or "")
             if resource_id:
@@ -406,13 +418,15 @@ def resource_statuses(source_table_ids: list[str]) -> dict[str, dict[str, dict[s
     return out
 
 
-def save_manifest(source_table_id: str, resource_id: str, manifest: dict[str, Any]) -> None:
+def save_manifest(source_table_id: str, resource_id: str, manifest: dict[str, object]) -> None:
     path = manifest_path(source_table_id, resource_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     safe_write_json(path, manifest, indent=2, ensure_ascii=False)
 
 
-def load_evidence(resource_id: str, snapshot_id: str, segment_id: str) -> Optional[dict[str, Any]]:
+def load_evidence(
+    resource_id: str, snapshot_id: str, segment_id: str
+) -> Optional[dict[str, object]]:
     """Resolve a citation without trusting a client-supplied filesystem path."""
     wanted_resource = _safe_component(resource_id)
     wanted_snapshot = _safe_component(snapshot_id)
@@ -443,7 +457,7 @@ def load_evidence(resource_id: str, snapshot_id: str, segment_id: str) -> Option
     return None
 
 
-def _read_json(path: Path) -> Any:
+def _read_json(path: Path) -> object:
     if not path or not path.exists():
         return None
     try:

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import errno
 import logging
+import os
+import sys
+import time
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 from threading import Lock
 
 import pytest
+from fastapi import BackgroundTasks
 
 from backend.domains.vault.pages import index_entries, index_service, resolver, tags
 from backend.domains.vault.pages.index_entries import Metadata, PageCacheEntry
@@ -35,7 +40,6 @@ def _index_dependencies(root: Path) -> index_service.PageIndexDependencies:
         resolve_table_id=lambda metadata, folder, index, ordered: None,
         enabled_calendar_tables=lambda: [],
         hidden_event_ids=set,
-        sync_calendars=lambda: None,
         update_path_resolver=lambda root, ids, paths: None,
         get_last_vault_sync=lambda: 0.0,
         set_last_vault_sync=lambda value: None,
@@ -48,7 +52,6 @@ def _index_dependencies(root: Path) -> index_service.PageIndexDependencies:
         body_cache={},
         last_stale_check={"ts": 0.0},
         vault_sync_cooldown_seconds=600.0,
-        calendar_sync_cooldown_seconds=600.0,
         stale_check_ttl=30.0,
         logger=logging.getLogger(__name__),
     )
@@ -67,6 +70,27 @@ def _entry(metadata: object) -> PageCacheEntry:
         "folder": "BD/Synthetic",
         "path": None,
     }
+
+
+def test_calendar_snapshot_does_not_schedule_obsolete_remote_mirror(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    dependencies = replace(
+        _index_dependencies(tmp_path),
+        get_last_vault_sync=lambda: 0.0,
+    )
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_000.0)
+    background_tasks = BackgroundTasks()
+
+    index_service._schedule_background_syncs(
+        background_tasks,
+        [tmp_path / "Calendar"],
+    )
+
+    assert len(background_tasks.tasks) == 1
+    assert background_tasks.tasks[0].func is index_service.get_cached_page_entries
 
 
 def _page(metadata: Metadata, page_id: str = "synthetic-id") -> PageInfo:
@@ -176,13 +200,13 @@ def test_snapshot_keeps_metadata_identity_and_cache_hit_short_circuit(
         return "table"
 
     def cache_get(cache_key: str) -> list[PageInfo] | None:
-        assert cache_key == "snapshot:synthetic:all"
+        assert cache_key == "snapshot:synthetic:all:v0"
         calls.append("get")
         return cached
 
     def cache_set(cache_key: str, pages: list[PageInfo]) -> None:
         nonlocal cached
-        assert cache_key == "snapshot:synthetic:all"
+        assert cache_key == "snapshot:synthetic:all:v0"
         calls.append("set")
         cached = pages
 
@@ -202,6 +226,69 @@ def test_snapshot_keeps_metadata_identity_and_cache_hit_short_circuit(
     assert index_service.get_pages_snapshot() is pages
     assert calls == ["get", "registry", "folders", "resolve", "set", "get"]
     assert dependencies.index_entries[str(tmp_path)]["synthetic.md"] is entry
+
+
+def test_snapshot_cache_tracks_index_version_and_schedules_sync_on_hit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cache: dict[str, list[PageInfo]] = {}
+    sync_clock = [0.0]
+    dependencies = replace(
+        _index_dependencies(tmp_path),
+        cache_get=cache.get,
+        cache_set=cache.__setitem__,
+        get_last_vault_sync=lambda: sync_clock[0],
+        set_last_vault_sync=lambda value: sync_clock.__setitem__(0, value),
+    )
+    storage_key = str(tmp_path)
+    version_key = "synthetic"
+    dependencies.index_initialized[storage_key] = True
+    dependencies.index_entries[storage_key] = {"synthetic.md": _entry({})}
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_000.0)
+    first_tasks = BackgroundTasks()
+    first = index_service.get_pages_snapshot(background_tasks=first_tasks)
+    assert len(first_tasks.tasks) == 1
+    second = index_service.get_pages_snapshot(background_tasks=BackgroundTasks())
+    assert second is first
+    dependencies.index_version[version_key] = 1
+    rebuilt = index_service.get_pages_snapshot()
+    assert rebuilt is not first
+    assert set(cache) == {
+        f"snapshot:{version_key}:all:v0",
+        f"snapshot:{version_key}:all:v1",
+    }
+
+
+def test_file_provider_snapshot_never_stats_every_cached_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = Path("/Users/synthetic/Library/CloudStorage/Provider/Vault")
+    dependencies = replace(
+        _index_dependencies(root),
+        last_stale_check={"ts": 0.0},
+    )
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_000.0)
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    def forbidden_exists(_path: Path) -> bool:
+        raise AssertionError("File Provider paths must not be probed synchronously")
+
+    monkeypatch.setattr(Path, "exists", forbidden_exists)
+    cached = [_entry({"id": "one"}), _entry({"id": "two"})]
+    assert index_service._without_stale_entries(cached) == cached
+    assert dependencies.last_stale_check["ts"] == 1_000.0
+
+
+@pytest.mark.skipif(index_service._LOCAL_TIMEZONE is None, reason="IANA timezone unavailable")
+@pytest.mark.parametrize("timestamp", [1.0, 1_709_251_200.0, 1_719_792_000.0])
+def test_fast_timestamp_path_preserves_legacy_local_iso(timestamp: float) -> None:
+    from datetime import datetime
+
+    assert index_service._local_timestamp_iso(timestamp) == datetime.fromtimestamp(
+        timestamp
+    ).isoformat()
 
 
 def test_refresh_updates_existing_cache_object_without_losing_extension_keys(
@@ -457,6 +544,53 @@ def test_resolver_cold_scan_receives_open_metadata_and_keeps_cached_path(
     assert resolver.find_page_path("requested") == path
     assert events == ["canonicalize-input"]
     assert dependencies.id_to_path[str(tmp_path)]["requested"] == str(path)
+
+
+def test_resolver_retains_indexed_path_during_transient_provider_stat(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    page = tmp_path / "cloud-page.md"
+    page.write_text("Body", encoding="utf-8")
+    vault_key = str(tmp_path)
+    entry = _entry({"id": "page"})
+    entry["path"] = str(page)
+    bumps: list[str] = []
+    dependencies = resolver.PageResolverDependencies(
+        active_vault_path=lambda: tmp_path,
+        get_path=lambda _name: tmp_path,
+        path_factory=Path,
+        parse_frontmatter=lambda _content, _path: ({}, ""),
+        canonicalize_id=lambda value: str(value),
+        bump_index_version=bumps.append,
+        set_last_vault_sync=lambda _value: None,
+        monotonic=lambda: 100.0,
+        stale_check_ttl=30.0,
+        last_stale_check={"ts": 0.0},
+        index_lock=Lock(),
+        index_entries={vault_key: {str(page): entry}},
+        index_initialized={vault_key: True},
+        id_to_path={vault_key: {"page": str(page)}},
+        logger=logging.getLogger(__name__),
+    )
+    monkeypatch.setattr(resolver, "_dependencies", dependencies)
+    original_stat = Path.stat
+
+    def transient_stat(
+        candidate: Path,
+        *,
+        follow_symlinks: bool = True,
+    ) -> os.stat_result:
+        if candidate == page:
+            raise OSError(errno.EDEADLK, "synthetic File Provider contention")
+        return original_stat(candidate, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(Path, "stat", transient_stat)
+
+    assert resolver.find_page_path("page") == page
+    assert dependencies.id_to_path[vault_key]["page"] == str(page)
+    assert dependencies.index_entries[vault_key][str(page)] is entry
+    assert bumps == []
 
 
 def test_compatibility_aliases_keep_same_callables() -> None:

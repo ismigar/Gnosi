@@ -157,6 +157,9 @@ sombre.
 Actuellement, la CI Docker valide Compose et construit les images backend et
 frontend ; elle ne démarre pas les conteneurs et ne vérifie ni leur état ni
 leur persistance. Ces tests d'exécution restent nécessaires avant une release.
+Le job frontend auto-hébergé applique le budget révisé de 4 Gio de heap Node à
+l'ensemble du job afin que le lint, le contrôle des types, les tests et le build
+de production partagent le même contrat de mémoire prévisible.
 
 La CI Electron configure les paquets pour macOS arm64/x64, Linux arm64 et
 Windows x64. Configurer cette matrice, réussir les tests unitaires desktop

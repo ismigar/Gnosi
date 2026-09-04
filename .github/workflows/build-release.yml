@@ -1,9 +1,6 @@
 name: Build Release Candidate
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -20,7 +17,7 @@ concurrency:
 
 jobs:
   preflight:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -61,10 +58,10 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-15
+            runner_arch: ARM64
           - arch: x64
-            runner: macos-15-intel
-    runs-on: ${{ matrix.runner }}
+            runner_arch: X64
+    runs-on: [self-hosted, macOS, "${{ matrix.runner_arch }}"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -126,7 +123,7 @@ jobs:
 
   build-linux:
     needs: [preflight, quality]
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -175,7 +172,7 @@ jobs:
 
   build-windows:
     needs: [preflight, quality, build-macos]
-    runs-on: windows-2025
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
@@ -235,7 +232,7 @@ jobs:
   release:
     name: Collect candidate (publication disabled)
     needs: [quality, build-macos, build-linux, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
     permissions:
       contents: read
     steps:
@@ -262,6 +259,8 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+      - name: Prepare isolated Python environment
+        run: python scripts/ci/prepare_python_environment.py
       - name: Define release tag
         id: release_tag
         shell: bash

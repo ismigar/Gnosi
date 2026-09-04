@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_paths:
+  - pyproject.toml
+  - uv.lock
   - desktop/README.md
   - desktop/profile-startup.js
   - desktop/profile-preservation.js
@@ -287,9 +289,31 @@ de traduction dynamique, les plugins d’exemple et les styles bibliographiques.
 Elle rejette les ressources manquantes, modifiées, non examinées ou dangereuses
 au lieu d’inclure récursivement les vaults, bases de données, configurations,
 secrets ou outils générés. Le hook `afterPack` vérifie l’ASAR réel et les
-ressources Python avant la signature. Les ressources graphiques se trouvent
+ressources Python avant la signature. L’analyse à froid complète reste fail-closed
+et dispose d’un délai de processus de dix minutes afin que les paquets Windows
+nouvellement copiés ne soient pas arrêtés pendant la première inspection. Les ressources graphiques se trouvent
 dans `desktop/assets/` ; les paquets générés, dans `desktop/dist/` et
 `desktop/dist-python/`.
+
+Le projet racine déclare les `required-environments` d’uv pour macOS arm64 et
+x64, Linux arm64 et Windows x64. Régénérez `uv.lock` avec uv afin que les
+marqueurs de résolution puissent sélectionner des versions de dépendances
+différentes et compatibles avec les wheels de chaque cible ; ne modifiez jamais
+le lock manuellement. Chaque dépendance binaire sélectionnée doit publier un
+wheel pour sa cible avant le début de l’empaquetage.
+
+PyInstaller signale les paquets d’espace de noms implicites avec la source `-`.
+La politique de ressources n’accepte cette sentinelle que pour les racines
+tierces. Un espace de noms inconnu sous les racines propres `backend`, `pipeline`,
+`config`, `frontend` ou `extensions` échoue toujours de manière fermée, tandis
+qu’un espace de noms de dépendance tel que `jaraco` n’est pas classé à tort
+comme code du dépôt.
+
+Le vérificateur de plugins empaqueté importe la racine publique de confiance
+immuable depuis `backend/security/plugin_trust_root.py`. Les outils de release de
+la marketplace réutilisent cette constante, mais le chargeur de clé privée reste
+hors du plan de ressources desktop. L’analyse PyInstaller doit échouer si le module
+de signature de la marketplace entre dans le paquet d’exécution.
 
 | Cible configurée | Architecture de l’exécuteur | Installateurs et artefacts de mise à jour |
 | --- | --- | --- |
@@ -344,13 +368,17 @@ Examinez les différences avec la base enregistrée de la branche de préparatio
 avant de réessayer. La validation du catalogue et du journal des modifications
 ainsi que la révision des fichiers de verrouillage actualisés restent requises.
 
-`desktop/release.sh` prépare les versions et les artefacts locaux. Il ne crée
-pas de tag et ne publie pas de version. Utilisez une branche de préparation
-explicite et excluez-en les modifications sans rapport. De nouvelles corrections
-d’empaquetage exigent un nouveau tag revu, et non la publication d’un code
-différent sous un ancien tag. N’ajoutez les liens de téléchargement par
-plateforme qu’une fois les artefacts publics immuables correspondants
-effectivement disponibles.
+`desktop/release.sh` propose les modes explicites `prepare`, `package` et
+`promote`. La préparation exige un arbre propre, ne modifie que la version
+revue et les métadonnées en attente, génère le journal de façon transactionnelle
+et laisse les verrous inchangés. L’empaquetage exige un arbre propre et validé,
+consomme les verrous pnpm et uv figés hors ligne et ne peut modifier ni versions,
+ni verrous, ni catalogue, ni journal. Préchargez les caches en dehors de cette
+étape immuable. La promotion est un commit de métadonnées postérieur à la
+publication : elle exige le tag local correspondant, les quatre groupes
+d’artefacts vérifiés et l’URL exacte de la release publiée avant de la marquer
+stable et d’ajouter son lien. Le paquet tagué n’annonce donc jamais une release
+stable inexistante.
 
 `desktop/release-version.js` constitue la frontière partagée de version de
 publication pour le programme de mise à jour et le collecteur d’artefacts. Il
@@ -359,14 +387,23 @@ métadonnées de build canoniques et rejette les espaces adjacents, les préfixe
 `v` ainsi que les versions invalides ou non canoniques. La politique de mise à
 jour et l’empaquetage ne doivent pas introduire un second analyseur.
 
-`Build Release Candidate` vérifie que le tag demandé existe et que sa
-résolution jusqu’au commit correspond exactement au `github.sha` extrait,
-aussi bien pour les envois de tags que pour les déclenchements manuels.
+`Build Release Candidate` est un workflow facultatif, uniquement manuel. La
+publication d’un tag de version ne démarre jamais les Actions hébergées. Lorsqu’il
+est lancé explicitement, il vérifie que le tag demandé existe et que sa résolution
+jusqu’au commit correspond exactement au `github.sha` extrait.
 Une entrée mal formée, un tag manquant, une cible qui n’est pas un commit ou
 une divergence interrompt le processus avant l’installation des dépendances.
 L’outil de vérification d’identité utilise Git local et ne déplace pas de
 références ni n’en récupère de lui-même. La protection des tags distants reste
 une exigence distincte.
+Le chemin de publication sans budget hébergé construit et vérifie localement les
+quatre groupes de plateformes, puis publie uniquement ces artefacts exacts ; ne
+lancez pas le workflow hébergé facultatif sans approbation explicite du budget.
+Le dépôt étant public, chaque job CI partagé n'autorise l'exécution sur
+l'infrastructure propre que lorsque la branche d'une PR appartient au dépôt
+canonique. Les PR issues de forks ne peuvent pas atteindre les machines du
+propriétaire ; un mainteneur doit les examiner et reproduire le changement sur
+une branche interne de confiance avant d'exécuter les contrôles protégés.
 Le même contrôle préliminaire exige aussi que la version du tag corresponde
 aux manifestes de la racine, du frontend, de l’application de bureau et de
 Python avant de lancer la CI ou toute compilation d’architecture.

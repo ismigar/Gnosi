@@ -1,21 +1,30 @@
+import json
+import logging
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
 from backend.data.management_db import get_mgmt_db
+from backend.domains.workspace.api.schemas import (
+    WorkspaceMemberOperationResponse,
+    WorkspaceMemberVaultResponse,
+)
 from backend.models.management import (
-    Workspace,
+    AddMemberRequest,
+    MemberResponse,
     Membership,
+    RoleUpdateRequest,
     User,
+    UserRole,
     Vault,
     VaultAccess,
-    WorkspaceResponse,
-    MemberResponse,
-    RoleUpdateRequest,
-    AddMemberRequest,
     VaultAccessRequest,
     VaultAccessResponse,
+    Workspace,
     WorkspaceBase,
-    UserRole,
+    WorkspaceResponse,
 )
 from backend.services.auth_service import (
     get_effective_user_id,
@@ -23,14 +32,9 @@ from backend.services.auth_service import (
     require_auth_enabled,
 )
 from backend.services.workspace_service import (
-    require_role,
-    get_workspace_context,
     WorkspaceContext,
-    require_capability,
+    require_role,
 )
-from typing import Any, List
-import json
-import logging
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 
@@ -95,7 +99,7 @@ async def create_workspace(
     return ws_response
 
 
-@router.get("", response_model=List[WorkspaceResponse])
+@router.get("", response_model=list[WorkspaceResponse])
 async def list_workspaces(
     x_user_id: str = Depends(get_effective_user_id), db: Session = Depends(get_mgmt_db)
 ) -> list[WorkspaceResponse]:
@@ -121,7 +125,7 @@ async def list_workspaces(
     return results
 
 
-@router.get("/{workspace_id}/members", response_model=List[MemberResponse])
+@router.get("/{workspace_id}/members", response_model=list[MemberResponse])
 async def list_workspace_members(
     workspace_id: str,
     db: Session = Depends(get_mgmt_db),
@@ -165,7 +169,7 @@ async def list_workspace_members(
 
 @router.put(
     "/{workspace_id}/members/{target_user_id}/role",
-    response_model=None,
+    response_model=WorkspaceMemberOperationResponse,
 )
 async def update_member_role(
     workspace_id: str,
@@ -173,7 +177,7 @@ async def update_member_role(
     request: RoleUpdateRequest,
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
@@ -187,7 +191,8 @@ async def update_member_role(
         raise HTTPException(status_code=404, detail="Membre no trobat")
 
     # Prevent an admin from removing their own admin role or changing an owner's?
-    # For now, we allow the admin to manage everything except perhaps their own role if they're the last admin.
+    # For now, the admin may manage every role, including their own when they
+    # are the last administrator.
 
     if request.role:
         setattr(membership, "role", request.role.value)
@@ -200,13 +205,16 @@ async def update_member_role(
     return {"status": "ok", "message": "Membre actualitzat"}
 
 
-@router.post("/{workspace_id}/members", response_model=None)
+@router.post(
+    "/{workspace_id}/members",
+    response_model=WorkspaceMemberOperationResponse,
+)
 async def add_workspace_member(
     workspace_id: str,
     request: AddMemberRequest,
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
@@ -253,14 +261,14 @@ async def add_workspace_member(
 
 @router.delete(
     "/{workspace_id}/members/{target_user_id}",
-    response_model=None,
+    response_model=WorkspaceMemberOperationResponse,
 )
 async def remove_workspace_member(
     workspace_id: str,
     target_user_id: str,
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
@@ -310,12 +318,15 @@ async def get_workspace(
     return ws_data
 
 
-@router.get("/{workspace_id}/vaults", response_model=None)
+@router.get(
+    "/{workspace_id}/vaults",
+    response_model=list[WorkspaceMemberVaultResponse],
+)
 async def list_workspace_vaults(
     workspace_id: str,
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> list[dict[str, str]]:
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
@@ -326,7 +337,10 @@ async def list_workspace_vaults(
 # --- VaultAccess Management Endpoints ---
 
 
-@router.get("/{workspace_id}/members/{user_id}/vaults", response_model=List[VaultAccessResponse])
+@router.get(
+    "/{workspace_id}/members/{user_id}/vaults",
+    response_model=list[VaultAccessResponse],
+)
 async def list_member_vault_access(
     workspace_id: str,
     user_id: str,
@@ -358,7 +372,7 @@ async def list_member_vault_access(
 
 @router.post(
     "/{workspace_id}/members/{user_id}/vaults",
-    response_model=None,
+    response_model=WorkspaceMemberOperationResponse,
 )
 async def grant_vault_access(
     workspace_id: str,
@@ -366,7 +380,7 @@ async def grant_vault_access(
     request: VaultAccessRequest,
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
@@ -404,7 +418,7 @@ async def grant_vault_access(
 
 @router.delete(
     "/{workspace_id}/members/{user_id}/vaults/{vault_id}",
-    response_model=None,
+    response_model=WorkspaceMemberOperationResponse,
 )
 async def revoke_vault_access(
     workspace_id: str,
@@ -412,7 +426,7 @@ async def revoke_vault_access(
     vault_id: str,
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin")),
-) -> Any:
+) -> dict[str, str]:
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 

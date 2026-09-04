@@ -19,13 +19,62 @@ from backend.domains.vault.schemas.pages import (
     BulkPreviewWarmResponse,
     PageDetailResponse,
     PageInfo,
+    PageIndexerStatusResponse,
     PagePreviewResponse,
     SidebarPageInfo,
+    SidebarTreePageInfo,
     TablePagesSnapshot,
     _BulkWarmPayload,
 )
 
 log = logging.getLogger(__name__)
+
+
+# The compact sidebar response is an opt-in projection.  Keep the legacy
+# response unchanged when ``compact`` is false: external 2.x consumers may use
+# the open metadata document even though the endpoint was designed for the UI.
+_COMPACT_SIDEBAR_METADATA_KEYS = frozenset({
+    "Processat pel Cervell",
+    "arrayCycle",
+    "cycle",
+    "database_table_id",
+    "date",
+    "favorite",
+    "handler",
+    "icon",
+    "id",
+    "is_dashboard",
+    "is_default_template",
+    "is_template",
+    "note_type",
+    "processat pel cervell",
+    "resolved_table_id",
+    "source",
+    "table_id",
+    "tags",
+    "translation_lang",
+})
+
+
+def _compact_sidebar_metadata(metadata: dict[object, object]) -> dict[object, object]:
+    """Retain only metadata consumed before a full page/table is requested."""
+    return {
+        key: value
+        for key, value in metadata.items()
+        if key in _COMPACT_SIDEBAR_METADATA_KEYS
+    }
+
+
+def _sparse_sidebar_metadata(page: PageInfo) -> dict[object, object]:
+    """Remove values duplicated by canonical top-level sidebar fields."""
+    metadata = _compact_sidebar_metadata(page.metadata)
+    if metadata.get("id") == page.id:
+        metadata.pop("id")
+    if page.resolved_table_id is not None:
+        for key in ("table_id", "database_table_id", "resolved_table_id"):
+            if metadata.get(key) == page.resolved_table_id:
+                metadata.pop(key)
+    return metadata
 
 
 class SnapshotReader(Protocol):
@@ -187,7 +236,7 @@ async def list_pages_by_table_snapshot(table_id: str) -> TablePagesSnapshot:
     )
 
 
-async def get_indexer_status_endpoint() -> dict[str, object]:
+async def get_indexer_status_endpoint() -> PageIndexerStatusResponse:
     """Expose the page-index warmup status so the UI can show 'indexing…'.
 
     States:
@@ -200,26 +249,54 @@ async def get_indexer_status_endpoint() -> dict[str, object]:
     dependencies = _deps()
     vault_path = dependencies.active_vault_path()
     if not vault_path:
-        return {"state": "no_vault", "files_indexed": 0}
+        return PageIndexerStatusResponse(state="no_vault", files_indexed=0)
     vault_key = str(vault_path)
     status = dependencies.get_indexer_status(vault_key)
     status["cached_entries"] = dependencies.cached_entry_count(vault_key)
-    return status
+    return PageIndexerStatusResponse.model_validate(status)
 
 
-async def list_sidebar_summary() -> list[SidebarPageInfo]:
-    """Returns a lightweight summary of pages for the sidebar."""
+async def list_sidebar_summary(
+    compact: bool = Query(False),
+) -> list[SidebarPageInfo]:
+    """Returns a lightweight summary of pages for the sidebar.
+
+    ``compact`` is opt-in so existing API consumers continue receiving the
+    complete metadata mapping. Knowledge only needs navigation, classification,
+    favorites, tags, and icon fields until it requests a page or table.
+    """
     return [
         SidebarPageInfo.model_validate({
             "id": page.id,
             "title": page.title,
             "parent_id": page.parent_id,
             "is_database": page.is_database,
-            "metadata": page.metadata,
+            "metadata": (
+                _compact_sidebar_metadata(page.metadata)
+                if compact
+                else page.metadata
+            ),
             "last_modified": page.last_modified,
             "folder": page.folder,
             "resolved_table_id": page.resolved_table_id,
         })
+        for page in _deps().get_pages_snapshot()
+    ]
+
+
+async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
+    """Return the sparse initial Knowledge tree without changing legacy APIs."""
+    return [
+        SidebarTreePageInfo(
+            id=page.id,
+            title=page.title,
+            last_modified=page.last_modified,
+            parent_id=page.parent_id,
+            is_database=True if page.is_database else None,
+            metadata=_sparse_sidebar_metadata(page) or None,
+            folder=page.folder or None,
+            resolved_table_id=page.resolved_table_id,
+        )
         for page in _deps().get_pages_snapshot()
     ]
 
@@ -408,13 +485,21 @@ def register_status_routes(router: APIRouter) -> None:
         "/indexer-status",
         get_indexer_status_endpoint,
         methods=["GET"],
-        response_model=None,
+        response_model=PageIndexerStatusResponse,
+        response_model_exclude_unset=True,
     )
     router.add_api_route(
         "/sidebar/summary",
         list_sidebar_summary,
         methods=["GET"],
         response_model=list[SidebarPageInfo],
+    )
+    router.add_api_route(
+        "/sidebar/tree",
+        list_sidebar_tree,
+        methods=["GET"],
+        response_model=list[SidebarTreePageInfo],
+        response_model_exclude_none=True,
     )
 
 

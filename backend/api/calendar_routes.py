@@ -3,14 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Response, Query, Body, HTTPException, Depends
 from pathlib import Path
 import asyncio
-import functools
-import re
-import yaml
 import logging
-import time
-from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Optional, cast
-from icalendar import Calendar, Event
 
 from backend.utils.safe_io import safe_write_text
 from backend.utils.errors import safe_error_detail
@@ -27,9 +21,15 @@ from backend.services.workspace_service import get_workspace_context
 from backend.services.context_vars import get_active_vault_path
 from backend.models.calendar import HiddenEvent
 from backend.data.management_db import get_mgmt_session
-from backend.domains.calendar.geocoding import photon_label as _photon_label
 from backend.domains.calendar.geocoding import search_photon
+from backend.domains.calendar import api_contracts as calendar_requests
+from backend.domains.calendar import mutations as calendar_mutations
+from backend.domains.calendar import runtime as calendar_runtime
 from backend.domains.calendar import schemas as calendar_schemas
+from backend.services.calendar_event_aggregation import (
+    fetch_calendar_accounts,
+    fetch_calendar_lists,
+)
 
 router = APIRouter(
     prefix="/api/calendar", tags=["Calendar"], dependencies=[Depends(get_workspace_context)]
@@ -37,26 +37,15 @@ router = APIRouter(
 log = logging.getLogger(__name__)
 
 # ── Cache ──────────────────────────────────────────────────────────────────────
-_EVENTS_CACHE: dict[str, dict[str, Any]] = {}
-_EVENTS_CACHE_TTL = 300  # seconds
-_CALS_CACHE: dict[str, dict[str, Any]] = {}
-_CALS_CACHE_TTL = 300  # 5 min (calendar lists rarely change)
+_EVENTS_CACHE = calendar_runtime.EVENTS_CACHE
+_CALS_CACHE = calendar_runtime.CALENDARS_CACHE
 
 
 def _invalidate_calendar_cache() -> None:
     _EVENTS_CACHE.clear()
 
 
-def _get_calendar_storage_path() -> Path:
-    base = get_active_vault_path()
-    if base is None:
-        raise RuntimeError("No active Vault is configured")
-    p = base / "Calendar"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def _safe_calendar_path(vault_path: Optional[str]) -> Optional[Path]:
+def _safe_calendar_path(vault_path: object) -> Optional[Path]:
     """Confine a client-provided `vault_path` to the active vault's Calendar directory.
 
     Return the resolved path, or None when it is empty, outside the directory,
@@ -68,14 +57,7 @@ def _safe_calendar_path(vault_path: Optional[str]) -> Optional[Path]:
     actual traversal segments, and the parent check keeps the result inside
     `Calendar/`.
     """
-    if not vault_path:
-        return None
-    try:
-        p = Path(vault_path).resolve()
-        root = _get_calendar_storage_path().resolve()
-    except Exception:
-        return None
-    return p if (p == root or root in p.parents) else None
+    return calendar_runtime.safe_calendar_path(vault_path, get_active_vault_path)
 
 
 def _get_hidden_event_ids() -> set[str]:
@@ -91,28 +73,22 @@ def _get_hidden_event_ids() -> set[str]:
         session.close()
 
 
-def get_frontmatter(content: str) -> tuple[dict[str, Any], str]:
-    match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
-    if match:
-        try:
-            return yaml.safe_load(match.group(1)) or {}, content[match.end() :]
-        except yaml.YAMLError:
-            return {}, content
-    return {}, content
+def get_frontmatter(content: str) -> tuple[dict[object, object], str]:
+    return calendar_mutations.parse_frontmatter(content)
 
 
 def _default_range() -> tuple[str, str]:
-    now = datetime.now(timezone.utc)
-    return (
-        (now - timedelta(days=30)).isoformat(),
-        (now + timedelta(days=90)).isoformat(),
-    )
+    return calendar_runtime.default_range()
 
 
 # ── GET /calendars ─────────────────────────────────────────────────────────────
 
 
-@router.get("/calendars", response_model=list[calendar_schemas.CalendarListItemResponse], response_model_exclude_unset=True)
+@router.get(
+    "/calendars",
+    response_model=list[calendar_schemas.CalendarListItemResponse],
+    response_model_exclude_unset=True,
+)
 async def get_calendars(
     response: Response, email: Optional[str] = Query(None)
 ) -> list[dict[str, Any]]:
@@ -124,49 +100,26 @@ async def get_calendars(
     request reconnection instead of silently showing an empty list.
 
     """
-    from backend.services.hybrid_calendar_service import list_calendars, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
 
-    integrations = integration_manager.get_all_safe()
-    all_accounts = integrations.get("calendars", []) + integrations.get("emails", [])
-
-    if email:
-        email_list = [email]
-    else:
-        email_list = list(
-            {
-                a.get("email") or a.get("username")
-                for a in all_accounts
-                if a.get("email") or a.get("username")
-            }
-        )
-
-    results = []
-    auth_errors = []
-    for em in email_list:
-        cached = _CALS_CACHE.get(em)
-        if cached and time.time() < cached["expiry"]:
-            results.extend(cached["data"])
-            continue
-        try:
-            cals = list_calendars(em)
-        except GoogleAuthExpired:
-            # Expired token: we don't cache it (so a retry after reconnection works)
-            # and we mark the account as affected.
-            auth_errors.append(em)
-            continue
-        _CALS_CACHE[em] = {"data": cals, "expiry": time.time() + _CALS_CACHE_TTL}
-        results.extend(cals)
+    email_list = calendar_runtime.account_emails(integration_manager.get_all_safe(), email)
+    calendars, auth_errors = await asyncio.to_thread(
+        calendar_runtime.load_calendars, email_list, fetch_calendar_lists
+    )
 
     if auth_errors:
         response.headers["X-Calendar-Auth-Error"] = ",".join(auth_errors)
-    return results
+    return calendars
 
 
 # ── GET /events ────────────────────────────────────────────────────────────────
 
 
-@router.get("/events", response_model=list[calendar_schemas.CalendarEventResponse], response_model_exclude_unset=True)
+@router.get(
+    "/events",
+    response_model=list[calendar_schemas.CalendarEventResponse],
+    response_model_exclude_unset=True,
+)
 async def get_events(
     email: Optional[str] = Query(None),
     time_min: Optional[str] = Query(None),
@@ -205,58 +158,20 @@ def collect_all_events(
     (`_EVENTS_CACHE`) and the hidden-events filter.
 
     """
-    from backend.services.hybrid_calendar_service import list_events, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
 
-    integrations = integration_manager.get_all_safe()
-    all_accounts = integrations.get("calendars", []) + integrations.get("emails", [])
-
-    if email:
-        email_list = [email]
-    else:
-        email_list = list(
-            {
-                a.get("email") or a.get("username")
-                for a in all_accounts
-                if a.get("email") or a.get("username")
-            }
-        )
-
-    all_events: list[dict[str, Any]] = []
-    for em in email_list:
-        cache_key = f"{em}|{time_min}|{time_max}|{search}|{calendar_id}"
-        cached = _EVENTS_CACHE.get(cache_key)
-        if cached and time.time() < cached["expiry"]:
-            all_events.extend(cached["data"])
-            continue
-        # Per-account resilience: an expired Google token (or any error
-        # from an account) must NOT bring down the whole query. This account is skipped and
-        # we continue with the rest + the vault events. The UI already requests
-        # reconnection via the GET /calendars header.
-        try:
-            events = list_events(em, time_min, time_max, search, calendar_id)
-        except GoogleAuthExpired:
-            log.info("collect_all_events: Google authentication expired for %s; skipping", em)
-            continue
-        except Exception as e:
-            log.warning(f"collect_all_events: el compte {em} ha fallat: {e}")
-            continue
-        _EVENTS_CACHE[cache_key] = {"data": events, "expiry": time.time() + _EVENTS_CACHE_TTL}
-        all_events.extend(events)
-
-    # Filtrar esdeveniments amagats
-    hidden_ids = _get_hidden_event_ids()
-    if hidden_ids:
-        all_events = [ev for ev in all_events if ev.get("id") not in hidden_ids]
-
-    # Vault events (local notes with a date field)
-    if include_vault:
-        vault_events = _get_vault_events(time_min, time_max, search)
-        if hidden_ids:
-            vault_events = [ev for ev in vault_events if ev.get("id") not in hidden_ids]
-        all_events.extend(vault_events)
-
-    return all_events
+    email_list = calendar_runtime.account_emails(integration_manager.get_all_safe(), email)
+    return calendar_runtime.collect_events(
+        email_list,
+        time_min,
+        time_max,
+        search,
+        calendar_id,
+        include_vault,
+        fetch_calendar_accounts,
+        _get_hidden_event_ids,
+        _get_vault_events,
+    )
 
 
 def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> list[dict[str, Any]]:
@@ -272,53 +187,8 @@ def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> li
     try:
         from backend.api.vault_routes import _get_pages_snapshot
 
-        pages_snapshot = cast(Callable[..., list[Any]], _get_pages_snapshot)
-        q = (search or "").lower()
-        lo, hi = time_min[:10], time_max[:10]
-        events = []
-        for p in pages_snapshot(only_calendar=False):
-            meta = p.metadata or {}
-            date_val = meta.get("date")
-            if not date_val:
-                continue
-            path_str = p.path or ""
-            # Excludes Calendar/External (old sync files) and external sources.
-            if "Calendar/External" in path_str:
-                continue
-            source = meta.get("source", "Gnosi")
-            if source and source not in ("Gnosi", "Gnosi Vault") and "External" in path_str:
-                continue
-            date_str = str(date_val)
-            if date_str < lo or date_str > hi:
-                continue
-            title = meta.get("title") or p.title
-            body = str(meta.get("description") or "")
-            if q and q not in title.lower() and q not in body.lower():
-                continue
-            events.append(
-                {
-                    "id": meta.get("id") or p.id,
-                    "vault_path": path_str,
-                    "calendar_id": "gnosi",
-                    "calendar_name": "Gnosi",
-                    "title": title,
-                    "start": date_str,
-                    "end": str(meta.get("end_date") or ""),
-                    "all_day": bool(meta.get("all_day", "T" not in date_str)),
-                    "location": meta.get("location", ""),
-                    "description": body[:500],
-                    "source": source or "Gnosi",
-                    "account": "",
-                    "provider": "vault",
-                    "color": None,
-                    "status": "confirmed",
-                    "link": "",
-                    "recurrence": meta.get("rrule"),
-                    "recurring_event_id": None,
-                    "is_read_only": False,
-                }
-            )
-        return events
+        pages_snapshot = cast(Callable[..., list[calendar_runtime.PageRecord]], _get_pages_snapshot)
+        return calendar_runtime.project_vault_events(time_min, time_max, search, pages_snapshot)
     except Exception as ex:
         log.warning(f"_get_vault_events: {ex}")
         return []
@@ -327,7 +197,11 @@ def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> li
 # ── Meeting reminders (AI-powered notifier) ────────────────────────────
 
 
-@router.get("/reminders", response_model=calendar_schemas.MeetingRemindersResponse, response_model_exclude_unset=True)
+@router.get(
+    "/reminders",
+    response_model=calendar_schemas.MeetingRemindersResponse,
+    response_model_exclude_unset=True,
+)
 async def get_meeting_reminders() -> dict[str, Any]:
     """Active reminders for the app banner (with the agenda already
     generated by the service; doesn't call the AI again)."""
@@ -336,7 +210,9 @@ async def get_meeting_reminders() -> dict[str, Any]:
     return {"reminders": get_active()}
 
 
-@router.post("/reminders/{reminder_id}/dismiss", response_model=calendar_schemas.CalendarStatusResponse)
+@router.post(
+    "/reminders/{reminder_id}/dismiss", response_model=calendar_schemas.CalendarStatusResponse
+)
 async def dismiss_meeting_reminder(reminder_id: str) -> dict[str, str]:
     from backend.services.meeting_reminders import dismiss
 
@@ -353,14 +229,14 @@ async def get_meeting_reminder_settings() -> dict[str, Any]:
 
 @router.put("/reminders/settings", response_model=calendar_schemas.MeetingReminderSettingsResponse)
 async def update_meeting_reminder_settings(
-    payload: dict[str, Any] = Body(...),
+    payload: calendar_requests.MeetingReminderSettingsRequest = Body(...),
 ) -> dict[str, Any]:
     """Updates {enabled, lead_minutes} and keeps a SINGLE source of truth for
     on/off: also enables/disables the scheduler's `meeting_reminders` task
     (1 min interval)."""
     from backend.services.meeting_reminders import update_settings
 
-    s = update_settings(payload)
+    s = update_settings(payload.model_dump(exclude_unset=True, by_alias=True))
     try:
         from backend.scheduler.manager import scheduler_manager
 
@@ -373,7 +249,11 @@ async def update_meeting_reminder_settings(
 # ── GET /events/{event_id} ─────────────────────────────────────────────────────
 
 
-@router.get("/events/{event_id}", response_model=calendar_schemas.CalendarEventResponse, response_model_exclude_unset=True)
+@router.get(
+    "/events/{event_id}",
+    response_model=calendar_schemas.CalendarEventResponse,
+    response_model_exclude_unset=True,
+)
 async def get_event(
     event_id: str,
     email: str = Query(...),
@@ -391,15 +271,24 @@ async def get_event(
 # ── POST /events ───────────────────────────────────────────────────────────────
 
 
-@router.post("/events", response_model=calendar_schemas.GoogleEventResourceResponse, response_model_exclude_unset=True, dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/events",
+    response_model=calendar_schemas.GoogleEventResourceResponse,
+    response_model_exclude_unset=True,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def post_event(
     email: str = Query(...),
     calendar_id: str = Query("primary"),
-    event_data: dict[str, Any] = Body(...),
+    event_data: calendar_requests.CalendarEventCreateRequest = Body(...),
 ) -> dict[str, Any]:
     """Creates a new event in Google Calendar."""
     try:
-        event = create_google_calendar_event(email, event_data, calendar_id)
+        event = create_google_calendar_event(
+            email,
+            event_data.model_dump(exclude_unset=True, by_alias=True),
+            calendar_id,
+        )
         if isinstance(event, dict) and event:
             _invalidate_calendar_cache()
             return event
@@ -412,11 +301,6 @@ async def post_event(
 # ── PATCH /events/{event_id} ───────────────────────────────────────────────────
 
 
-@router.patch(
-    "/events/{event_id}",
-    response_model=calendar_schemas.CalendarStatusResponse,
-    dependencies=[Depends(require_role("editor"))],
-)
 async def patch_event(
     event_id: str,
     email: str = Query(...),
@@ -424,9 +308,10 @@ async def patch_event(
     patch_data: dict[str, Any] = Body(...),
 ) -> dict[str, str]:
     """Updates an existing event (Google Calendar or local vault)."""
+    patch = dict(patch_data)
     # Vault local
-    if patch_data.get("provider") == "vault" or patch_data.get("vault_path"):
-        raw_vault_path = patch_data.get("vault_path")
+    if patch.get("provider") == "vault" or patch.get("vault_path"):
+        raw_vault_path = patch.get("vault_path")
         if raw_vault_path:
             p = _safe_calendar_path(raw_vault_path)
             if p is None:
@@ -435,24 +320,37 @@ async def patch_event(
                     detail="Invalid vault_path or path outside the Calendar directory",
                 )
             if p.exists():
-                content = p.read_text(encoding="utf-8")
-                meta, body = get_frontmatter(content)
-                allowed = {"date", "end_date", "title", "location", "description", "all_day"}
-                for k, v in patch_data.items():
-                    if k in allowed:
-                        meta[k] = v
-                new_front = yaml.dump(meta, default_flow_style=False, allow_unicode=True)
-                safe_write_text(p, f"---\n{new_front}---\n\n{body}\n")
+                calendar_mutations.patch_vault_event(p, patch, safe_write_text)
                 _invalidate_calendar_cache()
                 return {"status": "success"}
 
     # Google Calendar — pass calendar_id via patch_data so update_google_event accepts it
-    patch_data.setdefault("calendar_id", calendar_id)
-    ok = update_google_event(email, event_id, patch_data)
+    patch.setdefault("calendar_id", calendar_id)
+    ok = update_google_event(email, event_id, patch)
     if ok:
         _invalidate_calendar_cache()
         return {"status": "success"}
     raise HTTPException(status_code=500, detail="Error updating event")
+
+
+@router.patch(
+    "/events/{event_id}",
+    response_model=calendar_schemas.CalendarStatusResponse,
+    dependencies=[Depends(require_role("editor"))],
+    name="patch_event",
+)
+async def _patch_event_endpoint(
+    event_id: str,
+    email: str = Query(...),
+    calendar_id: str = Query("primary"),
+    patch_data: calendar_requests.CalendarEventPatchRequest = Body(...),
+) -> dict[str, str]:
+    return await patch_event(
+        event_id,
+        email,
+        calendar_id,
+        patch_data.model_dump(exclude_unset=True, by_alias=True),
+    )
 
 
 # ── DELETE /events/{event_id} ──────────────────────────────────────────────────
@@ -509,12 +407,11 @@ async def delete_event(
 # ── POST /freebusy ─────────────────────────────────────────────────────────────
 
 
-@router.post("/freebusy", response_model=calendar_schemas.FreeBusyResponse, response_model_exclude_unset=True)
 async def post_freebusy(
     email: str = Query(...),
     time_min: str = Body(...),
     time_max: str = Body(...),
-    calendar_ids: list[Any] = Body(None),
+    calendar_ids: list[Any] | None = Body(None),
 ) -> Any:
     try:
         return get_google_calendar_free_busy(email, time_min, time_max, calendar_ids)
@@ -525,48 +422,42 @@ async def post_freebusy(
         )
 
 
+@router.post(
+    "/freebusy",
+    response_model=calendar_schemas.FreeBusyResponse,
+    response_model_exclude_unset=True,
+    name="post_freebusy",
+)
+async def _post_freebusy_endpoint(
+    email: str = Query(...),
+    payload: calendar_requests.FreeBusyRequest = Body(...),
+) -> Any:
+    return await post_freebusy(email, payload.time_min, payload.time_max, payload.calendar_ids)
+
+
 # ── GET /feed.ics ──────────────────────────────────────────────────────────────
 
 
+# iCalendar bytes use text/calendar and cannot be represented by a JSON model.
 @router.get("/feed.ics", response_class=Response, response_model=None)
 def get_ics_feed(
     time_min: Optional[str] = Query(None),
     time_max: Optional[str] = Query(None),
 ) -> Response:
     """Generate an .ics of all events (local vault + Google Calendar)."""
-    cal = Calendar()
-    cal.add("prodid", "-//Gnosi PIM//ismaelgarcia.net//")
-    cal.add("version", "2.0")
-
     t_min, t_max = _default_range()
     events = _get_vault_events(time_min or t_min, time_max or t_max, None)
-
-    for ev in events:
-        try:
-            ical_event = Event()
-            ical_event.add("summary", ev["title"])
-            start_str = ev["start"]
-            if start_str:
-                dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                ical_event.add("dtstart", dt)
-            end_str = ev.get("end")
-            if end_str:
-                dt_end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                ical_event.add("dtend", dt_end)
-            if ev.get("description"):
-                ical_event.add("description", ev["description"])
-            ical_event.add("uid", ev["id"] + "@gnosi.local")
-            cal.add_component(ical_event)
-        except Exception:
-            continue
-
-    return Response(content=cal.to_ical(), media_type="text/calendar")
+    return Response(content=calendar_runtime.build_ics(events), media_type="text/calendar")
 
 
 # ── POST /sync (no-op — the hybrid architecture doesn't need sync) ──────────────
 
 
-@router.post("/sync", response_model=calendar_schemas.CalendarSyncResponse, dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/sync",
+    response_model=calendar_schemas.CalendarSyncResponse,
+    dependencies=[Depends(require_role("editor"))],
+)
 async def sync_calendar_accounts(
     email: Optional[str] = Query(None),
 ) -> dict[str, str | int]:
@@ -586,7 +477,9 @@ async def sync_calendar_accounts(
 # ── GET /attendees/search ──────────────────────────────────────────────────────
 
 
-@router.get("/attendees/search", response_model=list[calendar_schemas.CalendarAttendeeSearchResponse])
+@router.get(
+    "/attendees/search", response_model=list[calendar_schemas.CalendarAttendeeSearchResponse]
+)
 async def search_attendees(
     q: str = Query(..., min_length=1),
 ) -> list[dict[str, str]]:
@@ -599,37 +492,26 @@ async def search_attendees(
 
     integrations = integration_manager.get_all_safe()
     accounts = integrations.get("contacts", []) or integrations.get("calendars", [])
-    q_lower = q.lower().strip()
-    results = []
-    seen = set()
 
-    for acc in accounts[:2]:
-        email = acc.get("email")
-        if not email:
-            continue
-        try:
-            contacts = list_google_contacts(email)
-            for c in contacts:
-                parsed = parse_google_contact_to_dict(c)
-                name = parsed.get("name", "")
-                # `parse_google_contact_to_dict` exposes the email as `email` (singular
-                # string), not `emails` (list): always iterate `parsed.get("emails", [])`
-                # returned [] → the assistant autocomplete remained EMPTY for every query.
-                addr = parsed.get("email", "")
-                if not addr or addr in seen:
-                    continue
-                if q_lower not in addr.lower() and q_lower not in name.lower():
-                    continue
-                seen.add(addr)
-                results.append({"email": addr, "name": name})
-                if len(results) >= 8:
-                    break
-            if len(results) >= 8:
-                break
-        except Exception as ex:
-            log.warning(f"search_attendees: {ex}")
+    def load_contacts(email: str) -> list[object]:
+        return list(list_google_contacts(email))
 
-    return results
+    def parse_contact(contact: object) -> dict[str, object]:
+        if not isinstance(contact, dict):
+            raise TypeError("calendar contact must be an object")
+        return dict(parse_google_contact_to_dict(contact))
+
+    try:
+        return calendar_runtime.find_attendees(
+            accounts,
+            q,
+            load_contacts,
+            parse_contact,
+            lambda error: log.warning("search_attendees: %s", error),
+        )
+    except Exception as ex:
+        log.warning("search_attendees: %s", ex)
+        return []
 
 
 # ── GET /geocode ──────────────────────────────────────────────────────────────
@@ -653,27 +535,28 @@ async def geocode_location(
 
 async def rsvp_event(event_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Accepts, declines, or marks as tentative a Google Calendar invitation."""
-    email = body.get("email")
-    calendar_id = body.get("calendar_id", "primary")
-    rsvp = body.get("rsvp")
-
-    if not email or not rsvp:
-        raise HTTPException(status_code=400, detail="email i rsvp són requerits")
-    if rsvp not in ("accepted", "declined", "tentative", "needsAction"):
-        raise HTTPException(status_code=400, detail="rsvp invàlid")
-
-    ok = respond_to_invitation(email, event_id, rsvp, calendar_id)
-    if not ok:
+    try:
+        return await calendar_mutations.respond_to_event(
+            event_id, body, respond_to_invitation, _invalidate_calendar_cache
+        )
+    except ValueError as error:
+        detail = "email i rsvp són requerits" if str(error) == "missing" else "rsvp invàlid"
+        raise HTTPException(status_code=400, detail=detail) from error
+    except RuntimeError as error:
         raise HTTPException(
             status_code=503, detail="Could not update the response in Google Calendar"
-        )
-
-    _invalidate_calendar_cache()
-    return {"ok": True, "rsvp": rsvp}
+        ) from error
 
 
-@router.post("/events/{event_id}/rsvp", response_model=calendar_schemas.CalendarRsvpResponse, dependencies=[Depends(require_role("editor"))], name="rsvp_event")
-async def _rsvp_event_endpoint(event_id: str, body: calendar_schemas.CalendarRsvpRequest = Body(...)) -> dict[str, Any]:
+@router.post(
+    "/events/{event_id}/rsvp",
+    response_model=calendar_schemas.CalendarRsvpResponse,
+    dependencies=[Depends(require_role("editor"))],
+    name="rsvp_event",
+)
+async def _rsvp_event_endpoint(
+    event_id: str, body: calendar_schemas.CalendarRsvpRequest = Body(...)
+) -> dict[str, Any]:
     return await rsvp_event(event_id, body.model_dump(exclude_unset=True, by_alias=True))
 
 
@@ -699,50 +582,42 @@ async def invite_to_event(event_id: str, body: dict[str, Any]) -> dict[str, Any]
     if is_vault:
         from backend.services.google_mail_service import send_new_message
 
-        title = event_data.get("title", "Cita")
-        date_str = event_data.get("date", "")
-        location = event_data.get("location", "")
-        description = event_data.get("description", "")
-
-        failed = []
-        for att in attendees:
-            addr = att.get("email", "")
-            if not addr:
-                continue
-            loc_html = f"<p><strong>Lloc:</strong> {location}</p>" if location else ""
-            desc_html = f"<p><strong>Descripció:</strong> {description}</p>" if description else ""
-            html = (
-                f"<h2>T'han convidat a: {title}</h2>"
-                f"<p><strong>Data:</strong> {date_str}</p>"
-                f"{loc_html}{desc_html}"
-                f"<p style='color:#888;font-size:12px'>Invitació enviada des de <strong>Gnosi</strong>.</p>"
-            )
-            if not send_new_message(email, addr, f"Invitació: {title}", html):
-                failed.append(addr)
-
-        if failed:
-            return {"ok": False, "failed": failed, "sent": len(attendees) - len(failed)}
-        return {"ok": True, "sent": len(attendees)}
+        return calendar_mutations.invite_vault_event(email, attendees, event_data, send_new_message)
 
     else:
-        ok = patch_event_attendees(email, event_id, attendees, calendar_id)
-        if not ok:
+        try:
+            return calendar_mutations.invite_google_event(
+                event_id,
+                email,
+                attendees,
+                calendar_id,
+                patch_event_attendees,
+                _invalidate_calendar_cache,
+            )
+        except RuntimeError as error:
             raise HTTPException(
                 status_code=503, detail="Could not update the guests in Google Calendar"
-            )
-        _invalidate_calendar_cache()
-        return {"ok": True}
+            ) from error
 
 
-@router.post("/events/{event_id}/invite", response_model=calendar_schemas.CalendarInviteResponse, response_model_exclude_unset=True, name="invite_to_event")
-async def _invite_to_event_endpoint(event_id: str, body: calendar_schemas.CalendarInviteRequest = Body(...)) -> dict[str, Any]:
+@router.post(
+    "/events/{event_id}/invite",
+    response_model=calendar_schemas.CalendarInviteResponse,
+    response_model_exclude_unset=True,
+    name="invite_to_event",
+)
+async def _invite_to_event_endpoint(
+    event_id: str, body: calendar_schemas.CalendarInviteRequest = Body(...)
+) -> dict[str, Any]:
     return await invite_to_event(event_id, body.model_dump(exclude_unset=True, by_alias=True))
 
 
 # ── POST /events/{event_id}/hide ─────────────────────────────────────────────
 
 
-@router.post("/events/{event_id}/hide", response_model=calendar_schemas.CalendarStatusMessageResponse)
+@router.post(
+    "/events/{event_id}/hide", response_model=calendar_schemas.CalendarStatusMessageResponse
+)
 async def hide_event(event_id: str) -> dict[str, str]:
     """Hides an event locally."""
     session = get_mgmt_session()
@@ -765,7 +640,9 @@ async def hide_event(event_id: str) -> dict[str, str]:
         session.close()
 
 
-@router.post("/events/{event_id}/unhide", response_model=calendar_schemas.CalendarStatusMessageResponse)
+@router.post(
+    "/events/{event_id}/unhide", response_model=calendar_schemas.CalendarStatusMessageResponse
+)
 async def unhide_event(event_id: str) -> dict[str, str]:
     """Show a hidden event again."""
     session = get_mgmt_session()

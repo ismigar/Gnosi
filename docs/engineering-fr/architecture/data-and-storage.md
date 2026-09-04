@@ -94,6 +94,13 @@ structurelles 2.x révisées, créent des sauvegardes vérifiées et appliquent 
 migrations vers l'avant. Les schémas inconnus ou divergents provoquent un arrêt
 sans modification. Les caches dérivés et les bases externes restent hors de ces migrations.
 
+Les fichiers `academic_index.sqlite3` concernés appartiennent à la famille
+`literature_index`. Les enregistrements OAI et `oai_sync_state` sont durables ;
+la table virtuelle FTS peut être reconstruite, mais reste dans la même migration
+révisée car ses identifiants de ligne demeurent synchronisés avec les
+enregistrements durables. Les connexions d'exécution définissent uniquement les
+pragmas opérationnels de SQLite et n'exécutent jamais de DDL de schéma.
+
 Seuls les hachages des PAT et un préfixe reconnaissable sont enregistrés. Les
 jetons de partage public sont des identifiants opaques ; leurs lignes conservent
 le créateur, le vault, les permissions, l'expiration et l'état de révocation.

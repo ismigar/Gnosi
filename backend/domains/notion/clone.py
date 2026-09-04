@@ -5,7 +5,7 @@ from __future__ import annotations
 import re as re
 import time as time
 import uuid as uuid
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from backend.domains.notion import view_recreator as nvr
 from backend.domains.notion.clone_runtime import (
@@ -45,19 +45,25 @@ def clone_page_id(notion_page_id: str) -> str:
 _LEADING_ICON_RE = re.compile(r"^[\s\U0001F000-\U0001FAFF☀-➿←-⇿⬀-⯿️‍⃣™ℹ]+")
 
 
-def _clean(name: Any) -> Any:
+def _map_list(value: object) -> List[Dict[str, object]]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _value_list(value: object) -> List[object]:
+    return value if isinstance(value, list) else []
+
+
+def _clean(name: object) -> object:
     """Remove only a decorative field-name prefix, preserving accents and case."""
     if not isinstance(name, str) or not name:
         return name
     return _LEADING_ICON_RE.sub("", name).strip() or name
 
 
-def _child_page_ids(blocks: Any) -> List[str]:
+def _child_page_ids(blocks: object) -> List[str]:
     """Return nested child-page IDs without descending into the child pages themselves."""
     out: List[str] = []
-    for block in blocks or []:
-        if not isinstance(block, dict):
-            continue
+    for block in _map_list(blocks):
         if block.get("type") == "child_page" and block.get("id"):
             out.append(str(block["id"]))
             continue
@@ -65,7 +71,7 @@ def _child_page_ids(blocks: Any) -> List[str]:
     return out
 
 
-def block_file_url(block: Dict[str, Any]) -> Optional[str]:
+def block_file_url(block: Dict[str, object]) -> Optional[str]:
     """Return the fresh URL carried by a Notion media block."""
     if not isinstance(block, dict):
         return None
@@ -77,7 +83,7 @@ def block_file_url(block: Dict[str, Any]) -> Optional[str]:
     return str(url) if isinstance(url, str) and url.strip() else None
 
 
-def _icon_or_cover_url(obj: Any) -> Optional[str]:
+def _icon_or_cover_url(obj: object) -> Optional[str]:
     if not isinstance(obj, dict):
         return None
     kind = obj.get("type")
@@ -89,9 +95,9 @@ def _icon_or_cover_url(obj: Any) -> Optional[str]:
 
 
 def _apply_icon_cover(
-    meta: Dict[str, Any],
-    page: Dict[str, Any],
-    table: Dict[str, Any],
+    meta: Dict[str, object],
+    page: Dict[str, object],
+    table: Dict[str, object],
     save_asset: Optional[SaveAsset],
 ) -> int:
     """Store an emoji or local icon/cover and return the download count."""
@@ -114,7 +120,7 @@ def _apply_icon_cover(
     return downloaded
 
 
-def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
+def clone_table_schema(notion_db: Dict[str, object]) -> Dict[str, object]:
     """Clone a table schema with namespaced IDs and clean field names."""
     table = dict(map_database_schema(notion_db))
     table["id"] = clone_table_id(str(notion_db.get("id") or ""))
@@ -123,7 +129,7 @@ def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
         "database_id": str(notion_db.get("id") or ""),
         "mode": "exact_clone",
     }
-    for prop in table.get("properties", []):
+    for prop in _map_list(table.get("properties")):
         prop["name"] = _clean(prop.get("name"))
         target = prop.get("relation_database_id")
         if prop.get("type") == "relation" and target:
@@ -131,10 +137,10 @@ def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
     return table
 
 
-def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[str, Any]:
+def clone_values(values: Dict[str, object], schema: List[Dict[str, object]]) -> Dict[str, object]:
     """Keep effective-schema values and remap relations to clone page IDs."""
     by_clean = {str(prop.get("name") or ""): prop for prop in schema or []}
-    out: Dict[str, Any] = {}
+    out: Dict[str, object] = {}
     for key, value in values.items():
         clean_key = str(_clean(key) or key)
         field = by_clean.get(clean_key)
@@ -147,12 +153,14 @@ def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[s
     return out
 
 
-def _clean_view_fields(view: Dict[str, Any]) -> Dict[str, Any]:
-    view["visibleProperties"] = [_clean(item) for item in (view.get("visibleProperties") or [])]
-    for item in view.get("filters") or []:
+def _clean_view_fields(view: Dict[str, object]) -> Dict[str, object]:
+    view["visibleProperties"] = [
+        _clean(item) for item in _value_list(view.get("visibleProperties"))
+    ]
+    for item in _map_list(view.get("filters")):
         if item.get("field"):
             item["field"] = _clean(item["field"])
-    for item in view.get("sorts") or []:
+    for item in _map_list(view.get("sorts")):
         if item.get("field"):
             item["field"] = _clean(item["field"])
     for key in ("groupBy", "xField", "yField", "dateField", "endDateField"):
@@ -169,11 +177,11 @@ def build_clone_views(
     clone_host_table_id: str,
     view_block_id: str,
     view_md: str,
-    resolve_clone_table: Callable[[str], Optional[Dict[str, Any]]],
+    resolve_clone_table: Callable[[str], Optional[Dict[str, object]]],
     skip_types: tuple[str, ...] = SKIP_VIEW_TYPES,
-) -> List[Dict[str, Any]]:
+) -> List[Dict[str, object]]:
     """Build every real tab of one cloned Notion database block."""
-    out: List[Dict[str, Any]] = []
+    out: List[Dict[str, object]] = []
     for index, meta in enumerate(nvr.parse_mcp_views(view_md or "")):
         if meta.get("view_type") in (skip_types or ()):
             continue
@@ -200,10 +208,10 @@ def resolve_view_markers(
     clone_host_table_id: str,
     *,
     fetch_view: Callable[[str], str],
-    resolve_clone_table: Callable[[str], Optional[Dict[str, Any]]],
-) -> tuple[str, List[Dict[str, Any]]]:
+    resolve_clone_table: Callable[[str], Optional[Dict[str, object]]],
+) -> tuple[str, List[Dict[str, object]]]:
     """Replace Notion database markers with cloned anchor-view embeds."""
-    views: List[Dict[str, Any]] = []
+    views: List[Dict[str, object]] = []
 
     def replace(match: re.Match[str]) -> str:
         view_id = match.group(1)
@@ -250,21 +258,21 @@ def _clone_workspace_with_dependencies(
     *,
     fetch_page: Callable[[str], str],
     mcp_to_markdown: Callable[[str], str],
-    write_table: Callable[[Dict[str, Any]], None],
-    write_page: Callable[[Dict[str, Any]], None],
-    write_view: Callable[[Dict[str, Any]], None],
+    write_table: Callable[[Dict[str, object]], None],
+    write_page: Callable[[Dict[str, object]], None],
+    write_view: Callable[[Dict[str, object]], None],
     database_ids: List[str],
     target_folder: str = "Clon Notion",
     max_pages: int = 5000,
-    schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+    schema_overrides: Optional[Dict[str, Dict[str, object]]] = None,
     save_asset: Optional[SaveAsset] = None,
     loose_page_types: Optional[Dict[str, str]] = None,
     follow_subpages: bool = True,
     progress_cb: Optional[ProgressCallback] = None,
     should_cancel: Optional[Callable[[], bool]] = None,
-    registry_tables: Optional[List[Dict[str, Any]]] = None,
+    registry_tables: Optional[List[Dict[str, object]]] = None,
     dependencies: CloneDependencies,
-) -> Dict[str, Any]:
+) -> Dict[str, object]:
     runtime = CloneRuntime(
         rest_client=rest_client,
         fetch_page=fetch_page,
@@ -292,20 +300,20 @@ def clone_workspace(
     *,
     fetch_page: Callable[[str], str],
     mcp_to_markdown: Callable[[str], str],
-    write_table: Callable[[Dict[str, Any]], None],
-    write_page: Callable[[Dict[str, Any]], None],
-    write_view: Callable[[Dict[str, Any]], None],
+    write_table: Callable[[Dict[str, object]], None],
+    write_page: Callable[[Dict[str, object]], None],
+    write_view: Callable[[Dict[str, object]], None],
     database_ids: List[str],
     target_folder: str = "Clon Notion",
     max_pages: int = 5000,
-    schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
-    save_asset: Optional[Callable[[str, Optional[str], Dict[str, Any]], Optional[str]]] = None,
+    schema_overrides: Optional[Dict[str, Dict[str, object]]] = None,
+    save_asset: Optional[Callable[[str, Optional[str], Dict[str, object]], Optional[str]]] = None,
     loose_page_types: Optional[Dict[str, str]] = None,
     follow_subpages: bool = True,
-    progress_cb: Optional[Callable[[str, int, int, Dict[str, Any]], None]] = None,
+    progress_cb: Optional[Callable[[str, int, int, Dict[str, object]], None]] = None,
     should_cancel: Optional[Callable[[], bool]] = None,
-    registry_tables: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    registry_tables: Optional[List[Dict[str, object]]] = None,
+) -> Dict[str, object]:
     """Clone selected databases and standalone pages in the historical phase order."""
     return _clone_workspace_with_dependencies(
         rest_client,

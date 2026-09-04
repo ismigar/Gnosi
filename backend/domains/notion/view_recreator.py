@@ -15,9 +15,9 @@ from __future__ import annotations
 import json as json
 import re as re
 import uuid as uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
-JsonMap = Dict[str, Any]
+JsonMap = Dict[str, object]
 FetchView = Callable[[str], str]
 ResolveTable = Callable[[str], Optional[JsonMap]]
 
@@ -35,7 +35,15 @@ _DS_ENTRY_RE = re.compile(
 _PAGE_ID_RE = re.compile(r"([0-9a-f]{32})")
 
 
-def _uid(s: Any) -> str:
+def _mapping(value: object) -> JsonMap:
+    return value if isinstance(value, dict) else {}
+
+
+def _mapping_list(value: object) -> List[JsonMap]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _uid(s: object) -> str:
     return str(s or "").replace("-", "").lower()
 
 
@@ -47,12 +55,12 @@ def _strip_icon(name: str) -> str:
 # ---------------------------------------------------------------------------
 # 1) Parse the PAGE (MCP markdown) → sections with views
 # ---------------------------------------------------------------------------
-def parse_mcp_page(page_md: str) -> List[Dict[str, Any]]:
+def parse_mcp_page(page_md: str) -> List[Dict[str, object]]:
     """Returns [{heading, db_id}] in order: each `<database inline>` with the heading that
     precedes it. `db_id` is the block id (32-hex) of the view (needs a `fetch` to resolve it)."""
     m = re.search(r"<content>(.*)</content>", page_md, re.DOTALL)
     body = m.group(1) if m else page_md
-    out: List[Dict[str, Any]] = []
+    out: List[Dict[str, object]] = []
     current_heading = ""
     for line in body.splitlines():
         h = _HEADING_RE.match(line)
@@ -67,7 +75,7 @@ def parse_mcp_page(page_md: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # 2) Parse the VIEW (markdown from `fetch` of the database) → metadata
 # ---------------------------------------------------------------------------
-def _advanced_filters(af: Any) -> List[Dict[str, Any]]:
+def _advanced_filters(af: object) -> List[Dict[str, object]]:
     """Flattens a Notion `advancedFilter` into a list of flat property filters.
     Only AND groups (or a single filter, where and==or): Gnosi's filters are AND. The
     formula case (`operator:"every"` with `resultFilter`) is merged: the outer property +
@@ -77,7 +85,7 @@ def _advanced_filters(af: Any) -> List[Dict[str, Any]]:
     items = [f for f in (af.get("filters") or []) if isinstance(f, dict)]
     if str(af.get("operator") or "and").lower() != "and" and len(items) > 1:
         return []
-    out: List[Dict[str, Any]] = []
+    out: List[Dict[str, object]] = []
     for f in items:
         if f.get("type") != "property" or not f.get("property"):
             continue
@@ -97,18 +105,18 @@ def _advanced_filters(af: Any) -> List[Dict[str, Any]]:
 
 
 def _parse_view_json(
-    v: Dict[str, Any], ds_names: Dict[str, str], default_ds: str, view_url: str
-) -> Dict[str, Any]:
+    v: Dict[str, object], ds_names: Dict[str, str], default_ds: str, view_url: str
+) -> Dict[str, object]:
     """JSON of an MCP `<view>` → view meta (shape of parse_mcp_view + name/view_url/
     chart/timeline_by/date_by, and the data source resolved via `dataSourceUrl`)."""
     ds_name = default_ds
     m = re.search(r"collection://([0-9a-f-]+)", str(v.get("dataSourceUrl") or ""))
     if m and ds_names.get(m.group(1)):
         ds_name = ds_names[m.group(1)]
-    meta: Dict[str, Any] = {
+    meta: Dict[str, object] = {
         "data_source_name": ds_name,
         "view_type": v.get("type", "table"),
-        "name": (v.get("name") or "").strip() or None,
+        "name": str(v.get("name") or "").strip() or None,
         "view_url": view_url or None,
         "display_properties": v.get("displayProperties", []) or [],
         "filter_property": None,
@@ -120,11 +128,13 @@ def _parse_view_json(
         "timeline_by": None,
         "date_by": None,
     }
-    simple = [(f.get("filter") or {}) for f in (v.get("simpleFilters") or [])]
+    simple = [_mapping(f.get("filter")) for f in _mapping_list(v.get("simpleFilters"))]
     for flt in simple + _advanced_filters(v.get("advancedFilter")):
         if flt.get("type") != "property" or not flt.get("property"):
             continue
-        meta["filters_raw"].append(flt)
+        filters_raw = meta["filters_raw"]
+        if isinstance(filters_raw, list):
+            filters_raw.append(flt)
         if meta["filter_property"] is None:
             meta["filter_property"] = flt.get("property")
             # `value` can come as a dict {"value":X}, a list, or a scalar: we use
@@ -136,14 +146,14 @@ def _parse_view_json(
             pid = _PAGE_ID_RE.search(str(val))
             meta["filter_value_page_id"] = pid.group(1) if pid else None
     # Sort and grouping (if the view has them; defensive formats)
-    for s in v.get("sorts") or []:
-        if not isinstance(s, dict):
-            continue
+    for s in _mapping_list(v.get("sorts")):
         fld = s.get("property") or s.get("field")
         if not fld:
             continue
         d = "desc" if str(s.get("direction") or "").lower().startswith("desc") else "asc"
-        meta["sorts"].append({"field": fld, "direction": d})
+        sorts = meta["sorts"]
+        if isinstance(sorts, list):
+            sorts.append({"field": fld, "direction": d})
     gb = v.get("groupBy") or v.get("group_by")
     if isinstance(gb, dict):
         gb = gb.get("property") or gb.get("field")
@@ -155,10 +165,10 @@ def _parse_view_json(
     meta["date_by"] = cb if isinstance(cb, str) and cb.strip() else None
     # Chart: VaultChart config {chartType, xField, yField, aggregation}
     if v.get("type") == "chart":
-        cc = v.get("chartConfig") or {}
-        dc = cc.get("dataConfig") or {}
-        xgb = dc.get("groupBy") or {}
-        agg = (dc.get("aggregationConfig") or {}).get("aggregation") or {}
+        cc = _mapping(v.get("chartConfig"))
+        dc = _mapping(cc.get("dataConfig"))
+        xgb = _mapping(dc.get("groupBy"))
+        agg = _mapping(_mapping(dc.get("aggregationConfig")).get("aggregation"))
         ctype = str(cc.get("type") or "bar").lower()
         aggr = str(agg.get("aggregator") or "count").lower()
         meta["chart"] = {
@@ -170,7 +180,7 @@ def _parse_view_json(
     return meta
 
 
-def parse_mcp_views(view_md: str) -> List[Dict[str, Any]]:
+def parse_mcp_views(view_md: str) -> List[Dict[str, object]]:
     """ALL the views (tabs) of an MCP `<database>` block, in order.
 
     Notion groups N views as tabs of the same linked-database block, and the MCP
@@ -179,7 +189,7 @@ def parse_mcp_views(view_md: str) -> List[Dict[str, Any]]:
     ds_names = {m.group(1): m.group(2).strip() for m in _DS_ENTRY_RE.finditer(view_md or "")}
     nm = _DS_NAME_RE.search(view_md or "")
     default_ds = nm.group(1).strip() if nm else ""
-    out: List[Dict[str, Any]] = []
+    out: List[Dict[str, object]] = []
     for vm in _VIEW_RE.finditer(view_md or ""):
         try:
             v = json.loads(vm.group(2))
@@ -191,7 +201,7 @@ def parse_mcp_views(view_md: str) -> List[Dict[str, Any]]:
     return out
 
 
-def parse_mcp_view(view_md: str) -> Dict[str, Any]:
+def parse_mcp_view(view_md: str) -> Dict[str, object]:
     """Metadata of the FIRST view in the block (compat; for all tabs: parse_mcp_views)."""
     views = parse_mcp_views(view_md)
     if views:
@@ -214,7 +224,7 @@ def parse_mcp_view(view_md: str) -> Dict[str, Any]:
     }
 
 
-def _scalar(v: Any) -> str:
+def _scalar(v: object) -> str:
     """Notion filter value → Gnosi string (checkbox: 'true'/'false', parity with
     the frontend's vaultFilters.asBool)."""
     if isinstance(v, bool):
@@ -225,7 +235,7 @@ def _scalar(v: Any) -> str:
 _INVALID_FILTER_VALUE = object()
 
 
-def _normalize_filter_value(value: Any) -> Any:
+def _normalize_filter_value(value: object) -> object:
     if isinstance(value, list):
         if len(value) != 1:
             return _INVALID_FILTER_VALUE
@@ -237,7 +247,7 @@ def _normalize_filter_value(value: Any) -> Any:
     return value
 
 
-def _map_filter_operator(prop: Any, operator: str, value: Any) -> Optional[JsonMap]:
+def _map_filter_operator(prop: object, operator: str, value: object) -> Optional[JsonMap]:
     if operator.endswith("is_not_empty"):
         return {"field": prop, "operator": "is_not_empty"}
     if operator.endswith("is_empty"):
@@ -265,7 +275,7 @@ def _map_filter_operator(prop: Any, operator: str, value: Any) -> Optional[JsonM
     return {"field": prop, "operator": target, "value": _scalar(value)}
 
 
-def _filter_value(flt: Dict[str, Any]) -> Any:
+def _filter_value(flt: Dict[str, object]) -> object:
     """The `value` of a simpleFilter in any of the forms seen from the MCP:
     {"type":"exact","value":X} · direct list · direct scalar."""
     v = flt.get("value")
@@ -274,7 +284,7 @@ def _filter_value(flt: Dict[str, Any]) -> Any:
     return v
 
 
-def _value_mentions_host_page(value: Any, host_page_id: str) -> bool:
+def _value_mentions_host_page(value: object, host_page_id: str) -> bool:
     """Return whether a raw Notion filter value is scoped to the host page."""
     host_uid = _uid(host_page_id)
     if not host_uid:
@@ -286,7 +296,7 @@ def _value_mentions_host_page(value: Any, host_page_id: str) -> bool:
     return host_uid in _uid(value)
 
 
-def is_contextual_view(view_meta: Dict[str, Any], host_page_id: str) -> bool:
+def is_contextual_view(view_meta: Dict[str, object], host_page_id: str) -> bool:
     """Whether a parsed Notion view depends on the page where it is embedded.
 
     A relation filter can arrive either as the resolved ``this`` marker or as a
@@ -294,9 +304,7 @@ def is_contextual_view(view_meta: Dict[str, Any], host_page_id: str) -> bool:
     are safe to share across pages and should not create one registry entry per
     host page.
     """
-    for flt in view_meta.get("filters_raw") or []:
-        if not isinstance(flt, dict):
-            continue
+    for flt in _mapping_list(view_meta.get("filters_raw")):
         if _value_mentions_host_page(_filter_value(flt), host_page_id):
             return True
     if _uid(view_meta.get("filter_value_page_id")) == _uid(host_page_id):
@@ -304,7 +312,7 @@ def is_contextual_view(view_meta: Dict[str, Any], host_page_id: str) -> bool:
     return False
 
 
-def _canonical_view_payload(view: Dict[str, Any]) -> str:
+def _canonical_view_payload(view: Dict[str, object]) -> str:
     """Canonical payload used to identify equivalent imported global views."""
     ignored = {
         "id",
@@ -319,7 +327,7 @@ def _canonical_view_payload(view: Dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def view_identity(view: Dict[str, Any]) -> Optional[Tuple[str, ...]]:
+def view_identity(view: Dict[str, object]) -> Optional[Tuple[str, ...]]:
     """Return a merge key for a safe-to-share imported view, or ``None``.
 
     Contextual views are intentionally never merged: their ``this`` filter is
@@ -328,7 +336,7 @@ def view_identity(view: Dict[str, Any]) -> Optional[Tuple[str, ...]]:
     """
     if view.get("embedded") is not True:
         return None
-    if any(isinstance(f, dict) and f.get("value") == "this" for f in view.get("filters") or []):
+    if any(f.get("value") == "this" for f in _mapping_list(view.get("filters"))):
         return None
     source_view_id = str(view.get("source_view_id") or "").strip()
     if source_view_id:
@@ -337,8 +345,8 @@ def view_identity(view: Dict[str, Any]) -> Optional[Tuple[str, ...]]:
 
 
 def deduplicate_view_definitions(
-    views: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    views: List[Dict[str, object]],
+) -> Tuple[List[Dict[str, object]], Dict[str, str]]:
     """Deduplicate safe imported global views while returning ID aliases.
 
     The first registry entry wins to keep existing references valid. Callers
@@ -346,9 +354,9 @@ def deduplicate_view_definitions(
     persisting the compacted registry. Page-scoped views and ordinary user
     views are left untouched.
     """
-    kept: List[Dict[str, Any]] = []
+    kept: List[Dict[str, object]] = []
     aliases: Dict[str, str] = {}
-    canonical_by_key: Dict[Tuple[str, ...], Dict[str, Any]] = {}
+    canonical_by_key: Dict[Tuple[str, ...], Dict[str, object]] = {}
 
     for view in views:
         key = view_identity(view)
@@ -393,7 +401,7 @@ def deduplicate_view_definitions(
     return kept, aliases
 
 
-def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def map_simple_filter(flt: Dict[str, object]) -> Optional[Dict[str, object]]:
     """Notion simpleFilter → Gnosi filter {field, operator, value} (None if not mappable).
     Gnosi operators (cf. frontend vaultFilters.js): equals, not_equals, contains,
     not_contains, is_empty, is_not_empty, greater_than, less_than."""
@@ -411,11 +419,11 @@ def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 # 3) Building the vault's `gnosi-view` + embed
 # ---------------------------------------------------------------------------
 def resolve_filter_field(
-    target_table: Dict[str, Any], host_table_id: str, filter_property: Optional[str]
+    target_table: Dict[str, object], host_table_id: str, filter_property: Optional[str]
 ) -> Optional[str]:
     """`target_table` field to filter by = the relation that points to the host table
     (by id) or, failing that, by name (= Notion's filter_property, e.g. '📀 Projecte' → 'Projecte')."""
-    props = target_table.get("properties", []) or []
+    props = _mapping_list(target_table.get("properties"))
     for p in props:
         if p.get("type") == "relation" and _uid(p.get("relation_database_id")) == _uid(
             host_table_id
@@ -425,7 +433,7 @@ def resolve_filter_field(
     if filter_property:
         want = _strip_icon(filter_property)
         for p in props:
-            if _strip_icon(p.get("name")) == want:
+            if _strip_icon(str(p.get("name") or "")) == want:
                 name = p.get("name")
                 return str(name) if name is not None else None
     return None
@@ -463,7 +471,7 @@ def _apply_view_type_config(view: JsonMap, view_meta: JsonMap) -> None:
         view["dateField"] = date_by
 
 
-def _page_id_from_filter_value(value: Any) -> Optional[str]:
+def _page_id_from_filter_value(value: object) -> Optional[str]:
     candidates = value if isinstance(value, list) else [value]
     for candidate in candidates:
         match = _PAGE_ID_RE.search(str(candidate)) if candidate is not None else None
@@ -479,12 +487,15 @@ def _build_view_filters(
     view_meta: JsonMap,
 ) -> List[JsonMap]:
     filters: List[JsonMap] = []
-    for raw_filter in view_meta.get("filters_raw") or []:
-        if not isinstance(raw_filter, dict):
-            continue
+    for raw_filter in _mapping_list(view_meta.get("filters_raw")):
         page_id = _page_id_from_filter_value(_filter_value(raw_filter))
         if page_id and _uid(page_id) == _uid(host_page_id):
-            field = resolve_filter_field(target_table, host_table_id, raw_filter.get("property"))
+            raw_property = raw_filter.get("property")
+            field = resolve_filter_field(
+                target_table,
+                host_table_id,
+                raw_property if isinstance(raw_property, str) else None,
+            )
             if field:
                 filters.append({"field": field, "value": "this"})
             continue
@@ -504,19 +515,24 @@ def _add_legacy_context_filter(
     legacy_page_id = view_meta.get("filter_value_page_id")
     if filters or not legacy_page_id or _uid(legacy_page_id) != _uid(host_page_id):
         return
-    field = resolve_filter_field(target_table, host_table_id, view_meta.get("filter_property"))
+    raw_property = view_meta.get("filter_property")
+    field = resolve_filter_field(
+        target_table,
+        host_table_id,
+        raw_property if isinstance(raw_property, str) else None,
+    )
     if field:
         filters.append({"field": field, "value": "this"})
 
 
 def build_gnosi_view(
     host_page_id: str,
-    target_table: Dict[str, Any],
+    target_table: Dict[str, object],
     host_table_id: str,
-    view_meta: Dict[str, Any],
+    view_meta: Dict[str, object],
     heading: str,
     salt: str = "",
-) -> Dict[str, Any]:
+) -> Dict[str, object]:
     """Gnosi view (for `POST /api/vault/views`) equivalent to Notion's embedded view.
     Filter `{field, value:"this"}` when the view filters by the relation to the host page.
     `salt`: id suffix for tabs 2..N of the same block (the 1st leaves it empty and
@@ -524,7 +540,7 @@ def build_gnosi_view(
     target_table_id = str(target_table.get("id") or "")
     seed, source_view_id = _view_seed(host_page_id, target_table_id, view_meta, heading, salt)
     view_id = str(uuid.uuid5(_NS, seed))
-    view: Dict[str, Any] = {
+    view: Dict[str, object] = {
         "id": view_id,
         "table_id": target_table.get("id"),
         "name": heading or target_table.get("name") or "Vista",
@@ -543,7 +559,7 @@ def build_gnosi_view(
     if filters:
         view["filters"] = filters
     if view_meta.get("sorts"):
-        view["sorts"] = [dict(s) for s in view_meta["sorts"]]
+        view["sorts"] = [dict(s) for s in _mapping_list(view_meta.get("sorts"))]
     if view_meta.get("group_by"):
         view["groupBy"] = view_meta["group_by"]
     return view
@@ -564,34 +580,34 @@ def recreate_views_for_page(
     *,
     fetch_view: FetchView,
     resolve_table: ResolveTable,
-) -> List[Dict[str, Any]]:
+) -> List[Dict[str, object]]:
     """For a page (MCP markdown), returns [{heading, db_id, view, embed}] for each
     embedded view resolvable to a vault table — ALL tabs of each block, not just
     the first. Only the 1st tab of each block (the ANCHOR) carries `embed` (the only one that goes
     into the body, as in Notion); the rest hang off the anchor's `tabs` field. The
     chart views "suggested" by the MCP (they don't exist as real tabs) are omitted. The
     layer that writes (POST /views + inserts the embed under the heading) and the MCP client are separate."""
-    results: List[Dict[str, Any]] = []
+    results: List[Dict[str, object]] = []
     for sec in parse_mcp_page(page_md):
         try:
-            view_md = fetch_view(sec["db_id"])
+            view_md = fetch_view(str(sec["db_id"]))
             if not view_md:
                 continue
-            block: List[Dict[str, Any]] = []
+            block: List[Dict[str, object]] = []
             for j, meta in enumerate(parse_mcp_views(view_md)):
                 if meta.get("view_type") == "chart":
                     continue
                 table = resolve_table(str(meta.get("data_source_name") or ""))
                 if not table:
                     continue
-                name = sec["heading"] or meta.get("name") or ""
+                name = str(sec["heading"] or meta.get("name") or "")
                 gview = build_gnosi_view(
                     host_page_id,
                     table,
                     host_table_id,
                     meta,
                     name,
-                    salt=(meta.get("view_url") or str(j)) if j else "",
+                    salt=str(meta.get("view_url") or str(j)) if j else "",
                 )
                 if meta.get("name"):
                     gview["name"] = meta["name"]
@@ -599,8 +615,14 @@ def recreate_views_for_page(
                     {"heading": sec["heading"], "db_id": sec["db_id"], "view": gview, "embed": None}
                 )
             if block:
-                block[0]["view"]["tabs"] = [b["view"]["id"] for b in block[1:]]
-                block[0]["embed"] = view_embed(block[0]["view"]["id"])
+                first_view = block[0]["view"]
+                if isinstance(first_view, dict):
+                    first_view["tabs"] = [
+                        child_view.get("id")
+                        for item in block[1:]
+                        if isinstance((child_view := item.get("view")), dict)
+                    ]
+                    block[0]["embed"] = view_embed(str(first_view.get("id") or ""))
                 results.extend(block)
         except Exception:
             continue
