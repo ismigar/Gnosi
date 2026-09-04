@@ -45,6 +45,13 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Nota: no confondre coalescència amb una cache immutable. Els canvis de vault i els refrescos explícits han d'invalidar la clau corresponent abans de tornar a consultar.
 - Nota: no executar el binari de Vitest del frontend des de l'arrel del repositori, perquè no carregarà la configuració jsdom del paquet i les proves d'emmagatzematge fallaran falsament. Cal executar-lo amb `frontend/` com a directori de treball.
 - Nota: no introduir `QueryClient.fetchQuery` en la versió actual de TanStack, perquè està deprecat i el lint estricte ho rebutja. Cal usar `QueryClient.query` per compartir consultes imperatives.
+- Nota: no comptar imports dinàmics repetits a les façanes públiques i al router com
+  si fossin chunks diferents. El contracte de composició ha de comparar el
+  conjunt de destinacions úniques i continuar exigint la llista exacta.
+- Nota: no assumir que `i18n.t` sempre retorna text durant la composició de
+  catàlegs purs; una prova o arrencada anterior a la inicialització pot retornar
+  un valor buit. Les etiquetes de comandes han de preservar un fallback textual
+  explícit abans de filtrar-les o convertir-les a minúscules.
 
 ## Criteris d'acceptació
 

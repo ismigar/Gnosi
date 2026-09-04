@@ -4,7 +4,6 @@ import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
-
 export type VaultCatalog = components['schemas']['VaultListResponse'];
 export type VaultMutation = components['schemas']['VaultMutationResponse'];
 export type VaultDeletion = components['schemas']['VaultDeleteResponse'];
@@ -85,7 +84,6 @@ export type VaultTrashQuery = NonNullable<
   operations['list_trash_api_vault_trash_get']['parameters']['query']
 >;
 
-
 function materializeVaultPageSaveRequest(
   input: VaultPageSaveInput,
 ): VaultPageSaveRequest {
@@ -97,13 +95,11 @@ function materializeVaultPageSaveRequest(
   };
 }
 
-
 function materializeVaultPagePatchRequest(
   input: VaultPagePatchInput,
 ): VaultPagePatchRequest {
   return { force: false, ...input };
 }
-
 
 export async function fetchVaultCatalog(
   signal?: AbortSignal,
@@ -127,7 +123,6 @@ export async function invalidateVaultCatalog(): Promise<void> {
   await invalidateCachedQuery(bootstrapQueryKeys.vaultCatalog);
 }
 
-
 export async function fetchVaultDatabases(
   signal?: AbortSignal,
 ): Promise<VaultRegistryRecord[]> {
@@ -135,7 +130,6 @@ export async function fetchVaultDatabases(
     await apiClient.GET('/api/vault/databases', { signal }),
   );
 }
-
 
 export async function createVaultDatabase(
   input: VaultDatabaseInput,
