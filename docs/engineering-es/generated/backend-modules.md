@@ -12,11 +12,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | `agent` | 47 | 8657 |
 | `api` | 38 | 12800 |
-| `app` | 8 | 747 |
+| `app` | 8 | 746 |
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 440 | 95153 |
+| `domains` | 440 | 95154 |
 | `mcp` | 3 | 429 |
 | `migrations` | 35 | 2198 |
 | `models` | 12 | 1213 |
@@ -134,7 +134,7 @@ Total: **781 modules** and **162333 source lines**.
 | [`backend/app/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 44 | 0 | 2 | 1 | 2 | Global HTTP error translation and private diagnostic notification. |
 | [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 73 | 0 | 3 | 1 | 2 | Typed construction of the Gnosi FastAPI application. |
 | [`backend/app/health_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/health_contracts.py) | 54 | 3 | 0 | 0 | 3 | Typed response contracts for liveness and Google OAuth diagnostics. |
-| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 332 | 0 | 13 | 4 | 13 | Application startup, maintenance and shutdown lifecycle. |
+| [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 331 | 1 | 13 | 4 | 14 | Application startup, maintenance and shutdown lifecycle. |
 | [`backend/app/middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 32 | 0 | 1 | 0 | 1 | Ordered middleware composition for Gnosi's FastAPI application. |
 | [`backend/app/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py) | 162 | 0 | 1 | 0 | 1 | Single ordered registry for every public Gnosi router. |
 
@@ -565,7 +565,7 @@ Total: **781 modules** and **162333 source lines**.
 | [`backend/domains/vault/tables/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/composition.py) | 39 | 1 | 0 | 0 | 1 | Typed dependency composition for table rows, schemas and saved views. |
 | [`backend/domains/vault/tables/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/contracts.py) | 135 | 13 | 0 | 0 | 8 | Public HTTP contracts for vault registry collections. |
 | [`backend/domains/vault/tables/folders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/folders.py) | 159 | 1 | 8 | 0 | 4 | Physical Vault-folder lifecycle for tables. |
-| [`backend/domains/vault/tables/formula_recalculation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/formula_recalculation.py) | 212 | 2 | 10 | 0 | 2 | Serialized recomputation of formulas that depend on other table rows. |
+| [`backend/domains/vault/tables/formula_recalculation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/formula_recalculation.py) | 213 | 2 | 10 | 0 | 2 | Serialized recomputation of formulas that depend on other table rows. |
 | [`backend/domains/vault/tables/legacy_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/legacy_composition.py) | 566 | 0 | 6 | 0 | 3 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/tables/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/lifecycle.py) | 548 | 4 | 17 | 3 | 0 | Table creation, deletion and rename services. |
 | [`backend/domains/vault/tables/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/options.py) | 593 | 2 | 23 | 8 | 5 | Shared option catalogs and row-value rewrites. |

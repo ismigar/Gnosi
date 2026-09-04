@@ -52,6 +52,33 @@ def test_scheduler_remains_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -
     assert lifespan_module._scheduler_start_enabled() is True
 
 
+def test_agent_workflow_is_deferred_until_first_chat() -> None:
+    events: list[str] = []
+
+    class FakeMcpClient:
+        async def start(self) -> None:
+            events.append("mcp.start")
+
+        async def get_all_tools(self) -> list[dict[str, str]]:
+            events.append("mcp.tools")
+            return [{"name": "ready"}]
+
+    app = FastAPI()
+
+    async def exercise() -> None:
+        client = FakeMcpClient()
+        await lifespan_module._start_agent_runtime(app, client, enabled=True)
+        assert app.state.mcp_client is client
+        assert app.state.tools_list == [{"name": "ready"}]
+        assert app.state.agent_cache == {}
+        assert not hasattr(app.state, "agent_workflow")
+        assert not hasattr(app.state, "agent_app")
+
+    asyncio.run(exercise())
+
+    assert events == ["mcp.start", "mcp.tools"]
+
+
 def test_lifespan_preserves_startup_and_shutdown_order(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

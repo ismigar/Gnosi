@@ -17,3 +17,4 @@ packages:
   translate_row: {kind: action}
   vault_core: {kind: developer}
   zotero_schema: {kind: developer}
+  zotero_sync: {kind: developer}

@@ -115,6 +115,13 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   l'índex preserva frontmatter YAML amb claus `object`. Ha de reutilitzar el
   contracte `IndexedPageMetadata`; la conversió JSON continua sent
   responsabilitat de la frontera HTTP existent.
+- Nota: no construir ni compilar el workflow IA predeterminat dins del lifespan
+  abans del `yield`. El flux de xat ja construeix i cacheja el workflow segons
+  vault, configuració, habilitats i memòria; una còpia precompilada a
+  `app.state.agent_app` no tenia consumidors i podia retenir l'obertura del port
+  durant minuts sota pressió de disc o proveïdors lents. El lifespan només ha
+  d'inicialitzar MCP, descobrir les eines i preparar una cache buida; el primer
+  xat assumeix explícitament el cost de crear el workflow.
 
 ## Criteris d'acceptació
 
@@ -126,6 +133,8 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - La vista inicial no descarrega el chunk complet d'Agent abans d'obrir el xat.
 - La resposta compacta sparse és optativa, restaura defaults al client i no
   modifica la forma dels consumidors legacy.
+- El port HTTP queda disponible sense esperar la construcció del workflow IA;
+  MCP i el catàleg d'eines continuen preparats abans del primer xat.
 
 ## Resultat verificat
 

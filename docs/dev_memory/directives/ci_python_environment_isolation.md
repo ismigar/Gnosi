@@ -23,6 +23,14 @@ que ja no existeix.
 
 ## Restriccions i casos límit
 
+- Note: the backend suite exercises JavaScript plugin sandboxes and reconstructs
+  schema evidence from historical release tags. Its CI job must provision the
+  pinned Node 22.22.2 runtime and perform a full-history checkout; a Python-only,
+  depth-one checkout yields false failures (`Node.js is unavailable` and missing
+  tag evidence) even when the product code is correct.
+- Note: the repository-wide YAML duplicate-key and release-version workflow
+  contracts live in `backend/tests/test_root_typecheck_contract.py`; do not use
+  the retired `test_workflow_yaml_integrity.py` path when validating a CI edit.
 - Note: Do not let `uv sync` select the checkout `.venv`, because a self-hosted
   workspace can retain launchers linked to a removed `libpython`. Instead, set a
   fresh per-job `UV_PROJECT_ENVIRONMENT` under `RUNNER_TEMP` before syncing.

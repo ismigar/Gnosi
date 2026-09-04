@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 21 | 78 |
 | Vitest | 495 | 2050 |
-| pytest | 465 | 3300 |
+| pytest | 465 | 3301 |
 
 ## Archivos
 
@@ -573,7 +573,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_api_compatibility.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_api_compatibility.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_app_config_language.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_config_language.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_app_config_resolution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_config_resolution.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_app_lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_lifespan.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_app_lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_lifespan.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_article_extractor_excerpt.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_article_extractor_excerpt.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_artificial_analysis.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_async_settings_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_async_settings_boundaries.py) | 5 | Python AST |

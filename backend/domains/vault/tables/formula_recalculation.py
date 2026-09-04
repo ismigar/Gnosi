@@ -89,8 +89,9 @@ def _table_rows(
     exclude_page_id: str | None,
     dependencies: FormulaRecalculationDependencies,
 ) -> Iterator[tuple[Path, str, Metadata, str]]:
-    for file_path in dependencies.vault_root().rglob("*.md"):
-        relative_parts = file_path.relative_to(dependencies.vault_root()).parts
+    vault_root = dependencies.vault_root()
+    for file_path in sorted(vault_root.rglob("*.md"), key=lambda path: path.as_posix()):
+        relative_parts = file_path.relative_to(vault_root).parts
         if any(part.startswith(".") for part in relative_parts):
             continue
         try:
