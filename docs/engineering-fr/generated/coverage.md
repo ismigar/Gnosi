@@ -8,11 +8,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 591 | 191 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 979 | 246 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 595 | 194 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 982 | 251 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 435 | 104 | 0 |
-| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 59 | 26 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 47 | 0 |
+| `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 60 | 26 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 126 | 48 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 199 | 73 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 89 | 40 | 0 |
@@ -21,7 +21,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 68 | 18 | 0 |
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 136 | 37 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 41 | 27 | 0 |
-| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 16 | 8 | 0 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 17 | 9 | 0 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 103 | 30 | 0 |
 
 ## Platform foundation and runtime

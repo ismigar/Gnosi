@@ -10,25 +10,25 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Périmètre | Décompte |
 | --- | ---: |
-| Backend Python files | 1183 |
-| Backend Python test files | 411 |
-| Frontend JS/TS source files | 1770 |
-| Frontend unit test files | 476 |
+| Backend Python files | 1204 |
+| Backend Python test files | 424 |
+| Frontend JS/TS source files | 1775 |
+| Frontend unit test files | 478 |
 | Registered FastAPI routers | 36 |
-| Runtime skill contracts | 15 |
-| Development-memory directives | 0 |
+| Runtime skill contracts | 16 |
+| Development-memory directives | 15 |
 
 ## Périmètres propres à l’application
 
 | Périmètre | Fichiers | Périmètre fonctionnel |
 | --- | ---: | --- |
-| `backend/` | 1197 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 1844 | React application, UI behavior, state, and browser integrations |
+| `backend/` | 1221 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `frontend/src/` | 1849 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 80 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 49 | Office, browser, plugin, marketplace, and external-system adapters |
-| `tests/e2e/` | 37 | Host-level Playwright acceptance tests |
-| `scripts/` | 26 | Native, self-host, release, and maintenance scripts |
+| `tests/e2e/` | 39 | Host-level Playwright acceptance tests |
+| `scripts/` | 29 | Native, self-host, release, and maintenance scripts |
 
 ## Périmètre d’exclusion
 

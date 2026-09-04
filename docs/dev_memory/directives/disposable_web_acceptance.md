@@ -63,8 +63,10 @@ proveïdors externs.
   frontend canònic verificat o una còpia local de dependències admesa per Vite.
 - Nota: no invocar ESLint des de l'arrel assumint que hi trobarà configuració;
   la configuració plana és a `frontend/eslint.config.js`. Per validar fitxers E2E
-  focalitzats cal indicar aquesta configuració explícitament o usar l'ordre
-  canònica d'integració.
+  focalitzats, que són fora del `basePath` del frontend, cal executar
+  `frontend/node_modules/.bin/eslint --config frontend/eslint.config.js --no-ignore`
+  des de l'arrel. `pnpm --dir frontend exec eslint` els ignora encara que se li
+  indiqui la configuració explícitament.
 - Els callbacks Playwright que només executen una operació `void` han d'usar un
   bloc explícit; la forma abreujada incompleix `no-confusing-void-expression`.
 
