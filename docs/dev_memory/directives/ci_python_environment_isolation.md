@@ -15,8 +15,9 @@ que ja no existeix.
    abans de retirar cap entorn anterior amb el mateix nom.
 4. Publicar `UV_PROJECT_ENVIRONMENT` mitjançant `GITHUB_ENV` abans de qualsevol
    `uv sync` o `uv run`.
-5. Continuar utilitzant la cache de descàrregues i artefactes d'`uv`, però no
-   desar ni restaurar entorns virtuals complets.
+5. Utilitzar una cache `uv` nova i exclusiva per job sota `RUNNER_TEMP`, amb
+   còpia de fitxers a l'entorn; no compartir artefactes extrets ni desar o
+   restaurar entorns virtuals complets.
 6. Aplicar la preparació a tots els jobs Linux de validació que sincronitzen el
    projecte Python.
 
@@ -34,6 +35,11 @@ que ja no existeix.
   mai s'ha de seguir cap a la destinació.
 - La cache segura és la cache pròpia d'`uv` configurada per `setup-uv`; un
   `.venv` no és una cache portable.
+- Note: do not reuse an extracted package cache across self-hosted jobs. A
+  partial `trafilatura` cache produced an environment where `baseline.py` was
+  absent and mypy failed before checking project code. Export a validated
+  job-scoped `UV_CACHE_DIR`, remove only that exact path before sync, and use
+  `UV_LINK_MODE=copy` so the environment owns complete package files.
 - Note: Do not reuse the machine-wide uv cache while validating from a sandboxed
   worktree, because protected Git metadata inside that cache can fail with
   `Operation not permitted`. Instead, assign a private temporary `UV_CACHE_DIR`

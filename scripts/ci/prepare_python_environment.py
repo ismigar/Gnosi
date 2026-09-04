@@ -14,6 +14,7 @@ from typing import Mapping
 
 LOG = logging.getLogger(__name__)
 ENVIRONMENT_PREFIX = "gnosi-venv-"
+CACHE_PREFIX = "gnosi-uv-cache-"
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
@@ -50,20 +51,35 @@ def environment_path(environment: Mapping[str, str]) -> Path:
     return candidate
 
 
+def cache_path(environment: Mapping[str, str]) -> Path:
+    """Return the validated job-scoped uv cache path."""
+    environment_candidate = environment_path(environment)
+    suffix = environment_candidate.name.removeprefix(ENVIRONMENT_PREFIX)
+    return environment_candidate.parent / f"{CACHE_PREFIX}{suffix}"
+
+
+def _remove_scoped_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
+
+
 def prepare(environment: Mapping[str, str]) -> Path:
     """Remove only the validated job environment and export its fresh location."""
     candidate = environment_path(environment)
+    cache = cache_path(environment)
     github_env = Path(_required(environment, "GITHUB_ENV")).expanduser().resolve(strict=True)
     if not github_env.is_file():
         raise ValueError("GITHUB_ENV must be an existing regular file")
 
-    if candidate.is_symlink() or candidate.is_file():
-        candidate.unlink()
-    elif candidate.exists():
-        shutil.rmtree(candidate)
+    _remove_scoped_path(candidate)
+    _remove_scoped_path(cache)
 
     with github_env.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(f"UV_PROJECT_ENVIRONMENT={candidate}\n")
+        handle.write(f"UV_CACHE_DIR={cache}\n")
+        handle.write("UV_LINK_MODE=copy\n")
     LOG.info("Prepared isolated uv environment at %s", candidate)
     return candidate
 

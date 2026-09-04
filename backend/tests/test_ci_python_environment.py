@@ -7,7 +7,13 @@ import sys
 import pytest
 import yaml
 
-from scripts.ci.prepare_python_environment import ENVIRONMENT_PREFIX, environment_path, prepare
+from scripts.ci.prepare_python_environment import (
+    CACHE_PREFIX,
+    ENVIRONMENT_PREFIX,
+    cache_path,
+    environment_path,
+    prepare,
+)
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -29,17 +35,23 @@ def ci_environment(tmp_path: Path) -> dict[str, str]:
 def test_prepare_removes_only_the_job_environment_and_exports_path(tmp_path: Path) -> None:
     environment = ci_environment(tmp_path)
     candidate = environment_path(environment)
+    cache = cache_path(environment)
     candidate.mkdir()
     (candidate / "stale-python").write_text("old", encoding="utf-8")
+    cache.mkdir()
+    (cache / "partial-wheel").write_text("broken", encoding="utf-8")
     neighbour = tmp_path / "keep-me"
     neighbour.mkdir()
 
     assert prepare(environment) == candidate
 
     assert not candidate.exists()
+    assert not cache.exists()
     assert neighbour.is_dir()
     assert Path(environment["GITHUB_ENV"]).read_text(encoding="utf-8") == (
         f"UV_PROJECT_ENVIRONMENT={candidate}\n"
+        f"UV_CACHE_DIR={cache}\n"
+        "UV_LINK_MODE=copy\n"
     )
 
 
@@ -54,6 +66,20 @@ def test_prepare_unlinks_environment_symlink_without_following_it(tmp_path: Path
     prepare(environment)
 
     assert not candidate.exists()
+    assert (target / "sentinel").read_text(encoding="utf-8") == "safe"
+
+
+def test_prepare_unlinks_cache_symlink_without_following_it(tmp_path: Path) -> None:
+    environment = ci_environment(tmp_path)
+    cache = cache_path(environment)
+    target = tmp_path / "cache-target-to-preserve"
+    target.mkdir()
+    (target / "sentinel").write_text("safe", encoding="utf-8")
+    cache.symlink_to(target, target_is_directory=True)
+
+    prepare(environment)
+
+    assert not cache.exists()
     assert (target / "sentinel").read_text(encoding="utf-8") == "safe"
 
 
@@ -83,9 +109,11 @@ def test_cli_is_idempotent_and_uses_only_runner_temp(tmp_path: Path) -> None:
     subprocess.run(command, env=environment, check=True)
 
     exported = Path(environment["GITHUB_ENV"]).read_text(encoding="utf-8").splitlines()
-    assert len(exported) == 2
-    assert exported[0] == exported[1]
+    assert len(exported) == 6
+    assert exported[:3] == exported[3:]
     assert exported[0].startswith(f"UV_PROJECT_ENVIRONMENT={tmp_path / ENVIRONMENT_PREFIX}")
+    assert exported[1].startswith(f"UV_CACHE_DIR={tmp_path / CACHE_PREFIX}")
+    assert exported[2] == "UV_LINK_MODE=copy"
 
 
 def test_python_workflows_prepare_every_uv_project_environment() -> None:
