@@ -62,6 +62,34 @@ def test_missing_index_rebuilds_immediately(
     assert vault_file_index._initial_rebuild_delay(cache_loaded=False) == 0
 
 
+def test_default_policy_disables_periodic_provider_walks() -> None:
+    assert vault_file_index._DEFAULT_REFRESH_SECONDS == 0
+
+
+def test_cached_one_shot_worker_never_walks_provider_tree(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache_loaded = threading.Event()
+    monkeypatch.setattr(vault_file_index, "_REFRESH_SECONDS", 0)
+    monkeypatch.setattr(
+        vault_file_index,
+        "_load_from_disk",
+        lambda _stop: cache_loaded.set() or True,
+    )
+    monkeypatch.setattr(
+        vault_file_index,
+        "build_index",
+        lambda _stop: pytest.fail("a valid cache must be preferred to a provider walk"),
+    )
+
+    started_at = time.perf_counter()
+    vault_file_index.kickoff_file_index_rebuild()
+    assert cache_loaded.wait(timeout=0.25)
+    assert vault_file_index.shutdown_file_index(timeout_seconds=0.25) is True
+
+    assert time.perf_counter() - started_at < 0.25
+
+
 def test_slow_cache_load_does_not_block_event_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

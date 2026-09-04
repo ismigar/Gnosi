@@ -190,16 +190,6 @@ def _wire_plugin_system() -> None:
         log.warning("⚠️ Could not connect the plugin system: %s", error)
 
 
-def _start_file_index() -> None:
-    """Start the independent Vault filename index."""
-    try:
-        from backend.services.vault_file_index import kickoff_file_index_rebuild
-
-        kickoff_file_index_rebuild()
-    except Exception as error:
-        log.warning("⚠️ Could not launch vault file-index: %s", error)
-
-
 def _repair_main_views() -> None:
     """Ensure every registered table has a main view under one mutation lock."""
     try:
@@ -318,7 +308,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await _start_agent_runtime(app, mcp_client, enabled=ai_enabled)
     _warm_vault_indexes()
     _wire_plugin_system()
-    _start_file_index()
     _repair_main_views()
     _start_mail_idle(enabled=mail_enabled)
 

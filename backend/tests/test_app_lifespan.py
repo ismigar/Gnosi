@@ -197,9 +197,8 @@ def test_lifespan_preserves_startup_and_shutdown_order(
     monkeypatch.setattr(
         vault_file_index,
         "kickoff_file_index_rebuild",
-        lambda: record("file-index.start"),
+        lambda: pytest.fail("lifespan must not scan provider trees"),
     )
-
     def stop_file_index() -> bool:
         record("file-index.stop")
         return True
@@ -245,7 +244,6 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "mcp.create",
         "vault.config",
         "plugins.wire",
-        "file-index.start",
         "registry.lock",
         "registry.load",
         "yield",

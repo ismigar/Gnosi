@@ -675,6 +675,13 @@ async def search_filesystem(body: SearchRequest = Body(...)) -> dict[str, Any]:
 
     from backend.services import vault_file_index
 
+    # This provider-neutral index is intentionally lazy: walking all of
+    # CloudStorage at application startup competes with Knowledge despite being
+    # needed only by this picker/search flow.  The first request can still use
+    # Spotlight or the bounded fallback while the persisted cache is loaded (or
+    # a one-shot provider scan is built) in the background.
+    if not vault_file_index.is_ready():
+        vault_file_index.kickoff_file_index_rebuild()
     if vault_file_index.is_ready():
         index_results = await asyncio.to_thread(vault_file_index.query, body.query or "", limit)
         merged = _dedup_by_path(index_results, helper_results, limit)

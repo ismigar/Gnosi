@@ -55,8 +55,20 @@ _VAULT_INTERNAL = os.environ.get("DIGITAL_BRAIN_VAULT_PATH") or "/vault"
 _VAULT_HOST = os.environ.get("VAULT_HOST_PATH") or ""
 _LOCAL_DATA = resolve_data_dir()
 _CACHE_PATH = _LOCAL_DATA / "cache" / "vault_file_index.json"
-# Periodic refresh (seconds). The walk is metadata-only (it doesn't download files).
-_REFRESH_SECONDS = int(os.environ.get("GNOSI_FILE_INDEX_REFRESH_SECONDS", "600"))
+# Provider-wide walks are unrelated to Knowledge and can contend with its first
+# hydration on File Provider mounts.  The index is therefore started lazily by
+# the filesystem-search endpoint.  A zero interval means one cache load/build;
+# deployments that need periodic provider discovery can opt in explicitly.
+_DEFAULT_REFRESH_SECONDS = 0
+_REFRESH_SECONDS = max(
+    0,
+    int(
+        os.environ.get(
+            "GNOSI_FILE_INDEX_REFRESH_SECONDS",
+            str(_DEFAULT_REFRESH_SECONDS),
+        )
+    ),
+)
 _SHUTDOWN_TIMEOUT_SECONDS = float(os.environ.get("GNOSI_FILE_INDEX_SHUTDOWN_TIMEOUT_SECONDS", "5"))
 _WORKER_BATCH_ENTRIES = max(
     1,
@@ -455,11 +467,13 @@ def _initial_rebuild_delay(cache_loaded: bool) -> int:
 
 
 def _run_refresh_loop(stop_event: threading.Event) -> None:
-    """Load, build and refresh without occupying the application event loop."""
+    """Load/build lazily and optionally refresh without blocking HTTP."""
     global _stop_event, _thread_started, _worker_thread
     current_thread = threading.current_thread()
     try:
         cache_loaded = _load_from_disk(stop_event)
+        if cache_loaded and _REFRESH_SECONDS <= 0:
+            return
         initial_delay = _initial_rebuild_delay(cache_loaded)
         if initial_delay:
             log.info(
@@ -475,6 +489,8 @@ def _run_refresh_loop(stop_event: threading.Event) -> None:
                 return
             except Exception:
                 log.exception("vault file-index: background build failed")
+            if _REFRESH_SECONDS <= 0:
+                return
             if stop_event.wait(max(0, _REFRESH_SECONDS)):
                 return
     finally:
@@ -486,7 +502,7 @@ def _run_refresh_loop(stop_event: threading.Event) -> None:
 
 
 def kickoff_file_index_rebuild() -> None:
-    """Start one managed worker and return before cache parsing or traversal."""
+    """Start one on-demand worker and return before cache parsing/traversal."""
     global _stop_event, _thread_started, _worker_thread, _state
     with _lock:
         if _thread_started:
