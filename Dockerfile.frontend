@@ -2,7 +2,18 @@ FROM node:22.22.2-alpine
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
+# The self-hosted runners can briefly lose access to the npm registry while
+# pulling the pinned package manager. Retry this bootstrap before failing the
+# image build; dependency installation remains frozen below.
+RUN corepack enable && \
+    for attempt in 1 2 3 4 5; do \
+      if corepack prepare pnpm@11.19.0 --activate; then \
+        exit 0; \
+      fi; \
+      sleep $((attempt * 5)); \
+    done; \
+    echo "Unable to prepare pnpm@11.19.0 after 5 attempts" >&2; \
+    exit 1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY .node-version ./
