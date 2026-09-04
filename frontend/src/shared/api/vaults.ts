@@ -5,6 +5,16 @@ import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
 export {
+  bulkApplyVaultTemplate,
+  createVaultPage,
+  deleteVaultPage,
+  duplicateVaultPage,
+  patchVaultPage,
+  restoreVaultPage,
+  saveVaultPage,
+} from './vault-page-mutations';
+
+export {
   createVault,
   deleteVault,
   fetchVaultCatalog,
@@ -95,23 +105,6 @@ export type VaultTrashEmpty = components['schemas']['TrashEmptyResponse'];
 export type VaultTrashQuery = NonNullable<
   operations['list_trash_api_vault_trash_get']['parameters']['query']
 >;
-
-function materializeVaultPageSaveRequest(
-  input: VaultPageSaveInput,
-): VaultPageSaveRequest {
-  return {
-    force: false,
-    is_database: false,
-    metadata: {},
-    ...input,
-  };
-}
-
-function materializeVaultPagePatchRequest(
-  input: VaultPagePatchInput,
-): VaultPagePatchRequest {
-  return { force: false, ...input };
-}
 
 export async function fetchVaultDatabases(
   signal?: AbortSignal,
@@ -262,13 +255,6 @@ export async function invalidateVaultSidebarSummary(): Promise<void> {
 }
 
 
-async function invalidateSidebarAfter<T>(request: Promise<T>): Promise<T> {
-  const result = await request;
-  await invalidateVaultSidebarSummary();
-  return result;
-}
-
-
 export async function fetchVaultPage(
   pageId: string,
   signal?: AbortSignal,
@@ -332,86 +318,6 @@ export async function warmVaultPagePreviews(
 }
 
 
-export async function createVaultPage(
-  input: VaultPageSaveInput,
-): Promise<VaultPageMutation> {
-  return invalidateSidebarAfter(
-    apiClient
-      .POST('/api/vault/pages', {
-        body: materializeVaultPageSaveRequest(input),
-      })
-      .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),
-  );
-}
-
-
-export async function saveVaultPage(
-  pageId: string,
-  input: VaultPageSaveInput,
-): Promise<VaultPageMutation> {
-  return invalidateSidebarAfter(
-    apiClient
-      .PUT('/api/vault/pages/{page_id}', {
-        body: materializeVaultPageSaveRequest(input),
-        params: { path: { page_id: pageId } },
-      })
-      .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),
-  );
-}
-
-
-export async function patchVaultPage(
-  pageId: string,
-  input: VaultPagePatchInput,
-): Promise<VaultPageMutation> {
-  return invalidateSidebarAfter(
-    apiClient
-      .PATCH('/api/vault/pages/{page_id}', {
-        body: materializeVaultPagePatchRequest(input),
-        params: { path: { page_id: pageId } },
-      })
-      .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),
-  );
-}
-
-
-export async function deleteVaultPage(
-  pageId: string,
-): Promise<VaultPageDeletion> {
-  return invalidateSidebarAfter(
-    apiClient
-      .DELETE('/api/vault/pages/{page_id}', {
-        params: { path: { page_id: pageId } },
-      })
-      .then((result) => unwrapApiResult<VaultPageDeletion, unknown>(result)),
-  );
-}
-
-
-export async function duplicateVaultPage(
-  pageId: string,
-): Promise<VaultPageDuplicate> {
-  return invalidateSidebarAfter(
-    apiClient
-      .POST('/api/vault/pages/{page_id}/duplicate', {
-        params: { path: { page_id: pageId } },
-      })
-      .then((result) => unwrapApiResult<VaultPageDuplicate, unknown>(result)),
-  );
-}
-
-
-export async function bulkApplyVaultTemplate(
-  input: VaultBulkTemplateInput,
-): Promise<VaultBulkTemplateResult> {
-  return invalidateSidebarAfter(
-    apiClient
-      .POST('/api/vault/bulk-apply-template', { body: input })
-      .then((result) => unwrapApiResult<VaultBulkTemplateResult, unknown>(result)),
-  );
-}
-
-
 export async function resolveVaultTitle(
   title: string,
   signal?: AbortSignal,
@@ -434,19 +340,6 @@ export async function fetchVaultTrash(
       params: { query },
       signal,
     }),
-  );
-}
-
-
-export async function restoreVaultPage(
-  pageId: string,
-): Promise<VaultPageRestore> {
-  return invalidateSidebarAfter(
-    apiClient
-      .POST('/api/vault/pages/{page_id}/restore', {
-        params: { path: { page_id: pageId } },
-      })
-      .then((result) => unwrapApiResult<VaultPageRestore, unknown>(result)),
   );
 }
 
