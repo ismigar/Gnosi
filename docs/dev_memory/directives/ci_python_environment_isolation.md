@@ -28,6 +28,11 @@ que ja no existeix.
   neutral and runs on the macOS X64 registration; frontend runs on macOS ARM64.
   Keep backend, native Linux smoke and Docker on Linux ARM64 so those contracts
   retain their target platform. Required check names remain unchanged.
+- Note: do not rely on a pre-PR documentation generation run to inventory a new
+  source file while that file is still untracked. The change-impact scanner is
+  Git-aware and the generated repository/frontend inventories can omit it. Stage
+  or commit the reviewed file first, then regenerate and require `--check-only`
+  to pass against the same tree before pushing.
 - Note: the backend suite exercises JavaScript plugin sandboxes and reconstructs
   schema evidence from historical release tags. Its CI job must provision the
   pinned Node 22.22.2 runtime and perform a full-history checkout; a Python-only,
