@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 440 | 95194 |
+| `domains` | 440 | 95286 |
 | `mcp` | 3 | 429 |
 | `migrations` | 35 | 2198 |
 | `models` | 12 | 1213 |
@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1367 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 151 | 35793 |
+| `services` | 151 | 35901 |
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **782 modules** and **162701 source lines**.
+Total: **782 modules** and **162901 source lines**.
 
 ## agent
 
@@ -374,13 +374,13 @@ Total: **782 modules** and **162701 source lines**.
 | [`backend/domains/notebooks/service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/service.py) | 569 | 0 | 14 | 0 | 2 | Notebook lifecycle and refresh orchestration. |
 | [`backend/domains/notebooks/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notebooks/state.py) | 62 | 1 | 0 | 0 | 1 | Shared process state for grounded notebook services. |
 | [`backend/domains/notion/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed Notion import, clone and embedded-view domain. |
-| [`backend/domains/notion/clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/clone.py) | 328 | 1 | 15 | 0 | 10 | Typed exact-clone domain for Notion → Gnosi. |
-| [`backend/domains/notion/clone_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/clone_runtime.py) | 505 | 3 | 15 | 0 | 1 | Typed phase orchestration for the exact Notion clone. |
+| [`backend/domains/notion/clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/clone.py) | 336 | 1 | 17 | 0 | 10 | Typed exact-clone domain for Notion → Gnosi. |
+| [`backend/domains/notion/clone_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/clone_runtime.py) | 528 | 4 | 16 | 0 | 1 | Typed phase orchestration for the exact Notion clone. |
 | [`backend/domains/notion/discovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/discovery.py) | 130 | 1 | 4 | 0 | 2 | Typed discovery of loose pages and linked Notion databases. |
-| [`backend/domains/notion/importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/importer.py) | 662 | 1 | 24 | 0 | 11 | Typed Notion importer domain (public REST API → Gnosi Vault). |
-| [`backend/domains/notion/route_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/route_clone.py) | 351 | 3 | 1 | 0 | 1 | Typed filesystem and registry adapter for the Notion clone route. |
+| [`backend/domains/notion/importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/importer.py) | 685 | 2 | 24 | 0 | 12 | Typed Notion importer domain (public REST API → Gnosi Vault). |
+| [`backend/domains/notion/route_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/route_clone.py) | 367 | 3 | 3 | 0 | 1 | Typed filesystem and registry adapter for the Notion clone route. |
 | [`backend/domains/notion/verification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/verification.py) | 130 | 2 | 5 | 0 | 1 | Typed read-only verification of an exact Notion clone. |
-| [`backend/domains/notion/view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/view_recreator.py) | 607 | 0 | 26 | 0 | 18 | Typed recreator of embedded Notion views (Phase 2, via hosted MCP). |
+| [`backend/domains/notion/view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/notion/view_recreator.py) | 629 | 0 | 28 | 0 | 18 | Typed recreator of embedded Notion views (Phase 2, via hosted MCP). |
 | [`backend/domains/planning/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/planning/__init__.py) | 1 | 0 | 0 | 0 | 0 | Public contracts for the project-planning domain. |
 | [`backend/domains/planning/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/planning/schemas.py) | 473 | 46 | 0 | 0 | 46 | Pydantic contracts for the public project-planning API. |
 | [`backend/domains/plugins/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/plugins/__init__.py) | 5 | 0 | 0 | 0 | 0 | Typed third-party plugin lifecycle and sandbox domain. |
@@ -826,13 +826,13 @@ Total: **782 modules** and **162701 source lines**.
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 330 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
 | [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 488 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |
-| [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 182 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |
+| [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 198 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |
 | [`backend/services/notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone.py) | 129 | 0 | 2 | 0 | 1 | Compatibility facade for the typed exact-clone domain. |
-| [`backend/services/notion_clone_verify.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone_verify.py) | 218 | 0 | 5 | 0 | 5 | Health check of a Notion clone (Notion ↔ vault clone). |
+| [`backend/services/notion_clone_verify.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone_verify.py) | 251 | 0 | 8 | 0 | 5 | Health check of a Notion clone (Notion ↔ vault clone). |
 | [`backend/services/notion_importer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_importer.py) | 62 | 0 | 0 | 0 | 0 | Compatibility facade for the typed Notion importer domain. |
-| [`backend/services/notion_mcp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_mcp.py) | 206 | 0 | 12 | 0 | 5 | Access to Notion's hosted MCP (for view recreation — Phase 2). |
-| [`backend/services/notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_mcp_md.py) | 299 | 0 | 15 | 0 | 9 | Converter from Notion MCP's rich Markdown → Gnosi Markdown (for the exact CLONE). |
-| [`backend/services/notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_schema_config.py) | 92 | 0 | 3 | 0 | 3 | Notion schema conversion ↔ SchemaConfigModal format (configurable import/clone). |
+| [`backend/services/notion_mcp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_mcp.py) | 224 | 0 | 12 | 0 | 5 | Access to Notion's hosted MCP (for view recreation — Phase 2). |
+| [`backend/services/notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_mcp_md.py) | 336 | 1 | 15 | 0 | 9 | Converter from Notion MCP's rich Markdown → Gnosi Markdown (for the exact CLONE). |
+| [`backend/services/notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_schema_config.py) | 96 | 0 | 3 | 0 | 3 | Notion schema conversion ↔ SchemaConfigModal format (configurable import/clone). |
 | [`backend/services/notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_view_recreator.py) | 63 | 0 | 0 | 0 | 0 | Compatibility facade for the typed Notion view-recreation domain. |
 | [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/oauth2_helpers.py) | 184 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
 | [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/option_catalogs.py) | 77 | 0 | 0 | 0 | 0 | Compatibility facade for table option catalogs and semantic roles. |

@@ -89,8 +89,10 @@ exit 1'''.splitlines(),
     "docker": [
         "python3 scripts/ci/prepare_docker_runner.py",
         "docker compose config --quiet",
-        "docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .",
-        "docker build --file Dockerfile.backend --tag gnosi-backend:ci .",
+        "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend "
+        "--tag gnosi-frontend:ci --context .",
+        "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend "
+        "--tag gnosi-backend:ci --context .",
         "scripts/smoke_docker.sh",
         "docker system prune --all --force --volumes",
     ],

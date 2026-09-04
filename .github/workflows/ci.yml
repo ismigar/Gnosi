@@ -209,8 +209,8 @@ jobs:
       - run: docker compose config --quiet
         env:
           GNOSI_JWT_SECRET: ci-configuration-placeholder-only
-      - run: docker build --file Dockerfile.frontend --tag gnosi-frontend:ci .
-      - run: docker build --file Dockerfile.backend --tag gnosi-backend:ci .
+      - run: python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend --tag gnosi-frontend:ci --context .
+      - run: python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend --tag gnosi-backend:ci --context .
       - name: Start Docker bundle and verify persistence
         env:
           GNOSI_DOCKER_SMOKE_PROJECT: gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}
