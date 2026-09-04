@@ -144,7 +144,8 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   explícita.
 - Nota: les façanes que consumeixen configuració, registre i arbre lateral han
   de compartir la mateixa clau i promesa en curs. El polling de confirmacions de
-  l'agent només pot existir mentre el xat complet és visible o està incrustat.
+  l'agent només pot existir mentre el xat complet és visible o està incrustat;
+  un xat minimitzat no és visible i tampoc pot mantenir el temporitzador.
 
 ## Resultat verificat
 

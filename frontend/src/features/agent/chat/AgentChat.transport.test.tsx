@@ -113,6 +113,20 @@ describe('AgentChat shared transport integration', () => {
     expect(mocks.transport.mock.calls.filter(([input]) => requestPath(input).startsWith('/api/chat/confirmations?'))).toHaveLength(1);
   });
 
+  it('stops confirmation polling while a floating chat is minimized', async () => {
+    vi.useFakeTimers();
+    await render(<AgentChat />);
+    const openChat = container.querySelector('.premium-chat-trigger');
+    if (!(openChat instanceof HTMLButtonElement)) throw new Error('Missing chat launcher');
+    await act(async () => { openChat.click(); await Promise.resolve(); });
+    expect(mocks.transport.mock.calls.filter(([input]) => requestPath(input).startsWith('/api/chat/confirmations?'))).toHaveLength(1);
+    const minimizeChat = container.querySelector('button[aria-label="Minimize chat"]');
+    if (!(minimizeChat instanceof HTMLButtonElement)) throw new Error('Missing minimize chat button');
+    await act(async () => { minimizeChat.click(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(mocks.transport.mock.calls.filter(([input]) => requestPath(input).startsWith('/api/chat/confirmations?'))).toHaveLength(1);
+  });
+
   it('renders split UTF-8 NDJSON and persists the same scoped conversation', async () => {
     mocks.stream.mockImplementation(() => {
       const bytes = new TextEncoder().encode('{"type":"message","sequence":1,"content":"Reunió 🧠"}\n{"type":"done","sequence":2}');
