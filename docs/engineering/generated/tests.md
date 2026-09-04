@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 21 | 78 |
-| Vitest | 494 | 2048 |
-| pytest | 463 | 3287 |
+| Vitest | 494 | 2049 |
+| pytest | 464 | 3292 |
 
 ## Files
 
@@ -440,7 +440,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/shared/api/vault-views.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vault-views.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/vaults.collections.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vaults.collections.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/vaults.lifecycle.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vaults.lifecycle.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/api/vaults.pages.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vaults.pages.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/vaults.pages.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/vaults.pages.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/workspace-members.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspace-members.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/workspaces.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/workspaces.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/citations/cslEngine.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/citations/cslEngine.test.ts) | 3 | call-pattern estimate |
@@ -667,7 +667,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_graph_similarity_suggestions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_similarity_suggestions.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_graph_unresolved_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_unresolved_nodes.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_graph_wedged_dirs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_graph_wedged_dirs.py) | 10 | Python AST |
-| pytest | [`backend/tests/test_health_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_api_contract.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_health_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_health_api_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_host_helper_url.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_host_helper_url.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_html_meta_attr_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_html_meta_attr_order.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_http_retry_util.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_http_retry_util.py) | 7 | Python AST |
@@ -818,7 +818,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_response_model_none_inventory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_response_model_none_inventory.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_restore_index_symlink_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_restore_index_symlink_vault.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rollup_percent_checked_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rollup_percent_checked_parity.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_derived_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_derived_order.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_open_metadata_contract.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_safe_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_safe_io.py) | 7 | Python AST |
@@ -928,6 +928,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_runtime_calendar_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_runtime_calendar_contract.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_vault_runtime_open_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_runtime_open_cache.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_schema_request_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_schema_request_contracts.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_vault_sidebar_summary_projection.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_sidebar_summary_projection.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_skill_request_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_skill_request_contracts.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_vault_status_options_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_status_options_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_summary_plugin.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_summary_plugin.py) | 2 | Python AST |

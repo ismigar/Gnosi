@@ -6,6 +6,7 @@ import {
   fetchVaultPage,
   fetchVaultPagePreview,
   fetchVaultPages,
+  fetchVaultSidebarSummary,
   fetchVaultPagesByTable,
   fetchVaultTablePagesSnapshot,
   patchVaultPage,
@@ -49,6 +50,19 @@ describe('vault pages API', () => {
     controller.abort();
     expect(listRequest.signal.aborted).toBe(true);
     expect(pageRequest.signal.aborted).toBe(true);
+  });
+
+
+  it('loads the compact sidebar projection for the initial Knowledge catalog', async () => {
+    const pages = [{ id: 'page-1', title: 'Page one' }];
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(pages));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchVaultSidebarSummary()).resolves.toEqual(pages);
+
+    const summaryUrl = new URL(requestAt(fetchMock.mock.calls, 0).url);
+    expect(summaryUrl.pathname).toBe('/api/vault/sidebar/summary');
+    expect(Object.fromEntries(summaryUrl.searchParams)).toEqual({ compact: 'true' });
   });
 
 

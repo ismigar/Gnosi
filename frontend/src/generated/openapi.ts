@@ -8559,6 +8559,10 @@ export interface paths {
         /**
          * List Sidebar Summary
          * @description Returns a lightweight summary of pages for the sidebar.
+         *
+         *     ``compact`` is opt-in so existing API consumers continue receiving the
+         *     complete metadata mapping. Knowledge only needs navigation, classification,
+         *     favorites, tags, and icon fields until it requests a page or table.
          */
         get: operations["list_sidebar_summary_api_vault_sidebar_summary_get"];
         put?: never;
@@ -40636,7 +40640,9 @@ export interface operations {
     };
     list_sidebar_summary_api_vault_sidebar_summary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                compact?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;

@@ -12,11 +12,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | `agent` | 47 | 8657 |
 | `api` | 38 | 12800 |
-| `app` | 8 | 746 |
+| `app` | 8 | 747 |
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 440 | 95069 |
+| `domains` | 440 | 95115 |
 | `mcp` | 3 | 429 |
 | `migrations` | 35 | 2198 |
 | `models` | 12 | 1213 |
@@ -28,7 +28,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **780 modules** and **162207 source lines**.
+Total: **780 modules** and **162254 source lines**.
 
 ## agent
 
@@ -132,7 +132,7 @@ Total: **780 modules** and **162207 source lines**.
 | [`backend/app/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/__init__.py) | 5 | 0 | 0 | 0 | 0 | FastAPI composition for the Gnosi backend. |
 | [`backend/app/desktop_instance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/desktop_instance.py) | 45 | 1 | 0 | 0 | 1 | Correlate desktop readiness with its spawned process without changing JSON. |
 | [`backend/app/errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/errors.py) | 44 | 0 | 2 | 1 | 2 | Global HTTP error translation and private diagnostic notification. |
-| [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 72 | 0 | 3 | 1 | 2 | Typed construction of the Gnosi FastAPI application. |
+| [`backend/app/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/factory.py) | 73 | 0 | 3 | 1 | 2 | Typed construction of the Gnosi FastAPI application. |
 | [`backend/app/health_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/health_contracts.py) | 54 | 3 | 0 | 0 | 3 | Typed response contracts for liveness and Google OAuth diagnostics. |
 | [`backend/app/lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py) | 332 | 0 | 13 | 4 | 13 | Application startup, maintenance and shutdown lifecycle. |
 | [`backend/app/middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/app/middleware.py) | 32 | 0 | 1 | 0 | 1 | Ordered middleware composition for Gnosi's FastAPI application. |
@@ -417,7 +417,7 @@ Total: **780 modules** and **162207 source lines**.
 | [`backend/domains/vault/api/history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/history.py) | 200 | 1 | 8 | 4 | 7 | HTTP adapter for vault page history. |
 | [`backend/domains/vault/api/pages_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_commands.py) | 171 | 4 | 2 | 0 | 5 | HTTP registration for vault page mutation services. |
 | [`backend/domains/vault/api/pages_duplicate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_duplicate.py) | 127 | 1 | 4 | 1 | 1 | HTTP adapter for duplicating a vault page. |
-| [`backend/domains/vault/api/pages_queries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 462 | 3 | 14 | 8 | 9 | Read-only HTTP adapters for vault pages and previews. |
+| [`backend/domains/vault/api/pages_queries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 508 | 3 | 15 | 8 | 10 | Read-only HTTP adapters for vault pages and previews. |
 | [`backend/domains/vault/api/trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/trash.py) | 344 | 1 | 10 | 5 | 9 | HTTP adapter and retention job for soft-deleted vault pages. |
 | [`backend/domains/vault/assets/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault asset uploads, icon storage, and image-serving HTTP adapters. |
 | [`backend/domains/vault/assets/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/api.py) | 284 | 1 | 21 | 8 | 14 | HTTP adapters and route registration for vault assets. |

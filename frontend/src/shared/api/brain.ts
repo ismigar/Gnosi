@@ -3,6 +3,10 @@ import { bootstrapQueryKeys } from './bootstrap-query-keys';
 import { fetchCachedQuery, invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import {
+  fetchLlmWikiConfigResult,
+  invalidateLlmWikiConfig,
+} from './llm-wiki-config-query';
 
 
 export type BrainSuggestion = components['schemas']['BrainSuggestionResponse'];
@@ -35,9 +39,12 @@ export async function fetchLlmWikiConfig(
   signal?: AbortSignal,
 ): Promise<LlmWikiConfiguration> {
   return unwrapApiResult<LlmWikiConfiguration, unknown>(
-    await apiClient.GET('/api/vault/llm-wiki/config', { signal }),
+    await fetchLlmWikiConfigResult(signal),
   );
 }
+
+
+export { invalidateLlmWikiConfig };
 
 
 export async function fetchBrainSuggestions(

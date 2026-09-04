@@ -63,6 +63,34 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
 - Nota: per executar scripts d'un paquet des de l'arrel cal usar
   `pnpm --dir <paquet> exec <binari>`; `pnpm --dir <paquet> <binari>` intenta
   resoldre el nom com una ordre recursiva i no executa la prova.
+- Nota: no invocar scripts arrel de `pnpm` des d'un worktree que reutilitza
+  `node_modules` mitjançant un enllaç simbòlic: el verificador de dependències
+  pot intentar purgar-lo i avortar amb `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
+  Cal executar el generador Python i el binari frontend ja instal·lat de manera
+  directa, sense reinstal·lar ni alterar les dependències canòniques.
+- Nota: no carregar `GET /api/vault/pages` per construir el shell inicial. El
+  contracte existent `GET /api/vault/sidebar/summary?compact=true` conserva
+  jerarquia, classificació, favorits, etiquetes i icones, mentre les pàgines i
+  taules completes es demanen quan s'obren. La projecció ha de continuar sent
+  optativa: sense `compact=true`, els consumidors 2.x reben les metadades
+  completes com abans.
+- Nota: el catàleg compacte no és suficient quan l'editor està obert, perquè
+  relacions, suggeriments de propietats i planificació consumeixen camps d'altres
+  registres. En obrir una nota cal carregar en paral·lel el document individual
+  i el catàleg complet; a partir d'aquell moment, els refrescos han de continuar
+  usant el catàleg complet. No s'ha de pagar aquest cost a la vista de benvinguda.
+- Nota: les façanes de Brain i de configuració de plugins consulten el mateix
+  document `llm-wiki/config`. Han de compartir una sola clau TanStack per vault
+  i la mateixa promesa en curs; guardar-les sota claus o wrappers independents
+  duplica la petició inicial. Les mutacions han d'invalidar aquesta clau.
+- Nota: el propietari compartit d'una consulta OpenAPI no ha de degradar el
+  resultat a `ApiResult<unknown>`: això impedeix que les façanes generades
+  demostrin el seu contracte en TypeScript estricte. Cal conservar el tipus de
+  resposta generat i deixar que cada façana n'apliqui la validació pròpia.
+- Nota: no afegir `@pytest.mark.asyncio` a proves backend d'aquest repositori:
+  la configuració de marcadors estricta no el declara i la col·lecció falla.
+  Per a una corutina pura i acotada, cal executar-la amb `asyncio.run` des d'una
+  prova síncrona.
 
 ## Criteris d'acceptació
 
@@ -98,3 +126,16 @@ Reduir dràsticament els recursos i bytes descarregats en obrir `/@principal/kno
   estable i no es pot ocultar ampliant el pressupost de navegació.
 - El chunk inicial de Knowledge continua en 158.455 bytes i no incorpora cap
   altra ruta de forma eager.
+
+## Resultat de la projecció inicial de pàgines
+
+- Corpus determinista de 1.000 pàgines sintètiques amb camps d'usuari grans:
+  el payload complet ocupa 3.953.340 bytes i la projecció compacta 369.450
+  bytes; s'eviten 3.583.890 bytes, una reducció del 90,65%.
+- La vista de benvinguda fa una sola petició a
+  `/api/vault/sidebar/summary?compact=true` i no demana `/api/vault/pages`.
+- En obrir una nota es mantenen, en paral·lel, el detall complet
+  `/api/vault/pages/{id}` i el catàleg complet `/api/vault/pages`, perquè les
+  relacions i els suggeriments de propietats conservin totes les metadades.
+- Les dues façanes inicials de `llm-wiki/config` comparteixen una sola petició
+  física per vault mentre la dada és vigent.

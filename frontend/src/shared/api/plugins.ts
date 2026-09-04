@@ -5,6 +5,10 @@ import {
   GnosiApiError,
   type ApiResult,
 } from './errors';
+import {
+  fetchLlmWikiConfigResult,
+  invalidateLlmWikiConfig,
+} from './llm-wiki-config-query';
 
 
 type JsonRecord = Record<string, unknown>;
@@ -414,7 +418,7 @@ export async function fetchPluginLlmWikiConfig(
   signal?: AbortSignal,
 ): Promise<PluginLlmWikiSettingsResponse> {
   return requirePayload(
-    await apiClient.GET('/api/vault/llm-wiki/config', { signal }),
+    await fetchLlmWikiConfigResult(signal),
     isPluginLlmWikiSettingsResponse,
     'LLM Wiki configuration',
   );
@@ -425,11 +429,13 @@ export async function savePluginLlmWikiConfig(
   input: PluginLlmWikiSettingsDocument,
   signal?: AbortSignal,
 ): Promise<PluginLlmWikiSettingsResponse> {
-  return requirePayload(
+  const response = requirePayload(
     await apiClient.PUT('/api/vault/llm-wiki/config', { body: input, signal }),
     isPluginLlmWikiSettingsResponse,
     'LLM Wiki configuration',
   );
+  await invalidateLlmWikiConfig();
+  return response;
 }
 
 
@@ -452,7 +458,7 @@ export async function createPluginLlmWikiBrain(
   uiLocale: string,
   signal?: AbortSignal,
 ): Promise<PluginLlmWikiSettingsResponse> {
-  return requirePayload(
+  const response = requirePayload(
     await apiClient.POST('/api/vault/llm-wiki/brain/create', {
       body: { ui_locale: uiLocale },
       signal,
@@ -460,4 +466,6 @@ export async function createPluginLlmWikiBrain(
     isPluginLlmWikiSettingsResponse,
     'LLM Wiki Brain creation result',
   );
+  await invalidateLlmWikiConfig();
+  return response;
 }

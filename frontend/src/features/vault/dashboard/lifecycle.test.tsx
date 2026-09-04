@@ -26,13 +26,15 @@ describe('dashboard lifecycle and integrations', () => {
   it('loads the initial catalog once and exposes a rendered controller state', async () => {
     harness = await renderController();
     expect(harness.container.textContent).toBe('editor');
-    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultSidebarSummary).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPages).not.toHaveBeenCalled();
     expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(1);
     expect(harness.current.loading).toBe(false);
   });
   it('does not duplicate initial catalogs when StrictMode replays mount effects', async () => {
     harness = await renderController('', undefined, true);
-    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultSidebarSummary).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPages).not.toHaveBeenCalled();
     expect(vault.fetchVaultRegistry).toHaveBeenCalledTimes(1);
     expect(harness.current.loading).toBe(false);
     expect(harness.current.isRegistryLoading).toBe(false);
@@ -65,6 +67,12 @@ describe('dashboard lifecycle and integrations', () => {
   });
   it('opens a direct page without pruning its newly loaded tab', async () => {
     harness = await renderController(`page/${PAGE_ID}`);
+    expect(vault.fetchVaultSidebarSummary).toHaveBeenCalledTimes(1);
+    expect(vault.fetchVaultPage).toHaveBeenCalledWith(
+      PAGE_ID,
+      expect.any(AbortSignal),
+    );
+    expect(vault.fetchVaultPages).toHaveBeenCalledTimes(1);
     expect(harness.current.activeTabId).toBe(PAGE_ID);
     expect(harness.current.tabs[0]?.content).toBe('body');
     expect(vault.saveVaultPage).not.toHaveBeenCalled();

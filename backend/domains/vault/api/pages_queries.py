@@ -29,6 +29,41 @@ from backend.domains.vault.schemas.pages import (
 log = logging.getLogger(__name__)
 
 
+# The compact sidebar response is an opt-in projection.  Keep the legacy
+# response unchanged when ``compact`` is false: external 2.x consumers may use
+# the open metadata document even though the endpoint was designed for the UI.
+_COMPACT_SIDEBAR_METADATA_KEYS = frozenset({
+    "Processat pel Cervell",
+    "arrayCycle",
+    "cycle",
+    "database_table_id",
+    "date",
+    "favorite",
+    "handler",
+    "icon",
+    "id",
+    "is_dashboard",
+    "is_default_template",
+    "is_template",
+    "note_type",
+    "processat pel cervell",
+    "resolved_table_id",
+    "source",
+    "table_id",
+    "tags",
+    "translation_lang",
+})
+
+
+def _compact_sidebar_metadata(metadata: dict[object, object]) -> dict[object, object]:
+    """Retain only metadata consumed before a full page/table is requested."""
+    return {
+        key: value
+        for key, value in metadata.items()
+        if key in _COMPACT_SIDEBAR_METADATA_KEYS
+    }
+
+
 class SnapshotReader(Protocol):
     def __call__(
         self,
@@ -208,15 +243,26 @@ async def get_indexer_status_endpoint() -> PageIndexerStatusResponse:
     return PageIndexerStatusResponse.model_validate(status)
 
 
-async def list_sidebar_summary() -> list[SidebarPageInfo]:
-    """Returns a lightweight summary of pages for the sidebar."""
+async def list_sidebar_summary(
+    compact: bool = Query(False),
+) -> list[SidebarPageInfo]:
+    """Returns a lightweight summary of pages for the sidebar.
+
+    ``compact`` is opt-in so existing API consumers continue receiving the
+    complete metadata mapping. Knowledge only needs navigation, classification,
+    favorites, tags, and icon fields until it requests a page or table.
+    """
     return [
         SidebarPageInfo.model_validate({
             "id": page.id,
             "title": page.title,
             "parent_id": page.parent_id,
             "is_database": page.is_database,
-            "metadata": page.metadata,
+            "metadata": (
+                _compact_sidebar_metadata(page.metadata)
+                if compact
+                else page.metadata
+            ),
             "last_modified": page.last_modified,
             "folder": page.folder,
             "resolved_table_id": page.resolved_table_id,

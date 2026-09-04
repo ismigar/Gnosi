@@ -91261,9 +91261,19 @@
     },
     "/api/vault/sidebar/summary": {
       "get": {
-        "description": "Returns a lightweight summary of pages for the sidebar.",
+        "description": "Returns a lightweight summary of pages for the sidebar.\n\n``compact`` is opt-in so existing API consumers continue receiving the\ncomplete metadata mapping. Knowledge only needs navigation, classification,\nfavorites, tags, and icon fields until it requests a page or table.",
         "operationId": "list_sidebar_summary_api_vault_sidebar_summary_get",
         "parameters": [
+          {
+            "in": "query",
+            "name": "compact",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Compact",
+              "type": "boolean"
+            }
+          },
           {
             "in": "header",
             "name": "x-workspace-id",

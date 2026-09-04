@@ -1,11 +1,16 @@
 import { resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchBrainTableStatus, invalidateBrainTableStatus } from './brain';
+import {
+  fetchBrainTableStatus,
+  fetchLlmWikiConfig,
+  invalidateBrainTableStatus,
+} from './brain';
 import { fetchReferenceTable } from './literature-resources';
 import { queryClient } from './query-client';
 import { fetchSystemHealth, invalidateSystemHealth } from './system';
 import { fetchVaultCatalog, invalidateVaultCatalog } from './vaults';
+import { fetchPluginLlmWikiConfig } from './plugins';
 
 function responseFor(input: RequestInfo | URL): Response {
   const request = input instanceof Request ? input : new Request(input);
@@ -22,6 +27,24 @@ function responseFor(input: RequestInfo | URL): Response {
   }
   if (path === '/api/vault/reference-table') {
     return Response.json({ configured: true, table_id: 'references' });
+  }
+  if (path === '/api/vault/llm-wiki/config') {
+    return Response.json({
+      brain: { configured: true, name: 'Brain', table_id: 'brain' },
+      capabilities: {
+        ocr: true,
+        ocr_missing_languages: [],
+        streaming: true,
+        transcription: true,
+      },
+      config: {},
+      eligible_index_properties: [],
+      enabled: true,
+      index_options: {},
+      processed_resources: {},
+      resource_statuses: {},
+      validation: { valid: true },
+    });
   }
   return Response.json({ detail: `Unexpected ${path}` }, { status: 500 });
 }
@@ -56,12 +79,14 @@ describe('bootstrap query coalescing', () => {
       fetchVaultCatalog(), fetchVaultCatalog(), fetchVaultCatalog(),
       fetchBrainTableStatus(), fetchBrainTableStatus(),
       fetchReferenceTable(), fetchReferenceTable(),
+      fetchLlmWikiConfig(), fetchPluginLlmWikiConfig(),
     ]);
 
     expect(endpointCounts(fetchMock)).toEqual({
       '/api/health': 1,
       '/api/vault/brain-table': 1,
       '/api/vault/reference-table': 1,
+      '/api/vault/llm-wiki/config': 1,
       '/api/vaults': 1,
     });
   });
