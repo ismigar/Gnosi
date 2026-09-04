@@ -1,0 +1,175 @@
+{
+  "format": "gnosi-2x-schema-variants-v1",
+  "scope": "Public stable tags v2.0.0 through v2.0.6 plus source-demonstrable predecessor DDL",
+  "release_groups": {
+    "v2.0.0-v2.0.5": {
+      "tags": {
+        "v2.0.0": "92d1edcef867a862028723a3d44ce4168787a8c8",
+        "v2.0.1": "671b405c86669d0ae1c57a471eac7e7bf566790b",
+        "v2.0.2": "671b405c86669d0ae1c57a471eac7e7bf566790b",
+        "v2.0.3": "671b405c86669d0ae1c57a471eac7e7bf566790b",
+        "v2.0.4": "671b405c86669d0ae1c57a471eac7e7bf566790b",
+        "v2.0.5": "b3674dd671c9d9c408e9e3c729bdbdf53718144b"
+      },
+      "source_prefix": "",
+      "ddl_blob_set_sha256": "9fc236e72714a926f29577347d72e49e3299546a110c76a12dc54ea800ccfe3c"
+    },
+    "v2.0.6": {
+      "tags": {
+        "v2.0.6": "fcfb4efc32abd5a27207c7be04b1bad13628fda1"
+      },
+      "source_prefix": "apps/gnosi/",
+      "snapshot_has_no_parent": true
+    }
+  },
+  "ddl_sources": {
+    "management": [
+      "backend/data/management_db.py",
+      "backend/models/management.py"
+    ],
+    "vault": ["backend/data/db.py"],
+    "notebooks": ["backend/services/notebook_service.py"],
+    "literature_index": ["backend/services/literature_service.py"],
+    "action_confirmations": ["backend/agent/action_confirmations.py"],
+    "model_evaluations": ["backend/services/agent_model_evaluations.py"],
+    "capability_health": ["backend/services/agent_capability_health.py"],
+    "durable_jobs": ["backend/services/durable_job_queue.py"],
+    "personal_memory": ["backend/services/agent_personal_memory.py"],
+    "quality_telemetry": ["backend/services/agent_quality_telemetry.py"],
+    "agent_replay": ["backend/services/agent_replay.py"],
+    "semantic_memory": ["backend/services/agent_semantic_memory.py"],
+    "stream_journal": ["backend/services/agent_stream_journal.py"],
+    "turn_claims": ["backend/services/turn_idempotency.py"],
+    "capability_audit": ["backend/services/capability_audit.py"],
+    "capability_automations": ["backend/services/capability_automations.py"],
+    "tool_registry": ["backend/agent/generated_tools/registry.py"]
+  },
+  "family_matrix": {
+    "management": {
+      "release_variants": {
+        "v2.0.0-v2.0.5": ["mgmt_0003"],
+        "v2.0.6": ["mgmt_0004", "mgmt_0005"]
+      },
+      "variant_context": {
+        "mgmt_0004": "An existing v2.0.0-v2.0.5 database opened by v2.0.6 gains vaults.slug through ALTER TABLE; the historical upgrader does not create ix_vaults_slug.",
+        "mgmt_0005": "A database created fresh by v2.0.6 includes both vaults.slug and the model-declared ix_vaults_slug index."
+      },
+      "source_demonstrable_predecessors": ["mgmt_0001", "mgmt_0002", "mgmt_0003"],
+      "preservation_table": "users"
+    },
+    "vault": {
+      "release_variants": {
+        "v2.0.0-v2.0.5": ["vault_0003"],
+        "v2.0.6": ["vault_0003"]
+      },
+      "source_demonstrable_predecessors": ["vault_0001", "vault_0002", "vault_0003"],
+      "preservation_table": "mail_message_tags"
+    },
+    "notebooks": {
+      "release_variants": {
+        "v2.0.0-v2.0.5": ["notebooks_0005"],
+        "v2.0.6": ["notebooks_0005"]
+      },
+      "source_demonstrable_predecessors": [
+        "notebooks_0001",
+        "notebooks_0002",
+        "notebooks_0003",
+        "notebooks_0004",
+        "notebooks_0005"
+      ],
+      "preservation_table": "notebooks"
+    },
+    "literature_index": {
+      "release_variants": {"v2.0.0-v2.0.5": ["literature_0001"], "v2.0.6": ["literature_0001"]},
+      "source_demonstrable_predecessors": ["literature_0001"],
+      "preservation_table": "oai_records"
+    },
+    "action_confirmations": {
+      "release_variants": {"v2.0.0-v2.0.5": ["actions_0002"], "v2.0.6": ["actions_0002"]},
+      "source_demonstrable_predecessors": ["actions_0001", "actions_0002"],
+      "preservation_table": "pending_agent_actions"
+    },
+    "model_evaluations": {
+      "release_variants": {"v2.0.0-v2.0.5": ["evaluations_0001"], "v2.0.6": ["evaluations_0001"]},
+      "source_demonstrable_predecessors": ["evaluations_0001"],
+      "preservation_table": "model_evaluations"
+    },
+    "capability_health": {
+      "release_variants": {"v2.0.0-v2.0.5": ["health_0001"], "v2.0.6": ["health_0001"]},
+      "source_demonstrable_predecessors": ["health_0001"],
+      "preservation_table": "capability_health"
+    },
+    "durable_jobs": {
+      "release_variants": {"v2.0.0-v2.0.5": ["jobs_0001"], "v2.0.6": ["jobs_0001"]},
+      "source_demonstrable_predecessors": ["jobs_0001"],
+      "preservation_table": "agent_jobs"
+    },
+    "personal_memory": {
+      "release_variants": {"v2.0.0-v2.0.5": ["personal_memory_0001"], "v2.0.6": ["personal_memory_0001"]},
+      "source_demonstrable_predecessors": ["personal_memory_0001"],
+      "preservation_table": "personal_memories"
+    },
+    "quality_telemetry": {
+      "release_variants": {"v2.0.0-v2.0.5": ["quality_0001"], "v2.0.6": ["quality_0001"]},
+      "source_demonstrable_predecessors": ["quality_0001"],
+      "preservation_table": "agent_quality_events"
+    },
+    "agent_replay": {
+      "release_variants": {"v2.0.0-v2.0.5": ["replay_0001"], "v2.0.6": ["replay_0001"]},
+      "source_demonstrable_predecessors": ["replay_0001"],
+      "preservation_table": "replay_events"
+    },
+    "semantic_memory": {
+      "release_variants": {"v2.0.0-v2.0.5": ["semantic_memory_0001"], "v2.0.6": ["semantic_memory_0001"]},
+      "source_demonstrable_predecessors": ["semantic_memory_0001"],
+      "preservation_table": "semantic_associations"
+    },
+    "stream_journal": {
+      "release_variants": {"v2.0.0-v2.0.5": ["stream_journal_0001"], "v2.0.6": ["stream_journal_0001"]},
+      "source_demonstrable_predecessors": ["stream_journal_0001"],
+      "preservation_table": "stream_events"
+    },
+    "turn_claims": {
+      "release_variants": {"v2.0.0-v2.0.5": ["turns_0001"], "v2.0.6": ["turns_0001"]},
+      "source_demonstrable_predecessors": ["turns_0001"],
+      "preservation_table": "turn_claims"
+    },
+    "capability_audit": {
+      "release_variants": {"v2.0.0-v2.0.5": ["capability_audit_0001"], "v2.0.6": ["capability_audit_0001"]},
+      "source_demonstrable_predecessors": ["capability_audit_0001"],
+      "preservation_table": "capability_audit_events"
+    },
+    "capability_automations": {
+      "release_variants": {"v2.0.0-v2.0.5": ["automations_0001"], "v2.0.6": ["automations_0001"]},
+      "source_demonstrable_predecessors": ["automations_0001"],
+      "preservation_table": "capability_automations"
+    },
+    "tool_registry": {
+      "release_variants": {"v2.0.0-v2.0.5": ["tool_registry_0001"], "v2.0.6": ["tool_registry_0001"]},
+      "source_demonstrable_predecessors": ["tool_registry_0001"],
+      "preservation_table": "tools"
+    }
+  },
+  "history_evidence": {
+    "management_auth": "7187bbea027967ed8cd2dde5c0ea25015843703c",
+    "management_share_vault": "6febc5f23d0e60b05b8d9fa61a769ea2371be6af",
+    "management_auto_provisioned": "96764ffc5f22d7440c340feff40aa72268464f75",
+    "vault_full_content": "ee91bf80b19c53b5da06d41cd60859276cc7b312",
+    "vault_managed_pdf_key": "8556abe5bf531002328bab11dfe04e4aa6df1d6d",
+    "notebooks_initial": "616ae3b926d75f8cccec52ebeaf56c456afbbe55",
+    "notebooks_validators": "99bf1a36ca06615a1a2448c7681300795036a7e3",
+    "notebooks_progress": "72fb9906b62d276e844af26720224a03ec8f3c41",
+    "notebooks_selected_sources": "9fc896a73bb761c7dad367e2561fd5ce90704280",
+    "notebooks_groups": "27e918eca9069839b995ce99e6ca51b75c334efc",
+    "action_claim": "77da66a8fd6f605ba89b1538726466a92139e396"
+  },
+  "post_2x_revisions": {
+    "vault": ["vault_0004"]
+  },
+  "limits": [
+    "The public tags prove source snapshots, not every database ever produced by an untagged local checkout.",
+    "v2.0.6 is a parentless synchronized snapshot, so only its tree and its exact difference from the earlier release source are evidence; no ancestry is inferred.",
+    "No variant is accepted from table-name similarity. Exact normalized fingerprints remain the runtime authority.",
+    "The inventory contains no database rows, private paths, secrets or evidence derived from personal data."
+  ]
+}
