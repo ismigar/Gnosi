@@ -17,6 +17,7 @@ from typing import Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "openapi" / "openapi.json"
+DEFAULT_HASH_OUTPUT = REPOSITORY_ROOT / "backend" / "tests" / "contracts" / "openapi.sha256"
 
 
 def _configure_isolated_runtime(runtime_root: Path) -> None:
@@ -83,12 +84,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
+        "--hash-output",
+        type=Path,
+        help="Override the frozen SHA-256 path (primarily for isolated tests).",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="Fail when the committed artifact differs instead of writing it.",
     )
     args = parser.parse_args()
     output = args.output.expanduser().resolve()
+    hash_output = (
+        args.hash_output.expanduser().resolve()
+        if args.hash_output is not None
+        else DEFAULT_HASH_OUTPUT
+    )
 
     if str(REPOSITORY_ROOT) not in sys.path:
         sys.path.insert(0, str(REPOSITORY_ROOT))
@@ -110,10 +121,25 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        if not hash_output.is_file():
+            print(f"OpenAPI hash artifact is missing: {hash_output}", file=sys.stderr)
+            return 1
+        expected_digest = hash_output.read_text(encoding="utf-8").strip()
+        actual_digest = _digest(content)
+        if expected_digest != actual_digest:
+            print(
+                "OpenAPI hash artifact is stale: "
+                f"expected sha256={actual_digest}, recorded sha256={expected_digest}. "
+                "Regenerate both artifacts and review the contract diff.",
+                file=sys.stderr,
+            )
+            return 1
         print(f"OpenAPI artifact is current ({_digest(content)}).")
         return 0
 
     _write_atomic(output, content)
+    if output == DEFAULT_OUTPUT or args.hash_output is not None:
+        _write_atomic(hash_output, f"{_digest(content)}\n")
     print(f"Wrote {output} ({_digest(content)}).")
     return 0
 
