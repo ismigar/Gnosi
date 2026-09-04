@@ -44,6 +44,7 @@ Mesurar i reduir la latència real de `GET /api/vault/pages` en vaults grans sen
   perquè l'aturada no hagi d'esperar que expiri una pausa. Els valors de lot i
   pausa han de ser configurables i validats a l'arrencada.
 - Nota: no executar ordres Git des de l'arrel `Projectes`, perquè ja no és un repositori i produeix `fatal: not a git repository`. Cal apuntar sempre a `Projectes/Gnosi` o al worktree explícit.
+- Nota: no interpretar un `Operation not permitted` sobre `~/.cache/uv/sdists-v9/.git` durant `pnpm build:frontend` com una regressió del codi. El prebuild invoca `uv`; dins del sandbox restringit no pot llegir aquesta cache global. Cal repetir el mateix build amb accés local autoritzat i exigir que aleshores acabi correctament.
 
 ## Criteris d'acceptació
 
