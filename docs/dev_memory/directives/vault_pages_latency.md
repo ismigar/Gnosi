@@ -45,6 +45,7 @@ Mesurar i reduir la latència real de `GET /api/vault/pages` en vaults grans sen
   pausa han de ser configurables i validats a l'arrencada.
 - Nota: no executar ordres Git des de l'arrel `Projectes`, perquè ja no és un repositori i produeix `fatal: not a git repository`. Cal apuntar sempre a `Projectes/Gnosi` o al worktree explícit.
 - Nota: no interpretar un `Operation not permitted` sobre `~/.cache/uv/sdists-v9/.git` durant `pnpm build:frontend` com una regressió del codi. El prebuild invoca `uv`; dins del sandbox restringit no pot llegir aquesta cache global. Cal repetir el mateix build amb accés local autoritzat i exigir que aleshores acabi correctament.
+- Nota: en ajornar el catàleg complet fins que s'obre una pàgina, cal actualitzar també els contractes de creació de grups. Crear una base de dades només refresca el registre; exigir `fetchVaultPages()` en aquest flux reintroduiria la descàrrega pesada que la càrrega inicial evita.
 
 ## Criteris d'acceptació
 
