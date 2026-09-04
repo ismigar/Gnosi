@@ -158,3 +158,27 @@ def test_ci_requires_relocatable_uv_managed_python() -> None:
     environment = workflow.get("env")
     assert isinstance(environment, dict)
     assert environment.get("UV_MANAGED_PYTHON") == "1"
+
+
+def test_job_scoped_uv_caches_are_not_uploaded_by_setup_uv() -> None:
+    """A disposable cache cannot be restored and must not stall post-job upload."""
+    for workflow_path in sorted((REPOSITORY / ".github/workflows").glob("*.yml")):
+        document = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+        assert isinstance(document, dict)
+        jobs = document.get("jobs", {})
+        assert isinstance(jobs, dict)
+        for job_name, raw_job in jobs.items():
+            if not isinstance(raw_job, dict):
+                continue
+            steps = raw_job.get("steps", [])
+            if not isinstance(steps, list):
+                continue
+            for step in steps:
+                if not isinstance(step, dict) or step.get("uses") != "astral-sh/setup-uv@v10.0.1":
+                    continue
+                settings = step.get("with", {})
+                assert isinstance(settings, dict)
+                assert settings.get("enable-cache") is False, (
+                    workflow_path.name,
+                    job_name,
+                )

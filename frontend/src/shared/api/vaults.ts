@@ -5,6 +5,16 @@ import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
 export {
+  bulkApplyVaultTemplate,
+  createVaultPage,
+  deleteVaultPage,
+  duplicateVaultPage,
+  patchVaultPage,
+  restoreVaultPage,
+  saveVaultPage,
+} from './vault-page-mutations';
+
+export {
   createVault,
   deleteVault,
   fetchVaultCatalog,
@@ -95,23 +105,6 @@ export type VaultTrashEmpty = components['schemas']['TrashEmptyResponse'];
 export type VaultTrashQuery = NonNullable<
   operations['list_trash_api_vault_trash_get']['parameters']['query']
 >;
-
-function materializeVaultPageSaveRequest(
-  input: VaultPageSaveInput,
-): VaultPageSaveRequest {
-  return {
-    force: false,
-    is_database: false,
-    metadata: {},
-    ...input,
-  };
-}
-
-function materializeVaultPagePatchRequest(
-  input: VaultPagePatchInput,
-): VaultPagePatchRequest {
-  return { force: false, ...input };
-}
 
 export async function fetchVaultDatabases(
   signal?: AbortSignal,

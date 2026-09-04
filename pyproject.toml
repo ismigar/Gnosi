@@ -92,6 +92,10 @@ docs = [
   "mkdocs>=1.6.1,<2",
   "pymdown-extensions>=11.0.1,<12",
 ]
+docs-ci = [
+  { include-group = "docs" },
+  "pytest>=9.1.1",
+]
 
 [tool.uv]
 package = false

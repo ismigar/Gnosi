@@ -31,7 +31,13 @@ trap cleanup EXIT
 
 wait_http() {
   local url="$1"
-  local attempts=60
+  local attempts="${GNOSI_DOCKER_STARTUP_ATTEMPTS:-300}"
+  case "${attempts}" in
+    (*[!0-9]*|'0'|'')
+      echo "GNOSI_DOCKER_STARTUP_ATTEMPTS must be a positive integer" >&2
+      return 2
+      ;;
+  esac
   for ((attempt = 1; attempt <= attempts; attempt += 1)); do
     if curl --fail --silent --show-error --max-time 3 "${url}" >/dev/null; then
       return 0

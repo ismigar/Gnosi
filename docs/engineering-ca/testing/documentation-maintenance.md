@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-09-04
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
@@ -14,6 +14,9 @@ source_paths:
   - mkdocs-fr.yml
   - scripts/check_public_pipeline.py
   - pipeline/README.md
+  - pyproject.toml
+  - .github/workflows/ci.yml
+  - .github/workflows/documentation-pages.yml
 tests:
   - pipeline/skills/technical_documentation/tests
   - pipeline/tests/test_public_pipeline.py
@@ -72,7 +75,7 @@ Des de `Gnosi/`, executeu el control complet abans de preparar el canvi final
 a l'índex i repetiu-lo després. La segona execució no ha de generar diferències:
 
 ```bash
-uv run --group docs python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
+uv run --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
 ```
 
 Passos individuals de diagnòstic amb el mateix entorn Python:
@@ -102,6 +105,13 @@ Amb cada canvi rellevant enviat a la branca pública `main`, el workflow verific
 els catàlegs i les versions localitzades, valida la traçabilitat, construeix els
 quatre portals MkDocs en mode estricte i publica l'arbre `site/` a GitHub Pages.
 Publicar el directori pare `site/` conserva el segment `/engineering/` de l'URL.
+
+L'automatització exclusiva de documentació no instal·la el runtime de
+l'aplicació Gnosi. Pages usa el grup de dependències congelat `docs`; el control
+de pull request usa el grup mínim `docs-ci`, que afegeix pytest per a la suite
+d'eines. Tant `uv sync` com `uv run` fan servir `--only-group`, de manera que la
+publicació no pot quedar bloquejada per descarregar paquets de runtime no
+relacionats com Torch o AV.
 
 La barra lateral de Gnosi enllaça amb aquesta adreça. L'etiqueta està traduïda als
 quatre idiomes i el portal s'obre fora de les rutes internes de l'aplicació.

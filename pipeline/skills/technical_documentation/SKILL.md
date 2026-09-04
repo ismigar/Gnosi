@@ -159,6 +159,14 @@ requires documentation evidence.
   hosted Actions budget. Use the provisioned self-hosted Linux ARM64 runner for
   both jobs and keep a source-level regression test for the runner labels.
 
+- Note: Do not install the default Gnosi runtime for documentation-only jobs.
+  It needlessly downloads large packages such as Torch and AV and makes Pages
+  depend on unrelated runtime network availability. Use frozen
+  `--only-group docs` for Pages and the minimal `--only-group docs-ci`
+  (documentation plus pytest) for the pre-PR gate, on both `uv sync` and every
+  subsequent `uv run`. Keep workflow contract tests that reject falling back to
+  `--group docs`.
+
 - Note: Do not let a public fork pull request reach any self-hosted runner,
   because checked-out PR code can execute arbitrary commands on the owner machine.
   Require the exact same-repository head condition on every shared CI job, combine

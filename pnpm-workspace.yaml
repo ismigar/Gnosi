@@ -10,6 +10,11 @@ engineStrict: true
 strictPeerDependencies: false
 autoInstallPeers: true
 strictDepBuilds: true
+fetchRetries: 5
+fetchRetryMintimeout: 20000
+fetchRetryMaxtimeout: 120000
+fetchTimeout: 300000
+networkConcurrency: 8
 
 patchedDependencies:
   emscripten-wasm-loader@3.0.3: patches/emscripten-wasm-loader@3.0.3.patch

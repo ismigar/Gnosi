@@ -51,17 +51,21 @@ que ja no existeix.
   han de fallar sense modificar el sistema de fitxers.
 - Un enllaç simbòlic existent al nom controlat s'ha de retirar com a enllaç;
   mai s'ha de seguir cap a la destinació.
-- La cache segura és la cache pròpia d'`uv` configurada per `setup-uv`; un
-  `.venv` no és una cache portable.
+- La cache segura és la cache temporal pròpia del job; un `.venv` no és una
+  cache portable.
 - Note: do not reuse an extracted package cache across self-hosted jobs. A
   partial `trafilatura` cache produced an environment where `baseline.py` was
   absent and mypy failed before checking project code. Export a validated
   job-scoped `UV_CACHE_DIR`, remove only that exact path before sync, and use
   `UV_LINK_MODE=copy` so the environment owns complete package files.
+- Note: Do not enable the `setup-uv` cache action when `UV_CACHE_DIR` is created
+  later as a disposable job-scoped path. It cannot restore that path at setup
+  time and may stall while uploading the full runtime during post-job cleanup.
+  Keep `enable-cache: false` and let the job own and discard its isolated cache.
 - Note: Do not reuse the machine-wide uv cache while validating from a sandboxed
   worktree, because protected Git metadata inside that cache can fail with
   `Operation not permitted`. Instead, assign a private temporary `UV_CACHE_DIR`
-  for the local validation. CI may keep using the cache managed by `setup-uv`.
+  for the local validation. CI must use the same disposable job-scoped cache.
 - Note: Do not interpret the macOS `system-configuration` NULL-object panic from
   sandboxed `uv sync` as an environment-isolation failure. Instead, repeat that
   exact frozen synchronization outside the filesystem sandbox while retaining

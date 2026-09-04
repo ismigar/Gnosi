@@ -27,10 +27,10 @@ DOCUMENTATION_IF = (
 CI_COMMANDS = {
     "documentation": [
         "python scripts/ci/prepare_python_environment.py",
-        "uv sync --frozen --group docs",
+        "uv sync --frozen --only-group docs-ci",
         'test -n "$PR_BASE_SHA"',
         'git cat-file -e "${PR_BASE_SHA}^{commit}"',
-        "uv run --frozen --group docs python "
+        "uv run --frozen --only-group docs-ci python "
         "pipeline/skills/technical_documentation/scripts/pre_pr.py "
         '--check-only --base-ref "$PR_BASE_SHA"',
     ],
@@ -227,14 +227,14 @@ def test_ci_documentation_gate_uses_frozen_docs_and_check_only(
     assert len(commands) == 3
     assert commands[:2] == [
         "python scripts/ci/prepare_python_environment.py",
-        "uv sync --frozen --group docs",
+        "uv sync --frozen --only-group docs-ci",
     ]
     assert shlex.split(commands[2].splitlines()[-1]) == [
         "uv",
         "run",
         "--frozen",
-        "--group",
-        "docs",
+        "--only-group",
+        "docs-ci",
         "python",
         "pipeline/skills/technical_documentation/scripts/pre_pr.py",
         "--check-only",
@@ -475,7 +475,8 @@ def test_pages_workflow_publishes_from_the_canonical_root() -> None:
 
     assert "apps/gnosi" not in source
     assert "monorepo" not in source
-    assert "uv sync --frozen --group docs" in source
+    assert "uv sync --frozen --only-group docs" in source
+    assert "uv run --frozen --only-group docs" in source
     assert workflow["permissions"] == {
         "contents": "read",
         "pages": "write",
@@ -504,7 +505,7 @@ def test_pages_localization_check_is_fatal_read_only_and_precedes_builds() -> No
     index, check = checks[0]
     assert "if" not in check and "continue-on-error" not in check
     assert workflow_text(check["run"]) == (
-        "uv run --frozen --group docs python "
+        "uv run --frozen --only-group docs python "
         "pipeline/skills/technical_documentation/scripts/localize.py --check"
     )
     builds = [

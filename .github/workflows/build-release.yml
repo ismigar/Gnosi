@@ -11,6 +11,13 @@ on:
 permissions:
   contents: read
 
+env:
+  NPM_CONFIG_FETCH_RETRIES: '5'
+  NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: '20000'
+  NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: '120000'
+  NPM_CONFIG_FETCH_TIMEOUT: '300000'
+  NPM_CONFIG_NETWORK_CONCURRENCY: '8'
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -85,6 +92,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Install frozen Node dependencies
         run: pnpm install --frozen-lockfile
       - name: Build frontend
@@ -147,6 +155,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Install and build
         env:
           GNOSI_PYTHON_CMD: python
@@ -208,6 +217,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Install and build
         env:
           GNOSI_PYTHON_CMD: python
@@ -259,6 +269,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
+          enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - name: Define release tag
