@@ -179,10 +179,10 @@ export function usePageLoading(context: Context) {
         const controller = new AbortController();
         activeLoadAbortRef.current = controller;
         try {
-            const [res] = await Promise.all([
-                fetchPageById(pageId, 1, controller.signal),
-                fetchFullPages(),
-            ]);
+            // Opening one page must not wait for the whole vault catalog.
+            // Keep enriching links/relations in the background as before.
+            void fetchFullPages().catch((err: unknown) => { notifyError('load-pages', err, t('errors.load_pages')); });
+            const res = await fetchPageById(pageId, 1, controller.signal);
             if (wasAborted(controller.signal))
                 return;
             if (!res)
@@ -194,7 +194,7 @@ export function usePageLoading(context: Context) {
             }
             const tableIdOfPage = resolvePageTableId(pageData);
             if (tableIdOfPage)
-                await fetchPagesByTable(tableIdOfPage);
+                void fetchPagesByTable(tableIdOfPage).catch((err: unknown) => { notifyError('load-table-pages', err, t('errors.load_pages')); });
             if (wasAborted(controller.signal))
                 return;
             const newTab = {

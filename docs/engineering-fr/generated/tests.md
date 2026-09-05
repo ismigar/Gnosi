@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 496 | 2055 |
+| Vitest | 497 | 2055 |
 | pytest | 467 | 3312 |
 
 ## Fichiers
@@ -238,6 +238,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/dashboard/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/model.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/mutations.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/mutations.test.tsx) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/dashboard/navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/navigation.test.tsx) | 11 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/dashboard/usePageLoading.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageLoading.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/TldrawEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/TldrawEditor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/VaultDrawings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/VaultDrawings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/drawings/canvas-page-card/PageCardComponent.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/drawings/canvas-page-card/PageCardComponent.test.tsx) | 1 | call-pattern estimate |
