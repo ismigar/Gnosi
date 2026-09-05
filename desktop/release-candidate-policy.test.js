@@ -19,6 +19,7 @@ const TRUSTED_PR_IF = "github.event_name != 'pull_request' || "
 const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
   + 'github.event.pull_request.head.repo.full_name == github.repository) || inputs.release_candidate';
 const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
+const CI_PREDECESSORS = { frontend: 'backend', docker: 'frontend' };
 const DEPENDENCIES = {
   preflight: [],
   quality: ['preflight'],
@@ -61,10 +62,15 @@ function assertQualityDependencies(workflow) {
 
 function assertFatalGates(workflow, reusableCI = false) {
   for (const [name, job] of Object.entries(workflow.jobs)) {
+    const predecessor = reusableCI ? CI_PREDECESSORS[name] : undefined;
+    if (reusableCI) {
+      assert.equal(job.needs, predecessor, `${name} must retain the reviewed shared-host order`);
+    }
     assert.equal(job['continue-on-error'], undefined, `${name} failure must remain fatal by default`);
     assert.equal(job.if, reusableCI
-      ? (name === 'documentation' ? DOCUMENTATION_IF : TRUSTED_PR_IF) : undefined,
-    `${name} must not override successful dependency gating`);
+      ? (name === 'documentation' ? DOCUMENTATION_IF
+        : predecessor ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
+    `${name} must retain its exact trust and cancellation guard`);
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
       const expectedIf = reusableCI && name === 'docker'
@@ -125,6 +131,7 @@ function assertCandidateUpload(workflow) {
 function assertFrontendMemoryBudget(workflow) {
   assert.deepEqual(workflow.jobs.frontend.env, {
     NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
+    GNOSI_VITEST_MAX_WORKERS: '1',
   }, 'the complete frontend job must use the reviewed Node heap budget');
   for (const step of workflow.jobs.frontend.steps) {
     assert.equal(step.env?.NODE_OPTIONS, undefined,
@@ -243,6 +250,23 @@ test('shared CI gives every frontend validation step the reviewed Node heap budg
   delete stepScoped.jobs.frontend.env;
   stepScoped.jobs.frontend.steps.at(-1).env = { NODE_OPTIONS: FRONTEND_NODE_OPTIONS };
   assert.throws(() => assertFrontendMemoryBudget(stepScoped), assert.AssertionError);
+});
+
+test('shared CI rejects reordered heavy jobs and extra test workers', () => {
+  assertFatalGates(ci, true);
+  assertFrontendMemoryBudget(ci);
+  for (const name of Object.keys(CI_PREDECESSORS)) {
+    for (const needs of [undefined, 'documentation', []]) {
+      const changed = structuredClone(ci);
+      changed.jobs[name].needs = needs;
+      assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
+    }
+  }
+  for (const workers of [undefined, '2', '8']) {
+    const changed = structuredClone(ci);
+    changed.jobs.frontend.env.GNOSI_VITEST_MAX_WORKERS = workers;
+    assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);
+  }
 });
 
 test('candidate upload retains exactly the validated review payload with a unique rerun identity', () => {
