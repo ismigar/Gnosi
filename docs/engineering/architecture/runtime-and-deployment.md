@@ -123,10 +123,13 @@ Source and dependencies belong to the images: no host-source hot reload or
 anonymous `node_modules` volumes. Rebuild after code or lock changes.
 
 The frontend image pins Node 22.22.2 and pnpm 11.19.0, installs with
-`--frozen-lockfile` and runs Vite on strict port 5173. The Docker CI job stages
-that exact pnpm distribution in the build context before building, so the
-image bootstrap does not depend on Docker's access to the npm registry. The
-backend exports
+`--frozen-lockfile` and runs Vite on strict port 5173. The image installs the
+pinned JavaScript distribution of pnpm with npm's bounded network retries and
+checks its version. A clean checkout is sufficient; no runner-owned pnpm files
+are copied into the image. Registry access is still required. The native Linux
+smoke job likewise installs this distribution after setting up Node 22.22.2,
+avoiding the standalone executable download used by the action's self-updater.
+The backend exports
 `uv.lock` with `--frozen`, installs the pinned CPU-only Torch wheel before
 the exported requirements, and runs uvicorn without `--reload`. Wheel
 availability and actual build/startup remain platform acceptance requirements.

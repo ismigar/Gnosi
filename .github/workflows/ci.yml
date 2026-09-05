@@ -156,13 +156,11 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           submodules: recursive
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.19.0
       - uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
-          cache: pnpm
+      - name: Install pinned pnpm JavaScript distribution
+        run: npm install --global --ignore-scripts --no-audit --no-fund pnpm@11.19.0
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
@@ -210,10 +208,6 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           submodules: recursive
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.19.0
-          dest: .ci/pnpm
       - name: Verify dedicated Docker runner capacity
         run: python3 scripts/ci/prepare_docker_runner.py
       - run: docker compose config --quiet
@@ -228,6 +222,4 @@ jobs:
         run: scripts/smoke_docker.sh
       - name: Release unused Docker resources
         if: always()
-        run: |
-          docker system prune --all --force --volumes
-          rm -rf .ci/pnpm
+        run: docker system prune --all --force --volumes

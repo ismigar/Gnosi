@@ -67,6 +67,7 @@ CI_COMMANDS = {
         "uv run pytest",
     ],
     "native-smoke": [
+        "npm install --global --ignore-scripts --no-audit --no-fund pnpm@11.19.0",
         "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",

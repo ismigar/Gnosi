@@ -2,10 +2,12 @@ FROM node:22.22.2-alpine
 
 WORKDIR /app
 
-# The CI job stages the pinned pnpm distribution in the build context. Docker
-# therefore does not need to reach the npm registry to bootstrap Corepack.
-COPY .ci/pnpm/ /opt/pnpm/
-RUN /opt/pnpm/pnpm --version
+# Install the pinned JavaScript distribution using npm's bounded network retries.
+# A clean checkout remains sufficient for both CI and ordinary Compose builds.
+RUN npm install --global --ignore-scripts --no-audit --no-fund \
+    --fetch-retries=5 --fetch-retry-mintimeout=20000 \
+    --fetch-retry-maxtimeout=120000 --fetch-timeout=300000 pnpm@11.19.0 \
+    && test "$(pnpm --version)" = "11.19.0"
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY .node-version ./
@@ -15,7 +17,7 @@ COPY frontend/package.json frontend/package.json
 COPY desktop/package.json desktop/package.json
 COPY tests/e2e/package.json tests/e2e/package.json
 
-RUN /opt/pnpm/pnpm install --frozen-lockfile --filter @gnosi/frontend...
+RUN pnpm install --frozen-lockfile --filter @gnosi/frontend...
 
 # Source is image-owned. Rebuild after code/lock changes; do not mask installed
 # workspace dependencies with host node_modules or anonymous dependency volumes.
@@ -27,4 +29,4 @@ WORKDIR /app/frontend
 EXPOSE 5173
 
 # Command to run the dev server
-CMD ["/opt/pnpm/pnpm", "exec", "vite", "--host", "0.0.0.0", "--port", "5173", "--strictPort"]
+CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0", "--port", "5173", "--strictPort"]
