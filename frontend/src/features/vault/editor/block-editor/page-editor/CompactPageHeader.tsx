@@ -8,6 +8,7 @@ import { Settings } from 'lucide-react';
 import { Sparkles } from 'lucide-react';
 import { SpellCheck2 } from 'lucide-react';
 import type { PageEditorController } from './usePageEditorController';
+import { PageSpellLanguage } from './PageSpellLanguage';
 export function CompactPageHeader({ context }: { context: PageEditorController }) {
   const { isPageHeaderCompact, setIsIconPickerOpen, t, metadata, showKnowledgePanels, toggleCompactPanel, openCompactPanelPreview, scheduleCompactPanelPreviewClose, compactPanelPreview, isPropertiesOpen, properties, adhocProperties, compactPropertyPreviewItems, isLinksInfoOpen, compactLinkPreviewSections, pageActions, isActivePage, contentWidth, spellEnabled, spellLang, setSpellEnabled, isFloatingDockOpen, setIsFloatingDockOpen } = context;
   return (isPageHeaderCompact && (
@@ -124,6 +125,7 @@ export function CompactPageHeader({ context }: { context: PageEditorController }
             </div>
           </>
         )}
+        <PageSpellLanguage context={context} />
         <PageActionsBar
           compactHeader
           pageActions={isActivePage ? pageActions : null}

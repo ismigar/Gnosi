@@ -38,6 +38,7 @@ export function PageBody({ context }: { context: PageEditorController }) {
           onOpenProperties={openPropertiesNav}
           spellEnabled={spellEnabled}
           spellLang={spellLang}
+          forcedSpellLang={typeof metadata.spell_language === 'string' && ['ca', 'es', 'en'].includes(metadata.spell_language) ? metadata.spell_language : undefined}
           onLangDetected={setSpellLang}
           onOutgoingLinksChange={setLiveOutgoingLinks}
         />

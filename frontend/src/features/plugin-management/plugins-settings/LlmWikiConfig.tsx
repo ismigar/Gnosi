@@ -83,6 +83,13 @@ export function LlmWikiConfig() {
         return <div style={{ color: 'var(--text-tertiary)', fontSize: 12, padding: 14 }}>{tp('llm_wiki_loading', 'Loading configuration…')}</div>;
     }
 
+    if (!controller.serverState) {
+        return <div role="alert">
+            {controller.error}
+            <button type="button" onClick={() => { void controller.retryLoad(); }}>{t('common.retry', 'Retry')}</button>
+        </div>;
+    }
+
     return (
         <>
             <div style={{
@@ -143,7 +150,12 @@ export function LlmWikiConfig() {
                         ))}
                     </>
                 )}
-                {controller.error && <div style={{ color: 'var(--status-error, #dc2626)', fontSize: 12 }}>{controller.error}</div>}
+                {controller.error && <div role="alert" style={{ color: 'var(--status-error, #dc2626)', fontSize: 12 }}>
+                    {controller.error}
+                    <button type="button" disabled={controller.busy} onClick={() => { void controller.retrySave(); }} style={{ marginLeft: 8 }}>
+                        {t('common.retry', 'Retry')}
+                    </button>
+                </div>}
                 <div style={{ borderTop: '1px solid var(--border-primary)', display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 12 }}>
                     <span style={{ alignSelf: 'center', color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{controller.busy ? tp('llm_wiki_saving', 'Saving…') : tp('llm_wiki_autosave', 'Changes save automatically.')}</span>
                     <button type="button" onClick={() => { void controller.runLint(); }} disabled={controller.lintBusy || !controller.serverState?.validation.valid} className="btn-gnosi">{controller.lintBusy ? tp('llm_wiki_lint_running', 'Reviewing…') : tp('llm_wiki_lint_run', 'Review the Brain (lint)')}</button>

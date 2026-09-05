@@ -8,6 +8,7 @@ import { Sparkles } from 'lucide-react';
 import { SpellCheck2 } from 'lucide-react';
 import { X } from 'lucide-react';
 import type { PageEditorController } from './usePageEditorController';
+import { PageSpellLanguage } from './PageSpellLanguage';
 export function PageTitle({ context }: { context: PageEditorController }) {
   const { titleInputRef, metadata, handleTitleChange, openPropertiesNav, propertiesHeaderRef, linksHeaderRef, focusBody, t, saveStatus, setSpellEnabled, spellEnabled, spellLang, pageActions, isActivePage, contentWidth, isFloatingDockOpen, setIsFloatingDockOpen, noteFilename } = context;
   return (<div className="flex items-center justify-between gap-4 group/title mb-6">
@@ -81,6 +82,7 @@ export function PageTitle({ context }: { context: PageEditorController }) {
       >
         <SpellCheck2 size={12} /> {spellLang.toUpperCase()}
       </button>
+      <PageSpellLanguage context={context} />
       <button
         type="button"
         onClick={() => emitAppEvent('gnosi:ai-correct-page')}
