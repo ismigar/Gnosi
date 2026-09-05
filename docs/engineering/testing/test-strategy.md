@@ -20,6 +20,8 @@ tests:
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
+Heavy CI jobs run in order: backend, frontend, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
+
 # Test strategy
 
 ## Quality layers

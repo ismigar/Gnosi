@@ -254,10 +254,15 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
     for name, expected_commands in CI_COMMANDS.items():
         job = workflow_job(ci_workflow, name)
         assert "uses" not in job
-        assert "needs" not in job
+        predecessor = {"frontend": "backend", "docker": "frontend"}.get(name)
+        if predecessor:
+            assert job.get("needs") == predecessor
+        else:
+            assert "needs" not in job
         assert "continue-on-error" not in job
         assert job.get("if") == (
-            DOCUMENTATION_IF if name == "documentation" else TRUSTED_PR_IF
+            DOCUMENTATION_IF if name == "documentation" else
+            f"!cancelled() && ({TRUSTED_PR_IF})" if predecessor else TRUSTED_PR_IF
         )
         steps = workflow_steps(job)
         assert all("continue-on-error" not in step for step in steps)

@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
 | Vitest | 497 | 2055 |
-| pytest | 467 | 3312 |
+| pytest | 468 | 3314 |
 
 ## Fichiers
 
@@ -557,7 +557,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_agent_legacy_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_legacy_memory.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_observability_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_contracts.py) | 28 | Python AST |
 | pytest | [`backend/tests/test_agent_observability_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_policy.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_agent_phase_three.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_three.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_agent_phase_three.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_three.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_agent_phase_two.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_two.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_quality_telemetry.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
@@ -611,6 +611,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_carddav_vcard_unfold.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_carddav_vcard_unfold.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_ci_container_build.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_container_build.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_ci_docker_runner_capacity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_docker_runner_capacity.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_ci_heavy_job_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_heavy_job_order.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_ci_native_smoke_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_native_smoke_contract.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_ci_python_environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_python_environment.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_citation_io_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_io_response_contract.py) | 2 | Python AST |

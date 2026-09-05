@@ -20,6 +20,8 @@ tests:
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
+Els treballs pesants de CI segueixen aquest ordre: backend, frontend i Docker. El Mac i la MV Linux comparteixen recursos físics; el frontend utilitza un sol procés de proves. La fallada anterior no omet les comprovacions següents, però es mantenen la cancel·lació i les restriccions dels forks. Les suites aïllades de dibuixos i citacions disposen de cinc minuts per procés, incloses les importacions inicials i totes les assercions. Les proves integrades d’eines generades utilitzen el límit de producció sense modificar-lo; una regressió separada verifica el límit explícit.
+
 # Estratègia de proves
 
 ## Capes de qualitat

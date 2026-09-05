@@ -20,6 +20,8 @@ tests:
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
+Les tâches lourdes de CI suivent cet ordre : backend, frontend puis Docker. Le Mac et la VM Linux partagent les ressources physiques ; le frontend utilise un seul processus de test. Un échec précédent ne supprime pas les vérifications suivantes, mais les restrictions des forks et l’annulation restent applicables. Les suites isolées de dessins et de citations disposent de cinq minutes par processus, importations initiales et assertions comprises. Les tests intégrés des outils générés utilisent le délai de production inchangé ; une régression distincte vérifie le délai explicite.
+
 # Stratégie de test
 
 ## Niveaux de vérification de la qualité
