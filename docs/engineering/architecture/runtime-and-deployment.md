@@ -138,6 +138,11 @@ container smoke tests or platform acceptance.
 
 ## Electron packages
 
+The frontend CI contract check has a ten-minute step timeout. OpenAPI generation
+does not start a background traceback watchdog: cancellation of that diagnostic
+thread was observed blocking under translated Python on macOS. The step timeout
+bounds the entire contract check without altering the generated schema.
+
 Electron owns the packaged application lifecycle. It starts the bundled Python
 backend, exposes a narrow IPC surface through preload, opens the renderer, and
 manages manual update state. The renderer subscribes to updates and can query

@@ -88,6 +88,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen
       - name: Check OpenAPI, 2.x compatibility, and generated frontend client
+        timeout-minutes: 10
         run: pnpm check:api-client
       - name: Enforce frontend migration guardrails
         run: pnpm guardrails:frontend
