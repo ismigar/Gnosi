@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 495 | 2054 |
+| Vitest | 496 | 2055 |
 | pytest | 467 | 3312 |
 
 ## Fichiers
@@ -266,6 +266,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/editor/SyncedBlock.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/SyncedBlock.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/TableOfContentsBlock.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/TableOfContentsBlock.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/TranslateLanguagesModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/TranslateLanguagesModal.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/DeferredBlocks.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/DeferredBlocks.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/blockValues.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockValues.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/domSizing.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/domSizing.test.ts) | 2 | call-pattern estimate |
