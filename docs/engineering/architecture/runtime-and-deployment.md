@@ -123,7 +123,13 @@ Source and dependencies belong to the images: no host-source hot reload or
 anonymous `node_modules` volumes. Rebuild after code or lock changes.
 
 The frontend image pins Node 22.22.2 and pnpm 11.19.0, installs with
-`--frozen-lockfile` and runs Vite on strict port 5173. The backend exports
+`--frozen-lockfile` and runs Vite on strict port 5173. The image installs the
+pinned JavaScript distribution of pnpm with npm's bounded network retries and
+checks its version. A clean checkout is sufficient; no runner-owned pnpm files
+are copied into the image. Registry access is still required. The native Linux
+smoke job likewise installs this distribution after setting up Node 22.22.2,
+avoiding the standalone executable download used by the action's self-updater.
+The backend exports
 `uv.lock` with `--frozen`, installs the pinned CPU-only Torch wheel before
 the exported requirements, and runs uvicorn without `--reload`. Wheel
 availability and actual build/startup remain platform acceptance requirements.
@@ -131,6 +137,11 @@ Static contract tests do not replace actual Compose merging, image builds,
 container smoke tests or platform acceptance.
 
 ## Electron packages
+
+The frontend CI contract check has a ten-minute step timeout. OpenAPI generation
+does not start a background traceback watchdog: cancellation of that diagnostic
+thread was observed blocking under translated Python on macOS. The step timeout
+bounds the entire contract check without altering the generated schema.
 
 Electron owns the packaged application lifecycle. It starts the bundled Python
 backend, exposes a narrow IPC surface through preload, opens the renderer, and

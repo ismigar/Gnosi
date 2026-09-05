@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import faulthandler
 import hashlib
 import importlib
 import json
@@ -56,12 +55,11 @@ def _configure_isolated_runtime(runtime_root: Path) -> None:
 
 def deterministic_openapi() -> dict[str, Any]:
     """Import the canonical application and return its OpenAPI document."""
-    faulthandler.dump_traceback_later(60, repeat=True)
-    try:
-        server = importlib.import_module("backend.server")
-        return dict(server.app.openapi())
-    finally:
-        faulthandler.cancel_dump_traceback_later()
+    # CI bounds this command at the process level. A background traceback
+    # watchdog can itself hang while dumping frames under translated Python,
+    # preventing cancellation even after schema generation has returned.
+    server = importlib.import_module("backend.server")
+    return dict(server.app.openapi())
 
 
 def serialize_openapi(payload: dict[str, Any]) -> str:
