@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 19 | 2489 | 0 |
-| `features` | 1048 | 122660 | 33 |
+| `features` | 1049 | 122671 | 33 |
 | `generated` | 2 | 43563 | 446 |
 | `shared` | 233 | 29814 | 387 |
 
@@ -695,13 +695,14 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/TableOfContentsBlock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/TableOfContentsBlock.tsx) | 162 | `TableOfContentsBlock`, `function` | — |
 | [`frontend/src/features/vault/editor/TranslateLanguagesModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/TranslateLanguagesModal.tsx) | 214 | `TranslateLanguagesModal` | — |
 | [`frontend/src/features/vault/editor/areaHeadingColors.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/areaHeadingColors.ts) | 69 | `areaHeadingColorKey`, `normalizeHeadingText` | — |
+| [`frontend/src/features/vault/editor/block-editor/DeferredBlocks.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/DeferredBlocks.tsx) | 13 | `DbViewEmbed`, `DeferredBlock`, `EmbedRenderer`, `InlineDatabase` | — |
 | [`frontend/src/features/vault/editor/block-editor/EditorInner.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/EditorInner.tsx) | 63 | `EditorInner` | — |
 | [`frontend/src/features/vault/editor/block-editor/ErrorBoundary.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/ErrorBoundary.tsx) | 33 | `ErrorBoundary` | — |
 | [`frontend/src/features/vault/editor/block-editor/InlineDatabase.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/InlineDatabase.tsx) | 48 | `InlineDatabase` | — |
 | [`frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/MarkdownCodeEditor.tsx) | 14 | `MarkdownCodeEditor` | — |
 | [`frontend/src/features/vault/editor/block-editor/SelectableSideMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/SelectableSideMenu.tsx) | 39 | `SelectableSideMenu` | — |
 | [`frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/TransclusionEmbed.tsx) | 106 | `TransclusionEmbed` | — |
-| [`frontend/src/features/vault/editor/block-editor/blockSpecs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockSpecs.tsx) | 94 | `createBlockSpecs` | — |
+| [`frontend/src/features/vault/editor/block-editor/blockSpecs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockSpecs.tsx) | 92 | `createBlockSpecs` | — |
 | [`frontend/src/features/vault/editor/block-editor/blockValues.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/blockValues.ts) | 107 | `readEditorBlocks`, `sanitizeBlocks` | — |
 | [`frontend/src/features/vault/editor/block-editor/codeTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/codeTypes.ts) | 35 | `codeContent` | — |
 | [`frontend/src/features/vault/editor/block-editor/domSizing.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/domSizing.ts) | 31 | `autoGrowTextarea`, `getScrollableAncestor` | — |

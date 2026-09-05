@@ -1,9 +1,7 @@
 import { createReactBlockSpec } from '@blocknote/react';
+import { DeferredBlock, InlineDatabase, DbViewEmbed, EmbedRenderer } from './DeferredBlocks';
 import { Info } from 'lucide-react';
-import { InlineDatabase } from './InlineDatabase';
 import { TransclusionEmbed } from './TransclusionEmbed';
-import { DbViewEmbed } from '../../views/DbViewEmbed';
-import { EmbedRenderer } from '../EmbedRenderer';
 import { BibliographyBlock } from '../BibliographyBlock';
 import TableOfContentsBlock from '../TableOfContentsBlock';
 import MermaidBlock from '../MermaidBlock';
@@ -16,12 +14,12 @@ export function createBlockSpecs() {
                 type: "database",
                 propSchema: { database_table_id: { default: "" }, viewId: { default: "" }, filters: { default: "" }, sort: { default: "" }, search: { default: "" }, visibleProperties: { default: "" }, viewType: { default: "table" } },
                 content: "none",
-            }, { render: (props) => <InlineDatabase block={props.block} onUpdateTable={id => { props.editor.updateBlock(props.block, { props: { ...props.block.props, database_table_id: id } }); }} /> }),
+            }, { render: (props) => <DeferredBlock><InlineDatabase block={props.block} onUpdateTable={id => { props.editor.updateBlock(props.block, { props: { ...props.block.props, database_table_id: id } }); }} /></DeferredBlock> }),
             gnosi_view: createReactBlockSpec({
                 type: "gnosi_view",
                 propSchema: { view_id: { default: "" }, heading: { default: "" }, heading_level: { default: "1" }, section: { default: "" } },
                 content: "none",
-            }, { render: (props) => <DbViewEmbed block={props.block} /> }),
+            }, { render: (props) => <DeferredBlock><DbViewEmbed block={props.block} /></DeferredBlock> }),
             transclusion: createReactBlockSpec({
                 type: "transclusion",
                 propSchema: { target: { default: "" }, alias: { default: "" }, section: { default: "" } },
@@ -31,7 +29,7 @@ export function createBlockSpecs() {
                 type: "embed",
                 propSchema: { url: { default: "" }, caption: { default: "" } },
                 content: "none",
-            }, { render: (props) => <EmbedRenderer block={props.block} editor={props.editor} /> }),
+            }, { render: (props) => <DeferredBlock><EmbedRenderer block={props.block} editor={props.editor} /></DeferredBlock> }),
             // Block that renders the document's bibliography based on the
             // `[@key]` citations it contains. See BibliographyBlock.jsx.
             bibliography: createReactBlockSpec({
