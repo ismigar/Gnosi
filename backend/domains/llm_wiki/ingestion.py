@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast
 
+from backend.domains.llm_wiki.recovery import call_with_retry
+from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import iterable_values
 
 class UpdateJob(Protocol):
@@ -55,6 +58,7 @@ class IngestionPhases:
     reading: str
     planning: str
     writing: str
+    retrying: str = "retrying"
 
 
 @dataclass(frozen=True)
@@ -80,6 +84,7 @@ class IngestionDependencies:
     generate_text: GenerateText
     parse_plan: Callable[[str], dict[str, object]]
     save_checkpoint: Callable[[str, str, dict[str, object]], object]
+    load_checkpoint: Callable[[str, str], object]
     reduce_plans: Callable[
         [
             list[tuple[dict[str, object], dict[str, object]]],
@@ -122,6 +127,7 @@ def process_resource(
     source_config: dict[str, object] | None = None,
     job_id: str = "",
     resume_checkpoint: dict[str, object] | None = None,
+    resume_job_id: str = "",
     dependencies: IngestionDependencies,
 ) -> dict[str, object]:
     """Run one complete blocking ingest through explicit application ports."""
@@ -163,6 +169,7 @@ def process_resource(
         brain_index,
         ai_dimensions,
         resume_checkpoint,
+        resume_job_id,
         job_id,
         dependencies,
     )
@@ -272,6 +279,7 @@ def _resolve_plan(
     brain_index: list[dict[str, object]],
     ai_dimensions: list[dict[str, object]],
     resume_checkpoint: dict[str, object] | None,
+    resume_job_id: str,
     job_id: str,
     dependencies: IngestionDependencies,
 ) -> tuple[dict[str, object], list[str]]:
@@ -299,6 +307,7 @@ def _resolve_plan(
         sources,
         brain_index,
         ai_dimensions,
+        resume_job_id,
         job_id,
         dependencies,
     )
@@ -310,6 +319,7 @@ def _generate_plan(
     sources: _PreparedSources,
     brain_index: list[dict[str, object]],
     ai_dimensions: list[dict[str, object]],
+    resume_job_id: str,
     job_id: str,
     dependencies: IngestionDependencies,
 ) -> tuple[dict[str, object], list[str]]:
@@ -323,19 +333,36 @@ def _generate_plan(
             language,
             ai_dimensions,
         )
-        raw, model = dependencies.generate_text(
-            prompt,
-            user_message=source_title,
-            timeout=240,
+        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        cached = (
+            dependencies.load_checkpoint(resume_job_id, f"plan-{chunk_index}")
+            if resume_job_id else None
         )
+        if (
+            is_record(cached)
+            and cached.get("prompt_hash") == prompt_hash
+            and cached.get("chunk") == chunk
+            and is_record(cached.get("plan"))
+        ):
+            chunk_plan = dict(cast(dict[str, object], cached["plan"]))
+            model = str(cached.get("model") or "")
+        else:
+            raw, model = call_with_retry(
+                lambda timeout: dependencies.generate_text(
+                    prompt, user_message=source_title, timeout=timeout,
+                ),
+                on_wait=lambda: _set_planning_phase(job_id, dependencies.phases.retrying, dependencies),
+                on_attempt=lambda: _set_planning_phase(job_id, dependencies.phases.planning, dependencies),
+            )
+            chunk_plan = dependencies.parse_plan(raw)
         models.append(model)
-        chunk_plan = dependencies.parse_plan(raw)
         plans.append((chunk, chunk_plan))
         _record_chunk_progress(
             chunk_index,
             chunk,
             chunk_plan,
             model,
+            prompt_hash,
             len(sources.chunks),
             job_id,
             dependencies,
@@ -356,11 +383,17 @@ def _generate_plan(
     return {"summary": summary, "notes": notes}, models
 
 
+def _set_planning_phase(job_id: str, phase: str, dependencies: IngestionDependencies) -> None:
+    if job_id:
+        dependencies.update_job(job_id, phase=phase)
+
+
 def _record_chunk_progress(
     chunk_index: int,
     chunk: dict[str, object],
     chunk_plan: dict[str, object],
     model: str,
+    prompt_hash: str,
     chunk_count: int,
     job_id: str,
     dependencies: IngestionDependencies,
@@ -370,7 +403,7 @@ def _record_chunk_progress(
     dependencies.save_checkpoint(
         job_id,
         f"plan-{chunk_index}",
-        {"chunk": chunk, "plan": chunk_plan, "model": model},
+        {"chunk": chunk, "plan": chunk_plan, "model": model, "prompt_hash": prompt_hash},
     )
     dependencies.update_job(
         job_id,
