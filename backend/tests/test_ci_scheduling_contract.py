@@ -57,6 +57,18 @@ def test_backend_hosted_capacity_is_limited_to_public_prs(
     assert "needs" not in backend
 
 
+def test_frontend_hosted_capacity_is_limited_to_public_prs(
+    workflow: dict[str, object],
+) -> None:
+    frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
+    assert frontend["runs-on"] == (
+        "${{ fromJSON(github.event_name == 'pull_request' && "
+        "github.event.repository.visibility == 'public' && "
+        "'[\"macos-15\"]' || '[\"self-hosted\", \"macOS\", \"ARM64\"]') }}"
+    )
+    assert frontend["needs"] == "backend"
+
+
 @pytest.mark.parametrize("job_name", ["native-smoke", "docker"])
 def test_local_linux_jobs_keep_their_dedicated_runner(
     workflow: dict[str, object], job_name: str,
@@ -94,11 +106,10 @@ def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     assert {"run": "uv run pytest"} in steps
 
 
-def test_self_hosted_frontend_disables_remote_package_cache(
+def test_frontend_disables_remote_package_cache(
     workflow: dict[str, object],
 ) -> None:
     frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
-    assert frontend["runs-on"] == ["self-hosted", "macOS", "ARM64"]
     steps = frontend["steps"]
     assert isinstance(steps, list)
     node_steps = [
@@ -143,3 +154,46 @@ def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
     for command in required_commands:
         assert "if" not in commands[command]
         assert not commands[command].get("continue-on-error")
+
+
+def test_frontend_python_downloads_are_bounded_without_changing_dependencies(
+    workflow: dict[str, object],
+) -> None:
+    frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
+    environment = _mapping(frontend["env"])
+    assert environment["UV_HTTP_TIMEOUT"] == "120"
+    assert environment["UV_HTTP_RETRIES"] == "3"
+    assert environment["UV_CONCURRENT_DOWNLOADS"] == "4"
+    assert environment["UV_CONCURRENT_INSTALLS"] == "2"
+    steps = frontend["steps"]
+    assert isinstance(steps, list)
+    sync_steps = [
+        _mapping(step) for step in steps
+        if _mapping(step).get("run") == "uv sync --frozen"
+    ]
+    assert len(sync_steps) == 1
+    assert sync_steps[0]["timeout-minutes"] == 45
+
+
+def test_frontend_checks_native_python_before_installing_dependencies(
+    workflow: dict[str, object],
+) -> None:
+    frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
+    assert _mapping(frontend["env"])["UV_PYTHON"] == "cpython-3.11-macos-aarch64-none"
+    steps = frontend["steps"]
+    assert isinstance(steps, list)
+    named = {
+        str(_mapping(step)["name"]): index
+        for index, step in enumerate(steps) if "name" in _mapping(step)
+    }
+    check_index = named["Verify native frontend Python"]
+    assert named["Prepare isolated Python environment"] < check_index
+    assert check_index < named["Install locked frontend Python dependencies"]
+    check = _mapping(steps[check_index])
+    assert check["timeout-minutes"] == 5
+    assert "if" not in check
+    assert not check.get("continue-on-error")
+    command = str(check["run"])
+    assert command.startswith("uv run --frozen --no-sync python -c ")
+    assert "actual = platform.machine()" in command
+    assert "assert actual == 'arm64'" in command

@@ -32,6 +32,16 @@ les dépôts privés et l’absence de métadonnées de visibilité publique uti
 l’exécuteur auto-hébergé du backend ; les affectations des exécuteurs de
 documentation et de création des paquets restent inchangées.
 
+La même condition de PR publique issue du même dépôt affecte aussi `frontend`
+à un nouvel exécuteur ARM64 `macos-15` hébergé par GitHub, évitant les
+téléchargements lents de l’hôte natif. Les dépôts privés, l’absence de métadonnées
+de visibilité, les envois et la validation des versions conservent l’exécuteur
+macOS ARM64 auto-hébergé. Le heap Node de 4 Gio, un seul processus de test,
+toutes les vérifications et l’ordre backend-frontend sont préservés. Les deux
+étiquettes hébergées désignent des exécuteurs standard, gratuits pour les dépôts
+publics ; aucun exécuteur étendu payant ni accès aux données de l’application
+native ou aux services de l’hôte n’est ajouté.
+
 Les groupes de `concurrency` du workflow utilisent un préfixe propre à la CI,
 le nom du workflow et le numéro de PR. Un nouveau commit annule les tâches
 précédentes en cours et en attente de cette PR uniquement. L’annulation n’est
@@ -43,7 +53,7 @@ les périmètres complets des tests, les permissions de lecture seule et les
 restrictions des forks restent inchangés. L’ajout de capacité ne supprime pas
 les dépendances existantes entre les tâches.
 
-Le job frontend auto-hébergé désactive le cache distant des dépendances dans
+Le job frontend désactive le cache distant des dépendances dans
 `setup-node` : il omet `cache` et définit explicitement
 `package-manager-cache: false`. Cela évite d’attendre les restaurations
 facultatives bloquées et supprime les envois vers le cache distant, tout en
@@ -51,6 +61,20 @@ conservant le magasin local de pnpm. `pnpm install --frozen-lockfile` continue
 d’installer et de vérifier les dépendances, et toutes les vérifications frontend
 et desktop restent obligatoires. Cela ne supprime pas l’accès réseau nécessaire
 pour obtenir les dépendances manquantes.
+
+Le job frontend natif demande explicitement Python 3.11 géré pour macOS ARM64
+avec `UV_PYTHON=cpython-3.11-macos-aarch64-none` et vérifie `platform.machine()`
+avant d’installer les dépendances. Un interpréteur Intel installé ne doit pas
+sélectionner silencieusement les dépendances x86_64 via Rosetta. Les
+téléchargements Python utilisent un délai de lecture HTTP de 120 secondes,
+trois nouvelles tentatives HTTP, au plus quatre téléchargements simultanés et
+deux fils d’installation. La vérification préalable de l’interpréteur dispose
+de cinq minutes ; la commande inchangée `uv sync --frozen` dispose de quarante-cinq
+minutes pour les téléchargements à froid sur l’exécuteur local de repli. Ces limites
+préservent les nouveaux environnements par tâche,
+l’isolation du cache et tous les tests ; elles ne masquent pas les erreurs
+d’installation et ne garantissent pas la disponibilité du réseau. La
+configuration des paquets de version et des autres tâches reste inchangée.
 
 # Stratégie de test
 

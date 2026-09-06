@@ -32,6 +32,16 @@ repositorios privados y la ausencia de metadatos de visibilidad pública utiliza
 el ejecutor autoalojado del backend; las asignaciones de ejecutores de
 documentación y empaquetado no cambian.
 
+La misma condición de PR pública del mismo repositorio también asigna `frontend`
+a un nuevo ejecutor ARM64 `macos-15` alojado en GitHub, evitando las descargas
+lentas del anfitrión nativo. Los repositorios privados, la ausencia de metadatos
+de visibilidad, las subidas y la validación de versiones conservan el ejecutor
+macOS ARM64 autoalojado. Se mantienen el heap de Node de 4 GiB, un solo proceso
+de pruebas, todas las comprobaciones y el orden backend-frontend. Ambas
+etiquetas alojadas son ejecutores estándar, gratuitos para repositorios públicos;
+no se introducen ejecutores ampliados de pago ni acceso a datos de la aplicación
+nativa o servicios del anfitrión.
+
 Los grupos de `concurrency` del flujo de trabajo utilizan un prefijo específico
 de CI, el nombre del flujo y el número de PR. Un commit nuevo cancela los trabajos
 anteriores en ejecución y en cola solo de esa PR. La cancelación se activa
@@ -42,7 +52,7 @@ flujo que las invoca. Los nombres de las comprobaciones obligatorias, los ámbit
 completos de pruebas, los permisos de solo lectura y las restricciones de forks
 se mantienen. Añadir capacidad no elimina las dependencias existentes entre trabajos.
 
-El trabajo de frontend autoalojado desactiva la caché remota de dependencias en
+El trabajo de frontend desactiva la caché remota de dependencias en
 `setup-node`: omite `cache` y establece explícitamente
 `package-manager-cache: false`. Esto evita esperar restauraciones opcionales
 atascadas y omite las subidas de caché remota, conservando el almacén local de
@@ -50,6 +60,19 @@ pnpm. `pnpm install --frozen-lockfile` sigue instalando y verificando las
 dependencias, y todas las comprobaciones de frontend y escritorio siguen siendo
 obligatorias. Esto no elimina el acceso a la red necesario para obtener las
 dependencias que falten.
+
+El trabajo de frontend nativo solicita explícitamente Python 3.11 gestionado
+para macOS ARM64 con `UV_PYTHON=cpython-3.11-macos-aarch64-none` y verifica
+`platform.machine()` antes de instalar dependencias. Un intérprete Intel
+instalado no debe seleccionar silenciosamente las dependencias x86_64 mediante
+Rosetta. Las descargas Python utilizan un límite de lectura HTTP de 120 segundos,
+tres reintentos HTTP, un máximo de cuatro descargas simultáneas y dos hilos de
+instalación. La comprobación previa del intérprete tiene un presupuesto de cinco
+minutos; `uv sync --frozen`, sin cambios, tiene cuarenta y cinco para admitir
+descargas sin caché en el ejecutor local alternativo. Estos límites conservan
+los entornos nuevos por trabajo, el aislamiento de la caché y todas las pruebas;
+no ocultan errores de instalación ni garantizan la disponibilidad de la red.
+La configuración de empaquetado de versiones y de los demás trabajos no cambia.
 
 # Estrategia de pruebas
 

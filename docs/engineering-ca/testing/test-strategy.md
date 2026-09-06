@@ -32,6 +32,16 @@ repositoris privats i l’absència de metadades de visibilitat pública utilitz
 l’executor autoallotjat del backend; les assignacions dels executors de
 documentació i empaquetament no canvien.
 
+La mateixa condició de PR pública del mateix repositori també assigna `frontend`
+a un executor ARM64 `macos-15` nou allotjat a GitHub, evitant les descàrregues
+lentes de l’amfitrió natiu. Els repositoris privats, l’absència de metadades de
+visibilitat, les pujades i la validació de versions conserven l’executor macOS
+ARM64 autoallotjat. Es mantenen el heap de Node de 4 GiB, un sol procés de proves,
+totes les comprovacions i l’ordre backend-frontend. Totes dues etiquetes
+allotjades són executors estàndard, gratuïts per a repositoris públics; no
+s’introdueixen executors ampliats de pagament ni accés a dades de l’aplicació
+nativa o serveis de l’amfitrió.
+
 Els grups de `concurrency` del flux de treball utilitzen un prefix específic de
 CI, el nom del flux i el número de PR. Un commit nou cancel·la els treballs
 anteriors en execució i en cua només d’aquella PR. La cancel·lació només s’activa
@@ -42,7 +52,7 @@ del flux que les crida. Els noms de les comprovacions obligatòries, els àmbits
 complets de proves, els permisos de només lectura i les restriccions dels forks
 es mantenen. Afegir capacitat no elimina les dependències existents entre treballs.
 
-El treball de frontend autoallotjat desactiva la memòria cau remota de
+El treball de frontend desactiva la memòria cau remota de
 dependències a `setup-node`: omet `cache` i estableix explícitament
 `package-manager-cache: false`. Això evita esperar restauracions opcionals
 encallades i omet les pujades de memòria cau remota, tot conservant el magatzem
@@ -50,6 +60,19 @@ local de pnpm. `pnpm install --frozen-lockfile` continua instal·lant i verifica
 les dependències, i totes les comprovacions de frontend i escriptori continuen
 sent obligatòries. Això no elimina l’accés a la xarxa necessari per obtenir les
 dependències que faltin.
+
+El treball de frontend natiu demana explícitament Python 3.11 gestionat per a
+macOS ARM64 amb `UV_PYTHON=cpython-3.11-macos-aarch64-none` i verifica
+`platform.machine()` abans d’instal·lar dependències. Un intèrpret Intel
+instal·lat no ha de seleccionar silenciosament les dependències x86_64 amb
+Rosetta. Les descàrregues Python utilitzen un límit de lectura HTTP de 120 segons,
+tres reintents HTTP, un màxim de quatre descàrregues simultànies i dos fils
+d’instal·lació. La comprovació prèvia de l’intèrpret té un pressupost de cinc
+minuts; `uv sync --frozen`, sense canvis, en té quaranta-cinc per admetre
+descàrregues sense memòria cau a l’executor local alternatiu. Aquests límits conserven
+els entorns nous per treball, l’aïllament de la memòria cau i totes les proves;
+no amaguen errors d’instal·lació ni garanteixen la disponibilitat de la xarxa.
+La configuració d’empaquetament de versions i dels altres treballs no canvia.
 
 # Estratègia de proves
 

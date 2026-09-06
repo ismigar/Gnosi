@@ -30,6 +30,14 @@ retain the existing self-hosted Linux ARM64 runner. Pushes, release validation,
 private repositories and missing public-visibility metadata use the self-hosted
 backend runner; documentation and packaging runner assignments are unchanged.
 
+The same public, same-repository PR condition also routes `frontend` to a fresh
+GitHub-hosted `macos-15` ARM64 runner, avoiding the native host's slow package
+downloads. Private repositories, missing visibility metadata, pushes and release
+validation keep the self-hosted macOS ARM64 runner. The 4 GiB Node heap, single
+test worker, complete checks and backend-to-frontend ordering are preserved.
+Both hosted labels are standard runners, free for public repositories; no paid
+larger runner, native application data or host service access is introduced.
+
 Workflow-level `concurrency` groups use a CI-specific prefix, the workflow name
 and the PR number. A newer commit cancels the earlier running and queued work
 for that PR only. Cancellation is enabled only for `pull_request` events; other
@@ -38,12 +46,24 @@ not cancel one another or collide with the caller's release lock. Required
 check names, complete test targets, read-only permissions and fork restrictions
 remain unchanged. Adding capacity does not remove the existing job dependencies.
 
-The self-hosted frontend job disables remote dependency caching in `setup-node`:
+The frontend job disables remote dependency caching in `setup-node`:
 it omits `cache` and explicitly sets `package-manager-cache: false`. This avoids
 waiting for stalled optional cache restores and skips remote cache uploads,
 while preserving pnpm's local store. `pnpm install --frozen-lockfile` still
 installs and verifies dependencies, and all frontend and desktop checks remain
 mandatory. This does not remove network access needed for missing dependencies.
+
+The native frontend job explicitly requests managed macOS ARM64 Python 3.11
+with `UV_PYTHON=cpython-3.11-macos-aarch64-none` and verifies `platform.machine()`
+before installing dependencies. An installed Intel interpreter must not silently
+select the x86_64 dependency set through Rosetta. Python downloads use a
+120-second HTTP read timeout, three HTTP retries, at most four concurrent
+downloads and two installation threads. The interpreter preflight has a
+five-minute budget; the unchanged `uv sync --frozen` has a forty-five-minute
+budget to accommodate cold downloads on the local fallback.
+These limits preserve fresh job-scoped environments, cache isolation and every
+test target; they do not suppress installation errors or guarantee network
+availability. Release packaging and other job configurations are unchanged.
 
 # Test strategy
 
