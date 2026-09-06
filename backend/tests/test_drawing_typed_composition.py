@@ -61,7 +61,8 @@ def test_drawing_composition_in_isolated_subprocess() -> None:
             env=environment,
             capture_output=True,
             text=True,
-            timeout=90,
+            # Budget the cold import plus all composition checks, not one call.
+            timeout=300,
             check=False,
         )
         assert result.returncode == 0, result.stdout + result.stderr

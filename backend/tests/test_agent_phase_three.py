@@ -61,10 +61,24 @@ def test_generated_tool_runs_in_child_process():
         "    print('diagnostic output')\n"
         "    return value\n"
     )
-    described = run_process(code, action="describe", timeout_seconds=10)
-    invoked = run_process(code, action="invoke", arguments={"value": "ok"}, timeout_seconds=10)
+    # Exercise the production default, including cold dependency imports.
+    described = run_process(code, action="describe")
+    invoked = run_process(code, action="invoke", arguments={"value": "ok"})
     assert described["name"] == "echo"
     assert invoked["result"] == "ok"
+
+
+def test_generated_tool_preserves_requested_timeout(monkeypatch):
+    import subprocess
+    from backend.agent.generated_tools import sandbox_runner
+
+    def expired(command, **kwargs):
+        assert kwargs["timeout"] == 7
+        raise subprocess.TimeoutExpired(command, 7)
+
+    monkeypatch.setattr(sandbox_runner.subprocess, "run", expired)
+    with pytest.raises(TimeoutError, match="7s sandbox timeout"):
+        sandbox_runner.run_process("", action="describe", timeout_seconds=7)
 
 
 def test_tool_contract_validates_schema_and_compensates():

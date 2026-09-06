@@ -95,7 +95,9 @@ def test_citation_export_composition_in_isolated_subprocess(suite: str) -> None:
             env=environment,
             capture_output=True,
             text=True,
-            timeout=90,
+            # This budget includes a cold backend import and the entire suite,
+            # not one request. Keep runtime/export timeouts unchanged.
+            timeout=300,
             check=False,
         )
         assert result.returncode == 0, result.stdout + result.stderr

@@ -56,12 +56,15 @@ jobs:
           uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
   frontend:
+    # The native Mac and Linux VM share physical CPU/memory resources.
+    needs: backend
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      !cancelled() && (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, macOS, ARM64]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
+      GNOSI_VITEST_MAX_WORKERS: '1'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -199,9 +202,10 @@ jobs:
           GNOSI_BASE_URL: http://127.0.0.1:5173
 
   docker:
+    needs: frontend
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      !cancelled() && (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
