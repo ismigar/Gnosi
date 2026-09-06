@@ -56,14 +56,17 @@ mandatory. This does not remove network access needed for missing dependencies.
 The native frontend job explicitly requests managed macOS ARM64 Python 3.11
 with `UV_PYTHON=cpython-3.11-macos-aarch64-none` and verifies `platform.machine()`
 before installing dependencies. An installed Intel interpreter must not silently
-select the x86_64 dependency set through Rosetta. Python downloads use a
+select the x86_64 dependency set through Rosetta. The shared CI workflow sets a
 120-second HTTP read timeout, three HTTP retries, at most four concurrent
-downloads and two installation threads. The interpreter preflight has a
-five-minute budget; the unchanged `uv sync --frozen` has a forty-five-minute
-budget to accommodate cold downloads on the local fallback.
+downloads and two installation threads for every direct Python installation:
+frontend, backend, native smoke and documentation. Jobs and steps must inherit
+these defaults without overrides. The frontend interpreter preflight has a
+five-minute budget. Complete `uv sync --frozen` installations have a forty-five-
+minute budget, including native smoke; the frozen `docs-ci` installation has
+fifteen minutes. This accommodates cold downloads on the local runners.
 These limits preserve fresh job-scoped environments, cache isolation and every
 test target; they do not suppress installation errors or guarantee network
-availability. Release packaging and other job configurations are unchanged.
+availability. Runner assignments, release packaging and test targets are unchanged.
 
 # Test strategy
 

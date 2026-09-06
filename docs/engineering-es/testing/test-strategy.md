@@ -65,14 +65,18 @@ El trabajo de frontend nativo solicita explícitamente Python 3.11 gestionado
 para macOS ARM64 con `UV_PYTHON=cpython-3.11-macos-aarch64-none` y verifica
 `platform.machine()` antes de instalar dependencias. Un intérprete Intel
 instalado no debe seleccionar silenciosamente las dependencias x86_64 mediante
-Rosetta. Las descargas Python utilizan un límite de lectura HTTP de 120 segundos,
-tres reintentos HTTP, un máximo de cuatro descargas simultáneas y dos hilos de
-instalación. La comprobación previa del intérprete tiene un presupuesto de cinco
-minutos; `uv sync --frozen`, sin cambios, tiene cuarenta y cinco para admitir
-descargas sin caché en el ejecutor local alternativo. Estos límites conservan
+Rosetta. El flujo compartido de CI establece un límite de lectura HTTP de 120
+segundos, tres reintentos HTTP, un máximo de cuatro descargas simultáneas y dos
+hilos de instalación para todas las instalaciones Python directas: frontend,
+backend, smoke nativo y documentación. Los trabajos y pasos deben heredar estos
+valores sin sobrescribirlos. La comprobación previa del intérprete del frontend
+tiene cinco minutos. Las instalaciones completas `uv sync --frozen`, incluido
+el smoke nativo, tienen cuarenta y cinco minutos; la instalación congelada de
+`docs-ci` tiene quince. Esto admite descargas sin caché en los ejecutores locales.
+Estos límites conservan
 los entornos nuevos por trabajo, el aislamiento de la caché y todas las pruebas;
 no ocultan errores de instalación ni garantizan la disponibilidad de la red.
-La configuración de empaquetado de versiones y de los demás trabajos no cambia.
+Las asignaciones de ejecutores, el empaquetado de versiones y las pruebas no cambian.
 
 # Estrategia de pruebas
 

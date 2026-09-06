@@ -65,16 +65,20 @@ pour obtenir les dépendances manquantes.
 Le job frontend natif demande explicitement Python 3.11 géré pour macOS ARM64
 avec `UV_PYTHON=cpython-3.11-macos-aarch64-none` et vérifie `platform.machine()`
 avant d’installer les dépendances. Un interpréteur Intel installé ne doit pas
-sélectionner silencieusement les dépendances x86_64 via Rosetta. Les
-téléchargements Python utilisent un délai de lecture HTTP de 120 secondes,
-trois nouvelles tentatives HTTP, au plus quatre téléchargements simultanés et
-deux fils d’installation. La vérification préalable de l’interpréteur dispose
-de cinq minutes ; la commande inchangée `uv sync --frozen` dispose de quarante-cinq
-minutes pour les téléchargements à froid sur l’exécuteur local de repli. Ces limites
+sélectionner silencieusement les dépendances x86_64 via Rosetta. Le workflow CI
+partagé définit un délai de lecture HTTP de 120 secondes, trois nouvelles
+tentatives HTTP, au plus quatre téléchargements simultanés et deux fils
+d’installation pour toutes les installations Python directes : frontend, backend,
+smoke natif et documentation. Les tâches et étapes doivent hériter de ces valeurs
+sans les redéfinir. La vérification préalable de l’interpréteur frontend dispose
+de cinq minutes. Les installations complètes `uv sync --frozen`, y compris le smoke
+natif, disposent de quarante-cinq minutes ; l’installation figée de `docs-ci`
+dispose de quinze minutes. Cela permet les téléchargements à froid sur les
+exécuteurs locaux. Ces limites
 préservent les nouveaux environnements par tâche,
 l’isolation du cache et tous les tests ; elles ne masquent pas les erreurs
 d’installation et ne garantissent pas la disponibilité du réseau. La
-configuration des paquets de version et des autres tâches reste inchangée.
+configuration des exécuteurs, des paquets de version et des tests reste inchangée.
 
 # Stratégie de test
 

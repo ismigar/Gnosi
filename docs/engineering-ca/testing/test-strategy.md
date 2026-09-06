@@ -65,14 +65,17 @@ El treball de frontend natiu demana explícitament Python 3.11 gestionat per a
 macOS ARM64 amb `UV_PYTHON=cpython-3.11-macos-aarch64-none` i verifica
 `platform.machine()` abans d’instal·lar dependències. Un intèrpret Intel
 instal·lat no ha de seleccionar silenciosament les dependències x86_64 amb
-Rosetta. Les descàrregues Python utilitzen un límit de lectura HTTP de 120 segons,
+Rosetta. El flux compartit de CI estableix un límit de lectura HTTP de 120 segons,
 tres reintents HTTP, un màxim de quatre descàrregues simultànies i dos fils
-d’instal·lació. La comprovació prèvia de l’intèrpret té un pressupost de cinc
-minuts; `uv sync --frozen`, sense canvis, en té quaranta-cinc per admetre
-descàrregues sense memòria cau a l’executor local alternatiu. Aquests límits conserven
+d’instal·lació per a totes les instal·lacions Python directes: frontend, backend,
+smoke natiu i documentació. Els treballs i passos han d’heretar aquests valors
+sense sobreescriure’ls. La comprovació prèvia de l’intèrpret del frontend té cinc
+minuts. Les instal·lacions completes `uv sync --frozen`, inclòs el smoke natiu,
+tenen quaranta-cinc minuts; la instal·lació congelada de `docs-ci` en té quinze.
+Això admet descàrregues sense memòria cau als executors locals. Aquests límits conserven
 els entorns nous per treball, l’aïllament de la memòria cau i totes les proves;
 no amaguen errors d’instal·lació ni garanteixen la disponibilitat de la xarxa.
-La configuració d’empaquetament de versions i dels altres treballs no canvia.
+Les assignacions d’executors, l’empaquetament de versions i les proves no canvien.
 
 # Estratègia de proves
 

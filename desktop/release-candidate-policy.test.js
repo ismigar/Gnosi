@@ -23,6 +23,8 @@ const FRONTEND_RESOURCE_ENV = {
   NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
   GNOSI_VITEST_MAX_WORKERS: '1',
   UV_PYTHON: 'cpython-3.11-macos-aarch64-none',
+};
+const PYTHON_DOWNLOAD_ENV = {
   UV_HTTP_TIMEOUT: '120',
   UV_HTTP_RETRIES: '3',
   UV_CONCURRENT_DOWNLOADS: '4',
@@ -144,6 +146,18 @@ function assertFrontendMemoryBudget(workflow) {
     for (const name of Object.keys(FRONTEND_RESOURCE_ENV)) {
       assert.equal(step.env?.[name], undefined,
         `${name} belongs at job level and must not be overridden by individual steps`);
+    }
+  }
+}
+
+function assertSharedPythonDownloadBudget(workflow) {
+  for (const [name, value] of Object.entries(PYTHON_DOWNLOAD_ENV)) {
+    assert.equal(workflow.env?.[name], value, `${name} must protect every CI job`);
+    for (const job of Object.values(workflow.jobs)) {
+      assert.equal(job.env?.[name], undefined, `${name} must not be overridden by a job`);
+      for (const step of job.steps ?? []) {
+        assert.equal(step.env?.[name], undefined, `${name} must not be overridden by a step`);
+      }
     }
   }
 }
@@ -315,6 +329,27 @@ test('shared CI rejects missing or step-overridden native Python budgets', () =>
     const stepScoped = structuredClone(ci);
     stepScoped.jobs.frontend.steps.at(-1).env = { [name]: FRONTEND_RESOURCE_ENV[name] };
     assert.throws(() => assertFrontendMemoryBudget(stepScoped), assert.AssertionError);
+  }
+});
+
+test('shared CI protects every Python install with the same bounded download policy', () => {
+  assertSharedPythonDownloadBudget(ci);
+  for (const name of Object.keys(PYTHON_DOWNLOAD_ENV)) {
+    for (const value of [undefined, '0', 'unbounded']) {
+      const changed = structuredClone(ci);
+      changed.env[name] = value;
+      assert.throws(() => assertSharedPythonDownloadBudget(changed), assert.AssertionError);
+    }
+    for (const jobName of Object.keys(ci.jobs)) {
+      const jobScoped = structuredClone(ci);
+      jobScoped.jobs[jobName].env = { ...jobScoped.jobs[jobName].env,
+        [name]: PYTHON_DOWNLOAD_ENV[name] };
+      assert.throws(() => assertSharedPythonDownloadBudget(jobScoped), assert.AssertionError);
+
+      const stepScoped = structuredClone(ci);
+      stepScoped.jobs[jobName].steps.at(-1).env = { [name]: PYTHON_DOWNLOAD_ENV[name] };
+      assert.throws(() => assertSharedPythonDownloadBudget(stepScoped), assert.AssertionError);
+    }
   }
 });
 

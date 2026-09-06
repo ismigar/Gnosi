@@ -156,23 +156,38 @@ def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
         assert not commands[command].get("continue-on-error")
 
 
-def test_frontend_python_downloads_are_bounded_without_changing_dependencies(
-    workflow: dict[str, object],
+@pytest.mark.parametrize("job_name,command,timeout", [
+    ("frontend", "uv sync --frozen", 45),
+    ("backend", "uv sync --frozen", 45),
+    ("native-smoke", "uv sync --frozen", 45),
+    ("documentation", "uv sync --frozen --only-group docs-ci", 15),
+])
+def test_python_downloads_are_bounded_for_every_job(
+    workflow: dict[str, object], job_name: str, command: str, timeout: int,
 ) -> None:
-    frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
-    environment = _mapping(frontend["env"])
-    assert environment["UV_HTTP_TIMEOUT"] == "120"
-    assert environment["UV_HTTP_RETRIES"] == "3"
-    assert environment["UV_CONCURRENT_DOWNLOADS"] == "4"
-    assert environment["UV_CONCURRENT_INSTALLS"] == "2"
-    steps = frontend["steps"]
+    job = _mapping(_mapping(workflow["jobs"])[job_name])
+    environment = _mapping(workflow["env"])
+    budgets = {
+        "UV_HTTP_TIMEOUT": "120",
+        "UV_HTTP_RETRIES": "3",
+        "UV_CONCURRENT_DOWNLOADS": "4",
+        "UV_CONCURRENT_INSTALLS": "2",
+    }
+    for name, value in budgets.items():
+        assert environment[name] == value
+        assert name not in _mapping(job.get("env", {}))
+    steps = job["steps"]
     assert isinstance(steps, list)
+    for step in steps:
+        assert not budgets.keys() & _mapping(_mapping(step).get("env", {})).keys()
     sync_steps = [
         _mapping(step) for step in steps
-        if _mapping(step).get("run") == "uv sync --frozen"
+        if _mapping(step).get("run") == command
     ]
     assert len(sync_steps) == 1
-    assert sync_steps[0]["timeout-minutes"] == 45
+    assert sync_steps[0]["timeout-minutes"] == timeout
+    assert "if" not in sync_steps[0]
+    assert not sync_steps[0].get("continue-on-error")
 
 
 def test_frontend_checks_native_python_before_installing_dependencies(
