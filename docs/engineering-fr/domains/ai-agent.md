@@ -754,6 +754,26 @@ La frontière de traitement utilise le même routeur typé pour l'ingestion dura
 l'interrogation périodique, les preuves, la maintenance, les diagnostics, l'examen
 des suggestions, la dictée et l'apprentissage du glossaire ; les services à
 résolution tardive et les erreurs HTTP récupérables restent inchangés.
+La planification de Brain relance les appels après des erreurs transitoires du
+fournisseur, notamment HTTP 429, dans la limite de cinq tentatives par fragment,
+de 120 secondes d’attente cumulée et de 360 secondes au total par appel. Chaque
+requête reçoit le délai restant, plafonné à 240 secondes. L’attente exponentielle
+comprend une variation aléatoire et respecte `Retry-After` en secondes, les dates
+HTTP et `retry-after-ms` ; un délai supérieur au budget disponible met fin à la
+tentative au lieu de relancer l’appel trop tôt. Les erreurs d’authentification,
+de validation et les quotas de facturation explicitement épuisés ne déclenchent
+pas de nouvel essai, et aucun changement automatique de fournisseur n’a lieu.
+La tâche durable expose `phase: retrying` pendant les attentes. La boîte de
+dialogue de traitement continue d’interroger l’état, explique les limites de
+requêtes et propose de réessayer lorsque la tâche s’arrête.
+Les plans de fragments terminés sont enregistrés comme points de reprise avec
+le hachage exact du prompt et le fragment source. Un nouvel essai non forcé d’une
+tâche en erreur ou partielle ne réutilise que les plans correspondants, les copie
+dans la nouvelle tâche et poursuit le traitement des fragments restants. Les
+modifications des preuves sources ou des entrées de planification invalident les
+fragments enregistrés ; un traitement explicitement forcé ignore tous les points
+de reprise précédents. Les tâches interrompues conservent leur progression réelle
+et les notes sources ne sont écrites qu’une fois la planification terminée.
 `backend/domains/configuration/llm_wiki_schema.py` gère séparément la réparation
 idempotente des champs de Brain et la consolidation d'une relation source
 canonique unique, y compris les alias historiques, les métadonnées de page et les

@@ -688,6 +688,25 @@ La frontera de processament usa el mateix encaminador tipat per a ingestió
 durable, consulta periòdica, evidència, manteniment, lint, revisió de suggeriments,
 dictat i aprenentatge de glossari; els serveis resolts en temps de crida i els
 errors HTTP recuperables no canvien.
+La planificació de Brain reintenta els errors transitoris del proveïdor, inclòs
+HTTP 429, amb un màxim de cinc intents per fragment, 120 segons d’espera acumulada
+i un límit total de 360 segons per crida. Cada petició rep el temps límit restant
+(com a màxim 240 segons). L’espera exponencial incorpora una variació aleatòria i
+respecta `Retry-After` en segons, les dates HTTP i `retry-after-ms`; si el període
+d’espera supera el límit disponible, l’intent s’atura en lloc de reintentar abans
+d’hora. No es reintenten els errors d’autenticació, de validació ni les quotes de
+facturació explícitament exhaurides, i no es canvia de proveïdor automàticament.
+El treball durable exposa `phase: retrying` durant les esperes. El diàleg de
+processament continua consultant l’estat, explica els límits de peticions i
+ofereix un nou intent quan el treball s’atura.
+Els plans de fragments completats es desen com a punts de recuperació amb el
+hash exacte del prompt i el fragment d’origen. Un nou intent no forçat d’un
+treball amb error o parcial reutilitza només els plans coincidents, els copia
+al nou treball i continua amb els fragments pendents. Els canvis en l’evidència
+d’origen o les entrades de planificació invaliden els fragments desats; el
+processament forçat explícitament ignora tots els punts de recuperació anteriors.
+Els treballs interromputs conserven el progrés real i les notes de font només
+s’escriuen quan la planificació s’ha completat.
 `backend/domains/configuration/llm_wiki_schema.py` gestiona separadament la
 reparació idempotent dels camps Brain i la consolidació d’una relació canònica
 de font, inclosos àlies històrics, metadades de pàgina i vistes contextuals
