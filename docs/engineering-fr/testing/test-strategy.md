@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,69 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Les tâches lourdes de CI suivent cet ordre : backend, frontend puis Docker. Le Mac et la VM Linux partagent les ressources physiques ; le frontend utilise un seul processus de test. Un échec précédent ne supprime pas les vérifications suivantes, mais les restrictions des forks et l’annulation restent applicables. Les suites isolées de dessins et de citations disposent de cinq minutes par processus, importations initiales et assertions comprises. Les tests intégrés des outils générés utilisent le délai de production inchangé ; une régression distincte vérifie le délai explicite.
+
+Les pull requests publiques issues du même dépôt exécutent `backend` dans une
+nouvelle VM `ubuntu-24.04-arm` hébergée par GitHub, ajoutant de la capacité Linux
+ARM64 sans partager le processeur, la mémoire, les ports des services ni le moteur
+Docker de l’hôte natif. `native-smoke` et `docker` conservent l’exécuteur Linux
+ARM64 auto-hébergé existant. Les envois de commits, la validation des versions,
+les dépôts privés et l’absence de métadonnées de visibilité publique utilisent
+l’exécuteur auto-hébergé du backend ; les affectations des exécuteurs de
+documentation et de création des paquets restent inchangées.
+
+La même condition de PR publique issue du même dépôt affecte aussi `frontend`
+à un nouvel exécuteur ARM64 `macos-15` hébergé par GitHub, évitant les
+téléchargements lents de l’hôte natif. Les dépôts privés, l’absence de métadonnées
+de visibilité, les envois et la validation des versions conservent l’exécuteur
+macOS ARM64 auto-hébergé. Le heap Node de 4 Gio, un seul processus de test,
+toutes les vérifications et l’ordre backend-frontend sont préservés. Les deux
+étiquettes hébergées désignent des exécuteurs standard, gratuits pour les dépôts
+publics ; aucun exécuteur étendu payant ni accès aux données de l’application
+native ou aux services de l’hôte n’est ajouté.
+
+Les groupes de `concurrency` du workflow utilisent un préfixe propre à la CI,
+le nom du workflow et le numéro de PR. Un nouveau commit annule les tâches
+précédentes en cours et en attente de cette PR uniquement. L’annulation n’est
+activée que pour les événements `pull_request` ; les autres utilisent le
+`github.run_id` unique, afin que les envois et les vérifications réutilisables
+de versions ne s’annulent pas mutuellement et n’entrent pas en conflit avec le
+verrou de version du workflow appelant. Les noms des vérifications obligatoires,
+les périmètres complets des tests, les permissions de lecture seule et les
+restrictions des forks restent inchangés. L’ajout de capacité ne supprime pas
+les dépendances existantes entre les tâches.
+
+Le job frontend désactive le cache distant des dépendances dans
+`setup-node` : il omet `cache` et définit explicitement
+`package-manager-cache: false`. Cela évite d’attendre les restaurations
+facultatives bloquées et supprime les envois vers le cache distant, tout en
+conservant le magasin local de pnpm. `pnpm install --frozen-lockfile` continue
+d’installer et de vérifier les dépendances, et toutes les vérifications frontend
+et desktop restent obligatoires. Cela ne supprime pas l’accès réseau nécessaire
+pour obtenir les dépendances manquantes.
+
+Le job frontend natif demande explicitement Python 3.11 géré pour macOS ARM64
+avec `UV_PYTHON=cpython-3.11-macos-aarch64-none` et vérifie `platform.machine()`
+avant d’installer les dépendances. Un interpréteur Intel installé ne doit pas
+sélectionner silencieusement les dépendances x86_64 via Rosetta. Le workflow CI
+partagé définit un délai de lecture HTTP de 120 secondes, trois nouvelles
+tentatives HTTP, au plus quatre téléchargements simultanés et deux fils
+d’installation pour toutes les installations Python directes : frontend, backend,
+smoke natif et documentation. Les tâches et étapes doivent hériter de ces valeurs
+sans les redéfinir. La vérification préalable de l’interpréteur frontend dispose
+de cinq minutes. Les installations complètes `uv sync --frozen`, y compris le smoke
+natif, disposent de quarante-cinq minutes ; l’installation figée de `docs-ci`
+dispose de quinze minutes. Cela permet les téléchargements à froid sur les
+exécuteurs locaux. Ces limites
+préservent les nouveaux environnements par tâche,
+l’isolation du cache et tous les tests ; elles ne masquent pas les erreurs
+d’installation et ne garantissent pas la disponibilité du réseau. La
+configuration des exécuteurs, des paquets de version et des tests reste inchangée.
 
 # Stratégie de test
 
@@ -159,9 +217,15 @@ sombre.
 Actuellement, la CI Docker valide Compose et construit les images backend et
 frontend ; elle ne démarre pas les conteneurs et ne vérifie ni leur état ni
 leur persistance. Ces tests d'exécution restent nécessaires avant une release.
-Le job frontend auto-hébergé applique le budget révisé de 4 Gio de heap Node à
+Le job frontend applique le budget révisé de 4 Gio de heap Node à
 l'ensemble du job afin que le lint, le contrôle des types, les tests et le build
 de production partagent le même contrat de mémoire prévisible.
+Les tests de politique des versions desktop doivent valider les conditions
+exactes des exécuteurs hébergés pour les PR publiques, les replis locaux pour les
+versions et tout l’environnement de ressources Node/Python. Les tests de mutation
+rejettent les contrôles de visibilité ou d’événement absents, les replis modifiés,
+les budgets manquants et les surcharges par étape. Un changement de CI exige aussi
+toute la suite desktop, pas seulement les contrats de planification Python.
 
 La CI Electron configure les paquets pour macOS arm64/x64, Linux arm64 et
 Windows x64. Configurer cette matrice, réussir les tests unitaires desktop

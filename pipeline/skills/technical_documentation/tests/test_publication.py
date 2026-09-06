@@ -36,6 +36,11 @@ CI_COMMANDS = {
     ],
     "frontend": [
         "python scripts/ci/prepare_python_environment.py",
+        'uv run --frozen --no-sync python -c "'
+        "import platform; actual = platform.machine(); "
+        "print(f'Frontend Python architecture: {actual}'); "
+        "assert actual == 'arm64', f'Expected native ARM64 Python, got {actual}'"
+        '"',
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm check:api-client",

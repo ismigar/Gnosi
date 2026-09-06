@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,57 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Heavy CI jobs run in order: backend, frontend, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
+
+Public, same-repository pull requests run `backend` on a fresh GitHub-hosted
+`ubuntu-24.04-arm` VM, adding Linux ARM64 capacity without sharing the native
+host's CPU, memory, service ports or Docker engine. `native-smoke` and `docker`
+retain the existing self-hosted Linux ARM64 runner. Pushes, release validation,
+private repositories and missing public-visibility metadata use the self-hosted
+backend runner; documentation and packaging runner assignments are unchanged.
+
+The same public, same-repository PR condition also routes `frontend` to a fresh
+GitHub-hosted `macos-15` ARM64 runner, avoiding the native host's slow package
+downloads. Private repositories, missing visibility metadata, pushes and release
+validation keep the self-hosted macOS ARM64 runner. The 4 GiB Node heap, single
+test worker, complete checks and backend-to-frontend ordering are preserved.
+Both hosted labels are standard runners, free for public repositories; no paid
+larger runner, native application data or host service access is introduced.
+
+Workflow-level `concurrency` groups use a CI-specific prefix, the workflow name
+and the PR number. A newer commit cancels the earlier running and queued work
+for that PR only. Cancellation is enabled only for `pull_request` events; other
+events use the unique `github.run_id`, so pushes and reusable release checks do
+not cancel one another or collide with the caller's release lock. Required
+check names, complete test targets, read-only permissions and fork restrictions
+remain unchanged. Adding capacity does not remove the existing job dependencies.
+
+The frontend job disables remote dependency caching in `setup-node`:
+it omits `cache` and explicitly sets `package-manager-cache: false`. This avoids
+waiting for stalled optional cache restores and skips remote cache uploads,
+while preserving pnpm's local store. `pnpm install --frozen-lockfile` still
+installs and verifies dependencies, and all frontend and desktop checks remain
+mandatory. This does not remove network access needed for missing dependencies.
+
+The native frontend job explicitly requests managed macOS ARM64 Python 3.11
+with `UV_PYTHON=cpython-3.11-macos-aarch64-none` and verifies `platform.machine()`
+before installing dependencies. An installed Intel interpreter must not silently
+select the x86_64 dependency set through Rosetta. The shared CI workflow sets a
+120-second HTTP read timeout, three HTTP retries, at most four concurrent
+downloads and two installation threads for every direct Python installation:
+frontend, backend, native smoke and documentation. Jobs and steps must inherit
+these defaults without overrides. The frontend interpreter preflight has a
+five-minute budget. Complete `uv sync --frozen` installations have a forty-five-
+minute budget, including native smoke; the frozen `docs-ci` installation has
+fifteen minutes. This accommodates cold downloads on the local runners.
+These limits preserve fresh job-scoped environments, cache isolation and every
+test target; they do not suppress installation errors or guarantee network
+availability. Runner assignments, release packaging and test targets are unchanged.
 
 # Test strategy
 
@@ -160,9 +206,14 @@ browser checks cover pointer and keyboard focus in light and dark themes.
 Docker CI currently validates Compose and builds the backend and frontend
 images; it does not start containers or verify their health and persistence.
 Those runtime checks remain required release evidence.
-The self-hosted frontend job applies its reviewed 4 GiB Node heap budget at job
+The frontend job applies its reviewed 4 GiB Node heap budget at job
 scope so lint, type checking, tests and production build run under the same
 predictable memory contract.
+Desktop release-policy tests must validate the exact public-PR hosted runner
+conditions, local release fallbacks and complete Node/Python resource environment.
+Mutation checks reject missing visibility or event guards, changed fallbacks,
+missing budgets and step-level overrides; changing CI also requires the complete
+desktop test suite, not only the Python scheduling contracts.
 
 Electron release CI configures packaging for macOS arm64/x64, Linux arm64 and
 Windows x64. Configuring that matrix, running desktop unit tests or checking a
