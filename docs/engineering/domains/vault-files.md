@@ -84,6 +84,8 @@ tests:
 
 # Vault and files
 
+Autosave serializes page writes within the web client. A stale page version returns a conflict (409), not a missing-page error (404), even when the conditional read omits the body. Missing pages still return 404; conflicts never silently overwrite newer content.
+
 ## Comment and translation contracts
 
 Comment persistence validates only the stored dictionary/list root; unknown keys,

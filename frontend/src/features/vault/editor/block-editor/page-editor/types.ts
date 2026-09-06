@@ -114,6 +114,7 @@ export interface PageEditorBodyProps {
   onOpenProperties: () => void;
   spellEnabled: boolean;
   spellLang: string;
+  forcedSpellLang?: string;
   onLangDetected: (language: string) => void;
   onOutgoingLinksChange: (links: OutgoingPageLink[]) => void;
 }

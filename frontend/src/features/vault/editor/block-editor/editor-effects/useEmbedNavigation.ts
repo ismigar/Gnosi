@@ -16,6 +16,25 @@ export function useEditorEmbedNavigation({ editor, editorWrapperRef, editorReady
     }, [editor, onNavigateUp]);
 
     useEffect(() => {
+        if (!editorReady) return;
+        const view = editor.prosemirrorView;
+        const previous = view.props.handleDOMEvents;
+        const handlers: NonNullable<typeof previous> = {
+            ...previous,
+            keydown: (currentView, event) => {
+                // Let React's embedded controls handle the event, without the
+                // parent editor moving its selection before React sees it.
+                if (event.target instanceof Element && event.target.closest('.gnosi-view-embed-container')) return true;
+                return previous?.keydown?.(currentView, event) ?? false;
+            },
+        };
+        view.setProps({ handleDOMEvents: handlers });
+        return () => {
+            if (view.props.handleDOMEvents === handlers) view.setProps({ handleDOMEvents: previous });
+        };
+    }, [editor, editorReady]);
+
+    useEffect(() => {
         if (!registerEditorApi) return;
         registerEditorApi({ focusFirstBlock: () => focusFirstBlock(editor, embedNavRef.current) });
         return () => { registerEditorApi(null); };

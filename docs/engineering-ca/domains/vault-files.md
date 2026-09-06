@@ -84,6 +84,8 @@ tests:
 
 # Vault i fitxers
 
+L’autoguardat serialitza les escriptures de pàgina dins del client web. Una versió obsoleta retorna un conflicte (409), no un error de pàgina inexistent (404), encara que la lectura condicional ometi el cos. Les pàgines inexistents continuen retornant 404; els conflictes no sobreescriuen silenciosament contingut més recent.
+
 ## Contractes de comentaris i traduccions
 
 La persistència de comentaris valida només el diccionari o llista arrel desat;

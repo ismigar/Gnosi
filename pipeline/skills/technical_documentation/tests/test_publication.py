@@ -77,19 +77,13 @@ CI_COMMANDS = {
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm test:e2e:install",
-        *r'''uv run python -c 'import faulthandler; faulthandler.dump_traceback_later(60, repeat=True); import uvicorn; uvicorn.run("backend.server:app", host="127.0.0.1", port=5002)' > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-backend_pid=$!
+        *r'''uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
 pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-frontend_pid=$!
-for attempt in $(seq 1 180); do
-  curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
-    && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
-    && exit 0
-sleep 2
-done
-tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
-tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
-exit 1'''.splitlines(),
+if ! python scripts/ci/wait_native_services.py; then
+  tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
+  tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
+  exit 1
+fi'''.splitlines(),
         "pnpm test:e2e:smoke",
     ],
     "docker": [
@@ -143,6 +137,27 @@ def workflow_steps(job: WorkflowMapping) -> list[WorkflowMapping]:
 def ci_workflow() -> WorkflowMapping:
     """Read the CI contract without importing application runtime modules."""
     return workflow_mapping(yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8")))
+
+
+@pytest.mark.parametrize("job_name", ["documentation", "backend", "frontend", "native-smoke"])
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("UV_CONCURRENT_DOWNLOADS", "4"),
+        ("UV_CONCURRENT_INSTALLS", "2"),
+        ("UV_HTTP_TIMEOUT", "120"),
+        ("UV_HTTP_RETRIES", "3"),
+    ],
+)
+def test_ci_python_downloads_have_bounded_network_policy(
+    ci_workflow: WorkflowMapping, job_name: str, name: str, expected: str,
+) -> None:
+    """Cold installs tolerate short network stalls without changing test limits."""
+    assert workflow_mapping(ci_workflow["env"])[name] == expected
+    job = workflow_job(ci_workflow, job_name)
+    assert name not in workflow_mapping(job.get("env", {}))
+    for step in workflow_steps(job):
+        assert name not in workflow_mapping(step.get("env", {}))
 
 
 def test_ci_documentation_gate_runs_on_every_pr_and_candidate(

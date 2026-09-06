@@ -3,6 +3,7 @@ import { bootstrapQueryKeys } from './bootstrap-query-keys';
 import { invalidateCachedQuery } from './cached-query';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { queuePageWrite } from './page-write-queue';
 
 type VaultPageSaveRequest = components['schemas']['PageSaveRequest'];
 type VaultPagePatchRequest = components['schemas']['PagePatchRequest'];
@@ -48,28 +49,28 @@ export async function saveVaultPage(
   pageId: string,
   input: VaultPageSaveInput,
 ): Promise<VaultPageMutation> {
-  return invalidateSidebarAfter(
+  return queuePageWrite(pageId, () => invalidateSidebarAfter(
     apiClient
       .PUT('/api/vault/pages/{page_id}', {
         body: materializeVaultPageSaveRequest(input),
         params: { path: { page_id: pageId } },
       })
       .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),
-  );
+  ));
 }
 
 export async function patchVaultPage(
   pageId: string,
   input: VaultPagePatchInput,
 ): Promise<VaultPageMutation> {
-  return invalidateSidebarAfter(
+  return queuePageWrite(pageId, () => invalidateSidebarAfter(
     apiClient
       .PATCH('/api/vault/pages/{page_id}', {
         body: materializeVaultPagePatchRequest(input),
         params: { path: { page_id: pageId } },
       })
       .then((result) => unwrapApiResult<VaultPageMutation, unknown>(result)),
-  );
+  ));
 }
 
 export async function deleteVaultPage(

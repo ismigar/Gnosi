@@ -286,7 +286,7 @@ def test_save_etag_conflict_precedes_lock_and_nullable_etag_allows_write(
         assert result["etag"] == etag
 
 
-def test_patch_real_helper_etag_mismatch_remains_404_before_409(tmp_path: Path) -> None:
+def test_patch_real_helper_etag_mismatch_returns_conflict_without_writing(tmp_path: Path) -> None:
     events: list[str] = []
     path = tmp_path / "page.md"
     helper = replace(_patch_helpers(tmp_path), file_etag=lambda path: "current")
@@ -314,7 +314,8 @@ def test_patch_real_helper_etag_mismatch_remains_404_before_409(tmp_path: Path) 
                 dependencies,
             )
         )
-    assert caught.value.status_code == 404 and caught.value.detail == "Page not found"
+    assert caught.value.status_code == 409
+    assert caught.value.detail["error"] == "etag_mismatch"
     assert events == ["lock", "read"]
 
 

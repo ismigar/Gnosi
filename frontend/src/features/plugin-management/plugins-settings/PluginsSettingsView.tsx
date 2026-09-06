@@ -54,7 +54,7 @@ export function PluginsSettingsView({
     initialPluginId = null,
 }: PluginsSettingsProps) {
     const { t } = useTranslation();
-    const { builtins, isEnabled, setPluginEnabled } = usePlugins();
+    const { builtins, isEnabled, setPluginEnabled, loaded, loadError, reload } = usePlugins();
     const catalog = normalizeBuiltinPlugins(builtins.length > 0 ? builtins : BUILTIN_PLUGINS);
     const [section, setSection] = useState<PluginSection>('installed');
     const [installedFilter, setInstalledFilter] = useState<InstalledFilter>('all');
@@ -134,6 +134,15 @@ export function PluginsSettingsView({
             markBusy(pendingLifecycle.pluginId, false);
         }
     };
+
+    if (!loaded) return (
+        <div role={loadError ? 'alert' : 'status'}>
+            {loadError
+                ? t('settings.plugins.llm_wiki_load_error', { defaultValue: 'The configuration could not be loaded. Please retry.' })
+                : t('common.loading', { defaultValue: 'Loading...' })}
+            {loadError && <button type="button" onClick={() => { void reload(); }}>{t('common.retry', { defaultValue: 'Retry' })}</button>}
+        </div>
+    );
 
     return (
         <div>

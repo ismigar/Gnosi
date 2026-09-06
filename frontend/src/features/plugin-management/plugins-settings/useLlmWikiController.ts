@@ -2,16 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { logError } from '../../../shared/notifications/notifyError';
+import { apiErrorDetail } from '../../../shared/api/errors';
 import { fetchBrainSuggestions } from '../../../shared/api/brain';
 import {
     createPluginLlmWikiBrain,
-    fetchPluginLlmWikiConfig,
     runPluginLlmWikiMaintenance,
     savePluginLlmWikiConfig,
     type PluginLlmWikiMaintenanceResponse,
     type PluginLlmWikiSettingsResponse,
 } from '../../../shared/api/plugins';
-import { fetchVaultTables } from '../../../shared/api/vaults';
+import { loadLlmWikiSettings } from './loadLlmWikiSettings';
 import { normalizeVaultTables, type VaultTable } from './pluginSettingsModel';
 import {
     EMPTY_LLM_WIKI_DRAFT,
@@ -38,6 +38,7 @@ export function useLlmWikiController(): LlmWikiController {
     const [pendingSuggestions, setPendingSuggestions] = useState(0);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const persistedDraftRef = useRef('');
+    const failedDraftRef = useRef('');
     const latestDraftRef = useRef(draft);
 
     useEffect(() => {
@@ -49,20 +50,28 @@ export function useLlmWikiController(): LlmWikiController {
     ), [t]);
 
     const reload = useCallback(async (): Promise<void> => {
-        const [records, state, suggestions] = await Promise.all([
-            fetchVaultTables().catch(() => []),
-            fetchPluginLlmWikiConfig().catch(() => null),
-            fetchBrainSuggestions().catch(() => null),
-        ]);
-        setTables(normalizeVaultTables(records));
-        if (state) {
+        setLoading(true);
+        setError('');
+        try {
+            const [records, state] = await loadLlmWikiSettings();
+            setTables(normalizeVaultTables(records));
             const normalized = normalizeLlmWikiDraft(state.config);
             persistedDraftRef.current = JSON.stringify(serializeLlmWikiDraft(normalized));
             setDraftState(normalized);
             setServerState(state);
+        } catch (loadError) {
+            setError(apiErrorDetail(loadError, errorMessage('llm_wiki_load_error', 'The configuration could not be loaded. Please retry.')));
+        } finally {
+            setLoading(false);
         }
-        setPendingSuggestions(suggestions ? suggestions.suggestions.length : 0);
-        setLoading(false);
+    }, [errorMessage]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        void fetchBrainSuggestions(controller.signal).then(suggestions => {
+            if (!controller.signal.aborted) setPendingSuggestions(suggestions.suggestions.length);
+        }).catch(() => { /* Suggestions must not block configuration. */ });
+        return () => { controller.abort(); };
     }, []);
 
     useEffect(() => {
@@ -76,6 +85,7 @@ export function useLlmWikiController(): LlmWikiController {
         setError('');
         try {
             const response = await savePluginLlmWikiConfig(payload);
+            failedDraftRef.current = '';
             setServerState(response);
             const normalized = normalizeLlmWikiDraft(response.config);
             persistedDraftRef.current = JSON.stringify(serializeLlmWikiDraft(normalized));
@@ -83,8 +93,9 @@ export function useLlmWikiController(): LlmWikiController {
                 setDraftState(normalized);
             }
         } catch (saveError) {
+            failedDraftRef.current = signature;
             logError('llm-wiki.save-config', saveError);
-            setError(errorMessage('llm_wiki_save_error', 'The configuration could not be saved.'));
+            setError(apiErrorDetail(saveError, errorMessage('llm_wiki_save_error', 'The configuration could not be saved.')));
         } finally {
             setBusy(false);
         }
@@ -94,7 +105,8 @@ export function useLlmWikiController(): LlmWikiController {
         if (loading || busy) return undefined;
         const payload = serializeLlmWikiDraft(draft);
         const isComplete = Boolean(draft.brain_table_id) && draft.source_tables.length > 0;
-        if (!isComplete || JSON.stringify(payload) === persistedDraftRef.current) return undefined;
+        const signature = JSON.stringify(payload);
+        if (!isComplete || signature === persistedDraftRef.current || signature === failedDraftRef.current) return undefined;
         autosaveTimerRef.current = setTimeout(() => {
             autosaveTimerRef.current = null;
             void save(draft);
@@ -159,6 +171,8 @@ export function useLlmWikiController(): LlmWikiController {
         loading,
         pendingSuggestions,
         runLint: () => runMaintenance(false),
+        retrySave: () => save(latestDraftRef.current),
+        retryLoad: reload,
         runSemanticAudit: () => runMaintenance(true),
         semanticBusy,
         serverState,

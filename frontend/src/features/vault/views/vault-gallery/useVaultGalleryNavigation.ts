@@ -155,6 +155,7 @@ export function useVaultGalleryNavigation({
             moveByArrow(direction, flatIndex);
         } else if (event.key === 'Escape') {
             event.preventDefault();
+            event.stopPropagation();
             (onFocusShell ?? onExitTop)?.();
         }
     }, [moveByArrow, onExitTop, onFocusShell, onNoteSelect, openKeyboardPreview]);
@@ -182,6 +183,7 @@ export function useVaultGalleryNavigation({
             if (!wasExpanded) pendingEnterGroupRef.current = groupId;
         } else if (event.key === 'Escape') {
             event.preventDefault();
+            event.stopPropagation();
             (onFocusShell ?? onExitTop)?.();
         }
     }, [expandedGroups, focusGroupHeaderAt, onExitTop, onFocusShell, setExpandedGroups]);

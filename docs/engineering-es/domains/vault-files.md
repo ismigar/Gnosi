@@ -84,6 +84,8 @@ tests:
 
 # Vault y archivos
 
+El autoguardado serializa las escrituras de página dentro del cliente web. Una versión obsoleta devuelve un conflicto (409), no un error de página inexistente (404), aunque la lectura condicional omita el cuerpo. Las páginas inexistentes siguen devolviendo 404; los conflictos no sobrescriben silenciosamente contenido más reciente.
+
 ## Contratos de comentarios y traducciones
 
 La persistencia de comentarios valida solo el diccionario o lista raíz

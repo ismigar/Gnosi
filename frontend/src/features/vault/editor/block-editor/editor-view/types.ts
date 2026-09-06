@@ -119,5 +119,6 @@ export interface EditorViewProps extends SlashMenuInputs, LinkMenuInputs, Mentio
     readonly noteFilename: string | null;
     readonly onLangDetected?: (language: string) => void;
     readonly spellLang?: string | null;
+    readonly forcedSpellLang?: string;
     readonly detectEmbeddableUrl: (text: string) => 'youtube' | 'vimeo' | 'pdf' | null;
 }

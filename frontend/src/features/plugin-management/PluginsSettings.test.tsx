@@ -60,6 +60,8 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('../../shared/plugins/usePlugins', () => ({
     usePlugins: () => ({
+        loaded: true,
+        loadError: false,
         builtins: [{
             description: 'Daily notes', group: 'knowledge', icon: 'CalendarDays',
             id: 'daily-notes', name: 'Daily notes', requires: [], routes: [],
