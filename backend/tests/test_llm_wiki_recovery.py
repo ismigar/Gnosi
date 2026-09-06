@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+import random
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import httpx
@@ -30,10 +34,23 @@ class Clock:
 @pytest.fixture
 def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
     clock = Clock()
-    monkeypatch.setattr(recovery.time, "monotonic", lambda: clock.now)
-    monkeypatch.setattr(recovery.time, "sleep", clock.sleep)
-    monkeypatch.setattr(recovery.random, "uniform", lambda *_args: 0)
+    # Keep unrelated workers and libraries on the real clock and random module.
+    monkeypatch.setattr(
+        recovery, "time", SimpleNamespace(monotonic=lambda: clock.now, sleep=clock.sleep),
+    )
+    monkeypatch.setattr(recovery, "random", SimpleNamespace(uniform=lambda *_args: 0))
     return clock
+
+
+def test_clock_fixture_does_not_patch_shared_standard_library_modules(clock: Clock) -> None:
+    assert recovery.time is not time
+    assert recovery.random is not random
+    time.sleep(0.001)
+    assert clock.now == 0
+    assert clock.waits == []
+    recovery.time.sleep(5)
+    assert clock.now == 5
+    assert clock.waits == [5]
 
 
 def provider_error(
@@ -209,6 +226,8 @@ def test_chunk_retry_preserves_progress_and_writes_once(monkeypatch, clock, inge
     generate = Mock(side_effect=[answer("one"), provider_error(), answer("two")])
     monkeypatch.setattr("backend.agent.factory.generate_text", generate)
     run(job_id=job_id)
+    assert len(observed) == 1
+    assert clock.waits == [5]
     assert observed[0]["phase"] == "retrying"
     assert observed[0]["running"] is True
     assert observed[0]["chunks_done"] == 1
@@ -269,7 +288,8 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
         def start(self):
             self.target()
 
-    monkeypatch.setattr(llm_wiki.threading, "Thread", InlineThread)
+    monkeypatch.setattr(llm_wiki, "threading", SimpleNamespace(Thread=InlineThread))
+    assert threading.Thread is not InlineThread
     monkeypatch.setattr("backend.services.context_vars.get_active_vault_path", lambda: None)
     generate = Mock(side_effect=[answer("one"), *[provider_error() for _ in range(5)]])
     monkeypatch.setattr("backend.agent.factory.generate_text", generate)
