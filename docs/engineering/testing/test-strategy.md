@@ -203,9 +203,14 @@ browser checks cover pointer and keyboard focus in light and dark themes.
 Docker CI currently validates Compose and builds the backend and frontend
 images; it does not start containers or verify their health and persistence.
 Those runtime checks remain required release evidence.
-The self-hosted frontend job applies its reviewed 4 GiB Node heap budget at job
+The frontend job applies its reviewed 4 GiB Node heap budget at job
 scope so lint, type checking, tests and production build run under the same
 predictable memory contract.
+Desktop release-policy tests must validate the exact public-PR hosted runner
+conditions, local release fallbacks and complete Node/Python resource environment.
+Mutation checks reject missing visibility or event guards, changed fallbacks,
+missing budgets and step-level overrides; changing CI also requires the complete
+desktop test suite, not only the Python scheduling contracts.
 
 Electron release CI configures packaging for macOS arm64/x64, Linux arm64 and
 Windows x64. Configuring that matrix, running desktop unit tests or checking a

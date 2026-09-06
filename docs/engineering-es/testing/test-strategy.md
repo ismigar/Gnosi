@@ -209,9 +209,15 @@ con puntero y teclado en los temas claro y oscuro.
 Actualmente, la CI de Docker valida Compose y construye las imágenes de backend
 y frontend; no arranca contenedores ni verifica su estado y persistencia.
 Estas pruebas de ejecución siguen siendo necesarias antes de una release.
-El trabajo de frontend autoalojado aplica el presupuesto revisado de 4 GiB de
+El trabajo de frontend aplica el presupuesto revisado de 4 GiB de
 heap de Node a todo el trabajo para que lint, comprobación de tipos, pruebas y
 build de producción compartan el mismo contrato de memoria previsible.
+Las pruebas de política de versiones de escritorio deben validar las condiciones
+exactas de los ejecutores alojados para PR públicas, las alternativas locales
+para versiones y todo el entorno de recursos Node/Python. Las pruebas de mutación
+rechazan la ausencia de controles de visibilidad o evento, alternativas cambiadas,
+presupuestos ausentes y sobrescrituras por paso. Un cambio de CI también requiere
+toda la suite de escritorio, no solo los contratos de planificación Python.
 
 La CI de Electron configura paquetes para macOS arm64/x64, Linux arm64 y
 Windows x64. Configurar esa matriz, pasar pruebas unitarias desktop o comprobar

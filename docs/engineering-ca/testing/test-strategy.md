@@ -222,9 +222,15 @@ els temes clar i fosc.
 Actualment, la CI de Docker valida Compose i construeix les imatges del backend
 i del frontend; no arrenca contenidors ni verifica el seu estat i la persistència.
 Aquestes proves d'execució continuen sent necessàries abans d'una release.
-El job de frontend autoallotjat aplica el pressupost revisat de 4 GiB de heap de
+El job de frontend aplica el pressupost revisat de 4 GiB de heap de
 Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
 comparteixin el mateix contracte de memòria previsible.
+Les proves de política de versions d’escriptori han de validar les condicions
+exactes dels executors allotjats per a PR públiques, les alternatives locals per
+a versions i tot l’entorn de recursos Node/Python. Les proves de mutació rebutgen
+la manca de controls de visibilitat o esdeveniment, alternatives modificades,
+pressupostos absents i sobreescriptures per pas. Un canvi de CI també requereix
+tota la suite d’escriptori, no només els contractes de planificació Python.
 
 La CI d'Electron configura paquets per a macOS arm64/x64, Linux arm64 i Windows
 x64. Configurar aquesta matriu, passar proves unitàries desktop o comprovar una

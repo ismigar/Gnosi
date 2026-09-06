@@ -19,6 +19,15 @@ const TRUSTED_PR_IF = "github.event_name != 'pull_request' || "
 const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
   + 'github.event.pull_request.head.repo.full_name == github.repository) || inputs.release_candidate';
 const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
+const FRONTEND_RESOURCE_ENV = {
+  NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
+  GNOSI_VITEST_MAX_WORKERS: '1',
+  UV_PYTHON: 'cpython-3.11-macos-aarch64-none',
+  UV_HTTP_TIMEOUT: '120',
+  UV_HTTP_RETRIES: '3',
+  UV_CONCURRENT_DOWNLOADS: '4',
+  UV_CONCURRENT_INSTALLS: '2',
+};
 const CI_PREDECESSORS = { frontend: 'backend', docker: 'frontend' };
 const DEPENDENCIES = {
   preflight: [],
@@ -129,13 +138,32 @@ function assertCandidateUpload(workflow) {
 }
 
 function assertFrontendMemoryBudget(workflow) {
-  assert.deepEqual(workflow.jobs.frontend.env, {
-    NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
-    GNOSI_VITEST_MAX_WORKERS: '1',
-  }, 'the complete frontend job must use the reviewed Node heap budget');
+  assert.deepEqual(workflow.jobs.frontend.env, FRONTEND_RESOURCE_ENV,
+    'the complete frontend job must use the reviewed Node and native Python budgets');
   for (const step of workflow.jobs.frontend.steps) {
-    assert.equal(step.env?.NODE_OPTIONS, undefined,
-      'the heap budget belongs at job level so lint, tests and build share it');
+    for (const name of Object.keys(FRONTEND_RESOURCE_ENV)) {
+      assert.equal(step.env?.[name], undefined,
+        `${name} belongs at job level and must not be overridden by individual steps`);
+    }
+  }
+}
+
+function assertReviewedCIRunners(workflow) {
+  const expectedRunners = {
+    documentation: ['self-hosted', 'macOS', 'X64'],
+    frontend: "${{ fromJSON(github.event_name == 'pull_request' && "
+      + "github.event.repository.visibility == 'public' && "
+      + "'[\"macos-15\"]' || '[\"self-hosted\", \"macOS\", \"ARM64\"]') }}",
+    backend: "${{ fromJSON(github.event_name == 'pull_request' && "
+      + "github.event.repository.visibility == 'public' && "
+      + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
+    'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
+    docker: ['self-hosted', 'Linux', 'ARM64'],
+  };
+  assert.deepEqual(Object.keys(workflow.jobs).sort(), Object.keys(expectedRunners).sort());
+  for (const [name, runner] of Object.entries(expectedRunners)) {
+    assert.deepEqual(workflow.jobs[name]['runs-on'], runner,
+      `${name} must retain its reviewed public-PR capacity and local release fallback`);
   }
 }
 
@@ -208,18 +236,26 @@ test('candidate and reused CI have read-only authority and no release publisher'
   assertReadOnly(ci);
 });
 
-test('shared CI uses only the reviewed owner self-hosted runners', () => {
-  const expectedRunners = {
-    documentation: ['self-hosted', 'macOS', 'X64'],
-    frontend: ['self-hosted', 'macOS', 'ARM64'],
-    backend: ['self-hosted', 'Linux', 'ARM64'],
-    'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
-    docker: ['self-hosted', 'Linux', 'ARM64'],
-  };
-  assert.deepEqual(Object.keys(ci.jobs).sort(), Object.keys(expectedRunners).sort());
-  for (const [name, runner] of Object.entries(expectedRunners)) {
-    assert.deepEqual(ci.jobs[name]['runs-on'], runner,
-      `${name} must use its reviewed self-hosted runner`);
+test('shared CI uses reviewed public-PR runners and local release fallbacks', () => {
+  assertReviewedCIRunners(ci);
+});
+
+test('shared CI rejects unguarded hosted capacity and changed release fallbacks', () => {
+  assertReviewedCIRunners(ci);
+  for (const name of ['frontend', 'backend']) {
+    const runner = ci.jobs[name]['runs-on'];
+    for (const replacement of [
+      runner.replace("github.event_name == 'pull_request' && ", ''),
+      runner.replace("github.event.repository.visibility == 'public' && ", ''),
+      runner.replace("'pull_request'", "'push'"),
+      runner.replace('"self-hosted"', '"unreviewed-fallback"'),
+      ['macos-15'],
+      ['ubuntu-24.04-arm'],
+    ]) {
+      const changed = structuredClone(ci);
+      changed.jobs[name]['runs-on'] = replacement;
+      assert.throws(() => assertReviewedCIRunners(changed), assert.AssertionError);
+    }
   }
 });
 
@@ -266,6 +302,19 @@ test('shared CI rejects reordered heavy jobs and extra test workers', () => {
     const changed = structuredClone(ci);
     changed.jobs.frontend.env.GNOSI_VITEST_MAX_WORKERS = workers;
     assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);
+  }
+});
+
+test('shared CI rejects missing or step-overridden native Python budgets', () => {
+  assertFrontendMemoryBudget(ci);
+  for (const name of Object.keys(FRONTEND_RESOURCE_ENV)) {
+    const missing = structuredClone(ci);
+    delete missing.jobs.frontend.env[name];
+    assert.throws(() => assertFrontendMemoryBudget(missing), assert.AssertionError);
+
+    const stepScoped = structuredClone(ci);
+    stepScoped.jobs.frontend.steps.at(-1).env = { [name]: FRONTEND_RESOURCE_ENV[name] };
+    assert.throws(() => assertFrontendMemoryBudget(stepScoped), assert.AssertionError);
   }
 });
 

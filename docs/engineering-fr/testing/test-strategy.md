@@ -213,9 +213,15 @@ sombre.
 Actuellement, la CI Docker valide Compose et construit les images backend et
 frontend ; elle ne démarre pas les conteneurs et ne vérifie ni leur état ni
 leur persistance. Ces tests d'exécution restent nécessaires avant une release.
-Le job frontend auto-hébergé applique le budget révisé de 4 Gio de heap Node à
+Le job frontend applique le budget révisé de 4 Gio de heap Node à
 l'ensemble du job afin que le lint, le contrôle des types, les tests et le build
 de production partagent le même contrat de mémoire prévisible.
+Les tests de politique des versions desktop doivent valider les conditions
+exactes des exécuteurs hébergés pour les PR publiques, les replis locaux pour les
+versions et tout l’environnement de ressources Node/Python. Les tests de mutation
+rejettent les contrôles de visibilité ou d’événement absents, les replis modifiés,
+les budgets manquants et les surcharges par étape. Un changement de CI exige aussi
+toute la suite desktop, pas seulement les contrats de planification Python.
 
 La CI Electron configure les paquets pour macOS arm64/x64, Linux arm64 et
 Windows x64. Configurer cette matrice, réussir les tests unitaires desktop
