@@ -112,10 +112,10 @@ export function LlmWikiConfig() {
                         fontSize: 13, fontWeight: 600, opacity: controller.busy ? 0.6 : 1, padding: '8px 14px',
                     }}>{tp('llm_wiki_create', 'Create a Brain table')}</button>
                     <span style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>
-                        {controller.serverState?.brain.configured
+                        {controller.serverState.brain.configured
                             ? tp('llm_wiki_active', 'Active in «{{name}}»', { name: controller.serverState.brain.name ?? '' })
                             : tp('llm_wiki_inactive', 'No table designated yet.')}
-                        {controller.serverState?.brain.configured && controller.pendingSuggestions > 0 && (
+                        {controller.serverState.brain.configured && controller.pendingSuggestions > 0 && (
                             <span style={{ color: 'var(--gnosi-primary, #6366f1)', fontWeight: 700, marginLeft: 8 }}>
                                 {tp('llm_wiki_pending_connections', '{{count}} pending connections', { count: controller.pendingSuggestions })}
                             </span>
@@ -158,8 +158,8 @@ export function LlmWikiConfig() {
                 </div>}
                 <div style={{ borderTop: '1px solid var(--border-primary)', display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 12 }}>
                     <span style={{ alignSelf: 'center', color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{controller.busy ? tp('llm_wiki_saving', 'Saving…') : tp('llm_wiki_autosave', 'Changes save automatically.')}</span>
-                    <button type="button" onClick={() => { void controller.runLint(); }} disabled={controller.lintBusy || !controller.serverState?.validation.valid} className="btn-gnosi">{controller.lintBusy ? tp('llm_wiki_lint_running', 'Reviewing…') : tp('llm_wiki_lint_run', 'Review the Brain (lint)')}</button>
-                    <button type="button" onClick={() => { void controller.runSemanticAudit(); }} disabled={controller.semanticBusy || !controller.serverState?.validation.valid} className="btn-gnosi">{controller.semanticBusy ? tp('llm_wiki_semantic_running', 'Analyzing connections…') : tp('llm_wiki_semantic_run', 'Propose connections with AI')}</button>
+                    <button type="button" onClick={() => { void controller.runLint(); }} disabled={controller.lintBusy || !controller.serverState.validation.valid} className="btn-gnosi">{controller.lintBusy ? tp('llm_wiki_lint_running', 'Reviewing…') : tp('llm_wiki_lint_run', 'Review the Brain (lint)')}</button>
+                    <button type="button" onClick={() => { void controller.runSemanticAudit(); }} disabled={controller.semanticBusy || !controller.serverState.validation.valid} className="btn-gnosi">{controller.semanticBusy ? tp('llm_wiki_semantic_running', 'Analyzing connections…') : tp('llm_wiki_semantic_run', 'Propose connections with AI')}</button>
                 </div>
                 <LlmWikiStatus controller={controller} />
             </div>
