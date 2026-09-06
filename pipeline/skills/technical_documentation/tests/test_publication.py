@@ -140,6 +140,22 @@ def ci_workflow() -> WorkflowMapping:
     return workflow_mapping(yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8")))
 
 
+@pytest.mark.parametrize("job_name", ["documentation", "backend", "frontend", "native-smoke"])
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [("UV_CONCURRENT_DOWNLOADS", "4"), ("UV_HTTP_TIMEOUT", "180"), ("UV_HTTP_RETRIES", "5")],
+)
+def test_ci_python_downloads_have_bounded_network_policy(
+    ci_workflow: WorkflowMapping, job_name: str, name: str, expected: str,
+) -> None:
+    """Cold installs tolerate short network stalls without changing test limits."""
+    assert workflow_mapping(ci_workflow["env"])[name] == expected
+    job = workflow_job(ci_workflow, job_name)
+    assert name not in workflow_mapping(job.get("env", {}))
+    for step in workflow_steps(job):
+        assert name not in workflow_mapping(step.get("env", {}))
+
+
 def test_ci_documentation_gate_runs_on_every_pr_and_candidate(
     ci_workflow: WorkflowMapping,
 ) -> None:

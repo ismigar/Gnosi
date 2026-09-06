@@ -27,6 +27,13 @@ tests:
 
 # Execució i desplegament
 
+La CI compartida limita les descàrregues Python amb `UV_CONCURRENT_DOWNLOADS=4`,
+`UV_HTTP_TIMEOUT=180` (segons per lectura HTTP) i `UV_HTTP_RETRIES=5`.
+Aquesta política només afecta les descàrregues: conserva els locks congelats,
+les caches aïllades per tasca i els terminis de proves i arrencada existents.
+Les desconnexions dels runners continuen sent errors d’infraestructura;
+aquests paràmetres no fan passar un runner desconnectat.
+
 Aquesta pàgina recull els contractes revisats al codi en la data de verificació.
 Docker és una destinació de desplegament suportada i opcional; el desenvolupament
 natiu continua sent el predeterminat. Ni revisar el codi ni configurar una
