@@ -27,9 +27,10 @@ tests:
 
 # Ejecución y despliegue
 
-La CI compartida limita las descargas Python con `UV_CONCURRENT_DOWNLOADS=4`,
-`UV_HTTP_TIMEOUT=180` (segundos por lectura HTTP) y `UV_HTTP_RETRIES=5`.
-Esta política solo afecta a las descargas: conserva los locks congelados,
+La CI compartida limita la preparación de dependencias Python con `UV_CONCURRENT_DOWNLOADS=4`,
+`UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (segundos por lectura HTTP) y
+`UV_HTTP_RETRIES=3`.
+Esta política solo afecta a las dependencias: conserva los locks congelados,
 las cachés aisladas por tarea y los plazos existentes de pruebas y arranque.
 Las desconexiones de los runners siguen siendo errores de infraestructura;
 estos parámetros no hacen pasar un runner desconectado.

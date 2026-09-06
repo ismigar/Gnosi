@@ -36,6 +36,11 @@ CI_COMMANDS = {
     ],
     "frontend": [
         "python scripts/ci/prepare_python_environment.py",
+        'uv run --frozen --no-sync python -c "'
+        "import platform; actual = platform.machine(); "
+        "print(f'Frontend Python architecture: {actual}'); "
+        "assert actual == 'arm64', f'Expected native ARM64 Python, got {actual}'"
+        '"',
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm check:api-client",
@@ -137,7 +142,12 @@ def ci_workflow() -> WorkflowMapping:
 @pytest.mark.parametrize("job_name", ["documentation", "backend", "frontend", "native-smoke"])
 @pytest.mark.parametrize(
     ("name", "expected"),
-    [("UV_CONCURRENT_DOWNLOADS", "4"), ("UV_HTTP_TIMEOUT", "180"), ("UV_HTTP_RETRIES", "5")],
+    [
+        ("UV_CONCURRENT_DOWNLOADS", "4"),
+        ("UV_CONCURRENT_INSTALLS", "2"),
+        ("UV_HTTP_TIMEOUT", "120"),
+        ("UV_HTTP_RETRIES", "3"),
+    ],
 )
 def test_ci_python_downloads_have_bounded_network_policy(
     ci_workflow: WorkflowMapping, job_name: str, name: str, expected: str,

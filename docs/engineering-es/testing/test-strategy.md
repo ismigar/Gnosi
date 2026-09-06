@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,67 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Los trabajos pesados de CI siguen este orden: backend, frontend y Docker. El Mac y la MV Linux comparten recursos físicos; el frontend utiliza un solo proceso de pruebas. Un fallo anterior no omite las comprobaciones siguientes, pero se mantienen la cancelación y las restricciones de los forks. Las suites aisladas de dibujos y citas disponen de cinco minutos por proceso, incluidas las importaciones iniciales y todas las aserciones. Las pruebas integradas de herramientas generadas utilizan el límite de producción sin modificarlo; una regresión separada verifica el límite explícito.
+
+Las pull requests públicas del mismo repositorio ejecutan `backend` en una MV
+nueva `ubuntu-24.04-arm` alojada en GitHub, añadiendo capacidad Linux ARM64 sin
+compartir la CPU, la memoria, los puertos de servicios ni el motor Docker del
+anfitrión nativo. `native-smoke` y `docker` conservan el ejecutor Linux ARM64
+autoalojado existente. Las subidas de commits, la validación de versiones, los
+repositorios privados y la ausencia de metadatos de visibilidad pública utilizan
+el ejecutor autoalojado del backend; las asignaciones de ejecutores de
+documentación y empaquetado no cambian.
+
+La misma condición de PR pública del mismo repositorio también asigna `frontend`
+a un nuevo ejecutor ARM64 `macos-15` alojado en GitHub, evitando las descargas
+lentas del anfitrión nativo. Los repositorios privados, la ausencia de metadatos
+de visibilidad, las subidas y la validación de versiones conservan el ejecutor
+macOS ARM64 autoalojado. Se mantienen el heap de Node de 4 GiB, un solo proceso
+de pruebas, todas las comprobaciones y el orden backend-frontend. Ambas
+etiquetas alojadas son ejecutores estándar, gratuitos para repositorios públicos;
+no se introducen ejecutores ampliados de pago ni acceso a datos de la aplicación
+nativa o servicios del anfitrión.
+
+Los grupos de `concurrency` del flujo de trabajo utilizan un prefijo específico
+de CI, el nombre del flujo y el número de PR. Un commit nuevo cancela los trabajos
+anteriores en ejecución y en cola solo de esa PR. La cancelación se activa
+únicamente para eventos `pull_request`; los demás utilizan el `github.run_id`
+único, de modo que las subidas y las comprobaciones reutilizables de versiones
+no se cancelan entre sí ni entran en conflicto con el bloqueo de versiones del
+flujo que las invoca. Los nombres de las comprobaciones obligatorias, los ámbitos
+completos de pruebas, los permisos de solo lectura y las restricciones de forks
+se mantienen. Añadir capacidad no elimina las dependencias existentes entre trabajos.
+
+El trabajo de frontend desactiva la caché remota de dependencias en
+`setup-node`: omite `cache` y establece explícitamente
+`package-manager-cache: false`. Esto evita esperar restauraciones opcionales
+atascadas y omite las subidas de caché remota, conservando el almacén local de
+pnpm. `pnpm install --frozen-lockfile` sigue instalando y verificando las
+dependencias, y todas las comprobaciones de frontend y escritorio siguen siendo
+obligatorias. Esto no elimina el acceso a la red necesario para obtener las
+dependencias que falten.
+
+El trabajo de frontend nativo solicita explícitamente Python 3.11 gestionado
+para macOS ARM64 con `UV_PYTHON=cpython-3.11-macos-aarch64-none` y verifica
+`platform.machine()` antes de instalar dependencias. Un intérprete Intel
+instalado no debe seleccionar silenciosamente las dependencias x86_64 mediante
+Rosetta. El flujo compartido de CI establece un límite de lectura HTTP de 120
+segundos, tres reintentos HTTP, un máximo de cuatro descargas simultáneas y dos
+hilos de instalación para todas las instalaciones Python directas: frontend,
+backend, smoke nativo y documentación. Los trabajos y pasos deben heredar estos
+valores sin sobrescribirlos. La comprobación previa del intérprete del frontend
+tiene cinco minutos. Las instalaciones completas `uv sync --frozen`, incluido
+el smoke nativo, tienen cuarenta y cinco minutos; la instalación congelada de
+`docs-ci` tiene quince. Esto admite descargas sin caché en los ejecutores locales.
+Estos límites conservan
+los entornos nuevos por trabajo, el aislamiento de la caché y todas las pruebas;
+no ocultan errores de instalación ni garantizan la disponibilidad de la red.
+Las asignaciones de ejecutores, el empaquetado de versiones y las pruebas no cambian.
 
 # Estrategia de pruebas
 
@@ -157,9 +213,15 @@ con puntero y teclado en los temas claro y oscuro.
 Actualmente, la CI de Docker valida Compose y construye las imágenes de backend
 y frontend; no arranca contenedores ni verifica su estado y persistencia.
 Estas pruebas de ejecución siguen siendo necesarias antes de una release.
-El trabajo de frontend autoalojado aplica el presupuesto revisado de 4 GiB de
+El trabajo de frontend aplica el presupuesto revisado de 4 GiB de
 heap de Node a todo el trabajo para que lint, comprobación de tipos, pruebas y
 build de producción compartan el mismo contrato de memoria previsible.
+Las pruebas de política de versiones de escritorio deben validar las condiciones
+exactas de los ejecutores alojados para PR públicas, las alternativas locales
+para versiones y todo el entorno de recursos Node/Python. Las pruebas de mutación
+rechazan la ausencia de controles de visibilidad o evento, alternativas cambiadas,
+presupuestos ausentes y sobrescrituras por paso. Un cambio de CI también requiere
+toda la suite de escritorio, no solo los contratos de planificación Python.
 
 La CI de Electron configura paquetes para macOS arm64/x64, Linux arm64 y
 Windows x64. Configurar esa matriz, pasar pruebas unitarias desktop o comprobar

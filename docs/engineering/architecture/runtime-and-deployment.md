@@ -27,9 +27,10 @@ tests:
 
 # Runtime and deployment
 
-Shared CI bounds Python downloads with `UV_CONCURRENT_DOWNLOADS=4`,
-`UV_HTTP_TIMEOUT=180` (seconds per HTTP read) and `UV_HTTP_RETRIES=5`.
-This download-only policy retains frozen locks, isolated job caches and existing
+Shared CI bounds Python dependency setup with `UV_CONCURRENT_DOWNLOADS=4`,
+`UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (seconds per HTTP read) and
+`UV_HTTP_RETRIES=3`.
+This dependency-only policy retains frozen locks, isolated job caches and existing
 test/startup deadlines. Runner disconnections remain infrastructure failures;
 these settings do not make an offline runner pass.
 

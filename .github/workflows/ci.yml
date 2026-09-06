@@ -14,13 +14,19 @@ on:
 permissions:
   contents: read
 
+# Supersede only earlier commits of the same PR. Pushes and reusable release
+# checks have run-specific groups, separate from the caller's concurrency group.
+concurrency:
+  group: gnosi-ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   UV_MANAGED_PYTHON: '1'
-  # Fresh job caches share the host network: bound downloads and tolerate
-  # transient stalls without retrying tests or relaxing frozen lock checks.
+  # Every Python setup shares the native host's bounded download budget.
+  UV_HTTP_TIMEOUT: '120'
+  UV_HTTP_RETRIES: '3'
   UV_CONCURRENT_DOWNLOADS: '4'
-  UV_HTTP_TIMEOUT: '180'
-  UV_HTTP_RETRIES: '5'
+  UV_CONCURRENT_INSTALLS: '2'
   NPM_CONFIG_FETCH_RETRIES: '5'
   NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: '20000'
   NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: '120000'
@@ -52,6 +58,7 @@ jobs:
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen --only-group docs-ci
+        timeout-minutes: 15
       - name: Check documentation against the exact PR base or candidate SHA
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
@@ -61,15 +68,18 @@ jobs:
           uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
   frontend:
-    # The native Mac and Linux VM share physical CPU/memory resources.
+    # Keep the local fallback ordered with jobs sharing the same physical host.
     needs: backend
     if: >-
       !cancelled() && (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: [self-hosted, macOS, ARM64]
+    # Public PRs avoid the native host's slow package downloads; keep other events local.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["macos-15"]' || '["self-hosted", "macOS", "ARM64"]') }}
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       GNOSI_VITEST_MAX_WORKERS: '1'
+      # Do not select an installed Intel interpreter through Rosetta on this runner.
+      UV_PYTHON: cpython-3.11-macos-aarch64-none
     steps:
       - uses: actions/checkout@v7
         with:
@@ -83,7 +93,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
-          cache: pnpm
+          # Reuse pnpm's local store without remote cache restore/save delays.
+          package-manager-cache: false
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
@@ -93,8 +104,17 @@ jobs:
           enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
+      - name: Verify native frontend Python
+        timeout-minutes: 5
+        run: >-
+          uv run --frozen --no-sync python -c
+          "import platform; actual = platform.machine();
+          print(f'Frontend Python architecture: {actual}');
+          assert actual == 'arm64', f'Expected native ARM64 Python, got {actual}'"
       - run: pnpm install --frozen-lockfile
-      - run: uv sync --frozen
+      - name: Install locked frontend Python dependencies
+        timeout-minutes: 45
+        run: uv sync --frozen
       - name: Check OpenAPI, 2.x compatibility, and generated frontend client
         timeout-minutes: 10
         run: pnpm check:api-client
@@ -113,7 +133,9 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Linux, ARM64]
+    # Public PRs get a separate, ephemeral Linux ARM64 VM. Keep private, push
+    # and release validation on the existing self-hosted runner.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -134,6 +156,7 @@ jobs:
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
       - run: uv sync --frozen
+        timeout-minutes: 45
       - name: Reject private tools and generated pipeline state
         run: uv run python scripts/check_public_pipeline.py
       - name: Enforce public pipeline size and complexity limits
@@ -181,6 +204,7 @@ jobs:
         run: python scripts/ci/prepare_python_environment.py
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen
+        timeout-minutes: 45
       - run: pnpm test:e2e:install
       - name: Start native services
         timeout-minutes: 7
