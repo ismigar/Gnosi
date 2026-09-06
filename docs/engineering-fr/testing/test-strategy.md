@@ -43,6 +43,15 @@ les périmètres complets des tests, les permissions de lecture seule et les
 restrictions des forks restent inchangés. L’ajout de capacité ne supprime pas
 les dépendances existantes entre les tâches.
 
+Le job frontend auto-hébergé désactive le cache distant des dépendances dans
+`setup-node` : il omet `cache` et définit explicitement
+`package-manager-cache: false`. Cela évite d’attendre les restaurations
+facultatives bloquées et supprime les envois vers le cache distant, tout en
+conservant le magasin local de pnpm. `pnpm install --frozen-lockfile` continue
+d’installer et de vérifier les dépendances, et toutes les vérifications frontend
+et desktop restent obligatoires. Cela ne supprime pas l’accès réseau nécessaire
+pour obtenir les dépendances manquantes.
+
 # Stratégie de test
 
 ## Niveaux de vérification de la qualité

@@ -42,6 +42,15 @@ del flux que les crida. Els noms de les comprovacions obligatòries, els àmbits
 complets de proves, els permisos de només lectura i les restriccions dels forks
 es mantenen. Afegir capacitat no elimina les dependències existents entre treballs.
 
+El treball de frontend autoallotjat desactiva la memòria cau remota de
+dependències a `setup-node`: omet `cache` i estableix explícitament
+`package-manager-cache: false`. Això evita esperar restauracions opcionals
+encallades i omet les pujades de memòria cau remota, tot conservant el magatzem
+local de pnpm. `pnpm install --frozen-lockfile` continua instal·lant i verificant
+les dependències, i totes les comprovacions de frontend i escriptori continuen
+sent obligatòries. Això no elimina l’accés a la xarxa necessari per obtenir les
+dependències que faltin.
+
 # Estratègia de proves
 
 ## Capes de qualitat

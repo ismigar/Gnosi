@@ -1,4 +1,4 @@
-"""Keep PR cancellation scoped and Linux capacity separate from native CI."""
+"""Keep CI scheduling bounded and native setup independent of remote caches."""
 
 from pathlib import Path
 
@@ -92,3 +92,54 @@ def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     assert _mapping(checkout["with"])["persist-credentials"] is False
     assert _mapping(checkout["with"])["ref"] == "${{ github.sha }}"
     assert {"run": "uv run pytest"} in steps
+
+
+def test_self_hosted_frontend_disables_remote_package_cache(
+    workflow: dict[str, object],
+) -> None:
+    frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
+    assert frontend["runs-on"] == ["self-hosted", "macOS", "ARM64"]
+    steps = frontend["steps"]
+    assert isinstance(steps, list)
+    node_steps = [
+        _mapping(step) for step in steps
+        if str(_mapping(step).get("uses", "")).startswith("actions/setup-node@")
+    ]
+    assert len(node_steps) == 1
+    node_inputs = _mapping(node_steps[0]["with"])
+    assert node_inputs["node-version"] == "22.22.2"
+    assert not node_inputs.get("cache")
+    assert node_inputs["package-manager-cache"] is False
+    assert not any(
+        str(_mapping(step).get("uses", "")).startswith("actions/cache")
+        for step in steps
+    )
+
+
+def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
+    workflow: dict[str, object],
+) -> None:
+    frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
+    steps = frontend["steps"]
+    assert isinstance(steps, list)
+    commands = {
+        str(_mapping(step)["run"]): _mapping(step)
+        for step in steps if "run" in _mapping(step)
+    }
+    required_commands = {
+        "pnpm install --frozen-lockfile",
+        "uv sync --frozen",
+        "pnpm check:api-client",
+        "pnpm guardrails:frontend",
+        "pnpm lint:frontend",
+        "pnpm --filter @gnosi/frontend typecheck",
+        "pnpm test:e2e:contracts",
+        "pnpm test:frontend",
+        "pnpm build:frontend",
+        "pnpm test:desktop",
+        "pnpm --filter @gnosi/desktop typecheck:ipc",
+    }
+    assert required_commands <= commands.keys()
+    for command in required_commands:
+        assert "if" not in commands[command]
+        assert not commands[command].get("continue-on-error")

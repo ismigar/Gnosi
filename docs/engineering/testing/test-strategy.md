@@ -38,6 +38,13 @@ not cancel one another or collide with the caller's release lock. Required
 check names, complete test targets, read-only permissions and fork restrictions
 remain unchanged. Adding capacity does not remove the existing job dependencies.
 
+The self-hosted frontend job disables remote dependency caching in `setup-node`:
+it omits `cache` and explicitly sets `package-manager-cache: false`. This avoids
+waiting for stalled optional cache restores and skips remote cache uploads,
+while preserving pnpm's local store. `pnpm install --frozen-lockfile` still
+installs and verifies dependencies, and all frontend and desktop checks remain
+mandatory. This does not remove network access needed for missing dependencies.
+
 # Test strategy
 
 ## Quality layers

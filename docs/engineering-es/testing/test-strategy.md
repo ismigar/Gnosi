@@ -42,6 +42,15 @@ flujo que las invoca. Los nombres de las comprobaciones obligatorias, los ámbit
 completos de pruebas, los permisos de solo lectura y las restricciones de forks
 se mantienen. Añadir capacidad no elimina las dependencias existentes entre trabajos.
 
+El trabajo de frontend autoalojado desactiva la caché remota de dependencias en
+`setup-node`: omite `cache` y establece explícitamente
+`package-manager-cache: false`. Esto evita esperar restauraciones opcionales
+atascadas y omite las subidas de caché remota, conservando el almacén local de
+pnpm. `pnpm install --frozen-lockfile` sigue instalando y verificando las
+dependencias, y todas las comprobaciones de frontend y escritorio siguen siendo
+obligatorias. Esto no elimina el acceso a la red necesario para obtener las
+dependencias que falten.
+
 # Estrategia de pruebas
 
 ## Capas de calidad

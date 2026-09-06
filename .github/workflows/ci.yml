@@ -84,7 +84,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
-          cache: pnpm
+          # Reuse pnpm's local store without remote cache restore/save delays.
+          package-manager-cache: false
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
