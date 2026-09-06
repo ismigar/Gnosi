@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,32 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Les tâches lourdes de CI suivent cet ordre : backend, frontend puis Docker. Le Mac et la VM Linux partagent les ressources physiques ; le frontend utilise un seul processus de test. Un échec précédent ne supprime pas les vérifications suivantes, mais les restrictions des forks et l’annulation restent applicables. Les suites isolées de dessins et de citations disposent de cinq minutes par processus, importations initiales et assertions comprises. Les tests intégrés des outils générés utilisent le délai de production inchangé ; une régression distincte vérifie le délai explicite.
+
+Les pull requests publiques issues du même dépôt exécutent `backend` dans une
+nouvelle VM `ubuntu-24.04-arm` hébergée par GitHub, ajoutant de la capacité Linux
+ARM64 sans partager le processeur, la mémoire, les ports des services ni le moteur
+Docker de l’hôte natif. `native-smoke` et `docker` conservent l’exécuteur Linux
+ARM64 auto-hébergé existant. Les envois de commits, la validation des versions,
+les dépôts privés et l’absence de métadonnées de visibilité publique utilisent
+l’exécuteur auto-hébergé du backend ; les affectations des exécuteurs de
+documentation et de création des paquets restent inchangées.
+
+Les groupes de `concurrency` du workflow utilisent un préfixe propre à la CI,
+le nom du workflow et le numéro de PR. Un nouveau commit annule les tâches
+précédentes en cours et en attente de cette PR uniquement. L’annulation n’est
+activée que pour les événements `pull_request` ; les autres utilisent le
+`github.run_id` unique, afin que les envois et les vérifications réutilisables
+de versions ne s’annulent pas mutuellement et n’entrent pas en conflit avec le
+verrou de version du workflow appelant. Les noms des vérifications obligatoires,
+les périmètres complets des tests, les permissions de lecture seule et les
+restrictions des forks restent inchangés. L’ajout de capacité ne supprime pas
+les dépendances existantes entre les tâches.
 
 # Stratégie de test
 

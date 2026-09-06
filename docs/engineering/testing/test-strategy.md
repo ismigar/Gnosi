@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,27 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Heavy CI jobs run in order: backend, frontend, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
+
+Public, same-repository pull requests run `backend` on a fresh GitHub-hosted
+`ubuntu-24.04-arm` VM, adding Linux ARM64 capacity without sharing the native
+host's CPU, memory, service ports or Docker engine. `native-smoke` and `docker`
+retain the existing self-hosted Linux ARM64 runner. Pushes, release validation,
+private repositories and missing public-visibility metadata use the self-hosted
+backend runner; documentation and packaging runner assignments are unchanged.
+
+Workflow-level `concurrency` groups use a CI-specific prefix, the workflow name
+and the PR number. A newer commit cancels the earlier running and queued work
+for that PR only. Cancellation is enabled only for `pull_request` events; other
+events use the unique `github.run_id`, so pushes and reusable release checks do
+not cancel one another or collide with the caller's release lock. Required
+check names, complete test targets, read-only permissions and fork restrictions
+remain unchanged. Adding capacity does not remove the existing job dependencies.
 
 # Test strategy
 

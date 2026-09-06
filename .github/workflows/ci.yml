@@ -14,6 +14,12 @@ on:
 permissions:
   contents: read
 
+# Supersede only earlier commits of the same PR. Pushes and reusable release
+# checks have run-specific groups, separate from the caller's concurrency group.
+concurrency:
+  group: gnosi-ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   UV_MANAGED_PYTHON: '1'
   NPM_CONFIG_FETCH_RETRIES: '5'
@@ -108,7 +114,9 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Linux, ARM64]
+    # Public PRs get a separate, ephemeral Linux ARM64 VM. Keep private, push
+    # and release validation on the existing self-hosted runner.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
     steps:
       - uses: actions/checkout@v7
         with:

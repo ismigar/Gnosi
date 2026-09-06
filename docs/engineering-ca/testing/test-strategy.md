@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,31 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Els treballs pesants de CI segueixen aquest ordre: backend, frontend i Docker. El Mac i la MV Linux comparteixen recursos físics; el frontend utilitza un sol procés de proves. La fallada anterior no omet les comprovacions següents, però es mantenen la cancel·lació i les restriccions dels forks. Les suites aïllades de dibuixos i citacions disposen de cinc minuts per procés, incloses les importacions inicials i totes les assercions. Les proves integrades d’eines generades utilitzen el límit de producció sense modificar-lo; una regressió separada verifica el límit explícit.
+
+Les pull requests públiques del mateix repositori executen `backend` en una MV
+nova `ubuntu-24.04-arm` allotjada a GitHub, afegint capacitat Linux ARM64 sense
+compartir la CPU, la memòria, els ports dels serveis ni el motor Docker de
+l’amfitrió natiu. `native-smoke` i `docker` conserven l’executor Linux ARM64
+autoallotjat existent. Les pujades de commits, la validació de versions, els
+repositoris privats i l’absència de metadades de visibilitat pública utilitzen
+l’executor autoallotjat del backend; les assignacions dels executors de
+documentació i empaquetament no canvien.
+
+Els grups de `concurrency` del flux de treball utilitzen un prefix específic de
+CI, el nom del flux i el número de PR. Un commit nou cancel·la els treballs
+anteriors en execució i en cua només d’aquella PR. La cancel·lació només s’activa
+per als esdeveniments `pull_request`; els altres utilitzen el `github.run_id`
+únic, de manera que les pujades i les comprovacions reutilitzables de versions
+no es cancel·len entre si ni entren en conflicte amb el bloqueig de versions
+del flux que les crida. Els noms de les comprovacions obligatòries, els àmbits
+complets de proves, els permisos de només lectura i les restriccions dels forks
+es mantenen. Afegir capacitat no elimina les dependències existents entre treballs.
 
 # Estratègia de proves
 

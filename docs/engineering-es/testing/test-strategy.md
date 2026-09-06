@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-06
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -16,11 +16,31 @@ source_paths:
   - frontend/scripts/check-bundle-size.ts
 tests:
   - backend/tests/test_root_typecheck_contract.py
+  - backend/tests/test_ci_scheduling_contract.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 Los trabajos pesados de CI siguen este orden: backend, frontend y Docker. El Mac y la MV Linux comparten recursos físicos; el frontend utiliza un solo proceso de pruebas. Un fallo anterior no omite las comprobaciones siguientes, pero se mantienen la cancelación y las restricciones de los forks. Las suites aisladas de dibujos y citas disponen de cinco minutos por proceso, incluidas las importaciones iniciales y todas las aserciones. Las pruebas integradas de herramientas generadas utilizan el límite de producción sin modificarlo; una regresión separada verifica el límite explícito.
+
+Las pull requests públicas del mismo repositorio ejecutan `backend` en una MV
+nueva `ubuntu-24.04-arm` alojada en GitHub, añadiendo capacidad Linux ARM64 sin
+compartir la CPU, la memoria, los puertos de servicios ni el motor Docker del
+anfitrión nativo. `native-smoke` y `docker` conservan el ejecutor Linux ARM64
+autoalojado existente. Las subidas de commits, la validación de versiones, los
+repositorios privados y la ausencia de metadatos de visibilidad pública utilizan
+el ejecutor autoalojado del backend; las asignaciones de ejecutores de
+documentación y empaquetado no cambian.
+
+Los grupos de `concurrency` del flujo de trabajo utilizan un prefijo específico
+de CI, el nombre del flujo y el número de PR. Un commit nuevo cancela los trabajos
+anteriores en ejecución y en cola solo de esa PR. La cancelación se activa
+únicamente para eventos `pull_request`; los demás utilizan el `github.run_id`
+único, de modo que las subidas y las comprobaciones reutilizables de versiones
+no se cancelan entre sí ni entran en conflicto con el bloqueo de versiones del
+flujo que las invoca. Los nombres de las comprobaciones obligatorias, los ámbitos
+completos de pruebas, los permisos de solo lectura y las restricciones de forks
+se mantienen. Añadir capacidad no elimina las dependencias existentes entre trabajos.
 
 # Estrategia de pruebas
 
