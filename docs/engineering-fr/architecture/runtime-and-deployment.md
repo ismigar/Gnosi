@@ -150,6 +150,15 @@ exigences d’acceptation par plateforme. Les tests statiques des contrats ne
 remplacent ni la fusion réelle de Compose, ni les compilations d’images,
 ni les tests de démarrage des conteneurs, ni l’acceptation par plateforme.
 
+Le test natif démarre Uvicorn normalement, sans thread de traces en arrière-plan.
+La sonde externe `scripts/ci/wait_native_services.py` exige HTTP `200` de
+`/api/health` et du frontend pendant le même cycle. Chaque requête dispose de
+deux secondes au maximum, dans un délai monotone de six minutes ; l'étape de
+démarrage possède une limite externe de sept minutes. Les échecs indiquent le
+dernier résultat de chaque endpoint et conservent les deux journaux. Les annonces
+de démarrage ou les identifiants des processus enveloppes ne prouvent pas la
+disponibilité ; la suite de tests du navigateur s'exécute ensuite.
+
 ## Paquets Electron
 
 Electron gère le cycle de vie de l’application empaquetée. Il démarre le backend

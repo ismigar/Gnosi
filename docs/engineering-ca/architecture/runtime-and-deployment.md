@@ -146,6 +146,15 @@ d’acceptació per plataforma. Els tests estàtics de contractes no substitueix
 la fusió real de Compose, les compilacions d’imatges, les proves bàsiques dels
 contenidors ni l’acceptació per plataforma.
 
+La prova nativa inicia Uvicorn normalment, sense un fil de traces en segon pla.
+La comprovació externa `scripts/ci/wait_native_services.py` exigeix HTTP `200`
+tant de `/api/health` com del frontend en el mateix cicle. Cada petició té un
+màxim de dos segons, dins d'un termini monotònic de sis minuts; el pas
+d'arrencada té un límit extern de set minuts. Els errors mostren l'últim
+resultat de cada endpoint i conserven els dos registres. Els anuncis d'arrencada
+o els identificadors dels processos embolcall no acrediten disponibilitat,
+i després es continua executant la suite de proves de navegador.
+
 ## Paquets Electron
 
 Electron gestiona el cicle de vida de l’aplicació empaquetada. Inicia el backend

@@ -149,6 +149,15 @@ de aceptación por plataforma. Los tests estáticos de contratos no sustituyen
 la fusión real de Compose, las compilaciones de imágenes, las pruebas básicas
 de los contenedores ni la aceptación por plataforma.
 
+La prueba nativa inicia Uvicorn normalmente, sin un hilo de trazas en segundo
+plano. La comprobación externa `scripts/ci/wait_native_services.py` exige HTTP
+`200` tanto de `/api/health` como del frontend en el mismo ciclo. Cada petición
+tiene un máximo de dos segundos, dentro de un plazo monotónico de seis minutos;
+el paso de arranque tiene un límite externo de siete minutos. Los errores
+muestran el último resultado de cada endpoint y conservan ambos registros.
+Los anuncios de arranque o los identificadores de procesos envoltorio no
+acreditan disponibilidad; después sigue ejecutándose la suite de navegador.
+
 ## Paquetes Electron
 
 Electron gestiona el ciclo de vida de la aplicación empaquetada. Inicia el

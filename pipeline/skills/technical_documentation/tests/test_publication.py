@@ -72,19 +72,13 @@ CI_COMMANDS = {
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
         "pnpm test:e2e:install",
-        *r'''uv run python -c 'import faulthandler; faulthandler.dump_traceback_later(60, repeat=True); import uvicorn; uvicorn.run("backend.server:app", host="127.0.0.1", port=5002)' > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
-backend_pid=$!
+        *r'''uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
 pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
-frontend_pid=$!
-for attempt in $(seq 1 180); do
-  curl --fail --silent http://127.0.0.1:5002/api/health >/dev/null \
-    && curl --fail --silent http://127.0.0.1:5173/ >/dev/null \
-    && exit 0
-sleep 2
-done
-tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
-tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
-exit 1'''.splitlines(),
+if ! python scripts/ci/wait_native_services.py; then
+  tail -n 200 "${RUNNER_TEMP}/gnosi-backend.log" || true
+  tail -n 200 "${RUNNER_TEMP}/gnosi-frontend.log" || true
+  exit 1
+fi'''.splitlines(),
         "pnpm test:e2e:smoke",
     ],
     "docker": [
