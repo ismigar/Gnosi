@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
 | Vitest | 497 | 2057 |
-| pytest | 470 | 3338 |
+| pytest | 470 | 3340 |
 
 ## Archivos
 
@@ -907,7 +907,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_vault_knowledge_open_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_knowledge_open_routes.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_vault_knowledge_open_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_knowledge_open_schema.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_vault_legacy_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_legacy_facade.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_vault_link_document_cache_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_link_document_cache_domain_contract.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_vault_link_document_cache_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_link_document_cache_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_link_document_inventory_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_link_document_inventory_domain_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_links_open_relations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_links_open_relations.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_vault_links_open_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_links_open_runtime.py) | 13 | Python AST |
