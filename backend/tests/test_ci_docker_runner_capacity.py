@@ -94,6 +94,78 @@ def test_cleanup_does_not_force_remove_an_in_use_image(monkeypatch: pytest.Monke
     assert "--force" not in runner.call_args.args[0]
 
 
+@pytest.mark.parametrize("absent_after_wait", [False, True])
+def test_image_removal_timeout_accepts_only_verified_absence(
+    monkeypatch: pytest.MonkeyPatch, absent_after_wait: bool,
+) -> None:
+    present = CompletedProcess((), 0, stdout="sha256:synthetic\n")
+    absent = CompletedProcess((), 0, stdout="")
+    error = TimeoutExpired(("docker", "image", "rm", "gnosi-frontend:ci"), 60)
+    outcomes = [present, error, present, absent] if absent_after_wait else [present, error, absent]
+    runner = Mock(side_effect=outcomes)
+    waits = Mock()
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    monkeypatch.setattr(prepare_docker_runner, "sleep", waits)
+
+    prepare_docker_runner._remove_ci_image("gnosi-frontend:ci")
+
+    removals = [entry.args[0] for entry in runner.call_args_list if entry.args[0][2] == "rm"]
+    assert removals == [("docker", "image", "rm", "gnosi-frontend:ci")]
+    assert waits.call_count == int(absent_after_wait)
+
+
+def test_image_removal_retries_a_timeout_when_tag_remains(monkeypatch: pytest.MonkeyPatch) -> None:
+    present = CompletedProcess((), 0, stdout="sha256:synthetic\n")
+    error = TimeoutExpired((), 60)
+    runner = Mock(side_effect=[present, error, present, present, CompletedProcess((), 0)])
+    waits = Mock()
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    monkeypatch.setattr(prepare_docker_runner, "sleep", waits)
+
+    prepare_docker_runner._remove_ci_image("gnosi-frontend:ci")
+
+    removals = [entry for entry in runner.call_args_list if entry.args[0][2] == "rm"]
+    assert removals == [call(("docker", "image", "rm", "gnosi-frontend:ci"),
+                             check=True, timeout=60)] * 2
+    waits.assert_called_once_with(5.0)
+
+
+def test_image_removal_still_fails_after_second_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    present = CompletedProcess((), 0, stdout="sha256:synthetic\n")
+    error = TimeoutExpired((), 60)
+    runner = Mock(side_effect=[present, error, present, present, error, present])
+    waits = Mock()
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    monkeypatch.setattr(prepare_docker_runner, "sleep", waits)
+
+    with pytest.raises(TimeoutExpired) as caught:
+        prepare_docker_runner._remove_ci_image("gnosi-frontend:ci")
+
+    assert caught.value is error
+    assert runner.call_count == 6
+    waits.assert_called_once_with(5.0)
+
+
+@pytest.mark.parametrize("inspection_error", [CalledProcessError(1, ()), TimeoutExpired((), 30)])
+def test_image_removal_never_treats_failed_inspection_as_absence(
+    monkeypatch: pytest.MonkeyPatch, inspection_error: Exception,
+) -> None:
+    runner = Mock(side_effect=[
+        CompletedProcess((), 0, stdout="sha256:synthetic\n"),
+        TimeoutExpired((), 60),
+        inspection_error,
+    ])
+    waits = Mock()
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    monkeypatch.setattr(prepare_docker_runner, "sleep", waits)
+
+    with pytest.raises(type(inspection_error)) as caught:
+        prepare_docker_runner._remove_ci_image("gnosi-frontend:ci")
+
+    assert caught.value is inspection_error
+    waits.assert_not_called()
+
+
 @pytest.mark.parametrize("failures", [1, 2])
 def test_build_cache_cleanup_retries_only_completed_deadline_failures(
     monkeypatch: pytest.MonkeyPatch, failures: int,
