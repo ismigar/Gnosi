@@ -5,6 +5,8 @@ source_paths:
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
+  - Dockerfile.backend
+  - scripts/ci/build_container_image.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -17,6 +19,8 @@ source_paths:
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
+  - backend/tests/test_ci_container_build.py
+  - backend/tests/test_ci_docker_python_policy.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -210,6 +214,25 @@ without an enclosing ring. Unit tests must cover modality transitions, while
 browser checks cover pointer and keyboard focus in light and dark themes.
 
 ## Deployment tests
+
+The CI image builder records the checked-out Git revision in
+`org.opencontainers.image.revision` and a unique invocation identifier in
+`io.gnosi.ci.build-id`. Existing target images must be listed and removed
+successfully, without forcing in-use images. After every build, including exit
+zero, inspection must return both matching labels. A post-load client failure
+can recover only with this evidence; an older image from the same commit still
+fails because its invocation identifier differs. Missing or malformed metadata,
+failed inspection and failed removal remain failures. The real startup and
+persistence smoke remains mandatory.
+
+The backend image now uses `uv` `0.10.0` with `UV_HTTP_TIMEOUT=120`,
+`UV_HTTP_RETRIES=3`, `UV_CONCURRENT_DOWNLOADS=4` and `UV_CONCURRENT_INSTALLS=2`
+explicitly on its frozen installation command. Workflow variables are not
+implicitly inherited inside Docker builds. These values affect installation
+only, not the application's runtime environment. Regression tests compare the
+installer and budgets with shared CI and reject missing, changed or duplicated
+settings. Application dependencies, lockfiles, runner routing and release
+packaging are unchanged.
 
 Docker CI validates Compose, builds both images and runs `scripts/smoke_docker.sh`.
 The smoke checks the live backend and frontend, then recreates the containers

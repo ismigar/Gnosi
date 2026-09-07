@@ -5,6 +5,8 @@ source_paths:
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
+  - Dockerfile.backend
+  - scripts/ci/build_container_image.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -17,6 +19,8 @@ source_paths:
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
+  - backend/tests/test_ci_container_build.py
+  - backend/tests/test_ci_docker_python_policy.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -219,6 +223,27 @@ unitarias cubren los cambios de modalidad y las pruebas de navegador, el foco
 con puntero y teclado en los temas claro y oscuro.
 
 ## Pruebas de despliegue
+
+El constructor de imágenes de CI registra la revisión Git extraída en
+`org.opencontainers.image.revision` y un identificador único de la invocación en
+`io.gnosi.ci.build-id`. Se deben listar y eliminar correctamente las imágenes de
+destino existentes, sin forzar imágenes en uso. Tras cada construcción, incluso
+si termina con código cero, la inspección debe devolver ambas etiquetas
+coincidentes. Un fallo del cliente posterior a la carga solo puede recuperarse
+con esta evidencia; una imagen anterior del mismo commit también falla porque
+su identificador de invocación es diferente. Los metadatos ausentes o malformados
+y los fallos de inspección o eliminación siguen siendo errores. La prueba real
+de arranque y persistencia sigue siendo obligatoria.
+
+La imagen del backend ahora utiliza `uv` `0.10.0` con `UV_HTTP_TIMEOUT=120`,
+`UV_HTTP_RETRIES=3`, `UV_CONCURRENT_DOWNLOADS=4` y `UV_CONCURRENT_INSTALLS=2`
+explícitamente en la orden de instalación congelada. Las variables del workflow
+no se heredan implícitamente dentro de las construcciones Docker. Estos valores
+solo afectan a la instalación, no al entorno de ejecución de la aplicación. Las
+pruebas de regresión comparan el instalador y los límites con la CI compartida
+y rechazan valores ausentes, cambiados o duplicados. Las dependencias de la
+aplicación, los lockfiles, la asignación de ejecutores y el empaquetado de
+versiones no cambian.
 
 La CI de Docker valida Compose, construye ambas imágenes y ejecuta
 `scripts/smoke_docker.sh`. La prueba comprueba el backend y el frontend en marcha,

@@ -5,6 +5,8 @@ source_paths:
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
+  - Dockerfile.backend
+  - scripts/ci/build_container_image.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -17,6 +19,8 @@ source_paths:
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
+  - backend/tests/test_ci_container_build.py
+  - backend/tests/test_ci_docker_python_policy.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -231,6 +235,26 @@ canvis de modalitat i les proves de navegador, el focus amb punter i teclat en
 els temes clar i fosc.
 
 ## Comprovacions de desplegament
+
+El constructor d'imatges de CI registra la revisió Git extreta a
+`org.opencontainers.image.revision` i un identificador únic de la invocació a
+`io.gnosi.ci.build-id`. Cal llistar i eliminar correctament les imatges de
+destinació existents, sense forçar les imatges en ús. Després de cada construcció,
+també si acaba amb codi zero, la inspecció ha de retornar les dues etiquetes
+coincidents. Una fallada del client posterior a la càrrega només es pot recuperar
+amb aquesta evidència; una imatge anterior del mateix commit també falla perquè
+té un identificador d'invocació diferent. Les metadades absents o malformades i
+les fallades d'inspecció o eliminació continuen sent errors. La prova real
+d'arrencada i persistència continua sent obligatòria.
+
+La imatge del backend ara utilitza `uv` `0.10.0` amb `UV_HTTP_TIMEOUT=120`,
+`UV_HTTP_RETRIES=3`, `UV_CONCURRENT_DOWNLOADS=4` i `UV_CONCURRENT_INSTALLS=2`
+explícitament a l'ordre d'instal·lació congelada. Les variables del workflow no
+s'hereten implícitament dins de les construccions Docker. Aquests valors només
+afecten la instal·lació, no l'entorn d'execució de l'aplicació. Les proves de
+regressió comparen l'instal·lador i els límits amb la CI compartida i rebutgen
+valors absents, canviats o duplicats. Les dependències de l'aplicació, els
+lockfiles, l'assignació d'executors i l'empaquetament de versions no canvien.
 
 La CI de Docker valida Compose, construeix les dues imatges i executa
 `scripts/smoke_docker.sh`. La prova comprova el backend i el frontend en marxa,
