@@ -89,6 +89,25 @@ def test_all_gates_and_bounded_native_order_are_preserved(
         assert "!cancelled()" in str(_mapping(jobs[name])["if"])
 
 
+def test_docker_cleanup_is_scoped_bounded_and_never_ignored(workflow: dict[str, object]) -> None:
+    docker = _mapping(_mapping(workflow["jobs"])["docker"])
+    steps = docker["steps"]
+    assert isinstance(steps, list)
+    commands = {
+        str(_mapping(step)["run"]): _mapping(step)
+        for step in steps if "run" in _mapping(step)
+    }
+    for command in (
+        "python3 scripts/ci/prepare_docker_runner.py",
+        "python3 scripts/ci/prepare_docker_runner.py --cleanup",
+    ):
+        assert commands[command]["timeout-minutes"] == 10
+        assert not commands[command].get("continue-on-error")
+    assert commands["python3 scripts/ci/prepare_docker_runner.py --cleanup"]["if"] == "always()"
+    assert "scripts/smoke_docker.sh" in commands
+    assert all("system prune" not in command for command in commands)
+
+
 def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     workflow: dict[str, object],
 ) -> None:
@@ -188,6 +207,25 @@ def test_python_downloads_are_bounded_for_every_job(
     assert sync_steps[0]["timeout-minutes"] == timeout
     assert "if" not in sync_steps[0]
     assert not sync_steps[0].get("continue-on-error")
+
+
+@pytest.mark.parametrize("job_name", [
+    "frontend", "backend", "native-smoke", "documentation",
+])
+def test_python_installer_includes_partial_stream_timeout_retries(
+    workflow: dict[str, object], job_name: str,
+) -> None:
+    """uv 0.10.0 fixes read timeouts after a wheel stream has received bytes."""
+    job = _mapping(_mapping(workflow["jobs"])[job_name])
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    installers = [
+        _mapping(step) for step in steps
+        if str(_mapping(step).get("uses", "")).startswith("astral-sh/setup-uv@")
+    ]
+    assert len(installers) == 1
+    assert _mapping(installers[0]["with"])["version"] == "0.10.0"
+    assert _mapping(installers[0]["with"])["enable-cache"] is False
 
 
 def test_frontend_checks_native_python_before_installing_dependencies(

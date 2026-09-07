@@ -27,6 +27,14 @@ tests:
 
 # Exécution et déploiement
 
+La CI partagée limite la préparation des dépendances Python avec `UV_CONCURRENT_DOWNLOADS=4`,
+`UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (secondes par lecture HTTP) et
+`UV_HTTP_RETRIES=3`.
+Cette politique concerne uniquement les dépendances : elle conserve les locks
+figés, les caches isolés par tâche et les délais existants des tests et du démarrage.
+Les déconnexions des runners restent des erreurs d’infrastructure ;
+ces paramètres ne font pas réussir un runner déconnecté.
+
 Cette page décrit les contrats examinés dans le code à la date de vérification.
 Docker est une cible de déploiement prise en charge et facultative ; le
 développement natif reste le choix par défaut. Ni l’examen du code ni une cible
@@ -142,6 +150,15 @@ La disponibilité du wheel, la compilation et le démarrage réels restent des
 exigences d’acceptation par plateforme. Les tests statiques des contrats ne
 remplacent ni la fusion réelle de Compose, ni les compilations d’images,
 ni les tests de démarrage des conteneurs, ni l’acceptation par plateforme.
+
+Le test natif démarre Uvicorn normalement, sans thread de traces en arrière-plan.
+La sonde externe `scripts/ci/wait_native_services.py` exige HTTP `200` de
+`/api/health` et du frontend pendant le même cycle. Chaque requête dispose de
+deux secondes au maximum, dans un délai monotone de six minutes ; l'étape de
+démarrage possède une limite externe de sept minutes. Les échecs indiquent le
+dernier résultat de chaque endpoint et conservent les deux journaux. Les annonces
+de démarrage ou les identifiants des processus enveloppes ne prouvent pas la
+disponibilité ; la suite de tests du navigateur s'exécute ensuite.
 
 ## Paquets Electron
 

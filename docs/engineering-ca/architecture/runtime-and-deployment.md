@@ -27,6 +27,14 @@ tests:
 
 # Execució i desplegament
 
+La CI compartida limita la preparació de dependències Python amb `UV_CONCURRENT_DOWNLOADS=4`,
+`UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (segons per lectura HTTP) i
+`UV_HTTP_RETRIES=3`.
+Aquesta política només afecta les dependències: conserva els locks congelats,
+les caches aïllades per tasca i els terminis de proves i arrencada existents.
+Les desconnexions dels runners continuen sent errors d’infraestructura;
+aquests paràmetres no fan passar un runner desconnectat.
+
 Aquesta pàgina recull els contractes revisats al codi en la data de verificació.
 Docker és una destinació de desplegament suportada i opcional; el desenvolupament
 natiu continua sent el predeterminat. Ni revisar el codi ni configurar una
@@ -138,6 +146,15 @@ La disponibilitat del wheel i la compilació i arrencada reals són requisits
 d’acceptació per plataforma. Els tests estàtics de contractes no substitueixen
 la fusió real de Compose, les compilacions d’imatges, les proves bàsiques dels
 contenidors ni l’acceptació per plataforma.
+
+La prova nativa inicia Uvicorn normalment, sense un fil de traces en segon pla.
+La comprovació externa `scripts/ci/wait_native_services.py` exigeix HTTP `200`
+tant de `/api/health` com del frontend en el mateix cicle. Cada petició té un
+màxim de dos segons, dins d'un termini monotònic de sis minuts; el pas
+d'arrencada té un límit extern de set minuts. Els errors mostren l'últim
+resultat de cada endpoint i conserven els dos registres. Els anuncis d'arrencada
+o els identificadors dels processos embolcall no acrediten disponibilitat,
+i després es continua executant la suite de proves de navegador.
 
 ## Paquets Electron
 

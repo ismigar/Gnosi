@@ -215,6 +215,17 @@ describe('page shell, navigation and knowledge contracts', () => {
     expect(container.querySelector('[data-code-editor]')).not.toBeNull();
     expect(container.querySelector('[data-inner-editor]')).toBeNull();
   });
+  it('stores a per-page language and restores automatic detection without losing metadata', async () => {
+    await mount({ view: true });
+    const select = element('select[aria-label="editor.spellcheck_language"]', HTMLSelectElement);
+    expect(select.value).toBe('auto');
+    act(() => { select.value = 'es'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(innerProps?.forcedSpellLang).toBe('es');
+    expect(state().metadata).toEqual({ ...initialMetadata, spell_language: 'es' });
+    act(() => { select.value = 'auto'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(innerProps?.forcedSpellLang).toBeUndefined();
+    expect(state().metadata.custom).toEqual(initialMetadata.custom);
+  });
   it('persists spelling preference under its exact key and shares language state', async () => {
     expect(spellEnabledKey.name).toBe('gnosi_spell_enabled');
     expect(writeStorage(spellEnabledKey, '0')).toBe(true);

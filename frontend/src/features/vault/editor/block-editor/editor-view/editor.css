@@ -78,8 +78,9 @@
     border-radius: 12px;
     transition: all 0.2s ease-in-out;
 }
-.bn-editor .bn-block:has(> .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode) .gnosi-view-embed-container,
-.bn-editor .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode .gnosi-view-embed-container {
+.bn-editor:focus .bn-block:has(> .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode) .gnosi-view-embed-container:not(:has(:focus)),
+.bn-editor:focus .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode .gnosi-view-embed-container:not(:has(:focus)),
+.bn-editor:focus .node-gnosi_view.ProseMirror-selectednode .gnosi-view-embed-container {
     border-color: var(--gnosi-primary) !important;
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
     background-color: var(--bg-secondary)/5;

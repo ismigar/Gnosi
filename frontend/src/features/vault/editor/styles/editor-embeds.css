@@ -22,10 +22,27 @@
     border-radius: 0 !important;
 }
 
+/* The shell owns block-level keyboard focus. Override the selection reset
+   above, but never highlight the entire view merely because a child is focused. */
+.bn-editor .bn-block-content[data-content-type="gnosi_view"] .gnosi-view-embed-container:focus {
+    outline: 2px solid var(--gnosi-primary) !important;
+    outline-offset: 2px;
+    border-radius: 8px !important;
+}
+
+/* BlockNote also paints selection through a pseudo-element, even after focus
+   moves to the page title. Embedded controls use their own focus indicators. */
+.bn-editor .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode > *::after,
+.bn-editor .ProseMirror-selectednode > .bn-block-content[data-content-type="gnosi_view"] > *::after,
+.bn-editor .node-gnosi_view.ProseMirror-selectednode::after {
+    content: none !important;
+    display: none !important;
+}
+
 /* A drag-handle click selects the whole BlockNote node. Make the selection
    visible on the outer block too, including blocks nested in columns. */
-.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content.ProseMirror-selectednode),
-.bn-editor .bn-block-outer:has(> .bn-block-content.ProseMirror-selectednode) {
+.bn-editor:focus .bn-block-outer:has(> .bn-block > .bn-block-content.ProseMirror-selectednode):not(:has(.gnosi-view-embed-container :focus)),
+.bn-editor:focus .bn-block-outer:has(> .bn-block-content.ProseMirror-selectednode):not(:has(.gnosi-view-embed-container :focus)) {
     outline: 2px solid color-mix(in srgb, var(--gnosi-primary) 72%, transparent) !important;
     outline-offset: 3px;
     border-radius: 6px;

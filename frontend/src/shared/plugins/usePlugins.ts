@@ -21,6 +21,7 @@ interface PluginSnapshot {
     enabledBuiltin: Set<string>;
     enabledThirdParty: Set<string>;
     loaded: boolean;
+    loadError: boolean;
     settings: Readonly<Record<string, unknown>>;
 }
 
@@ -55,6 +56,7 @@ const EMPTY_STATE: PluginSnapshot = {
     settings: {},
     builtins: BUILTIN_PLUGINS,
     loaded: false,
+    loadError: false,
 };
 
 let _state = EMPTY_STATE;
@@ -71,6 +73,7 @@ function _snapshot(payload: PluginState = {}): PluginSnapshot {
         builtins: Array.isArray(payload.builtins) && payload.builtins.length
             ? payload.builtins : BUILTIN_PLUGINS,
         loaded: true,
+        loadError: false,
     };
 }
 
@@ -112,7 +115,8 @@ async function _load(force = false): Promise<PluginSnapshot> {
         _loading = _fetchPluginStateWithTimeout()
             .then((payload) => _apply(payload))
             .catch(() => {
-                _state = { ...EMPTY_STATE, loaded: true };
+                // A failed read is not evidence that every plugin was disabled.
+                _state = { ..._state, loadError: true };
                 _notify();
                 return _state;
             })

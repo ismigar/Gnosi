@@ -86,7 +86,8 @@ describe('usePlugins bootstrap resilience', () => {
             await vi.advanceTimersByTimeAsync(PLUGIN_BOOTSTRAP_TIMEOUT_MS);
         });
 
-        expect(pluginsValue().loaded).toBe(true);
+        expect(pluginsValue().loaded).toBe(false);
+        expect(pluginsValue().loadError).toBe(true);
         expect(pluginsValue().isEnabled('recovered-plugin')).toBe(false);
         const [initialSignal] = observedSignals;
         expect(initialSignal).toBeInstanceOf(AbortSignal);
@@ -101,6 +102,11 @@ describe('usePlugins bootstrap resilience', () => {
 
         expect(mocks.fetchPluginState).toHaveBeenCalledTimes(2);
         expect(pluginsValue().loaded).toBe(true);
+        expect(pluginsValue().isEnabled('recovered-plugin')).toBe(true);
+        mocks.fetchPluginState.mockRejectedValueOnce(new Error('Unavailable'));
+        await act(async () => { await pluginsValue().reload(); });
+        expect(pluginsValue().loaded).toBe(true);
+        expect(pluginsValue().loadError).toBe(true);
         expect(pluginsValue().isEnabled('recovered-plugin')).toBe(true);
     });
 });

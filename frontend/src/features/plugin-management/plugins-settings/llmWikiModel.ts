@@ -48,6 +48,8 @@ export interface LlmWikiController {
     readonly loading: boolean;
     readonly pendingSuggestions: number;
     readonly runLint: () => Promise<void>;
+    readonly retrySave: () => Promise<void>;
+    readonly retryLoad: () => Promise<void>;
     readonly runSemanticAudit: () => Promise<void>;
     readonly semanticBusy: boolean;
     readonly serverState: PluginLlmWikiSettingsResponse | null;
@@ -162,10 +164,10 @@ export function detectLlmWikiSource(
         ?? table.properties.find((property) => ['title', 'titol', 'nom', 'name'].includes(normalizeFieldName(property.name)));
     const files = table.properties.filter((property) => (
         ['files', 'file', 'attachment', 'attachments'].includes(property.type)
-        || /file|fitxer|arxiu|adjunt/.test(normalizeFieldName(property.name))
     ));
     const urls = table.properties.filter((property) => property.type === 'url'
-        || ['url', 'enllac', 'link'].includes(normalizeFieldName(property.name)));
+        || (['text', 'rich_text'].includes(property.type)
+            && ['url', 'enllac', 'link'].includes(normalizeFieldName(property.name))));
     const language = table.properties.find((property) => (
         ['language', 'idioma', 'llengua', 'lang'].includes(normalizeFieldName(property.name))
     ));

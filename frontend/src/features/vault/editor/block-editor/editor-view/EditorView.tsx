@@ -22,7 +22,7 @@ export function EditorView({ editorWrapperRef, ...props }: EditorViewProps) {
                 <EditorSuggestions {...props} />
             </BlockNoteView>
         </div>
-        <SpellCheckLayer editor={editor} enabled={spellEnabled} pageId={noteFilename} onLangDetected={onLangDetected} />
+        <SpellCheckLayer editor={editor} enabled={spellEnabled} pageId={noteFilename} forcedLang={props.forcedSpellLang} onLangDetected={onLangDetected} />
         <AICorrectLayer editor={editor} lang={spellLang} />
         <EditorModals {...props} />
     </VaultEditorContext.Provider>;

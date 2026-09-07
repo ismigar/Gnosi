@@ -84,6 +84,8 @@ tests:
 
 # Vault et fichiers
 
+L’enregistrement automatique sérialise les écritures de page dans le client web. Une version obsolète renvoie un conflit (409), et non une erreur de page introuvable (404), même lorsque la lecture conditionnelle omet le corps. Les pages inexistantes renvoient toujours 404 ; les conflits ne remplacent jamais silencieusement un contenu plus récent.
+
 ## Contrats des commentaires et des traductions
 
 La persistance des commentaires valide uniquement le dictionnaire ou la liste

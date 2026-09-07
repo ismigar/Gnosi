@@ -64,6 +64,38 @@ function expand(path: string, visited = new Set<string>()): Root {
 
 function extractionTree(entry: string): Root {
   const root = expand(resolve(frontend, entry));
+  if (entry === 'src/app/styles/index.css') {
+    // Assert the reviewed keyboard-focus changes before restoring only those
+    // rules for comparison with the immutable extraction baseline.
+    const addedRules = postcss.parse(`
+.bn-editor .bn-block-content[data-content-type="gnosi_view"] .gnosi-view-embed-container:focus {
+  outline: 2px solid var(--gnosi-primary) !important;
+  outline-offset: 2px;
+  border-radius: 8px !important;
+}
+.bn-editor .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode > *::after,
+.bn-editor .ProseMirror-selectednode > .bn-block-content[data-content-type="gnosi_view"] > *::after,
+.bn-editor .node-gnosi_view.ProseMirror-selectednode::after {
+  content: none !important;
+  display: none !important;
+}`);
+    for (const expected of addedRules.nodes) {
+      if (expected.type !== 'rule') throw new Error('Expected focus rule');
+      const matches = root.nodes.filter(node => node.type === 'rule' && node.selector === expected.selector);
+      expect(matches).toHaveLength(1);
+      const actual = matches[0];
+      if (!actual) throw new Error('Missing focus rule');
+      expect(semantic(actual)).toEqual(semantic(expected));
+      actual.remove();
+    }
+    const currentSelector = '.bn-editor:focus .bn-block-outer:has(> .bn-block > .bn-block-content.ProseMirror-selectednode):not(:has(.gnosi-view-embed-container :focus)),\n.bn-editor:focus .bn-block-outer:has(> .bn-block-content.ProseMirror-selectednode):not(:has(.gnosi-view-embed-container :focus))';
+    let restored = 0;
+    root.walkRules(currentSelector, rule => {
+      rule.selector = '.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content.ProseMirror-selectednode),\n.bn-editor .bn-block-outer:has(> .bn-block-content.ProseMirror-selectednode)';
+      restored += 1;
+    });
+    expect(restored).toBe(1);
+  }
   if (entry === 'src/features/settings/AI/AIResourcesSettings.css') {
     // The only post-extraction change: axe found 3.67:1 active-tab text.
     // Assert the exact accessible replacement before comparing everything else
@@ -84,7 +116,7 @@ function extractionTree(entry: string): Root {
 describe('semantic CSS extraction contracts', () => {
   for (const contract of cssContracts) {
     describe(contract.entry, () => {
-      it('preserves the ordered AST apart from the asserted accessible tab color', () => {
+      it('preserves the ordered AST apart from asserted accessibility and focus changes', () => {
         const expanded = extractionTree(contract.entry);
         expect(digest(expanded)).toBe(contract.astSha256);
         expect(expanded.nodes.filter(node => node.type !== 'comment'))

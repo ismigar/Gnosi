@@ -86,7 +86,7 @@ async def patch_page(
                     "Retry-After": "2",
                 },
             ) from exc
-        if not file_path or metadata is None or body is None:
+        if not file_path:
             raise HTTPException(status_code=404, detail="Page not found")
         if expected_etag and not force and current_etag and current_etag != expected_etag:
             log.info(
@@ -107,6 +107,9 @@ async def patch_page(
                     "expected_etag": expected_etag,
                 },
             )
+
+        if metadata is None or body is None:
+            raise HTTPException(status_code=404, detail="Page not found")
 
         try:
             original_metadata = dict(metadata)

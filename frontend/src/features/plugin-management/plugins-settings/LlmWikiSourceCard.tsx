@@ -25,8 +25,12 @@ export function LlmWikiSourceCard({
     const { t } = useTranslation();
     const tp = (key: string, fallback: string): string => t(`settings.plugins.${key}`, { defaultValue: fallback });
     const properties = sortFieldItems(sourceTable?.properties ?? []);
-    const fileProperties = properties.filter((property) => ['files', 'file', 'attachment', 'attachments'].includes(property.type));
-    const urlProperties = properties.filter((property) => property.type === 'url' || /url|enllaç|link/i.test(property.name));
+    // Keep existing selections visible so invalid legacy choices can be removed.
+    const fileProperties = properties.filter((property) => ['files', 'file', 'attachment', 'attachments'].includes(property.type)
+        || source.attachment_property_ids.includes(property.id));
+    const urlProperties = properties.filter((property) => property.type === 'url'
+        || (['text', 'rich_text'].includes(property.type) && /url|enllaç|link/i.test(property.name))
+        || source.url_property_ids.includes(property.id));
 
     const updateSource = (updater: (item: LlmWikiSource) => LlmWikiSource): void => {
         setDraft((current) => ({

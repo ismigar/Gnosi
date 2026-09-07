@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
+        i18n: { language: 'ca', resolvedLanguage: 'ca' },
         t: (key: string, fallback?: string) => fallback ?? key,
     }),
 }));
@@ -97,6 +98,28 @@ describe('SpellCheckLayer', () => {
         for (const view of views.splice(0)) view.destroy();
         vi.clearAllMocks();
         vi.unstubAllGlobals();
+    });
+
+    it('uses the app language when a dashboard has insufficient text', async () => {
+        mocks.detectLang.mockResolvedValue(null);
+        const fixture = createEditorFixture();
+        const onLangDetected = vi.fn();
+        await act(async () => {
+            root.render(<SpellCheckLayer editor={fixture.editor} onLangDetected={onLangDetected} />);
+            await Promise.resolve();
+        });
+        expect(onLangDetected).toHaveBeenCalledWith('ca');
+        expect(mocks.loadSpeller).toHaveBeenCalledWith('ca');
+    });
+
+    it('honors the page override instead of automatic detection', async () => {
+        const fixture = createEditorFixture();
+        await act(async () => {
+            root.render(<SpellCheckLayer editor={fixture.editor} forcedLang="es" />);
+            await Promise.resolve();
+        });
+        expect(mocks.detectLang).not.toHaveBeenCalled();
+        expect(mocks.loadSpeller).toHaveBeenCalledWith('es');
     });
 
     it('registers the plugin, detects the language and releases the plugin', async () => {
