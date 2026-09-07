@@ -414,6 +414,7 @@ def process_resource(
     source_config: Optional[dict[str, object]] = None,
     job_id: str = "",
     resume_checkpoint: Optional[dict[str, object]] = None,
+    resume_job_id: str = "",
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.agent.factory import generate_text
@@ -432,6 +433,7 @@ def process_resource(
         generate_text=cast(Callable[..., tuple[str, str]], generate_text),
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,
+        load_checkpoint=llm_wiki_storage.load_checkpoint,
         reduce_plans=_validate_and_reduce_plans,
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
@@ -458,6 +460,7 @@ def process_resource(
         source_config=source_config,
         job_id=job_id,
         resume_checkpoint=resume_checkpoint,
+        resume_job_id=resume_job_id,
         dependencies=dependencies,
     )
 
@@ -489,9 +492,11 @@ def start_ingest(
         return existing
     previous = llm_wiki_storage.get_job_status(source_page_id, source_table_id)
     resume_checkpoint: dict[str, object] | None = None
-    if not force and previous.get("phase") == PHASE_PARTIAL and previous.get("job_id"):
+    resume_job_id = ""
+    if not force and previous.get("phase") in {PHASE_PARTIAL, PHASE_ERROR} and previous.get("job_id"):
+        resume_job_id = str(previous["job_id"])
         loaded_checkpoint = llm_wiki_storage.load_checkpoint(
-            str(previous["job_id"]),
+            resume_job_id,
             "reduced-plan",
         )
         if isinstance(loaded_checkpoint, dict):
@@ -518,6 +523,7 @@ def start_ingest(
                 source_config=source_config,
                 job_id=job_id,
                 resume_checkpoint=resume_checkpoint,
+                resume_job_id=resume_job_id,
             )
             llm_wiki_storage.update_job(job_id, phase=PHASE_INDEXING, progress=90)
             index_report = llm_wiki_indices.rebuild_indexes(
@@ -546,8 +552,11 @@ def start_ingest(
         except Exception as exc:  # noqa: BLE001
             logger.error("llm_wiki ingest failed for %s: %s", source_page_id, exc)
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
-            phase = PHASE_PARTIAL if checkpoint else PHASE_ERROR
-            llm_wiki_storage.finish_job(job_id, phase=phase, error=str(exc))
+            status = llm_wiki_storage.get_job_status(job_id)
+            phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") else PHASE_ERROR
+            llm_wiki_storage.finish_job(
+                job_id, phase=phase, error=str(exc), progress=status.get("progress", 0),
+            )
         finally:
             if token is not None:
                 cv.active_vault_path.reset(token)

@@ -744,6 +744,26 @@ duradera, la consulta periódica de estado, las evidencias, el mantenimiento, el
 diagnóstico de coherencia, la revisión de sugerencias, el dictado y el aprendizaje del
 glosario; los servicios de resolución tardía y los errores HTTP recuperables no
 cambian.
+La planificación de Brain reintenta los fallos transitorios del proveedor,
+incluido HTTP 429, con un máximo de cinco intentos por fragmento, 120 segundos de
+espera acumulada y un límite total de 360 segundos por llamada. Cada petición
+recibe el tiempo límite restante (como máximo 240 segundos). La espera
+exponencial incorpora una variación aleatoria y respeta `Retry-After` en segundos,
+las fechas HTTP y `retry-after-ms`; si el período de espera supera el límite
+disponible, el intento se detiene en lugar de reintentar antes de tiempo. No se
+reintentan los errores de autenticación, de validación ni las cuotas de
+facturación explícitamente agotadas, y no se cambia de proveedor automáticamente.
+El trabajo duradero expone `phase: retrying` durante las esperas. El diálogo de
+procesamiento sigue consultando el estado, explica los límites de peticiones y
+ofrece un nuevo intento cuando el trabajo se detiene.
+Los planes de fragmentos completados se guardan como puntos de recuperación con
+el hash exacto del prompt y el fragmento de origen. Un nuevo intento no forzado de
+un trabajo con error o parcial reutiliza solo los planes coincidentes, los copia
+al nuevo trabajo y continúa con los fragmentos pendientes. Los cambios en la
+evidencia de origen o las entradas de planificación invalidan los fragmentos
+guardados; el procesamiento forzado explícitamente ignora todos los puntos de
+recuperación anteriores. Los trabajos interrumpidos conservan su progreso real y
+las notas de origen solo se escriben cuando se completa la planificación.
 `backend/domains/configuration/llm_wiki_schema.py` gestiona por separado la
 reparación idempotente de campos de Brain y la consolidación de una relación
 canónica de origen, incluidos los alias heredados, los metadatos de páginas y las

@@ -629,6 +629,21 @@ ports, including the typed `VaultActionsPort` used by Brain processing actions.
 The processing boundary uses the same typed router for durable ingestion,
 polling, evidence, maintenance, lint, suggestion review, dictation and glossary
 learning; late-bound services and recoverable HTTP errors remain unchanged.
+Brain planning retries transient provider failures, including HTTP 429, within
+five attempts per fragment, 120 seconds of cumulative waits and a 360-second
+overall call budget. Each request receives the remaining timeout (at most 240
+seconds). Exponential backoff includes jitter and honors `Retry-After` seconds,
+HTTP dates and `retry-after-ms`; a cooldown beyond the budget stops the attempt
+instead of retrying early. Authentication, validation and explicit exhausted
+billing quotas are not retried, and no provider is switched automatically.
+The durable job exposes `phase: retrying` during waits. The processing dialog
+keeps polling, explains rate limits and offers a retry when the job stops.
+Successful fragment plans are checkpointed with their exact prompt hash and
+source chunk. A non-forced retry of an error or partial job reuses only matching
+plans, copies them into the new job and continues at the remaining fragments.
+Changed source evidence or planning inputs invalidate cached fragments; explicit
+force processing bypasses all previous checkpoints. Interrupted jobs retain
+their actual progress and source notes are written only after planning completes.
 `backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
 Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.

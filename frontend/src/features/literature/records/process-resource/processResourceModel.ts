@@ -15,6 +15,7 @@ export const PHASE_LABELS = {
     partial: 'Interrupted; it can be resumed',
     planning: 'Planning notes with AI…',
     reading: 'Reading the source…',
+    retrying: 'Waiting for the AI provider; retrying automatically…',
     writing: 'Writing to the Brain…',
 } as const;
 
@@ -67,6 +68,11 @@ export function countTouchedPages(
     job: ResourceProcessingJob | null,
 ): number {
     return (job?.created?.length ?? 0) + (job?.updated?.length ?? 0);
+}
+
+
+export function isProviderRateLimit(error: string): boolean {
+    return /\b429\b|rate[ _-]*limit|insufficient_quota/i.test(error);
 }
 
 

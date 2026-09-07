@@ -135,6 +135,52 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('ProcessResourceModal', () => {
+    it('keeps polling while the provider cooldown is in progress', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            ...runningJob, phase: 'retrying', chunks_done: 1, chunks_total: 85,
+        });
+        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+
+        expect(container.textContent).toContain('Waiting for the AI provider');
+        expect(container.textContent).toContain('retrying automatically');
+        expect(vi.getTimerCount()).toBe(1);
+        expect(toast.error).not.toHaveBeenCalled();
+
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
+        await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+        expect(container.textContent).toContain('Resource processed');
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+
+    it('explains rate limits and resumes a failed force-run without forcing again', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            ...runningJob, running: false, phase: 'partial', chunks_done: 1,
+            error: "Error code: 429 - {'message': 'Rate limit exceeded', 'code': '1300'}",
+        });
+        render(<ProcessResourceModal force isOpen noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+
+        expect(container.textContent).toContain('The AI provider is limiting requests');
+        expect(container.textContent).toContain('Completed fragments are saved');
+        expect(container.textContent).not.toContain("'code': '1300'");
+        expect(vi.getTimerCount()).toBe(0);
+
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce(doneJob);
+        act(() => { buttonWithText('Retry').click(); });
+        await flushProcessing();
+
+        expect(vi.mocked(startResourceProcessing).mock.calls.map(([request]) => request.force)).toEqual([
+            true, false,
+        ]);
+        expect(container.textContent).toContain('Resource processed');
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+
     it('renders the accessible force-confirmation contract', () => {
         const onClose = vi.fn();
         render(

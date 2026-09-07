@@ -101,7 +101,7 @@ export function useProcessResourceController({
         setError('');
         try {
             const response = await startResourceProcessing({
-                force,
+                force: force && state === 'confirm',
                 resource_id: noteId,
                 source_table_id: sourceTableId,
             });
@@ -129,7 +129,7 @@ export function useProcessResourceController({
             setState('error');
             toast.error(message);
         }
-    }, [force, noteId, onJobUpdate, poll, sourceTableId, stopPolling, t]);
+    }, [force, noteId, onJobUpdate, poll, sourceTableId, state, stopPolling, t]);
 
     const dismiss = useCallback((): void => {
         const currentJob = jobRef.current;

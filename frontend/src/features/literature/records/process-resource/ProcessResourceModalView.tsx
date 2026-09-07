@@ -7,6 +7,7 @@ import {
     countTouchedPages,
     getProcessPhase,
     getProgressPercent,
+    isProviderRateLimit,
     type ProcessResourceState,
 } from './processResourceModel';
 
@@ -172,7 +173,18 @@ export function ProcessResourceModalView({
                                 size={18}
                             />
                             <div className="text-xs text-red-500 break-words">
-                                {error}
+                                {isProviderRateLimit(error) ? translate(
+                                    'error_rate_limit',
+                                    'The AI provider is limiting requests. Wait a few minutes or check your account limits, then retry.',
+                                ) : error}
+                                {(job?.chunks_done ?? 0) > 0 ? (
+                                    <p className="mt-2">
+                                        {translate(
+                                            'resume_hint',
+                                            'Completed fragments are saved and will be reused if the source and processing instructions have not changed.',
+                                        )}
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
                     ) : null}
@@ -202,6 +214,14 @@ export function ProcessResourceModalView({
                             onClick={onCancel}
                         >
                             {t('common.close', 'Close')}
+                        </button>
+                    ) : null}
+                    {state === 'error' && job?.job_id ? (
+                        <button
+                            className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity"
+                            onClick={onStart}
+                        >
+                            {translate('retry', 'Retry')}
                         </button>
                     ) : null}
                     {state === 'running' ? (
