@@ -7,6 +7,8 @@ source_paths:
   - .github/workflows/build-release.yml
   - Dockerfile.backend
   - scripts/ci/build_container_image.py
+  - scripts/ci/pre_pr.py
+  - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -21,6 +23,7 @@ tests:
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
   - backend/tests/test_ci_docker_python_policy.py
+  - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -107,6 +110,65 @@ flowchart TB
 Cap capa és suficient per si sola. Un build del frontend detecta errors d'importació
 i sintaxi, però no una interacció trencada. Una prova unitària de ruta no demostra
 la integració amb el navegador. Una captura no prova persistència ni autorització.
+
+## Validació unificada abans d’una PR
+
+Prepareu primer les dependències congelades de JavaScript, execució i documentació:
+
+```bash
+pnpm install --frozen-lockfile
+uv sync --frozen --group docs-ci
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
+```
+
+L’entorn Python congelat es comprova sense instal·lar paquets ni eliminar-ne els addicionals.
+
+L’entrada directa de Python evita la comprovació automàtica externa de dependències
+de pnpm. L’àlies de paquet `check:pre-pr` també està disponible després d’instal·lar-les.
+Feu servir `--quick` per a comprovacions estàtiques i contractes de CI, o `--list`
+per inspeccionar el pla sense executar-lo. Cap dels dos acredita tota la PR.
+El pla complet predeterminat també executa compatibilitat d’API, totes les
+comprovacions de tipus del backend i pipeline, la política de recursos congelats,
+les suites completes de Python, frontend i escriptori, el build de producció
+del frontend i la validació completa de documentació amb actualització.
+
+La base indicada amb `--base-ref` es resol una vegada a un commit immutable;
+l’ordre no descarrega referències ni canvia de branca. Informa de `HEAD` i valida
+l’arbre de treball actual, inclosos els canvis seguits preparats i no preparats.
+Resoleu els conflictes i reviseu/prepareu o ignoreu els fitxers no seguits abans
+de començar, perquè les comprovacions de l’índex no ometin codi nou. Python 3.11
+i Node han de tenir arquitectures coincidents.
+
+Les fases s’executen consecutivament amb el heap revisat de Node de 4 GiB i un
+sol procés de proves de frontend. El primer error atura la validació, conserva
+el codi de sortida i identifica la fase fallida; no es reintenta ni es converteix
+en èxit. Les eines absents i les interrupcions continuen sent errors. Llegiu el
+registre de la primera fase fallida abans de decidir si la causa és el codi,
+les dependències o la infraestructura.
+
+L’entorn fill utilitza `GNOSI_VALIDATION_ROOT` i directoris temporals de dades
+i vault, desactiva les proves contra serveis reals, elimina les variables de
+credencials heretades i dirigeix els destins reals del backend i navegador a un
+port loopback tancat. Manté intacte el directori personal real.
+`UV_NO_SYNC=1`, `UV_FROZEN=1` i `pnpm_config_verify_deps_before_run=error`
+impedeixen instal·lacions implícites a les ordres filles; si cal, feu servir
+la preparació congelada explícita anterior. La validació no arrenca l’app
+personal, contenidors ni l’empaquetament de versions.
+
+El mode complet regenera intencionadament la documentació. Reviseu i prepareu
+aquests canvis i repetiu la validació de documentació abans de la PR amb la
+mateixa base; no ha de produir cap diferència addicional. Les regressions
+comparen el pla complet amb totes les ordres de validació existents del frontend
+i backend de CI per detectar omissions quan aquesta canvia.
+
+L’èxit local no és l’èxit de GitHub: les cinc comprovacions obligatòries han
+de passar al commit final de la PR, incloent-hi l’arrencada nativa real i la
+persistència de Docker als seus executors. La validació local no reprodueix
+descàrregues sense memòria cau, planificació d’executors, altres sistemes
+operatius, instal·ladors ni desplegaments. L’ordre no publica ni fusiona commits.
+
+Si el codi o `HEAD` canvien durant la validació, aquesta falla i cal repetir-la;
+només s’exclouen les diferències previstes dels catàlegs generats.
 
 ## Comprovació unificada de tipus
 

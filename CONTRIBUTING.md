@@ -139,6 +139,26 @@ Mature, reusable tooling lives under `pipeline/skills/[name]/` with a `SKILL.md`
 
 A change is not done until it builds and the relevant tests pass. "Couldn't test it" is not a passing state.
 
+Before opening a PR, prepare the frozen dependencies above, including the
+documentation group with `uv sync --frozen --group docs-ci`, then run:
+
+```bash
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
+```
+
+This is the unified local gate. It checks the current working tree against a
+locally available base ref, runs the existing full validation commands serially,
+and stops at the first error. Review/stage new files first; missing dependencies,
+merge conflicts and mismatched Python/Node architectures fail early. Use `--list`
+to inspect the plan or `--quick` for a partial static/contract check while editing.
+Full mode updates the engineering catalogs: review/stage their changes and rerun
+the documentation gate until there is no further diff. The `check:pre-pr` package
+alias is available after installation; the direct command above avoids pnpm's
+outer automatic dependency check. See the
+[test strategy](docs/engineering/testing/test-strategy.md#unified-pre-pr-validation)
+for scope and isolation. A local pass never replaces the five required GitHub
+checks, native startup, Docker persistence or release acceptance.
+
 **Frontend** — from the repository root:
 
 ```bash

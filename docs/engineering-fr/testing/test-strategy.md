@@ -7,6 +7,8 @@ source_paths:
   - .github/workflows/build-release.yml
   - Dockerfile.backend
   - scripts/ci/build_container_image.py
+  - scripts/ci/pre_pr.py
+  - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -21,6 +23,7 @@ tests:
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
   - backend/tests/test_ci_docker_python_policy.py
+  - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -108,6 +111,66 @@ flowchart TB
 ```
 
 Aucun niveau ne suffit à lui seul. Un build du frontend détecte les erreurs d'import et de syntaxe, mais pas une interaction défaillante. Un test unitaire de route ne prouve pas l'intégration dans le navigateur. Une capture d'écran ne prouve ni la persistance ni l'autorisation.
+
+## Validation unifiée avant une PR
+
+Préparez d’abord les dépendances figées JavaScript, d’exécution et de documentation :
+
+```bash
+pnpm install --frozen-lockfile
+uv sync --frozen --group docs-ci
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
+```
+
+L’environnement Python figé est vérifié sans installer de paquets ni retirer les paquets supplémentaires.
+
+L’entrée Python directe évite la vérification automatique externe des dépendances
+par pnpm. L’alias de paquet `check:pre-pr` est également disponible après leur
+installation. Utilisez `--quick` pour les contrôles statiques et contrats CI,
+ou `--list` pour inspecter le plan sans l’exécuter. Aucun ne valide toute la PR.
+Le plan complet par défaut exécute aussi la compatibilité API, toutes les
+vérifications de types backend/pipeline, la politique des ressources figées,
+les suites complètes Python, frontend et desktop, le build de production du
+frontend et la validation complète de documentation avec mise à jour.
+
+La base fournie par `--base-ref` est résolue une seule fois en commit immuable ;
+la commande ne récupère pas de références et ne change pas de branche. Elle
+indique `HEAD` et valide l’arbre de travail courant, y compris les modifications
+suivies, indexées ou non. Résolvez les conflits et examinez/indexez ou ignorez
+les fichiers non suivis avant de commencer pour que les contrôles de l’index
+n’omettent pas de nouveau code. Python 3.11 et Node doivent partager la même architecture.
+
+Les phases s’exécutent consécutivement avec le heap Node révisé de 4 Gio et
+un seul processus de test frontend. La première erreur arrête la validation,
+conserve son code de sortie et nomme la phase en échec ; elle n’est ni réessayée
+ni transformée en succès. Les outils absents et les interruptions restent des
+échecs. Lisez le journal de la première phase en échec avant de déterminer si
+la cause est le code, les dépendances ou l’infrastructure.
+
+L’environnement enfant utilise `GNOSI_VALIDATION_ROOT` et des répertoires
+temporaires de données/vault, désactive les tests contre des services réels,
+retire les variables d’identifiants héritées et dirige les cibles réelles du
+backend et du navigateur vers un port loopback fermé. Le répertoire personnel
+réel reste inchangé. `UV_NO_SYNC=1`, `UV_FROZEN=1` et
+`pnpm_config_verify_deps_before_run=error` empêchent les installations implicites
+par les commandes enfants ; utilisez si nécessaire la préparation figée explicite
+ci-dessus. La validation ne démarre ni l’application personnelle, ni les
+conteneurs, ni la création de paquets de version.
+
+Le mode complet régénère volontairement la documentation. Examinez et indexez
+ces différences, puis répétez la validation documentaire avant PR avec la
+même base ; aucune différence supplémentaire ne doit apparaître. Les régressions
+comparent le plan complet à toutes les commandes de validation frontend/backend
+existantes de CI afin de détecter les omissions lorsque celle-ci évolue.
+
+Un succès local n’est pas un succès GitHub : les cinq contrôles obligatoires
+doivent réussir sur le commit final de la PR, y compris le démarrage natif réel
+et la persistance Docker sur leurs exécuteurs. La validation locale ne reproduit
+pas les téléchargements sans cache, la planification des exécuteurs, les autres
+systèmes, les installateurs ou le déploiement. La commande ne publie ni ne fusionne de commits.
+
+Si le code ou `HEAD` change pendant la validation, celle-ci échoue et doit être répétée ;
+seules les différences prévues des catalogues générés sont exclues.
 
 ## Vérification unifiée des types
 
