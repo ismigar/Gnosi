@@ -29,6 +29,7 @@
     "check:api-client": "pnpm check:openapi && pnpm check:api-compatibility && pnpm --filter @gnosi/frontend check:api && pnpm check:api-boundary",
     "check:api-boundary": "uv run python scripts/check_frontend_api_boundary.py",
     "check:pipeline": "uv run python scripts/check_public_pipeline.py",
+    "check:pre-pr": "uv run --frozen --no-sync python scripts/ci/pre_pr.py",
     "check:pipeline:structure": "uv run python scripts/check_public_pipeline.py --structure",
     "check:runtime": "uv run python scripts/check_public_runtime.py",
     "typecheck:pipeline": "uv run python scripts/check_public_pipeline.py --typecheck",

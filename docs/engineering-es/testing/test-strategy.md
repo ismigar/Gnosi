@@ -7,6 +7,8 @@ source_paths:
   - .github/workflows/build-release.yml
   - Dockerfile.backend
   - scripts/ci/build_container_image.py
+  - scripts/ci/pre_pr.py
+  - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -21,6 +23,7 @@ tests:
   - backend/tests/test_ci_scheduling_contract.py
   - backend/tests/test_ci_container_build.py
   - backend/tests/test_ci_docker_python_policy.py
+  - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -106,6 +109,65 @@ flowchart TB
 ```
 
 Ninguna capa es suficiente por sí sola. La compilación del frontend detecta errores de importación y sintaxis, pero no una interacción rota. Una prueba unitaria de ruta no demuestra la integración con el navegador. Una captura de pantalla no demuestra persistencia ni autorización.
+
+## Validación unificada antes de una PR
+
+Preparad primero las dependencias congeladas de JavaScript, ejecución y documentación:
+
+```bash
+pnpm install --frozen-lockfile
+uv sync --frozen --group docs-ci
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
+```
+
+El entorno Python congelado se comprueba sin instalar paquetes ni eliminar los adicionales.
+
+La entrada directa de Python evita la comprobación automática externa de
+dependencias de pnpm. El alias de paquete `check:pre-pr` también está disponible
+tras instalarlas. Usad `--quick` para comprobaciones estáticas y contratos de CI,
+o `--list` para inspeccionar el plan sin ejecutarlo. Ninguno acredita toda la PR.
+El plan completo predeterminado también ejecuta compatibilidad de API, todas
+las comprobaciones de tipos del backend y pipeline, la política de recursos
+congelados, las suites completas de Python, frontend y escritorio, el build de
+producción del frontend y la validación completa de documentación con actualización.
+
+La base indicada mediante `--base-ref` se resuelve una vez a un commit inmutable;
+la orden no descarga referencias ni cambia de rama. Informa de `HEAD` y valida
+el árbol de trabajo actual, incluidos los cambios seguidos preparados y no
+preparados. Resolved conflictos y revisad/preparad o ignorad los archivos no
+seguidos antes de empezar, para que las comprobaciones del índice no omitan
+código nuevo. Python 3.11 y Node deben tener arquitecturas coincidentes.
+
+Las fases se ejecutan consecutivamente con el heap revisado de Node de 4 GiB
+y un solo proceso de pruebas de frontend. El primer error detiene la validación,
+conserva el código de salida e identifica la fase fallida; no se reintenta ni
+se convierte en éxito. Las herramientas ausentes y las interrupciones siguen
+siendo errores. Leed el registro de la primera fase fallida antes de decidir
+si la causa es el código, las dependencias o la infraestructura.
+
+El entorno hijo utiliza `GNOSI_VALIDATION_ROOT` y directorios temporales de
+datos y vault, desactiva las pruebas contra servicios reales, elimina las
+variables de credenciales heredadas y dirige los destinos reales del backend
+y navegador a un puerto loopback cerrado. Conserva el directorio personal real.
+`UV_NO_SYNC=1`, `UV_FROZEN=1` y `pnpm_config_verify_deps_before_run=error`
+impiden instalaciones implícitas en las órdenes hijas; si hace falta, usad la
+preparación congelada explícita anterior. La validación no arranca la aplicación
+personal, contenedores ni el empaquetado de versiones.
+
+El modo completo regenera intencionadamente la documentación. Revisad y
+preparad esos cambios y repetid la validación de documentación previa a la PR
+con la misma base; no debe producir diferencias adicionales. Las regresiones
+comparan el plan completo con todas las órdenes de validación existentes del
+frontend y backend de CI para detectar omisiones cuando esta cambia.
+
+El éxito local no es el éxito de GitHub: las cinco comprobaciones obligatorias
+deben pasar en el commit final de la PR, incluidos el arranque nativo real y la
+persistencia de Docker en sus ejecutores. La validación local no reproduce
+descargas sin caché, planificación de ejecutores, otros sistemas operativos,
+instaladores ni despliegues. La orden no publica ni fusiona commits.
+
+Si el código o `HEAD` cambian durante la validación, esta falla y debe repetirse;
+solo se excluyen las diferencias previstas de los catálogos generados.
 
 ## Comprobación unificada de tipos
 
