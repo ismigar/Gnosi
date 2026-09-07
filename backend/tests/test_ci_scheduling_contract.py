@@ -89,6 +89,25 @@ def test_all_gates_and_bounded_native_order_are_preserved(
         assert "!cancelled()" in str(_mapping(jobs[name])["if"])
 
 
+def test_docker_cleanup_is_scoped_bounded_and_never_ignored(workflow: dict[str, object]) -> None:
+    docker = _mapping(_mapping(workflow["jobs"])["docker"])
+    steps = docker["steps"]
+    assert isinstance(steps, list)
+    commands = {
+        str(_mapping(step)["run"]): _mapping(step)
+        for step in steps if "run" in _mapping(step)
+    }
+    for command in (
+        "python3 scripts/ci/prepare_docker_runner.py",
+        "python3 scripts/ci/prepare_docker_runner.py --cleanup",
+    ):
+        assert commands[command]["timeout-minutes"] == 10
+        assert not commands[command].get("continue-on-error")
+    assert commands["python3 scripts/ci/prepare_docker_runner.py --cleanup"]["if"] == "always()"
+    assert "scripts/smoke_docker.sh" in commands
+    assert all("system prune" not in command for command in commands)
+
+
 def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     workflow: dict[str, object],
 ) -> None:

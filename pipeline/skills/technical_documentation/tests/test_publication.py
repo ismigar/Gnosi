@@ -94,7 +94,7 @@ fi'''.splitlines(),
         "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend "
         "--tag gnosi-backend:ci --context .",
         "scripts/smoke_docker.sh",
-        "docker system prune --all --force --volumes",
+        "python3 scripts/ci/prepare_docker_runner.py --cleanup",
     ],
 }
 

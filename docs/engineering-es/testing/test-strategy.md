@@ -220,9 +220,24 @@ con puntero y teclado en los temas claro y oscuro.
 
 ## Pruebas de despliegue
 
-Actualmente, la CI de Docker valida Compose y construye las imágenes de backend
-y frontend; no arranca contenedores ni verifica su estado y persistencia.
-Estas pruebas de ejecución siguen siendo necesarias antes de una release.
+La CI de Docker valida Compose, construye ambas imágenes y ejecuta
+`scripts/smoke_docker.sh`. La prueba comprueba el backend y el frontend en marcha,
+recrea los contenedores y verifica un marcador sintético en `/data`. Su limpieza
+de salida solo afecta a su proyecto Compose con nombre único, incluidos los
+volúmenes de prueba de ese proyecto.
+
+La limpieza final ejecuta `scripts/ci/prepare_docker_runner.py --cleanup`: retira
+solo las etiquetas de imagen `gnosi-frontend:ci` y `gnosi-backend:ci` sin forzar
+imágenes en uso, limpia la caché de construcción no utilizada y regenerable,
+y verifica al menos 12 GiB libres. Nunca limpia globalmente contenedores,
+redes ni volúmenes. Una orden de limpieza de caché finalizada que informa de
+`context deadline exceeded` se puede repetir hasta tres intentos totales,
+separados por cinco segundos. Cada intento tiene un límite de proceso de
+120 segundos; los pasos de capacidad y limpieza final tienen límites de diez
+minutos. Otros errores, un límite de proceso agotado, los reintentos agotados
+o el espacio insuficiente siguen haciendo fallar el check. Nunca se omiten
+las construcciones ni la prueba de persistencia.
+
 El trabajo de frontend aplica el presupuesto revisado de 4 GiB de
 heap de Node a todo el trabajo para que lint, comprobación de tipos, pruebas y
 build de producción compartan el mismo contrato de memoria previsible.

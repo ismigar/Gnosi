@@ -232,9 +232,24 @@ els temes clar i fosc.
 
 ## Comprovacions de desplegament
 
-Actualment, la CI de Docker valida Compose i construeix les imatges del backend
-i del frontend; no arrenca contenidors ni verifica el seu estat i la persistència.
-Aquestes proves d'execució continuen sent necessàries abans d'una release.
+La CI de Docker valida Compose, construeix les dues imatges i executa
+`scripts/smoke_docker.sh`. La prova comprova el backend i el frontend en marxa,
+recrea els contenidors i verifica un marcador sintètic a `/data`. La neteja de
+sortida només afecta el seu projecte Compose amb nom únic, inclosos els volums
+de prova d'aquell projecte.
+
+La neteja final executa `scripts/ci/prepare_docker_runner.py --cleanup`: retira
+només les etiquetes d'imatge `gnosi-frontend:ci` i `gnosi-backend:ci` sense forçar
+imatges en ús, neteja la memòria cau de construcció no utilitzada i regenerable,
+i verifica almenys 12 GiB lliures. Mai no fa una neteja global de contenidors,
+xarxes o volums. Una ordre de neteja de memòria cau finalitzada que informa de
+`context deadline exceeded` es pot repetir fins a tres intents totals,
+separats per cinc segons. Cada intent té un límit de procés de 120 segons;
+els passos de capacitat i neteja final tenen límits de deu minuts. Altres
+errors, un límit de procés esgotat, els reintents esgotats o l'espai insuficient
+continuen fent fallar el check. Mai no s'ometen les construccions ni la prova
+de persistència.
+
 El job de frontend aplica el pressupost revisat de 4 GiB de heap de
 Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
 comparteixin el mateix contracte de memòria previsible.
