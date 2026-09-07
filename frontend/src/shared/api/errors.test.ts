@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { GnosiApiError } from './errors';
+import { apiErrorDetail, GnosiApiError } from './errors';
 
 
 function validationResponse(): Response {
@@ -12,6 +12,16 @@ function validationResponse(): Response {
 
 
 describe('GnosiApiError', () => {
+  it.each([undefined, '', { detail: null }])('uses the localized fallback for an empty server failure: %j', (payload) => {
+    const error = new GnosiApiError(new Response(null, { status: 500, statusText: 'Internal Server Error' }), payload);
+    expect(apiErrorDetail(error, 'No s’ha pogut carregar la configuració.')).toBe('No s’ha pogut carregar la configuració.');
+  });
+
+  it('preserves actionable server details in user-facing errors', () => {
+    const error = new GnosiApiError(validationResponse(), { detail: 'Invalid source field' });
+    expect(apiErrorDetail(error, 'Could not save')).toBe('Invalid source field');
+  });
+
   it('surfaces bounded Pydantic validation messages without exposing inputs', () => {
     const error = new GnosiApiError(validationResponse(), {
       detail: [

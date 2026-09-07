@@ -5614,6 +5614,8 @@
     "phase_reading": "Leyendo la fuente…",
     "phase_planning": "Planificando las notas con IA…",
     "phase_retrying": "Esperando al proveedor de IA; se reintentará automáticamente…",
+    "job_unavailable": "No se puede recuperar el estado del procesamiento. Vuelve a intentarlo para reanudar el progreso guardado.",
+    "fragments_progress": "{{count}} de {{total}} fragmentos completados",
     "error_rate_limit": "El proveedor de IA está limitando las peticiones. Espera unos minutos o revisa los límites de la cuenta y vuelve a intentarlo.",
     "resume_hint": "Los fragmentos completados se han guardado y se reutilizarán si la fuente y las instrucciones de procesamiento no han cambiado.",
     "retry": "Volver a intentar",

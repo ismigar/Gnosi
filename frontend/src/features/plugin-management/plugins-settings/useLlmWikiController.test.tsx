@@ -60,11 +60,31 @@ it('times out a stuck configuration request and can retry without exposing an em
     api.fetchPluginLlmWikiConfig.mockImplementationOnce(() => new Promise<never>(() => {}));
     let pending = Promise.resolve();
     act(() => { pending = controller.retryLoad(); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(45_000); });
     await pending;
     expect(controller.loading).toBe(false);
     expect(controller.error).toBe('settings.plugins.llm_wiki_load_error');
     await act(async () => { await controller.retryLoad(); });
     expect(controller.error).toBe('');
     expect(controller.loading).toBe(false);
+});
+
+it('loads a slow configuration after the former 15-second deadline', async () => {
+    api.fetchPluginLlmWikiConfig.mockImplementationOnce(() => new Promise(resolve => {
+        setTimeout(() => { resolve({ config: { brain_table_id: 'slow-brain', source_tables: [] } }); }, 19_000);
+    }));
+    let pending = Promise.resolve();
+    act(() => { pending = controller.retryLoad(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(19_000); await pending; });
+    expect(controller.error).toBe('');
+    expect(controller.loading).toBe(false);
+    expect(controller.draft.brain_table_id).toBe('slow-brain');
+});
+
+it('shows the translated load error when the local server returns an empty failure', async () => {
+    api.fetchPluginLlmWikiConfig.mockRejectedValueOnce(new GnosiApiError(new Response(null, { status: 500 }), undefined));
+    await act(async () => { await controller.retryLoad(); });
+    expect(controller.error).toBe('settings.plugins.llm_wiki_load_error');
+    await act(async () => { await controller.retryLoad(); });
+    expect(controller.error).toBe('');
 });
