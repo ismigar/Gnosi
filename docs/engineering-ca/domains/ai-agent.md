@@ -707,6 +707,24 @@ d’origen o les entrades de planificació invaliden els fragments desats; el
 processament forçat explícitament ignora tots els punts de recuperació anteriors.
 Els treballs interromputs conserven el progrés real i les notes de font només
 s’escriuen quan la planificació s’ha completat.
+Cada crida d’ingestió selecciona explícitament l’agent configurat `llm-wiki`.
+Una resposta del proveïdor amb `x-ratelimit-limit-req-minute: 0` atura els
+reintents automàtics, perquè esperar no pot reposar un límit de zero peticions;
+la capacitat restant nul·la amb un límit positiu continua rebent els reintents
+habituals. Després d’un reinici del servidor, la consulta d’estat llegeix el
+treball desat pel seu identificador exacte i comprova la taula font si s’indica.
+Els treballs en execució interromputs passen a `phase: partial` i conserven el
+recompte de fragments completats. El diàleg permet una sola petició d’estat
+alhora, ignora respostes cancel·lades i mostra el progrés per fragments;
+`phase: idle` per a un treball seguit atura les consultes amb un error recuperable.
+
+La càrrega de configuració permet fins a 45 segons per a una resposta local
+lenta. Les respostes HTTP fallides es rebutgen abans d’entrar a la memòria cau
+compartida de configuració, de manera que un reintent pot arribar al servidor
+recuperat. Els errors del servidor sense detall fan servir el missatge traduït
+de configuració amb un botó de reintent separat. Carregar aquests ajustos no
+requereix un proveïdor de models disponible.
+
 `backend/domains/configuration/llm_wiki_schema.py` gestiona separadament la
 reparació idempotent dels camps Brain i la consolidació d’una relació canònica
 de font, inclosos àlies històrics, metadades de pàgina i vistes contextuals

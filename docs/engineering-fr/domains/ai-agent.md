@@ -774,6 +774,25 @@ modifications des preuves sources ou des entrées de planification invalident le
 fragments enregistrés ; un traitement explicitement forcé ignore tous les points
 de reprise précédents. Les tâches interrompues conservent leur progression réelle
 et les notes sources ne sont écrites qu’une fois la planification terminée.
+Chaque appel d’ingestion sélectionne explicitement l’agent configuré
+`llm-wiki`. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
+arrête les nouvelles tentatives automatiques, car attendre ne peut pas
+reconstituer une limite de zéro requête ; une capacité restante nulle avec une
+limite positive conserve les tentatives habituelles. Après un redémarrage du
+serveur, la consultation de l’état lit le travail enregistré par son identifiant
+exact et vérifie la table source lorsqu’elle est fournie. Les travaux en cours
+interrompus passent à `phase: partial` et conservent le nombre de fragments
+terminés. Le dialogue autorise une seule requête d’état à la fois, ignore les
+réponses annulées et affiche la progression par fragments ; `phase: idle` pour
+un travail suivi arrête les consultations avec une erreur récupérable.
+
+Le chargement de la configuration autorise jusqu’à 45 secondes pour une réponse
+locale lente. Les réponses HTTP en échec sont rejetées avant d’entrer dans le
+cache partagé de configuration, afin qu’une nouvelle tentative puisse atteindre
+le serveur rétabli. Les erreurs du serveur sans détail utilisent le message
+traduit de configuration avec un bouton de nouvelle tentative séparé. Charger
+ces paramètres ne nécessite pas de fournisseur de modèles disponible.
+
 `backend/domains/configuration/llm_wiki_schema.py` gère séparément la réparation
 idempotente des champs de Brain et la consolidation d'une relation source
 canonique unique, y compris les alias historiques, les métadonnées de page et les
