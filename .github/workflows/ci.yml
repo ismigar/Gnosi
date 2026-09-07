@@ -53,7 +53,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.9.15'
+          version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
@@ -100,7 +100,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.9.15'
+          version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
@@ -151,7 +151,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.9.15'
+          version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py
@@ -198,7 +198,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: '0.9.15'
+          version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
         run: python scripts/ci/prepare_python_environment.py

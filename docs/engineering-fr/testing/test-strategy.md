@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -79,6 +79,16 @@ préservent les nouveaux environnements par tâche,
 l’isolation du cache et tous les tests ; elles ne masquent pas les erreurs
 d’installation et ne garantissent pas la disponibilité du réseau. La
 configuration des exécuteurs, des paquets de version et des tests reste inchangée.
+
+Le CI partagé fixe `uv` à `0.10.0` pour que le nombre existant de nouvelles
+tentatives couvre aussi les délais de lecture après réception d’une partie
+d’un paquet. Avec `0.9.15`, cet échec pendant le transfert pouvait arrêter
+l’installation sans réessayer, malgré les tentatives HTTP configurées. Il utilise
+la [correction amont des délais de transfert](https://github.com/astral-sh/uv/pull/17875),
+sans boucle supplémentaire ni délai plus long. Les téléchargements terminés
+restent dans le cache de la même tâche ; une installation échouée fait toujours
+échouer la tâche. Les dépendances figées de l’application et les versions de
+l’installateur pour Pages et l’empaquetage des versions restent inchangées.
 
 # Stratégie de test
 

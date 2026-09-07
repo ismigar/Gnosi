@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -77,6 +77,16 @@ Estos límites conservan
 los entornos nuevos por trabajo, el aislamiento de la caché y todas las pruebas;
 no ocultan errores de instalación ni garantizan la disponibilidad de la red.
 Las asignaciones de ejecutores, el empaquetado de versiones y las pruebas no cambian.
+
+El CI compartido fija `uv` en `0.10.0` para que el límite de reintentos existente
+también cubra los tiempos de espera tras recibir parte de un paquete. Con
+`0.9.15`, ese fallo durante la transferencia podía detener la instalación sin
+reintentarla, pese a los reintentos HTTP configurados. Se utiliza la
+[corrección original de tiempos de espera en transferencias](https://github.com/astral-sh/uv/pull/17875),
+no un envoltorio de reintentos ni un plazo más largo. Las descargas completadas
+permanecen en la caché del mismo trabajo; una instalación fallida sigue haciendo
+fallar el trabajo. Las dependencias congeladas de la app y las versiones del
+instalador de Pages y del empaquetado de versiones no cambian.
 
 # Estrategia de pruebas
 

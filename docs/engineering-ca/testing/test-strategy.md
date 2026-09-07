@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -76,6 +76,16 @@ Això admet descàrregues sense memòria cau als executors locals. Aquests lími
 els entorns nous per treball, l’aïllament de la memòria cau i totes les proves;
 no amaguen errors d’instal·lació ni garanteixen la disponibilitat de la xarxa.
 Les assignacions d’executors, l’empaquetament de versions i les proves no canvien.
+
+El CI compartit fixa `uv` a `0.10.0` perquè el límit de reintents existent també
+cobreixi els temps d’espera després de rebre part d’un paquet. Amb `0.9.15`,
+aquesta fallada durant la transferència podia aturar la instal·lació sense
+reintentar-la, malgrat els reintents HTTP configurats. S’utilitza la
+[correcció original dels temps d’espera en transferències](https://github.com/astral-sh/uv/pull/17875),
+no un embolcall de reintents ni un termini més llarg. Les descàrregues completades
+romanen a la memòria cau del mateix treball; una instal·lació fallida continua
+fent fallar el treball. Les dependències congelades de l’app i les versions
+de l’instal·lador de Pages i de l’empaquetament de versions no canvien.
 
 # Estratègia de proves
 

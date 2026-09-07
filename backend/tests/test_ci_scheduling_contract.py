@@ -190,6 +190,25 @@ def test_python_downloads_are_bounded_for_every_job(
     assert not sync_steps[0].get("continue-on-error")
 
 
+@pytest.mark.parametrize("job_name", [
+    "frontend", "backend", "native-smoke", "documentation",
+])
+def test_python_installer_includes_partial_stream_timeout_retries(
+    workflow: dict[str, object], job_name: str,
+) -> None:
+    """uv 0.10.0 fixes read timeouts after a wheel stream has received bytes."""
+    job = _mapping(_mapping(workflow["jobs"])[job_name])
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    installers = [
+        _mapping(step) for step in steps
+        if str(_mapping(step).get("uses", "")).startswith("astral-sh/setup-uv@")
+    ]
+    assert len(installers) == 1
+    assert _mapping(installers[0]["with"])["version"] == "0.10.0"
+    assert _mapping(installers[0]["with"])["enable-cache"] is False
+
+
 def test_frontend_checks_native_python_before_installing_dependencies(
     workflow: dict[str, object],
 ) -> None:

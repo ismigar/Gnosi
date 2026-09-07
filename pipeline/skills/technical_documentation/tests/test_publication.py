@@ -243,7 +243,7 @@ def test_ci_documentation_gate_uses_frozen_docs_and_check_only(
         if workflow_text(step.get("uses", "")).startswith("astral-sh/setup-uv@")
     )
     assert workflow_mapping(python["with"])["python-version"] == "3.11"
-    assert workflow_mapping(uv["with"])["version"] == "0.9.15"
+    assert workflow_mapping(uv["with"])["version"] == "0.10.0"
     commands = [workflow_text(step["run"]) for step in steps if "run" in step]
     assert len(commands) == 3
     assert commands[:2] == [

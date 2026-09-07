@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -67,6 +67,14 @@ fifteen minutes. This accommodates cold downloads on the local runners.
 These limits preserve fresh job-scoped environments, cache isolation and every
 test target; they do not suppress installation errors or guarantee network
 availability. Runner assignments, release packaging and test targets are unchanged.
+
+Shared CI pins `uv` to `0.10.0` so the existing retry budget also covers read
+timeouts after receiving part of a wheel. With `0.9.15`, that streaming failure
+could terminate installation without retrying, despite the configured HTTP
+retries. This uses the [upstream streaming-timeout fix](https://github.com/astral-sh/uv/pull/17875),
+not a retry wrapper or a longer deadline. Completed downloads remain in the
+same job-scoped cache; failed installs still fail the job. Frozen application
+dependencies, Pages and release-packaging installer pins are unchanged.
 
 # Test strategy
 
