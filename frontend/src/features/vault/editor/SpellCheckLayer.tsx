@@ -54,7 +54,9 @@ export default function SpellCheckLayer({
     forcedLang,
     onLangDetected,
 }: SpellCheckLayerProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const appLanguage = (i18n.resolvedLanguage || i18n.language || 'ca').split('-')[0];
+    const fallbackLanguage = appLanguage === 'es' || appLanguage === 'en' ? appLanguage : 'ca';
     const spellerRef = useRef<Speller | null>(null);
     const ignoredRef = useRef<Set<string>>(new Set());
     const enabledRef = useRef(enabled);
@@ -93,7 +95,7 @@ export default function SpellCheckLayer({
         const controller = new AbortController();
         void (async () => {
             const plainText = extractEditorText(editor.document);
-            const language = forcedLang || await detectLang(plainText) || 'en';
+            const language = forcedLang || await detectLang(plainText) || fallbackLanguage;
             if (isAborted(controller)) return;
             onLangDetected?.(language);
             const speller = await loadSpeller(language);
@@ -107,7 +109,7 @@ export default function SpellCheckLayer({
         return () => {
             controller.abort();
         };
-    }, [editor, enabled, forcedLang, onLangDetected, pageId, view]);
+    }, [editor, enabled, forcedLang, fallbackLanguage, onLangDetected, pageId, view]);
 
     useEffect(() => {
         const dom = editor?.prosemirrorView.dom;

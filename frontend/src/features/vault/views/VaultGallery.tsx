@@ -192,7 +192,7 @@ function VaultGalleryContent({
             templates={templates}
             totalCount={visibleNotes.length}
         /> : null}
-        <div className="custom-scrollbar flex-1 overflow-y-auto px-4 pb-4 pt-vault-header-top md:px-6 md:pb-6">
+        <div className="custom-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-4 pt-vault-header-top md:px-6 md:pb-6">
             <VaultGallerySections
                 cardSize={cardSize}
                 expandedGroups={expandedGroups}

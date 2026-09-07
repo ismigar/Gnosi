@@ -94,6 +94,7 @@ export function VaultGalleryCard({
     const embeddedPreview = showContent || showProperties;
     return (
         <div
+            style={showProperties ? { minHeight: showCover ? (cardSize === 'small' ? '13rem' : cardSize === 'large' ? '21rem' : '17rem') : '9rem' } : undefined}
             className={`group relative flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-primary)] shadow-sm outline-none transition-all hover:shadow-md focus:border-[var(--gnosi-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)] ${embeddedPreview ? galleryCardHeightClass(cardSize) : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             onClick={() => {
                 if (selectedCount > 0) toggleSelect(note.id);
@@ -135,7 +136,7 @@ export function VaultGalleryCard({
                     />
                 </div>
             </div> : null}
-            <div className={`flex min-h-0 flex-1 flex-col p-4 ${showCover ? 'pt-6' : ''}`}>
+            <div className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden p-4 ${showCover ? 'pt-6' : ''}`} style={showProperties ? { minHeight: '9rem' } : undefined}>
                 <h3
                     className={`mb-2 flex items-center gap-2 truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)] ${embeddedPreview && !showCover ? 'pr-8' : ''}`}
                     title={note.title == null || typeof note.title === 'boolean'
@@ -153,7 +154,7 @@ export function VaultGalleryCard({
                         {note.title || t('common.untitled', { defaultValue: 'Untitled' })}
                     </span>
                 </h3>
-                {showContent ? <div className="relative min-h-0 flex-1">
+                {showContent ? <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden">
                     <GalleryContentPreview
                         idToTitle={{ ...idToTitle }}
                         note={note}
@@ -164,7 +165,7 @@ export function VaultGalleryCard({
                     />
                 </div> : null}
                 {showProperties ? <div
-                    className="custom-scrollbar flex flex-1 cursor-auto flex-col gap-1.5 overflow-y-auto overflow-x-hidden overscroll-contain pr-1"
+                    className="custom-scrollbar flex min-w-0 flex-1 cursor-auto flex-col gap-1.5 overflow-y-auto overflow-x-hidden overscroll-contain pr-1"
                     onClick={(event) => {
                         event.stopPropagation();
                     }}

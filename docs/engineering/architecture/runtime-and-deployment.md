@@ -27,6 +27,13 @@ tests:
 
 # Runtime and deployment
 
+Shared CI bounds Python dependency setup with `UV_CONCURRENT_DOWNLOADS=4`,
+`UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (seconds per HTTP read) and
+`UV_HTTP_RETRIES=3`.
+This dependency-only policy retains frozen locks, isolated job caches and existing
+test/startup deadlines. Runner disconnections remain infrastructure failures;
+these settings do not make an offline runner pass.
+
 This page records reviewed source contracts as of the verification date.
 Docker is a supported optional deployment target; native development remains
 the default. Neither source review nor a configured release target proves
@@ -135,6 +142,14 @@ the exported requirements, and runs uvicorn without `--reload`. Wheel
 availability and actual build/startup remain platform acceptance requirements.
 Static contract tests do not replace actual Compose merging, image builds,
 container smoke tests or platform acceptance.
+
+Native smoke starts ordinary Uvicorn without a background traceback thread.
+The external `scripts/ci/wait_native_services.py` probe requires HTTP `200`
+from both `/api/health` and the frontend in the same polling cycle. Each request
+has a two-second maximum, within a six-minute monotonic deadline; the startup
+step has a seven-minute outer limit. Failures report each endpoint's last
+result and retain both server logs. Startup banners or wrapper process IDs do
+not count as readiness, and the browser smoke suite still runs afterwards.
 
 ## Electron packages
 

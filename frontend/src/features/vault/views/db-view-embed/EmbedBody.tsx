@@ -32,7 +32,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
         registerNavApi,
         onExitTop: () => ctx.exitEmbedToEditor?.(block?.id, 'up'),
         onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
-        onEscape: () => ctx.exitEmbedToEditor?.(block?.id, 'escape'),
+        onEscape: focusShell,
         onFocusShell: focusShell,
         feedDensity,
     };

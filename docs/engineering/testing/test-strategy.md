@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -67,6 +67,14 @@ fifteen minutes. This accommodates cold downloads on the local runners.
 These limits preserve fresh job-scoped environments, cache isolation and every
 test target; they do not suppress installation errors or guarantee network
 availability. Runner assignments, release packaging and test targets are unchanged.
+
+Shared CI pins `uv` to `0.10.0` so the existing retry budget also covers read
+timeouts after receiving part of a wheel. With `0.9.15`, that streaming failure
+could terminate installation without retrying, despite the configured HTTP
+retries. This uses the [upstream streaming-timeout fix](https://github.com/astral-sh/uv/pull/17875),
+not a retry wrapper or a longer deadline. Completed downloads remain in the
+same job-scoped cache; failed installs still fail the job. Frozen application
+dependencies, Pages and release-packaging installer pins are unchanged.
 
 # Test strategy
 
@@ -203,9 +211,21 @@ browser checks cover pointer and keyboard focus in light and dark themes.
 
 ## Deployment tests
 
-Docker CI currently validates Compose and builds the backend and frontend
-images; it does not start containers or verify their health and persistence.
-Those runtime checks remain required release evidence.
+Docker CI validates Compose, builds both images and runs `scripts/smoke_docker.sh`.
+The smoke checks the live backend and frontend, then recreates the containers
+and verifies a synthetic marker in `/data`. Its exit cleanup owns only its
+uniquely named Compose project, including that project's test volumes.
+
+Final cleanup runs `scripts/ci/prepare_docker_runner.py --cleanup`: it removes
+only the `gnosi-frontend:ci` and `gnosi-backend:ci` image tags without forcing
+in-use images, clears regenerable unused build cache, and verifies at least
+12 GiB free. It never globally prunes containers, networks or volumes. A
+completed build-cache command reporting `context deadline exceeded` may retry
+up to three total attempts, five seconds apart. Each attempt has a 120-second
+process limit; both capacity and final-cleanup steps have ten-minute limits.
+Other errors, an expired process limit, exhausted retries or insufficient space
+still fail the check. Builds and the persistence smoke are never skipped.
+
 The frontend job applies its reviewed 4 GiB Node heap budget at job
 scope so lint, type checking, tests and production build run under the same
 predictable memory contract.

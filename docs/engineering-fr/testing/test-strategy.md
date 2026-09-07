@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -79,6 +79,16 @@ préservent les nouveaux environnements par tâche,
 l’isolation du cache et tous les tests ; elles ne masquent pas les erreurs
 d’installation et ne garantissent pas la disponibilité du réseau. La
 configuration des exécuteurs, des paquets de version et des tests reste inchangée.
+
+Le CI partagé fixe `uv` à `0.10.0` pour que le nombre existant de nouvelles
+tentatives couvre aussi les délais de lecture après réception d’une partie
+d’un paquet. Avec `0.9.15`, cet échec pendant le transfert pouvait arrêter
+l’installation sans réessayer, malgré les tentatives HTTP configurées. Il utilise
+la [correction amont des délais de transfert](https://github.com/astral-sh/uv/pull/17875),
+sans boucle supplémentaire ni délai plus long. Les téléchargements terminés
+restent dans le cache de la même tâche ; une installation échouée fait toujours
+échouer la tâche. Les dépendances figées de l’application et les versions de
+l’installateur pour Pages et l’empaquetage des versions restent inchangées.
 
 # Stratégie de test
 
@@ -214,9 +224,25 @@ sombre.
 
 ## Tests de déploiement
 
-Actuellement, la CI Docker valide Compose et construit les images backend et
-frontend ; elle ne démarre pas les conteneurs et ne vérifie ni leur état ni
-leur persistance. Ces tests d'exécution restent nécessaires avant une release.
+La CI Docker valide Compose, construit les deux images et exécute
+`scripts/smoke_docker.sh`. Le test vérifie le backend et le frontend en marche,
+recrée les conteneurs puis vérifie un marqueur synthétique dans `/data`. Son
+nettoyage de sortie ne concerne que son projet Compose au nom unique,
+y compris les volumes de test de ce projet.
+
+Le nettoyage final exécute `scripts/ci/prepare_docker_runner.py --cleanup` :
+il retire uniquement les étiquettes d'image `gnosi-frontend:ci` et
+`gnosi-backend:ci` sans forcer les images utilisées, nettoie le cache de
+construction inutilisé et régénérable, puis vérifie au moins 12 Gio libres.
+Il ne nettoie jamais globalement les conteneurs, réseaux ou volumes. Une
+commande de nettoyage du cache terminée signalant `context deadline exceeded`
+peut être répétée jusqu'à trois tentatives au total, espacées de cinq secondes.
+Chaque tentative a une limite de processus de 120 secondes ; les étapes de
+capacité et de nettoyage final ont des limites de dix minutes. Les autres
+erreurs, une limite de processus expirée, les tentatives épuisées ou un espace
+insuffisant font toujours échouer le contrôle. Les constructions et le test
+de persistance ne sont jamais omis.
+
 Le job frontend applique le budget révisé de 4 Gio de heap Node à
 l'ensemble du job afin que le lint, le contrôle des types, les tests et le build
 de production partagent le même contrat de mémoire prévisible.

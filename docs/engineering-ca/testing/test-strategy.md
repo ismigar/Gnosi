@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-06
+last_verified: 2026-09-07
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -76,6 +76,16 @@ Això admet descàrregues sense memòria cau als executors locals. Aquests lími
 els entorns nous per treball, l’aïllament de la memòria cau i totes les proves;
 no amaguen errors d’instal·lació ni garanteixen la disponibilitat de la xarxa.
 Les assignacions d’executors, l’empaquetament de versions i les proves no canvien.
+
+El CI compartit fixa `uv` a `0.10.0` perquè el límit de reintents existent també
+cobreixi els temps d’espera després de rebre part d’un paquet. Amb `0.9.15`,
+aquesta fallada durant la transferència podia aturar la instal·lació sense
+reintentar-la, malgrat els reintents HTTP configurats. S’utilitza la
+[correcció original dels temps d’espera en transferències](https://github.com/astral-sh/uv/pull/17875),
+no un embolcall de reintents ni un termini més llarg. Les descàrregues completades
+romanen a la memòria cau del mateix treball; una instal·lació fallida continua
+fent fallar el treball. Les dependències congelades de l’app i les versions
+de l’instal·lador de Pages i de l’empaquetament de versions no canvien.
 
 # Estratègia de proves
 
@@ -222,9 +232,24 @@ els temes clar i fosc.
 
 ## Comprovacions de desplegament
 
-Actualment, la CI de Docker valida Compose i construeix les imatges del backend
-i del frontend; no arrenca contenidors ni verifica el seu estat i la persistència.
-Aquestes proves d'execució continuen sent necessàries abans d'una release.
+La CI de Docker valida Compose, construeix les dues imatges i executa
+`scripts/smoke_docker.sh`. La prova comprova el backend i el frontend en marxa,
+recrea els contenidors i verifica un marcador sintètic a `/data`. La neteja de
+sortida només afecta el seu projecte Compose amb nom únic, inclosos els volums
+de prova d'aquell projecte.
+
+La neteja final executa `scripts/ci/prepare_docker_runner.py --cleanup`: retira
+només les etiquetes d'imatge `gnosi-frontend:ci` i `gnosi-backend:ci` sense forçar
+imatges en ús, neteja la memòria cau de construcció no utilitzada i regenerable,
+i verifica almenys 12 GiB lliures. Mai no fa una neteja global de contenidors,
+xarxes o volums. Una ordre de neteja de memòria cau finalitzada que informa de
+`context deadline exceeded` es pot repetir fins a tres intents totals,
+separats per cinc segons. Cada intent té un límit de procés de 120 segons;
+els passos de capacitat i neteja final tenen límits de deu minuts. Altres
+errors, un límit de procés esgotat, els reintents esgotats o l'espai insuficient
+continuen fent fallar el check. Mai no s'ometen les construccions ni la prova
+de persistència.
+
 El job de frontend aplica el pressupost revisat de 4 GiB de heap de
 Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
 comparteixin el mateix contracte de memòria previsible.

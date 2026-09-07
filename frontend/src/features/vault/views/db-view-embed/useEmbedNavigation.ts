@@ -104,25 +104,11 @@ export function useEmbedNavigation({ ctx, block, handleCreate, handleOpenConfig,
     ]);
     useEffect(() => {
         if (!ctx.registerEmbedNav || !block?.id) return undefined;
-        // Entry with ↓ from the editor:
-        //  - Table/list → first/last CELL (VaultTable registers it).
-        //  - Rest of the views (gallery, feed, kanban, timeline) → the SHELL of the
-        //    the embed (widget), so the user can see it's there and can leave it
-        //    with ↑/↓/Esc or drop down into the records with Space/Enter (gallery). Before,
-        //    for non-tables, we returned `false` and the cursor fell into a void block
-        //    without a visible caret or exit.
-        const isCellNav = viewType === 'table' || viewType === 'list';
+        // Every view enters at the block level. Enter/Space explicitly moves
+        // into its records; Escape from records restores this shell.
         ctx.registerEmbedNav(block.id, {
-            focusFirstCell: () => {
-                if (!isCellNav) return focusShell();
-                const r = tableNavApiRef.current?.focusFirstCell?.();
-                return (r !== undefined && r !== false) ? true : focusShell();
-            },
-            focusLastCell: () => {
-                if (!isCellNav) return focusShell();
-                const r = tableNavApiRef.current?.focusLastCell?.();
-                return (r !== undefined && r !== false) ? true : focusShell();
-            },
+            focusFirstCell: focusShell,
+            focusLastCell: focusShell,
         });
         return () => { ctx.registerEmbedNav?.(block.id || '', null); };
     }, [ctx, block?.id, viewType, focusShell]);

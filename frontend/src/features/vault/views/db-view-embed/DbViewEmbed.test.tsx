@@ -129,15 +129,24 @@ describe('embedded view data and editor navigation', () => {
         await act(async () => { await Promise.resolve(); finish?.({ page_id: 'page', sections: [section] }); });
         expect(api.fetchVaultPagesByTable).not.toHaveBeenCalled();
     });
-    it('keeps shell entry/exit, cell navigation and shortcut cleanup', async () => {
+    it.each(['table', 'list', 'gallery'])('keeps two focus levels and shortcut cleanup for %s', async type => {
+        vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [{ ...section, view_type: type }] });
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, type }, other]);
+        context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type }, other] } };
         await render();
         const first = vi.fn<() => boolean>().mockReturnValue(true);
         fixture.body?.registerNavApi?.({ focusFirstCell: first });
         const bridge = register.mock.calls.at(-1)?.[1]; expect(bridge?.focusFirstCell?.()).toBe(true);
         const shell = container.querySelector<HTMLElement>('.gnosi-view-embed-container');
+        expect(document.activeElement).toBe(shell);
+        expect(first).not.toHaveBeenCalled();
         shell?.focus();
         await act(async () => { await Promise.resolve(); shell?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
-        expect(first).toHaveBeenCalledTimes(2);
+        expect(first).toHaveBeenCalledTimes(1);
+        button('Alpha')?.focus();
+        fixture.body?.onEscape?.();
+        expect(document.activeElement).toBe(shell);
+        expect(exit).not.toHaveBeenCalled();
         await act(async () => { await Promise.resolve(); shell?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
         expect(exit).toHaveBeenCalledWith('block', 'escape');
         await act(async () => { await Promise.resolve(); shell?.dispatchEvent(new KeyboardEvent('keydown', { key: '/', ctrlKey: true, bubbles: true })); });
