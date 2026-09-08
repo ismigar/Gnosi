@@ -13,7 +13,7 @@ function isUpdateState(value) {
   if (!isRecord(value)) return false;
   return typeof value.status === 'string'
     && ['idle', 'checking', 'not-available', 'available', 'downloading',
-      'downloaded', 'manual-download', 'error'].includes(value.status)
+      'downloaded', 'installing', 'manual-download', 'error'].includes(value.status)
     && (value.installMode === undefined || value.installMode === 'manual' || value.installMode === 'automatic')
     && (value.percent === undefined || (typeof value.percent === 'number' && Number.isFinite(value.percent)))
     && (value.version === undefined || typeof value.version === 'string')

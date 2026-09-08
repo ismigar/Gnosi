@@ -231,7 +231,7 @@ for (const platform of ['linux', 'win32']) {
 }
 
 test('ineligible update states are unchanged and trigger no actions or publications', async () => {
-  for (const status of ['idle', 'checking', 'not-available', 'downloading', 'manual-download', 'error']) {
+  for (const status of ['idle', 'checking', 'not-available', 'downloading', 'installing', 'manual-download', 'error']) {
     const f = fixture();
     const state = { status, installMode: 'automatic' };
     f.setState(state);
@@ -292,4 +292,41 @@ test('the unchanged preload invokes the extracted channels with their actual wir
   assert.equal(f.mainWindows.has(formWindow), false);
   formWindow.webContents.emit('did-finish-load');
   assert.ok(f.effects.at(-1).script.includes('"email":"synthetic@example.invalid"'));
+});
+
+
+test('one download action installs only after the host confirms the download', async () => {
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const f = fixture({ overrides: { downloadUpdate: () => { f.effects.push('download'); return pending; } } });
+  f.setState({ status: 'available', installMode: 'automatic', version: '2.0.6' });
+  const action = f.invoke('download-update');
+  assert.equal(f.state().status, 'downloading');
+  await f.invoke('download-update');
+  assert.equal(f.effects.filter(effect => effect === 'download').length, 1);
+  assert.equal(f.effects.includes('install'), false);
+  f.dependencies.publishUpdateState({ status: 'downloaded', percent: 100 });
+  finish(['/fixture/installer']);
+  await action;
+  assert.equal(f.state().status, 'installing');
+  assert.equal(f.effects.filter(effect => effect === 'install').length, 1);
+  await f.invoke('install-update');
+  assert.equal(f.effects.filter(effect => effect === 'install').length, 1);
+});
+
+test('a failed user download can be retried for its known version', async () => {
+  const f = fixture();
+  f.setState({ status: 'error', userInitiated: true, installMode: 'automatic', version: '2.0.6', error: 'offline' });
+  await f.invoke('download-update');
+  assert.equal(f.state().status, 'downloading');
+  assert.equal(f.state().error, undefined);
+  assert.equal(f.effects.filter(effect => effect === 'download').length, 1);
+});
+
+test('asynchronous installation failure returns an actionable error', async () => {
+  const f = fixture({ overrides: { quitAndInstall: async () => { throw new Error('shutdown failed'); } } });
+  f.setState({ status: 'downloaded', installMode: 'automatic', version: '2.0.6' });
+  await f.invoke('install-update');
+  assert.equal(f.state().status, 'error');
+  assert.equal(f.state().error, 'shutdown failed');
 });

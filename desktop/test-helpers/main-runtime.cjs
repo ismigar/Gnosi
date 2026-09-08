@@ -10,6 +10,7 @@ function loadMainRuntime({
   launchBackend = () => assert.fail('Backend must not start in this fixture'),
   stopBackend = async () => {},
   locale = 'en', resourcesPath = '/fixture/resources',
+  platform = 'darwin', isPackaged = false, sparkleUpdater,
   onWindowCreated = () => {},
 } = {}) {
   const desktopRoot = path.dirname(__dirname);
@@ -20,6 +21,7 @@ function loadMainRuntime({
   const readyCallbacks = [];
   const exits = [];
   const lifecycle = new Map();
+  const intervals = [];
   let menu = [];
   class BrowserWindow extends EventEmitter {
     constructor(options) {
@@ -52,6 +54,7 @@ function loadMainRuntime({
   }
   const electron = {
     app: {
+      isPackaged,
       whenReady: () => ({ then: callback => { readyCallbacks.push(callback); } }),
       on: (event, callback) => lifecycle.set(event, callback),
       exit: code => exits.push(code),
@@ -82,12 +85,11 @@ function loadMainRuntime({
     } },
     shell: { openExternal: async (url) => { calls.push({ external: url }); } },
   };
-  const updater = {
+  const updater = Object.assign(new EventEmitter(), {
     downloadUpdate: async () => { calls.push('download'); },
-    quitAndInstall: () => calls.push('install'),
+    quitAndInstall: (...args) => { calls.push({ installOptions: args }); calls.push('install'); },
     checkForUpdates: async () => { calls.push('check-updates'); },
-    on: () => {},
-  };
+  });
   const http = {
     get: (url, callback) => {
       calls.push({ healthUrl: url });
@@ -102,6 +104,7 @@ function loadMainRuntime({
       if (name === './profile-startup') return { prepareDesktopProfile: prepareProfile };
       if (name === './backend-process') return { launchBackend, stopBackend };
       if (name === 'electron-updater') return { autoUpdater: updater };
+      if (name === './sparkle-updater' && sparkleUpdater) return { SparkleUpdater: function () { return sparkleUpdater; } };
       if (name === 'electron-log') return { transports: { file: { level: 'info' } } };
       if (name === 'http') return http;
       if (name === 'child_process') return { spawn: () => assert.fail('Backend must not start in this fixture') };
@@ -112,21 +115,25 @@ function loadMainRuntime({
         statSync: file => file.startsWith('/fixture/resources/python/')
           ? { isFile: () => bundleExists } : fs.statSync(file),
       };
-      if (['./application-menu', './backend-launch', './update-policy', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
+      if (['./application-menu', './backend-launch', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
         return require(path.join(desktopRoot, name));
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);
     },
-    process: { argv: isDev ? ['--dev'] : [], platform: 'darwin', resourcesPath, env: {}, on() {} },
+    process: { argv: isDev ? ['--dev'] : [], platform, resourcesPath, execPath: '/fixture/Gnosi', env: {}, on() {} },
     __dirname: desktopRoot,
     console: { log: (...args) => calls.push({ log: args }) },
     URL, Headers, Response, setTimeout,
+    setInterval: (callback, milliseconds) => {
+      intervals.push({ callback, milliseconds });
+      return { unref() {} };
+    },
   }, { filename: 'main.js' });
   if (initialize) {
     api.setupIPC();
     api.registerAppProtocol();
   }
-  return { ...api, calls, handlers, protocols, windows, BrowserWindow, readyCallbacks, exits, lifecycle,
+  return { ...api, calls, handlers, protocols, windows, BrowserWindow, readyCallbacks, exits, lifecycle, updater, intervals,
     clickMenu(label) {
       const item = menu.flatMap(group => group.submenu || []).find(item => item.label === label);
       assert.equal(typeof item?.click, 'function', `Missing menu action: ${label}`);

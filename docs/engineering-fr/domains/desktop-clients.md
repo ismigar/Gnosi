@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-01
+last_verified: 2026-09-08
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -32,6 +32,9 @@ source_paths:
   - desktop/main.js
   - desktop/preload.js
   - desktop/update-policy.js
+  - desktop/sparkle-updater.js
+  - desktop/native/sparkle-bridge.m
+  - desktop/scripts/sparkle-appcast.cjs
   - desktop/electron-builder.yml
   - desktop/package.json
   - desktop/release.sh
@@ -71,6 +74,10 @@ tests:
   - desktop/backend-launch.test.js
   - desktop/packaging-contract.test.js
   - desktop/update-policy.test.js
+  - desktop/sparkle-updater.test.js
+  - desktop/sparkle-appcast.test.js
+  - desktop/main-update.test.js
+  - desktop/platform-updaters.test.js
   - extensions/office/libreoffice-cite/tests
 ---
 
@@ -228,41 +235,35 @@ l’application sur une autre machine.
 
 ## Mises à jour et actions de l’utilisateur
 
-`update-policy.js` sélectionne l’installation manuelle sur macOS et la voie de
-téléchargement et d’installation automatiques sur les autres plateformes. En
-développement, la recherche de mises à jour est désactivée. En production,
-elle a lieu après un démarrage réussi, mais `autoDownload` et
-`autoInstallOnAppQuit` sont tous deux à faux : la disponibilité d’une version
-ou la fermeture de l’application ne déclenche pas d’installation non sollicitée.
+En production, les versions sont vérifiées après le démarrage et toutes les six
+heures lorsque la mise à jour est inactive. Le développement désactive ces contrôles ;
+`autoDownload` et `autoInstallOnAppQuit` restent à false. Le bouton compact affiche
+le pourcentage téléchargé. Un clic autorise le téléchargement, le remplacement
+vérifié et le redémarrage. Le processus principal gère la séquence, refuse les
+actions répétées et arrête le backend avant l’installation.
 
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Checking: backend prêt
-    Checking --> Available
-    Checking --> Current
-    Checking --> Error
-    Available --> ManualDownload: l’utilisateur ouvre le DMG macOS
-    Available --> Downloading: l’utilisateur demande un téléchargement pris en charge
-    ManualDownload --> [*]: navigateur externe
-    Downloading --> Ready
-    Downloading --> Error
-    Ready --> Installing: l’utilisateur confirme le redémarrage
-```
+macOS utilise le pont Sparkle inclus et des signatures ad-hoc, sans abonnement
+Apple Developer. La clé publique fixée vérifie le flux signé et le ZIP avant
+l’extraction. Le repli vers un flux non signé est désactivé. `update-policy.js`
+conserve le DMG adapté à l’architecture pour les anciennes installations ad-hoc
+sans le pont. La première version avec Sparkle s’installe manuellement ; Apple
+peut encore demander une autorisation pour ouvrir une application non notariée.
+Une vérification réussie avec `codesign` ne valide pas une mise à jour complète.
 
-Sur macOS, l’action explicite ouvre l’URL du DMG officiel correspondant à
-l’architecture. L’empaquetage actuel utilise une signature ad hoc ; le
-redémarrage avec installation automatique reste désactivé dans l’attente d’une
-configuration stable et revue de Developer ID et de notarisation. La réussite
-de la vérification `codesign` ne suffit pas à valider le système de mise à jour.
-De même, la politique Windows/Linux ne prouve pas que l’installation fonctionne
-pour tous les formats d’artefacts ; testez la cible réellement installée.
+Windows utilise le remplacement NSIS avec redémarrage automatique. Linux prend
+en charge le remplacement AppImage et l’installation DEB par le gestionnaire de
+paquets, qui peut demander des droits administrateur. Les installateurs Windows
+non signés peuvent rencontrer des avertissements ou blocages. Les protections du
+système d’exploitation restent actives.
 
-Le processus principal conserve le dernier état de mise à jour pour les
-processus de rendu qui s’abonnent tardivement. Les vérifications en arrière-plan
-n’ouvrent pas l’historique des versions. L’utilisateur l’ouvre explicitement
-depuis le Centre de contrôle ; les changements de version ne l’ouvrent pas au
-démarrage.
+Le test réel isolé sur macOS remplace et relance une application temporaire ;
+une archive modifiée est rejetée avant l’installation. Les tests Windows et Linux
+vérifient le comportement avec une exécution de processus simulée. Les vrais
+installateurs, profils existants et migrations de données 2.x restent à valider.
+
+Le lien de version du centre de contrôle ouvre l’historique public localisé sur
+https://ismigar.github.io/changelog.html, avec une ancre pour la version choisie.
+Les contrôles en arrière-plan ne l’ouvrent jamais. Seules les versions publiées y figurent.
 
 ## Chaîne d’outils et limites de l’empaquetage
 
@@ -317,8 +318,8 @@ de signature de la marketplace entre dans le paquet d’exécution.
 
 | Cible configurée | Architecture de l’exécuteur | Installateurs et artefacts de mise à jour |
 | --- | --- | --- |
-| macOS arm64 | macOS ARM64 sur infrastructure propre | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |
-| macOS x64 | macOS X64 sur infrastructure propre | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml` |
+| macOS arm64 | macOS ARM64 sur infrastructure propre | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml`, `appcast-arm64.xml` |
+| macOS x64 | macOS X64 sur infrastructure propre | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml`, `appcast-x64.xml` |
 | Linux arm64 | Linux ARM64 sur infrastructure propre | AppImage, DEB, `latest-linux-arm64.yml` |
 | Windows x64 | Windows X64 sur infrastructure propre | `Gnosi-<version>-Setup.exe`, `latest.yml` |
 
@@ -503,7 +504,7 @@ peut pas certifier une autre cible.
 | Electron reste vide en développement | Origine HTTP de Vite, PATH de l’environnement Python figé et journal de démarrage du backend propre à Electron | Démarrer un second backend sur le port 5002 |
 | La protection du profil interrompt le démarrage | Erreur exacte, chemins d’origine et de récupération, clients arrêtés | Supprimer les journaux d’opérations, les cookies ou les anciennes données |
 | Le backend empaqueté manque | Résultat de PyInstaller et politique des ressources finales | Se rabattre sur le Python du système |
-| macOS propose un DMG | Politique actuelle d’installation manuelle et architecture | Considérer la vérification de signature comme une validation de la mise à jour automatique |
+| macOS propose un DMG | Pont Sparkle absent ou ancienne installation ; architecture | Considérer la vérification de signature comme une validation de la mise à jour automatique |
 | Office accède au point de santé, mais les citations échouent | Jeton bearer, origine de l’API et réponse réelle de la ressource protégée | Désactiver l’authentification pour masquer un échec du client |
 
 Exécutez les tests de contrats de bureau du dépôt, la vérification stricte des

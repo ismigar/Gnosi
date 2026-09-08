@@ -17,18 +17,21 @@ try {
   }
 }
 
-const { autoUpdater } = require('electron-updater');
+let { autoUpdater } = require('electron-updater');
+const { SparkleUpdater } = require('./sparkle-updater');
 const { createApplicationMenuTemplate, normalizeMenuLabels } = require('./application-menu');
 const {
   getPackagedBackendEnvironment,
   getPackagedBackendExecutable,
 } = require('./backend-launch');
-const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
+const { buildMacInstallerUrl, getUpdateInstallMode, readMacSignature } = require('./update-policy');
 const { isTrustedRendererUrl } = require('./ipc-security');
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { backendStartupMessage } = require('./startup-errors');
 
 const isDev = process.argv.includes('--dev');
+let updateInstallMode = getUpdateInstallMode(process.platform,
+  process.platform === 'darwin' && app.isPackaged && !isDev ? readMacSignature(process.execPath) : '');
 
 // Register the `app://` privileged scheme before app ready. The packaged
 // frontend is served from this scheme (see registerAppProtocol + createWindow),
@@ -54,7 +57,8 @@ let backendProcess = null;
 let backendHandle = null;
 let backendReady = false;
 let quitting = false;
-let updateState = { status: 'idle', installMode: getUpdateInstallMode() };
+let backendStoppedForUpdate = false;
+let updateState = { status: 'idle', installMode: updateInstallMode };
 
 const BACKEND_PORT = 5002;
 const FRONTEND_PORT = 5173;
@@ -264,6 +268,7 @@ function sendToMainWindow(channel, payload) {
 
 function checkForUpdatesFromMenu() {
   if (!canUseMainWindows()) return;
+  if (['downloading', 'downloaded', 'installing'].includes(updateState.status)) return;
   publishUpdateState({ status: 'checking', userInitiated: true, error: undefined });
   autoUpdater.checkForUpdates().catch((err) => {
     log('Manual update check failed:', err.message);
@@ -351,10 +356,32 @@ function createWindow() {
   return window;
 }
 
+async function recoverBackendAfterUpdateFailure() {
+  if (!backendStoppedForUpdate || quitting) return;
+  backendStoppedForUpdate = false;
+  try {
+    await startBackend();
+  } catch (error) {
+    log('Backend recovery after update failure failed:', error.message);
+  }
+}
+
 function setupAutoUpdater() {
   if (isDev) {
     log('Auto-updater disabled in dev mode');
     return;
+  }
+  if (process.platform === 'darwin' && app.isPackaged) {
+    try {
+      autoUpdater = new SparkleUpdater({ resourcesPath: process.resourcesPath });
+      updateInstallMode = 'automatic';
+      publishUpdateState({ installMode: updateInstallMode });
+    } catch (error) {
+      // Old installations retain the one-time DMG migration. A broken bridge
+      // never turns off verification or attempts to replace an unverified app.
+      log('Sparkle unavailable; using the installer fallback:', error.message);
+      publishUpdateState({ installMode: updateInstallMode });
+    }
   }
   
   autoUpdater.logger = require('electron-log');
@@ -372,7 +399,7 @@ function setupAutoUpdater() {
     publishUpdateState({
       status: 'available',
       version: info.version,
-      installMode: getUpdateInstallMode(),
+      installMode: updateInstallMode,
       userInitiated: false,
       error: undefined,
     });
@@ -380,12 +407,13 @@ function setupAutoUpdater() {
   
   autoUpdater.on('update-not-available', () => {
     log('Update not available');
-    publishUpdateState({ status: 'not-available' });
+    publishUpdateState({ status: 'not-available', userInitiated: false, error: undefined });
   });
   
   autoUpdater.on('error', (err) => {
     log('Auto-updater error:', err.message);
     publishUpdateState({ status: 'error', error: err.message });
+    void recoverBackendAfterUpdateFailure();
   });
   
   autoUpdater.on('download-progress', (progress) => {
@@ -403,6 +431,16 @@ function setupAutoUpdater() {
   autoUpdater.checkForUpdates().catch((err) => {
     log('Initial update check failed:', err.message);
   });
+
+  // Long-running sessions should discover releases without requiring a restart.
+  const updateTimer = setInterval(() => {
+    if (!canUseMainWindows() || updateState.userInitiated
+      || !['idle', 'not-available', 'error'].includes(updateState.status)) return;
+    autoUpdater.checkForUpdates().catch((err) => {
+      log('Background update check failed:', err.message);
+    });
+  }, 6 * 60 * 60 * 1000);
+  updateTimer.unref();
 }
 
 function setupIPC() {
@@ -414,7 +452,23 @@ function setupIPC() {
     publishUpdateState, installApplicationMenu, buildMacInstallerUrl,
     openExternal: url => shell.openExternal(url),
     downloadUpdate: () => autoUpdater.downloadUpdate(),
-    quitAndInstall: () => autoUpdater.quitAndInstall(),
+    quitAndInstall: async () => {
+      // Release the bundled backend's files before an installer replaces them.
+      // Keep the normal before-quit path for all other exits.
+      if (backendProcess) {
+        await stopBackend(backendProcess);
+        backendStoppedForUpdate = true;
+      }
+      backendProcess = null;
+      backendHandle = null;
+      backendReady = false;
+      try {
+        autoUpdater.quitAndInstall(true, true);
+      } catch (error) {
+        await recoverBackendAfterUpdateFailure();
+        throw error;
+      }
+    },
     createFormFillerWindow: options => new BrowserWindow(options),
     log,
   });

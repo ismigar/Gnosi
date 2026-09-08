@@ -99,9 +99,11 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm build:frontend
+      - name: Provision verified Sparkle SDK
+        run: pnpm --filter @gnosi/desktop install:sparkle
       - name: Build Electron app
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GNOSI_SPARKLE_PRIVATE_KEY: ${{ secrets.GNOSI_SPARKLE_PRIVATE_KEY }}
           GNOSI_PYTHON_CMD: python
         run: pnpm --filter @gnosi/desktop build:mac -- --${{ matrix.arch }}
       - name: Verify application signatures
@@ -127,6 +129,7 @@ jobs:
             desktop/dist/*.zip
             desktop/dist/*.blockmap
             desktop/dist/latest-mac.yml
+            desktop/dist/appcast-*.xml
           retention-days: 5
 
   build-linux:
@@ -314,6 +317,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         run: node desktop/scripts/release-artifacts.cjs collect artifacts-incoming artifacts "$RELEASE_TAG"
+      - name: Verify signed macOS update feeds
+        run: node desktop/scripts/sparkle-appcast.cjs verify-collected artifacts
       - name: Build signed public indexes
         env:
           GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}
@@ -351,6 +356,7 @@ jobs:
             artifacts/*Setup*.exe
             artifacts/*.blockmap
             artifacts/latest*.yml
+            artifacts/appcast-*.xml
             artifacts/plugins/*.zip
             artifacts/plugins/plugins-index.json
             artifacts/plugins/plugins-index.sig

@@ -117,3 +117,9 @@ exports.default = async function afterPack(context) {
     { stdio: 'inherit' },
   );
 };
+
+// Shared with the distribution signer so every bundled native component uses
+// the same traversal, including concrete versions of Python.framework.
+exports.collectCode = collectCode;
+exports.isConcreteFrameworkVersion = isConcreteFrameworkVersion;
+exports.depth = depth;

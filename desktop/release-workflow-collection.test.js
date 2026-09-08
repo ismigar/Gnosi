@@ -49,6 +49,7 @@ function assertArchitectureDownloads(releaseSteps) {
 test('release downloads only named architectures before validated candidate collection', () => {
   assertArchitectureDownloads(steps);
   const collect = find('Validate and collect release artifacts');
+  const feeds = find('Verify signed macOS update feeds');
   const indexes = find('Build signed public indexes');
   const notes = find('Render public release notes');
   const verify = find('Verify complete signed candidate');
@@ -59,7 +60,8 @@ test('release downloads only named architectures before validated candidate coll
   for (const group of GROUPS) {
     assert.ok(find(`Download ${group} artifacts`).index < collect.index);
   }
-  assert.ok(collect.index < indexes.index && indexes.index < notes.index
+  assert.equal(feeds.step.run, 'node desktop/scripts/sparkle-appcast.cjs verify-collected artifacts');
+  assert.ok(collect.index < feeds.index && feeds.index < indexes.index && indexes.index < notes.index
     && notes.index < verify.index && verify.index < upload.index);
   assert.equal(indexes.step.env.GNOSI_PLUGIN_SIGNING_KEY,
     '${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}');
@@ -69,7 +71,7 @@ test('release downloads only named architectures before validated candidate coll
   assert.equal(verify.step.run,
     'uv run --frozen --no-default-groups python extensions/marketplace/verify_release_candidate.py --artifacts artifacts');
   assert.equal(upload.index, steps.length - 1, 'candidate upload must be the final step');
-  for (const { step } of [collect, indexes, notes, verify, upload]) {
+  for (const { step } of [collect, feeds, indexes, notes, verify, upload]) {
     assert.equal(step['continue-on-error'], undefined);
     assert.equal(step.if, undefined);
   }

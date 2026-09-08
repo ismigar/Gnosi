@@ -5693,6 +5693,12 @@
   "reader_articles_pending_many": "{{count}} articles en attente",
   "reader_sources_count_many": "{{count}} sources",
   "desktop_update": {
+    "progress": "Téléchargé {{percent}} %",
+    "installing": "Redémarrage…",
+    "manual_action": "Ouvrir le programme d’installation",
+    "retry": "Réessayer",
+    "update": "Mettre à jour Gnosi",
+    "automatic_hint": "Télécharger la version {{version}} et redémarrer automatiquement une fois prête.",
     "aria_label": "Mise à jour de l’application",
     "dismiss": "Ignorer l’avis de mise à jour",
     "available_title": "Gnosi {{version}} est disponible",

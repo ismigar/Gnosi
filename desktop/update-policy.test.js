@@ -33,3 +33,12 @@ test('rejects untrusted versions and unsupported macOS architectures', () => {
   }
   assert.throws(() => buildMacInstallerUrl('1.2.0', 'ia32'), /Unsupported macOS architecture/);
 });
+
+
+test('only a Developer ID macOS build enables native replacement', () => {
+  const signature = 'Authority=Developer ID Application: Gnosi (ABCDEFGHIJ)\nTeamIdentifier=ABCDEFGHIJ';
+  assert.equal(getUpdateInstallMode('darwin', signature), 'automatic');
+  assert.equal(getUpdateInstallMode('darwin', signature + '\nSignature=adhoc'), 'manual');
+  assert.equal(getUpdateInstallMode('darwin', 'Signature=adhoc\nTeamIdentifier=not set'), 'manual');
+  assert.equal(getUpdateInstallMode('darwin', 'Authority=Apple Development: Gnosi\nTeamIdentifier=ABCDEFGHIJ'), 'manual');
+});

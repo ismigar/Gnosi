@@ -1,11 +1,11 @@
 import {useEffect} from 'react';
 import {subscribeWindowEvent} from '../../../shared/platform/browser-events';
 import type {DashboardState} from './useDashboard';
-export function useDashboardKeyboard({isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, isReleaseNotesOpen, editingDirective, scrollContainerRef, setIsAddMemberModalOpen, setIsPermissionsModalOpen, setIsTrapsModalOpen, setIsDirectivesModalOpen, setIsToolsModalOpen, setEditingDirective, selectedMember, handleSaveDirective, handleAddMember, handleUpdatePermissions}: DashboardState) {
+export function useDashboardKeyboard({isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, editingDirective, scrollContainerRef, setIsAddMemberModalOpen, setIsPermissionsModalOpen, setIsTrapsModalOpen, setIsDirectivesModalOpen, setIsToolsModalOpen, setEditingDirective, selectedMember, handleSaveDirective, handleAddMember, handleUpdatePermissions}: DashboardState) {
     // Keyboard scrolling support
     useEffect(() => {
         const handleScrollKeyDown = (e: KeyboardEvent) => {
-            const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || isReleaseNotesOpen || editingDirective;
+            const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || editingDirective;
             if (anyModalOpen) return;
 
             const active = document.activeElement;
@@ -36,7 +36,7 @@ export function useDashboardKeyboard({isAddMemberModalOpen, isPermissionsModalOp
         };
 
         return subscribeWindowEvent('keydown', handleScrollKeyDown);
-    }, [isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, isReleaseNotesOpen, editingDirective, scrollContainerRef]);
+    }, [isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, editingDirective, scrollContainerRef]);
 
     // Unified keyboard handler for all Dashboard modals
     useEffect(() => {
