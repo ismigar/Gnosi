@@ -16,7 +16,7 @@ import {useDashboardMembers} from './useDashboardMembers';
 import {formatFrequency as formatTaskFrequency} from './model';
 
 export function useDashboard() {
-    const {t} = useTranslation();
+    const {t, i18n} = useTranslation();
     const {role: initialRole, apiFetch} = useApi();
     const {isEnabled} = usePlugins();
     const automationsEnabled = isEnabled('automations');
@@ -26,7 +26,6 @@ export function useDashboard() {
     const activeWorkspaceId = readStorage(WORKSPACE_ID_STORAGE_KEY) || 'personal';
     const [gnosiMode, setGnosiMode] = useState('personal');
     const [selectedControlTab, setSelectedControlTab] = useState('schedulers');
-    const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const schedulers = useDashboardSchedulers();
     const memory = useDashboardMemory();
@@ -113,9 +112,9 @@ export function useDashboard() {
         const translated = t(key);
         return translated && translated !== key ? translated : task.description;
     };
-    return {...schedulers, ...memory, ...members, t, automationsEnabled, aiEnabled,
+    return {...schedulers, ...memory, ...members, t, language: i18n.resolvedLanguage ?? i18n.language, automationsEnabled, aiEnabled,
         isAdmin, scrollContainerRef, selectedControlTab, setSelectedControlTab, gnosiMode,
-        isReleaseNotesOpen, setIsReleaseNotesOpen, notifications, notificationsLoading,
+        notifications, notificationsLoading,
         notifTotal, notifPage, setNotifPage, refetchNotifications, NOTIF_LIMIT,
         confirmPurgeLogs, setConfirmPurgeLogs, handlePurgeLogs, doPurgeLogs,
         formatFrequency, getTaskTitle, getTaskDescription};

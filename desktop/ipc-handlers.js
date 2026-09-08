@@ -187,7 +187,9 @@ function registerIpcHandlers(dependencies) {
     'get-backend-url': () => dependencies.getBackendURL(),
     'get-backend-status': () => dependencies.getBackendStatus(),
     'download-update': async () => {
-      if (dependencies.getUpdateState().status !== 'available') return dependencies.getUpdateState();
+      const initial = dependencies.getUpdateState();
+      if (initial.status !== 'available'
+        && !(initial.status === 'error' && initial.userInitiated && initial.version)) return initial;
       dependencies.publishUpdateState({ userInitiated: true, error: undefined });
       try {
         const state = dependencies.getUpdateState();
@@ -195,7 +197,14 @@ function registerIpcHandlers(dependencies) {
           await dependencies.openExternal(dependencies.buildMacInstallerUrl(state.version));
           dependencies.publishUpdateState({ status: 'manual-download' });
         } else {
+          // Claim the action before awaiting IO: repeated clicks/windows cannot
+          // start a second download. This click authorizes the complete update.
+          dependencies.publishUpdateState({ status: 'downloading', percent: 0 });
           await dependencies.downloadUpdate();
+          if (dependencies.getUpdateState().status === 'downloaded') {
+            dependencies.publishUpdateState({ status: 'installing', percent: 100 });
+            await dependencies.quitAndInstall();
+          }
         }
       } catch (error) {
         const message = errorMessage(error);
@@ -204,12 +213,12 @@ function registerIpcHandlers(dependencies) {
       }
       return dependencies.getUpdateState();
     },
-    'install-update': () => {
+    'install-update': async () => {
       const state = dependencies.getUpdateState();
       if (state.status !== 'downloaded' || state.installMode !== 'automatic') return state;
-      dependencies.publishUpdateState({ userInitiated: true, error: undefined });
+      dependencies.publishUpdateState({ status: 'installing', userInitiated: true, error: undefined });
       try {
-        dependencies.quitAndInstall();
+        await dependencies.quitAndInstall();
       } catch (error) {
         const message = errorMessage(error);
         dependencies.log('Update installation failed:', message);

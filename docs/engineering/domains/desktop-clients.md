@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-01
+last_verified: 2026-09-08
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -32,6 +32,9 @@ source_paths:
   - desktop/main.js
   - desktop/preload.js
   - desktop/update-policy.js
+  - desktop/sparkle-updater.js
+  - desktop/native/sparkle-bridge.m
+  - desktop/scripts/sparkle-appcast.cjs
   - desktop/electron-builder.yml
   - desktop/package.json
   - desktop/release.sh
@@ -71,6 +74,10 @@ tests:
   - desktop/backend-launch.test.js
   - desktop/packaging-contract.test.js
   - desktop/update-policy.test.js
+  - desktop/sparkle-updater.test.js
+  - desktop/sparkle-appcast.test.js
+  - desktop/main-update.test.js
+  - desktop/platform-updaters.test.js
   - extensions/office/libreoffice-cite/tests
 ---
 
@@ -195,37 +202,33 @@ OS-secret-store or application-database migration on another machine.
 
 ## Updates and user actions
 
-`update-policy.js` selects manual installation on macOS and the automatic
-download/install path on other platforms. Development disables update checks.
-Production checks after successful startup, but both `autoDownload` and
-`autoInstallOnAppQuit` are false: a release becoming available or the app
-quitting does not start an unsolicited installation.
+Production checks after startup and every six hours while idle. Development
+disables checks; `autoDownload` and `autoInstallOnAppQuit` remain false.
+The compact update button shows the downloaded percentage. Clicking it authorizes
+download, verified replacement and restart. The main process owns the sequence,
+rejects repeated actions, and stops the backend before installation.
 
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Checking: backend ready
-    Checking --> Available
-    Checking --> Current
-    Checking --> Error
-    Available --> ManualDownload: user opens macOS DMG
-    Available --> Downloading: user requests supported download
-    ManualDownload --> [*]: external browser
-    Downloading --> Ready
-    Downloading --> Error
-    Ready --> Installing: user confirms restart
-```
+macOS uses the packaged Sparkle bridge and ad-hoc signatures, without an Apple
+Developer subscription. The pinned public key verifies the signed feed and ZIP
+before extraction. Unsigned-feed fallback is disabled. `update-policy.js` retains
+the architecture-specific DMG fallback for older ad-hoc installations without the
+bridge. Installing the first Sparkle-enabled version is a manual migration;
+Apple may still require approval to open an unnotarized app. Successful `codesign`
+verification alone is not complete application-upgrade acceptance.
 
-On macOS the explicit action opens the official architecture-specific DMG URL.
-Current packaging uses ad-hoc signing; automatic restart-and-install remains
-disabled pending a reviewed stable Developer ID and notarization setup.
-Successful `codesign` verification alone is not updater acceptance.
-The Windows/Linux policy likewise does not prove installation works for every
-artifact format; test the actual installed target.
+Windows uses NSIS replacement with automatic relaunch. Linux supports AppImage
+replacement and DEB installation through the package manager, which can request
+administrator authorization. Unsigned Windows installers may encounter system
+warnings or policy blocks. Operating-system protections remain in force.
 
-The main process retains the latest update state for renderers that subscribe
-late. Background checks do not open release history. Users open it explicitly
-from the Control Center; version changes do not open it during startup.
+The real isolated macOS smoke replaces and relaunches a temporary app; a modified
+archive is rejected before installation. Windows and Linux tests verify updater
+behavior at mocked process boundaries. Real platform installers, existing profiles
+and 2.x data migration still require release acceptance.
+
+The Control Center version link opens the localized public history on
+https://ismigar.github.io/changelog.html, anchored to the selected version.
+Background checks never open it. The website includes published releases only.
 
 ## Toolchain and packaging boundaries
 
@@ -273,8 +276,8 @@ enters the runtime bundle.
 
 | Configured target | Runner architecture | Installer and update artifacts |
 | --- | --- | --- |
-| macOS arm64 | Self-hosted macOS ARM64 | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml` |
-| macOS x64 | Self-hosted macOS X64 | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml` |
+| macOS arm64 | Self-hosted macOS ARM64 | `Gnosi-<version>-arm64.dmg`, ZIP, `latest-mac.yml`, `appcast-arm64.xml` |
+| macOS x64 | Self-hosted macOS X64 | `Gnosi-<version>-x64.dmg`, ZIP, `latest-mac.yml`, `appcast-x64.xml` |
 | Linux arm64 | Self-hosted Linux ARM64 | AppImage, DEB, `latest-linux-arm64.yml` |
 | Windows x64 | Self-hosted Windows X64 | `Gnosi-<version>-Setup.exe`, `latest.yml` |
 
@@ -421,7 +424,7 @@ and Docker startup/persistence. Local macOS success cannot certify another targe
 | Electron development stays blank | Vite HTTP origin, frozen Python PATH, owned backend startup log | Start a second backend on 5002 |
 | Profile protection stops startup | Exact error, both original/recovery paths, stopped clients | Delete journals, cookies or old data |
 | Packaged backend is missing | PyInstaller output and final resource policy | Fall back to system Python |
-| macOS offers a DMG | Current manual-install policy and architecture | Treat signing verification as automatic-update acceptance |
+| macOS offers a DMG | Missing Sparkle bridge or legacy installation; architecture | Treat signing verification as automatic-update acceptance |
 | Office can reach health but citations fail | Bearer token, API origin and actual protected response | Disable authentication to hide a client failure |
 
 Run the repository's desktop contracts, strict IPC check, documentation gate

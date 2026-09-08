@@ -82,7 +82,8 @@ async function inventory(directory, group, buildOutput) {
     // dist also contains unpacked apps and builder diagnostics. Uploaded groups
     // must contain only release assets; build validation ignores unrelated files.
     if (buildOutput && !/\.(?:dmg|zip|AppImage|deb|exe|blockmap)$/i.test(name)
-      && !/^(?:latest|alpha|beta).*\.yml$/i.test(name)) continue;
+      && !/^(?:latest|alpha|beta).*\.yml$/i.test(name)
+      && !/^appcast-(?:arm64|x64)\.xml$/.test(name)) continue;
     safeName(name);
     check(!folded.has(name.toLowerCase()), `Artifact name collision: ${name}`);
     folded.add(name.toLowerCase());
@@ -120,6 +121,8 @@ async function validateInventory(group, entries, version) {
   check(Array.isArray(manifest.files) && manifest.files.length > 0, `Missing files in ${group}`);
   const required = config.suffixes.map((suffix) => `Gnosi-${version}-${suffix}`);
   const allowed = new Set([config.channel, ...required, ...required.map((name) => `${name}.blockmap`)]);
+  const sparkleFeed = group.startsWith('macos-') ? `appcast-${group.slice(6)}.xml` : null;
+  if (sparkleFeed) allowed.add(sparkleFeed);
   for (const name of entries.keys()) {
     check(allowed.has(name), `Unexpected artifact in ${group}: ${name}`);
     if (name.endsWith('.blockmap')) {
@@ -150,6 +153,10 @@ async function validateInventory(group, entries, version) {
   }
   for (const name of required) {
     check(entries.has(name), `Missing required artifact in ${group}: ${name}`);
+  }
+  if (sparkleFeed && entries.has(sparkleFeed)) {
+    await require('./sparkle-appcast.cjs').verifyFeed(entries.get(sparkleFeed).file,
+      { version, arch: group.slice(6) });
   }
   // Installer presence and updater references are separate requirements. DMG
   // writeUpdateInfo is optional; FPM adds DEB metadata only with publishConfig.

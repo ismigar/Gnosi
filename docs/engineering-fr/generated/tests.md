@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 504 | 2078 |
+| Vitest | 505 | 2082 |
 | pytest | 475 | 3419 |
 
 ## Fichiers
@@ -42,7 +42,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Playwright | [`tests/e2e/tests/visual/regression.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/visual/regression.spec.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/app/bootstrap.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/app/composition.contract.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/composition.contract.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/app/desktop/DesktopUpdateNotice.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/DesktopUpdateNotice.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/app/desktop/DesktopUpdateNotice.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/DesktopUpdateNotice.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/app/desktop/desktopMenu.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/desktopMenu.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/app/integration/useFileLinkInterceptor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/integration/useFileLinkInterceptor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/app/navigation/AppSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/AppSidebar.test.tsx) | 7 | call-pattern estimate |
@@ -109,11 +109,12 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/contacts/components/ContactForm.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactForm.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/contacts/components/ContactList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactList.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/contacts/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/public-entry.test.ts) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/control-center/dashboard/Dashboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/Dashboard.test.tsx) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/features/control-center/dashboard/Dashboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/Dashboard.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/control-center/dashboard/model.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/model.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/control-center/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/control-center/releases/ReleaseNotesDialog.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/ReleaseNotesDialog.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/control-center/releases/releaseNotesFormatting.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotesFormatting.test.ts) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/control-center/releases/releaseNotesUrl.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotesUrl.test.ts) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/genograms/export.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/export.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/genograms/genograms.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/genograms.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/GraphPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/GraphPage.test.tsx) | 5 | call-pattern estimate |

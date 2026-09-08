@@ -2,6 +2,7 @@ import {act, useEffect, type ReactNode} from 'react';
 import {createRoot, type Root} from 'react-dom/client';
 import {afterEach, beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 import Dashboard from '../Dashboard';
+import {APP_VERSION} from '../releases/version';
 import {useDashboard, type DashboardState} from './useDashboard';
 import {useDashboardKeyboard} from './useDashboardKeyboard';
 import {DirectivesDialog} from './DirectivesDialog';
@@ -24,12 +25,11 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('react-i18next', () => {
     const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key;
-    return {useTranslation: () => ({t})};
+    return {useTranslation: () => ({t, i18n: {resolvedLanguage: 'ca'}})};
 });
 vi.mock('../../../shared/api/use-api', () => ({useApi: () => ({apiFetch: mocks.apiFetch, role: 'owner'})}));
 vi.mock('../../../shared/plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => mocks.enabled})}));
 vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
-vi.mock('../releases/ReleaseNotesDialog', () => ({ReleaseNotesDialog: () => null}));
 vi.mock('../../../shared/notifications/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}}));
 vi.mock('../../../shared/api/configuration', () => ({fetchConfiguration: vi.fn()}));
 vi.mock('../../../shared/api/scheduler', () => ({
@@ -84,6 +84,14 @@ afterEach(async () => {
     removeStorage(WORKSPACE_ID_STORAGE_KEY); removeStorage(USER_ROLE_STORAGE_KEY);
 });
 describe('Dashboard behavior', () => {
+    it('opens the public localized history from the version link', async () => {
+        await run(() => {root.render(<Dashboard/>);});
+        const link = container.querySelector<HTMLAnchorElement>('a[aria-label="release_notes.open_aria"]');
+        expect(link?.href).toBe(`https://ismigar.github.io/changelog.ca.html#v${APP_VERSION}`);
+        expect(link?.target).toBe('_blank');
+        expect(link?.rel).toContain('noopener');
+        expect(container.querySelector('[aria-labelledby="release-notes-title"]')).toBeNull();
+    });
     it('renders task controls and organization members without changing scheduler payloads', async () => {
         await run(() => {root.render(<Dashboard/>);});
         expect(container.textContent).toContain('fixture task');

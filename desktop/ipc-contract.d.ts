@@ -6,6 +6,7 @@ export type DesktopUpdateStatus =
   | 'available'
   | 'downloading'
   | 'downloaded'
+  | 'installing'
   | 'manual-download'
   | 'error';
 
@@ -89,7 +90,7 @@ export interface DesktopIpcDependencies extends FormFillerDependencies {
   readonly buildMacInstallerUrl: (version: string | undefined) => string;
   readonly openExternal: (url: string) => Promise<void>;
   readonly downloadUpdate: () => Promise<unknown>;
-  readonly quitAndInstall: () => void;
+  readonly quitAndInstall: () => void | Promise<void>;
 }
 
 export interface GnosiElectronApi {

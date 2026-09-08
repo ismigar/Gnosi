@@ -160,6 +160,10 @@ promote_release() {
     for artifact_group in macos-x64 macos-arm64 linux-arm64 windows-x64; do
         node "$SCRIPT_DIR/scripts/release-artifacts.cjs" validate "$artifact_group" \
             "$artifact_root/$artifact_group"
+        case "$artifact_group" in
+            macos-*) node "$SCRIPT_DIR/scripts/sparkle-appcast.cjs" verify-group \
+                "$artifact_root/$artifact_group" "$version" "${artifact_group#macos-}" ;;
+        esac
     done
     node "$METADATA_SCRIPT" published "$version" "$CATALOG_FILE" \
         "$CHANGELOG_FILE" "$EN_TRANSLATION_FILE" "$published_url"

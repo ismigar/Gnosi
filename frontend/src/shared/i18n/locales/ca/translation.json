@@ -5698,6 +5698,12 @@
   "reader_articles_pending_many": "{{count}} articles pendents",
   "reader_sources_count_many": "{{count}} fonts",
   "desktop_update": {
+    "progress": "Baixat {{percent}}%",
+    "installing": "Reiniciant…",
+    "manual_action": "Obre l’instal·lador",
+    "retry": "Torna a provar",
+    "update": "Actualitza Gnosi",
+    "automatic_hint": "Baixa la versió {{version}} i reinicia automàticament quan acabi.",
     "aria_label": "Actualització de l'aplicació",
     "dismiss": "Descarta l'avís d'actualització",
     "available_title": "Gnosi {{version}} disponible",

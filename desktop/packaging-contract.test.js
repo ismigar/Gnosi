@@ -111,6 +111,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\backend-launch.js',
     '\\release-version.js',
     '\\update-policy.js',
+    '\\sparkle-updater.js',
   ]));
 });
 

@@ -5647,6 +5647,12 @@
     "redo_success": "Relation removed again"
   },
   "desktop_update": {
+    "progress": "Downloaded {{percent}}%",
+    "installing": "Restarting…",
+    "manual_action": "Open the installer",
+    "retry": "Retry update",
+    "update": "Update Gnosi",
+    "automatic_hint": "Download version {{version}} and restart automatically when ready.",
     "aria_label": "Application update",
     "dismiss": "Dismiss update notice",
     "available_title": "Gnosi {{version}} is available",

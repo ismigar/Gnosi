@@ -47,8 +47,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
-| `app` | 19 | 2489 | 0 |
-| `features` | 1064 | 123602 | 33 |
+| `app` | 19 | 2434 | 0 |
+| `features` | 1065 | 123602 | 33 |
 | `generated` | 2 | 44004 | 448 |
 | `shared` | 235 | 29854 | 389 |
 
@@ -60,7 +60,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/app/AppProviders.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/AppProviders.tsx) | 16 | `AppProviders` | — |
 | [`frontend/src/app/HomePage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/HomePage.tsx) | 205 | `HomePage` | — |
 | [`frontend/src/app/bootstrap.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.tsx) | 37 | `bootstrap` | — |
-| [`frontend/src/app/desktop/DesktopUpdateNotice.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/DesktopUpdateNotice.tsx) | 170 | `DesktopUpdateNotice` | — |
+| [`frontend/src/app/desktop/DesktopUpdateNotice.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/DesktopUpdateNotice.tsx) | 115 | `DesktopUpdateNotice` | — |
 | [`frontend/src/app/desktop/desktopMenu.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/desktop/desktopMenu.ts) | 75 | `getDesktopMenuLabels`, `installDesktopApplicationMenu`, `syncDesktopApplicationMenu` | — |
 | [`frontend/src/app/initialization/interfaceLanguage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/initialization/interfaceLanguage.ts) | 116 | `DEFAULT_INTERFACE_LANGUAGE`, `INTERFACE_LANGUAGE_STORAGE_KEY`, `SUPPORTED_INTERFACE_LANGUAGES`, `getStoredInterfaceLanguage`, `initializeInterfaceLanguage`, `normalizeInterfaceLanguage`, `resolveInitialInterfaceLanguage`, `setInterfaceLanguage` | — |
 | [`frontend/src/app/integration/useFileLinkInterceptor.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/integration/useFileLinkInterceptor.ts) | 121 | `useFileLinkInterceptor` | — |
@@ -222,7 +222,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/contacts/contactIntegrationCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/contactIntegrationCatalog.ts) | 68 | `buildContactIntegrationCatalog` | — |
 | [`frontend/src/features/contacts/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/index.ts) | 3 | `ContactsPage` | — |
 | [`frontend/src/features/contacts/model/avatar-utils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/model/avatar-utils.ts) | 29 | `getGoogleAvatarUrl`, `getGravatarUrl`, `isGmail` | — |
-| [`frontend/src/features/control-center/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/Dashboard.tsx) | 101 | `Dashboard`, `function` | — |
+| [`frontend/src/features/control-center/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/Dashboard.tsx) | 96 | `Dashboard`, `function` | — |
 | [`frontend/src/features/control-center/dashboard/AddMemberDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/AddMemberDialog.tsx) | 51 | `AddMemberDialog` | — |
 | [`frontend/src/features/control-center/dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/ConfirmationDialogs.tsx) | 49 | `ConfirmationDialogs` | — |
 | [`frontend/src/features/control-center/dashboard/DashboardPaginationControls.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/DashboardPaginationControls.tsx) | 96 | `DashboardPaginationControls` | — |
@@ -235,7 +235,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/control-center/dashboard/ToolsDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/ToolsDialog.tsx) | 118 | `ToolsDialog` | — |
 | [`frontend/src/features/control-center/dashboard/TrapsDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/TrapsDialog.tsx) | 97 | `TrapsDialog` | — |
 | [`frontend/src/features/control-center/dashboard/model.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/model.ts) | 39 | `ROLE_CAPABILITIES`, `formatFrequency`, `normalizeMember` | — |
-| [`frontend/src/features/control-center/dashboard/useDashboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/useDashboard.ts) | 123 | `useDashboard` | `/api/workspaces` |
+| [`frontend/src/features/control-center/dashboard/useDashboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/useDashboard.ts) | 122 | `useDashboard` | `/api/workspaces` |
 | [`frontend/src/features/control-center/dashboard/useDashboardKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/useDashboardKeyboard.ts) | 69 | `useDashboardKeyboard` | — |
 | [`frontend/src/features/control-center/dashboard/useDashboardMembers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/useDashboardMembers.ts) | 116 | `useDashboardMembers` | — |
 | [`frontend/src/features/control-center/dashboard/useDashboardMemory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/useDashboardMemory.ts) | 141 | `useDashboardMemory` | `/api/tools/pending` |
@@ -244,6 +244,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/control-center/releases/ReleaseNotesDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/ReleaseNotesDialog.tsx) | 125 | `ReleaseNotesDialog` | — |
 | [`frontend/src/features/control-center/releases/releaseNotes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotes.ts) | 29 | `RELEASES`, `RELEASE_NOTE_SECTIONS`, `findRelease`, `releaseSeenStorageKey` | — |
 | [`frontend/src/features/control-center/releases/releaseNotesFormatting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotesFormatting.ts) | 4 | `normalizeLineEndings` | — |
+| [`frontend/src/features/control-center/releases/releaseNotesUrl.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotesUrl.ts) | 6 | `releaseNotesUrl` | — |
 | [`frontend/src/features/control-center/releases/version.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/version.ts) | 2 | `APP_VERSION` | — |
 | [`frontend/src/features/genograms/GenogramView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/GenogramView.tsx) | 116 | `GenogramView`, `function` | — |
 | [`frontend/src/features/genograms/GenogramsConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/GenogramsConfig.tsx) | 24 | `GenogramsConfig`, `function` | — |
