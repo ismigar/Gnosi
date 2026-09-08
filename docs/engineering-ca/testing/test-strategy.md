@@ -250,6 +250,14 @@ errors, un límit de procés esgotat, els reintents esgotats o l'espai insuficie
 continuen fent fallar el check. Mai no s'ometen les construccions ni la prova
 de persistència.
 
+L'eliminació d'imatges té una recuperació limitada pròpia: si s'esgota el límit
+de procés de 60 segons, una consulta correcta ha de confirmar si encara existeix
+l'etiqueta exacta de CI. La seva absència verificada completa l'eliminació.
+Si continua existint, es permet un reintent al cap de cinc segons, comprovant-ne
+de nou la presència abans d'eliminar-la. Una inspecció fallida, una imatge en ús
+o un segon timeout amb l'etiqueta encara present continuen sent errors.
+Es mantenen el límit exterior de deu minuts i la comprovació final de 12 GiB.
+
 El job de frontend aplica el pressupost revisat de 4 GiB de heap de
 Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
 comparteixin el mateix contracte de memòria previsible.

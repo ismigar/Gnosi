@@ -226,6 +226,13 @@ process limit; both capacity and final-cleanup steps have ten-minute limits.
 Other errors, an expired process limit, exhausted retries or insufficient space
 still fail the check. Builds and the persistence smoke are never skipped.
 
+Image removal has a separate bounded recovery: after its 60-second process
+limit expires, a successful query must confirm whether the exact CI tag remains.
+Verified absence completes that removal. A remaining tag permits one retry after
+five seconds, with another presence check before deletion. Failed inspection,
+in-use images and a second timeout with the tag still present remain failures.
+The ten-minute outer cleanup limit and final 12 GiB capacity check still apply.
+
 The frontend job applies its reviewed 4 GiB Node heap budget at job
 scope so lint, type checking, tests and production build run under the same
 predictable memory contract.

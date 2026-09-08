@@ -118,6 +118,15 @@ export function ProcessResourceModalView({
                                         phase.defaultLabel,
                                     )}
                                 </div>
+                                {(job?.chunks_total ?? 0) > 0 ? (
+                                    <div className="text-xs text-[var(--text-secondary)]/70">
+                                        {translate(
+                                            'fragments_progress',
+                                            '{{count}} of {{total}} fragments completed',
+                                            { count: job?.chunks_done ?? 0, total: job?.chunks_total ?? 0 },
+                                        )}
+                                    </div>
+                                ) : null}
                                 {touched > 0 ? (
                                     <div className="text-xs text-[var(--text-secondary)]/70">
                                         {translate(

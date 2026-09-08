@@ -107,6 +107,25 @@ def test_persistent_rate_limit_exhausts_four_retries(clock: Clock) -> None:
     assert clock.waits == [5, 10, 20, 40]
 
 
+def test_zero_request_limit_stops_without_futile_retries(clock: Clock) -> None:
+    error = provider_error(headers={"x-ratelimit-limit-req-minute": "0"})
+    call, waiting = Mock(side_effect=error), Mock()
+    with pytest.raises(RateLimitError):
+        recovery.call_with_retry(call, on_wait=waiting, on_attempt=Mock())
+    call.assert_called_once()
+    waiting.assert_not_called()
+    assert clock.waits == []
+
+
+def test_zero_remaining_requests_still_retries(clock: Clock) -> None:
+    error = provider_error(headers={
+        "x-ratelimit-limit-req-minute": "1", "x-ratelimit-remaining-req-minute": "0",
+    })
+    call = Mock(side_effect=[error, "ok"])
+    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock()) == "ok"
+    assert clock.waits == [5]
+
+
 @pytest.mark.parametrize("cooldown", ["121", "3600", "inf", "nan"])
 def test_long_cooldown_stops_without_retrying_early(clock: Clock, cooldown: str) -> None:
     call = Mock(side_effect=provider_error(headers={"Retry-After": cooldown}))
@@ -211,6 +230,51 @@ def ingest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
 def answer(key: str) -> tuple[str, str]:
     return json.dumps({"summary": key, "notes": [{"managed_key": key}]}), "test-model"
+
+
+def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.agent import factory
+
+    generate = Mock(side_effect=[answer("one"), answer("two")])
+    monkeypatch.setattr(factory, "generate_text", generate)
+    run, _apply, _chunks = ingest
+    job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
+    run(job_id=job_id)
+    assert generate.call_count == 2
+    assert all(call.kwargs["agent_id"] == "llm-wiki" for call in generate.call_args_list)
+
+
+@pytest.mark.parametrize("source_table_id", ["", "sources"])
+@pytest.mark.parametrize("phase", ["reading", "error", "done"])
+def test_job_id_polling_recovers_persisted_status_after_restart(
+    ingest, monkeypatch: pytest.MonkeyPatch, source_table_id: str, phase: str,
+) -> None:
+    job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
+    llm_wiki_storage.update_job(job_id, chunks_total=85, chunks_done=2, progress=12)
+    if phase != "reading":
+        llm_wiki_storage.finish_job(job_id, phase=phase, error="429" if phase == "error" else None)
+    monkeypatch.setattr(llm_wiki_storage, "_JOBS", {})
+    monkeypatch.setattr(llm_wiki_storage, "_RUNNING_BY_RESOURCE", {})
+
+    status = llm_wiki_storage.get_job_status(job_id, source_table_id)
+
+    assert status["job_id"] == job_id
+    assert status["resource_id"] == "resource"
+    assert status["phase"] == ("partial" if phase == "reading" else phase)
+    assert status["running"] is False
+    assert status["chunks_done"] == 2
+    assert status["chunks_total"] == 85
+    if phase == "error":
+        assert status["error"] == "429"
+
+
+def test_persisted_job_lookup_requires_exact_id_and_source_table(
+    ingest, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
+    monkeypatch.setattr(llm_wiki_storage, "_JOBS", {})
+    for identifier, table in [(job_id, "other"), (f"../{job_id}", "sources")]:
+        assert llm_wiki_storage.get_job_status(identifier, table)["phase"] == "idle"
 
 
 def test_chunk_retry_preserves_progress_and_writes_once(monkeypatch, clock, ingest) -> None:

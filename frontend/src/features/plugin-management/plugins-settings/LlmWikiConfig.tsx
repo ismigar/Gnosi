@@ -84,9 +84,9 @@ export function LlmWikiConfig() {
     }
 
     if (!controller.serverState) {
-        return <div role="alert">
-            {controller.error}
-            <button type="button" onClick={() => { void controller.retryLoad(); }}>{t('common.retry', 'Retry')}</button>
+        return <div role="alert" style={{ alignItems: 'flex-start', display: 'flex', flexDirection: 'column', gap: 10, padding: 14 }}>
+            <span>{controller.error}</span>
+            <button className="btn-gnosi" type="button" onClick={() => { void controller.retryLoad(); }}>{t('common.retry', 'Retry')}</button>
         </div>;
     }
 

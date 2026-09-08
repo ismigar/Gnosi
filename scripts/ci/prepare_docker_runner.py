@@ -8,7 +8,7 @@ import logging
 import os
 from pathlib import Path
 import shutil
-from subprocess import PIPE, CalledProcessError, run
+from subprocess import PIPE, CalledProcessError, TimeoutExpired, run
 from time import sleep
 from typing import Mapping
 
@@ -18,21 +18,45 @@ MINIMUM_FREE_BYTES = 12 * 1024**3
 CI_IMAGE_TAGS = ("gnosi-frontend:ci", "gnosi-backend:ci")
 MAX_PRUNE_ATTEMPTS = 3
 PRUNE_RETRY_DELAY_SECONDS = 5.0
+MAX_IMAGE_REMOVAL_ATTEMPTS = 2
+IMAGE_REMOVAL_RETRY_DELAY_SECONDS = 5.0
 
 
 def _free_bytes(path: Path) -> int:
     return shutil.disk_usage(path).free
 
 
-def _remove_ci_images() -> None:
-    for tag in CI_IMAGE_TAGS:
-        listed = run(
-            ("docker", "image", "ls", "--quiet", tag),
-            check=True, capture_output=True, text=True, timeout=30,
-        )
-        if listed.stdout.strip():
+def _ci_image_exists(tag: str) -> bool:
+    listed = run(
+        ("docker", "image", "ls", "--quiet", tag),
+        check=True, capture_output=True, text=True, timeout=30,
+    )
+    return bool(listed.stdout.strip())
+
+
+def _remove_ci_image(tag: str) -> None:
+    for attempt in range(1, MAX_IMAGE_REMOVAL_ATTEMPTS + 1):
+        if not _ci_image_exists(tag):
+            return
+        try:
             # Never force removal of an image that is still used by a container.
             run(("docker", "image", "rm", tag), check=True, timeout=60)
+        except TimeoutExpired:
+            # The daemon may finish deleting after the client times out.
+            if not _ci_image_exists(tag):
+                LOG.warning("Image removal timed out, but %s is verified absent", tag)
+                return
+            if attempt == MAX_IMAGE_REMOVAL_ATTEMPTS:
+                raise
+            LOG.warning("Image removal timed out for %s; retrying once", tag)
+            sleep(IMAGE_REMOVAL_RETRY_DELAY_SECONDS)
+        else:
+            return
+
+
+def _remove_ci_images() -> None:
+    for tag in CI_IMAGE_TAGS:
+        _remove_ci_image(tag)
 
 
 def _prune_build_cache() -> None:

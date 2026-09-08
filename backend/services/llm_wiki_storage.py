@@ -276,6 +276,19 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, obje
     wanted = str(identifier or "").strip()
     with _LOCK:
         job = deepcopy(_JOBS.get(wanted)) if wanted in _JOBS else None
+        if job is None and wanted:
+            # Pollers retain the job id across backend restarts. The in-memory
+            # cache is empty then, but the durable job still owns its status.
+            persisted = _string_record(_read_json(_job_path(wanted)))
+            if (
+                persisted is not None
+                and persisted.get("job_id") == wanted
+                and (
+                    not source_table_id
+                    or persisted.get("source_table_id") == source_table_id
+                )
+            ):
+                job = persisted
         if job is None and source_table_id:
             latest = _read_json(_latest_path(source_table_id, wanted))
             job_id = str(latest.get("job_id") or "") if is_record(latest) else ""
