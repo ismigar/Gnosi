@@ -73,6 +73,12 @@ function fixture(t) {
     if (operation !== 'validate' || !fs.statSync(directory).isDirectory()) process.exit(2);
     fs.appendFileSync(process.env.GNOSI_TEST_LOG, \`artifact \${group}\n\`);
   `);
+  fs.writeFileSync(path.join(root, 'desktop/scripts/sparkle-appcast.cjs'), `
+    const fs = require('node:fs');
+    if (process.argv[2] !== 'verify-group' || !fs.statSync(process.argv[3]).isDirectory()) process.exit(2);
+    if (process.env.GNOSI_TEST_REJECT_FEED === '1') process.exit(1);
+    fs.appendFileSync(process.env.GNOSI_TEST_LOG, 'verified Sparkle feed\\n');
+  `);
 
   const log = path.join(os.tmpdir(), `gnosi-release-contract-${path.basename(root)}.log`);
   t.after(() => fs.rmSync(log, { force: true }));
@@ -212,7 +218,7 @@ test('promotion requires the tagged source, four verified groups and exact publi
   assert.equal(release.channel, 'stable');
   assert.equal(release.downloadUrl, url);
   assert.match(fs.readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8'), /· Stable_/);
-  assert.equal(fs.readFileSync(f.log, 'utf8').split('\n').filter(Boolean).length, 4);
+  assert.equal(fs.readFileSync(f.log, 'utf8').split('\n').filter(Boolean).length, 6);
 });
 
 test('promotion cannot proceed without a tag', (t) => {
@@ -226,6 +232,22 @@ test('promotion cannot proceed without a tag', (t) => {
     'https://github.com/ismigar/Gnosi/releases/tag/v9.9.9');
   assert.equal(result.status, 1);
   assert.match(result.stderr, /tag v3\.0\.0 is missing/);
+  assert.deepEqual(ownedSnapshot(f.root), before);
+});
+
+test('promotion cannot mark a release stable when a Sparkle feed fails verification', t => {
+  const f = fixture(t);
+  assert.equal(f.release('prepare', '3.0.0').status, 0);
+  f.commit('pending release');
+  f.git('tag', '-a', 'v3.0.0', '-m', 'fixture release');
+  const artifacts = path.join(f.root, 'verified-artifacts');
+  for (const group of ['macos-x64', 'macos-arm64', 'linux-arm64', 'windows-x64']) {
+    fs.mkdirSync(path.join(artifacts, group), { recursive: true });
+  }
+  f.env.GNOSI_TEST_REJECT_FEED = '1';
+  const before = ownedSnapshot(f.root);
+  const result = f.release('promote', '3.0.0', artifacts, 'https://github.com/ismigar/Gnosi/releases/tag/v3.0.0');
+  assert.notEqual(result.status, 0);
   assert.deepEqual(ownedSnapshot(f.root), before);
 });
 

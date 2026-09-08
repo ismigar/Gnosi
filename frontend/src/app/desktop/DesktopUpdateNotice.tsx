@@ -1,170 +1,115 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, RefreshCw, X } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const INITIAL_STATE: DesktopUpdateState = { status: 'idle' };
 const VISIBLE_STATUSES: ReadonlySet<DesktopUpdateStatus> = new Set([
-    'available',
-    'downloading',
-    'downloaded',
-    'manual-download',
+    'available', 'downloading', 'downloaded', 'installing', 'manual-download',
 ]);
 
 export function DesktopUpdateNotice() {
     const { t } = useTranslation();
     const [update, setUpdate] = useState<DesktopUpdateState>(INITIAL_STATE);
-    const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
-    const eventSequence = useRef<number>(0);
+    const eventSequence = useRef(0);
+    const actionPending = useRef(false);
 
     useEffect(() => {
         const api = window.electronAPI;
         if (!api?.onUpdateStatus || !api.getUpdateStatus) return undefined;
-
+        let active = true;
         const initialSequence = eventSequence.current;
-        api.onUpdateStatus((nextUpdate) => {
+        const dispose = api.onUpdateStatus((nextUpdate) => {
             eventSequence.current += 1;
-            setUpdate(nextUpdate);
+            if (active) setUpdate(nextUpdate);
         });
-
-        void api.getUpdateStatus()
-            .then((currentUpdate) => {
-                if (eventSequence.current === initialSequence && currentUpdate) {
-                    setUpdate(currentUpdate);
-                }
-            })
-            .catch(() => undefined);
-
+        void api.getUpdateStatus().then((currentUpdate) => {
+            if (active && eventSequence.current === initialSequence && currentUpdate) {
+                setUpdate(currentUpdate);
+            }
+        }).catch(() => undefined);
         return () => {
-            api.removeUpdateListener?.();
+            active = false;
+            if (dispose) dispose();
+            else api.removeUpdateListener?.();
         };
     }, []);
 
+    const isError = update.status === 'error' && update.userInitiated;
+    if (!VISIBLE_STATUSES.has(update.status) && !isError) return null;
+
     const version = update.version ?? '';
-    const isVisible = (VISIBLE_STATUSES.has(update.status)
-        || (update.status === 'error' && update.userInitiated))
-        && dismissedVersion !== version;
+    const percent = Number.isFinite(update.percent)
+        ? Math.max(0, Math.min(100, Math.floor(update.percent ?? 0))) : 0;
+    const downloading = update.status === 'downloading';
+    const installing = update.status === 'installing';
+    const manual = update.status === 'manual-download';
+    const busy = downloading || installing;
+    const label = downloading
+        ? t('desktop_update.progress', 'Downloaded {{percent}}%', { percent })
+        : installing
+            ? t('desktop_update.installing', 'Restarting…')
+            : manual
+                ? t('desktop_update.manual_action', 'Open the installer')
+                : update.status === 'downloaded'
+                    ? t('desktop_update.restart', 'Restart and install')
+                    : isError
+                        ? t('desktop_update.retry', 'Retry update')
+                        : t('desktop_update.update', 'Update Gnosi');
+    const description = isError
+        ? t('desktop_update.error_title', 'Update could not be completed')
+        : manual || update.installMode === 'manual'
+            ? t('desktop_update.manual_body', 'Open the DMG when the download finishes.')
+            : t('desktop_update.automatic_hint', 'Download version {{version}} and restart automatically when ready.', { version });
 
-    if (!isVisible) return null;
-
-    const percent = Math.max(0, Math.min(100, Math.round(update.percent ?? 0)));
-
-    const downloadUpdate = () => {
-        void window.electronAPI?.downloadUpdate?.()
-            .then((nextUpdate) => {
-                if (nextUpdate) {
-                    setUpdate(nextUpdate);
-                }
-            })
-            .catch(() => {
-                setUpdate((current) => ({
-                    ...current,
-                    status: 'error',
-                    userInitiated: true,
-                }));
-            });
-    };
-
-    const installUpdate = () => {
-        void window.electronAPI?.installUpdate?.()
-            .then((nextUpdate) => {
-                if (nextUpdate) {
-                    setUpdate(nextUpdate);
-                }
-            })
-            .catch(() => {
-                setUpdate((current) => ({
-                    ...current,
-                    status: 'error',
-                    userInitiated: true,
-                }));
-            });
+    const runAction = async (): Promise<void> => {
+        if (actionPending.current || busy || manual) return;
+        const action = update.status === 'downloaded'
+            ? window.electronAPI?.installUpdate : window.electronAPI?.downloadUpdate;
+        if (!action) return;
+        actionPending.current = true;
+        const sequence = eventSequence.current;
+        setUpdate((current) => ({ ...current, status: update.status === 'downloaded' ? 'installing' : 'downloading', percent: 0, userInitiated: true }));
+        try {
+            const nextUpdate = await action();
+            if (nextUpdate && eventSequence.current === sequence) setUpdate(nextUpdate);
+        } catch {
+            setUpdate((current) => ({ ...current, status: 'error', userInitiated: true }));
+        } finally {
+            actionPending.current = false;
+        }
     };
 
     return (
         <aside
-            className="fixed right-4 top-4 z-[var(--z-toast)] w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-3 text-[var(--text-primary)] shadow-lg"
-            role="status"
-            aria-live="polite"
+            className="fixed bottom-4 left-4 z-[var(--z-toast)] max-w-[calc(100vw-2rem)] md:left-[calc(var(--app-sidebar-width)+1rem)]"
             aria-label={t('desktop_update.aria_label', 'Application update')}
         >
             <button
                 type="button"
-                onClick={() => {
-                    setDismissedVersion(version);
-                }}
-                className="absolute right-2 top-2 rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
-                aria-label={t('desktop_update.dismiss', 'Dismiss update notice')}
+                onClick={() => { void runAction(); }}
+                disabled={busy || manual}
+                title={description}
+                aria-label={`${label}. ${description}`}
+                aria-busy={busy}
+                className="relative inline-flex min-h-9 items-center gap-2 overflow-hidden rounded-full border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] shadow-sm transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)] disabled:cursor-default"
             >
-                <X size={15} aria-hidden="true" />
+                {installing || update.status === 'downloaded'
+                    ? <RefreshCw size={14} className={installing ? 'motion-safe:animate-spin' : undefined} aria-hidden="true" />
+                    : <Download size={14} aria-hidden="true" />}
+                <span role="status" aria-live="polite" aria-atomic="true">{label}</span>
+                {downloading && (
+                    <span
+                        className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--bg-secondary)]"
+                        role="progressbar"
+                        aria-label={t('desktop_update.aria_label', 'Application update')}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={percent}
+                    >
+                        <span className="block h-full bg-[var(--accent-primary)] motion-safe:transition-[width]" style={{ width: `${String(percent)}%` }} />
+                    </span>
+                )}
             </button>
-
-            <div className="flex gap-2.5 pr-6">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-primary)] text-white">
-                    {update.status === 'downloaded'
-                        ? <RefreshCw size={16} aria-hidden="true" />
-                        : <Download size={16} aria-hidden="true" />}
-                </span>
-                <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-semibold">
-                        {update.status === 'downloaded'
-                            ? t('desktop_update.ready_title', 'Update ready')
-                            : update.status === 'manual-download'
-                                ? t('desktop_update.manual_title', 'Installer download started')
-                                : update.status === 'error'
-                                    ? t('desktop_update.error_title', 'Update could not be completed')
-                                    : t('desktop_update.available_title', 'Gnosi {{version}} is available', { version })}
-                    </h2>
-                    {update.status !== 'available' && <p className="mt-0.5 text-xs leading-5 text-[var(--text-secondary)]">
-                        {update.status === 'downloading'
-                            && t('desktop_update.downloading_body', 'Downloading version {{version}}… {{percent}}%', { version, percent })}
-                        {update.status === 'downloaded'
-                            && t('desktop_update.ready_body', 'Restart Gnosi to finish installing version {{version}}.', { version })}
-                        {update.status === 'manual-download'
-                            && t('desktop_update.manual_body', 'Open the DMG when the download finishes.')}
-                        {update.status === 'error'
-                            && t('desktop_update.error_body', 'Please try the update again later.')}
-                    </p>}
-
-                    {update.status === 'downloading' && (
-                        <div
-                            className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bg-secondary)]"
-                            role="progressbar"
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={percent}
-                        >
-                            <div
-                                className="h-full rounded-full bg-[var(--accent-primary)] transition-[width] duration-200"
-                                style={{ width: `${String(percent)}%` }}
-                            />
-                        </div>
-                    )}
-
-                    {update.status === 'available' && (
-                        <div className="mt-2">
-                            <button
-                                type="button"
-                                onClick={downloadUpdate}
-                                className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-primary)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-90"
-                            >
-                                <Download size={14} aria-hidden="true" />
-                                {t('desktop_update.download', 'Download')}
-                            </button>
-                        </div>
-                    )}
-
-                    {update.status === 'downloaded' && (
-                        <button
-                            type="button"
-                            onClick={installUpdate}
-                            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-primary)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-90"
-                        >
-                            <RefreshCw size={14} aria-hidden="true" />
-                            {t('desktop_update.restart', 'Restart and install')}
-                        </button>
-                    )}
-                </div>
-            </div>
         </aside>
     );
 }

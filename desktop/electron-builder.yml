@@ -39,6 +39,7 @@ files:
   - backend-launch.js
   - release-version.js
   - update-policy.js
+  - sparkle-updater.js
   # Runtime dependencies used by main.js (electron-log drives the auto-updater
   # logger; electron-updater is the updater itself). electron-builder follows
   # package.json dependencies, so only production deps land in the asar.
@@ -95,6 +96,14 @@ linux:
     - target: deb
   category: Office
   artifactName: ${productName}-${version}-${arch}.${ext}
+
+# Include the DEB in the same update channel so installed DEBs select their
+# native package instead of the AppImage. Installation may ask for elevation.
+deb:
+  publish:
+    provider: github
+    owner: ismigar
+    repo: Gnosi
 
 win:
   icon: assets/icon.ico

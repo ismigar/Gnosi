@@ -5,6 +5,8 @@ node_modules/
 dist/
 dist-python/
 python-build/
+native-build/
+.sparkle-sdk/
 
 # Virtual environments
 .venv*/

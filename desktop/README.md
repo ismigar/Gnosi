@@ -167,18 +167,101 @@ installer and real 2.x upgrade matrix is accepted and a separate publication
 path is reviewed. A green build or a candidate artifact is not permission to
 publish Gnosi 3.0.0. Existing public releases remain untouched.
 
+## Free macOS updates with Sparkle
+
+The generic desktop build and `build:mac` use
+`electron-builder.macos-sparkle.cjs`. They compile Gnosi's small Objective-C
+bridge against the pinned official Sparkle **2.9.4** SDK, then package ad-hoc
+signed apps. No Apple Developer subscription is needed for this update route.
+The existing Koffi runtime calls the bridge; no additional npm dependency or
+third-party Electron bridge is installed.
+
+Provision the checksum-verified SDK before offline release packaging:
+
+```bash
+pnpm --filter @gnosi/desktop install:sparkle
+pnpm --filter @gnosi/desktop build:mac -- --arm64
+```
+
+Use `--x64` on the Intel builder, with its matching frozen Python backend. The
+bridge is compiled for both CPU architectures. Sparkle builds require macOS 12
+or later. The installed application's Info.plist contains its architecture's
+GitHub Releases feed and the public key from `sparkle-config.json`.
+
+The private Ed25519 key is stored in the macOS Keychain under the account
+`gnosi-release-updates`. The `native-build/bin/generate_keys --account
+ gnosi-release-updates -p` command prints only its public half. Preserve this key
+in a secure backup: ad-hoc distributions cannot use Apple's identity to recover
+from losing it. Never commit or send a private key through chat. On another
+release builder, provision the same key through the supported Sparkle Keychain
+import workflow. The optional CI uses the `GNOSI_SPARKLE_PRIVATE_KEY` secret,
+passed directly to the signing tool through standard input. It never writes
+that secret into the workspace or command arguments.
+
+After ZIP creation, the build signs both the update archive and its architecture
+feed (`appcast-arm64.xml` or `appcast-x64.xml`). It independently verifies the
+feed against the checked-in public key and the archive's size and SHA-512 before
+returning it as an artifact. The collector preserves these feeds and verifies
+them again before candidate upload. Publish the exact feeds alongside the ZIPs
+only as part of an approved release; the stable URL uses GitHub's latest public
+release. Candidates are not announced automatically. SDK provisioning and
+packaging never publish or dispatch hosted jobs.
+
+Sparkle verifies signed feeds indefinitely and verifies update archives before
+extracting them. Gnosi holds the download continuation until the Update button
+is clicked, forwards byte progress, then holds the install continuation until
+the Python backend stops. The verified update replaces the application and
+relaunches it. Check failures, rejected archives and cancelled installations
+remain retryable. The app does not fetch release notes inside Sparkle; the
+Control Center version link opens the public website.
+
+Run the isolated native acceptance checks on macOS after `build:sparkle`:
+
+```bash
+node desktop/scripts/smoke-sparkle.cjs
+node desktop/scripts/smoke-sparkle.cjs --tamper
+```
+
+These checks use temporary Electron bundles, temporary profiles and ephemeral
+keys served over loopback. They verify real replacement/relaunch, no download
+before the click, and rejection of a modified archive. They do not replace
+installed Gnosi or exercise its production data. Full Gnosi installation and
+real 2.x upgrades on every supported OS remain part of release acceptance.
+Existing installations need one manual update to introduce the Sparkle bridge;
+subsequent compatible releases use it automatically. macOS may still require
+user approval to open a downloaded app without Apple's notarization.
+
+`build:mac:unsigned` retains the local package without Sparkle.
+`build:mac:developer-id` retains the optional Apple-signed/notarized path, whose
+preflight requires Developer ID credentials; it is not the default build.
+
 ## Updates
 
-Production queries the existing public releases after successful startup.
-Development disables update checks. Downloads and installation require user
-actions: `autoDownload` and `autoInstallOnAppQuit` are both false.
+Production queries the existing public releases after successful startup and
+rechecks every six hours while idle, without interrupting an update in progress.
+Development disables update checks. `autoDownload` and `autoInstallOnAppQuit`
+remain false. A compact button at the lower left announces an available update;
+clicking it authorizes download, replacement and automatic restart. The button
+shows the real downloaded percentage, then the restart state. The main process
+owns this flow across windows and renderer reloads, suppresses duplicate actions,
+and allows retry after a failed user download. The backend is stopped before
+launching the installer; Windows uses silent installation and explicitly relaunches.
 
-macOS currently offers the official architecture-specific DMG in the external
-browser. It does not offer automatic restart-and-install with the current ad-hoc
-signatures. Windows/Linux retain the configured download/install flow; verify
-the actual installed package format before claiming updater compatibility.
-Background checks and version changes do not open release history automatically.
-Users can open release notes explicitly from the Control Center.
+macOS uses Sparkle when its packaged bridge initializes. A missing bridge
+retains the DMG fallback for ad-hoc installations (Developer ID installations
+can still use Squirrel). Windows uses the existing NSIS updater with silent
+replacement and relaunch. Linux AppImage replaces its installed file; DEB uses
+the system package manager and may request administrator authorization. DEB
+publishing metadata explicitly includes the DEB in the update channel. Unsupported
+Linux package formats are not claimed to support this flow. Windows may show
+SmartScreen warnings, and Smart App Control or managed-device policy may block
+unsigned installers. No operating-system security protection is disabled.
+
+Clicking the Control Center version opens the localized public history at
+`https://ismigar.github.io/changelog[.ca|.es].html#v<version>` in the external browser.
+Background checks and version changes never open release history. The Pages site
+uses Gnosi's localized catalog and the published GitHub releases, with a static
+snapshot when offline. Unpublished 3.0 candidates are not announced there.
 
 ## Architecture
 

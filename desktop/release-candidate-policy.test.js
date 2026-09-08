@@ -47,6 +47,7 @@ const CANDIDATE_PATHS = [
   'artifacts/*Setup*.exe',
   'artifacts/*.blockmap',
   'artifacts/latest*.yml',
+  'artifacts/appcast-*.xml',
   'artifacts/plugins/*.zip',
   'artifacts/plugins/plugins-index.json',
   'artifacts/plugins/plugins-index.sig',
@@ -182,11 +183,11 @@ function assertReviewedCIRunners(workflow) {
 }
 
 function assertNonPublishingBuilds(scripts) {
-  assert.equal(scripts.build, 'pnpm run build:python && electron-builder --publish never',
+  assert.equal(scripts.build, 'pnpm run build:python && electron-builder --config electron-builder.platform.cjs --publish never',
     'the generic desktop build must not use implicit publication defaults');
   for (const platform of ['mac', 'linux', 'win']) {
     assert.equal(scripts[`build:${platform}`],
-      `pnpm run build:python && electron-builder --${platform} --publish never`,
+      `pnpm run build:python && electron-builder --${platform}${platform === 'mac' ? ' --config electron-builder.macos-sparkle.cjs' : ''} --publish never`,
       `the indirect ${platform} build must not enable builder publication`);
   }
 }

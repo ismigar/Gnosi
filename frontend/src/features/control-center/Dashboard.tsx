@@ -1,7 +1,7 @@
 import {Clock3, History, Users, Gauge, Sparkles} from 'lucide-react';
 import {AppHeader} from '../../shared/ui/layout/AppHeader';
 import {SettingsSectionTabs} from '../../shared/ui/settings/SettingsSectionTabs';
-import {ReleaseNotesDialog} from './releases/ReleaseNotesDialog';
+import {releaseNotesUrl} from './releases/releaseNotesUrl';
 import {APP_VERSION} from './releases/version';
 import {useDashboard} from './dashboard/useDashboard';
 import {useDashboardKeyboard} from './dashboard/useDashboardKeyboard';
@@ -19,28 +19,23 @@ import {ConfirmationDialogs} from './dashboard/ConfirmationDialogs';
 export default function Dashboard() {
 const state = useDashboard();
 useDashboardKeyboard(state);
-const {t, automationsEnabled, isAdmin, scrollContainerRef, selectedControlTab, setSelectedControlTab, gnosiMode, isReleaseNotesOpen, setIsReleaseNotesOpen} = state;
+const {t, automationsEnabled, isAdmin, scrollContainerRef, selectedControlTab, setSelectedControlTab, gnosiMode, language} = state;
     return (
         <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
             <AppHeader icon={Gauge} title={t('dashboard.control_center', 'Control Center')}>
                 <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => { setIsReleaseNotesOpen(true); }}
+                    <a
+                        href={releaseNotesUrl(language, APP_VERSION)}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
                         aria-label={t('release_notes.open_aria', { version: APP_VERSION })}
                     >
                         <Sparkles size={12} aria-hidden="true" />
                         v{APP_VERSION}
-                    </button>
+                    </a>
                 </div>
             </AppHeader>
-
-            <ReleaseNotesDialog
-                open={isReleaseNotesOpen}
-                onClose={() => { setIsReleaseNotesOpen(false); }}
-                initialVersion={APP_VERSION}
-            />
 
             <div
                 ref={scrollContainerRef}

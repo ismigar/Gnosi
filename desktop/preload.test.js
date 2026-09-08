@@ -132,7 +132,7 @@ test('update notifications forward only the validated state, including all main-
   const received = [];
   api.onUpdateStatus((...args) => received.push(args));
   for (const status of ['idle', 'checking', 'not-available', 'available', 'downloading',
-    'downloaded', 'manual-download', 'error']) {
+    'downloaded', 'installing', 'manual-download', 'error']) {
     const state = { status, percent: 4.5, userInitiated: false, error: undefined };
     ipc.emit('update-status', privilegedEvent, state);
     assert.deepEqual(received.at(-1), [state]);
