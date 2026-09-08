@@ -40,6 +40,7 @@ nav:
       - Base de la plataforma i execució: domains/foundation-runtime.md
       - Vault i fitxers: domains/vault-files.md
       - Vistes de base de dades i planificació: domains/database-views-planning.md
+      - Genogrames: domains/genograms.md
       - Graf de coneixement: domains/knowledge-graph.md
       - Lector, referències i citacions: domains/reader-references.md
       - Quaderns fonamentats: domains/notebooks.md

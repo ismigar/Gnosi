@@ -10,6 +10,7 @@ DEFAULT_ENABLED_BUILTIN_IDS = frozenset({"resources"})
 
 
 BUILTIN_PLUGINS: tuple[dict[str, Any], ...] = (
+    {"id": "genograms", "icon": "Users", "group": "knowledge", "settingsTab": "genograms", "requires": [], "routes": []},
     {
         "id": "daily-notes",
         "icon": "CalendarDays",

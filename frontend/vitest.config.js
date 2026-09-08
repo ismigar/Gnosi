@@ -29,6 +29,9 @@ function resolveMaxWorkers() {
 export default defineConfig(() => ({
     test: {
         environment: 'jsdom',
+        // Use the browser package entry through Vite; the package's UMD main
+        // expects a global jsPDF when it is executed as native Node ESM.
+        server: { deps: { inline: ['svg2pdf.js'] } },
         include: [
             'tests/**/*.test.{js,ts}',
             'src/**/*.test.{js,jsx,ts,tsx}',

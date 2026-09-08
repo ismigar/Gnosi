@@ -309,3 +309,6 @@ credential access automatically.
 Run plugin manifest, signing, sandbox, state-race, AI contribution, MCP routing,
 retry, and connector tests. A live integration test uses a dedicated test
 account and must not mutate production data unintentionally.
+
+The optional [Genograms plugin](genograms.md) uses the built-in plugin registry and
+per-Vault enablement, with no external integration or AI dependency.

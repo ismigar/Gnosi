@@ -325,3 +325,5 @@ Exécutez les tests de manifestes, signatures, sandbox, concurrence de l'état,
 contributions IA, routage MCP, nouvelles tentatives et connecteurs. Un test
 d'intégration réel utilise un compte dédié et ne doit pas modifier
 involontairement des données de production.
+
+Le [plugin Génogrammes](genograms.md), facultatif par Vault, ajoute des tables familiales liées, des vues SVG et des exports locaux SVG/PNG/PDF, sans service externe ni IA.

@@ -330,3 +330,5 @@ Executeu proves de manifest, signatura, sandbox, curses d'estat, contribucions
 d'IA, encaminament MCP, reintents i connectors. Les proves d'integració reals
 utilitzen comptes de prova dedicats i no han de modificar involuntàriament
 dades de producció.
+
+El [plugin Genogrames](genograms.md), opcional per Vault, afegeix taules familiars enllaçades, vistes SVG i exportació local a SVG/PNG/PDF, sense serveis externs ni IA.

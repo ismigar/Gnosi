@@ -204,9 +204,12 @@ def save_page_md(file_path: Path, metadata: RegistryData, body: str) -> None:
     `vault_persist_by_name.md` directive.
 
     """
-    return _legacy.page_markdown_writer.save_page_markdown(
-        file_path, metadata, body, _PAGE_MARKDOWN_WRITER_DEPENDENCIES
-    )
+    from backend.domains.genograms.storage import write_guard
+
+    with write_guard(file_path, metadata):
+        return _legacy.page_markdown_writer.save_page_markdown(
+            file_path, metadata, body, _PAGE_MARKDOWN_WRITER_DEPENDENCIES
+        )
 
 
 def normalize_metadata_ids(metadata: RegistryData) -> RegistryData:

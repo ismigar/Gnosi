@@ -339,3 +339,7 @@ esquema, los cambios de nombre de campos y tablas, el orden de evaluación de
 fórmulas y rollups, la sincronización de relaciones, la ordenación de instantáneas,
 las acciones de los catálogos de opciones, las restricciones de programación,
 los caminos críticos y la representación de los paneles mediante pruebas E2E.
+
+## Genogramas
+
+El [plugin Genogramas](genograms.md), opcional por Vault, añade tablas familiares enlazadas, vistas SVG y exportación local a SVG/PNG/PDF, sin servicios externos ni IA.

@@ -40,6 +40,7 @@ nav:
       - Fondations de la plateforme et exécution: domains/foundation-runtime.md
       - Vault et fichiers: domains/vault-files.md
       - Vues de base de données et planification: domains/database-views-planning.md
+      - Génogrammes: domains/genograms.md
       - Graphe de connaissances: domains/knowledge-graph.md
       - Lecteur, références et citations: domains/reader-references.md
       - Carnets fondés sur les sources: domains/notebooks.md

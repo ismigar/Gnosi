@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, JsonValue
+from backend.domains.genograms.contracts import GenogramConfig
 
 
 class VaultViewInput(BaseModel):
@@ -10,6 +11,7 @@ class VaultViewInput(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
+    genogram: GenogramConfig | None = None
     id: str | None = None
     table_id: str | None = None
     name: str | None = None

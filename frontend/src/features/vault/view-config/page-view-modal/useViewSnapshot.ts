@@ -9,7 +9,7 @@ export function useViewSnapshot({
     groupSort, groupSortDir, dateField, endDateField,
     calendarView, colorField, rowHeight, feedPillLimit,
     feedExcerptLines, feedFocus, summaryModel, chartType,
-    xField, yField, aggregation, saveToTableViews,
+    xField, yField, aggregation, genogram, saveToTableViews,
     selectedExistingViewId, editScope, modalPinnedViewIds
 }: Pick<
     useViewStateResult,
@@ -44,6 +44,7 @@ export function useViewSnapshot({
     | 'xField'
     | 'yField'
     | 'aggregation'
+    | 'genogram'
     | 'saveToTableViews'
     | 'selectedExistingViewId'
     | 'editScope'
@@ -80,7 +81,7 @@ export function useViewSnapshot({
         chartType,
         xField,
         yField,
-        aggregation,
+        genogram, aggregation,
         saveToTableViews,
         selectedExistingViewId,
         editScope,
@@ -90,7 +91,7 @@ export function useViewSnapshot({
         galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir,
         dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit,
         feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField,
-        aggregation, saveToTableViews, selectedExistingViewId, editScope,
+        genogram, aggregation, saveToTableViews, selectedExistingViewId, editScope,
         modalPinnedViewIds]);
     return { formSnapshot };
 }

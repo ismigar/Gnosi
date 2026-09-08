@@ -67,6 +67,7 @@ LOCALES: dict[str, LocaleConfig] = {
 }
 NAV_LABELS = {
     "ca": {
+        "Genograms": "Genogrames",
         "Start here": "Comenceu aquí", "Product": "Producte",
         "Purpose and scope": "Objectiu i abast", "Terminology": "Terminologia",
         "Architecture": "Arquitectura", "System context": "Context del sistema",
@@ -89,6 +90,7 @@ NAV_LABELS = {
         "Tests": "Proves", "Runtime skills": "Habilitats d’execució", "Coverage": "Cobertura",
     },
     "es": {
+        "Genograms": "Genogramas",
         "Start here": "Empieza aquí", "Product": "Producto", "Purpose and scope": "Objetivo y alcance",
         "Terminology": "Terminología", "Architecture": "Arquitectura", "System context": "Contexto del sistema",
         "Runtime and deployment": "Ejecución y despliegue", "Data and storage": "Datos y almacenamiento",
@@ -109,6 +111,7 @@ NAV_LABELS = {
         "Tests": "Pruebas", "Runtime skills": "Habilidades de ejecución", "Coverage": "Cobertura",
     },
     "fr": {
+        "Genograms": "Génogrammes",
         "Start here": "Démarrer ici", "Product": "Produit", "Purpose and scope": "Objectif et périmètre",
         "Terminology": "Terminologie", "Architecture": "Architecture", "System context": "Contexte du système",
         "Runtime and deployment": "Exécution et déploiement", "Data and storage": "Données et stockage",

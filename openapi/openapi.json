@@ -10065,6 +10065,550 @@
         "title": "GeneratePayload",
         "type": "object"
       },
+      "GenogramConfig": {
+        "properties": {
+          "age": {
+            "default": true,
+            "title": "Age",
+            "type": "boolean"
+          },
+          "ancestors": {
+            "default": 2,
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Ancestors",
+            "type": "integer"
+          },
+          "dates": {
+            "default": false,
+            "title": "Dates",
+            "type": "boolean"
+          },
+          "descendants": {
+            "default": 1,
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Descendants",
+            "type": "integer"
+          },
+          "emotional": {
+            "default": true,
+            "title": "Emotional",
+            "type": "boolean"
+          },
+          "exclude_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclude Ids",
+            "type": "array"
+          },
+          "include_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Include Ids",
+            "type": "array"
+          },
+          "labels": {
+            "default": "name",
+            "enum": [
+              "name",
+              "initials",
+              "alias"
+            ],
+            "title": "Labels",
+            "type": "string"
+          },
+          "legend": {
+            "default": true,
+            "title": "Legend",
+            "type": "boolean"
+          },
+          "positions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GenogramPosition"
+            },
+            "title": "Positions",
+            "type": "object"
+          },
+          "root_id": {
+            "default": "",
+            "title": "Root Id",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "GenogramConfig",
+        "type": "object"
+      },
+      "GenogramGraphRequest": {
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenogramConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligible_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligible Ids"
+          },
+          "table_id": {
+            "title": "Table Id",
+            "type": "string"
+          },
+          "view_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View Id"
+          }
+        },
+        "required": [
+          "table_id"
+        ],
+        "title": "GenogramGraphRequest",
+        "type": "object"
+      },
+      "GenogramGraphResponse": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/GenogramConfig"
+          },
+          "database_id": {
+            "title": "Database Id",
+            "type": "string"
+          },
+          "hidden_connections": {
+            "title": "Hidden Connections",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/GenogramIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/GenogramPerson"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "people_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "People Fields",
+            "type": "object"
+          },
+          "people_table_id": {
+            "title": "People Table Id",
+            "type": "string"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/GenogramRelation"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "relations_fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Relations Fields",
+            "type": "object"
+          },
+          "relations_table_id": {
+            "title": "Relations Table Id",
+            "type": "string"
+          },
+          "view_id": {
+            "title": "View Id",
+            "type": "string"
+          },
+          "visible_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Visible Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "database_id",
+          "people_table_id",
+          "relations_table_id",
+          "view_id",
+          "people",
+          "relations",
+          "visible_ids",
+          "hidden_connections",
+          "issues",
+          "config",
+          "people_fields",
+          "relations_fields"
+        ],
+        "title": "GenogramGraphResponse",
+        "type": "object"
+      },
+      "GenogramIssue": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "default": "",
+            "title": "Field",
+            "type": "string"
+          },
+          "record_id": {
+            "title": "Record Id",
+            "type": "string"
+          },
+          "severity": {
+            "default": "error",
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "record_id"
+        ],
+        "title": "GenogramIssue",
+        "type": "object"
+      },
+      "GenogramPerson": {
+        "properties": {
+          "alias": {
+            "default": "",
+            "title": "Alias",
+            "type": "string"
+          },
+          "birth_approximate": {
+            "default": false,
+            "title": "Birth Approximate",
+            "type": "boolean"
+          },
+          "birth_date": {
+            "default": "",
+            "title": "Birth Date",
+            "type": "string"
+          },
+          "birth_order": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Order"
+          },
+          "death_approximate": {
+            "default": false,
+            "title": "Death Approximate",
+            "type": "boolean"
+          },
+          "death_date": {
+            "default": "",
+            "title": "Death Date",
+            "type": "string"
+          },
+          "etag": {
+            "default": "",
+            "title": "Etag",
+            "type": "string"
+          },
+          "gender": {
+            "default": "",
+            "title": "Gender",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "person",
+            "title": "Kind",
+            "type": "string"
+          },
+          "multiple_group": {
+            "default": "",
+            "title": "Multiple Group",
+            "type": "string"
+          },
+          "multiple_type": {
+            "default": "unknown",
+            "title": "Multiple Type",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "pregnancy_date": {
+            "default": "",
+            "title": "Pregnancy Date",
+            "type": "string"
+          },
+          "pregnancy_status": {
+            "default": "ongoing",
+            "title": "Pregnancy Status",
+            "type": "string"
+          },
+          "pregnancy_weeks": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pregnancy Weeks"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "symbol": {
+            "default": "neutral",
+            "title": "Symbol",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "vital_status": {
+            "default": "unknown",
+            "title": "Vital Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "GenogramPerson",
+        "type": "object"
+      },
+      "GenogramPosition": {
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "GenogramPosition",
+        "type": "object"
+      },
+      "GenogramRelation": {
+        "properties": {
+          "divorce_date": {
+            "default": "",
+            "title": "Divorce Date",
+            "type": "string"
+          },
+          "emotion": {
+            "default": "close",
+            "title": "Emotion",
+            "type": "string"
+          },
+          "end_date": {
+            "default": "",
+            "title": "End Date",
+            "type": "string"
+          },
+          "etag": {
+            "default": "",
+            "title": "Etag",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "informant": {
+            "default": "",
+            "title": "Informant",
+            "type": "string"
+          },
+          "kind": {
+            "default": "union",
+            "title": "Kind",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          },
+          "observed_date": {
+            "default": "",
+            "title": "Observed Date",
+            "type": "string"
+          },
+          "parentage": {
+            "default": "unknown",
+            "title": "Parentage",
+            "type": "string"
+          },
+          "separation_date": {
+            "default": "",
+            "title": "Separation Date",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "start_date": {
+            "default": "",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "title": "Target",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "union_id": {
+            "default": "",
+            "title": "Union Id",
+            "type": "string"
+          },
+          "union_status": {
+            "default": "unknown",
+            "title": "Union Status",
+            "type": "string"
+          },
+          "union_type": {
+            "default": "partnership",
+            "title": "Union Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "GenogramRelation",
+        "type": "object"
+      },
+      "GenogramSetupRequest": {
+        "properties": {
+          "locale": {
+            "default": "en",
+            "enum": [
+              "ca",
+              "en",
+              "es",
+              "fr"
+            ],
+            "title": "Locale",
+            "type": "string"
+          }
+        },
+        "title": "GenogramSetupRequest",
+        "type": "object"
+      },
+      "GenogramSetupResponse": {
+        "properties": {
+          "database_id": {
+            "title": "Database Id",
+            "type": "string"
+          },
+          "people_table_id": {
+            "title": "People Table Id",
+            "type": "string"
+          },
+          "relations_table_id": {
+            "title": "Relations Table Id",
+            "type": "string"
+          },
+          "view_id": {
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database_id",
+          "people_table_id",
+          "relations_table_id",
+          "view_id"
+        ],
+        "title": "GenogramSetupResponse",
+        "type": "object"
+      },
       "GlobalIndexResponse": {
         "additionalProperties": {
           "type": "string"
@@ -32562,6 +33106,16 @@
             ],
             "title": "Gallerypreview"
           },
+          "genogram": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenogramConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "hidden": {
             "anyOf": [
               {
@@ -32692,6 +33246,16 @@
               }
             ],
             "title": "Gallerypreview"
+          },
+          "genogram": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenogramConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hidden": {
             "anyOf": [
@@ -72152,6 +72716,252 @@
         "summary": "Generate Citation Key Endpoint",
         "tags": [
           "Vault"
+        ]
+      }
+    },
+    "/api/vault/genograms/graph": {
+      "post": {
+        "operationId": "query_genogram_api_vault_genograms_graph_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenogramGraphRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenogramGraphResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Query Genogram",
+        "tags": [
+          "Genograms"
+        ]
+      }
+    },
+    "/api/vault/genograms/prepare": {
+      "post": {
+        "operationId": "prepare_genograms_api_vault_genograms_prepare_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenogramSetupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenogramSetupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Genograms",
+        "tags": [
+          "Genograms"
         ]
       }
     },

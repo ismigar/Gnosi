@@ -8,50 +8,51 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 ## Résumé
 
-- Routeurs enregistrés: **36**
-- Opérations découvertes: **282**
+- Routeurs enregistrés: **37**
+- Opérations découvertes: **284**
 - Modules de routes non enregistrés: **2**
 
 ## Enregistrement des routeurs
 
 | Ordre | Routeur | Préfixe de montage | Étiquettes | Enregistrement |
 | ---: | --- | --- | --- | --- |
-| 1 | `workspace_routes.router` | `/` | Workspaces | [`backend/app/routes.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L50) |
-| 2 | `agent_router.router` | `/api` | — | [`backend/app/routes.py:52`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L52) |
-| 3 | `notebook_routes.router` | `/` | — | [`backend/app/routes.py:57`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L57) |
-| 4 | `system_routes.router` | `/api/system` | — | [`backend/app/routes.py:61`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L61) |
-| 5 | `social_routes.router` | `/api/social` | Social | [`backend/app/routes.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L62) |
-| 6 | `vault_routes.router` | `/api/vault` | Vault | [`backend/app/routes.py:69`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L69) |
-| 7 | `planning_routes.router` | `/api` | Project Planning | [`backend/app/routes.py:70`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L70) |
-| 8 | `literature_routes.router` | `/` | — | [`backend/app/routes.py:76`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L76) |
-| 9 | `handwriting_routes.router` | `/` | Handwriting | [`backend/app/routes.py:80`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L80) |
-| 10 | `vault_graph_routes.router` | `/api` | Vault Graph | [`backend/app/routes.py:81`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L81) |
-| 11 | `vault_views_routes.router` | `/api` | Vault Views | [`backend/app/routes.py:82`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L82) |
-| 12 | `collab_routes.router` | `/api/vault` | Collaboration | [`backend/app/routes.py:83`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L83) |
-| 13 | `share_routes.router` | `/api` | Share | [`backend/app/routes.py:84`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L84) |
-| 14 | `calendar_routes.router` | `/` | Calendar | [`backend/app/routes.py:86`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L86) |
-| 15 | `mail_routes.router` | `/` | Mail | [`backend/app/routes.py:91`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L91) |
-| 16 | `reader.router` | `/` | Reader | [`backend/app/routes.py:96`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L96) |
-| 17 | `meeting_routes.router` | `/` | Meetings | [`backend/app/routes.py:101`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L101) |
-| 18 | `tools_routes.router` | `/` | Tools | [`backend/app/routes.py:106`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L106) |
-| 19 | `analytics_routes.router` | `/` | Analytics | [`backend/app/routes.py:111`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L111) |
-| 20 | `scheduler_routes.router` | `/` | Scheduler | [`backend/app/routes.py:112`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L112) |
-| 21 | `contacts_routes.router` | `/api` | Contacts | [`backend/app/routes.py:117`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L117) |
-| 22 | `public_routes.router` | `/api` | Public API / PAT | [`backend/app/routes.py:123`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L123) |
-| 23 | `google_auth_routes.router` | `/` | Auth | [`backend/app/routes.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L125) |
-| 24 | `microsoft_auth_routes.router` | `/` | Auth | [`backend/app/routes.py:126`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L126) |
-| 25 | `integrations_routes.router` | `/` | Integrations | [`backend/app/routes.py:127`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L127) |
-| 26 | `auth_routes.router` | `/` | Auth | [`backend/app/routes.py:128`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L128) |
-| 27 | `config_routes.router` | `/api` | Config | [`backend/app/routes.py:129`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L129) |
-| 28 | `env_routes.router` | `/api` | Env | [`backend/app/routes.py:130`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L130) |
-| 29 | `credentials_routes.router` | `/api` | Credentials | [`backend/app/routes.py:131`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L131) |
-| 30 | `ai_routes.router` | `/api` | AI Settings | [`backend/app/routes.py:132`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L132) |
-| 31 | `agent_skills_routes.router` | `/api` | AI Skills | [`backend/app/routes.py:138`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L138) |
-| 32 | `notion_routes.router` | `/api` | Notion Import | [`backend/app/routes.py:144`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L144) |
-| 33 | `notion_oauth_routes.router` | `/api` | Notion MCP OAuth | [`backend/app/routes.py:150`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L150) |
-| 34 | `vaults_routes.router` | `/api` | Vaults | [`backend/app/routes.py:156`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L156) |
-| 35 | `vault_templates_routes.router` | `/api` | Vault templates | [`backend/app/routes.py:157`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L157) |
-| 36 | `identity_routes.router` | `/` | Identity | [`backend/app/routes.py:162`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L162) |
+| 1 | `workspace_routes.router` | `/` | Workspaces | [`backend/app/routes.py:51`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L51) |
+| 2 | `genograms_router.router` | `/` | — | [`backend/app/routes.py:52`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L52) |
+| 3 | `agent_router.router` | `/api` | — | [`backend/app/routes.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L54) |
+| 4 | `notebook_routes.router` | `/` | — | [`backend/app/routes.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L59) |
+| 5 | `system_routes.router` | `/api/system` | — | [`backend/app/routes.py:63`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L63) |
+| 6 | `social_routes.router` | `/api/social` | Social | [`backend/app/routes.py:64`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L64) |
+| 7 | `vault_routes.router` | `/api/vault` | Vault | [`backend/app/routes.py:71`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L71) |
+| 8 | `planning_routes.router` | `/api` | Project Planning | [`backend/app/routes.py:72`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L72) |
+| 9 | `literature_routes.router` | `/` | — | [`backend/app/routes.py:78`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L78) |
+| 10 | `handwriting_routes.router` | `/` | Handwriting | [`backend/app/routes.py:82`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L82) |
+| 11 | `vault_graph_routes.router` | `/api` | Vault Graph | [`backend/app/routes.py:83`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L83) |
+| 12 | `vault_views_routes.router` | `/api` | Vault Views | [`backend/app/routes.py:84`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L84) |
+| 13 | `collab_routes.router` | `/api/vault` | Collaboration | [`backend/app/routes.py:85`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L85) |
+| 14 | `share_routes.router` | `/api` | Share | [`backend/app/routes.py:86`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L86) |
+| 15 | `calendar_routes.router` | `/` | Calendar | [`backend/app/routes.py:88`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L88) |
+| 16 | `mail_routes.router` | `/` | Mail | [`backend/app/routes.py:93`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L93) |
+| 17 | `reader.router` | `/` | Reader | [`backend/app/routes.py:98`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L98) |
+| 18 | `meeting_routes.router` | `/` | Meetings | [`backend/app/routes.py:103`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L103) |
+| 19 | `tools_routes.router` | `/` | Tools | [`backend/app/routes.py:108`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L108) |
+| 20 | `analytics_routes.router` | `/` | Analytics | [`backend/app/routes.py:113`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L113) |
+| 21 | `scheduler_routes.router` | `/` | Scheduler | [`backend/app/routes.py:114`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L114) |
+| 22 | `contacts_routes.router` | `/api` | Contacts | [`backend/app/routes.py:119`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L119) |
+| 23 | `public_routes.router` | `/api` | Public API / PAT | [`backend/app/routes.py:125`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L125) |
+| 24 | `google_auth_routes.router` | `/` | Auth | [`backend/app/routes.py:127`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L127) |
+| 25 | `microsoft_auth_routes.router` | `/` | Auth | [`backend/app/routes.py:128`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L128) |
+| 26 | `integrations_routes.router` | `/` | Integrations | [`backend/app/routes.py:129`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L129) |
+| 27 | `auth_routes.router` | `/` | Auth | [`backend/app/routes.py:130`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L130) |
+| 28 | `config_routes.router` | `/api` | Config | [`backend/app/routes.py:131`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L131) |
+| 29 | `env_routes.router` | `/api` | Env | [`backend/app/routes.py:132`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L132) |
+| 30 | `credentials_routes.router` | `/api` | Credentials | [`backend/app/routes.py:133`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L133) |
+| 31 | `ai_routes.router` | `/api` | AI Settings | [`backend/app/routes.py:134`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L134) |
+| 32 | `agent_skills_routes.router` | `/api` | AI Skills | [`backend/app/routes.py:140`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L140) |
+| 33 | `notion_routes.router` | `/api` | Notion Import | [`backend/app/routes.py:146`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L146) |
+| 34 | `notion_oauth_routes.router` | `/api` | Notion MCP OAuth | [`backend/app/routes.py:152`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L152) |
+| 35 | `vaults_routes.router` | `/api` | Vaults | [`backend/app/routes.py:158`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L158) |
+| 36 | `vault_templates_routes.router` | `/api` | Vault templates | [`backend/app/routes.py:159`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L159) |
+| 37 | `identity_routes.router` | `/` | Identity | [`backend/app/routes.py:164`](https://github.com/ismigar/Gnosi/blob/main/backend/app/routes.py#L164) |
 
 ## Opérations
 
@@ -255,6 +256,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `POST` | `/api/tools/reject` | `reject_tool` | Tools, tools | [Depends(require_role('admin'))] | Reject a pending tool. | [`backend/api/tools_routes.py:138`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py#L138) |
 | `GET` | `/api/tools/{name}` | `get_tool` | Tools, tools | — | Get a specific tool by name. | [`backend/api/tools_routes.py:169`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py#L169) |
 | `WEBSOCKET` | `/api/vault/collab/{page_id}` | `collab_ws` | Collaboration | — | Collab ws | [`backend/api/collab_routes.py:178`](https://github.com/ismigar/Gnosi/blob/main/backend/api/collab_routes.py#L178) |
+| `POST` | `/api/vault/genograms/graph` | `query_genogram` | Genograms | [Depends(get_workspace_context), Depends(require_plugins('genograms'))] | Query genogram | [`backend/domains/genograms/routes.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L54) |
+| `POST` | `/api/vault/genograms/prepare` | `prepare_genograms` | Genograms | [Depends(get_workspace_context), Depends(require_plugins('genograms'))], [Depends(require_role('editor'))] | Prepare genograms | [`backend/domains/genograms/routes.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L19) |
 | `POST` | `/api/vault/handwriting/recognize` | `recognize_handwriting` | Handwriting | — | Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`. | [`backend/api/handwriting_routes.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py#L68) |
 | `GET` | `/api/vault/handwriting/status` | `handwriting_status` | Handwriting | — | Indicates whether the local engine (transformers + PIL) is available. | [`backend/api/handwriting_routes.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py#L43) |
 | `POST` | `/api/vault/handwriting/warmup` | `handwriting_warmup` | Handwriting | — | Preloads the model in the background (idempotent, non-blocking). | [`backend/api/handwriting_routes.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py#L53) |

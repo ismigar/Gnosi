@@ -66,6 +66,7 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
             // The active tab is the block's section → patch to the section.
             const next = await patchSectionConfig(pageId, view, {
                 visible_properties: newVisible,
+                ...(nextView.genogram ? { genogram: nextView.genogram } : {}),
                 sorts,
                 sort: sorts[0] || null,
                 group_by: nextView.group_by ?? view?.group_by,
@@ -78,6 +79,7 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
             try {
                 await updateVaultView(activeViewId, {
                     ...current,
+                    ...(nextView.genogram ? { genogram: nextView.genogram } : {}),
                     visibleProperties: newVisible,
                     sorts,
                     sort: sorts[0] || null,
@@ -85,7 +87,7 @@ export function createBodyAdapters({ ctx, table, handleOpenConfig, templates, ha
                     ...(nextView.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
                 });
                 await refetchTableViews();
-            } catch (e) { reportEmbedError('update view failed', e); }
+            } catch (e) { reportEmbedError('update view failed', e); if (nextView.genogram) throw e; }
         }
     };
     const onUpdateNoteAdapter = async (id: unknown, patch: unknown) => {

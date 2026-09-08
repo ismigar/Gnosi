@@ -73,6 +73,8 @@ export interface ModuleContextRef {
 
 
 export interface AppEventMap {
+  readonly 'gnosi:genograms-changed': null;
+  readonly 'gnosi:genograms-prepared': null;
   readonly 'app-error': AppErrorEventDetail;
   readonly 'db-theme-changed': null;
   readonly 'gnosi-mail-dark-body-changed': null;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { configValue } from '../../../genograms';
 import { emptyFilterTree } from './filter-tree';
 import type { ModalInput } from './useViewController';
 import type { ViewSort, VisibleProperty, ViewJoin, RelationOption, RegistryView, Usage } from './types';
@@ -66,6 +67,7 @@ export function useViewState({
     const [summaryModel, setSummaryModel] = useState('');
     const [summaryModels, setSummaryModels] = useState<AiModelRegistryEntry[]>([]);
     // Chart view options.
+    const [genogram, setGenogram] = useState(() => configValue(undefined));
     const [chartType, setChartType] = useState('bar');
     const [xField, setXField] = useState('');
     const [yField, setYField] = useState('');
@@ -115,7 +117,7 @@ export function useViewState({
         feedFocus, setFeedFocus, summaryModel, setSummaryModel,
         summaryModels, setSummaryModels, chartType, setChartType,
         xField, setXField, yField, setYField,
-        aggregation, setAggregation, saveToTableViews, setSaveToTableViews,
+        genogram, setGenogram, aggregation, setAggregation, saveToTableViews, setSaveToTableViews,
         error, setError, existingViews, setExistingViews,
         selectedExistingViewId, setSelectedExistingViewId, existingViewsStatus, setExistingViewsStatus,
         existingViewsTableId, setExistingViewsTableId, existingViewsReloadKey, setExistingViewsReloadKey,

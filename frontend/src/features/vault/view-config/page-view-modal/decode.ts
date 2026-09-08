@@ -1,3 +1,4 @@
+import { configValue } from '../../../genograms';
 import type { FilterNode, FilterRule, FilterValue, RegistryView, ViewConfig, ViewJoin, ViewSort, VisibleProperty } from './types';
 import { isFilterGroup } from './filter-tree';
 
@@ -43,6 +44,7 @@ export function decodeView(value: unknown): ViewConfig {
     const tree = node(src.filterTree);
     return {
         ...src,
+        genogram: src.genogram ? configValue(src.genogram) : undefined,
         id: nullableText(src.id), name: nullableText(src.name), table_id: nullableText(src.table_id),
         source_table_id: text(src.source_table_id), type: nullableText(src.type),
         is_main: src.is_main === null || typeof src.is_main === 'boolean' ? src.is_main : undefined,

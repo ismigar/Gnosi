@@ -1,3 +1,5 @@
+import { usePlugins } from '../../../../shared/plugins/usePlugins';
+import { PEOPLE_TABLE_ID } from '../../../genograms';
 import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import {
@@ -42,6 +44,8 @@ export function ViewManagementDialog({
     views,
 }: ViewManagementDialogProps) {
     const { t } = useTranslation();
+    const { isEnabled } = usePlugins();
+    const availableViewTypes = VIEW_TYPES.filter(v => v.id !== 'genogram' || (isEnabled('genograms') && views.some(view => view.table_id === PEOPLE_TABLE_ID)));
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -99,7 +103,7 @@ export function ViewManagementDialog({
                 <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                     {t('views_header.add_new_view', 'Add new view')}
                 </div>
-                {VIEW_TYPES.map((viewType) => {
+                {availableViewTypes.map((viewType) => {
                     const ViewIcon = viewType.icon;
                     return (
                         <button

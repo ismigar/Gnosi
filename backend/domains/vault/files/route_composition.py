@@ -44,12 +44,15 @@ def _move_page_to_trash(page_id: str, file_path: Path) -> TrashMetadata:
     `asyncio.to_thread` from the HTTP handler.
 
     """
-    return _legacy.TrashRepository(
-        _legacy.get_p("VAULT"),
-        retention_days=TRASH_RETENTION_DAYS,
-        parse_frontmatter=_legacy.parse_frontmatter,
-        write_json=_legacy.safe_write_json,
-    ).move_page(page_id, file_path)
+    from backend.domains.genograms.storage import write_guard
+
+    with write_guard(file_path, None):
+        return _legacy.TrashRepository(
+            _legacy.get_p("VAULT"),
+            retention_days=TRASH_RETENTION_DAYS,
+            parse_frontmatter=_legacy.parse_frontmatter,
+            write_json=_legacy.safe_write_json,
+        ).move_page(page_id, file_path)
 
 
 def _restore_page_from_trash(page_id: str) -> TrashMetadata:

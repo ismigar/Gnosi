@@ -40,6 +40,7 @@ nav:
       - Platform foundation and runtime: domains/foundation-runtime.md
       - Vault and files: domains/vault-files.md
       - Database views and planning: domains/database-views-planning.md
+      - Genograms: domains/genograms.md
       - Knowledge graph: domains/knowledge-graph.md
       - Reader, references, and citations: domains/reader-references.md
       - Grounded notebooks: domains/notebooks.md

@@ -1,0 +1,218 @@
+{
+  "person": {
+    "ca": "Persona",
+    "en": "Person",
+    "es": "Persona",
+    "fr": "Personne"
+  },
+  "pregnancy": {
+    "ca": "Gestació",
+    "en": "Pregnancy",
+    "es": "Gestación",
+    "fr": "Grossesse"
+  },
+  "square": {
+    "ca": "Quadrat",
+    "en": "Square",
+    "es": "Cuadrado",
+    "fr": "Carré"
+  },
+  "circle": {
+    "ca": "Cercle",
+    "en": "Circle",
+    "es": "Círculo",
+    "fr": "Cercle"
+  },
+  "neutral": {
+    "ca": "Neutre",
+    "en": "Neutral",
+    "es": "Neutro",
+    "fr": "Neutre"
+  },
+  "unknown": {
+    "ca": "Desconegut",
+    "en": "Unknown",
+    "es": "Desconocido",
+    "fr": "Inconnu"
+  },
+  "alive": {
+    "ca": "Viu",
+    "en": "Alive",
+    "es": "Vivo",
+    "fr": "En vie"
+  },
+  "deceased": {
+    "ca": "Difunt",
+    "en": "Deceased",
+    "es": "Fallecido",
+    "fr": "Décédé"
+  },
+  "stillborn": {
+    "ca": "Nascut sense vida",
+    "en": "Stillborn",
+    "es": "Nacido sin vida",
+    "fr": "Mort-né"
+  },
+  "ongoing": {
+    "ca": "En curs",
+    "en": "Ongoing",
+    "es": "En curso",
+    "fr": "En cours"
+  },
+  "miscarriage": {
+    "ca": "Pèrdua espontània",
+    "en": "Miscarriage",
+    "es": "Pérdida espontánea",
+    "fr": "Fausse couche"
+  },
+  "termination": {
+    "ca": "Interrupció voluntària",
+    "en": "Termination",
+    "es": "Interrupción voluntaria",
+    "fr": "Interruption volontaire"
+  },
+  "fraternal": {
+    "ca": "No idèntics",
+    "en": "Fraternal",
+    "es": "No idénticos",
+    "fr": "Non identiques"
+  },
+  "identical": {
+    "ca": "Idèntics",
+    "en": "Identical",
+    "es": "Idénticos",
+    "fr": "Identiques"
+  },
+  "union": {
+    "ca": "Parella o unió",
+    "en": "Partnership or union",
+    "es": "Pareja o unión",
+    "fr": "Couple ou union"
+  },
+  "parent": {
+    "ca": "Filiació",
+    "en": "Parentage",
+    "es": "Filiación",
+    "fr": "Filiation"
+  },
+  "emotional": {
+    "ca": "Vincle emocional",
+    "en": "Emotional bond",
+    "es": "Vínculo emocional",
+    "fr": "Lien émotionnel"
+  },
+  "marriage": {
+    "ca": "Matrimoni",
+    "en": "Marriage",
+    "es": "Matrimonio",
+    "fr": "Mariage"
+  },
+  "cohabitation": {
+    "ca": "Convivència",
+    "en": "Cohabitation",
+    "es": "Convivencia",
+    "fr": "Cohabitation"
+  },
+  "partnership": {
+    "ca": "Parella",
+    "en": "Partnership",
+    "es": "Pareja",
+    "fr": "Couple"
+  },
+  "coparenting": {
+    "ca": "Coparentalitat",
+    "en": "Coparenting",
+    "es": "Coparentalidad",
+    "fr": "Coparentalité"
+  },
+  "active": {
+    "ca": "Activa",
+    "en": "Active",
+    "es": "Activa",
+    "fr": "Active"
+  },
+  "separated": {
+    "ca": "Separada",
+    "en": "Separated",
+    "es": "Separada",
+    "fr": "Séparée"
+  },
+  "divorced": {
+    "ca": "Divorciada",
+    "en": "Divorced",
+    "es": "Divorciada",
+    "fr": "Divorcée"
+  },
+  "ended": {
+    "ca": "Finalitzada",
+    "en": "Ended",
+    "es": "Finalizada",
+    "fr": "Terminée"
+  },
+  "biological": {
+    "ca": "Biològica",
+    "en": "Biological",
+    "es": "Biológica",
+    "fr": "Biologique"
+  },
+  "adoptive": {
+    "ca": "Adoptiva",
+    "en": "Adoptive",
+    "es": "Adoptiva",
+    "fr": "Adoptive"
+  },
+  "foster": {
+    "ca": "Acolliment",
+    "en": "Foster",
+    "es": "Acogimiento",
+    "fr": "Accueil"
+  },
+  "close": {
+    "ca": "Proper",
+    "en": "Close",
+    "es": "Cercano",
+    "fr": "Proche"
+  },
+  "fused": {
+    "ca": "Fusional",
+    "en": "Fused",
+    "es": "Fusional",
+    "fr": "Fusionnel"
+  },
+  "distant": {
+    "ca": "Distant",
+    "en": "Distant",
+    "es": "Distante",
+    "fr": "Distant"
+  },
+  "cutoff": {
+    "ca": "Tall de contacte",
+    "en": "Cutoff",
+    "es": "Corte de contacto",
+    "fr": "Rupture de contact"
+  },
+  "conflict": {
+    "ca": "Conflictiu",
+    "en": "Conflict",
+    "es": "Conflictivo",
+    "fr": "Conflictuel"
+  },
+  "close_conflict": {
+    "ca": "Proper i conflictiu",
+    "en": "Close and conflictual",
+    "es": "Cercano y conflictivo",
+    "fr": "Proche et conflictuel"
+  },
+  "distant_conflict": {
+    "ca": "Distant i conflictiu",
+    "en": "Distant and conflictual",
+    "es": "Distante y conflictivo",
+    "fr": "Distant et conflictuel"
+  },
+  "fused_conflict": {
+    "ca": "Fusional i conflictiu",
+    "en": "Fused and conflictual",
+    "es": "Fusional y conflictivo",
+    "fr": "Fusionnel et conflictuel"
+  }
+}

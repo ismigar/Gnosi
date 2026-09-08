@@ -43,11 +43,13 @@ from backend.api import (
 )
 from backend.domains.agent.routes.router import router as agent_router
 from backend.services.plugin_access import require_plugins
+from backend.domains.genograms.routes import router as genograms_router
 
 
 def register_routers(app: FastAPI) -> None:
     """Register routers in the exact legacy matching order."""
     app.include_router(workspace_routes.router, tags=["Workspaces"])
+    app.include_router(genograms_router)
 
     app.include_router(
         agent_router,
