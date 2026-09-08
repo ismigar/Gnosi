@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-COPY --from=ghcr.io/astral-sh/uv:0.9.15 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /uvx /bin/
 
 WORKDIR /app
 
@@ -30,7 +30,13 @@ COPY extensions/mcp/drupal-proxy/pyproject.toml extensions/mcp/drupal-proxy/pypr
 # Resolve nothing during image creation: synchronize the Linux CPU-only runtime
 # directly from the universal lock. Source code is copied later, so workspace
 # packages themselves are deliberately omitted while their dependencies remain.
-RUN uv sync --frozen --no-cache --no-default-groups --no-install-workspace
+# Build steps do not inherit workflow environment variables. Keep the reviewed
+# CI download policy explicit here and scoped to installation, not app runtime.
+RUN UV_HTTP_TIMEOUT=120 \
+    UV_HTTP_RETRIES=3 \
+    UV_CONCURRENT_DOWNLOADS=4 \
+    UV_CONCURRENT_INSTALLS=2 \
+    uv sync --frozen --no-cache --no-default-groups --no-install-workspace
 
 # Copy only application roots, never arbitrary checkout-local folders. The
 # context exclusions also apply inside these roots. CSL styles are backend data.
