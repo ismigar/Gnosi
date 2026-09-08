@@ -14,7 +14,7 @@ export class GnosiApiError extends Error {
 
 
 export function apiErrorDetail(error: unknown, fallback: string): string {
-  return error instanceof GnosiApiError ? error.message : fallback;
+  return error instanceof GnosiApiError ? apiErrorMessage(error.payload, fallback) : fallback;
 }
 
 

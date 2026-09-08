@@ -325,6 +325,15 @@ minutos. Otros errores, un límite de proceso agotado, los reintentos agotados
 o el espacio insuficiente siguen haciendo fallar el check. Nunca se omiten
 las construcciones ni la prueba de persistencia.
 
+La eliminación de imágenes tiene una recuperación limitada propia: si se agota
+el límite de proceso de 60 segundos, una consulta correcta debe confirmar si
+todavía existe la etiqueta exacta de CI. Su ausencia verificada completa la
+eliminación. Si sigue existiendo, se permite un reintento tras cinco segundos,
+comprobando de nuevo su presencia antes de eliminarla. Una inspección fallida,
+una imagen en uso o un segundo timeout con la etiqueta todavía presente siguen
+siendo errores. Se mantienen el límite exterior de diez minutos y la
+comprobación final de 12 GiB.
+
 El trabajo de frontend aplica el presupuesto revisado de 4 GiB de
 heap de Node a todo el trabajo para que lint, comprobación de tipos, pruebas y
 build de producción compartan el mismo contrato de memoria previsible.

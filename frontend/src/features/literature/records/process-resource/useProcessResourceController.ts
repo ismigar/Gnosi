@@ -54,10 +54,12 @@ export function useProcessResourceController({
     const [error, setError] = useState('');
     const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const jobRef = useRef<ResourceProcessingJob | null>(null);
+    const pollRequestRef = useRef<AbortController | null>(null);
 
     const stopPolling = useCallback((): void => {
-        if (pollTimerRef.current === null) return;
-        clearInterval(pollTimerRef.current);
+        pollRequestRef.current?.abort();
+        pollRequestRef.current = null;
+        if (pollTimerRef.current !== null) clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
     }, []);
 
@@ -66,11 +68,26 @@ export function useProcessResourceController({
     }, [stopPolling]);
 
     const poll = useCallback(async (identifier: string): Promise<void> => {
+        // A slow status request must finish before another one can start.
+        // Otherwise old responses can overwrite newer progress or an error.
+        if (pollRequestRef.current !== null) return;
+        const request = new AbortController();
+        pollRequestRef.current = request;
         try {
             const nextJob = await fetchResourceProcessingStatus(
                 identifier,
                 sourceTableId ?? '',
+                request.signal,
             );
+            if (request.signal.aborted) return;
+            if (nextJob.phase === 'idle') {
+                stopPolling();
+                setError(t('llm_wiki.job_unavailable', {
+                    defaultValue: 'The processing status is unavailable. Retry to resume saved progress.',
+                }));
+                setState('error');
+                return;
+            }
             jobRef.current = nextJob;
             setJob(nextJob);
             onJobUpdate?.(nextJob);
@@ -93,6 +110,8 @@ export function useProcessResourceController({
             }
         } catch {
             return;
+        } finally {
+            if (pollRequestRef.current === request) pollRequestRef.current = null;
         }
     }, [onJobUpdate, onProcessed, sourceTableId, stopPolling, t]);
 

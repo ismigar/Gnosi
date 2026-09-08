@@ -331,6 +331,15 @@ erreurs, une limite de processus expirée, les tentatives épuisées ou un espac
 insuffisant font toujours échouer le contrôle. Les constructions et le test
 de persistance ne sont jamais omis.
 
+La suppression des images dispose d'une récupération limitée distincte : après
+l'expiration de sa limite de processus de 60 secondes, une requête réussie doit
+confirmer si l'étiquette CI exacte existe encore. Son absence vérifiée termine
+la suppression. Si elle existe toujours, une nouvelle tentative est permise
+après cinq secondes, avec une nouvelle vérification avant suppression. Une
+inspection échouée, une image utilisée ou une seconde expiration avec
+l'étiquette toujours présente restent des erreurs. La limite globale de dix
+minutes et le contrôle final de 12 Gio restent applicables.
+
 Le job frontend applique le budget révisé de 4 Gio de heap Node à
 l'ensemble du job afin que le lint, le contrôle des types, les tests et le build
 de production partagent le même contrat de mémoire prévisible.
