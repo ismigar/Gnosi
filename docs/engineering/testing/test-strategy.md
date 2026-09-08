@@ -5,6 +5,10 @@ source_paths:
   - package.json
   - .github/workflows/ci.yml
   - .github/workflows/build-release.yml
+  - Dockerfile.backend
+  - scripts/ci/build_container_image.py
+  - scripts/ci/pre_pr.py
+  - scripts/ci/pre_pr_commands.py
   - desktop/update-policy.js
   - backend/tests
   - frontend/src
@@ -17,6 +21,9 @@ source_paths:
 tests:
   - backend/tests/test_root_typecheck_contract.py
   - backend/tests/test_ci_scheduling_contract.py
+  - backend/tests/test_ci_container_build.py
+  - backend/tests/test_ci_docker_python_policy.py
+  - backend/tests/test_pre_pr_validation.py
   - frontend/tests/bundle-size.test.ts
   - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
@@ -92,6 +99,60 @@ flowchart TB
 No single layer is sufficient. A frontend build catches imports and syntax but
 not a broken interaction. A route unit test does not prove browser integration.
 A screenshot does not prove persistence or authorization.
+
+## Unified pre-PR validation
+
+Prepare the locked JavaScript, runtime and documentation dependencies first:
+
+```bash
+pnpm install --frozen-lockfile
+uv sync --frozen --group docs-ci
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
+```
+
+The locked Python environment is checked without installing packages or removing extras.
+
+The direct Python entry point avoids pnpm's outer automatic dependency check.
+The `check:pre-pr` package alias is also available after dependency installation.
+Use `--quick` for static checks and CI contracts, or `--list` to inspect the plan
+without executing it. Neither is full PR evidence. The default full plan also
+runs API compatibility, all backend/pipeline type checks, frozen resource policy,
+the complete Python, frontend and desktop suites, the production frontend build
+and the complete updating documentation gate.
+
+The base supplied with `--base-ref` is resolved once to an immutable commit; the
+command does not fetch or change branches. It reports `HEAD` and validates the
+current working tree, including tracked staged and unstaged edits. Resolve
+conflicts and review/stage or ignore untracked files first so index-based checks
+cannot miss new source. Python 3.11 and Node must have matching architectures.
+
+Phases run consecutively with the reviewed 4 GiB Node heap and one frontend
+test worker. The first error stops the gate, preserves its status and names
+the failed phase; it is never retried or converted into success. Missing tools
+and interrupted runs remain failures. Read the first failing phase's log before
+deciding whether the cause is source, dependencies or infrastructure.
+
+The child environment uses `GNOSI_VALIDATION_ROOT` and disposable data/vault
+directories, disables live-test opt-ins, removes inherited credential variables
+and points live backend/browser targets at a closed loopback port. It keeps
+the real home directory unchanged. `UV_NO_SYNC=1`, `UV_FROZEN=1` and
+`pnpm_config_verify_deps_before_run=error` prevent child commands from silently
+installing dependencies; use the explicit frozen preparation above if needed.
+The gate does not start the personal app, containers or release packaging.
+
+Full mode intentionally regenerates documentation. Review and stage those
+diffs, then rerun the documentation pre-PR gate against the same base; it must
+produce no further diff. Regression tests compare the full plan with every
+existing frontend/backend CI validation command to catch omissions when CI changes.
+
+Local success is not GitHub success: all five required checks must pass on the
+final PR commit, including real native startup and Docker persistence on their
+runners. Local validation does not reproduce cold dependency downloads, runner
+scheduling, other operating systems, installers or deployment. No push or merge
+is performed by the command.
+
+If source or `HEAD` changes during validation, the gate fails and must be rerun;
+expected generated-catalog updates are the only excluded source differences.
 
 ## Unified type checking
 
@@ -210,6 +271,25 @@ without an enclosing ring. Unit tests must cover modality transitions, while
 browser checks cover pointer and keyboard focus in light and dark themes.
 
 ## Deployment tests
+
+The CI image builder records the checked-out Git revision in
+`org.opencontainers.image.revision` and a unique invocation identifier in
+`io.gnosi.ci.build-id`. Existing target images must be listed and removed
+successfully, without forcing in-use images. After every build, including exit
+zero, inspection must return both matching labels. A post-load client failure
+can recover only with this evidence; an older image from the same commit still
+fails because its invocation identifier differs. Missing or malformed metadata,
+failed inspection and failed removal remain failures. The real startup and
+persistence smoke remains mandatory.
+
+The backend image now uses `uv` `0.10.0` with `UV_HTTP_TIMEOUT=120`,
+`UV_HTTP_RETRIES=3`, `UV_CONCURRENT_DOWNLOADS=4` and `UV_CONCURRENT_INSTALLS=2`
+explicitly on its frozen installation command. Workflow variables are not
+implicitly inherited inside Docker builds. These values affect installation
+only, not the application's runtime environment. Regression tests compare the
+installer and budgets with shared CI and reject missing, changed or duplicated
+settings. Application dependencies, lockfiles, runner routing and release
+packaging are unchanged.
 
 Docker CI validates Compose, builds both images and runs `scripts/smoke_docker.sh`.
 The smoke checks the live backend and frontend, then recreates the containers
