@@ -644,6 +644,22 @@ plans, copies them into the new job and continues at the remaining fragments.
 Changed source evidence or planning inputs invalidate cached fragments; explicit
 force processing bypasses all previous checkpoints. Interrupted jobs retain
 their actual progress and source notes are written only after planning completes.
+Every ingestion call explicitly selects the configured `llm-wiki` agent. A
+provider response with `x-ratelimit-limit-req-minute: 0` stops automatic retries,
+because waiting cannot replenish a zero request limit; zero remaining capacity
+with a positive limit still receives normal retries. After a backend restart,
+status lookup reads the persisted job by its exact ID and checks the source
+table when supplied. Interrupted running jobs become `phase: partial` and retain
+their completed-fragment counts. The dialog allows one status request at a time,
+ignores cancelled responses and shows fragment progress; `phase: idle` for a
+tracked job ends polling with a recoverable error.
+
+Settings loading allows up to 45 seconds for a slow local response. Failed HTTP
+responses are rejected before entering the shared configuration cache, so a
+retry can reach the recovered server. Empty server failures use the translated
+configuration error with a separate retry button. Loading these settings does
+not require an available model provider.
+
 `backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
 Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.

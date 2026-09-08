@@ -5614,6 +5614,8 @@
     "phase_reading": "Llegint la font…",
     "phase_planning": "Planificant les notes amb IA…",
     "phase_retrying": "Esperant el proveïdor d’IA; es reintentarà automàticament…",
+    "job_unavailable": "No es pot recuperar l’estat del processament. Torna-ho a provar per reprendre el progrés desat.",
+    "fragments_progress": "{{count}} de {{total}} fragments completats",
     "error_rate_limit": "El proveïdor d’IA està limitant les peticions. Espera uns minuts o revisa els límits del compte i torna-ho a provar.",
     "resume_hint": "Els fragments completats s’han desat i es reutilitzaran si la font i les instruccions de processament no han canviat.",
     "retry": "Torna-ho a provar",

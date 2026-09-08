@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable, Iterable
+from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, cast
 from urllib.parse import urlencode
@@ -418,6 +419,7 @@ def process_resource(
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
     from backend.agent.factory import generate_text
+    from backend.services.llm_wiki_agent import LLM_WIKI_AGENT_ID
 
     dependencies = llm_wiki_ingestion.IngestionDependencies(
         load_config=llm_wiki_config.load_config,
@@ -430,7 +432,10 @@ def process_resource(
         load_brain_index=_load_brain_index,
         dimension_context=_dimension_context,
         build_prompt=_build_chunk_prompt,
-        generate_text=cast(Callable[..., tuple[str, str]], generate_text),
+        generate_text=cast(
+            Callable[..., tuple[str, str]],
+            partial(generate_text, agent_id=LLM_WIKI_AGENT_ID),
+        ),
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,
         load_checkpoint=llm_wiki_storage.load_checkpoint,

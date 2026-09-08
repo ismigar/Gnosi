@@ -5614,6 +5614,8 @@
     "phase_reading": "Lecture de la source…",
     "phase_planning": "Planification des notes avec l'IA…",
     "phase_retrying": "En attente du fournisseur d’IA ; nouvelle tentative automatique…",
+    "job_unavailable": "L’état du traitement est indisponible. Réessayez pour reprendre la progression enregistrée.",
+    "fragments_progress": "{{count}} fragments terminés sur {{total}}",
     "error_rate_limit": "Le fournisseur d’IA limite les requêtes. Attendez quelques minutes ou vérifiez les limites du compte, puis réessayez.",
     "resume_hint": "Les fragments terminés sont enregistrés et seront réutilisés si la source et les instructions de traitement n’ont pas changé.",
     "retry": "Réessayer",

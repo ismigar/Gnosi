@@ -30,6 +30,13 @@ _PERMANENT_CODES = {
 
 
 def _can_retry(error: Exception) -> bool:
+    headers = getattr(getattr(error, "response", None), "headers", None)
+    if isinstance(headers, Mapping):
+        normalized = {str(key).lower(): str(value).strip() for key, value in headers.items()}
+        # Mistral can deny this model/key all requests. Waiting cannot replenish
+        # a zero *limit*; zero remaining capacity is still a transient cooldown.
+        if normalized.get("x-ratelimit-limit-req-minute") == "0":
+            return False
     body = getattr(error, "body", None)
     if isinstance(body, Mapping):
         details = body.get("error", body)

@@ -764,6 +764,25 @@ evidencia de origen o las entradas de planificación invalidan los fragmentos
 guardados; el procesamiento forzado explícitamente ignora todos los puntos de
 recuperación anteriores. Los trabajos interrumpidos conservan su progreso real y
 las notas de origen solo se escriben cuando se completa la planificación.
+Cada llamada de ingesta selecciona explícitamente el agente configurado
+`llm-wiki`. Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
+detiene los reintentos automáticos, porque esperar no puede reponer un límite de
+cero peticiones; la capacidad restante nula con un límite positivo sigue
+recibiendo los reintentos habituales. Tras reiniciar el servidor, la consulta de
+estado lee el trabajo guardado por su identificador exacto y comprueba la tabla
+de origen cuando se indica. Los trabajos en ejecución interrumpidos pasan a
+`phase: partial` y conservan el recuento de fragmentos completados. El diálogo
+permite una sola petición de estado a la vez, ignora respuestas canceladas y
+muestra el progreso por fragmentos; `phase: idle` para un trabajo seguido
+detiene las consultas con un error recuperable.
+
+La carga de configuración permite hasta 45 segundos para una respuesta local
+lenta. Las respuestas HTTP fallidas se rechazan antes de entrar en la caché
+compartida de configuración, de modo que un reintento puede llegar al servidor
+recuperado. Los errores del servidor sin detalle utilizan el mensaje traducido
+de configuración con un botón de reintento separado. Cargar estos ajustes no
+requiere un proveedor de modelos disponible.
+
 `backend/domains/configuration/llm_wiki_schema.py` gestiona por separado la
 reparación idempotente de campos de Brain y la consolidación de una relación
 canónica de origen, incluidos los alias heredados, los metadatos de páginas y las

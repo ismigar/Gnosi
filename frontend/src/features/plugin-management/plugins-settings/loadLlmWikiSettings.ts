@@ -1,6 +1,8 @@
 import { fetchPluginLlmWikiConfig } from '../../../shared/api/plugins';
 import { fetchVaultTables } from '../../../shared/api/vaults';
 
+const CONFIGURATION_TIMEOUT_MS = 45_000;
+
 /** Bound essential loading even when a shared cached request ignores cancellation. */
 export async function loadLlmWikiSettings() {
     const controller = new AbortController();
@@ -15,7 +17,7 @@ export async function loadLlmWikiSettings() {
                 timer = setTimeout(() => {
                     reject(new Error('Configuration loading timed out'));
                     controller.abort();
-                }, 15_000);
+                }, CONFIGURATION_TIMEOUT_MS);
             }),
         ]);
     } finally {

@@ -39,12 +39,11 @@ vi.mock('react-i18next', () => {
             : typeof fallbackOrOptions?.defaultValue === 'string'
                 ? fallbackOrOptions.defaultValue
                 : key;
-        const count = typeof fallbackOrOptions === 'object'
-            ? fallbackOrOptions.count
-            : undefined;
-        return typeof count === 'number' || typeof count === 'string'
-            ? fallback.replace('{{count}}', String(count))
-            : fallback;
+        return Object.entries(typeof fallbackOrOptions === 'object' ? fallbackOrOptions : {})
+            .reduce((text, [name, value]) => (
+                typeof value === 'number' || typeof value === 'string'
+                    ? text.replace(`{{${name}}}`, String(value)) : text
+            ), fallback);
     };
     return { useTranslation: () => ({ t }) };
 });
@@ -135,6 +134,48 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('ProcessResourceModal', () => {
+    it('stops with a recoverable error when a tracked job disappears', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            resource_id: 'job-1', running: false, phase: 'idle', progress: 0,
+        });
+        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+
+        expect(container.textContent).toContain('processing status is unavailable');
+        expect(container.textContent).not.toContain('Reading the source');
+        expect(buttonWithText('Retry')).toBeDefined();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+
+    it('does not overlap slow polls or accept their response after unmount', async () => {
+        let resolvePoll: (job: ResourceProcessingJob) => void = () => {};
+        vi.mocked(fetchResourceProcessingStatus).mockReturnValueOnce(new Promise((resolve) => {
+            resolvePoll = resolve;
+        }));
+        const onJobUpdate = vi.fn();
+        const onProcessed = vi.fn();
+        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()}
+            onJobUpdate={onJobUpdate} onProcessed={onProcessed} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+
+        expect(fetchResourceProcessingStatus).toHaveBeenCalledTimes(1);
+        const signal = vi.mocked(fetchResourceProcessingStatus).mock.calls[0]?.[2];
+        expect(signal?.aborted).toBe(false);
+        render(<div />);
+        expect(signal?.aborted).toBe(true);
+        resolvePoll(doneJob);
+        await flushProcessing();
+        expect(onJobUpdate).toHaveBeenCalledTimes(1);
+        expect(onProcessed).not.toHaveBeenCalled();
+        expect(toast.success).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+
     it('keeps polling while the provider cooldown is in progress', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...runningJob, phase: 'retrying', chunks_done: 1, chunks_total: 85,
@@ -145,6 +186,7 @@ describe('ProcessResourceModal', () => {
 
         expect(container.textContent).toContain('Waiting for the AI provider');
         expect(container.textContent).toContain('retrying automatically');
+        expect(container.textContent).toContain('1 of 85 fragments completed');
         expect(vi.getTimerCount()).toBe(1);
         expect(toast.error).not.toHaveBeenCalled();
 
@@ -246,6 +288,7 @@ describe('ProcessResourceModal', () => {
         expect(fetchResourceProcessingStatus).toHaveBeenCalledWith(
             'job-1',
             'resources',
+            expect.any(AbortSignal),
         );
         expect(onJobUpdate.mock.calls).toEqual([[runningJob], [doneJob]]);
         expect(onProcessed).toHaveBeenCalledOnce();
