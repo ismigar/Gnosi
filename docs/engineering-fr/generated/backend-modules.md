@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 448 | 96116 |
+| `domains` | 448 | 96172 |
 | `mcp` | 3 | 429 |
 | `migrations` | 35 | 2198 |
 | `models` | 12 | 1213 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **790 modules** and **163761 source lines**.
+Total: **790 modules** and **163817 source lines**.
 
 ## agent
 
@@ -273,10 +273,10 @@ Total: **790 modules** and **163761 source lines**.
 | [`backend/domains/genograms/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/__init__.py) | 1 | 0 | 0 | 0 | 0 | Shared, portable family networks and genogram projections. |
 | [`backend/domains/genograms/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/contracts.py) | 107 | 9 | 0 | 0 | 0 | Versioned genogram HTTP and saved-view contracts. |
 | [`backend/domains/genograms/locking.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/locking.py) | 47 | 0 | 1 | 0 | 0 | Serialize family mutations across threads and local server workers. |
-| [`backend/domains/genograms/model.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/model.py) | 156 | 0 | 3 | 0 | 0 | Pure validation and bounded projection; never infer undocumented facts. |
+| [`backend/domains/genograms/model.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/model.py) | 208 | 1 | 4 | 0 | 1 | Pure validation and bounded projection; never infer undocumented facts. |
 | [`backend/domains/genograms/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py) | 55 | 0 | 3 | 2 | 0 | Authenticated, per-Vault preparation and read-only graph projection. |
 | [`backend/domains/genograms/schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/schema.py) | 86 | 0 | 4 | 0 | 0 | Portable table schemas identified by stable IDs, independent of labels. |
-| [`backend/domains/genograms/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/storage.py) | 222 | 0 | 10 | 0 | 0 | Vault adapter and serialized validation around canonical Markdown writes. |
+| [`backend/domains/genograms/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/storage.py) | 226 | 0 | 11 | 0 | 1 | Vault adapter and serialized validation around canonical Markdown writes. |
 | [`backend/domains/graph/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/__init__.py) | 5 | 0 | 0 | 0 | 0 | Graph domain. |
 | [`backend/domains/graph/adapters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/adapters.py) | 16 | 0 | 1 | 0 | 1 | Localized boundaries for graph libraries that do not publish type metadata. |
 | [`backend/domains/graph/edges.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/edges.py) | 189 | 0 | 9 | 0 | 2 | Structural, relation and body-link edge construction. |

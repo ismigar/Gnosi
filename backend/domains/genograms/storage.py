@@ -156,6 +156,26 @@ def reject_new_errors(before: list[GenogramIssue], after: list[GenogramIssue]) -
         raise HTTPException(422, detail={"code": "genogram_validation", "message": "Invalid genogram changes: " + ", ".join(sorted({i.code.replace("_", " ") for i in errors})), "issues": [i.model_dump() for i in errors]})
 
 
+def _persist_option_names(metadata: RegistryData, table: RegistryData, kind: str) -> None:
+    """Translate normalized codes to the option names used by native selectors."""
+    from backend.services.field_resolver import get_meta_value, set_meta_value
+
+    fields = PERSON_OPTIONS if kind == "people" else RELATION_OPTIONS
+    for role, codes in fields.items():
+        ref = field_id(kind, role)
+        prop = next((p for p in records(table.get("properties")) if p.get("id") == ref), {})
+        value = get_meta_value(metadata, table, ref)
+        if value in (None, ""):
+            value = prop.get("default")
+        config = prop.get("config")
+        options = records(config.get("options")) if is_record(config) else records(prop.get("options"))
+        for code in codes:
+            if value == code or value in OPTION_LABELS[code].values():
+                translated = next((option.get("name") for option in options if option.get("name") in OPTION_LABELS[code].values()), value)
+                set_meta_value(metadata, table, ref, translated)
+                break
+
+
 @contextmanager
 def write_guard(path: Path, metadata: RegistryData | None) -> Iterator[None]:
     from backend.api import vault_routes as vault
@@ -201,22 +221,6 @@ def write_guard(path: Path, metadata: RegistryData | None) -> Iterator[None]:
             except (ValidationError, ValueError) as error:
                 raise HTTPException(422, detail={"code": "genogram_invalid_record"}) from error
             reject_new_errors(before, validate_network(people, relations))
-            # Native table selectors persist option names. Stable option IDs are
-            # accepted by the visual editor and normalized back when reading.
-            from backend.services.field_resolver import get_meta_value, set_meta_value
             kind = "people" if table_id == str(tables["people"]["id"]) else "relations"
-            table = tables[kind]
-            for role, codes in (PERSON_OPTIONS if kind == "people" else RELATION_OPTIONS).items():
-                prop = next((p for p in records(table.get("properties")) if p.get("id") == field_id(kind, role)), {})
-                ref = field_id(kind, role)
-                value = get_meta_value(metadata, table, ref)
-                if value in (None, ""):
-                    value = prop.get("default")
-                config = prop.get("config")
-                options = records(config.get("options")) if is_record(config) else records(prop.get("options"))
-                for code in codes:
-                    if value == code or value in OPTION_LABELS[code].values():
-                        translated = next((option.get("name") for option in options if option.get("name") in OPTION_LABELS[code].values()), value)
-                        set_meta_value(metadata, table, ref, translated)
-                        break
+            _persist_option_names(metadata, tables[kind], kind)
         yield
