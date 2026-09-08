@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -379,9 +380,11 @@ def test_shutdown_is_bounded_when_filesystem_call_does_not_return(
     assert vault_file_index.shutdown_file_index(timeout_seconds=1) is True
 
 
+@pytest.mark.parametrize("delay_cache_write", [False, True], ids=["immediate", "delayed-cache"])
 def test_background_build_publishes_complete_synthetic_index(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    delay_cache_write: bool,
 ) -> None:
     root = tmp_path / "cloud"
     folder = root / "Course"
@@ -389,15 +392,40 @@ def test_background_build_publishes_complete_synthetic_index(
     (folder / "Notes.md").write_text("fixture", encoding="utf-8")
     (root / "Schedule.pdf").write_bytes(b"fixture")
     monkeypatch.setattr(vault_file_index, "_index_roots", lambda: [str(root)])
+    save_started = threading.Event()
+    release_save = threading.Event()
+    save_to_disk = vault_file_index._save_to_disk
+
+    def delayed_save(
+        entries: dict[str, vault_file_index.IndexEntry],
+        stop_event: threading.Event | None = None,
+    ) -> None:
+        save_started.set()
+        assert release_save.wait(timeout=1)
+        save_to_disk(entries, stop_event)
+
+    if delay_cache_write:
+        monkeypatch.setattr(vault_file_index, "_save_to_disk", delayed_save)
 
     async def exercise() -> None:
         vault_file_index.kickoff_file_index_rebuild()
-        await _wait_until(
-            lambda: (
-                vault_file_index.status()["state"] == "ready"
-                and vault_file_index.status()["entries"] == 3
-            ),
-        )
+        try:
+            await _wait_until(
+                lambda: (
+                    vault_file_index.status()["state"] == "ready"
+                    and vault_file_index.status()["entries"] == 3
+                ),
+            )
+            if delay_cache_write:
+                await _wait_until(save_started.is_set)
+                assert vault_file_index.status()["building"] is True
+                assert not vault_file_index._CACHE_PATH.exists()
+                release_save.set()
+            # Queryable state is published before the atomic disk write. Wait
+            # for that build to finish before asserting its persisted snapshot.
+            await _wait_until(lambda: not vault_file_index.status()["building"])
+        finally:
+            release_save.set()
 
     asyncio.run(exercise())
 
@@ -410,6 +438,13 @@ def test_background_build_publishes_complete_synthetic_index(
     ]
     assert vault_file_index.status()["error"] is None
     assert vault_file_index._CACHE_PATH.exists()
+    cache = json.loads(vault_file_index._CACHE_PATH.read_text(encoding="utf-8"))
+    assert cache["v"] == 2
+    assert sorted(row[:3] for row in cache["entries"]) == [
+        ["Course", str(folder), 1],
+        ["Notes.md", str(folder / "Notes.md"), 0],
+        ["Schedule.pdf", str(root / "Schedule.pdf"), 0],
+    ]
 
 
 def test_failed_background_build_reports_explicit_error(
