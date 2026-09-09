@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 507 | 2085 |
-| pytest | 475 | 3425 |
+| Vitest | 509 | 2090 |
+| pytest | 475 | 3428 |
 
 ## Archivos
 
@@ -115,6 +115,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/control-center/releases/ReleaseNotesDialog.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/ReleaseNotesDialog.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/control-center/releases/releaseNotesFormatting.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotesFormatting.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/control-center/releases/releaseNotesUrl.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/releases/releaseNotesUrl.test.ts) | 0 | call-pattern estimate |
+| Vitest | [`frontend/src/features/genograms/GenogramsConfig.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/GenogramsConfig.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/genograms/export.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/export.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/genograms/genograms.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/genograms/genograms.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/graph/GraphPage.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/graph/GraphPage.test.tsx) | 5 | call-pattern estimate |
@@ -408,6 +409,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/api/drawings.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/drawings.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/environment.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/environment.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/errors.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/errors.test.ts) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/genograms.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/genograms.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/google-auth.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/google-auth.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/graph.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/graph.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/identity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/identity.test.ts) | 2 | call-pattern estimate |
@@ -676,7 +678,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_generated_tool_registry_separation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_generated_tool_registry_separation.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_generated_tool_validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_generated_tool_validator.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_genograms.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_genograms.py) | 9 | Python AST |
-| pytest | [`backend/tests/test_genograms_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_genograms_api.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_genograms_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_genograms_api.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_gnosi_2x_schema_matrix.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_gnosi_2x_schema_matrix.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_gnosi_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_gnosi_agent_tools.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_google_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_google_auth_routes.py) | 7 | Python AST |

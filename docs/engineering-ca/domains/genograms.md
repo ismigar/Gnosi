@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 source_paths:
   - backend/domains/genograms
   - frontend/src/features/genograms
@@ -11,6 +11,8 @@ source_paths:
 tests:
   - backend/tests/test_genograms.py
   - backend/tests/test_genograms_api.py
+  - frontend/src/features/genograms/GenogramsConfig.test.tsx
+  - frontend/src/shared/api/genograms.test.ts
   - frontend/src/features/genograms/genograms.test.tsx
   - frontend/src/features/genograms/export.test.ts
   - frontend/src/features/vault/view-config/page-view-modal/useViewAppearance.genogram.test.tsx
@@ -19,6 +21,8 @@ tests:
 # Genogrames
 
 El plugin integrat opcional `genograms` manté una xarxa familiar compartida a cada Vault. Activa’l a Configuració → Plugins → Genogrames i prem **Prepara les taules**. La preparació crea la base de dades Genogrames, les taules Persones i Relacions, les vistes tabulars principals i una vista Genograma inicial. Els noms segueixen l’idioma de la interfície: català, castellà, anglès o francès. Repetir la preparació reutilitza els identificadors de taules i camps i recupera els camps obligatoris que faltin.
+
+La configuració permet seleccionar el Vault de destinació i inicialment mostra l’actiu. La preparació i la consulta d’estat utilitzen aquest identificador sense canviar el Vault actiu. Quan les dues taules existeixen, un missatge traduït amb el nom del Vault substitueix el botó principal de preparació. L’estat es consulta en obrir el panell, en recuperar el focus i cada 15 segons mentre és visible; eliminar qualsevol de les dues taules fa reaparèixer l’acció de preparació. Els missatges de càrrega, error, absència de vaults i confirmació estan traduïts al català, anglès, castellà i francès. La consulta d’estat i la preparació amb permisos d’edició estan disponibles encara que Genogrames estigui desactivat al Vault de destinació; no activen el plugin. Les consultes del graf continuen requerint que el plugin estigui activat.
 
 Selecciona una persona de referència al dibuix. Per defecte s’inclouen dues generacions d’ascendents, una de descendents, els germans de la persona de referència i les parelles immediates. L’expansió de parelles no recorre tota la seva família. Les inclusions, exclusions i els filtres habituals de la taula delimiten la xarxa visible. La cerca ressalta noms sense filtrar el dibuix. S’indica el nombre de connexions ocultes i no s’inventen filiacions entre les persones que continuen visibles.
 
@@ -42,6 +46,7 @@ El dibuix és SVG monocrom amb símbols geomètrics i patrons de línia diferenc
 
 ## API i exportació
 
+- `GET /api/vault/genograms/status`: consulta sense modificar dades si les dues taules existeixen al Vault seleccionat.
 - `POST /api/vault/genograms/prepare`: preparació idempotent, reservada a editors.
 - `POST /api/vault/genograms/graph`: resol opcions desades o locals, normalitza i valida la xarxa i retorna identificadors visibles, incidències i correspondències de camps.
 - Les altes i modificacions utilitzen les API normals de pàgines del Vault i ETag.

@@ -89,6 +89,10 @@ class GenogramSetupResponse(BaseModel):
     view_id: str
 
 
+class GenogramSetupStatus(BaseModel):
+    ready: bool
+
+
 class GenogramGraphRequest(BaseModel):
     table_id: str
     view_id: str | None = None
