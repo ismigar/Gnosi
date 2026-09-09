@@ -59,6 +59,49 @@ def test_disabled_plugin_preserves_tables(client, monkeypatch):
     assert setup['people_table_id'] in {table['id'] for table in tables}
 
 
+def test_status_tracks_existing_tables_and_deletion_without_recreating(client):
+    assert client.get('/api/vault/genograms/status').json() == {'ready': False}
+    assert client.get('/api/vault/tables').json() == []
+    prepared = client.post('/api/vault/genograms/prepare', json={'locale': 'fr'}).json()
+    assert client.get('/api/vault/genograms/status').json() == {'ready': True}
+    # Names are user-editable; readiness follows table identity.
+    renamed = client.put(f'/api/vault/tables/{prepared["people_table_id"]}', json={'name': 'Famille'})
+    assert renamed.status_code == 200, renamed.text
+    assert client.get('/api/vault/genograms/status').json() == {'ready': True}
+    deleted = client.delete(f'/api/vault/tables/{prepared["relations_table_id"]}')
+    assert deleted.status_code == 200, deleted.text
+    assert client.get('/api/vault/genograms/status').json() == {'ready': False}
+    assert prepared['relations_table_id'] not in {table['id'] for table in client.get('/api/vault/tables').json()}
+    client.post('/api/vault/genograms/prepare', json={'locale': 'fr'})
+    assert client.get('/api/vault/genograms/status').json() == {'ready': True}
+
+
+def test_setup_and_status_follow_the_selected_vault(client, isolated_validation_runtime):
+    vault_ids = []
+    for name in ('first', 'second'):
+        result = client.post('/api/vaults', json={
+            'name': name, 'path': str(isolated_validation_runtime / name),
+        })
+        assert result.status_code == 200, result.text
+        vault_ids.append(result.json()['id'])
+    first, second = [{'X-Vault-ID': vault_id} for vault_id in vault_ids]
+    prepared = client.post('/api/vault/genograms/prepare', headers=second, json={'locale': 'ca'})
+    assert prepared.status_code == 200, prepared.text
+    assert client.get('/api/vault/genograms/status', headers=first).json() == {'ready': False}
+    assert client.get('/api/vault/genograms/status', headers=second).json() == {'ready': True}
+    assert client.get('/api/vault/tables', headers=first).json() == []
+
+
+def test_settings_can_prepare_a_disabled_target_without_enabling_its_graph(client, monkeypatch):
+    from backend.api import vault_routes as vault
+    monkeypatch.setattr(vault, '_load_plugins_state', lambda: {'schema_version': 2, 'enabled_builtin': []})
+    assert client.get('/api/vault/genograms/status').json() == {'ready': False}
+    prepared = client.post('/api/vault/genograms/prepare', json={'locale': 'ca'})
+    assert prepared.status_code == 200, prepared.text
+    assert client.get('/api/vault/genograms/status').json() == {'ready': True}
+    assert client.post('/api/vault/genograms/graph', json={'table_id': prepared.json()['people_table_id']}).status_code == 409
+
+
 def test_renamed_fields_conversion_etags_and_saved_view_filter(client):
     from backend.domains.genograms.schema import field_id
     setup = client.post('/api/vault/genograms/prepare', json={'locale': 'ca'}).json()

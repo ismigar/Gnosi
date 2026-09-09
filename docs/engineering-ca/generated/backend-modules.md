@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 48 |
 | `config` | 10 | 1138 |
 | `data` | 2 | 214 |
-| `domains` | 448 | 96172 |
+| `domains` | 448 | 96188 |
 | `mcp` | 3 | 429 |
 | `migrations` | 35 | 2198 |
 | `models` | 12 | 1213 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1367 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 151 | 35929 |
+| `services` | 151 | 35917 |
 | `sync` | 1 | 1 |
 | `utils` | 5 | 549 |
 
-Total: **790 modules** and **163817 source lines**.
+Total: **790 modules** and **163821 source lines**.
 
 ## agent
 
@@ -271,12 +271,12 @@ Total: **790 modules** and **163817 source lines**.
 | [`backend/domains/contacts/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/contacts/__init__.py) | 1 | 0 | 0 | 0 | 0 | Contacts-domain contracts and services. |
 | [`backend/domains/contacts/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/contacts/schemas.py) | 128 | 10 | 0 | 0 | 10 | Public request and response contracts for contacts. |
 | [`backend/domains/genograms/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/__init__.py) | 1 | 0 | 0 | 0 | 0 | Shared, portable family networks and genogram projections. |
-| [`backend/domains/genograms/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/contracts.py) | 107 | 9 | 0 | 0 | 0 | Versioned genogram HTTP and saved-view contracts. |
+| [`backend/domains/genograms/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/contracts.py) | 111 | 10 | 0 | 0 | 0 | Versioned genogram HTTP and saved-view contracts. |
 | [`backend/domains/genograms/locking.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/locking.py) | 47 | 0 | 1 | 0 | 0 | Serialize family mutations across threads and local server workers. |
 | [`backend/domains/genograms/model.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/model.py) | 208 | 1 | 4 | 0 | 1 | Pure validation and bounded projection; never infer undocumented facts. |
-| [`backend/domains/genograms/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py) | 55 | 0 | 3 | 2 | 0 | Authenticated, per-Vault preparation and read-only graph projection. |
+| [`backend/domains/genograms/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py) | 60 | 0 | 4 | 3 | 0 | Authenticated, per-Vault preparation and read-only graph projection. |
 | [`backend/domains/genograms/schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/schema.py) | 86 | 0 | 4 | 0 | 0 | Portable table schemas identified by stable IDs, independent of labels. |
-| [`backend/domains/genograms/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/storage.py) | 226 | 0 | 11 | 0 | 1 | Vault adapter and serialized validation around canonical Markdown writes. |
+| [`backend/domains/genograms/storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/storage.py) | 233 | 0 | 12 | 0 | 2 | Vault adapter and serialized validation around canonical Markdown writes. |
 | [`backend/domains/graph/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/__init__.py) | 5 | 0 | 0 | 0 | 0 | Graph domain. |
 | [`backend/domains/graph/adapters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/adapters.py) | 16 | 0 | 1 | 0 | 1 | Localized boundaries for graph libraries that do not publish type metadata. |
 | [`backend/domains/graph/edges.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/graph/edges.py) | 189 | 0 | 9 | 0 | 2 | Structural, relation and body-link edge construction. |
@@ -762,7 +762,7 @@ Total: **790 modules** and **163817 source lines**.
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 714 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 471 | 2 | 13 | 0 | 15 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 165 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
-| [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 642 | 0 | 25 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
+| [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 630 | 0 | 24 | 0 | 23 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 263 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
 | [`backend/services/calendar_event_aggregation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/calendar_event_aggregation.py) | 88 | 2 | 2 | 0 | 2 | Bounded, provider-neutral loading of independent calendar accounts. |
 | [`backend/services/capability_audit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_audit.py) | 239 | 0 | 8 | 0 | 3 | Bounded metadata-only audit log for governed capability execution. |

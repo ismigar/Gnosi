@@ -56,6 +56,10 @@ ou une publication validée sur toutes les plateformes. Les commandes
 ci-dessous sont des instructions destinées à l’opérateur, et non la preuve
 qu’elles ont été exécutées.
 
+Le mode personnel local s’ouvre sans inscription pour chaque profil. Les comptes supplémentaires n’activent pas l’authentification : les requêtes anonymes utilisent le propriétaire de l’espace personnel, en privilégiant les propriétaires établis aux identités générées, puis l’appartenance la plus ancienne. Avant la création de l’espace personnel, le compte établi le plus ancien est réutilisé ; une installation vide crée son identité locale. Les déploiements d’organisation ou exposés et les options explicites d’authentification conservent leur exigence d’identifiants.
+
+Les paramètres regroupent les éditeurs des extensions sous Plugins et suppriment les entrées en double du menu général. Les listes d’extensions intégrées et tierces, le catalogue et les mises à jour suivent l’ordre alphabétique des noms affichés dans la langue de l’interface. Les anciens accès aux Références ouvrent directement leur extension ; les autres éditeurs conservent leurs actions de configuration et un bouton de retour vers Plugins.
+
 ## Privilégier le développement natif
 
 Exécutez le backend FastAPI et le frontend Vite en mode natif. Docker, Electron,

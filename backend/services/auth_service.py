@@ -3,7 +3,7 @@
 This layer replaces the legacy `X-User-ID` header with real JWT-based
 authentication. The header is no longer an identity source in any
 configuration: `resolve_effective_user_id()` accepts a credential the caller
-cannot mint, or the install's sole local account, and nothing else.
+cannot mint, or the stored personal workspace owner, and nothing else.
 
 Tokens:
   - HS256 signed with `GNOSI_JWT_SECRET` (env var; hardcoded dev fallback).
@@ -96,10 +96,10 @@ BCRYPT_MAX_PASSWORD_BYTES = 72
 #
 #   * Docker — binds 0.0.0.0 and is the self-host deployment shape.
 #   * Org mode — the product is multi-tenant by definition there.
-#   * More than one account — ambient identity becomes ambiguous, so there is
-#     no safe answer to "who is this?" without a credential.
+# Personal mode uses the stored personal workspace owner. Additional account
+# rows, including imported or generated profiles, do not change that mode.
 #
-# A native personal install with one account is none of those: the process runs
+# A native personal install is neither of those: the process runs
 # as the user, bound to loopback, reading their own files. `X-User-ID` used to
 # be the hole in that reasoning, and it is now closed unconditionally (see
 # `resolve_effective_user_id`) rather than only while a flag is on.
@@ -150,10 +150,8 @@ def deployment_is_exposed() -> bool:
 
 
 # The autodetected half of the policy is cached: it is consulted by the
-# app-wide gate, i.e. on EVERY request, and both halves are expensive relative
-# to that — `load_params` reads YAML off disk and the account count needs a DB
-# session. Neither answer changes without a restart or a deliberate settings
-# change, so a few seconds of staleness costs nothing. Keeping the gate free of
+# app-wide gate on every request. Reading configuration may touch storage;
+# settings changes invalidate this short-lived snapshot. Keeping the gate free of
 # per-request session checkouts was a deliberate property of the original
 # design (see `auth_public_surface.enforce_authentication`) and this preserves it.
 _AUTO_POLICY_TTL_SECONDS = 5.0
@@ -170,14 +168,14 @@ def reset_auth_policy_cache() -> None:
 def _auto_policy_requires_auth(db: Session | None = None) -> bool:
     """Whether the autodetected policy demands a credential.
 
-    Fails closed: if the deployment shape or the account count cannot be
+    Fails closed: if the deployment shape cannot be
     determined, the answer is "yes". An install that cannot describe itself is
     not one to serve an open API from.
     """
     if db is not None:
         # The identity resolver holds a session and is about to hand out an
         # identity, so it gets the exact answer rather than the cached one.
-        return deployment_is_exposed() or not ambient_identity_available(db)
+        return deployment_is_exposed()
 
     global _auto_policy_cache
     now = time.monotonic()
@@ -185,20 +183,12 @@ def _auto_policy_requires_auth(db: Session | None = None) -> bool:
     if cached is not None and now - cached[0] < _AUTO_POLICY_TTL_SECONDS:
         return cached[1]
 
-    gen: Generator[Session, None, None] | None = None
     try:
-        if deployment_is_exposed():
-            value = True
-        else:
-            gen = get_mgmt_db()
-            value = not ambient_identity_available(next(gen))
+        value = deployment_is_exposed()
     except Exception:
         log.warning("Auth policy autodetection failed; requiring authentication",
                     exc_info=True)
         value = True
-    finally:
-        if gen is not None:
-            gen.close()
 
     _auto_policy_cache = (now, value)
     return value
@@ -272,37 +262,38 @@ PLACEHOLDER_EMAIL = "user@example.com"
 LEGACY_USER_ID = "ismael-legacy"
 
 
-def _account_count(db: Session, cap: int = 2) -> int:
-    """How many accounts exist, counting no further than `cap`.
-
-    Capped because every caller only asks "none, one, or several?" and this runs
-    on the request path against a single-writer SQLite file.
-    """
-    from backend.models.management import User
-
-    return len(db.query(User.id).limit(cap).all())
-
-
-def ambient_identity_available(db: Session) -> bool:
-    """True when an unauthenticated local request has exactly one possible answer.
-
-    One account is the obvious case. **Zero** counts too: a fresh install
-    bootstraps its single local account on first use, and demanding a signup
-    before the tool opens is precisely the cloud-shaped ceremony a local-first
-    app should not have.
-
-    Two or more is where it stops: there is no honest way to guess which of
-    them is calling, and picking one would hand the other's data over.
-    """
-    return _account_count(db, cap=2) < 2
-
-
 def sole_account_id(db: Session) -> Optional[str]:
     """The id of the install's only account, or None when there are 0 or 2+."""
     from backend.models.management import User
 
     rows = db.query(User.id).limit(2).all()
     return str(rows[0][0]) if len(rows) == 1 else None
+
+
+def personal_account_id(db: Session) -> str:
+    """Resolve the stored personal owner without requiring a login or a header.
+
+    Prefer established owners over generated placeholders, then the oldest
+    personal membership. Before a personal workspace exists, reuse the oldest
+    established local account. Stable ordering keeps later account imports from
+    switching the personal profile; an empty installation uses the fixed
+    bootstrap identity.
+    """
+    from backend.models.management import Membership, User
+
+    owners = (
+        db.query(User.id)
+        .join(Membership, Membership.user_id == User.id)
+        .filter(Membership.workspace_id == "personal", Membership.role == "owner")
+        .order_by(User.auto_provisioned, Membership.joined_at, User.created_at, User.id)
+    )
+    owner = owners.first()
+    if owner:
+        return str(owner[0])
+    account = db.query(User.id).order_by(
+        User.auto_provisioned, User.created_at, User.id,
+    ).first()
+    return str(account[0]) if account else LEGACY_USER_ID
 
 
 def is_auto_provisioned_email(value: str) -> bool:
@@ -489,8 +480,8 @@ def get_current_user_id(
       2. `Authorization: Bearer <token>` header (for API clients).
 
     Returns `None` if no valid source is present; raises HTTPException
-    only if a source is present but the token is malformed or expired
-    (an explicit 401 is better than a silent one).
+    for invalid explicit bearer credentials, or for an invalid cookie when
+    authentication is required. Optional stale personal cookies are ignored.
     
     """
     # 1) Cookie
@@ -498,8 +489,9 @@ def get_current_user_id(
         uid = decode_access_token(gnosi_session)
         if uid:
             return uid
-        # Cookie present but invalid → 401 with a clear message
-        raise HTTPException(status_code=401, detail="Sessió expirada o invàlida")
+        # A stale optional session must not block direct personal access.
+        if require_auth_enabled(db):
+            raise HTTPException(status_code=401, detail="Sessió expirada o invàlida")
 
     # 2) Header Authorization — either a session JWT or a Personal Access Token.
     if authorization and authorization.lower().startswith("bearer "):
@@ -614,7 +606,7 @@ def resolve_effective_user_id(auth_uid: Optional[str], db: Session) -> str:
 
     1. A credential the caller cannot mint — session cookie or PAT — already
        resolved into `auth_uid`.
-    2. Being the install's sole local account, read from the DB.
+    2. The personal workspace's stored local owner, read from the DB.
 
     `X-User-ID` is deliberately absent, and that is the point of this function.
     It is a plain request header, so honouring it let any caller name
@@ -627,8 +619,7 @@ def resolve_effective_user_id(auth_uid: Optional[str], db: Session) -> str:
     skip the login screen without also trusting whoever reaches the port.
 
     Raises:
-        HTTPException: 401 when there is no credential and no unambiguous
-            local identity to fall back on.
+        HTTPException: 401 when the deployment requires a credential.
     """
     if auth_uid:
         return auth_uid
@@ -636,7 +627,4 @@ def resolve_effective_user_id(auth_uid: Optional[str], db: Session) -> str:
     if require_auth_enabled(db):
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Ambient local identity. `sole_account_id` returns None only on a fresh
-    # install (zero accounts), where the bootstrap below mints the single local
-    # account under a fixed id — fixed, and therefore not caller-chosen.
-    return sole_account_id(db) or LEGACY_USER_ID
+    return personal_account_id(db)

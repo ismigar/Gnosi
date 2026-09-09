@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
-from .contracts import GenogramIssue, GenogramPerson, GenogramRelation, GenogramSetupResponse
+from .contracts import GenogramIssue, GenogramPerson, GenogramRelation, GenogramSetupResponse, GenogramSetupStatus
 from .model import PERSON_OPTIONS, RELATION_OPTIONS, validate_network
 from .schema import OPTION_LABELS, field_id, label, make_table, stable_id
 
@@ -111,6 +111,13 @@ def read_network(registry: RegistryData, metadata_by_id: dict[str, RegistryData]
             except (OSError, ValueError, ValidationError):
                 issues.append(GenogramIssue(code="unreadable_record", record_id=path.stem))
     return people, relations, issues
+
+
+def setup_status() -> GenogramSetupStatus:
+    """Inspect the selected Vault without creating or repairing any tables."""
+    from backend.api import vault_routes as vault
+    with network_lock():
+        return GenogramSetupStatus(ready=len(network_tables(vault.load_registry())) == 2)
 
 
 def setup(locale: str) -> GenogramSetupResponse:

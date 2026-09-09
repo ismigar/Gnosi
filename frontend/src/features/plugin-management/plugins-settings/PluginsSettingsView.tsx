@@ -21,6 +21,7 @@ import {
     isPluginSection,
     lifecycleConflict,
     normalizeBuiltinPlugins,
+    sortPluginsByName,
     readPendingPluginId,
     type InstalledFilter,
     type PendingLifecycle,
@@ -57,9 +58,13 @@ export function PluginsSettingsView({
     onOpenSettingsTab,
     initialPluginId = null,
 }: PluginsSettingsProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { builtins, isEnabled, setPluginEnabled, loaded, loadError, reload } = usePlugins();
-    const catalog = normalizeBuiltinPlugins(builtins.length > 0 ? builtins : BUILTIN_PLUGINS);
+    const pluginName = (plugin: { id: string; name: string }): string => t(`settings.plugins.catalog.${plugin.id}.name`, { defaultValue: plugin.name });
+    const catalog = sortPluginsByName(
+        normalizeBuiltinPlugins(builtins.length > 0 ? builtins : BUILTIN_PLUGINS),
+        pluginName, i18n.resolvedLanguage ?? i18n.language,
+    );
     const [section, setSection] = useState<PluginSection>('installed');
     const [installedFilter, setInstalledFilter] = useState<InstalledFilter>('all');
     const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null);
@@ -184,7 +189,7 @@ export function PluginsSettingsView({
                                     <div style={{ alignItems: 'center', display: 'flex', gap: 12 }}>
                                         <Icon size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ color: 'var(--text-primary, #0f172a)', fontSize: 14, fontWeight: 600 }}>{tp(`catalog.${plugin.id}.name`)}</div>
+                                            <div style={{ color: 'var(--text-primary, #0f172a)', fontSize: 14, fontWeight: 600 }}>{pluginName(plugin)}</div>
                                             <div style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{tp(`catalog.${plugin.id}.description`)}</div>
                                         </div>
                                         {plugin.settingsTab && enabled && (

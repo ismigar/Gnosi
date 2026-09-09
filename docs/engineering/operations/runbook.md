@@ -55,6 +55,16 @@ records that review, not a successful installation, migration or release on
 every platform. Commands below are operator instructions, not evidence that
 they have been executed.
 
+Native personal mode opens without registration for every local profile.
+Additional account rows do not enable authentication: anonymous requests reuse
+the stored personal workspace owner, preferring established owners over generated
+placeholders and then the oldest membership. Before the workspace exists, the
+oldest established account is reused; an empty installation bootstraps its local
+identity. Organization/exposed deployments and explicit authentication overrides
+retain their credential requirements.
+
+Settings groups plugin-owned editors under Plugins instead of duplicating their entries in the general sidebar. The plugin list, third-party installations, catalogue and updates follow alphabetical display-name order in the current interface language. Existing References entry points open the References plugin directly; other plugin editors retain their configuration actions and a return button to Plugins.
+
 ## Native development first
 
 Run the FastAPI backend and Vite frontend natively. Docker, Electron, cloud

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 source_paths:
   - backend/domains/genograms
   - frontend/src/features/genograms
@@ -11,6 +11,8 @@ source_paths:
 tests:
   - backend/tests/test_genograms.py
   - backend/tests/test_genograms_api.py
+  - frontend/src/features/genograms/GenogramsConfig.test.tsx
+  - frontend/src/shared/api/genograms.test.ts
   - frontend/src/features/genograms/genograms.test.tsx
   - frontend/src/features/genograms/export.test.ts
   - frontend/src/features/vault/view-config/page-view-modal/useViewAppearance.genogram.test.tsx
@@ -19,6 +21,8 @@ tests:
 # Genogramas
 
 El plugin integrado opcional `genograms` mantiene una red familiar compartida en cada Vault. Actívalo en Configuración → Plugins → Genogramas y pulsa **Prepara las tablas**. Se crean la base de datos Genogramas, las tablas Personas y Relaciones, sus vistas tabulares principales y una vista Genograma inicial. Los nombres siguen el idioma de la interfaz: catalán, castellano, inglés o francés. Repetir la preparación reutiliza los identificadores de tablas y campos y recupera los campos obligatorios que falten.
+
+La configuración permite seleccionar el Vault de destino y muestra inicialmente el activo. La preparación y la consulta de estado usan ese identificador sin cambiar el Vault activo. Cuando existen ambas tablas, un mensaje traducido con el nombre del Vault sustituye al botón principal de preparación. El estado se consulta al abrir el panel, al recuperar el foco y cada 15 segundos mientras está visible; eliminar cualquiera de las tablas hace reaparecer la acción de preparación. Los mensajes de carga, error, ausencia de vaults y confirmación están traducidos al catalán, inglés, castellano y francés. La consulta de estado y la preparación con permisos de edición están disponibles aunque Genogramas esté desactivado en el Vault de destino; no activan el plugin. Las consultas del grafo siguen requiriendo que el plugin esté activado.
 
 Selecciona una persona de referencia en el dibujo. Por defecto se incluyen dos generaciones de ascendientes, una de descendientes, los hermanos de la persona de referencia y las parejas inmediatas. La expansión de parejas no recorre toda su familia. Las inclusiones, exclusiones y filtros habituales de la tabla delimitan la red visible. La búsqueda resalta nombres sin filtrar el dibujo. Se indica el número de conexiones ocultas y no se inventan filiaciones entre las personas que siguen visibles.
 
@@ -42,6 +46,7 @@ El dibujo es SVG monocromo con símbolos geométricos y patrones de línea difer
 
 ## API y exportación
 
+- `GET /api/vault/genograms/status`: consulta sin modificar datos si ambas tablas existen en el Vault seleccionado.
 - `POST /api/vault/genograms/prepare`: preparación idempotente, reservada a editores.
 - `POST /api/vault/genograms/graph`: resuelve opciones guardadas o locales, normaliza y valida la red y devuelve identificadores visibles, incidencias y correspondencias de campos.
 - Las altas y modificaciones utilizan las API normales de páginas del Vault y ETag.

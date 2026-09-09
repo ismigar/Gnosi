@@ -1,3 +1,4 @@
+import { sortPluginsByName } from './pluginSettingsModel';
 import { RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,12 +10,12 @@ interface PluginUpdatesProps {
 }
 
 export function PluginUpdates({ controller }: PluginUpdatesProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const tp = (key: string): string => t(`settings.plugins.${key}`);
     const installedVersions = new Map(controller.installed.flatMap((plugin) => (
         plugin.manifest ? [[plugin.manifest.id, plugin.manifest.version] as const] : []
     )));
-    const updates = controller.gallery.filter((entry) => (
+    const updates = sortPluginsByName(controller.gallery, entry => entry.name || entry.id, i18n.resolvedLanguage ?? i18n.language).filter((entry) => (
         installedVersions.has(entry.id)
         && isNewerVersion(entry.version, installedVersions.get(entry.id))
     ));
