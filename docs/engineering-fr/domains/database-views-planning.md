@@ -348,3 +348,7 @@ renommage des champs et des tables, l'ordre d'évaluation des formules et des
 rollups, la synchronisation des relations, le tri des instantanés, les actions
 des catalogues d'options, les contraintes de planification, les chemins
 critiques et le rendu E2E des tableaux de bord.
+
+## Génogrammes
+
+Le [plugin Génogrammes](genograms.md), facultatif par Vault, ajoute des tables familiales liées, des vues SVG et des exports locaux SVG/PNG/PDF, sans service externe ni IA.

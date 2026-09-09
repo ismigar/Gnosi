@@ -8,6 +8,7 @@ import {
   Newspaper,
   Share2,
   Table,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -40,6 +41,7 @@ interface VaultView {
 }
 
 export const VIEW_TYPES: ViewTypeDefinition[] = [
+  { id: 'genogram', label: 'Genogram', icon: Users },
   { id: 'table', label: 'Table', icon: Table },
   { id: 'board', label: 'Kanban', icon: Columns2 },
   { id: 'gallery', label: 'Gallery', icon: LayoutGrid },

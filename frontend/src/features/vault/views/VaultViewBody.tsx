@@ -1,4 +1,7 @@
-import { useMemo, type ReactNode } from 'react';
+import { loadGenogramView } from '../../genograms';
+import { PluginRoute } from '../../../shared/plugins/PluginGate';
+import { useTranslation } from 'react-i18next';
+import { useMemo, lazy, Suspense, type ReactNode } from 'react';
 import { VaultTable } from './VaultTable';
 import { VaultKanban } from './VaultKanban';
 import { VaultGallery } from './VaultGallery';
@@ -16,6 +19,8 @@ import type {
 } from '../../../shared/records/hooks/useVaultViewData';
 import { requireFilterNodes } from '../../../shared/filtering/filterContracts';
 import { tableNotes, tableRecordFocus, tableTemplates, tableView } from './vault-view-body/table-contract';
+
+const GenogramView = lazy(loadGenogramView);
 
 function isCalendarTemplate(value: Readonly<Record<string, unknown>>): value is BulkActionTemplate {
     return typeof value.id === 'string'
@@ -119,6 +124,7 @@ export function VaultViewBody({
     feedDensity = 'comfortable',
     feedGroupMode = 'none',
 }: VaultViewBodyProps) {
+    const { t: translate } = useTranslation();
     const t = type.toLowerCase();
     const tableTemplateOptions = useMemo(() => tableTemplates(templates), [templates]);
 
@@ -151,13 +157,13 @@ export function VaultViewBody({
     const filteredViewConfig = useMemo(() => ({
         filters: requireFilterNodes(resolveViewFilters(activeView)),
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
-        search: searchTerm,
-    }), [activeView, searchTerm]);
+        search: t === 'genogram' ? '' : searchTerm,
+    }), [activeView, searchTerm, t]);
     const { sortedPages: viewFilteredNotes } = useVaultViewData({
         pages: notes,
         schema,
         view: filteredViewConfig,
-        searchTerm,
+        searchTerm: t === 'genogram' ? '' : searchTerm,
     });
     const calendarNotes = useMemo(() => viewFilteredNotes.map((note) => ({
         ...note, title: note.title == null ? note.title : String(note.title),
@@ -170,7 +176,9 @@ export function VaultViewBody({
     const tableFocusRequest = useMemo(() => tableRecordFocus(restoreRecordFocus), [restoreRecordFocus]);
 
     let body: ReactNode;
-    if (t === 'board') {
+    if (t === 'genogram') {
+        body = <PluginRoute pluginId="genograms"><Suspense fallback={<p role="status">{translate('common.loading')}</p>}><GenogramView view={activeView} eligibleIds={viewFilteredNotes.map(note => note.id)} rowsVersion={notes} search={searchTerm} onUpdateView={onUpdateView} onNoteSelect={onNoteSelect} onChanged={onCellSaved} /></Suspense></PluginRoute>;
+    } else if (t === 'board') {
         // `onUpdateNote` enables drag & drop of cards between columns
         // (writes the record's grouping field on drop).
         body = <VaultKanban {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;

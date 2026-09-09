@@ -108,6 +108,8 @@ async def delete_page(page_id: str) -> dict[str, object]:
                 "retention_days": dependencies.retention_days,
                 "restorable_until": restorable_until,
             }
+        except HTTPException:
+            raise
         except Exception as exc:
             log.error("Error soft-deleting page %s: %s", safe_page_id, exc)
             raise HTTPException(

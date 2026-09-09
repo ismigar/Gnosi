@@ -193,6 +193,8 @@ async def save_page(
                 "etag": dependencies.file_etag(file_path),
                 "message": "Page saved successfully",
             }
+        except HTTPException:
+            raise
         except Exception as exc:
             log.error("Error saving page %s: %s", page_id, exc)
             raise HTTPException(

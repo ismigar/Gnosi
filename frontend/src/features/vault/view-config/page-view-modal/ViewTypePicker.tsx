@@ -1,19 +1,24 @@
+import { usePlugins } from '../../../../shared/plugins/usePlugins';
+import { PEOPLE_TABLE_ID } from '../../../genograms';
 import { VIEW_TYPES } from '../../views/viewConstants';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 
 export function ViewTypePicker({
-    t, viewType, setViewType
+    t, viewType, setViewType, sourceTableId
 }: Pick<
     ModalInput & useViewStateResult,
     't'
     | 'viewType'
     | 'setViewType'
+    | 'sourceTableId'
 >) {
+    const { isEnabled } = usePlugins();
+    const viewTypes = VIEW_TYPES.filter(vt => vt.id !== 'genogram' || (isEnabled('genograms') && sourceTableId === PEOPLE_TABLE_ID));
     return (<>                            <div>
         <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">{t('view.type_label', "View type")}</label>
         <div className="grid grid-cols-4 gap-2">
-            {VIEW_TYPES.map(vt => {
+            {viewTypes.map(vt => {
                 const Icon = vt.icon;
                 const active = viewType === vt.id;
                 return (

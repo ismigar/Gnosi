@@ -63,6 +63,7 @@ export function useViewActions(context: Context) {
         catch (err) {
             console.error("Error updating view:", err);
             toast.error(t('errors.save_view'));
+            if (updatedView.genogram) throw err;
         }
     };
     const handleDuplicateView = async (targetView: string | ViewDraft) => {

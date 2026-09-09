@@ -13,8 +13,8 @@ import {
 
 describe('built-in capability registry', () => {
     it('keeps every optional capability explicit and unique', () => {
-        expect(BUILTIN_PLUGINS).toHaveLength(19);
-        expect(new Set(BUILTIN_PLUGINS.map((plugin) => plugin.id)).size).toBe(19);
+        expect(BUILTIN_PLUGINS).toHaveLength(20);
+        expect(new Set(BUILTIN_PLUGINS.map((plugin) => plugin.id)).size).toBe(BUILTIN_PLUGINS.length);
         expect(BUILTIN_PLUGIN_BY_ID['grounded-notebooks']?.requires).toEqual(['ai-platform']);
         expect(BUILTIN_PLUGIN_BY_ID['llm-wiki']?.requires).toEqual(['ai-platform']);
     });

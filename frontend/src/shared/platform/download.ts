@@ -8,6 +8,8 @@ export function downloadBlob(blob: Blob, filename: string): void {
         anchor.click();
     } finally {
         anchor.remove();
-        URL.revokeObjectURL(url);
+        // WebKit may start reading the URL after the click handler returns.
+        // Keep it alive briefly so browser-side SVG, PNG and PDF exports finish.
+        setTimeout(() => { URL.revokeObjectURL(url); }, 10000);
     }
 }

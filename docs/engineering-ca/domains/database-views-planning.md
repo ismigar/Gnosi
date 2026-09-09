@@ -347,3 +347,7 @@ els canvis de nom de camps i taules, l'ordre d'avaluació de fórmules i
 agregacions, la sincronització de relacions, l'ordenació d'instantànies,
 les accions dels catàlegs d'opcions, les restriccions de planificació,
 els camins crítics i la renderització E2E dels quadres de comandament.
+
+## Genogrames
+
+El [plugin Genogrames](genograms.md), opcional per Vault, afegeix taules familiars enllaçades, vistes SVG i exportació local a SVG/PNG/PDF, sense serveis externs ni IA.

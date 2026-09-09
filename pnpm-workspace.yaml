@@ -21,6 +21,8 @@ patchedDependencies:
 
 allowBuilds:
   # Electron 43 uses the explicit desktop install:runtime command.
+  # core-js only prints a post-install funding message; no build is required.
+  core-js: false
   electron: false
   # Squirrel.Windows is a transitive builder dependency; Gnosi ships NSIS.
   electron-winstaller: false

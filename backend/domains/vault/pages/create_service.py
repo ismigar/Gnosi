@@ -197,6 +197,8 @@ async def create_page(
             "resolved_table_id": resolved_table_id,
             "message": "Page created",
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         log.error("Error creating the page: %s", exc)
         raise HTTPException(status_code=500, detail="Error writing the page file") from exc

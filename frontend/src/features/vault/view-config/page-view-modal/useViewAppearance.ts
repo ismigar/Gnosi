@@ -1,3 +1,4 @@
+import { configValue } from '../../../genograms';
 import type { useViewStateResult } from './useViewState';
 import type { ViewAppearance } from './types';
 
@@ -11,7 +12,7 @@ export function useViewAppearance({
     groupBy, groupSort, groupSortDir, dateField,
     endDateField, calendarView, colorField, rowHeight,
     feedPillLimit, feedExcerptLines, feedFocus, summaryModel,
-    chartType, xField, yField, aggregation,
+    genogram, setGenogram, chartType, xField, yField, aggregation,
     viewType
 }: Pick<
     useViewStateResult,
@@ -56,8 +57,11 @@ export function useViewAppearance({
     | 'yField'
     | 'aggregation'
     | 'viewType'
+    | 'genogram'
+    | 'setGenogram'
 >) {
     const applyTypeOptions = (v: ViewAppearance | null | undefined) => {
+        setGenogram(configValue(v?.genogram));
         setCardSize(v?.cardSize || 'medium');
         setGalleryPreview(v?.galleryPreview || 'cover');
         setCoverField(v?.coverField || v?.cover_field || '');
@@ -80,6 +84,7 @@ export function useViewAppearance({
         setAggregation(v?.aggregation || (v?.yField || v?.y_field ? 'sum' : 'count'));
     };
     const resetTypeOptions = () => {
+        setGenogram(configValue(undefined));
         setCardSize('medium');
         setGalleryPreview('cover');
         setCoverField('');
@@ -106,9 +111,11 @@ export function useViewAppearance({
         // existing view) it extracts the same fields with the same defaults,
         // tolerating camelCase (registry) and snake_case (embedded section). This way
         // change detection and saving use exactly the same shape.
-        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
+        const s = src || { genogram, cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
         const extras: Record<string, unknown> = {};
-        if (viewType === 'gallery') {
+        if (viewType === 'genogram') {
+            extras.genogram = configValue(s.genogram);
+        } else if (viewType === 'gallery') {
             extras.cardSize = s.cardSize || 'medium';
             extras.galleryPreview = s.galleryPreview || 'cover';
             extras.coverField = s.coverField || s.cover_field || '';

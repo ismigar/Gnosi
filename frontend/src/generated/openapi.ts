@@ -5803,6 +5803,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/genograms/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Query Genogram */
+        post: operations["query_genogram_api_vault_genograms_graph_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/genograms/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare Genograms */
+        post: operations["prepare_genograms_api_vault_genograms_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/global-index": {
         parameters: {
             query?: never;
@@ -13552,6 +13586,331 @@ export interface components {
              * @default
              */
             prompt: string | null;
+        };
+        /** GenogramConfig */
+        GenogramConfig: {
+            /**
+             * Age
+             * @default true
+             */
+            age: boolean;
+            /**
+             * Ancestors
+             * @default 2
+             */
+            ancestors: number;
+            /**
+             * Dates
+             * @default false
+             */
+            dates: boolean;
+            /**
+             * Descendants
+             * @default 1
+             */
+            descendants: number;
+            /**
+             * Emotional
+             * @default true
+             */
+            emotional: boolean;
+            /** Exclude Ids */
+            exclude_ids?: string[];
+            /** Include Ids */
+            include_ids?: string[];
+            /**
+             * Labels
+             * @default name
+             * @enum {string}
+             */
+            labels: "name" | "initials" | "alias";
+            /**
+             * Legend
+             * @default true
+             */
+            legend: boolean;
+            /** Positions */
+            positions?: {
+                [key: string]: components["schemas"]["GenogramPosition"];
+            };
+            /**
+             * Root Id
+             * @default
+             */
+            root_id: string;
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** GenogramGraphRequest */
+        GenogramGraphRequest: {
+            config?: components["schemas"]["GenogramConfig"] | null;
+            /** Eligible Ids */
+            eligible_ids?: string[] | null;
+            /** Table Id */
+            table_id: string;
+            /** View Id */
+            view_id?: string | null;
+        };
+        /** GenogramGraphResponse */
+        GenogramGraphResponse: {
+            config: components["schemas"]["GenogramConfig"];
+            /** Database Id */
+            database_id: string;
+            /** Hidden Connections */
+            hidden_connections: number;
+            /** Issues */
+            issues: components["schemas"]["GenogramIssue"][];
+            /** People */
+            people: components["schemas"]["GenogramPerson"][];
+            /** People Fields */
+            people_fields: {
+                [key: string]: string;
+            };
+            /** People Table Id */
+            people_table_id: string;
+            /** Relations */
+            relations: components["schemas"]["GenogramRelation"][];
+            /** Relations Fields */
+            relations_fields: {
+                [key: string]: string;
+            };
+            /** Relations Table Id */
+            relations_table_id: string;
+            /** View Id */
+            view_id: string;
+            /** Visible Ids */
+            visible_ids: string[];
+        };
+        /** GenogramIssue */
+        GenogramIssue: {
+            /** Code */
+            code: string;
+            /**
+             * Field
+             * @default
+             */
+            field: string;
+            /** Record Id */
+            record_id: string;
+            /**
+             * Severity
+             * @default error
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+        };
+        /** GenogramPerson */
+        GenogramPerson: {
+            /**
+             * Alias
+             * @default
+             */
+            alias: string;
+            /**
+             * Birth Approximate
+             * @default false
+             */
+            birth_approximate: boolean;
+            /**
+             * Birth Date
+             * @default
+             */
+            birth_date: string;
+            /** Birth Order */
+            birth_order?: number | null;
+            /**
+             * Death Approximate
+             * @default false
+             */
+            death_approximate: boolean;
+            /**
+             * Death Date
+             * @default
+             */
+            death_date: string;
+            /**
+             * Etag
+             * @default
+             */
+            etag: string;
+            /**
+             * Gender
+             * @default
+             */
+            gender: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @default person
+             */
+            kind: string;
+            /**
+             * Multiple Group
+             * @default
+             */
+            multiple_group: string;
+            /**
+             * Multiple Type
+             * @default unknown
+             */
+            multiple_type: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Pregnancy Date
+             * @default
+             */
+            pregnancy_date: string;
+            /**
+             * Pregnancy Status
+             * @default ongoing
+             */
+            pregnancy_status: string;
+            /** Pregnancy Weeks */
+            pregnancy_weeks?: number | null;
+            /** Sources */
+            sources?: string[];
+            /**
+             * Symbol
+             * @default neutral
+             */
+            symbol: string;
+            /** Tags */
+            tags?: string[];
+            /** Title */
+            title: string;
+            /**
+             * Vital Status
+             * @default unknown
+             */
+            vital_status: string;
+        };
+        /** GenogramPosition */
+        GenogramPosition: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** GenogramRelation */
+        GenogramRelation: {
+            /**
+             * Divorce Date
+             * @default
+             */
+            divorce_date: string;
+            /**
+             * Emotion
+             * @default close
+             */
+            emotion: string;
+            /**
+             * End Date
+             * @default
+             */
+            end_date: string;
+            /**
+             * Etag
+             * @default
+             */
+            etag: string;
+            /** Id */
+            id: string;
+            /**
+             * Informant
+             * @default
+             */
+            informant: string;
+            /**
+             * Kind
+             * @default union
+             */
+            kind: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Observed Date
+             * @default
+             */
+            observed_date: string;
+            /**
+             * Parentage
+             * @default unknown
+             */
+            parentage: string;
+            /**
+             * Separation Date
+             * @default
+             */
+            separation_date: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /** Sources */
+            sources?: string[];
+            /**
+             * Start Date
+             * @default
+             */
+            start_date: string;
+            /**
+             * Target
+             * @default
+             */
+            target: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Union Id
+             * @default
+             */
+            union_id: string;
+            /**
+             * Union Status
+             * @default unknown
+             */
+            union_status: string;
+            /**
+             * Union Type
+             * @default partnership
+             */
+            union_type: string;
+        };
+        /** GenogramSetupRequest */
+        GenogramSetupRequest: {
+            /**
+             * Locale
+             * @default en
+             * @enum {string}
+             */
+            locale: "ca" | "en" | "es" | "fr";
+        };
+        /** GenogramSetupResponse */
+        GenogramSetupResponse: {
+            /** Database Id */
+            database_id: string;
+            /** People Table Id */
+            people_table_id: string;
+            /** Relations Table Id */
+            relations_table_id: string;
+            /** View Id */
+            view_id: string;
         };
         /**
          * GlobalIndexResponse
@@ -21803,6 +22162,7 @@ export interface components {
             embedded?: boolean | null;
             /** Gallerypreview */
             galleryPreview?: string | null;
+            genogram?: components["schemas"]["GenogramConfig"] | null;
             /** Hidden */
             hidden?: boolean | null;
             /** Id */
@@ -21830,6 +22190,7 @@ export interface components {
             embedded?: boolean | null;
             /** Gallerypreview */
             galleryPreview?: string | null;
+            genogram?: components["schemas"]["GenogramConfig"] | null;
             /** Hidden */
             hidden?: boolean | null;
             /** Id */
@@ -34687,6 +35048,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CitationKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    query_genogram_api_vault_genograms_graph_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenogramGraphRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenogramGraphResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_genograms_api_vault_genograms_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenogramSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenogramSetupResponse"];
                 };
             };
             /** @description Validation Error */

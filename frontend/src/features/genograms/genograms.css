@@ -1,0 +1,23 @@
+.genogram-view { color: var(--text-primary); font-size: 13px; padding: 12px; min-width: 0; }
+.genogram-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.genogram-toolbar label { display: flex; align-items: center; gap: 5px; }
+.genogram-view button, .genogram-editor button { padding: 5px 9px; border: 1px solid var(--border-primary, #ccc); border-radius: 4px; background: var(--bg-primary, white); color: inherit; }
+.genogram-view button:hover, .genogram-editor button:hover { background: var(--bg-tertiary, #eee); }
+.genogram-view button:disabled { opacity: .5; }
+.genogram-view select, .genogram-view input, .genogram-editor input, .genogram-editor select, .genogram-editor textarea { color: inherit; background: var(--bg-primary, white); border: 1px solid var(--border-primary, #ccc); border-radius: 3px; padding: 4px; max-width: 240px; }
+.genogram-toolbar input[type=number] { width: 50px; }
+.genogram-workspace { display: flex; border: 1px solid var(--border-primary, #ccc); overflow: hidden; }
+.genogram-workspace svg { min-width: 0; flex: 1; cursor: grab; }
+.genogram-workspace svg [data-person], .genogram-workspace svg [data-relation] { cursor: pointer; }
+.genogram-workspace svg [role=button]:focus { outline: 2px solid #335d87; }
+.genogram-selection { width: 180px; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid var(--border-primary); }
+.genogram-notice { font-size: 12px; margin: 8px 0; }
+.genogram-modal { position: fixed; inset: 0; z-index: 10000; background: #0006; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.genogram-editor { max-width: 780px; width: 100%; max-height: 90vh; overflow: auto; background: var(--bg-primary, white); color: var(--text-primary, #222); padding: 24px; border-radius: 8px; }
+.genogram-editor h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.genogram-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+.genogram-editor label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.genogram-editor input, .genogram-editor select, .genogram-editor textarea { max-width: 100%; }
+.genogram-editor footer { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; }
+.genogram-editor [role=alert], .genogram-view [role=alert] { color: #ac2929; }
+@media (max-width: 700px) { .genogram-workspace { flex-direction: column; } .genogram-selection { width: auto; flex-direction: row; flex-wrap: wrap; } .genogram-fields { grid-template-columns: 1fr; } }

@@ -212,6 +212,8 @@ async def patch_page(
                 "etag": dependencies.file_etag(file_path),
                 "message": "Page partially updated",
             }
+        except HTTPException:
+            raise
         except Exception as exc:
             log.error("Error patching page %s: %s", page_id, exc)
             raise HTTPException(

@@ -294,3 +294,8 @@ Test typed filter parity, schema revision conflicts, field and table renames,
 formula/rollup ordering, relation synchronization, snapshot sorting, option
 catalog actions, scheduling constraints, critical paths, and dashboard E2E
 rendering.
+
+## Genograms
+
+The optional [Genograms plugin](genograms.md) adds linked family-network tables,
+per-view SVG diagrams and local SVG/PNG/PDF exports through the native view renderer.

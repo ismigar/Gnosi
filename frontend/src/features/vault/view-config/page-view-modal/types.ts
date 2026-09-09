@@ -50,6 +50,7 @@ export interface FilterContext {
     t: TFunction;
 }
 export interface ViewAppearance {
+    genogram?: import('../../../genograms').Config | null;
     cardSize?: string | null;
     galleryPreview?: string | null;
     coverField?: string; cover_field?: string;

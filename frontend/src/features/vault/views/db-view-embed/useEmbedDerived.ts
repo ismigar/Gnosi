@@ -65,7 +65,7 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
             : (effectiveView?.sort ? [effectiveView.sort] : []);
         return multiKeySort(filtered, sorts);
     }, [rawRecords, effectiveView, pageId]);
-    const rows = useMemo(() => searchRows(allRows, searchTerm), [allRows, searchTerm]);
+    const rows = useMemo(() => viewType === 'genogram' ? allRows : searchRows(allRows, searchTerm), [allRows, searchTerm, viewType]);
     const table = ctx.registry.tables.find(t => t.id === String(tableId)) || null;
     const embeddedSchema = useMemo(() => {
         const props = [...(table?.properties || [])];
@@ -92,7 +92,9 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
     const embeddedView = useMemo(() => ({
         id: effectiveView?.id || effectiveView?.view_id || 'embedded',
         name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', "View"),
-        type: viewType === 'list' ? 'list' : 'table',
+        type: viewType === 'genogram' ? 'genogram' : viewType === 'list' ? 'list' : 'table',
+        table_id: tableId,
+        genogram: effectiveView?.genogram,
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
         visibleProperties: columnsAsKeys,
@@ -121,7 +123,7 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
         xField: effectiveView?.xField || effectiveView?.x_field,
         yField: effectiveView?.yField || effectiveView?.y_field,
         aggregation: effectiveView?.aggregation,
-    }), [effectiveView, viewType, columnsAsKeys, t]);
+    }), [effectiveView, viewType, columnsAsKeys, t, tableId]);
     return { tableId, effectiveView, columns, columnSpec, columnsAsKeys, viewType, activeFilterCount, displayHeading, displayLevel, allRows, rows, table, embeddedSchema, embeddedView };
 }
 export type EmbedDerived = ReturnType<typeof useEmbedDerived>;

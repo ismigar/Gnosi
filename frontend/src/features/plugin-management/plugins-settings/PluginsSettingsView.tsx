@@ -1,3 +1,4 @@
+import { loadGenogramsConfig } from '../../genograms';
 import {
     BookOpen, BrainCircuit, Calendar, CalendarDays, CalendarRange, Clock3,
     Cpu, Database, Hash, Inbox, Languages, LayoutDashboard, MessageSquare,
@@ -5,7 +6,7 @@ import {
     Share2, Store, Users,
     type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { notifyError } from '../../../shared/notifications/notifyError';
@@ -36,7 +37,10 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
     NotebookTabs, Scissors, Share2, Users,
 };
 
+const GenogramsConfig = lazy(loadGenogramsConfig);
+
 const INLINE_CONFIGS: Readonly<Record<string, PluginConfigComponent>> = {
+    genograms: GenogramsConfig,
     'daily-notes': DailyNotesConfig,
     'llm-wiki': LlmWikiConfig,
     'project-planning': ProjectPlanningConfig,
@@ -190,7 +194,7 @@ export function PluginsSettingsView({
                                             <span style={{ background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', height: 20, left: enabled ? 20 : 2, position: 'absolute', top: 2, transition: 'left 0.15s', width: 20 }} />
                                         </button>
                                     </div>
-                                    {InlineConfig && isConfigOpen && <InlineConfig />}
+                                    <Suspense fallback={<div role="status">{t('common.loading')}</div>}>{InlineConfig && isConfigOpen && <InlineConfig />}</Suspense>
                                 </div>
                             );
                         })}

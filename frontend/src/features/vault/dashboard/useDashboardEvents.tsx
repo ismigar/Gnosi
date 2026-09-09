@@ -14,6 +14,8 @@ declare module '../../../shared/platform/app-events' {
 }
 export function useDashboardEvents(context: DashboardActions) {
     const { pendingRelationUndoRef, setPendingRelationUndo } = context;
+    const onGenogramsChanged = useEffectEvent(() => { void context.fetchPages(); if (context.activeTableId) void context.fetchPagesByTable(context.activeTableId); });
+    const onGenogramsPrepared = useEffectEvent(() => { void context.fetchRegistry(); });
     const onImported = useEffectEvent((detail: unknown) => {
         const data = record(detail);
         const { t, fetchPages } = context;
@@ -135,6 +137,8 @@ export function useDashboardEvents(context: DashboardActions) {
             subscribeAppSignal('gnosi:open-tags', () => { onOpenTags(); }),
             subscribeAppSignal('gnosi:present', () => { onPresent(); }),
             subscribeAppSignal('gnosi:open-workspaces', () => { onWorkspaces(); }),
+            subscribeAppEvent('gnosi:genograms-changed', onGenogramsChanged),
+            subscribeAppEvent('gnosi:genograms-prepared', onGenogramsPrepared),
             subscribeAppEvent('gnosi:imported', detail => { onImported(detail); }),
             subscribeAppEvent('gnosi:open-pdf', (detail, event) => { onOpenPdf(detail, event); }),
             subscribeAppEvent('gnosi:relation-unlinked', detail => { onRelationUnlinked(detail); }),

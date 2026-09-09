@@ -18,6 +18,7 @@ export interface BuiltinPluginDefinition {
 }
 
 export const BUILTIN_PLUGINS: readonly BuiltinPluginDefinition[] = [
+    { id: 'genograms', name: 'Genograms', description: 'Shared family networks and emotional relationships.', icon: 'Users', group: 'knowledge', settingsTab: 'genograms', requires: [], routes: [] },
     { id: 'daily-notes', name: 'Daily notes', description: 'Quick access to daily notes and date navigation.', icon: 'CalendarDays', group: 'knowledge', settingsTab: 'daily-notes', requires: [], routes: [] },
     { id: 'tags-page', name: 'Tags page', description: 'Index of every vault tag with counts and navigation.', icon: 'Hash', group: 'vault', requires: [], routes: [] },
     { id: 'page-comments', name: 'Comments', description: 'Per-page comment threads.', icon: 'MessageSquare', group: 'vault', requires: [], routes: [] },
