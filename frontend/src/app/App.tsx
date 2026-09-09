@@ -22,13 +22,14 @@ import CommandPalette from './navigation/CommandPalette';
 import { useTheme } from '../shared/hooks/useTheme';
 import { useFileLinkInterceptor } from './integration/useFileLinkInterceptor';
 import { useFocusModality } from '../shared/hooks/useFocusModality';
-import { useAuth } from '../shared/auth/auth-context';
+import { useAuth, type AuthContextValue } from '../shared/auth/auth-context';
 import { LoginPage } from '../features/auth';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
 import { DesktopUpdateNotice } from './desktop/DesktopUpdateNotice';
 import { vaultAgentContextRefs } from '../features/agent-context/model/vaultAgentContext';
 import { PluginSurface } from '../shared/plugins/PluginGate';
 import { usePlugins } from '../shared/plugins/usePlugins';
+import { PluginLoadingState } from '../shared/plugins/PluginLoadingState';
 import {
   subscribeAppEvent,
   type ModuleContextRef,
@@ -82,13 +83,49 @@ interface ModuleContextOverride {
   readonly refs: readonly ModuleContextRef[];
 }
 
+function SessionRecoveryScreen({ recovery }: {
+  readonly recovery: NonNullable<AuthContextValue['sessionRecovery']>;
+}) {
+  const { t } = useTranslation();
+  const [retrying, setRetrying] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const recover = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    setFailed(false);
+    try {
+      await recovery.recover();
+    } catch {
+      setFailed(true);
+    } finally {
+      setRetrying(false);
+    }
+  };
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+      <section className="flex max-w-lg flex-col items-center gap-4 px-6 text-center"
+        aria-labelledby="session-recovery-title">
+        <h1 id="session-recovery-title" className="text-xl font-semibold">
+          {t('auth.session_recovery_title', 'This session is no longer valid')}
+        </h1>
+        <p>{t('auth.session_recovery_description', 'Clear this session and reload Gnosi to continue.')}</p>
+        {failed && <p role="alert">{t('auth.session_recovery_error', 'The session could not be cleared. Please try again.')}</p>}
+        <button type="button" className="btn-gnosi btn-gnosi-primary"
+          disabled={retrying} aria-busy={retrying} onClick={() => { void recover(); }}>
+          {retrying ? t('common.loading', 'Loading...') : t('auth.session_recovery_action', 'Clear session and retry')}
+        </button>
+      </section>
+    </div>
+  );
+}
+
 function App() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { effectiveTheme } = useTheme();
-  const { user, gnosiMode, requireAuth, loading } = useAuth();
-  const { loaded: pluginStateLoaded } = usePlugins();
+  const { user, gnosiMode, requireAuth, loading, sessionRecovery } = useAuth();
+  const pluginState = usePlugins();
   const [moduleContextOverride, setModuleContextOverride] = useState<ModuleContextOverride | null>(null);
   const [bulkNotebookResources, setBulkNotebookResources] = useState<readonly string[] | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
@@ -198,23 +235,18 @@ function App() {
     );
   }
 
-  // Gate in org mode, and in personal mode when the backend enforces auth
-  // (GNOSI_REQUIRE_AUTH): without it, personal relies on the legacy fallback
-  // and the single user goes straight in.
-  if ((gnosiMode === 'org' || requireAuth) && !user) {
+  if (sessionRecovery) return <SessionRecoveryScreen recovery={sessionRecovery} />;
+
+  // An explicit server denial is fresher than the startup health snapshot.
+  // Otherwise preserve the normal organization/personal authentication gate.
+  if (pluginState.authenticationRequired || ((gnosiMode === 'org' || requireAuth) && !user)) {
     return <LoginPage />;
   }
 
   // Optional surfaces are part of the shell contract. Wait for the active
   // Vault's explicit state so an old Vault can never flash a feature that is
   // disabled in the new one.
-  if (!pluginStateLoaded) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
-        <div className="animate-pulse text-sm">{t('common.loading', "Loading...")}</div>
-      </div>
-    );
-  }
+  if (!pluginState.loaded) return <PluginLoadingState state={pluginState} fullPage />;
 
   return (
     <div className="gnosi-app-shell">
@@ -260,15 +292,17 @@ function App() {
         )}
       </PluginSurface>
       <PluginSurface pluginIds="grounded-notebooks">
-        <Suspense fallback={null}>
-          <NotebookCreateDialog
-            key={`notebook-dialog-${String(vaultRevision)}`}
-            isOpen={Array.isArray(bulkNotebookResources)}
-            initialResourceIds={bulkNotebookResources || []}
-            onClose={() => { setBulkNotebookResources(null); }}
-            onCreated={(notebook) => { void navigate(vaultPath('notebooks', notebook.id)); }}
-          />
-        </Suspense>
+        {bulkNotebookResources !== null && (
+          <Suspense fallback={null}>
+            <NotebookCreateDialog
+              key={`notebook-dialog-${String(vaultRevision)}`}
+              isOpen
+              initialResourceIds={bulkNotebookResources}
+              onClose={() => { setBulkNotebookResources(null); }}
+              onCreated={(notebook) => { void navigate(vaultPath('notebooks', notebook.id)); }}
+            />
+          </Suspense>
+        )}
       </PluginSurface>
       <PluginSurface pluginIds={['calendar', 'ai-platform']}>
         <Suspense fallback={null}>

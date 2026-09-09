@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from backend.api.vault_routes import router as router
 from backend.config.env_config import default_thumb_daemon_url as _default_thumb_daemon_url
 from backend.domains.vault.api import pages_duplicate as _page_duplicate_api
+from backend.domains.media.index_refresh import MediaIndexUnavailable, read_with_index_state
 from backend.domains.vault.assets import api as _assets_api
 from backend.domains.vault.files import api as _files_api
 from backend.domains.vault.files import property_service as _property_file_service
@@ -74,11 +75,12 @@ async def get_media_roots() -> list[dict[str, object]]:
     """Returns the roots available for media search (Images, Assets,
     Library, Vault). Each element indicates `available` based on whether the folder
     currently exists on disk."""
-    return _media_service().get_roots()
+    return await asyncio.to_thread(_media_service().get_roots)
 
 
 @router.get("/media", response_model=MediaPageResponse)
 async def get_all_media(
+    response: Response,
     album: str | None = Query(None),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -110,32 +112,52 @@ async def get_all_media(
         raise HTTPException(status_code=400, detail=f"sort invàlid: {sort!r}")
     if dir not in {"asc", "desc"}:
         raise HTTPException(status_code=400, detail=f"dir invàlid: {dir!r}")
-    return _media_service().get_all_media(
-        album,
-        limit=limit,
-        offset=offset,
-        root=root,
-        kinds=kinds,
-        extensions=extensions,
-        q=q,
-        desc_contains=desc_contains,
-        tags_any=tags_any,
-        tags_all=tags_all,
-        tags_none=tags_none,
-        size_min=size_min,
-        size_max=size_max,
-        mtime_from=mtime_from,
-        mtime_to=mtime_to,
-        sort=sort,
-        dir_=dir,
+    try:
+        page, index = await asyncio.to_thread(
+            read_with_index_state,
+            _media_service().get_all_media,
+            album,
+            limit=limit,
+            offset=offset,
+            root=root,
+            kinds=kinds,
+            extensions=extensions,
+            q=q,
+            desc_contains=desc_contains,
+            tags_any=tags_any,
+            tags_all=tags_all,
+            tags_none=tags_none,
+            size_min=size_min,
+            size_max=size_max,
+            mtime_from=mtime_from,
+            mtime_to=mtime_to,
+            sort=sort,
+            dir_=dir,
+        )
+    except MediaIndexUnavailable as error:
+        raise HTTPException(status_code=503, detail="Media index is temporarily unavailable", headers={
+            "X-Gnosi-Media-Index": "failed", "Retry-After": "30",
+        }) from error
+    total = page["total"]
+    if not isinstance(total, int):
+        raise TypeError("Media page total must be an integer")
+    response.headers["X-Gnosi-Media-Index"] = index.state
+    response.headers["X-Gnosi-Media-Next-Offset"] = str(min(offset + limit, total))
+    if index.revision is not None:
+        response.headers["X-Gnosi-Media-Index-Revision"] = index.revision
+    if index.retry_after is not None:
+        response.headers["Retry-After"] = str(index.retry_after)
+    response.headers["Access-Control-Expose-Headers"] = (
+        "X-Gnosi-Media-Index, X-Gnosi-Media-Index-Revision, X-Gnosi-Media-Next-Offset, Retry-After"
     )
+    return page
 
 
 @router.get("/media/albums", response_model=list[str])
 async def get_albums() -> list[str]:
     """Returns the list of top-level albums. Compat: the new frontend
     uses /media/tree for hierarchical navigation."""
-    return _media_service().get_albums()
+    return await asyncio.to_thread(_media_service().get_albums)
 
 
 @router.get("/media/tree", response_model=list[MediaTreeNodeResponse])
@@ -149,7 +171,7 @@ async def get_media_tree(
 
     """
     _validate_root(root)
-    return _media_service().get_tree_node(path, root=root)
+    return await asyncio.to_thread(_media_service().get_tree_node, path, root=root)
 
 
 @router.post(
@@ -202,7 +224,7 @@ async def update_media_metadata(
 @router.get("/media/views", response_model=list[MediaViewResponse])
 async def list_media_views() -> list[dict[str, object]]:
     """Returns the user's saved views (JSON sidecar in the vault)."""
-    return _media_service().list_views()
+    return await asyncio.to_thread(_media_service().list_views)
 
 
 @router.post(

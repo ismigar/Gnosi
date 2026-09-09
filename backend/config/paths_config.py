@@ -1,22 +1,54 @@
 from pathlib import Path
+from functools import lru_cache
 import os
 from typing import Dict, Optional
 
 from .data_dir import resolve_data_dir
+from .directory_preparation import DirectoryPreparationCache
 from .validation_runtime import validation_runtime_enabled
 
 # --- Early Boot Paths (Safe Fallbacks) ---
 # This allows logger_config to import LOG_DIR safely before get_paths() is called.
 _tmp_base = Path("/tmp/gnosi_pending_vault")
 LOG_DIR = _tmp_base / "logs"
+_DIRECTORY_PREPARATION = DirectoryPreparationCache()
 
 
-def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[Path]]:
+@lru_cache(maxsize=8)
+def _project_root(source_file: str) -> Path:
+    # A loaded module's checkout is stable; environment/vault paths are not.
+    return Path(source_file).resolve().parents[2]
+
+
+def _prepare_directory(path: Path) -> None:
+    # mkdir(exist_ok=True) still attempts a mutation and handles EEXIST on
+    # every read. Existing directories need only the read-only check.
+    if not path.is_dir():
+        path.mkdir(parents=True, exist_ok=True)
+
+
+def _ensure_directory(path: Path, reuse_success: bool = False) -> None:
+    if reuse_success:
+        _DIRECTORY_PREPARATION.ensure(path, _prepare_directory)
+    else:
+        _DIRECTORY_PREPARATION.invalidate(path)
+        _prepare_directory(path)
+
+
+def get_paths(
+    overrides: Optional[Dict[str, str]] = None,
+    *,
+    reuse_directory_checks: bool = False,
+) -> Dict[str, Optional[Path]]:
     """
     Returns a dictionary of absolute paths for the whole project.
 
     NO DEFAULT VAULT FOLDER: If no path is provided in overrides (Settings),
     the vault_path will be None and the system should handle it gracefully.
+
+    Direct calls repair directories immediately. Configuration readers can
+    reuse successful preparations briefly; environment and path selection
+    remain fresh, and new paths or failed preparations are never deferred.
     """
     if overrides is None:
         overrides = {}
@@ -25,8 +57,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
 
     load_env()
 
-    _this_file = Path(__file__).resolve()
-    project_root = _this_file.parents[2]  # backend/config -> gnosi
+    project_root = _project_root(__file__)
 
     # ── Resolve Vault Path ──
     # Priority: environment (Docker: DIGITAL_BRAIN_VAULT_PATH=/vault; host: VAULT_HOST_PATH)
@@ -64,20 +95,20 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     # SQLite databases, caches, indices, locks. These are per-instance and must
     # not be uploaded to OneDrive/Dropbox/iCloud — cloud sync corrupts SQLite
     # binary files and causes I/O bottlenecks. Override via env var if needed.
-    local_data = resolve_data_dir(create=True)
+    local_data = resolve_data_dir()
     try:
-        local_data.mkdir(parents=True, exist_ok=True)
-        (local_data / "cache").mkdir(parents=True, exist_ok=True)
-        (local_data / "system").mkdir(parents=True, exist_ok=True)
+        _ensure_directory(local_data, reuse_directory_checks)
+        _ensure_directory(local_data / "cache", reuse_directory_checks)
+        _ensure_directory(local_data / "system", reuse_directory_checks)
         # Per-agent LangGraph checkpoints land here.
-        (local_data / "system" / "checkpoints").mkdir(parents=True, exist_ok=True)
+        _ensure_directory(local_data / "system" / "checkpoints", reuse_directory_checks)
         # Operational logs (notifications, etc.) — created at boot so that the
         # modules that write here (notification_service, etc.) don't have to
         # of doing a defensive mkdir every time.
-        (local_data / "logs").mkdir(parents=True, exist_ok=True)
-        (local_data / "audio").mkdir(parents=True, exist_ok=True)
-        (local_data / "out").mkdir(parents=True, exist_ok=True)
-        (local_data / "backups").mkdir(parents=True, exist_ok=True)
+        _ensure_directory(local_data / "logs", reuse_directory_checks)
+        _ensure_directory(local_data / "audio", reuse_directory_checks)
+        _ensure_directory(local_data / "out", reuse_directory_checks)
+        _ensure_directory(local_data / "backups", reuse_directory_checks)
     except Exception:
         pass
 
@@ -92,7 +123,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     # Mac via OAuth and is no longer lost. See directive environment_integrity.md.
     secrets_dir = local_data / "secrets"
     try:
-        secrets_dir.mkdir(parents=True, exist_ok=True)
+        _ensure_directory(secrets_dir, reuse_directory_checks)
         # Idempotent migration (one-time only): if the file still exists at the
         # old location —e.g. the other Mac after a `git pull`— we copy it
         # to the new volume. We don't delete the old one (it's harmless as a fallback).
@@ -154,8 +185,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         ]:
             if p:
                 try:
-                    if not p.exists():
-                        p.mkdir(parents=True, exist_ok=True)
+                    _ensure_directory(p, reuse_directory_checks)
                 except Exception:
                     pass
 

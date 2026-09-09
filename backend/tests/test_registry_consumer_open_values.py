@@ -454,6 +454,7 @@ def test_enriched_page_validates_response_without_widening_metadata(configured: 
         refresh_metadata=refresh,
         inject_virtual_fields=inject,
         response_names=response_names,
+        prepare_response_names=None,
         table_by_id=lambda _: {"id": "table"},
     )
     with pytest.raises(ValidationError) as error:

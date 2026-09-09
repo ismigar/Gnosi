@@ -30,6 +30,26 @@ class PlanningValidationError(ValueError):
     """Raised when normalized planning data violates an invariant."""
 
 
+class PlanningStorageUnavailable(RuntimeError):
+    """An existing store must be recovered, never treated as an empty vault."""
+
+    def __init__(self, path: Path, *, retryable: bool = False):
+        super().__init__("Planning data is not currently readable")
+        self.path = path
+        self.retryable = retryable
+
+
+def _read_planning_text(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise PlanningStorageUnavailable(path, retryable=exc.errno in {11, 35}) from exc
+    except UnicodeError as exc:
+        raise PlanningStorageUnavailable(path) from exc
+
+
 def _number(value: Any, field: str, *, minimum: float = 0.0, strict: bool = False) -> float:
     try:
         result = float(value)
@@ -408,20 +428,19 @@ class PlanningStore:
 
     def load(self) -> dict[str, Any]:
         with _store_lock:
-            try:
-                if not self.path.exists():
-                    return default_state()
-                value = json.loads(self.path.read_text(encoding="utf-8"))
-                if not isinstance(value, dict):
-                    return default_state()
-                if value.get("version") not in {1, STORE_VERSION}:
-                    return default_state()
-                state = default_state()
-                state.update({key: value.get(key, state[key]) for key in state})
-                state["version"] = STORE_VERSION
-                return state
-            except (OSError, json.JSONDecodeError):
+            raw = _read_planning_text(self.path)
+            if raw is None:
                 return default_state()
+            try:
+                value = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise PlanningStorageUnavailable(self.path) from exc
+            if not isinstance(value, dict) or value.get("version") not in {1, STORE_VERSION}:
+                raise PlanningStorageUnavailable(self.path)
+            state = default_state()
+            state.update({key: value.get(key, state[key]) for key in state})
+            state["version"] = STORE_VERSION
+            return state
 
     def save(self, state: dict[str, Any]) -> dict[str, Any]:
         with _store_lock:
@@ -435,20 +454,28 @@ class PlanningStore:
     def append_history(self, entry: dict[str, Any]) -> None:
         """Appends an auditable event without changing previous records."""
         with _store_lock:
+            # An unavailable cloud placeholder must be downloaded before append.
+            _read_planning_text(self.history_path)
             self.history_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.history_path.open("a", encoding="utf-8") as output:
-                output.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+            try:
+                with self.history_path.open("a", encoding="utf-8") as output:
+                    output.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+            except OSError as exc:
+                raise PlanningStorageUnavailable(
+                    self.history_path, retryable=exc.errno in {11, 35}
+                ) from exc
 
     def history(self, event_type: str | None = None) -> list[dict[str, Any]]:
         with _store_lock:
-            if not self.history_path.exists():
+            raw = _read_planning_text(self.history_path)
+            if raw is None:
                 return []
             result = []
-            for line in self.history_path.read_text(encoding="utf-8").splitlines():
+            for line in raw.splitlines():
                 try:
                     value = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if not event_type or value.get("type") == event_type:
+                if isinstance(value, dict) and (not event_type or value.get("type") == event_type):
                     result.append(value)
             return result

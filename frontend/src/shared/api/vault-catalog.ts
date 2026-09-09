@@ -22,7 +22,8 @@ export async function fetchVaultCatalogUncached(
   signal?: AbortSignal,
 ): Promise<VaultCatalog> {
   return unwrapApiResult<VaultCatalog, unknown>(
-    await apiClient.GET('/api/vaults', { signal }),
+    // This small response selects the workspace before the application renders.
+    await apiClient.GET('/api/vaults', { signal, priority: 'high' }),
   );
 }
 

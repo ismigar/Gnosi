@@ -50,9 +50,12 @@ def test_merge_resolves_explicit_id_after_deepcopy(monkeypatch: pytest.MonkeyPat
     metadata: PageMetadata = {"id": "embedded", 7: [1], "llm_wiki_key": "legacy"}
     events: list[str] = []
 
-    def load(page_id: str, legacy_metadata: object = None) -> dict[str, object]:
+    def load(
+        page_id: str, legacy_metadata: object = None, *, state_directory: Path | None = None,
+    ) -> dict[str, object]:
         events.append("load")
         assert page_id == "explicit"
+        assert state_directory is None
         assert is_record(legacy_metadata)
         assert legacy_metadata == metadata and legacy_metadata is not metadata
         assert legacy_metadata[7] is not metadata[7]

@@ -150,10 +150,11 @@ class IntegrationManager:
 
     def _load(self) -> dict[str, Any]:
         """Return resolved integration data, migrating legacy plaintext once."""
-        with self._lock:
-            secured = self._load_secured()
-            resolved = self._resolve_secret_refs(secured)
-            return dict(resolved) if isinstance(resolved, dict) else {}
+        secured = self._load_secured()
+        # Resolving a snapshot can wait on the OS keychain. Reference-only UI
+        # reads must remain available while another reader unlocks credentials.
+        resolved = self._resolve_secret_refs(secured)
+        return dict(resolved) if isinstance(resolved, dict) else {}
 
     def _load_secured(self) -> dict[str, Any]:
         """Return reference-only data, migrating legacy plaintext once."""
@@ -238,13 +239,42 @@ class IntegrationManager:
                 safe_config[key] = value
         return safe_config
 
-    def get_raw(self, key: str) -> Any:
+    def get_raw(self, key: str, *, default: Any = None) -> Any:
         """Internal method to get real credentials"""
-        default: dict[str, Any] | list[Any] = {} if not key.endswith("s") else []
+        if default is None:
+            default = {} if not key.endswith("s") else []
         secured = self._load_secured().get(key, default)
         # Resolve only the requested integration boundary. Calendar discovery,
         # for example, must not unlock unrelated mail, AI or cloud credentials.
         return self._resolve_secret_refs(secured)
+
+    def get_calendar_accounts(
+        self,
+        email: str,
+        *,
+        provider: str | None = None,
+        auth_type: str | None = None,
+        resolve_secrets: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Select calendar identities before accessing the system secure store.
+
+        Provider dispatch only needs metadata. Provider clients request resolved
+        credentials for their selected account, preserving calendar/mail order.
+        """
+        secured = self._load_secured()
+        accounts = [
+            account
+            for section in ("calendars", "emails")
+            if isinstance(values := secured.get(section), list)
+            for account in values
+            if isinstance(account, dict)
+            and (account.get("email") or account.get("username")) == email
+            and (provider is None or account.get("provider") == provider)
+            and (auth_type is None or account.get("auth_type") == auth_type)
+        ]
+        if not resolve_secrets:
+            return accounts
+        return [self._resolve_secret_refs(account) for account in accounts]
 
     def _merge_dict(self, old_d: dict[str, Any], new_d: dict[str, Any]) -> dict[str, Any]:
         merged = old_d.copy()
@@ -300,7 +330,7 @@ class IntegrationManager:
     def update(self, key: str, data: Any) -> None:
         """Updates a specific integration configuration."""
         with self._lock:
-            config = self._load()
+            config = self._load_secured()
             self._update_single_key(config, key, data)
             self._save(config)
 
@@ -314,14 +344,14 @@ class IntegrationManager:
 
         """
         with self._lock:
-            config = self._load()
+            config = self._load_secured()
             config[key] = value
             self._save(config)
 
     def delete_key(self, key: str) -> None:
         """Remove one integration key atomically when it exists."""
         with self._lock:
-            config = self._load()
+            config = self._load_secured()
             if key not in config:
                 return
             del config[key]
@@ -330,31 +360,36 @@ class IntegrationManager:
     def bulk_update(self, updates: dict[str, Any]) -> None:
         """Updates multiple integration keys and saves once."""
         with self._lock:
-            config = self._load()
+            config = self._load_secured()
             for key, data in updates.items():
                 self._update_single_key(config, key, data)
             self._save(config)
 
     # ── Mail account helpers ───────────────────────────────────────────────────
 
-    def get_all_mail_accounts(self, only_enabled: bool = False) -> list[dict[str, Any]]:
-        """Returns all mail accounts (raw) from both 'emails' and 'mail_accounts'."""
-        data = self._load()
-        accounts = [
+    def _mail_account_refs(self) -> list[dict[str, Any]]:
+        """Select mail accounts before resolving any secure-store references."""
+        data = self._load_secured()
+        return [
             account
             for section in (data.get("emails"), data.get("mail_accounts"))
             if isinstance(section, list)
             for account in section
             if isinstance(account, dict)
         ]
-        if only_enabled:
-            accounts = [a for a in accounts if a.get("enabled", True)]
-        return accounts
+
+    def get_all_mail_accounts(self, only_enabled: bool = False) -> list[dict[str, Any]]:
+        """Return raw mail accounts without unlocking unrelated integrations."""
+        return [
+            self._resolve_secret_refs(account)
+            for account in self._mail_account_refs()
+            if not only_enabled or account.get("enabled", True)
+        ]
 
     def set_mail_account_enabled(self, email: str, enabled: bool) -> bool:
         """Sets the enabled flag for a mail account. Returns True if found."""
         with self._lock:
-            data = self._load()
+            data = self._load_secured()
             email_lower = email.strip().lower()
             for section in ("emails", "mail_accounts"):
                 for acc in data.get(section, []):
@@ -364,27 +399,30 @@ class IntegrationManager:
                         return True
             return False
 
-    def get_mail_account(self, email: str) -> dict[str, Any] | None:
-        """Returns the raw account dict for an email, searching both lists."""
+    def get_mail_account(
+        self, email: str, *, resolve_secrets: bool = True,
+    ) -> dict[str, Any] | None:
+        """Select one mail account; provider dispatch can use reference metadata."""
         email_lower = email.strip().lower()
-        for acc in self.get_all_mail_accounts():
+        for acc in self._mail_account_refs():
             if (acc.get("email") or acc.get("username", "")).strip().lower() == email_lower:
-                return acc
+                return self._resolve_secret_refs(acc) if resolve_secrets else acc
         return None
 
     def get_account_by_alias(self, alias_email: str) -> dict[str, Any] | None:
         """Returns the parent account that owns the given alias email, or None."""
         alias_lower = alias_email.strip().lower()
-        for acc in self.get_all_mail_accounts():
+        for acc in self._mail_account_refs():
             for alias in acc.get("aliases", []):
                 if alias.get("email", "").strip().lower() == alias_lower:
-                    return acc
+                    resolved_account: dict[str, Any] = self._resolve_secret_refs(acc)
+                    return resolved_account
         return None
 
     def update_mail_account_token(self, email: str, token: str) -> None:
         """Persists a refreshed OAuth token in-place without touching other fields."""
         with self._lock:
-            data = self._load()
+            data = self._load_secured()
             email_lower = email.strip().lower()
             for section in ("emails", "mail_accounts"):
                 for acc in data.get(section, []):

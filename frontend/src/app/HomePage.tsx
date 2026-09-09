@@ -21,6 +21,7 @@ import { useActiveVaultName } from '../shared/hooks/useActiveVaultName';
 import { usePlugins } from '../shared/plugins/usePlugins';
 import { emitAppEvent } from '../shared/platform/app-events';
 import { legacyBrowserPathToCanonical } from '../shared/routing/vaultRouting';
+import { preloadApplicationRoute } from './routePreload';
 
 interface HomeModule {
     readonly descKey: string;
@@ -187,7 +188,14 @@ function HomePage() {
                     }
                     if (!to) return null;
                     return (
-                        <Link key={to} to={legacyBrowserPathToCanonical(to)} className="home-card">
+                        <Link
+                            key={to}
+                            to={legacyBrowserPathToCanonical(to)}
+                            className="home-card"
+                            onPointerEnter={() => { void preloadApplicationRoute(to); }}
+                            onFocus={() => { void preloadApplicationRoute(to); }}
+                            onTouchStart={() => { void preloadApplicationRoute(to); }}
+                        >
                             <div className="home-card__icon-wrap">
                                 <Icon size={28} strokeWidth={1.5} />
                             </div>

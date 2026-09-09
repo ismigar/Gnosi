@@ -21,6 +21,7 @@ from backend.domains.vault.schemas.pages import (
     PageInfo,
     PageIndexerStatusResponse,
     PagePreviewResponse,
+    PageReference,
     SidebarPageInfo,
     SidebarTreePageInfo,
     TablePagesSnapshot,
@@ -214,6 +215,17 @@ async def list_pages_by_table(
     return pages
 
 
+async def list_page_references_by_table(
+    table_id: str,
+    include_templates: bool = Query(True),
+) -> list[PageReference]:
+    """Return every selectable page without transferring unused metadata."""
+    # Use the same refresh and template filtering as a full table read. In
+    # particular, metadata-stub hydration can also update the displayed title.
+    pages = await list_pages_by_table(table_id, include_templates)
+    return [PageReference(id=page.id, title=page.title) for page in pages]
+
+
 async def list_pages_by_table_snapshot(table_id: str) -> TablePagesSnapshot:
     """Returns canonical snapshot per table: raw + real visible.
 
@@ -265,6 +277,7 @@ async def list_sidebar_summary(
     complete metadata mapping. Knowledge only needs navigation, classification,
     favorites, tags, and icon fields until it requests a page or table.
     """
+    pages = await asyncio.to_thread(_deps().get_pages_snapshot)
     return [
         SidebarPageInfo.model_validate({
             "id": page.id,
@@ -280,12 +293,13 @@ async def list_sidebar_summary(
             "folder": page.folder,
             "resolved_table_id": page.resolved_table_id,
         })
-        for page in _deps().get_pages_snapshot()
+        for page in pages
     ]
 
 
 async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
     """Return the sparse initial Knowledge tree without changing legacy APIs."""
+    pages = await asyncio.to_thread(_deps().get_pages_snapshot)
     return [
         SidebarTreePageInfo(
             id=page.id,
@@ -297,7 +311,7 @@ async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
             folder=page.folder or None,
             resolved_table_id=page.resolved_table_id,
         )
-        for page in _deps().get_pages_snapshot()
+        for page in pages
     ]
 
 
@@ -473,6 +487,12 @@ def register_catalog_routes(router: APIRouter) -> None:
         response_model=list[PageInfo],
     )
     router.add_api_route(
+        "/pages/by-table/{table_id}/references",
+        list_page_references_by_table,
+        methods=["GET"],
+        response_model=list[PageReference],
+    )
+    router.add_api_route(
         "/pages/by-table/{table_id}/snapshot",
         list_pages_by_table_snapshot,
         methods=["GET"],
@@ -536,6 +556,7 @@ __all__ = [
     "get_page_preview",
     "list_pages",
     "list_pages_by_table",
+    "list_page_references_by_table",
     "list_pages_by_table_snapshot",
     "list_sidebar_summary",
     "register_catalog_routes",

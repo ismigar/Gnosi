@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - .github/workflows/ci.yml
   - scripts/runtime/run_native_dev.sh
   - scripts/runtime/run_native_frontend.sh
   - backend/config/env_config.py
@@ -17,6 +18,8 @@ source_paths:
   - tests/e2e/support/auth-state.ts
 tests:
   - pipeline/tests/test_native_runtime_wrappers.py
+  - backend/tests/test_ci_scheduling_contract.py
+  - backend/tests/test_ci_native_readiness.py
   - backend/tests/test_env_loading.py
   - backend/tests/test_data_dir.py
   - backend/tests/test_vault_creation_membership.py
@@ -26,6 +29,8 @@ tests:
 ---
 
 # Runtime and deployment
+
+Public pull requests run native smoke on a fresh GitHub-hosted Ubuntu 24.04 ARM64 machine, using the same runner selection as backend validation. Chromium system dependencies are installed on that disposable host before browser installation. Private repositories, pushes and release checks retain the local Linux ARM64 runner. Native smoke explicitly selects HTTP so its readiness probe and browser base URL cannot disagree with an inherited development certificate. The six-minute readiness deadline and the browser tests remain unchanged.
 
 Shared CI bounds Python dependency setup with `UV_CONCURRENT_DOWNLOADS=4`,
 `UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (seconds per HTTP read) and

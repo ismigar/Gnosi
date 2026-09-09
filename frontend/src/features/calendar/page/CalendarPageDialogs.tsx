@@ -1,10 +1,12 @@
+import { lazy, Suspense } from 'react';
 import { CalendarContextMenu } from '../components/CalendarContextMenu';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 import { RecurrenceChoiceModal } from '../components/RecurrenceChoiceModal';
-import { GlobalSearchModal } from '../../../shared/page-search/GlobalSearchModal';
 import { vaultPath } from '../../../shared/routing/vaultRouting';
 import type { CalendarPageController } from './useCalendarPage';
 import { calendarSearchNote } from './calendarSearchModel';
+
+const GlobalSearchModal = lazy(() => import('../../../shared/page-search/GlobalSearchModal').then(module => ({ default: module.GlobalSearchModal })));
 
 export function CalendarPageDialogs({ controller }: {controller: CalendarPageController}) {
  const { t, contextMenu, closeContextMenu, handleNewEventFromContext, handleDeleteFromContext, isConfirmDeleteOpen, setIsConfirmDeleteOpen, executeDelete, isRecurrenceChoiceOpen, setIsRecurrenceChoiceOpen, isRecurrenceModifyOpen, setIsRecurrenceModifyOpen, executeModify, isGlobalSearchOpen, setIsGlobalSearchOpen, pages, navigate } = controller;
@@ -44,14 +46,16 @@ export function CalendarPageDialogs({ controller }: {controller: CalendarPageCon
                 message={t('calendar.recurrent_modify_msg', "This is a recurring event. How do you want to apply the changes?")}
                 actionType="modify"
             />
-            <GlobalSearchModal
-                isOpen={isGlobalSearchOpen}
-                onClose={() => { setIsGlobalSearchOpen(false); }}
-                allNotes={pages.map(calendarSearchNote)}
-                onNoteSelect={(id) => {
-                    void navigate(vaultPath('knowledge', `page/${encodeURIComponent(id)}`));
-                    setIsGlobalSearchOpen(false);
-                }}
-            />
+            {isGlobalSearchOpen && <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
+                <GlobalSearchModal
+                    isOpen={isGlobalSearchOpen}
+                    onClose={() => { setIsGlobalSearchOpen(false); }}
+                    allNotes={pages.map(calendarSearchNote)}
+                    onNoteSelect={(id) => {
+                        void navigate(vaultPath('knowledge', `page/${encodeURIComponent(id)}`));
+                        setIsGlobalSearchOpen(false);
+                    }}
+                />
+            </Suspense>}
 </>;
 }

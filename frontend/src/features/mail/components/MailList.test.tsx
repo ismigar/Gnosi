@@ -128,6 +128,75 @@ describe('MailList data loading', () => {
     expect(mocks.error).not.toHaveBeenCalled();
   });
 
+  it.each(['provider', 'http'])('publishes each page and retries a %s failure without losing its cursor or selection', async (failure) => {
+    const secondAccount = { email: 'two@example.com' };
+    const onSelectMail = vi.fn<(mail: MailListMessage) => void>();
+    let resolveSlow: ((value: MailMessages) => void) | undefined;
+    let rejectSlow: ((error: Error) => void) | undefined;
+    const slowPage = new Promise<MailMessages>((resolve, reject) => {
+      resolveSlow = resolve;
+      rejectSlow = reject;
+    });
+    let retrying = false;
+    mocks.fetchMessages.mockImplementation(query => {
+      if (!query.email) throw new Error('Expected an account-scoped mail request');
+      if (!query.offset) {
+        return Promise.resolve(response([
+          { ...message(`${query.email}-first`), account: query.email },
+        ], `${query.email}-next`));
+      }
+      if (query.email === account.email || retrying) {
+        return Promise.resolve(response([
+          { ...message(`${query.email}-second`), account: query.email },
+        ]));
+      }
+      return slowPage;
+    });
+    await harness.render({ account: null, accounts: [account, secondAccount], onSelectMail });
+    const selected = harness.checkbox();
+    await harness.click(selected);
+    expect(selected.checked).toBe(true);
+
+    await act(async () => {
+      harness.intersect();
+      await Promise.resolve();
+    });
+    expect(harness.container.textContent).toContain(`Subject ${account.email}-second`);
+    expect(harness.container.textContent).not.toContain(`Subject ${secondAccount.email}-second`);
+    expect(selected.checked).toBe(true);
+    expect(mocks.fetchMessages).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      if (failure === 'provider') {
+        resolveSlow?.({ error: 'Synthetic timeout', messages: [], next_page_token: null, total: 0 });
+      } else {
+        rejectSlow?.(new Error('Synthetic unavailable server'));
+      }
+      await Promise.resolve();
+    });
+    const banner = harness.container.querySelector('[data-mail-partial-status="unavailable"]');
+    expect(banner).not.toBeNull();
+    expect(harness.container.textContent).toContain(`Subject ${secondAccount.email}-first`);
+    expect(selected.checked).toBe(true);
+    const retry = banner?.querySelector('button');
+    if (!(retry instanceof HTMLButtonElement)) throw new Error('Missing page retry');
+    retrying = true;
+    await harness.click(retry);
+
+    expect(mocks.fetchMessages).toHaveBeenCalledTimes(5);
+    expect(mocks.fetchMessages).toHaveBeenLastCalledWith({
+      email: secondAccount.email, folder: 'SENT', limit: 50, offset: 1,
+      pageToken: `${secondAccount.email}-next`,
+    }, expect.any(AbortSignal));
+    expect(harness.container.textContent).toContain(`Subject ${account.email}-second`);
+    expect(harness.container.textContent).toContain(`Subject ${secondAccount.email}-second`);
+    expect(harness.container.querySelectorAll('[data-mail-index]')).toHaveLength(4);
+    expect(harness.container.querySelector('[data-mail-partial-status]')).toBeNull();
+    expect(selected.checked).toBe(true);
+    expect(onSelectMail).not.toHaveBeenCalled();
+    expect(mocks.batch).not.toHaveBeenCalled();
+  });
+
   it('refreshes with force on push and removes messages through the viewer seam', async () => {
     await harness.render();
     const refresh = mocks.streamListen.mock.calls.find(

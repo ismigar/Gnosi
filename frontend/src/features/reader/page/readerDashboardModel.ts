@@ -28,10 +28,15 @@ export function readerFaviconUrl(sourceUrl: string): string | null {
     }
 }
 
-export function readerArticleMeta(article: ReaderArticle, locale: string): string {
+export function readerArticleMeta(
+    article: ReaderArticle,
+    localeOrFormatter: string | Intl.DateTimeFormat,
+): string {
     const published = article.published_at ? new Date(article.published_at) : null;
     const date = published && !Number.isNaN(published.getTime())
-        ? published.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+        ? (typeof localeOrFormatter === 'string'
+            ? published.toLocaleDateString(localeOrFormatter, { day: 'numeric', month: 'short' })
+            : localeOrFormatter.format(published))
         : '';
     return [article.source_name, date].filter(Boolean).join(' · ');
 }

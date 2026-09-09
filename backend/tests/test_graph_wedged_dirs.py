@@ -64,7 +64,8 @@ def vault(tmp_path, monkeypatch):
     GraphService._node_count_cache = {}
     GraphService._NODE_DATA_CACHE = {}
     # Skip disk cache loads: keep the test hermetic regardless of prior runs.
-    GraphService._NODE_CACHE_LOADED = True
+    monkeypatch.setattr(GraphService, '_NODE_CACHE_LOADED', {str(vault)})
+    monkeypatch.setattr(GraphService, '_NODE_CACHE_DIRTY', set())
     gs._DIR_WARMUP_REQUESTED.clear()
     return vault
 

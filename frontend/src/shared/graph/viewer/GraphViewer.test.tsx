@@ -46,6 +46,64 @@ afterEach(() => {
     Reflect.deleteProperty(window, 'sigmaRenderer');
 });
 describe('GraphViewer integration', () => {
+    it('can filter new topology before the first animation frame on both mount and data replacement', () => {
+        const options = fixtureOptions({ filters: { searchTerm: 'isolated' } });
+        const view = render(<GraphViewer {...options} />);
+        const first = latestRenderer();
+        expect(first.initialNodes).toEqual([
+            { key: 'a', hidden: true, isolated: true, size: 2.1 },
+            { key: 'b', hidden: true, isolated: true, size: 2.1 },
+            { key: 'isolated', hidden: false, isolated: true, size: 2.1 },
+        ]);
+        expect(first.initialEdges).toHaveLength(1);
+        expect(first.initialEdges[0]?.hidden).toBe(true);
+        expect(first.nodeAdded).not.toHaveBeenCalled();
+        expect(first.edgeAdded).not.toHaveBeenCalled();
+        expect(first.refresh).toHaveBeenCalledTimes(1);
+        expect(latestRenderer().graph.getNodeAttribute('a', 'hidden')).toBe(true);
+        expect(latestRenderer().graph.getNodeAttribute('isolated', 'hidden')).toBe(false);
+        view.rerender(<GraphViewer {...options} graphData={fixtureData()} />);
+        expect(TestRenderer.instances).toHaveLength(2);
+        expect(latestRenderer().initialNodes).toEqual(first.initialNodes);
+        expect(latestRenderer().nodeAdded).not.toHaveBeenCalled();
+        expect(latestRenderer().edgeAdded).not.toHaveBeenCalled();
+        expect(latestRenderer().refresh).toHaveBeenCalledTimes(1);
+        expect(latestRenderer().graph.getNodeAttribute('a', 'hidden')).toBe(true);
+        expect(latestRenderer().graph.getNodeAttribute('isolated', 'hidden')).toBe(false);
+    });
+    it('keeps later graph mutations and applies new filters without rebuilding the initialized topology', () => {
+        const options = fixtureOptions();
+        const view = render(<GraphViewer {...options} />);
+        const renderer = latestRenderer();
+        renderer.graph.setNodeAttribute('a', 'label', 'Updated label');
+        renderer.graph.setNodeAttribute('a', 'x', 123);
+        renderer.graph.setEdgeAttribute(renderer.graph.edges()[0] ?? '', 'weight', 7);
+        view.rerender(<GraphViewer {...options} filters={{ searchTerm: 'Updated' }} />);
+        expect(TestRenderer.instances).toHaveLength(1);
+        expect(renderer.graph.getNodeAttributes('a')).toMatchObject({ label: 'Updated label', x: 123, hidden: false });
+        expect(renderer.graph.getNodeAttribute('b', 'hidden')).toBe(true);
+        expect(renderer.graph.getEdgeAttribute(renderer.graph.edges()[0] ?? '', 'weight')).toBe(7);
+        expect(renderer.nodeAdded).not.toHaveBeenCalled();
+        expect(renderer.edgeAdded).not.toHaveBeenCalled();
+        expect(renderer.camera.setState).toHaveBeenCalledTimes(1);
+    });
+    it('publishes positions without redundant full refreshes and cancels the final camera movement on close', () => {
+        const view = render(<GraphViewer {...fixtureOptions()} isPhysicsEnabled />);
+        const renderer = latestRenderer();
+        const changed = vi.fn();
+        renderer.graph.on('eachNodeAttributesUpdated', changed);
+        const before = renderer.graph.getNodeAttributes('a');
+        renderer.refresh.mockClear();
+        act(() => { vi.advanceTimersToNextFrame(); });
+        expect(changed).toHaveBeenCalledTimes(1);
+        expect(renderer.graph.getNodeAttribute('a', 'x')).not.toBe(before.x);
+        expect(renderer.refresh).not.toHaveBeenCalled();
+        act(() => { vi.advanceTimersByTime(1234); });
+        view.unmount();
+        renderer.camera.animate.mockClear();
+        act(() => { vi.advanceTimersByTime(1000); });
+        expect(renderer.camera.animate).not.toHaveBeenCalled();
+    });
     it('exposes all camera methods, rejects invalid points, normalizes graph coordinates and uses the live renderer graph', () => {
         const ref = createRef<GraphViewerHandle>();
         render(<GraphViewer {...fixtureOptions()} ref={ref}/>);
@@ -89,6 +147,14 @@ describe('GraphViewer integration', () => {
         expect(path).toHaveBeenCalledWith('b');
         expect(hover).toHaveBeenLastCalledWith(null);
         expect(renderer.container.style.cursor).toBe('default');
+        renderer.refresh.mockClear();
+        act(() => {
+            renderer.emitNode('enterNode', 'b');
+            renderer.cameraListeners.forEach(listener => { listener(); });
+        });
+        expect(renderer.refresh).toHaveBeenCalledTimes(2);
+        act(() => { renderer.cameraListeners.forEach(listener => { listener(); }); });
+        expect(renderer.refresh).toHaveBeenCalledTimes(2);
         expect(renderer.listeners.has('rightClickNode')).toBe(false);
         expect(renderer.listeners.has('rightClickStage')).toBe(false);
     });

@@ -7,9 +7,10 @@ import { getVisibleHoverNeighborhood } from '../filtering/graphFilters';
 import { createSettings } from './graphViewerSettings';
 import { attachSemanticOverlay } from './graphViewerOverlay';
 import { publishRenderer } from './graphViewerRuntime';
+import { filterProjection, rebuildProjection } from './graphViewerProjection';
 import type { HoverState } from './graphViewerReducers';
-import type { ContainerRef, OptionsRef, RuntimeRef, ViewerGraph, ViewerNode, ViewerEdge } from './types';
-export function useGraphViewerRenderer(containerRef: ContainerRef, runtimeRef: RuntimeRef, options: OptionsRef, graphData: unknown): void {
+import type { ContainerRef, OptionsRef, RuntimeRef, ViewerGraph, ViewerNode, ViewerEdge, GraphViewerProps } from './types';
+export function useGraphViewerRenderer(containerRef: ContainerRef, runtimeRef: RuntimeRef, options: OptionsRef, graphData: GraphViewerProps['graphData']): void {
     useEffect(() => {
         const element = containerRef.current;
         if (!element)
@@ -21,6 +22,11 @@ export function useGraphViewerRenderer(containerRef: ContainerRef, runtimeRef: R
         const state = runtimeRef.current;
         const initial = options.current;
         const graph: ViewerGraph = new Graph<ViewerNode, ViewerEdge>();
+        // Prepare the complete visible projection before Sigma subscribes to
+        // graph events. Its constructor indexes the final topology once instead
+        // of reducing every insertion, then reindexing and filtering it again.
+        if (graphData) rebuildProjection(graph, graphData);
+        state.semanticEdges = filterProjection(graph, initial.filters, graphData);
         state.graph = graph;
         initial.setGraphInstance?.(graph);
         const hover: HoverState = { node: null, distances: {}, edges: new Set() };
@@ -29,7 +35,7 @@ export function useGraphViewerRenderer(containerRef: ContainerRef, runtimeRef: R
             hover.node = null;
             hover.distances = {};
             hover.edges = new Set();
-            if (refresh && element.offsetWidth > 0)
+            if (refresh && hadHover && element.offsetWidth > 0)
                 state.renderer?.refresh();
             if (hadHover)
                 options.current.onNodeHover?.(null);
@@ -44,7 +50,7 @@ export function useGraphViewerRenderer(containerRef: ContainerRef, runtimeRef: R
         const detachOverlay = attachSemanticOverlay(renderer, graph, runtimeRef, options);
         const camera = renderer.getCamera();
         camera.setState({ x: 0.5, y: 0.4, ratio: 1.4 });
-        const handleCameraUpdate = () => { clearHover(false); };
+        const handleCameraUpdate = () => { clearHover(); };
         camera.on('updated', handleCameraUpdate);
         renderer.on('enterNode', ({ node }) => {
             hover.node = node;

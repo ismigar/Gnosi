@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 import sqlite3
 from pathlib import Path
@@ -76,19 +75,17 @@ def _set_scoped(
         account_email=account,
         identity_scope=_scope(account, folder),
     )
-    return asyncio.run(set_message_tags("shared-id", payload, session))
+    return set_message_tags("shared-id", payload, session)
 
 
 def _get_scoped(session: Session, account: str, folder: str) -> list[str]:
-    return asyncio.run(
-        get_message_tags(
-            "shared-id",
-            account_email=account,
-            source="imap",
-            imap_folder=folder,
-            imap_uid="42",
-            db=session,
-        )
+    return get_message_tags(
+        "shared-id",
+        account_email=account,
+        source="imap",
+        imap_folder=folder,
+        imap_uid="42",
+        db=session,
     )
 
 
@@ -107,9 +104,7 @@ def test_scoped_tag_routes_isolate_colliding_accounts_and_folders() -> None:
         _descriptor("first@example.test", "Archive"),
         _descriptor("second@example.test", "INBOX"),
     ]
-    result = asyncio.run(
-        get_tags_for_messages(MailTagsBatchRequest(messages=descriptors), session)
-    )
+    result = get_tags_for_messages(MailTagsBatchRequest(messages=descriptors), session)
     expected = {
         scoped_mail_tag_identity(
             item.message_id,
@@ -133,18 +128,18 @@ def test_scoped_set_replaces_unique_legacy_tags_exactly() -> None:
         "shared-id",
         "second@example.test",
     )
-    session.add_all([
-        _legacy_row(first_identity, "first@example.test", "tag-a"),
-        _legacy_row(first_identity, "first@example.test", "tag-b"),
-        _legacy_row(second_identity, "second@example.test", "tag-c"),
-    ])
+    session.add_all(
+        [
+            _legacy_row(first_identity, "first@example.test", "tag-a"),
+            _legacy_row(first_identity, "first@example.test", "tag-b"),
+            _legacy_row(second_identity, "second@example.test", "tag-c"),
+        ]
+    )
     session.commit()
 
-    legacy = asyncio.run(
-        get_tags_for_messages(
-            MailTagsBatchRequest(message_ids=["shared-id"]),
-            session,
-        )
+    legacy = get_tags_for_messages(
+        MailTagsBatchRequest(message_ids=["shared-id"]),
+        session,
     )
     assert sorted(legacy["shared-id"]) == ["tag-a", "tag-b", "tag-c"]
     assert _get_scoped(session, "first@example.test", "INBOX") == [
@@ -161,11 +156,9 @@ def test_scoped_set_replaces_unique_legacy_tags_exactly() -> None:
 
     assert response["tag_ids"] == ["tag-b"]
     assert _get_scoped(session, "first@example.test", "INBOX") == ["tag-b"]
-    legacy_after = asyncio.run(
-        get_tags_for_messages(
-            MailTagsBatchRequest(message_ids=["shared-id"]),
-            session,
-        )
+    legacy_after = get_tags_for_messages(
+        MailTagsBatchRequest(message_ids=["shared-id"]),
+        session,
     )
     assert legacy_after["shared-id"] == ["tag-c"]
 
@@ -190,10 +183,12 @@ def test_scoped_set_empty_removes_unique_legacy_without_recreating_scope() -> No
         "shared-id",
         "first@example.test",
     )
-    session.add_all([
-        _legacy_row(legacy_identity, "first@example.test", "tag-a"),
-        _legacy_row(legacy_identity, "first@example.test", "tag-b"),
-    ])
+    session.add_all(
+        [
+            _legacy_row(legacy_identity, "first@example.test", "tag-a"),
+            _legacy_row(legacy_identity, "first@example.test", "tag-b"),
+        ]
+    )
     session.commit()
 
     response = _set_scoped(session, "first@example.test", "INBOX", [])
@@ -205,20 +200,20 @@ def test_scoped_set_empty_removes_unique_legacy_without_recreating_scope() -> No
 
 def test_scoped_set_leaves_ambiguous_and_incomplete_legacy_untouched() -> None:
     session = _session()
-    session.add_all([
-        _legacy_row("legacy-candidate-a", "first@example.test", "tag-a"),
-        _legacy_row("legacy-candidate-b", "first@example.test", "tag-b"),
-        _legacy_row("legacy-incomplete", "", "tag-c"),
-    ])
+    session.add_all(
+        [
+            _legacy_row("legacy-candidate-a", "first@example.test", "tag-a"),
+            _legacy_row("legacy-candidate-b", "first@example.test", "tag-b"),
+            _legacy_row("legacy-incomplete", "", "tag-c"),
+        ]
+    )
     session.commit()
 
     assert _get_scoped(session, "first@example.test", "INBOX") == []
     _set_scoped(session, "first@example.test", "INBOX", ["tag-c"])
 
     assert _get_scoped(session, "first@example.test", "INBOX") == ["tag-c"]
-    legacy = session.query(MailMessageTag).filter(
-        MailMessageTag.identity_kind == "legacy"
-    ).all()
+    legacy = session.query(MailMessageTag).filter(MailMessageTag.identity_kind == "legacy").all()
     assert {str(row.message_identity) for row in legacy} == {
         "legacy-candidate-a",
         "legacy-candidate-b",
@@ -233,10 +228,12 @@ def test_existing_scope_takes_precedence_and_never_merges_legacy() -> None:
         "shared-id",
         "first@example.test",
     )
-    session.add_all([
-        _legacy_row(legacy_identity, "first@example.test", "tag-a"),
-        _legacy_row(legacy_identity, "first@example.test", "tag-b"),
-    ])
+    session.add_all(
+        [
+            _legacy_row(legacy_identity, "first@example.test", "tag-a"),
+            _legacy_row(legacy_identity, "first@example.test", "tag-b"),
+        ]
+    )
     session.commit()
 
     assert _get_scoped(session, "first@example.test", "INBOX") == ["tag-b"]
@@ -250,9 +247,9 @@ def test_existing_scope_takes_precedence_and_never_merges_legacy() -> None:
 
     assert response["tag_ids"] == ["tag-c"]
     assert _get_scoped(session, "first@example.test", "INBOX") == ["tag-c"]
-    assert session.query(MailMessageTag).filter(
-        MailMessageTag.identity_kind == "legacy"
-    ).count() == 0
+    assert (
+        session.query(MailMessageTag).filter(MailMessageTag.identity_kind == "legacy").count() == 0
+    )
 
 
 def _make_2x_mail_tag_variant(database: Path) -> None:
@@ -289,12 +286,8 @@ def test_vault_migration_preserves_legacy_tags_and_verified_backup(
     database.parent.mkdir(parents=True)
     _run_alembic(database, "upgrade", "vault_0001")
     with sqlite3.connect(database) as connection:
-        connection.execute(
-            "INSERT INTO mail_tags(id,name,color) VALUES('tag-a','Alpha','#111111')"
-        )
-        connection.execute(
-            "INSERT INTO mail_tags(id,name,color) VALUES('tag-b','Beta','#222222')"
-        )
+        connection.execute("INSERT INTO mail_tags(id,name,color) VALUES('tag-a','Alpha','#111111')")
+        connection.execute("INSERT INTO mail_tags(id,name,color) VALUES('tag-b','Beta','#222222')")
         connection.execute(
             """INSERT INTO mail_message_tags(
                 message_id,tag_id,account_email,subject,sender,date_str
@@ -311,7 +304,7 @@ def test_vault_migration_preserves_legacy_tags_and_verified_backup(
     result = ensure_database_schema(database, "vault", tmp_path)
 
     assert result["revision_before"] == "vault_0001"
-    assert result["revision_after"] == "vault_0004"
+    assert result["revision_after"] == "vault_0006"
     backup = tmp_path / result["backup"]["path"]
     with sqlite3.connect(backup) as connection:
         assert connection.execute("SELECT COUNT(*) FROM mail_message_tags").fetchone() == (2,)
@@ -353,8 +346,6 @@ def test_vault_migration_preserves_legacy_tags_and_verified_backup(
         )
         assert connection.execute("SELECT COUNT(*) FROM mail_message_tags").fetchone() == (2,)
 
-    migration = importlib.import_module(
-        "backend.migrations.alembic.versions.vault_0004"
-    )
+    migration = importlib.import_module("backend.migrations.alembic.versions.vault_0004")
     with pytest.raises(RuntimeError, match="verified backup"):
         migration.downgrade()

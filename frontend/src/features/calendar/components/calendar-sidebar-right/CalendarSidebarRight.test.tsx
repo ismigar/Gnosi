@@ -48,13 +48,28 @@ async function select(index: number, value: string) {
 async function click(label: string) {
     const button = [...container.querySelectorAll('button')].reverse().find(b => b.textContent.trim() === label || b.getAttribute('aria-label') === label || b.firstElementChild?.textContent.trim() === label);
     if (!button) throw new Error('Missing button: ' + label);
-    await act(async () => { button.click(); await Promise.resolve(); });
+    await act(async () => { button.click(); await vi.dynamicImportSettled(); });
 }
 function form(props: Partial<EventFormProps> = {}) {
     return <EventForm mode="create" eventData={null} initialDate="2026-09-02" calendars={CALENDARS} {...props} />;
 }
 
 describe('calendar sidebar behavior', () => {
+    it('opens the deferred event form without saving and returns to shortcuts on close', async () => {
+        const onClosePanel = vi.fn();
+        await render(<CalendarSidebarRight searchQuery="" onSearchChange={vi.fn()} calendars={CALENDARS}
+            eventPanel={{mode: 'edit', data: LOCAL_EVENT, date: '2026-09-02'}} onClosePanel={onClosePanel} />);
+        await act(async () => { await vi.dynamicImportSettled(); });
+        expect(element('input[required][type=text]', HTMLInputElement).value).toBe('Local appointment');
+        await tick(600);
+        expect(createVaultPage).not.toHaveBeenCalled();
+        expect(patchVaultPage).not.toHaveBeenCalled();
+        await click('Close panel');
+        expect(onClosePanel).toHaveBeenCalledOnce();
+        await render(<CalendarSidebarRight searchQuery="" onSearchChange={vi.fn()} calendars={CALENDARS} />);
+        expect(container.textContent).toContain('Useful shortcuts');
+        expect(container.querySelector('input[required]')).toBeNull();
+    });
     it('does not create empty drafts; autosaves once then patches and flushes on close', async () => {
         const onClose = vi.fn();
         await render(form({onClose}));

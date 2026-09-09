@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
     DEFAULT_INTERFACE_LANGUAGE,
@@ -9,8 +9,27 @@ import {
     setInterfaceLanguage,
 } from '../src/app/initialization/interfaceLanguage';
 import { memoryStorage } from './helpers/memory-storage';
+import { queryClient } from '../src/shared/api/query-client';
+import { resetApiTestStorage } from './api-request';
+
+afterEach(() => {
+    queryClient.clear();
+    resetApiTestStorage();
+    vi.unstubAllGlobals();
+});
 
 describe('interface language resolution', () => {
+    test('starts in the configured language without requesting the full configuration', async () => {
+        const fetchMock = vi.fn<typeof fetch>((input) => {
+            expect(new URL(new Request(input).url).pathname).toBe('/api/config/interface');
+            return Promise.resolve(Response.json({ language: 'ca' }));
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        expect(await resolveInitialInterfaceLanguage({ storage: memoryStorage() })).toBe('ca');
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
     test('normalizes supported regional language tags', () => {
         expect(normalizeInterfaceLanguage('EN-gb')).toBe('en');
         expect(normalizeInterfaceLanguage('ca-AD')).toBe('ca');
@@ -20,9 +39,9 @@ describe('interface language resolution', () => {
     test('defaults to English without a stored or configured preference', async () => {
         const language = await resolveInitialInterfaceLanguage({
             storage: memoryStorage(),
-            fetchConfig: vi.fn().mockResolvedValue({
+            fetchSettings: vi.fn().mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve({ settings: { language: '' } }),
+                json: () => Promise.resolve({ language: '' }),
             }),
         });
 
@@ -30,22 +49,22 @@ describe('interface language resolution', () => {
     });
 
     test('keeps an explicit local choice ahead of backend configuration', async () => {
-        const fetchConfig = vi.fn();
+        const fetchSettings = vi.fn();
         const language = await resolveInitialInterfaceLanguage({
             storage: memoryStorage({ [INTERFACE_LANGUAGE_STORAGE_KEY]: 'fr' }),
-            fetchConfig,
+            fetchSettings,
         });
 
         expect(language).toBe('fr');
-        expect(fetchConfig).not.toHaveBeenCalled();
+        expect(fetchSettings).not.toHaveBeenCalled();
     });
 
     test('uses a valid backend choice when the browser has no preference', async () => {
         const language = await resolveInitialInterfaceLanguage({
             storage: memoryStorage(),
-            fetchConfig: vi.fn().mockResolvedValue({
+            fetchSettings: vi.fn().mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve({ settings: { language: 'es-ES' } }),
+                json: () => Promise.resolve({ language: 'es-ES' }),
             }),
         });
 
@@ -55,14 +74,14 @@ describe('interface language resolution', () => {
     test('falls back to English for invalid configuration or request failure', async () => {
         const invalid = await resolveInitialInterfaceLanguage({
             storage: memoryStorage(),
-            fetchConfig: vi.fn().mockResolvedValue({
+            fetchSettings: vi.fn().mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve({ settings: { language: 'de' } }),
+                json: () => Promise.resolve({ language: 'de' }),
             }),
         });
         const unavailable = await resolveInitialInterfaceLanguage({
             storage: memoryStorage(),
-            fetchConfig: vi.fn().mockRejectedValue(new Error('offline')),
+            fetchSettings: vi.fn().mockRejectedValue(new Error('offline')),
         });
 
         expect(invalid).toBe('en');
@@ -77,9 +96,9 @@ describe('interface language application', () => {
 
         await initializeInterfaceLanguage(i18n, {
             storage,
-            fetchConfig: vi.fn().mockResolvedValue({
+            fetchSettings: vi.fn().mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve({ settings: {} }),
+                json: () => Promise.resolve({}),
             }),
         });
 

@@ -28,6 +28,7 @@ interface MailSidebarMockProps {
 
 
 interface MailListMockProps {
+  readonly onBatchDone: () => void;
   readonly onMessagesLoaded: (messages: readonly MailPageMessage[]) => void;
   readonly onRecordAction: (
     type: string,
@@ -162,6 +163,7 @@ vi.mock('./components/MailSidebar', () => ({
 
 vi.mock('./components/MailList', () => ({
   default: ({
+    onBatchDone,
     onMessagesLoaded,
     onRecordAction,
     onSelectMail,
@@ -169,6 +171,7 @@ vi.mock('./components/MailList', () => ({
   }: MailListMockProps) => (
     <section aria-label="mail-list">
       <span>removed:{removedMail?.id ?? 'none'}</span>
+      <button type="button" onClick={onBatchDone}>refresh counts</button>
       <button
         type="button"
         onClick={() => { onMessagesLoaded([regularMail, adjacentMessage]); }}
@@ -320,13 +323,63 @@ afterEach(() => {
 
 
 describe('MailPage', () => {
+  it('publishes available counts while another account is pending and reports its failure', async () => {
+    mocks.fetchIntegrations.mockResolvedValue({ emails: [
+      { email: 'one@example.test' }, { email: 'two@example.test' },
+    ] });
+    let rejectSlow!: (error: Error) => void;
+    const slow = new Promise<Awaited<ReturnType<FetchMailCounts>>>((_resolve, reject) => { rejectSlow = reject; });
+    mocks.fetchMailCounts.mockImplementation(email => email === 'one@example.test'
+      ? Promise.resolve({ INBOX: { total: 10, unread: 4 } })
+      : slow);
+    await renderPage();
+    expect(container.textContent).toContain('unread:4');
+    expect(container.querySelector('[data-mail-counts-status=pending]')).not.toBeNull();
+    expect(container.querySelector('[data-mail-count-account="two@example.test"]')?.textContent).toContain('Updating');
+    await act(async () => { rejectSlow(new Error('Unavailable')); await settle(); });
+    expect(container.textContent).toContain('unread:4');
+    expect(container.querySelector('[data-mail-counts-status=unavailable]')).not.toBeNull();
+    expect(container.querySelector('[data-mail-count-account="two@example.test"]')?.textContent).toContain('Unavailable');
+    expect(container.textContent).not.toContain('Previous count retained');
+  });
+
+  it('keeps a previous count visibly stale through a failed refresh and replaces it on retry', async () => {
+    mocks.fetchIntegrations.mockResolvedValue({ emails: [
+      { email: 'one@example.test' }, { email: 'two@example.test' },
+    ] });
+    mocks.fetchMailCounts.mockImplementation(email => Promise.resolve({
+      INBOX: { total: 20, unread: email === 'one@example.test' ? 4 : 7 },
+    }));
+    await renderPage();
+    expect(container.textContent).toContain('unread:11');
+    expect(container.querySelector('[data-mail-counts-status]')).toBeNull();
+    let rejectSlow!: (error: Error) => void;
+    const slow = new Promise<Awaited<ReturnType<FetchMailCounts>>>((_resolve, reject) => { rejectSlow = reject; });
+    mocks.fetchMailCounts.mockImplementation(email => email === 'one@example.test'
+      ? Promise.resolve({ INBOX: { total: 20, unread: 6 } })
+      : slow);
+    await act(async () => { button('refresh counts').click(); await settle(); });
+    expect(container.textContent).toContain('unread:13');
+    expect(container.querySelector('[data-mail-count-account="two@example.test"]')?.textContent).toContain('Previous count retained');
+    await act(async () => { rejectSlow(new Error('Unavailable')); await settle(); });
+    expect(container.textContent).toContain('unread:13');
+    expect(container.querySelector('[data-mail-counts-status=unavailable]')).not.toBeNull();
+    mocks.fetchMailCounts.mockImplementation(email => Promise.resolve({
+      INBOX: { total: 20, unread: email === 'one@example.test' ? 6 : 9 },
+    }));
+    await act(async () => { button('Retry').click(); await settle(); });
+    expect(container.textContent).toContain('unread:15');
+    expect(container.querySelector('[data-mail-counts-status]')).toBeNull();
+  });
+
   it('loads, deduplicates, selects the default account, and composes with aliases', async () => {
     await renderPage();
     expect(container.textContent).toContain('accounts:2');
     expect(container.textContent).toContain('unread:2');
 
-    act(() => {
+    await act(async () => {
       button('compose').click();
+      await vi.dynamicImportSettled();
     });
 
     expect(container.textContent).toContain('identities:3');
@@ -338,8 +391,9 @@ describe('MailPage', () => {
     act(() => {
       button('load messages').click();
     });
-    act(() => {
+    await act(async () => {
       button('select regular').click();
+      await vi.dynamicImportSettled();
     });
     expect(container.textContent).toContain('viewer:mail-1');
 
@@ -372,8 +426,9 @@ describe('MailPage', () => {
 
   it('opens Vault drafts in the composer and closes the viewer with Escape', async () => {
     await renderPage();
-    act(() => {
+    await act(async () => {
       button('select draft').click();
+      await vi.dynamicImportSettled();
     });
     expect(container.textContent).toContain('to:reader@example.test');
     expect(container.textContent).toContain('subject:');
@@ -382,8 +437,9 @@ describe('MailPage', () => {
     act(() => {
       button('close composer').click();
     });
-    act(() => {
+    await act(async () => {
       button('select regular').click();
+      await vi.dynamicImportSettled();
     });
     expect(container.textContent).toContain('viewer:mail-1');
     act(() => {
@@ -392,7 +448,8 @@ describe('MailPage', () => {
         key: 'Escape',
       }));
     });
-    expect(container.textContent).toContain('viewer:none');
+    expect(container.querySelector('[aria-label="mail-viewer"]')).toBeNull();
+    expect(container.textContent).toContain('mail.select_mail_hint');
   });
 
   it('opens the compact mailbox and closes it after folder navigation', async () => {

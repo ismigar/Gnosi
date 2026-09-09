@@ -9,7 +9,6 @@ import {
   type IntegrationsDocument,
 } from '../../../shared/api/integrations';
 import {
-  fetchMailCounts,
   moveMailMessage,
   type MailCounts,
   type MailView,
@@ -27,14 +26,13 @@ import {
   buildMailAccountCatalog,
   draftComposeData,
   isVaultDraft,
-  mailAccountAddress,
-  mergeMailCounts,
   type MailAccount,
   type MailComposeData,
   type MailPageMessage,
   type MailUndoAction,
   type MailUndoExtra,
 } from './mailPageModel';
+import { useMailCounts, type MailCountAccountStatus } from './useMailCounts';
 
 
 const INTEGRATIONS_QUERY_KEY = ['integrations'] as const;
@@ -69,6 +67,7 @@ export interface MailPageController {
   readonly composeData: MailComposeData | null;
   readonly closeComposer: () => void;
   readonly counts: MailCounts;
+  readonly countStatuses: readonly MailCountAccountStatus[];
   readonly handleActionDone: (
     mailId?: string,
     actionType?: string,
@@ -135,7 +134,7 @@ export function useMailPageController(): MailPageController {
   const [composeData, setComposeData] = useState<MailComposeData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [messages, setMessagesState] = useState<readonly MailPageMessage[]>([]);
-  const [counts, setCounts] = useState<MailCounts>({});
+  const { counts, countStatuses, refreshCounts } = useMailCounts(accounts, selectedAccount);
   const [sidebarState, setSidebarState] = useState<MailboxSidebarState>(() => ({
     compact: isCompact,
     open: initialMailboxSidebar(),
@@ -190,24 +189,6 @@ export function useMailPageController(): MailPageController {
     };
   }, [loadAccountsError]);
 
-  const fetchCounts = useCallback(async (currentAccounts: readonly MailAccount[]) => {
-    const emailList = selectedAccount?.email
-      ? [selectedAccount.email]
-      : currentAccounts
-        .map(mailAccountAddress)
-        .filter((email) => email.length > 0);
-    if (emailList.length === 0) return;
-    const results = await Promise.all(emailList.map((email) => (
-      fetchMailCounts(email).catch((): MailCounts => ({}))
-    )));
-    setCounts(mergeMailCounts(results));
-  }, [selectedAccount]);
-
-  useEffect(() => {
-    if (accounts.length === 0) return;
-    void Promise.resolve().then(() => fetchCounts(accounts));
-  }, [accounts, fetchCounts]);
-
   const executeUndo = useCallback(async () => {
     const action = undoRef.current;
     if (!action) return;
@@ -221,12 +202,12 @@ export function useMailPageController(): MailPageController {
       });
       setRemovedMail(null);
       setListRefreshToken((current) => current + 1);
-      void fetchCounts(accounts);
+      refreshCounts();
       toast.success(t('mail.undo_success', 'Action undone'));
     } catch {
       toast.error(t('mail.undo_error', 'Could not undo'));
     }
-  }, [accounts, fetchCounts, t]);
+  }, [refreshCounts, t]);
 
   const recordUndo = useCallback((
     type: string,
@@ -284,16 +265,13 @@ export function useMailPageController(): MailPageController {
 
   const handleMailRead = useCallback((mail: MailIdentityMessage) => {
     setReadMail(mail);
-    void fetchCounts(accounts);
-  }, [accounts, fetchCounts]);
-  const refreshCounts = useCallback(() => {
-    void fetchCounts(accounts);
-  }, [accounts, fetchCounts]);
+    refreshCounts();
+  }, [refreshCounts]);
   const handleMailMoved = useCallback((mail: MailIdentityMessage) => {
     setRemovedMail(mail);
     setSelectedMail(null);
-    void fetchCounts(accounts);
-  }, [accounts, fetchCounts]);
+    refreshCounts();
+  }, [refreshCounts]);
   const handleActionDone = useCallback((
     mailId?: string,
     actionType?: string,
@@ -301,7 +279,7 @@ export function useMailPageController(): MailPageController {
     extra: MailUndoExtra = {},
     mail?: MailPageMessage,
   ) => {
-    void fetchCounts(accounts);
+    refreshCounts();
     if (mail) {
       setSelectedMail(adjacentMail(messages, mail));
       setRemovedMail(mail);
@@ -311,7 +289,7 @@ export function useMailPageController(): MailPageController {
       && email
       && (actionType === 'trash' || actionType === 'archive')
     ) recordUndo(actionType, mailId, email, extra, mail);
-  }, [accounts, fetchCounts, messages, recordUndo]);
+  }, [refreshCounts, messages, recordUndo]);
 
   const closeSidebarOnCompact = useCallback(() => {
     if (isCompact) setShowMailboxSidebar(false);
@@ -399,6 +377,7 @@ export function useMailPageController(): MailPageController {
     composeData,
     closeComposer,
     counts,
+    countStatuses,
     handleActionDone,
     handleCompose,
     handleMailMoved,

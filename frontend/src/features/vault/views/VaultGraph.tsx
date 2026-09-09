@@ -1,13 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../../../shared/graph/viewer/GraphViewer';
 import { AlertTriangle, Loader2, Target, ZoomIn, ZoomOut } from 'lucide-react';
 import type { FilterNode } from '../../../shared/filtering/vaultFilters';
-import { useConfigChanged } from '../../../shared/platform/configEvents';
-import {
-    fetchConfiguration,
-    type ConfigurationDocument,
-} from '../../../shared/api/configuration';
 import type { VaultGraphData } from '../../../shared/api/graph';
 import { useVaultGraphData } from '../../../shared/api/useGraphData';
 
@@ -62,37 +57,17 @@ export function VaultGraph({
     onNodeClick,
 }: VaultGraphProps) {
     const { t } = useTranslation();
-    const [, setConfig] = useState<ConfigurationDocument | null>(null);
     const viewerRef = useRef<VaultGraphViewerHandle | null>(null);
     const graphQuery = useVaultGraphData();
     const graphData = graphQuery.data || null;
     const loading = graphQuery.isLoading;
 
-    // Load graph data and configuration. Defined outside the effect so the
-    // partial-graph warning's retry button can re-trigger a full fetch.
+    // Retry the graph itself; this embedded view uses the explicit options below.
     const fetchData = async (): Promise<void> => {
         try {
-            const [, config] = await Promise.all([
-                graphQuery.refetch(),
-                fetchConfiguration()
-            ]);
-            setConfig(config);
+            await graphQuery.refetch();
         } catch { /* Preserve the existing silent UI on refresh failures. */ }
     };
-
-    useEffect(() => {
-        fetchConfiguration()
-            .then(setConfig)
-            .catch(() => undefined);
-    }, []);
-
-    // Re-fetch only the config when the Settings modals emit the event
-    // (the graph itself doesn't change due to config changes).
-    useConfigChanged(() => {
-        void fetchConfiguration()
-            .then(setConfig)
-            .catch(() => undefined);
-    });
 
     // Prepare filters based on the Vault's active view
     const filters = useMemo<EmbeddedGraphFilters>(() => {

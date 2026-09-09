@@ -37,8 +37,7 @@ def strip_html(text: str) -> str:
 
 def network_settings(network: str) -> dict[str, Any]:
     """Return the stored per-network composition settings."""
-    config = integration_manager._load()
-    for item in config.get("social_networks", DEFAULT_NETWORKS):
+    for item in integration_manager.get_raw("social_networks", default=DEFAULT_NETWORKS):
         if item.get("id") == network:
             return cast(dict[str, Any], item)
     return {}
@@ -46,9 +45,9 @@ def network_settings(network: str) -> dict[str, Any]:
 
 def configured_streams() -> list[Stream]:
     """Load and validate stream settings as one blocking operation."""
-    config = integration_manager._load()
     return [
-        Stream.model_validate(stream) for stream in config.get("social_streams", DEFAULT_STREAMS)
+        Stream.model_validate(stream)
+        for stream in integration_manager.get_raw("social_streams", default=DEFAULT_STREAMS)
     ]
 
 
@@ -60,8 +59,7 @@ def _unconfigured_publisher_types() -> tuple[type[Any], ...]:
 
 def configured_networks() -> list[SocialNetwork]:
     """Load and enrich network settings as one blocking operation."""
-    config = integration_manager._load()
-    networks = copy.deepcopy(config.get("social_networks", DEFAULT_NETWORKS))
+    networks = copy.deepcopy(integration_manager.get_raw("social_networks", default=DEFAULT_NETWORKS))
     for network in networks:
         client = SOCIAL_PUBLISHERS.get(network.get("id"))
         if client is not None:

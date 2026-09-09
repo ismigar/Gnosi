@@ -24,6 +24,10 @@ export interface ThirdPartyPluginsController {
     readonly isEnabled: (id: string) => boolean;
     readonly lifecycleBusyId: string | null;
     readonly loading: boolean;
+    readonly loadFailed: boolean;
+    readonly retryLoad: () => Promise<void>;
+    readonly catalogLoading: boolean;
+    readonly trustLoading: boolean;
     readonly newKey: TrustedKeyDraft;
     readonly notice: string;
     readonly permissions: Readonly<Record<string, string>>;

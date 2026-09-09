@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, routing
 from starlette.requests import Request
 
 from backend import models as _models
@@ -42,6 +43,24 @@ async def health_check(request: Request) -> dict[str, object]:
     if not isinstance(snapshot, dict):
         raise RuntimeError("Health snapshot is unavailable")
     return dict(snapshot)
+
+
+async def prepare_application_routes(app: FastAPI) -> None:
+    """Prepare route validation before accepting the first browser request.
+
+    FastAPI builds included-router contexts lazily. Visit them in a worker without
+    executing dependencies or generating the much larger OpenAPI document. The
+    public schema remains available on demand through FastAPI's normal cache.
+    """
+    def prepare() -> None:
+        # Older supported FastAPI versions build included routes eagerly and do
+        # not expose this iterator. Their route validation is already prepared.
+        iter_contexts = getattr(routing, "iter_route_contexts", None)
+        if iter_contexts is not None:
+            for _ in iter_contexts(app.routes):
+                pass
+
+    await asyncio.to_thread(prepare)
 
 
 def create_app(lifespan: Lifespan) -> FastAPI:

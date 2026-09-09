@@ -1,25 +1,35 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../../shared/notifications/toast';
-import type { CalendarEventsQuery } from '../../../shared/api/calendar';
-import { fetchIntegrations, updateCalendarAliases, updateCalendarColors, updateCalendarSelection, updateDefaultCalendar } from '../../../shared/api/integrations';
-import { fetchVaultPages, fetchVaultTables } from '../../../shared/api/vaults';
-import { useCalendarEvents, useCalendarList } from '../../../shared/api/useCalendarData';
-import { calendarEntry, textValue } from '../components/calendar-sidebar-right/calendarBoundary';
+import { useQueryClient } from '@tanstack/react-query';
+import type { CalendarEvent, CalendarEventsQuery } from '../../../shared/api/calendar';
+import { getActiveVaultId } from '../../../shared/api/vault-context';
+import { updateCalendarAliases, updateCalendarColors, updateCalendarSelection, updateDefaultCalendar } from '../../../shared/api/integrations';
+import { calendarQueryKeys, useCalendarEvents, useCalendarList } from '../../../shared/api/useCalendarData';
 import type { CalendarEntry } from '../components/calendar-sidebar-right/calendarTypes';
-import { availableCalendarSources, calendarConfigsFor, calendarSettings, hybridCalendarEntry, type CalendarSettings, type EnabledTable } from './calendarPageModel';
+import { availableCalendarSources, calendarConfigsFor, hybridCalendarEntry, type CalendarSettings } from './calendarPageModel';
+
+import { useCalendarLocalSources } from './useCalendarLocalSources';
+
+const NO_EVENTS: CalendarEntry[] = [];
+const NO_SELECTION = new Set<string>();
 
 export function useCalendarSources(searchQuery: string, dateRange: { start: string; end: string } | null) {
     const { t } = useTranslation();
-    const [pages, setPages] = useState<CalendarEntry[]>([]);
-    const [externalEvents, setExternalEvents] = useState<CalendarEntry[]>([]);
-    const [undatedNotes, setUndatedNotes] = useState<CalendarEntry[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [integrations, setIntegrations] = useState<CalendarSettings>({});
-    const [enabledTables, setEnabledTables] = useState<EnabledTable[]>([]);
-    const [selectedCalendars, setSelectedCalendars] = useState(new Set<string>());
-    const savedCalendarSelectionRef = useRef<Set<string> | null | undefined>(undefined);
-    const [, setPartialData] = useState(false);
+    const vaultId = getActiveVaultId();
+    const client = useQueryClient();
+    const local = useCalendarLocalSources(vaultId);
+    const { pages, setPages, integrations, setIntegrations, enabledTables, undatedNotes, loading, refreshing, localSourcesError, fetchPages } = local;
+    const [externalSnapshot, setExternalSnapshot] = useState<{ vaultId: string; data: CalendarEvent[] | undefined; events: CalendarEntry[] } | null>(null);
+    const [selection, setSelection] = useState<{ vaultId: string; values: Set<string> } | null>(null);
+    const selectedCalendars = selection?.vaultId === vaultId ? selection.values : NO_SELECTION;
+    const setSelectedCalendars = useCallback((update: SetStateAction<Set<string>>) => {
+        setSelection(previous => {
+            const values = previous?.vaultId === vaultId ? previous.values : NO_SELECTION;
+            return { vaultId, values: typeof update === 'function' ? update(values) : update };
+        });
+    }, [vaultId]);
+    const savedCalendarSelectionRef = useRef<{ vaultId: string; value: Set<string> | null | undefined; settings: CalendarSettings | null; manual: boolean }>({ vaultId, value: undefined, settings: null, manual: false });
     const calendarListQuery = useCalendarList();
     const externalEventsQueryInput = useMemo<CalendarEventsQuery>(() => ({
         includeVault: false,
@@ -28,6 +38,22 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
         timeMin: dateRange?.start,
     }), [dateRange?.end, dateRange?.start, searchQuery]);
     const externalEventsQuery = useCalendarEvents(externalEventsQueryInput, dateRange !== null);
+    const receivedExternalEvents = useMemo(() => externalEventsQuery.data?.map(hybridCalendarEntry), [externalEventsQuery.data]);
+    // Use a completed query synchronously on remount. The editable snapshot only
+    // overrides that exact response, and can never bridge two vaults.
+    const externalEvents = externalSnapshot?.vaultId === vaultId
+        && (externalSnapshot.data === externalEventsQuery.data || !externalEventsQuery.data)
+        ? externalSnapshot.events : receivedExternalEvents ?? NO_EVENTS;
+    const setExternalEvents = useCallback((update: SetStateAction<CalendarEntry[]>) => {
+        void client.invalidateQueries({ queryKey: [...calendarQueryKeys.vault(vaultId), 'events'], refetchType: 'none' });
+        if (getActiveVaultId() !== vaultId) return;
+        setExternalSnapshot(previous => {
+            const events = previous?.vaultId === vaultId
+                && (previous.data === externalEventsQuery.data || !externalEventsQuery.data)
+                ? previous.events : receivedExternalEvents ?? NO_EVENTS;
+            return { vaultId, data: externalEventsQuery.data, events: typeof update === 'function' ? update(events) : update };
+        });
+    }, [client, externalEventsQuery.data, receivedExternalEvents, vaultId]);
     const calendarConfigs = useMemo(() => calendarConfigsFor(availableCalendarSources(pages, externalEvents, enabledTables, integrations), integrations, enabledTables, calendarListQuery.data?.items ?? []), [pages, externalEvents, enabledTables, integrations, calendarListQuery.data]);
     const defaultCalendarId = calendarConfigs.find((config) => config.source === integrations.default_calendar)?.id || calendarConfigs[0]?.id || '';
     const colorMap = useMemo(() => {
@@ -42,25 +68,35 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
         let active = true;
         queueMicrotask(() => {
         if (!active) return;
+        if (savedCalendarSelectionRef.current.vaultId !== vaultId) {
+            savedCalendarSelectionRef.current = { vaultId, value: undefined, settings: null, manual: false };
+        }
         if (calendarConfigs.length === 0) return;
+        // Early external results must not select calendars before the saved
+        // visibility settings arrive. Failed local reads retain the fallback.
+        if (loading && savedCalendarSelectionRef.current.value === undefined) return;
 
-        // Initialize the ref with the saved selection (only the first time integrations has data)
-        if (savedCalendarSelectionRef.current === undefined && Object.keys(integrations).length > 0) {
+        // Reconcile refreshed saved settings, unless the user has made an
+        // explicit selection in this mounted calendar.
+        const restoreSettings = !savedCalendarSelectionRef.current.manual
+            && savedCalendarSelectionRef.current.settings !== integrations;
+        if (restoreSettings) {
+            savedCalendarSelectionRef.current.settings = integrations;
             const raw = integrations.calendar_selection;
             if (Array.isArray(raw) && raw.length > 0) {
-                savedCalendarSelectionRef.current = new Set(raw);
+                savedCalendarSelectionRef.current.value = new Set(raw);
             } else if (!Array.isArray(raw) && raw?.selection && raw.selection.length > 0) {
-                savedCalendarSelectionRef.current = new Set(raw.selection);
+                savedCalendarSelectionRef.current.value = new Set(raw.selection);
             } else {
-                savedCalendarSelectionRef.current = null; // null = no saved selection → show everything
+                savedCalendarSelectionRef.current.value = null; // null = no saved selection → show everything
             }
         }
 
-        const savedSet = savedCalendarSelectionRef.current;
+        const savedSet = savedCalendarSelectionRef.current.value;
 
         // Add sources that should be selected but aren't yet
         setSelectedCalendars(prev => {
-            const next = new Set(prev);
+            const next = restoreSettings ? new Set<string>() : new Set(prev);
             const additions: string[] = [];
             calendarConfigs.forEach(cfg => {
                 if (!next.has(cfg.source)) {
@@ -74,104 +110,37 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
                     // If it was explicitly hidden (not in savedSet) → don't add
                 }
             });
-            return additions.length ? next : prev;
+            return additions.length || restoreSettings ? next : prev;
         });
         });
         return () => { active = false; };
-    }, [calendarConfigs, integrations]);
+    }, [calendarConfigs, integrations, loading, setSelectedCalendars, vaultId]);
 
 
-    const applyExternalEvents = useEffectEvent(() => {
-        if (!externalEventsQuery.data || externalEventsQuery.isPlaceholderData) return;
-        setExternalEvents(externalEventsQuery.data.map(hybridCalendarEntry));
+    const rememberExternalEvents = useEffectEvent(() => {
+        if (!externalEventsQuery.data || externalEventsQuery.isPlaceholderData || !receivedExternalEvents) return;
+        setExternalSnapshot(previous => previous?.vaultId === vaultId && previous.data === externalEventsQuery.data
+            ? previous : { vaultId, data: externalEventsQuery.data, events: receivedExternalEvents });
     });
     useEffect(() => {
         let active = true;
-        queueMicrotask(() => { if (active) applyExternalEvents(); });
+        queueMicrotask(() => { if (active) rememberExternalEvents(); });
         return () => { active = false; };
-    }, [externalEventsQuery.data, externalEventsQuery.isPlaceholderData]);
+    }, [externalEventsQuery.data, externalEventsQuery.isPlaceholderData, vaultId]);
 
     const refetchExternalEvents = externalEventsQuery.refetch;
     const fetchExternalEvents = useCallback(async () => {
         await refetchExternalEvents({ cancelRefetch: true });
     }, [refetchExternalEvents]);
 
-    const fetchPages = useCallback(async () => {
-        setLoading(true);
-        try {
-            const timeout = 120000;
-            const signal = AbortSignal.timeout(timeout);
-            const [pagesRes, integrationsRes, tablesRes] = await Promise.allSettled([
-                fetchVaultPages({ only_calendar: true }, signal),
-                fetchIntegrations(signal),
-                fetchVaultTables(undefined, signal),
-            ]);
-
-            if (pagesRes.status !== 'fulfilled') throw pagesRes.reason;
-
-            const integrationsData = integrationsRes.status === 'fulfilled'
-                ? calendarSettings(integrationsRes.value) : null;
-            const hasIntegrations = integrationsData !== null;
-            const safeIntegrations: CalendarSettings = integrationsData || {};
-            setIntegrations(safeIntegrations);
-
-            const enabledTableIds = safeIntegrations.vault_calendar?.enabled_tables || [];
-            const allTables = tablesRes.status === 'fulfilled' ? tablesRes.value : [];
-            const tables = allTables
-                .filter(tbl => !hasIntegrations || enabledTableIds.includes(textValue(tbl.id)))
-                .map(tbl => ({ id: textValue(tbl.id), name: textValue(tbl.name), type: 'table' as const }));
-            setEnabledTables(tables);
-
-            const allData = pagesRes.value.map(calendarEntry);
-            const dated: CalendarEntry[] = [];
-            const undated: CalendarEntry[] = [];
-
-            allData.forEach(page => {
-                const tableId = page.resolved_table_id || page.metadata.table_id || page.metadata.database_table_id;
-                if (tableId && hasIntegrations && !enabledTableIds.includes(tableId)) return;
-
-                const hasDate = page.metadata.date;
-                const source = (page.metadata.source || '').trim();
-                // Exclude events from external providers (now they come from the hybrid API)
-                if (source && source !== 'Gnosi' && source !== 'Gnosi Vault') return;
-
-                if (hasDate) {
-                    dated.push(page);
-                } else {
-                    const path = page.path || page.abs_path || '';
-                    if (path.includes('/Calendar/') || path.includes('\\Calendar\\')) {
-                        undated.push(page);
-                    }
-                }
-            });
-
-            setPages(dated);
-            setUndatedNotes(undated);
-            setPartialData(integrationsRes.status !== 'fulfilled' || tablesRes.status !== 'fulfilled');
-
-            if (integrationsRes.status !== 'fulfilled' || tablesRes.status !== 'fulfilled') {
-                toast.error(t('calendar.partial_data_warning'));
-            }
-        } catch {
-            toast.error(t('calendar.error_loading_pages'));
-        } finally {
-            setLoading(false);
-        }
-    }, [t]);
-
-    const loadInitial = useEffectEvent(() => { void fetchPages(); });
-    useEffect(() => {
-        let active = true;
-        queueMicrotask(() => { if (active) loadInitial(); });
-        return () => { active = false; };
-    }, []);
-
     const toggleCalendar = (source: string) => {
         const next = new Set(selectedCalendars);
         if (next.has(source)) next.delete(source); else next.add(source);
         setSelectedCalendars(next);
-        savedCalendarSelectionRef.current = new Set(next);
-        void updateCalendarSelection({ selection: [...next] }).catch(() => {});
+        savedCalendarSelectionRef.current = { vaultId, value: new Set(next), settings: integrations, manual: true };
+        void updateCalendarSelection({ selection: [...next] }).then(() => {
+            setIntegrations(previous => ({ ...previous, calendar_selection: [...next] }));
+        }).catch(() => {});
     };
     const renameCalendar = async (source: string, name: string) => {
         const aliases = Object.fromEntries(Object.entries(integrations.calendar_aliases ?? {}).filter(([key]) => key !== source));
@@ -195,7 +164,9 @@ export function useCalendarSources(searchQuery: string, dateRange: { start: stri
     };
     const externalEventsLoading = dateRange !== null
         && externalEventsQuery.isFetching
-        && externalEvents.length === 0;
+        && !externalEventsQuery.data && externalEvents.length === 0;
+    const externalEventsRefreshing = dateRange !== null && externalEventsQuery.isFetching && !externalEventsLoading;
+    const externalSourcesUpdating = calendarListQuery.isFetching || (dateRange !== null && externalEventsQuery.isFetching);
     const externalEventsError = externalEventsQuery.isError;
-    return { pages, setPages, externalEvents, setExternalEvents, undatedNotes, loading, externalEventsLoading, externalEventsError, integrations, calendarConfigs, defaultCalendarId, colorMap, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, fetchPages, fetchExternalEvents };
+    return { pages, setPages, externalEvents, setExternalEvents, undatedNotes, loading, refreshing, localSourcesError, externalEventsLoading, externalEventsRefreshing, externalSourcesUpdating, externalEventsError, integrations, calendarConfigs, defaultCalendarId, colorMap, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, fetchPages, fetchExternalEvents };
 }

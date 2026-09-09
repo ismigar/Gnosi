@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from typing import Any
+from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
+import json
+from threading import Barrier
+from unittest.mock import Mock
+
+import pytest
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -10,6 +17,13 @@ from fastapi.testclient import TestClient
 from backend.api import vault_graph_routes
 from backend.domains.graph.adapters import directed_graph
 from backend.domains.graph.projection import build_legend, project_edges, project_nodes
+
+
+@pytest.fixture(autouse=True)
+def fresh_serialization_cache(monkeypatch):
+    monkeypatch.setattr(vault_graph_routes, "_cached_graph", None)
+    monkeypatch.setattr(vault_graph_routes, "_cached_graph_json", None)
+    monkeypatch.setattr(vault_graph_routes, "_cached_graph_gzip", None)
 
 
 def _projected_payload() -> dict[str, Any]:
@@ -110,3 +124,84 @@ def test_graph_response_preserves_partial_build_fields(monkeypatch: Any) -> None
 
     assert response.status_code == 200
     assert response.json() == payload
+
+
+def test_graph_reuses_encoded_snapshot_and_keeps_request_headers_independent(monkeypatch):
+    payload = _projected_payload()
+    client = _client(monkeypatch, payload)
+    validate = Mock(wraps=vault_graph_routes.GraphResponse.model_validate)
+    monkeypatch.setattr(vault_graph_routes.GraphResponse, "model_validate", validate)
+    first = client.get("/api/graph")
+    second = client.get("/api/graph")
+    assert first.content == second.content
+    assert first.json() == payload
+    assert second.headers["content-type"] == "application/json"
+    validate.assert_called_once_with(payload)
+    one = vault_graph_routes._build_graph_response()
+    two = vault_graph_routes._build_graph_response()
+    one.set_cookie("test-cookie", "only-first")
+    assert "set-cookie" not in two.headers
+
+
+def test_graph_rebuilds_and_vault_switches_cannot_reuse_a_previous_snapshot(monkeypatch):
+    current = _projected_payload()
+
+    class ChangingGraphService:
+        def build_unified_graph(self):
+            return current
+
+    monkeypatch.setattr(vault_graph_routes, "GraphService", ChangingGraphService)
+    app = FastAPI()
+    app.include_router(vault_graph_routes.router, prefix="/api")
+    with TestClient(app) as client:
+        first = client.get("/api/graph").json()
+        current = deepcopy(current)
+        current["nodes"][0]["label"] = "Rebuilt page"
+        assert client.get("/api/graph").json() == current
+        assert current != first
+        other_vault = {"nodes": [], "edges": [], "legend": {"kinds": [], "clusters": []}}
+        rebuilt = current
+        current = other_vault
+        assert client.get("/api/graph").json() == other_vault
+        current = rebuilt
+        assert client.get("/api/graph").json() == rebuilt
+
+
+def test_partial_graphs_are_never_kept_in_the_serialization_cache(monkeypatch):
+    payload = _projected_payload()
+    payload["partial"] = True
+    payload["skipped_dirs"] = ["Notes"]
+    client = _client(monkeypatch, payload)
+    validate = Mock(wraps=vault_graph_routes.GraphResponse.model_validate)
+    monkeypatch.setattr(vault_graph_routes.GraphResponse, "model_validate", validate)
+    assert client.get("/api/graph").json() == payload
+    assert client.get("/api/graph").json() == payload
+    assert validate.call_count == 2
+    assert vault_graph_routes._cached_graph is None
+
+
+def test_failed_validation_does_not_publish_a_cached_success(monkeypatch):
+    payload = _projected_payload()
+    payload["nodes"][0].pop("id")
+    client = _client(monkeypatch, payload)
+    assert client.get("/api/graph").status_code == 500
+    assert vault_graph_routes._cached_graph is None
+    payload["nodes"][0]["id"] = "page-1"
+    assert client.get("/api/graph").json() == payload
+
+
+def test_concurrent_vault_encodings_do_not_mix_payloads(monkeypatch):
+    payloads = [_projected_payload(), _projected_payload()]
+    payloads[1]["nodes"][0]["label"] = "Other vault"
+    barrier = Barrier(2)
+    encode = vault_graph_routes._GRAPH_RESPONSE_ADAPTER.dump_json
+
+    def synchronized_encode(*args, **kwargs):
+        barrier.wait(timeout=2)
+        return encode(*args, **kwargs)
+
+    monkeypatch.setattr(vault_graph_routes._GRAPH_RESPONSE_ADAPTER, "dump_json", synchronized_encode)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(vault_graph_routes._graph_response_json, payloads))
+    assert [json.loads(result) for result in results] == payloads
+    assert json.loads(vault_graph_routes._cached_graph_json) == vault_graph_routes._cached_graph

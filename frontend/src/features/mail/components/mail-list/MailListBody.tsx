@@ -40,7 +40,7 @@ export function MailListBody({
           </span>
           <button
             className="shrink-0 font-semibold text-[var(--gnosi-blue)] hover:underline"
-            onClick={() => { controller.fetchMessages({ force: true }); }}
+            onClick={controller.retryUnavailable}
             type="button"
           >
             {t('common.retry')}

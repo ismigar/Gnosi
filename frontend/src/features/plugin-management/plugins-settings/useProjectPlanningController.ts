@@ -17,10 +17,11 @@ import {
     type PlanningResourceInput,
 } from '../../../shared/api/planning';
 import { usePlanningState } from '../../../shared/api/usePlanningData';
+import { getActiveVaultId } from '../../../shared/api/vault-context';
 import {
-    fetchVaultPagesByTable,
+    fetchVaultPageReferencesByTable,
     fetchVaultTables,
-    type VaultPageSummary,
+    type VaultPageReference,
 } from '../../../shared/api/vaults';
 import { sortFieldItems } from '../../../shared/schema/fieldOrdering';
 import {
@@ -56,18 +57,29 @@ function descriptions(value: unknown): Readonly<Record<string, string>> {
     ));
 }
 
+interface VaultRows<T> {
+    readonly vaultId: string;
+    readonly tableId?: string;
+    readonly rows: readonly T[];
+}
+
+const EMPTY_TABLES: readonly VaultTable[] = [];
+const EMPTY_REFERENCES: readonly VaultPageReference[] = [];
+
 export function useProjectPlanningController(): ProjectPlanningController {
     const { t, i18n } = useTranslation();
+    const vaultId = getActiveVaultId();
     const { getPluginSettings, setPluginSettings } = usePlugins();
     const config = settingsRecord(getPluginSettings('project-planning'));
     const defaultHolidayYear = new Date().getFullYear();
     const configuredHolidayYear = numberSetting(config, 'holiday_year', defaultHolidayYear);
     const configuredHolidays = useMemo(() => stringArraySetting(config, 'holidays'), [config]);
     const configuredDescriptions = useMemo(() => descriptions(config.holiday_descriptions), [config]);
-    const [tables, setTables] = useState<readonly VaultTable[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [projectPages, setProjectPages] = useState<readonly VaultPageSummary[]>([]);
-    const [taskPages, setTaskPages] = useState<readonly VaultPageSummary[]>([]);
+    const [tableRows, setTableRows] = useState<VaultRows<VaultTable> | null>(null);
+    const [projectRows, setProjectRows] = useState<VaultRows<VaultPageReference> | null>(null);
+    const [taskRows, setTaskRows] = useState<VaultRows<VaultPageReference> | null>(null);
+    const tables = tableRows?.vaultId === vaultId ? tableRows.rows : EMPTY_TABLES;
+    const loading = tableRows?.vaultId !== vaultId;
     const [holidayYear, setHolidayYear] = useState(configuredHolidayYear);
     const [holidayYearInput, setHolidayYearInput] = useState(String(configuredHolidayYear));
     const [holidayRows, setHolidayRows] = useState<readonly HolidayRow[]>(() => (
@@ -95,7 +107,11 @@ export function useProjectPlanningController(): ProjectPlanningController {
     const refreshPlanning = async (): Promise<void> => {
         try {
             const result = await refetchPlanning();
-            if (result.error) throw result.error;
+            if (result.error) {
+                throw result.error instanceof Error
+                    ? result.error
+                    : new Error('Planning resources could not be loaded.', { cause: result.error });
+            }
             setPlanningError('');
         } catch (error) {
             logError('project-planning.load-resources', error);
@@ -105,56 +121,66 @@ export function useProjectPlanningController(): ProjectPlanningController {
 
     useEffect(() => {
         let alive = true;
-        void fetchVaultTables()
+        const controller = new AbortController();
+        void fetchVaultTables(undefined, controller.signal)
             .then((records) => {
-                if (alive) setTables(normalizeVaultTables(records));
+                if (alive) setTableRows({ vaultId, rows: normalizeVaultTables(records) });
             })
             .catch((error: unknown) => {
+                if (!alive || controller.signal.aborted) return;
                 logError('project-planning.load-tables', error);
-                if (alive) setTables([]);
-            })
-            .finally(() => {
-                if (alive) setLoading(false);
+                setTableRows({ vaultId, rows: EMPTY_TABLES });
             });
         return () => {
             alive = false;
+            controller.abort();
         };
-    }, []);
+    }, [vaultId]);
 
     const taskTableId = stringSetting(config, 'task_table_id');
     const projectTableId = stringSetting(config, 'project_table_id');
+    const taskPages = taskRows?.vaultId === vaultId && taskRows.tableId === taskTableId
+        ? taskRows.rows : EMPTY_REFERENCES;
+    const projectPages = projectRows?.vaultId === vaultId && projectRows.tableId === projectTableId
+        ? projectRows.rows : EMPTY_REFERENCES;
 
     useEffect(() => {
         if (!taskTableId) return undefined;
         let alive = true;
-        void fetchVaultPagesByTable(taskTableId, { include_templates: false })
+        const controller = new AbortController();
+        void fetchVaultPageReferencesByTable(taskTableId, { include_templates: false }, controller.signal)
             .then((pages) => {
-                if (alive) setTaskPages(pages);
+                if (alive) setTaskRows({ vaultId, tableId: taskTableId, rows: pages });
             })
             .catch((error: unknown) => {
+                if (!alive || controller.signal.aborted) return;
                 logError('project-planning.load-task-pages', error);
-                if (alive) setTaskPages([]);
+                setTaskRows({ vaultId, tableId: taskTableId, rows: EMPTY_REFERENCES });
             });
         return () => {
             alive = false;
+            controller.abort();
         };
-    }, [taskTableId]);
+    }, [taskTableId, vaultId]);
 
     useEffect(() => {
         if (!projectTableId) return undefined;
         let alive = true;
-        void fetchVaultPagesByTable(projectTableId, { include_templates: false })
+        const controller = new AbortController();
+        void fetchVaultPageReferencesByTable(projectTableId, { include_templates: false }, controller.signal)
             .then((pages) => {
-                if (alive) setProjectPages(pages);
+                if (alive) setProjectRows({ vaultId, tableId: projectTableId, rows: pages });
             })
             .catch((error: unknown) => {
+                if (!alive || controller.signal.aborted) return;
                 logError('project-planning.load-project-pages', error);
-                if (alive) setProjectPages([]);
+                setProjectRows({ vaultId, tableId: projectTableId, rows: EMPTY_REFERENCES });
             });
         return () => {
             alive = false;
+            controller.abort();
         };
-    }, [projectTableId]);
+    }, [projectTableId, vaultId]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -316,9 +342,18 @@ export function useProjectPlanningController(): ProjectPlanningController {
 
     const activeProjectPages = projectTableId ? projectPages : [];
     const activeTaskPages = taskTableId ? taskPages : [];
-    const sortedTables = sortFieldItems(tables, (table) => table.name, i18n.language);
-    const sortedProjects = sortFieldItems(activeProjectPages, (page) => page.title, i18n.language);
-    const sortedTasks = sortFieldItems(activeTaskPages, (page) => page.title, i18n.language);
+    const sortedTables = useMemo(
+        () => sortFieldItems(tables, (table) => table.name, i18n.language),
+        [tables, i18n.language],
+    );
+    const sortedProjects = useMemo(
+        () => sortFieldItems(projectTableId ? projectPages : [], (page) => page.title, i18n.language),
+        [projectTableId, projectPages, i18n.language],
+    );
+    const sortedTasks = useMemo(
+        () => sortFieldItems(taskTableId ? taskPages : [], (page) => page.title, i18n.language),
+        [taskTableId, taskPages, i18n.language],
+    );
 
     return {
         addHolidayRow: () => { setHolidayRows((current) => [...current, { date: '', description: '' }]); },

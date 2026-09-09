@@ -8,6 +8,8 @@ from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from backend.services.workspace_service import WorkspaceContext
 
 
@@ -42,7 +44,7 @@ def test_list_vaults_keeps_nested_mapping_shape(tmp_path, monkeypatch) -> None:
         )
     ]
     context = WorkspaceContext("workspace", "user", "owner", tmp_path)
-    monkeypatch.setattr(vaults_routes, "_default_vault_path", lambda: tmp_path)
+    monkeypatch.setattr(vaults_routes, "_default_vault_path", lambda *_args: tmp_path)
     monkeypatch.setattr(vaults_routes, "_ensure_main_vault", lambda *_args: None)
     monkeypatch.setattr(vaults_routes, "_prune_container_rows", lambda *_args: None)
     monkeypatch.setattr(vaults_routes, "ensure_vault_slugs", lambda *_args: None)
@@ -71,6 +73,49 @@ def test_list_vaults_keeps_nested_mapping_shape(tmp_path, monkeypatch) -> None:
         ).model_dump()["slug"]
         is None
     )
+
+
+@pytest.mark.parametrize("mode", ["personal", "org"])
+def test_vault_catalog_uses_one_fresh_configuration_per_request(tmp_path, monkeypatch, mode):
+    from backend.api import vaults_routes
+
+    reads = []
+    prepared = []
+    pruned = []
+
+    def config(*, strict_env):
+        assert strict_env is False
+        path = tmp_path / str(len(reads))
+        reads.append(path)
+        return SimpleNamespace(gnosi_mode=mode, paths={"VAULT": path})
+
+    monkeypatch.setattr(vaults_routes, "load_params", config)
+    monkeypatch.setattr(vaults_routes, "_ensure_main_vault", lambda _db, _ws, path: prepared.append(path))
+    monkeypatch.setattr(vaults_routes, "_prune_container_rows", lambda _db, _ws, path: pruned.append(path))
+    monkeypatch.setattr(vaults_routes, "ensure_vault_slugs", lambda _db: None)
+    monkeypatch.setattr(vaults_routes, "get_active_vault_path", lambda: tmp_path)
+    context = WorkspaceContext("workspace", "user", "owner", tmp_path)
+
+    for index in range(2):
+        result = vaults_routes.list_vaults(ctx=context, db=_VaultDatabase([]))
+        assert result == {"vaults": [], "active_path": str(tmp_path)}
+        assert len(reads) == index + 1
+    assert prepared == (reads if mode == "personal" else [])
+    assert pruned == prepared
+
+
+def test_vault_catalog_still_reports_an_unconfigured_personal_vault(monkeypatch, tmp_path):
+    from backend.api import vaults_routes
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(vaults_routes, "load_params", lambda **_: SimpleNamespace(
+        gnosi_mode="personal", paths={"VAULT": None},
+    ))
+    context = WorkspaceContext("workspace", "user", "owner", tmp_path)
+    with pytest.raises(HTTPException) as error:
+        vaults_routes.list_vaults(ctx=context, db=_VaultDatabase([]))
+    assert error.value.status_code == 503
+    assert error.value.detail == "The primary Vault path is not configured"
 
 
 def test_page_view_routes_keep_mapping_shapes(tmp_path, monkeypatch) -> None:

@@ -1,4 +1,4 @@
 import './styles/index.css';
-import { bootstrap } from './bootstrap';
+import { startApplication } from './startup';
 
-void bootstrap();
+void startApplication();

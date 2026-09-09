@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backend.config.app_config import load_params
+from backend.config.app_config import Config, load_params
 from backend.data.management_db import get_mgmt_db
 from backend.models.management import Vault
 from backend.services.context_vars import get_active_vault_path
@@ -91,8 +91,8 @@ class VaultDeleteResponse(BaseModel):
     deleted: str
 
 
-def _default_vault_path() -> Path:
-    configured = load_params(strict_env=False).paths.get("VAULT")
+def _default_vault_path(config: Config | None = None) -> Path:
+    configured = (config if config is not None else load_params(strict_env=False)).paths.get("VAULT")
     if not configured:
         raise HTTPException(status_code=503, detail="The primary Vault path is not configured")
     return Path(configured)
@@ -172,10 +172,12 @@ def list_vaults(
     db: Session = Depends(get_mgmt_db),
 ) -> dict[str, Any]:
     """Workspace vaults + which one is active (the one resolved by X-Vault-Id or the main one)."""
-    personal = load_params(strict_env=False).gnosi_mode == "personal"
+    config = load_params(strict_env=False)
+    personal = config.gnosi_mode == "personal"
     if personal:
-        _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
-        _prune_container_rows(db, ctx.workspace_id, _default_vault_path())
+        default_path = _default_vault_path(config)
+        _ensure_main_vault(db, ctx.workspace_id, default_path)
+        _prune_container_rows(db, ctx.workspace_id, default_path)
     ensure_vault_slugs(db)
     active = str((get_active_vault_path() or "") if personal else ctx.vault_path)
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import HomePage from './HomePage';
 import { GraphLoadingState } from '../shared/ui/loading/GraphLoadingState';
 import { PluginRoute } from '../shared/plugins/PluginGate';
-import { loadVaultDashboard } from './routePreload';
+import { applicationRouteLoaders } from './routePreload';
 import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, vaultAppFromPath } from '../shared/routing/vaultRouting';
 
 // ── Lazily loaded routes (code-splitting) ──────────────────────────
@@ -14,24 +14,22 @@ import { activateVaultSlug, getActiveVaultSlug, legacyBrowserPathToCanonical, va
 // initial: the browser only downloads the route's chunk when it's navigated to.
 // HomePage stays EAGER because it's the most common startup (without a flash of
 // Suspense at the start).
-const VaultDashboard = lazy(loadVaultDashboard);
-const Dashboard = lazy(() => import('../features/control-center/Dashboard'));
-const SocialDashboard = lazy(() => import('../features/social/SocialDashboard'));
-const ComposerPage = lazy(() => import('../features/social/ComposerPage'));
-const MediaCenter = lazy(() => import('../features/media/MediaCenter'));
-const SchedulerPage = lazy(() => import('../features/automations/SchedulerPage'));
+const VaultDashboard = lazy(applicationRouteLoaders.knowledge);
+const Dashboard = lazy(applicationRouteLoaders.dashboard);
+const SocialDashboard = lazy(applicationRouteLoaders.social);
+const ComposerPage = lazy(applicationRouteLoaders.composer);
+const MediaCenter = lazy(applicationRouteLoaders.media);
+const SchedulerPage = lazy(applicationRouteLoaders.automations);
+const NotebooksPage = lazy(applicationRouteLoaders.notebooks);
+const MailPage = lazy(applicationRouteLoaders.mail);
+const CalendarPage = lazy(applicationRouteLoaders.calendar);
+const GraphPage = lazy(applicationRouteLoaders.graph);
+const ReaderDashboard = lazy(applicationRouteLoaders.reader);
+const ContactsPage = lazy(applicationRouteLoaders.contacts);
+const LiteraturePage = lazy(applicationRouteLoaders.resources);
+const ProjectPlanningPage = lazy(applicationRouteLoaders.planning);
+const ZoteroReaderPage = lazy(applicationRouteLoaders.document);
 const SharedPage = lazy(() => import('../features/sharing/SharedPage'));
-const NotebooksPage = lazy(() => import('../features/notebooks/NotebooksPage'));
-const MailPage = lazy(() => import('../features/mail/MailPage'));
-const CalendarPage = lazy(() => import('../features/calendar/CalendarPage'));
-const GraphPage = lazy(() => import('../features/graph/GraphPage'));
-const ReaderDashboard = lazy(() => import('../features/reader/ReaderDashboard'));
-const ContactsPage = lazy(() => import('../features/contacts/ContactsPage'));
-const LiteraturePage = lazy(() => import('../features/literature/LiteraturePage'));
-const ProjectPlanningPage = lazy(() => import('../features/planning/ProjectPlanningPage'));
-const ZoteroReaderPage = lazy(() =>
-  import('../features/reader/zotero/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
-);
 
 interface VaultRouteScopeProps {
   readonly children: ReactNode;

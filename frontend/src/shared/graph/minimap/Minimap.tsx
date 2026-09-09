@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 
 import { subscribeWindowEvent } from '../../platform/browser-events';
 import {
@@ -42,6 +42,11 @@ export const Minimap = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const dragOffset = useRef<GraphPoint>({ x: 0, y: 0 });
     const hasDragged = useRef(false);
+    const panFromClick = useEffectEvent((nodeId: string | null, point: GraphPoint, ratio: number) => {
+        if (nodeId && onPanToNode) onPanToNode(nodeId, ratio);
+        else onPanToGraph?.(point.x, point.y, ratio);
+    });
+    const centerFromClick = useEffectEvent(() => { onCenter?.(); });
 
     useEffect(() => {
         if (!graph || !mainRenderer || !canvasRef.current || !containerRef.current) return;
@@ -56,8 +61,11 @@ export const Minimap = ({
             if (!containerRef.current || !canvasRef.current) return null;
 
             const { width, height } = containerRef.current.getBoundingClientRect();
-            canvas.width = width;
-            canvas.height = height;
+            const pixelWidth = Math.round(width);
+            const pixelHeight = Math.round(height);
+            // Resizing clears the backing buffer and resets the drawing state.
+            if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+            if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
 
             const bounds = mergeGraphBounds(
                 getVisibleGraphBounds(graph),
@@ -80,14 +88,14 @@ export const Minimap = ({
             // Draw nodes
             const nodeColor = isDarkMode ? '#888' : '#666';
             ctx.fillStyle = nodeColor;
-
+            ctx.beginPath();
             graph.forEachNode((_, attr) => {
                 if (attr.hidden) return;
                 const pos = t.graphToMinimap(attr.x, attr.y);
-                ctx.beginPath();
+                ctx.moveTo(pos.x + 1.5, pos.y);
                 ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
-                ctx.fill();
             });
+            ctx.fill();
 
             return t;
         };
@@ -111,22 +119,28 @@ export const Minimap = ({
             const transform = draw();
             if (transform) syncViewport(transform);
         };
+        let renderFrame: number | null = null;
+        const scheduleRender = (): void => {
+            if (renderFrame !== null) return;
+            renderFrame = requestAnimationFrame(() => {
+                renderFrame = null;
+                renderMinimap();
+            });
+        };
 
         // Initial sync
         renderMinimap();
 
         // Listeners
-        mainRenderer.on('afterRender', renderMinimap);
+        mainRenderer.on('afterRender', scheduleRender);
 
         const camera = mainRenderer.getCamera();
-        camera.on('updated', renderMinimap);
+        camera.on('updated', scheduleRender);
 
         // Also listen for graph changes (like visibility updates)
         // Sigma/Graphology emits 'nodeAttributesUpdated' if we use setNodeAttribute
         // But we might need to bind to the graph instance
-        const handleGraphUpdate = () => {
-            requestAnimationFrame(renderMinimap);
-        };
+        const handleGraphUpdate = scheduleRender;
 
         graph.on('nodeAttributesUpdated', handleGraphUpdate);
         graph.on('eachNodeAttributesUpdated', handleGraphUpdate);
@@ -160,18 +174,12 @@ export const Minimap = ({
             const currentRatio = mainRenderer.getCamera().getState().ratio;
             const targetRatio = Math.max(0.02, Math.min(currentRatio, overviewRatio) * 0.8);
 
-            if (closestNode && onPanToNode) {
-                onPanToNode(closestNode, targetRatio);
-            } else if (onPanToGraph) {
-                onPanToGraph(graphPos.x, graphPos.y, targetRatio);
-            }
-
-            // Force update of debug text
-            renderMinimap();
+            panFromClick(closestNode, graphPos, targetRatio);
+            scheduleRender();
         };
 
         const handleMinimapDoubleClick = (): void => {
-            if (onCenter) onCenter();
+            centerFromClick();
         };
 
         const handleMouseDown = (event: MouseEvent): void => {
@@ -231,9 +239,10 @@ export const Minimap = ({
         const unsubscribeMouseUp = subscribeWindowEvent('mouseup', handleMouseUp);
 
         return () => {
+            if (renderFrame !== null) cancelAnimationFrame(renderFrame);
             if (!isRendererKilled(mainRenderer)) {
-                mainRenderer.off('afterRender', renderMinimap);
-                camera.off('updated', renderMinimap);
+                mainRenderer.off('afterRender', scheduleRender);
+                camera.off('updated', scheduleRender);
             }
             graph.off('nodeAttributesUpdated', handleGraphUpdate);
             graph.off('eachNodeAttributesUpdated', handleGraphUpdate);
@@ -246,7 +255,7 @@ export const Minimap = ({
             unsubscribeMouseMove();
             unsubscribeMouseUp();
         };
-    }, [graph, mainRenderer, isDarkMode, onCenter, onPanToGraph, onPanToNode]);
+    }, [graph, mainRenderer, isDarkMode]);
 
     return (
         <div

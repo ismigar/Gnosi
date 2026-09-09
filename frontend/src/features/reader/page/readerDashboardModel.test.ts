@@ -79,6 +79,14 @@ describe('Reader dashboard model', () => {
         expect(readerArticleMeta(article(2, 'invalid'), 'en-US')).toBe('Source');
     });
 
+    it.each(['ca-ES', 'es-ES', 'en-US', 'fr-FR'])('preserves %s metadata with the shared list formatter', locale => {
+        const formatter = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' });
+        for (const publishedAt of ['2026-08-30T12:00:00', '2025-12-31T12:00:00', null, 'invalid']) {
+            const item = article(1, publishedAt);
+            expect(readerArticleMeta(item, formatter)).toBe(readerArticleMeta(item, locale));
+        }
+    });
+
     it('groups sources, preserves counts, and puts uncategorized last', () => {
         const counts = readerCountsBySource(inventory);
         const groups = groupReaderSources([

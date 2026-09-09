@@ -45,10 +45,11 @@ def test_concurrency_is_unique_by_workflow_and_pr_or_non_pr_run(
     assert release == {"group": "release-${{ github.ref }}", "cancel-in-progress": False}
 
 
-def test_backend_hosted_capacity_is_limited_to_public_prs(
-    workflow: dict[str, object],
+@pytest.mark.parametrize("job_name", ["backend", "native-smoke"])
+def test_linux_hosted_capacity_is_limited_to_public_prs(
+    workflow: dict[str, object], job_name: str,
 ) -> None:
-    backend = _mapping(_mapping(workflow["jobs"])["backend"])
+    backend = _mapping(_mapping(workflow["jobs"])[job_name])
     assert backend["runs-on"] == (
         "${{ fromJSON(github.event_name == 'pull_request' && "
         "github.event.repository.visibility == 'public' && "
@@ -69,12 +70,29 @@ def test_frontend_hosted_capacity_is_limited_to_public_prs(
     assert frontend["needs"] == "backend"
 
 
-@pytest.mark.parametrize("job_name", ["native-smoke", "docker"])
-def test_local_linux_jobs_keep_their_dedicated_runner(
-    workflow: dict[str, object], job_name: str,
+def test_docker_keeps_its_dedicated_runner(
+    workflow: dict[str, object],
 ) -> None:
-    job = _mapping(_mapping(workflow["jobs"])[job_name])
+    job = _mapping(_mapping(workflow["jobs"])["docker"])
     assert job["runs-on"] == ["self-hosted", "Linux", "ARM64"]
+
+
+def test_native_smoke_installs_hosted_browser_dependencies_and_uses_http(
+    workflow: dict[str, object],
+) -> None:
+    job = _mapping(_mapping(workflow["jobs"])["native-smoke"])
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    commands = {
+        str(_mapping(step)["run"]): _mapping(step)
+        for step in steps if "run" in _mapping(step)
+    }
+    dependencies = commands["pnpm --filter @gnosi/e2e exec playwright install-deps chromium"]
+    assert dependencies["if"] == "runner.environment == 'github-hosted'"
+    assert "pnpm test:e2e:install" in commands
+    startup = next(_mapping(step) for step in steps if _mapping(step).get("name") == "Start native services")
+    assert _mapping(startup["env"])["VITE_DEV_HTTPS"] == "false"
+    assert _mapping(commands["pnpm test:e2e:smoke"]["env"])["GNOSI_BASE_URL"] == "http://127.0.0.1:5173"
 
 
 def test_all_gates_and_bounded_native_order_are_preserved(

@@ -132,6 +132,49 @@ export const Routes = <Route path="/real" element={<Home />} />;
     assert collect_frontend_routes(tmp_path) == [FrontendRoute("/real", "Home", "unresolved")]
 
 
+def test_frontend_routes_resolve_shared_loaders_without_consuming_a_later_lazy_import(tmp_path: Path) -> None:
+    """Follow one imported registry and leave nested/dynamic/missing members unresolved."""
+    write_source(tmp_path, "app/routes.tsx", """
+import { lazy } from 'react';
+import { Route } from 'react-router-dom';
+import { routeLoaders as loaders } from './preload';
+const Dashboard = lazy(loaders.dashboard);
+const Reader = lazy(loaders.reader);
+const Missing = lazy(loaders.missing);
+const Dynamic = lazy(loaders.dynamic);
+const Shared = lazy(() => import('../pages/Shared'));
+export const routes = <>
+  <Route path="/dashboard" element={<Dashboard />} />
+  <Route path="/reader" element={<Reader />} />
+  <Route path="/missing" element={<Missing />} />
+  <Route path="/dynamic" element={<Dynamic />} />
+  <Route path="/shared" element={<Shared />} />
+</>;
+""")
+    write_source(tmp_path, "app/preload.ts", """
+export const unrelated = { dashboard: () => import('../pages/Wrong') };
+export const routeLoaders = {
+  dashboard: () => import('../pages/Dashboard'),
+  reader: () => import('../pages/Reader').then(module => ({ default: module.Reader, marker: '},' })),
+  nested: { missing: () => import('../pages/Wrong') },
+  dynamic: () => import(dynamicPath),
+};
+export const later = { missing: () => import('../pages/Wrong') };
+throw new Error('Source inventory must never execute this module');
+""")
+    for name in ("Dashboard", "Reader", "Shared", "Wrong"):
+        write_source(tmp_path, f"pages/{name}.tsx", "export default function Page() {}")
+    expected = [
+        FrontendRoute("/dashboard", "Dashboard", "frontend/src/pages/Dashboard.tsx"),
+        FrontendRoute("/reader", "Reader", "frontend/src/pages/Reader.tsx"),
+        FrontendRoute("/missing", "Missing", "unresolved"),
+        FrontendRoute("/dynamic", "Dynamic", "unresolved"),
+        FrontendRoute("/shared", "Shared", "frontend/src/pages/Shared.tsx"),
+    ]
+    assert collect_frontend_routes(tmp_path) == expected
+    assert collect_frontend_routes(tmp_path) == expected
+
+
 def test_frontend_routes_fail_if_no_production_routes_remain(tmp_path: Path) -> None:
     """An obsolete discovery strategy must fail instead of publishing an empty table."""
     write_source(tmp_path, "app/App.tsx", "export default function App() { return null; }")
@@ -178,5 +221,8 @@ def test_frontend_routes_inventory_preserves_current_application_routes() -> Non
     assert all(route.source != "unresolved" for route in routes)
     assert FrontendRoute(
         "/s/:token", "SharedPage", "frontend/src/features/sharing/SharedPage.tsx"
+    ) in routes
+    assert FrontendRoute(
+        "/dashboard", "Dashboard", "frontend/src/features/control-center/Dashboard.tsx"
     ) in routes
     assert FrontendRoute("/vault/*", "LegacyVaultRedirect", "frontend/src/app/routes.tsx") in routes

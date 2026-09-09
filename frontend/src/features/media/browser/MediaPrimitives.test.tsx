@@ -21,20 +21,11 @@ describe('media leaf components', () => {
         await run(() => {root.render(<Thumb src="/synthetic" alt="Fixture" viewMode="list" kind={kind}/>);});
         expect(container.querySelector('img')).toBeNull(); expect(container.textContent).toContain('Fixture');
     });
-    it('retries a cloud-hydrated image after 4s and 8s then displays the unavailable placeholder', async () => {
-        vi.useFakeTimers();
+    it('keeps image loading lazy until the browser requests it', async () => {
         await run(() => {root.render(<Thumb src="/synthetic?token=fake" alt="Fixture" viewMode="grid" kind="image"/>);});
-        const fail = () => {
-            const image = container.querySelector('img');
-            if (!image) throw new Error('Missing thumbnail');
-            image.dispatchEvent(new Event('error'));
-        };
-        await run(fail); await run(async () => {await vi.advanceTimersByTimeAsync(4000);});
-        expect(container.querySelector('img')?.getAttribute('src')).toBe('/synthetic?token=fake&_r=1');
-        await run(fail); await run(async () => {await vi.advanceTimersByTimeAsync(8000);});
-        expect(container.querySelector('img')?.getAttribute('src')).toBe('/synthetic?token=fake&_r=2');
-        await run(fail); expect(container.textContent).toContain('media.not_downloaded');
-        expect(vi.getTimerCount()).toBe(0);
+        expect(container.querySelector('img')?.getAttribute('src')).toBe('/synthetic?token=fake');
+        expect(container.querySelector('img')?.getAttribute('loading')).toBe('lazy');
+        expect(container.querySelector('[aria-busy]')?.getAttribute('aria-busy')).toBe('false');
     });
     it('loads recursive folders only on first expansion and preserves the provider root', async () => {
         const select = vi.fn();

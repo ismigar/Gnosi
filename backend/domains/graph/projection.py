@@ -109,7 +109,8 @@ def build_legend(nodes: List[Dict[str, Any]]) -> Dict[str, Any]:
         cluster = cast(OptionalString, node.get("cluster"))
         if cluster:
             cluster_counts[cluster] = cluster_counts.get(cluster, 0) + 1
-            cluster_colors.setdefault(cluster, _string_to_color(cluster))
+            if cluster not in cluster_colors:
+                cluster_colors[cluster] = _string_to_color(cluster)
 
     kinds = [
         {"label": kind.capitalize(), "color": kind_colors[kind], "count": count}

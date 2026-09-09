@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { legacyBrowserPathToCanonical } from '../../../shared/routing/vaultRouting';
+import { preloadApplicationRoute } from '../../routePreload';
 import VaultMenu from '../../../features/vault-management/VaultMenu';
 import {
     ENGINEERING_DOCUMENTATION_URL,
@@ -48,6 +49,9 @@ export function SidebarRail({
                 end={to === '/'}
                 title={label}
                 aria-label={label}
+                onPointerEnter={() => { void preloadApplicationRoute(to); }}
+                onFocus={() => { void preloadApplicationRoute(to); }}
+                onTouchStart={() => { void preloadApplicationRoute(to); }}
                 onClick={onSelect}
                 className={({ isActive }) => (
                     `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
@@ -83,6 +87,7 @@ interface SidebarFooterProps {
     readonly isPersonal: boolean;
     readonly onLogout: () => Promise<void>;
     readonly onOpenSettings: () => void;
+    readonly onPreloadSettings: () => void;
     readonly onSelect: () => void;
     readonly userLabel: string | null;
 }
@@ -92,6 +97,7 @@ export function SidebarFooter({
     isPersonal,
     onLogout,
     onOpenSettings,
+    onPreloadSettings,
     onSelect,
     userLabel,
 }: SidebarFooterProps) {
@@ -115,6 +121,9 @@ export function SidebarFooter({
             to="/dashboard"
             title={t('sidebar.nav_dashboard')}
             aria-label={t('sidebar.nav_dashboard')}
+            onPointerEnter={() => { void preloadApplicationRoute('/dashboard'); }}
+            onFocus={() => { void preloadApplicationRoute('/dashboard'); }}
+            onTouchStart={() => { void preloadApplicationRoute('/dashboard'); }}
             onClick={onSelect}
             className={({ isActive }) => (
                 `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
@@ -128,6 +137,9 @@ export function SidebarFooter({
             title={t('sidebar.nav_settings')}
             aria-label={t('sidebar.nav_settings')}
             onClick={onOpenSettings}
+            onPointerEnter={onPreloadSettings}
+            onFocus={onPreloadSettings}
+            onTouchStart={onPreloadSettings}
         >
             <Settings size={16} strokeWidth={1.5} />
             <span className="app-sidebar__tooltip">
@@ -175,6 +187,9 @@ export function QuickAccessMenu({ items, navigationRef, onSelect }: QuickAccessM
                 role="menuitem"
                 title={label}
                 aria-label={label}
+                onPointerEnter={() => { void preloadApplicationRoute(to); }}
+                onFocus={() => { void preloadApplicationRoute(to); }}
+                onTouchStart={() => { void preloadApplicationRoute(to); }}
                 onClick={onSelect}
                 className={({ isActive }) => (
                     `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`

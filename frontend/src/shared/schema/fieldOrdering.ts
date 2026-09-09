@@ -22,11 +22,12 @@ export function sortFieldItems<T>(
   locale?: string,
 ): T[] {
   const safeItems: readonly T[] = Array.isArray(items) ? items : [];
-  return [...safeItems].sort((left, right) =>
-    String(getLabel(left) || '').localeCompare(
-      String(getLabel(right) || ''),
-      locale,
-      { sensitivity: 'base', numeric: true },
-    ),
+  const sorted = [...safeItems];
+  if (sorted.length < 2) return sorted;
+  // Reuse the locale rules for all comparisons in this sort. Passing options
+  // to localeCompare for every pair rebuilds the same collator thousands of times.
+  const collator = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
+  return sorted.sort((left, right) =>
+    collator.compare(String(getLabel(left) || ''), String(getLabel(right) || '')),
   );
 }

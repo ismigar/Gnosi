@@ -7,7 +7,7 @@ from datetime import datetime
 from itertools import islice
 from pathlib import Path
 import uuid
-from typing import Any, Callable, cast
+from typing import Any, Callable, ParamSpec, TypeVar, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -44,6 +44,7 @@ from backend.domains.planning.schemas import (
 from backend.services.project_planning import (
     DEFAULT_CALENDAR_ID,
     PlanningStore,
+    PlanningStorageUnavailable,
     PlanningValidationError,
     calculate_allocation,
     propose_leveling,
@@ -54,11 +55,38 @@ from backend.services.project_planning import (
 from backend.services.planning_engine import ScheduleIndex, build_schedule, normalize_period
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import get_workspace_context, require_role
+from backend.platform.files import get_files_provider
 
 
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 _mutation_lock = asyncio.Lock()
 JsonResponse = dict[str, object]
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
+
+
+async def _planning_io(operation: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T:
+    """Keep file reads off the loop and recover unavailable cloud data explicitly."""
+    try:
+        return await asyncio.to_thread(operation, *args, **kwargs)
+    except PlanningStorageUnavailable as exc:
+        pending = False
+        if exc.retryable:
+            provider = get_files_provider()
+            if provider.name != "local" and provider.warmup_status(exc.path) != "failed":
+                provider.schedule_warmup(exc.path)
+                pending = True
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "planning_storage_pending" if pending else "planning_storage_unavailable",
+                "message": (
+                    "Planning data is downloading from cloud storage. Please retry shortly."
+                    if pending else "Planning data could not be read. Check cloud storage availability."
+                ),
+            },
+            headers={"Retry-After": "3"} if pending else None,
+        ) from exc
 
 
 def _payload(value: BaseModel) -> dict[str, Any]:
@@ -96,7 +124,7 @@ def _validation_error(error: PlanningValidationError) -> HTTPException:
 )
 async def get_planning_state() -> JsonResponse:
     """Returns source entities plus a derived allocation snapshot."""
-    state = await asyncio.to_thread(_store().load)
+    state = await _planning_io(_store().load)
     return {**state, "allocation": calculate_allocation(state)}
 
 
@@ -107,7 +135,7 @@ async def get_planning_state() -> JsonResponse:
 )
 async def get_allocation() -> JsonResponse:
     """Returns a rebuildable allocation/cost report without writing task data."""
-    state = await asyncio.to_thread(_store().load)
+    state = await _planning_io(_store().load)
     return calculate_allocation(state)
 
 
@@ -118,7 +146,7 @@ async def get_allocation() -> JsonResponse:
 )
 async def get_leveling_proposal() -> JsonResponse:
     """Returns review-only delay suggestions; it never changes task dates."""
-    state = await asyncio.to_thread(_store().load)
+    state = await _planning_io(_store().load)
     return propose_leveling(state)
 
 
@@ -151,7 +179,7 @@ async def recalculate_project(project_id: str, payload: RecalculatePayload) -> J
     Persisting automatic boundaries is deliberately handled by the page writer,
     which owns ETag checks. This endpoint has no authority to overwrite Markdown.
     """
-    state = await asyncio.to_thread(_store().load)
+    state = await _planning_io(_store().load)
     calendar = next(
         (item for item in state["calendars"] if item["id"] == DEFAULT_CALENDAR_ID),
         state["calendars"][0],
@@ -190,10 +218,10 @@ async def create_baseline(project_id: str, payload: BaselinePayload) -> JsonResp
     ):
         raise HTTPException(status_code=409, detail="Schedule revision is stale")
     store = _store()
-    existing = await asyncio.to_thread(store.history, "baseline")
+    existing = await _planning_io(store.history, "baseline")
     if any(item.get("projectId") == project_id and item.get("name") == name for item in existing):
         raise HTTPException(status_code=409, detail="Baseline name already exists")
-    allocation = calculate_allocation(await asyncio.to_thread(store.load))
+    allocation = calculate_allocation(await _planning_io(store.load))
     baseline = {
         "id": str(uuid.uuid4()),
         "type": "baseline",
@@ -204,7 +232,7 @@ async def create_baseline(project_id: str, payload: BaselinePayload) -> JsonResp
         "schedule": schedule,
         "allocation": allocation,
     }
-    await asyncio.to_thread(store.append_history, baseline)
+    await _planning_io(store.append_history, baseline)
     return {"baseline": baseline}
 
 
@@ -217,7 +245,7 @@ async def list_baselines(project_id: str) -> JsonResponse:
     return {
         "baselines": [
             item
-            for item in await asyncio.to_thread(_store().history, "baseline")
+            for item in await _planning_io(_store().history, "baseline")
             if item.get("projectId") == project_id
         ]
     }
@@ -230,7 +258,7 @@ async def list_baselines(project_id: str) -> JsonResponse:
 )
 async def get_baseline_variance(project_id: str, baseline_id: str) -> JsonResponse:
     """Compares the current derived schedule with an immutable baseline."""
-    baselines = await asyncio.to_thread(_store().history, "baseline")
+    baselines = await _planning_io(_store().history, "baseline")
     baseline = next(
         (
             item
@@ -252,7 +280,7 @@ async def get_baseline_variance(project_id: str, baseline_id: str) -> JsonRespon
         item["task_id"]: item
         for item in baseline.get("allocation", {}).get("assignment_summaries", [])
     }
-    current_allocation = calculate_allocation(await asyncio.to_thread(_store().load))
+    current_allocation = calculate_allocation(await _planning_io(_store().load))
     current_costs = {
         item["task_id"]: item for item in current_allocation.get("assignment_summaries", [])
     }
@@ -316,7 +344,7 @@ async def create_worklog(payload: WorklogPayload) -> JsonResponse:
         "correctionOf": payload.correction_of,
         "createdAt": datetime.now().isoformat(timespec="seconds"),
     }
-    await asyncio.to_thread(_store().append_history, entry)
+    await _planning_io(_store().append_history, entry)
     return {"worklog": entry}
 
 
@@ -326,7 +354,7 @@ async def create_worklog(payload: WorklogPayload) -> JsonResponse:
     response_model_exclude_unset=True,
 )
 async def list_worklogs(task_id: str | None = None) -> WorklogListJsonResponse:
-    entries = await asyncio.to_thread(_store().history, "worklog")
+    entries = await _planning_io(_store().history, "worklog")
     if task_id:
         entries = [entry for entry in entries if entry.get("taskId") == task_id]
     totals: dict[str, float] = {}
@@ -341,7 +369,7 @@ async def list_worklogs(task_id: str | None = None) -> WorklogListJsonResponse:
     response_model_exclude_unset=True,
 )
 async def create_leveling_proposal(project_id: str) -> JsonResponse:
-    state = await asyncio.to_thread(_store().load)
+    state = await _planning_io(_store().load)
     schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(
         project_id
     )
@@ -361,7 +389,7 @@ async def create_leveling_proposal(project_id: str) -> JsonResponse:
         for item in (schedule or {}).get("tasks", [])
         if item.get("sourceEtag")
     }
-    await asyncio.to_thread(_store().append_history, proposal)
+    await _planning_io(_store().append_history, proposal)
     return proposal
 
 
@@ -374,7 +402,7 @@ async def create_leveling_proposal(project_id: str) -> JsonResponse:
 async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload) -> JsonResponse:
     """Accepts a current proposal only after revision and ETag validation."""
     store = _store()
-    proposals = await asyncio.to_thread(store.history, "leveling_proposal")
+    proposals = await _planning_io(store.history, "leveling_proposal")
     proposal = next((item for item in reversed(proposals) if item.get("id") == proposal_id), None)
     if not proposal:
         raise _not_found("leveling proposal")
@@ -397,7 +425,7 @@ async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayloa
     expected_etags = proposal.get("sourceEtags") or {}
     if current_etags != expected_etags or payload.etags != expected_etags:
         raise HTTPException(status_code=409, detail="Task ETags changed; regenerate the proposal")
-    state = await asyncio.to_thread(store.load)
+    state = await _planning_io(store.load)
     by_assignment = {item["id"]: item for item in state["assignments"]}
     applied_changes = []
     for change in proposal["proposals"]:
@@ -432,8 +460,8 @@ async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayloa
         "acceptedAt": datetime.now().isoformat(timespec="seconds"),
         "appliedChanges": applied_changes,
     }
-    await asyncio.to_thread(_store().append_history, entry)
-    await asyncio.to_thread(
+    await _planning_io(_store().append_history, entry)
+    await _planning_io(
         store.append_history, {**proposal, "status": "accepted", "decidedAt": entry["acceptedAt"]}
     )
     return {"decision": entry, "automaticWrites": [], "updatedAssignments": applied_changes}
@@ -450,7 +478,7 @@ async def create_recurrence(payload: RecurrencePayload) -> JsonResponse:
     recurrence = {"id": str(uuid.uuid4()), **_payload(payload)}
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         state["recurrences"].append(recurrence)
         state = await asyncio.to_thread(store.save, state)
     return {"recurrence": recurrence, "revision": state["revision"]}
@@ -467,7 +495,7 @@ async def materialize_recurrence(recurrence_id: str, limit: int = 50) -> JsonRes
     if limit < 1 or limit > 200:
         raise HTTPException(status_code=422, detail="limit must be between 1 and 200")
     store = _store()
-    state = await asyncio.to_thread(store.load)
+    state = await _planning_io(store.load)
     recurrence = next((item for item in state["recurrences"] if item["id"] == recurrence_id), None)
     if not recurrence:
         raise _not_found("recurrence")
@@ -545,7 +573,7 @@ async def create_calendar(payload: CalendarPayload) -> JsonResponse:
         raise _validation_error(error) from error
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         state["calendars"].append(calendar)
         state = await asyncio.to_thread(store.save, state)
     return {"calendar": calendar, "revision": state["revision"]}
@@ -560,7 +588,7 @@ async def create_calendar(payload: CalendarPayload) -> JsonResponse:
 async def update_calendar(calendar_id: str, payload: CalendarPayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         current = next((item for item in state["calendars"] if item["id"] == calendar_id), None)
         if not current:
             raise _not_found("calendar")
@@ -588,7 +616,7 @@ async def delete_calendar(calendar_id: str) -> JsonResponse:
         )
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         if not any(item["id"] == calendar_id for item in state["calendars"]):
             raise _not_found("calendar")
         if any(item.get("calendar_id") == calendar_id for item in state["resources"]):
@@ -607,7 +635,7 @@ async def delete_calendar(calendar_id: str) -> JsonResponse:
 async def create_resource(payload: ResourcePayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         try:
             resource = normalize_resource(
                 _payload(payload), {item["id"] for item in state["calendars"]}
@@ -628,7 +656,7 @@ async def create_resource(payload: ResourcePayload) -> JsonResponse:
 async def update_resource(resource_id: str, payload: ResourcePayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         current = next((item for item in state["resources"] if item["id"] == resource_id), None)
         if not current:
             raise _not_found("resource")
@@ -656,7 +684,7 @@ async def update_resource(resource_id: str, payload: ResourcePayload) -> JsonRes
 async def delete_resource(resource_id: str) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         if not any(item["id"] == resource_id for item in state["resources"]):
             raise _not_found("resource")
         if any(item["resource_id"] == resource_id for item in state["assignments"]):
@@ -677,7 +705,7 @@ async def delete_resource(resource_id: str) -> JsonResponse:
 async def create_assignment(payload: AssignmentPayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         try:
             assignment = normalize_assignment(
                 _payload(payload), {item["id"] for item in state["resources"]}
@@ -698,7 +726,7 @@ async def create_assignment(payload: AssignmentPayload) -> JsonResponse:
 async def update_assignment(assignment_id: str, payload: AssignmentPayload) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         current = next((item for item in state["assignments"] if item["id"] == assignment_id), None)
         if not current:
             raise _not_found("assignment")
@@ -726,7 +754,7 @@ async def update_assignment(assignment_id: str, payload: AssignmentPayload) -> J
 async def delete_assignment(assignment_id: str) -> JsonResponse:
     async with _mutation_lock:
         store = _store()
-        state = await asyncio.to_thread(store.load)
+        state = await _planning_io(store.load)
         if not any(item["id"] == assignment_id for item in state["assignments"]):
             raise _not_found("assignment")
         state["assignments"] = [

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { requestAt, resetApiTestStorage } from '../../../tests/api-request';
+import { requestAt, resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
+import { queryClient } from './query-client';
 import {
   bulkApplyVaultTemplate,
   createVaultDatabase,
@@ -14,9 +15,48 @@ import {
   renameVaultTable,
 } from './vaults';
 
-afterEach(() => { resetApiTestStorage(); vi.unstubAllGlobals(); });
+afterEach(() => { queryClient.clear(); resetApiTestStorage(); vi.unstubAllGlobals(); });
 
 describe('vault collections API', () => {
+  it('shares overlapping table reads without cancelling another reader or retaining stale tables', async () => {
+    let finish: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }))
+      .mockResolvedValueOnce(Response.json([{ id: 'new-table' }]));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const dismissed = fetchVaultTables(undefined, controller.signal);
+    const active = fetchVaultTables();
+    const rejected = expect(dismissed).rejects.toMatchObject({ name: 'AbortError' });
+    controller.abort();
+    await rejected;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(requestAt(fetchMock.mock.calls, 0).signal.aborted).toBe(false);
+    finish?.(Response.json([{ id: 'notes' }]));
+    await expect(active).resolves.toEqual([{ id: 'notes' }]);
+    await expect(fetchVaultTables()).resolves.toEqual([{ id: 'new-table' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not share table reads between vaults or database filters', async () => {
+    const completions: ((response: Response) => void)[] = [];
+    const fetchMock = vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => { completions.push(resolve); }));
+    vi.stubGlobal('fetch', fetchMock);
+    writeApiTestStorage('gnosi_active_vault', 'vault-a');
+    const firstVault = fetchVaultTables('same-id');
+    const unfiltered = fetchVaultTables();
+    writeApiTestStorage('gnosi_active_vault', 'vault-b');
+    const secondVault = fetchVaultTables('same-id');
+    await vi.waitFor(() => { expect(completions).toHaveLength(3); });
+    completions.forEach((finish, index) => { finish(Response.json([{ id: `table-${String(index)}` }])); });
+    await expect(Promise.all([firstVault, unfiltered, secondVault])).resolves.toEqual([
+      [{ id: 'table-0' }], [{ id: 'table-1' }], [{ id: 'table-2' }],
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect([0, 1, 2].map((index) => requestAt(fetchMock.mock.calls, index).headers.get('X-Vault-ID')))
+      .toEqual(['vault-a', 'vault-a', 'vault-b']);
+  });
+
   it('patches one immutable table property through both path identifiers', async () => {
     const response = {
       status: 'success',

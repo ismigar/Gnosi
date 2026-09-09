@@ -328,6 +328,7 @@ export function useMailListController(props: MailListProps) {
       messages: data.messages,
       onSelectMail,
       processedMessages,
+      retryUnavailable: data.retryUnavailable,
       saveMessageTags,
       selectAll,
       selectedIds,

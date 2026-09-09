@@ -1,20 +1,60 @@
+import hashlib
+import json
 import logging
+import threading
+from concurrent.futures import Future
+from copy import deepcopy
 from typing import Any
 
 from backend.services.integration_manager import integration_manager
+from backend.domains.calendar.timing import calendar_phase
 
 log = logging.getLogger(__name__)
+_credential_reads_lock = threading.Lock()
+_credential_reads: dict[tuple[str, str, str], Future[list[dict[str, Any]]]] = {}
 
 
-def _resolved_google_accounts() -> list[dict[str, Any]]:
-    """Return calendar-capable accounts with secure-store refs resolved."""
-    accounts: list[dict[str, Any]] = []
-    for section in ("calendars", "emails"):
-        values = integration_manager.get_raw(section)
-        if not isinstance(values, list):
-            continue
-        accounts.extend(value for value in values if isinstance(value, dict))
-    return accounts
+def _resolved_google_accounts(email: str) -> list[dict[str, Any]]:
+    """Share pending secure-store reads, never clients or completed credentials."""
+    # Snapshot references and their document revision together. Secret refs can
+    # keep the same names during credential rotation, so values alone cannot
+    # distinguish two integration configurations.
+    with integration_manager._lock:
+        accounts = deepcopy(integration_manager.get_calendar_accounts(
+            email, provider="google", auth_type="oauth2", resolve_secrets=False,
+        ))
+        config_file = integration_manager.config_file
+        try:
+            stat = config_file.stat()
+            revision = (stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino)
+        except OSError:
+            revision = None
+    if not accounts:
+        return []
+    fingerprint = hashlib.sha256(json.dumps(
+        (revision, accounts), sort_keys=True, default=str,
+    ).encode("utf-8")).hexdigest()
+    key = (str(config_file), email, fingerprint)
+    with _credential_reads_lock:
+        pending = _credential_reads.get(key)
+        owner = pending is None
+        if pending is None:
+            pending = Future()
+            _credential_reads[key] = pending
+    if not owner:
+        return deepcopy(pending.result())
+    try:
+        resolved = [integration_manager._resolve_secret_refs(account) for account in accounts]
+    except BaseException as error:
+        pending.set_exception(error)
+        raise
+    else:
+        pending.set_result(resolved)
+    finally:
+        with _credential_reads_lock:
+            if _credential_reads.get(key) is pending:
+                _credential_reads.pop(key, None)
+    return deepcopy(resolved)
 
 
 def get_google_calendar_service(email: str) -> Any:
@@ -28,7 +68,9 @@ def get_google_calendar_service(email: str) -> Any:
 
     from backend.config.env_config import get_env
 
-    for cal in _resolved_google_accounts():
+    with calendar_phase("credentials"):
+        accounts = _resolved_google_accounts(email)
+    for cal in accounts:
         if cal.get("provider") == "google" and cal.get("auth_type") == "oauth2":
             cal_email = cal.get("email") or cal.get("username") or ""
             if cal_email == email:
@@ -54,7 +96,12 @@ def get_google_calendar_service(email: str) -> Any:
                     }
                     credentials_factory: Any = Credentials
                     creds = credentials_factory(**creds_dict)
-                    return build("calendar", "v3", credentials=creds)
+                    # The Calendar schema ships with the client. Legacy cache
+                    # autodetection imports optional backends before reading it.
+                    return build(
+                        "calendar", "v3", credentials=creds,
+                        cache_discovery=False, static_discovery=True,
+                    )
                 except Exception as e:
                     log.error(f"Error building service for {email}: {e}")
                     return None
