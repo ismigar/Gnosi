@@ -1,4 +1,6 @@
 import { bulkUpdateIntegrations } from '../../../shared/api/integrations';
+import { queryClient } from '../../../shared/api/query-client';
+import { contactQueryKeys } from '../../../shared/api/useContactsData';
 import { syncContacts as requestContactsSync } from '../../../shared/api/contacts';
 import { syncCalendar } from '../../../shared/api/calendar';
 import { syncMail } from '../../../shared/api/mail';
@@ -102,6 +104,7 @@ export function useSettingsAccounts(state: Input) {
           password: account.password,
           username: account.username,
         });
+        await queryClient.invalidateQueries({ queryKey: contactQueryKeys.all });
       } else if (category === 'calendar') {
         data = await syncCalendar(email);
       } else {

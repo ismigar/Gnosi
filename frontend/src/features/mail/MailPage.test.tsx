@@ -2,6 +2,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiProvider } from '../../shared/api/ApiProvider';
 import { queryClient } from '../../shared/api/query-client';
 import { dispatchWindowEvent } from '../../shared/platform/browser-events';
 import MailPage from './MailPage';
@@ -12,6 +13,8 @@ import type {
   MailUndoExtra,
 } from './page/mailPageModel';
 
+
+vi.mock('../../shared/api/contacts', () => ({ fetchContacts: vi.fn(() => Promise.resolve([])) }));
 
 type FetchIntegrations = typeof import('../../shared/api/integrations').fetchIntegrations;
 type FetchMailCounts = typeof import('../../shared/api/mail').fetchMailCounts;
@@ -270,7 +273,7 @@ async function settle(): Promise<void> {
 
 async function renderPage(): Promise<void> {
   await act(async () => {
-    root.render(<MailPage />);
+    root.render(<ApiProvider><MailPage /></ApiProvider>);
     await settle();
   });
 }

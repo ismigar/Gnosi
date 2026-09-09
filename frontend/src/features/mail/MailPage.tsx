@@ -1,3 +1,5 @@
+import { ContactPhotosProvider } from '../../shared/ui/avatars/ContactPhotosProvider';
+
 import { MailTagsProvider } from './hooks/useMailTags';
 import { MailPageView } from './page/MailPageView';
 import { useMailPageController } from './page/useMailPageController';
@@ -12,7 +14,9 @@ function MailPageInner() {
 export default function MailPage() {
   return (
     <MailTagsProvider>
-      <MailPageInner />
+      <ContactPhotosProvider>
+        <MailPageInner />
+      </ContactPhotosProvider>
     </MailTagsProvider>
   );
 }

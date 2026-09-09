@@ -117,18 +117,21 @@ def list_google_contacts(email: str, page_size: int = 200) -> list[Contact]:
         raise Exception(f"Could not initialize the Google service for {email}")
 
     try:
-        results = (
-            service.people()
-            .connections()
-            .list(
+        connections: list[Contact] = []
+        page_token = None
+        while True:
+            results = service.people().connections().list(
                 resourceName="people/me",
                 pageSize=page_size,
+                pageToken=page_token,
                 personFields="names,emailAddresses,phoneNumbers,organizations,addresses,biographies,metadata,photos",
-            )
-            .execute()
-        )
-        connections = results.get("connections", [])
-        return cast(list[Contact], connections) if isinstance(connections, list) else []
+            ).execute()
+            page = results.get("connections", [])
+            if isinstance(page, list):
+                connections.extend(person for person in page if isinstance(person, dict))
+            page_token = results.get("nextPageToken")
+            if not page_token:
+                return connections
     except Exception as exc:
         log.error("Error listing Google contacts for %s: %s", email, exc)
         raise
@@ -326,9 +329,12 @@ def parse_google_contact_to_dict(person: Contact) -> Contact:
     if addrs:
         parsed["address"] = addrs[0].get("streetAddress", "")
 
-    photos = person.get("photos", [])
+    photos = [
+        photo for photo in person.get("photos", [])
+        if not photo.get("default") and photo.get("url")
+    ]
     if photos:
-        # Get the primary photo or the first one available
+        # Ignore generated placeholders so they cannot replace a local photo.
         primary_photo = next((p for p in photos if p.get("metadata", {}).get("primary")), photos[0])
         parsed["photo_url"] = primary_photo.get("url", "")
 

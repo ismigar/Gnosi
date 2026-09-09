@@ -24,7 +24,6 @@ export interface ContactFormController {
     readonly removeField: (field: ContactMultiField, index: number) => void;
     readonly removeTag: (tag: string) => void;
     readonly setField: (field: ContactNamedField, value: string) => void;
-    readonly setPhotoUrl: (photoUrl: string) => void;
     readonly setType: (type: string) => void;
     readonly toWriteInput: () => ContactWriteInput;
     readonly updateFieldItem: (
@@ -108,10 +107,6 @@ export function useContactFormState(
         }));
     }, [updateData]);
 
-    const setPhotoUrl = useCallback((photoUrl: string): void => {
-        updateData((current) => ({ ...current, photo_url: photoUrl }));
-    }, [updateData]);
-
     const toWriteInput = useCallback(
         (): ContactWriteInput => toContactWriteInput(formData),
         [formData],
@@ -124,7 +119,6 @@ export function useContactFormState(
         removeField,
         removeTag,
         setField,
-        setPhotoUrl,
         setType,
         toWriteInput,
         updateFieldItem,

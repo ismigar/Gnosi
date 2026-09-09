@@ -8,6 +8,7 @@ import {
 import { Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { ContactAvatar } from '../../../shared/ui/avatars/ContactAvatar';
 import {
   fetchMailRecipientSuggestions,
   type MailSuggestions,
@@ -40,9 +41,7 @@ function SuggestionItem({ item, onSelect }: SuggestionItemProps) {
         onSelect(item.email);
       }}
     >
-      <div className="w-7 h-7 rounded-lg bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] flex items-center justify-center text-[11px] font-bold uppercase shrink-0">
-        {(item.name || item.email).at(0) ?? ''}
-      </div>
+      <ContactAvatar name={item.name} email={item.email} size={28} />
       <div className="flex flex-col min-w-0">
         {item.name && (
           <span className="text-[13px] font-semibold text-[var(--text-primary)] truncate">

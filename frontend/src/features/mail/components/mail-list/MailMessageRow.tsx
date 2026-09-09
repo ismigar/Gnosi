@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { ContactAvatar } from '../../../../shared/ui/avatars/ContactAvatar';
+
 import MailTagPicker, { TagPill } from '../MailTagPicker';
 import {
   cleanMailSender,
@@ -88,6 +90,7 @@ export function MailMessageRow({
           {Boolean(message.thread_unread) && !isSelected && (
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)] shrink-0 group-hover:hidden" />
           )}
+          <ContactAvatar name={cleanMailSender(message.sender)} email={message.sender} size={28} />
           <span className={`text-[13.5px] truncate ${message.thread_unread ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
             {message.thread_senders && message.thread_senders.length > 1
               ? `${message.thread_senders.slice(0, 2).join(', ')}${message.thread_senders.length > 2 ? '…' : ''}`
@@ -112,9 +115,7 @@ export function MailMessageRow({
           {controller.hoveredMailId === messageIdentity && (
             <div className="absolute left-1/3 top-full mt-2 z-[var(--z-modal-dropdown)] w-96 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-5 animate-in fade-in zoom-in-95 duration-200 pointer-events-none origin-top-left">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)] flex items-center justify-center text-[11px] font-bold uppercase border border-[var(--border-primary)]">
-                  {message.sender[0]}
-                </div>
+                <ContactAvatar name={cleanMailSender(message.sender)} email={message.sender} />
                 <div className="flex flex-col">
                   <span className="text-[13px] font-bold text-[var(--text-primary)] leading-tight">
                     {cleanMailSender(message.sender)}

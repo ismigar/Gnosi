@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 20 | 2559 | 0 |
-| `features` | 1074 | 124385 | 33 |
+| `features` | 1073 | 124218 | 33 |
 | `generated` | 2 | 44319 | 453 |
-| `shared` | 240 | 30329 | 394 |
+| `shared` | 244 | 30442 | 394 |
 
 ## app
 
@@ -208,22 +208,21 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/calendar/page/useCalendarPage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarPage.ts) | 73 | `useCalendarPage` | — |
 | [`frontend/src/features/calendar/page/useCalendarRecurrence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarRecurrence.ts) | 159 | `useCalendarRecurrence` | — |
 | [`frontend/src/features/calendar/page/useCalendarSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/calendar/page/useCalendarSources.ts) | 172 | `useCalendarSources` | — |
-| [`frontend/src/features/contacts/ContactsPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/ContactsPage.tsx) | 218 | `ContactsPage`, `function` | — |
+| [`frontend/src/features/contacts/ContactsPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/ContactsPage.tsx) | 221 | `ContactsPage`, `function` | — |
 | [`frontend/src/features/contacts/components/ContactDetail.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetail.tsx) | 54 | `ContactDetail`, `function` | — |
 | [`frontend/src/features/contacts/components/ContactDetailAdditional.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetailAdditional.tsx) | 78 | `ContactDetailAdditional`, `ContactDetailMetadata` | — |
-| [`frontend/src/features/contacts/components/ContactDetailHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetailHeader.tsx) | 135 | `ContactDetailHeader` | — |
+| [`frontend/src/features/contacts/components/ContactDetailHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetailHeader.tsx) | 91 | `ContactDetailHeader` | — |
 | [`frontend/src/features/contacts/components/ContactDetailInfo.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactDetailInfo.tsx) | 103 | `ContactDetailInfo` | — |
-| [`frontend/src/features/contacts/components/ContactForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactForm.tsx) | 193 | `ContactForm`, `function` | — |
-| [`frontend/src/features/contacts/components/ContactIdentityFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactIdentityFields.tsx) | 213 | `ContactIdentityFields` | — |
-| [`frontend/src/features/contacts/components/ContactList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactList.tsx) | 276 | `ContactList`, `function` | — |
+| [`frontend/src/features/contacts/components/ContactForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactForm.tsx) | 192 | `ContactForm`, `function` | — |
+| [`frontend/src/features/contacts/components/ContactIdentityFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactIdentityFields.tsx) | 156 | `ContactIdentityFields` | — |
+| [`frontend/src/features/contacts/components/ContactList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactList.tsx) | 236 | `ContactList`, `function` | — |
 | [`frontend/src/features/contacts/components/ContactMultiFieldSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactMultiFieldSection.tsx) | 134 | `ContactMultiFieldSection` | — |
 | [`frontend/src/features/contacts/components/ContactTagsSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/ContactTagsSection.tsx) | 95 | `ContactTagsSection` | — |
 | [`frontend/src/features/contacts/components/contactFormModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/contactFormModel.ts) | 150 | `contactFieldItems`, `contactTags`, `createContactFormData`, `toContactWriteInput` | — |
 | [`frontend/src/features/contacts/components/contactFormStyles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/contactFormStyles.ts) | 43 | `inputStyle`, `labelStyle`, `sectionTitleStyle`, `selectStyle` | — |
-| [`frontend/src/features/contacts/components/useContactFormState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/useContactFormState.ts) | 132 | `useContactFormState` | — |
+| [`frontend/src/features/contacts/components/useContactFormState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/components/useContactFormState.ts) | 126 | `useContactFormState` | — |
 | [`frontend/src/features/contacts/contactIntegrationCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/contactIntegrationCatalog.ts) | 68 | `buildContactIntegrationCatalog` | — |
 | [`frontend/src/features/contacts/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/index.ts) | 3 | `ContactsPage` | — |
-| [`frontend/src/features/contacts/model/avatar-utils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/contacts/model/avatar-utils.ts) | 29 | `getGoogleAvatarUrl`, `getGravatarUrl`, `isGmail` | — |
 | [`frontend/src/features/control-center/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/Dashboard.tsx) | 96 | `Dashboard`, `function` | — |
 | [`frontend/src/features/control-center/dashboard/AddMemberDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/AddMemberDialog.tsx) | 51 | `AddMemberDialog` | — |
 | [`frontend/src/features/control-center/dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/control-center/dashboard/ConfirmationDialogs.tsx) | 49 | `ConfirmationDialogs` | — |
@@ -318,8 +317,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/literature/workspace/literatureTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/workspace/literatureTypes.ts) | 239 | `agentsFromConfiguration`, `asAiResult`, `asReview`, `asReviewDetail`, `asSearch`, `asWork`, `isRecord` | — |
 | [`frontend/src/features/literature/workspace/useLiteratureReview.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/workspace/useLiteratureReview.ts) | 417 | `useLiteratureReview` | — |
 | [`frontend/src/features/literature/workspace/useLiteratureSearch.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/workspace/useLiteratureSearch.ts) | 492 | `useLiteratureSearch` | — |
-| [`frontend/src/features/mail/MailPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/MailPage.tsx) | 18 | `MailPage`, `function` | — |
-| [`frontend/src/features/mail/components/MailAddressInput.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAddressInput.tsx) | 213 | `AddressInput` | — |
+| [`frontend/src/features/mail/MailPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/MailPage.tsx) | 22 | `MailPage`, `function` | — |
+| [`frontend/src/features/mail/components/MailAddressInput.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAddressInput.tsx) | 212 | `AddressInput` | — |
 | [`frontend/src/features/mail/components/MailAttachments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAttachments.tsx) | 124 | `MailAttachments` | — |
 | [`frontend/src/features/mail/components/MailAvailabilityOverlay.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailAvailabilityOverlay.tsx) | 92 | `MailAvailabilityOverlay` | — |
 | [`frontend/src/features/mail/components/MailBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailBody.tsx) | 257 | `MailBody` | — |
@@ -347,7 +346,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/mail/components/mail-list/MailListBody.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListBody.tsx) | 105 | `MailListBody` | — |
 | [`frontend/src/features/mail/components/mail-list/MailListHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListHeader.tsx) | 235 | `MailListHeader` | — |
 | [`frontend/src/features/mail/components/mail-list/MailListMenus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListMenus.tsx) | 179 | `MailListMenus` | — |
-| [`frontend/src/features/mail/components/mail-list/MailMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessageRow.tsx) | 266 | `MailMessageRow` | — |
+| [`frontend/src/features/mail/components/mail-list/MailMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessageRow.tsx) | 267 | `MailMessageRow` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListCache.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListCache.ts) | 115 | `purgeMailListCacheMessages`, `readMailListCache`, `writeMailListCache` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListModel.ts) | 408 | `DEFAULT_MAIL_LIST_CONFIG`, `accountEmails`, `buildMailListQuery`, `cleanMailSender`, `deduplicateMailListMessages`, `effectiveMailListConfig`, `enabledMailAccounts`, `filterOutMailThread`, `formatMailListTimestamp`, `groupMailListMessages`, `mailFolderTitleKey`, `mailListCacheKey`, `mailListMessageIdentity`, `mailListThreadIdentity`, `mapMailTagsByIdentity`, `processMailListMessages`, `setMailTagsByIdentity`, `threadMailListMessages` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListTypes.ts) | 115 | — | — |
@@ -565,7 +564,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/stateTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/stateTypes.ts) | 5 | — | — |
 | [`frontend/src/features/settings/global-settings/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/types.ts) | 140 | — | — |
 | [`frontend/src/features/settings/global-settings/useGlobalSettingsController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useGlobalSettingsController.ts) | 39 | `useGlobalSettingsController` | — |
-| [`frontend/src/features/settings/global-settings/useSettingsAccounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsAccounts.ts) | 145 | `useSettingsAccounts` | — |
+| [`frontend/src/features/settings/global-settings/useSettingsAccounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsAccounts.ts) | 148 | `useSettingsAccounts` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsCollections.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsCollections.ts) | 111 | `useSettingsCollections` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsGraph.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsGraph.tsx) | 176 | `useSettingsGraph` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 166 | `useSettingsLifecycle` | — |
@@ -1384,6 +1383,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/routing/vaultQuickNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultQuickNavigation.ts) | 85 | `isGeneratedIndexNote`, `openVaultNote`, `selectRecentNotes` | — |
 | [`frontend/src/shared/routing/vaultRouting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultRouting.ts) | 196 | `activateVault`, `activateVaultSlug`, `canonicalVaultSwitchPath`, `initializeVaultRouting`, `knowledgeDocumentPath`, `knowledgeDocumentType`, `legacyBrowserPathToCanonical`, `vaultAppFromPath`, `vaultPath` | — |
 | [`frontend/src/shared/schema/fieldOrdering.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/schema/fieldOrdering.ts) | 33 | `sortFieldItems` | — |
+| [`frontend/src/shared/ui/avatars/ContactAvatar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/ContactAvatar.tsx) | 56 | `ContactAvatar` | — |
+| [`frontend/src/shared/ui/avatars/ContactPhotosContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/ContactPhotosContext.ts) | 5 | `ContactPhotosContext` | — |
+| [`frontend/src/shared/ui/avatars/ContactPhotosProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/ContactPhotosProvider.tsx) | 12 | `ContactPhotosProvider` | — |
+| [`frontend/src/shared/ui/avatars/contactPhotos.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/avatars/contactPhotos.ts) | 40 | `buildContactPhotoIndex`, `contactEmailKey`, `contactInitials` | — |
 | [`frontend/src/shared/ui/dialogs/ConfirmModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/dialogs/ConfirmModal.tsx) | 186 | `ConfirmModal` | — |
 | [`frontend/src/shared/ui/dialogs/PromptModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/dialogs/PromptModal.tsx) | 195 | `PromptModal` | — |
 | [`frontend/src/shared/ui/filesystem-picker/FilesystemPickerModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/filesystem-picker/FilesystemPickerModal.tsx) | 86 | `FilesystemPickerModal` | — |

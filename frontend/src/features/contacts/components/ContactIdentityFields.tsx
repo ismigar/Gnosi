@@ -3,12 +3,11 @@ import {
     Briefcase,
     Building2,
     Globe,
-    Search,
     Tag,
     User,
 } from 'lucide-react';
 
-import { getGoogleAvatarUrl, isGmail } from '../model/avatar-utils';
+import { ContactAvatar } from '../../../shared/ui/avatars/ContactAvatar';
 import type {
     ContactAccount,
     ContactFormData,
@@ -20,27 +19,13 @@ export interface ContactIdentityFieldsProps {
     readonly accounts: readonly ContactAccount[];
     readonly formData: ContactFormData;
     readonly onFieldChange: (field: ContactNamedField, value: string) => void;
-    readonly onPhotoUrlChange: (photoUrl: string) => void;
     readonly onTypeChange: (type: string) => void;
-}
-
-function hideBrokenPhoto(event: React.SyntheticEvent<HTMLImageElement>): void {
-    const image = event.currentTarget;
-    image.style.display = 'none';
-    const parent = image.parentElement;
-    if (parent) {
-        parent.style.background = 'var(--gnosi-blue)';
-        parent.style.color = 'white';
-    }
-    const fallback = image.nextElementSibling;
-    if (fallback instanceof HTMLElement) fallback.style.display = 'block';
 }
 
 export function ContactIdentityFields({
     accounts,
     formData,
     onFieldChange,
-    onPhotoUrlChange,
     onTypeChange,
 }: ContactIdentityFieldsProps) {
     const { t } = useTranslation();
@@ -78,32 +63,15 @@ export function ContactIdentityFields({
                 <div style={{ gridColumn: 'span 2' }}>
                     <label style={labelStyle}><Globe size={14} /> {t('contacts.photo_url_label', "Photo URL")}</label>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '10px' }}>
-                        <div style={{
-                            width: '64px',
-                            height: '64px',
-                            borderRadius: '12px',
-                            background: formData.photo_url ? 'transparent' : 'var(--gnosi-blue)',
-                            border: '1px solid var(--border-primary)',
-                            overflow: 'hidden',
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                        }}>
-                            {formData.photo_url ? (
-                                <img
-                                    src={formData.photo_url}
-                                    alt={t('contacts.photo_preview_alt', 'Preview')}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    onError={hideBrokenPhoto}
-                                />
-                            ) : null}
-                            <div style={{ display: formData.photo_url ? 'none' : 'block' }}>
-                                <User size={32} />
-                            </div>
-                        </div>
+                        <ContactAvatar
+                            name={formData.name}
+                            email={primaryEmail}
+                            photoUrl={formData.photo_url}
+                            size={64}
+                            borderRadius={12}
+                            fallback={<User size={32} />}
+                            style={{ border: '1px solid var(--border-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        />
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <input
@@ -114,34 +82,9 @@ export function ContactIdentityFields({
                                     placeholder={t('contacts.photo_url_placeholder', "https://example.com/photo.jpg")}
                                     style={{ ...inputStyle, marginTop: 0, flex: 1 }}
                                 />
-                                {isGmail(primaryEmail) && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            onPhotoUrlChange(getGoogleAvatarUrl(primaryEmail));
-                                        }}
-                                        style={{
-                                            padding: '0 12px',
-                                            background: 'rgba(59,130,246,0.1)',
-                                            color: 'var(--gnosi-blue)',
-                                            border: '1px solid rgba(59,130,246,0.2)',
-                                            borderRadius: '8px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                        title={t('contacts.fetch_gmail_avatar', "Get Gmail avatar")}
-                                    >
-                                        <Search size={14} /> Gmail
-                                    </button>
-                                )}
                             </div>
                             <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-tertiary)', opacity: 0.7 }}>
-                                {t('contacts.photo_url_hint', "Enter a direct URL to an image or use the Gmail button if possible.")}
+                                {t('contacts.photo_url_hint', "Enter an image URL. Available Google photos are imported when you sync Google Contacts.")}
                             </p>
                         </div>
                     </div>

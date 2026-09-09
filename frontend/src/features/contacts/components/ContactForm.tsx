@@ -106,7 +106,6 @@ export default function ContactForm({
                     accounts={contactAccounts}
                     formData={formData}
                     onFieldChange={controller.setField}
-                    onPhotoUrlChange={controller.setPhotoUrl}
                     onTypeChange={controller.setType}
                 />
                 <ContactMultiFieldSection

@@ -2905,7 +2905,7 @@
     "phones_section": "Phones",
     "addresses_section": "Addresses",
     "fetch_gmail_avatar": "Get Gmail avatar",
-    "photo_url_hint": "Enter a direct URL to an image or use the Gmail button if possible.",
+    "photo_url_hint": "Enter an image URL. Available Google photos are imported when you sync Google Contacts.",
     "name_placeholder": "E.g.: Joan Sala",
     "photo_preview_alt": "Preview",
     "photo_url_placeholder": "https://example.com/photo.jpg",

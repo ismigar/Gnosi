@@ -138,7 +138,6 @@ describe('ContactForm', () => {
 
         act(() => {
             addTag.click();
-            findButton(container, 'Gmail').click();
             findButton(container, 'Business').click();
             backButton.click();
             findButton(container, 'Cancel').click();
@@ -160,7 +159,7 @@ describe('ContactForm', () => {
             { label: 'home', value: 'ada@gmail.com' },
             { label: 'home', value: 'ada@engine.test' },
         ]);
-        expect(payload.photo_url).toBe('');
+        expect(payload.photo_url).toBe(contact.photo_url);
         expect(payload.source).toBe('sync@gmail.test');
         expect(payload.tags).toEqual(['history', 'computing']);
         expect(payload.type).toBe('b2b');

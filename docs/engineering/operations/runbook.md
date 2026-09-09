@@ -155,10 +155,11 @@ icons. Other icons and heavy routes remain lazy, and shared icon dependencies
 keep automatic placement. After changing this group, check the compiled import
 graph for new cycles and unexpected initial dependencies, as well as byte budgets.
 
-An invalid session cookie can reject vault requests even when local anonymous
-access is allowed. `/auth/me` distinguishes that case from an ordinary anonymous
-401. The interface offers an explicit session recovery action for the invalid
-cookie: it calls the existing logout endpoint, clears local identity metadata
+An invalid optional session cookie is ignored while local personal access is
+allowed, so an expired session cannot introduce a registration or login step.
+Where credentials are required, `/auth/me` distinguishes an invalid cookie from
+an ordinary anonymous 401. The interface offers an explicit session recovery
+action: it calls the existing logout endpoint, clears local identity metadata
 only after success, and reloads the application. A failed logout keeps recovery
 available. This does not change authentication policy or public shared-page access.
 
