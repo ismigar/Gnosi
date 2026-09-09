@@ -55,6 +55,10 @@ verificación corresponde a esa revisión, no a una instalación, migración o
 publicación validada en todas las plataformas. Las órdenes siguientes son
 instrucciones para el operador, no pruebas de que se hayan ejecutado.
 
+El modo personal local se abre sin registro para cualquier perfil. Los registros adicionales de cuentas no activan la autenticación: las solicitudes anónimas reutilizan el propietario del espacio personal, priorizando los propietarios establecidos sobre las identidades generadas y después la pertenencia más antigua. Antes de crear el espacio personal se reutiliza la cuenta establecida más antigua; una instalación vacía crea la identidad local. Los despliegues de organización o expuestos y las opciones explícitas de autenticación mantienen el requisito de credenciales.
+
+La configuración agrupa los editores de los complementos en Plugins y elimina las entradas duplicadas del menú general. La lista de complementos, las instalaciones de terceros, el catálogo y las actualizaciones siguen el orden alfabético del nombre visible en el idioma de la interfaz. Los accesos existentes a Referencias abren directamente su complemento; los demás editores mantienen las acciones de configuración y un botón para volver a Plugins.
+
 ## Desarrollo nativo como primera opción
 
 Ejecute el backend FastAPI y el frontend Vite de forma nativa. Docker, Electron,

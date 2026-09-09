@@ -18,7 +18,8 @@ import { Mail } from 'lucide-react';
 import NotionImportSettings from '../../notion-import/NotionImportSettings';
 import { PluginsSettings } from '../../plugin-management/PluginsSettings';
 import { ReaderPanel } from './ReaderPanel';
-import { ReferencesPanel } from './ReferencesPanel';
+import { ArrowLeft } from 'lucide-react';
+import { pluginForSettingsTab } from './pluginSettingsNavigation';
 import { RefreshCw } from 'lucide-react';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
@@ -31,7 +32,7 @@ import { X } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
 
 export function GlobalSettingsView({ context }: { context: SettingsController }) {
-  const { activeTab, aiRegistry, confirmConfig, draft, googleCalAuthError, handleClose, initialPluginId, isModelComparisonOpen, isOpen, isUsageHistoryOpen, mailSection, panelRef, pickerField, pickerOpen, setActiveTab, setAddAccountType, setConfirmConfig, setDraft, setIsModelComparisonOpen, setIsUsageHistoryOpen, setMailSection, setPickerOpen, sidebarNavigation, t, tn } = context;
+  const { activeTab, aiRegistry, confirmConfig, draft, googleCalAuthError, handleClose, initialPluginId, isModelComparisonOpen, isOpen, isUsageHistoryOpen, mailSection, panelRef, pickerField, pickerOpen, setActiveTab, setAddAccountType, setAiSection, setConfirmConfig, setDraft, setIsModelComparisonOpen, setIsUsageHistoryOpen, setMailSection, setPickerOpen, sidebarNavigation, t, tn } = context;
   return (
     <>
       <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
@@ -55,6 +56,11 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
           {/* CONTENT AREA */}
           <main className="settings-main gnosi-modal-scroll">
             <div className="settings-content-wrap">
+              {activeTab !== 'references' && pluginForSettingsTab(activeTab) && (
+                <button type="button" className="btn-gnosi-secondary" onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <ArrowLeft size={16} /> {t('settings.tabs.plugins', 'Plugins')}
+                </button>
+              )}
 
               {/* API I TOKENS (PAT) */}
               {activeTab === 'api' && (
@@ -89,9 +95,6 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
 
               {/* WORKSPACE — member management and vault access */}
               <WorkspacePanel context={context} />
-
-              {/* REFERENCES (Zotero style) */}
-              <ReferencesPanel context={context} />
 
               {/* LANGUAGE AND REGION */}
               <LanguagePanel context={context} />
@@ -165,11 +168,16 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
               )}
 
               {/* PLUGINS */}
-              {activeTab === 'plugins' && (
+              {(activeTab === 'plugins' || activeTab === 'references') && (
                 <PluginsSettings
-                  initialPluginId={initialPluginId}
+                  initialPluginId={activeTab === 'references' ? 'resources' : initialPluginId}
                   onOpenSettingsTab={(tab) => {
-                    setActiveTab(tab);
+                    if (tab === 'automations') {
+                      setAiSection('automations');
+                      setActiveTab('ai');
+                    } else {
+                      setActiveTab(tab);
+                    }
                     setAddAccountType(null);
                   }}
                 />

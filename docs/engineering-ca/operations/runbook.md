@@ -55,6 +55,10 @@ verificació correspon a aquesta revisió, no a una instal·lació, migració o
 publicació validada a totes les plataformes. Les ordres següents són
 instruccions per a l’operador, no evidència que s’hagin executat.
 
+El mode personal local s’obre sense registre per a qualsevol perfil. Els registres addicionals de comptes no activen l’autenticació: les peticions anònimes reutilitzen el propietari de l’espai personal, prioritzant els propietaris establerts sobre les identitats generades i després la pertinença més antiga. Si encara no hi ha espai personal, es reutilitza el compte establert més antic; una instal·lació buida crea la identitat local. Els desplegaments d’organització o exposats i les opcions explícites d’autenticació mantenen el requisit de credencials.
+
+La configuració agrupa els editors dels connectors a Plugins i elimina les entrades duplicades del menú general. La llista de connectors, les instal·lacions de tercers, el catàleg i les actualitzacions segueixen l’ordre alfabètic del nom visible en l’idioma de la interfície. Els accessos existents a Referències obren directament el seu connector; els altres editors mantenen les accions de configuració i un botó per tornar a Plugins.
+
 ## Desenvolupament natiu com a primera opció
 
 Executeu el backend FastAPI i el frontend Vite de manera nativa. Docker,

@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 505 | 2082 |
-| pytest | 475 | 3419 |
+| Vitest | 507 | 2085 |
+| pytest | 475 | 3425 |
 
 ## Archivos
 
@@ -190,6 +190,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/plugin-management/PluginSettingsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/PluginSettingsPanel.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/PluginsSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/PluginsSettings.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/llmWikiModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/llmWikiModel.test.ts) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsOrder.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsOrder.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/ReaderDashboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/feed-manager/FeedManagerModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/FeedManagerModal.test.tsx) | 6 | call-pattern estimate |
@@ -208,6 +209,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/AIUsageHistoryModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryModal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AppSidebarSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/aiUsageHistory.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 12 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsGraphModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.test.ts) | 2 | call-pattern estimate |
@@ -593,7 +595,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_auth_account_settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_account_settings.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_auth_central_gate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_central_gate.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_auth_email_case.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_email_case.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_auth_enforcement_flag.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_enforcement_flag.py) | 27 | Python AST |
+| pytest | [`backend/tests/test_auth_enforcement_flag.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_enforcement_flag.py) | 33 | Python AST |
 | pytest | [`backend/tests/test_auth_gate_does_not_break_things.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_gate_does_not_break_things.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_auth_placeholder_account.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_placeholder_account.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_auth_public_surface.py) | 8 | Python AST |
