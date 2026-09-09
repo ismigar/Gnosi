@@ -145,6 +145,13 @@ upload contract. Status, warmup and recognition dictionaries are validated by
 dedicated Pydantic response models before retaining their historical mapping
 shape for direct callers and the byte-stable OpenAPI surface.
 
+The Vault catalog marks only one registry identity as active, even when legacy
+aliases share a folder. Selection follows the request header, query parameter,
+then cookie, restricted to entries matching the resolved active folder. The
+browser's current selection takes precedence over cached catalog flags, keeping
+the menu, settings selector and displayed Vault name in sync. Switching does not
+rewrite registry aliases or favorite metadata.
+
 ## Page lifecycle
 
 ```mermaid

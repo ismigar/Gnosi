@@ -155,6 +155,15 @@ reconocimiento se validan mediante modelos de respuesta Pydantic específicos,
 conservando después su estructura histórica de diccionario para las llamadas
 directas y la interfaz OpenAPI estable byte a byte.
 
+El catálogo de Vaults marca una sola identidad del registro como activa, aunque
+varios alias antiguos compartan carpeta. La selección sigue la cabecera de la
+petición, el parámetro de consulta y después la cookie, limitada a las entradas
+que coinciden con la carpeta activa resuelta. La selección actual del navegador
+tiene prioridad sobre los indicadores guardados en caché, manteniendo
+sincronizados el menú, el selector de configuración y el nombre del Vault
+mostrado. Cambiar de Vault no reescribe los alias del registro ni los metadatos
+de favoritos.
+
 ## Ciclo de vida de las páginas
 
 ```mermaid
