@@ -6,7 +6,8 @@ import { FileText } from 'lucide-react';
 import { GeneralPanel } from './GeneralPanel';
 import { LanguagePanel } from './LanguagePanel';
 import { Mail } from 'lucide-react';
-import { ReferencesPanel } from './ReferencesPanel';
+import { ArrowLeft } from 'lucide-react';
+import { pluginForSettingsTab } from './pluginSettingsNavigation';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
 import { SettingsSidebar } from './SettingsSidebar';
@@ -58,6 +59,11 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
           {/* CONTENT AREA */}
           <main className="settings-main gnosi-modal-scroll">
             <div className="settings-content-wrap">
+              {activeTab !== 'references' && pluginForSettingsTab(activeTab) && (
+                <button type="button" className="btn-gnosi-secondary" onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <ArrowLeft size={16} /> {t('settings.tabs.plugins', 'Plugins')}
+                </button>
+              )}
               <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
 
                 {/* API I TOKENS (PAT) */}
@@ -93,9 +99,6 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
 
                 {/* WORKSPACE — member management and vault access */}
                 {activeTab === 'workspace' && <WorkspacePanel context={context} />}
-
-                {/* REFERENCES (Zotero style) */}
-                <ReferencesPanel context={context} />
 
                 {/* LANGUAGE AND REGION */}
                 <LanguagePanel context={context} />
@@ -169,9 +172,9 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                 )}
 
                 {/* PLUGINS */}
-                {activeTab === 'plugins' && (
+                {(activeTab === 'plugins' || activeTab === 'references') && (
                   <PluginsSettings
-                    initialPluginId={initialPluginId}
+                    initialPluginId={activeTab === 'references' ? 'resources' : initialPluginId}
                     onOpenSettingsTab={(tab) => {
                       if (tab === 'automations') {
                         setAiSection('automations');

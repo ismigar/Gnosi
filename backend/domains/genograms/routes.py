@@ -5,14 +5,19 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from backend.services.workspace_service import get_workspace_context, require_role
 from backend.services.plugin_access import require_plugins
-from .contracts import GenogramConfig, GenogramGraphRequest, GenogramGraphResponse, GenogramSetupRequest, GenogramSetupResponse
+from .contracts import GenogramConfig, GenogramGraphRequest, GenogramGraphResponse, GenogramSetupRequest, GenogramSetupResponse, GenogramSetupStatus
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.views.row_resolution import resolve_row_ids
 from .model import project, validate_network
 from .locking import network_lock
-from .storage import field_names, identity, network_tables, read_network, records, setup
+from .storage import field_names, identity, network_tables, read_network, records, setup, setup_status
 
-router = APIRouter(prefix="/api/vault/genograms", tags=["Genograms"], dependencies=[Depends(get_workspace_context), Depends(require_plugins("genograms"))])
+router = APIRouter(prefix="/api/vault/genograms", tags=["Genograms"], dependencies=[Depends(get_workspace_context)])
+
+
+@router.get("/status", response_model=GenogramSetupStatus)
+async def genograms_status() -> GenogramSetupStatus:
+    return await asyncio.to_thread(setup_status)
 
 
 @router.post("/prepare", response_model=GenogramSetupResponse, dependencies=[Depends(require_role("editor"))])
@@ -50,6 +55,6 @@ def graph(request: GenogramGraphRequest) -> GenogramGraphResponse:
         return GenogramGraphResponse(**ids.model_dump(), people=people, relations=relations, visible_ids=visible, hidden_connections=hidden, issues=issues, config=config, people_fields=field_names(tables["people"], "people"), relations_fields=field_names(tables["relations"], "relations"))
 
 
-@router.post("/graph", response_model=GenogramGraphResponse)
+@router.post("/graph", response_model=GenogramGraphResponse, dependencies=[Depends(require_plugins("genograms"))])
 async def query_genogram(request: GenogramGraphRequest) -> GenogramGraphResponse:
     return await asyncio.to_thread(graph, request)

@@ -11,7 +11,7 @@ import { queryClient } from '../../../shared/api/query-client';
 import { settingsPanelLoaders } from './settingsPanelLoaders';
 import { BUILTIN_PLUGINS } from '../../../shared/plugins/registry';
 
-const translations = vi.hoisted(() => ({ t: (key: string) => key, i18n: { changeLanguage: vi.fn() } }));
+const translations = vi.hoisted(() => ({ t: (key: string) => key, i18n: { language: 'en', changeLanguage: vi.fn() } }));
 const automationActions = vi.hoisted(() => ({ save: vi.fn(), remove: vi.fn(), run: vi.fn(), enablePlugin: vi.fn() }));
 vi.mock('react-i18next', async importOriginal => ({ ...await importOriginal<typeof import('react-i18next')>(), useTranslation: () => translations }));
 vi.mock('../AI/useAIResources', () => ({ useAIResources: () => ({
@@ -21,8 +21,8 @@ vi.mock('../AI/useAIResources', () => ({ useAIResources: () => ({
   saveAutomation: automationActions.save, deleteAutomation: automationActions.remove, runAutomation: automationActions.run,
 }) }));
 vi.mock('../../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({
-  builtins: BUILTIN_PLUGINS.filter(plugin => plugin.id === 'automations'),
-  loaded: true, loadError: false, isEnabled: (id: string) => id === 'automations',
+  builtins: BUILTIN_PLUGINS.filter(plugin => ['automations', 'resources'].includes(plugin.id)),
+  loaded: true, loadError: false, isEnabled: (id: string) => ['automations', 'resources'].includes(id),
   setPluginEnabled: automationActions.enablePlugin, reload: vi.fn(),
 }) }));
 vi.mock('../../../shared/api/plugins', async importOriginal => ({
@@ -36,6 +36,9 @@ vi.mock('../AIUsageHistoryModal', () => ({ default: () => null }));
 vi.mock('../../vault-management/VaultSwitcher', () => ({ default: () => null }));
 vi.mock('../../notion-import/NotionImportSettings', () => ({ default: () => null }));
 vi.mock('../../mail/editor/Mail/MailBlockEditor', () => ({ default: () => null }));
+vi.mock('../../literature/settings/ResourcesPluginConfig', () => ({
+  default: () => <div data-testid="resources-plugin-editor">Fixture references editor</div>,
+}));
 
 const model = { provider: 'fixture', model_id: 'fixture-model', enabled: true, supports_tools: true, context_window: 32000, custom_capability: ['read'] };
 const budget = { monthly_cost_cap: 2, enforce_block: false, preserved_policy: 'fixture' };
@@ -80,6 +83,7 @@ beforeAll(async () => {
     settingsPanelLoaders.graph(),
     settingsPanelLoaders.ai(),
     settingsPanelLoaders.plugins(),
+    import('../../literature/settings/ResourcesPluginConfig'),
   ]);
 }, 30_000);
 
@@ -159,15 +163,51 @@ describe('settings controller persistence contracts', () => {
     await advance();
     expect(snapshot().activeTab).toBe('ai');
     expect(snapshot().aiSection).toBe('automations');
-    expect(container.querySelector('.settings-sidebar__item.active')?.textContent).toContain('settings.tabs.ai');
+    expect(container.querySelector('.settings-sidebar__item.active')?.textContent).toContain('settings.tabs.plugins');
     expect(container.querySelector('.settings-section-tabs button[aria-current="page"]')?.textContent)
       .toContain('settings.ai.operations.automations_tab');
     expect(container.querySelector('.settings-main')?.textContent).toContain('Fixture automation');
+    const back = container.querySelector<HTMLButtonElement>('.settings-content-wrap > button');
+    expect(back?.textContent).toContain('settings.tabs.plugins');
+    await act(async () => { back?.click(); await vi.dynamicImportSettled(); });
+    await advance();
+    expect(snapshot().activeTab).toBe('plugins');
+    expect(container.querySelector('#settings-plugin-automations')).not.toBeNull();
     expect(writes()).toEqual([]);
     expect(automationActions.enablePlugin).not.toHaveBeenCalled();
     expect(automationActions.save).not.toHaveBeenCalled();
     expect(automationActions.run).not.toHaveBeenCalled();
     expect(automationActions.remove).not.toHaveBeenCalled();
+  });
+
+  it('opens the legacy references entry in the lazy Resources editor without writing or mounting it early', async () => {
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+    const scrollIntoView = vi.fn<HTMLElement['scrollIntoView']>();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    try {
+      await act(async () => {
+        root.render(<Harness isOpen onClose={vi.fn()} initialTab="plugins" showView />);
+        await vi.dynamicImportSettled();
+      });
+      await advance();
+      expect(container.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
+      await act(async () => {
+        root.render(<Harness isOpen onClose={vi.fn()} initialTab="references" showView />);
+        await Promise.resolve();
+      });
+      await advance();
+      await act(async () => { await vi.dynamicImportSettled(); });
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(snapshot().activeTab).toBe('references');
+      expect(container.querySelector('.settings-sidebar__item.active')?.textContent).toContain('settings.tabs.plugins');
+      expect(container.querySelector('#settings-plugin-resources [data-testid="resources-plugin-editor"]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-testid="resources-plugin-editor"]')).toHaveLength(1);
+      expect(writes()).toEqual([]);
+      expect(automationActions.enablePlugin).not.toHaveBeenCalled();
+    } finally {
+      if (originalScrollIntoView) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
   });
 
   it('hydrates once under StrictMode and reads again after closing and reopening without saving', async () => {

@@ -14,6 +14,15 @@ export type PluginSection = 'installed' | 'catalog' | 'updates';
 export type InstalledFilter = 'all' | 'enabled' | 'disabled';
 export type PluginConfigComponent = ComponentType;
 
+export function sortPluginsByName<T>(
+    plugins: readonly T[],
+    name: (plugin: T) => string,
+    language?: string,
+): T[] {
+    const collator = new Intl.Collator(language, { sensitivity: 'base', numeric: true });
+    return [...plugins].sort((left, right) => collator.compare(name(left), name(right)));
+}
+
 export function isPluginSection(value: string): value is PluginSection {
     return value === 'installed' || value === 'catalog' || value === 'updates';
 }

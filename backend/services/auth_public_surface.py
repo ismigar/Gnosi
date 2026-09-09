@@ -4,8 +4,8 @@ This is phase 2 of removing the `ismael-legacy` fallback (see
 `docs/dev_memory/directives/auth_remove_legacy_fallback.md`). `enforce_authentication`
 below is wired in as an app-wide dependency, so this list IS the enforcement:
 everything not named here needs an identity wherever the policy demands one
-(`auth_service.require_auth_enabled` — exposed deployments and multi-account
-installs). Exemptions live together and carry a reason, instead of being
+(`auth_service.require_auth_enabled` — exposed deployments and explicit
+enforcement). Exemptions live together and carry a reason, instead of being
 scattered across routers as forgotten defaults.
 
 Three reasons an endpoint belongs here, and no others:

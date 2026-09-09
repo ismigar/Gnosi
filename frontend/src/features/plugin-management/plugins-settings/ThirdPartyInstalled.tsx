@@ -1,3 +1,4 @@
+import { sortPluginsByName } from './pluginSettingsModel';
 import { Download, Puzzle, RefreshCw, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -10,9 +11,9 @@ interface ThirdPartyInstalledProps {
 }
 
 export function ThirdPartyInstalled({ controller, filter }: ThirdPartyInstalledProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const tp = (key: string, values: Readonly<Record<string, unknown>> = {}): string => t(`settings.plugins.${key}`, values);
-    const visible = controller.installed.filter((plugin) => {
+    const visible = sortPluginsByName(controller.installed, plugin => plugin.manifest?.name || plugin.id || '', i18n.resolvedLanguage ?? i18n.language).filter((plugin) => {
         const pluginId = plugin.manifest?.id ?? plugin.id ?? '';
         if (filter === 'enabled') return controller.isEnabled(pluginId);
         if (filter === 'disabled') return !controller.isEnabled(pluginId);

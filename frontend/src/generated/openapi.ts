@@ -5889,6 +5889,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/genograms/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Genograms Status */
+        get: operations["genograms_status_api_vault_genograms_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/global-index": {
         parameters: {
             query?: never;
@@ -13983,6 +14000,11 @@ export interface components {
             relations_table_id: string;
             /** View Id */
             view_id: string;
+        };
+        /** GenogramSetupStatus */
+        GenogramSetupStatus: {
+            /** Ready */
+            ready: boolean;
         };
         /**
          * GlobalIndexResponse
@@ -35345,6 +35367,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenogramSetupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    genograms_status_api_vault_genograms_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenogramSetupStatus"];
                 };
             };
             /** @description Validation Error */

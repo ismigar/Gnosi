@@ -9,7 +9,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 ## Résumé
 
 - Routeurs enregistrés: **37**
-- Opérations découvertes: **287**
+- Opérations découvertes: **288**
 - Modules de routes non enregistrés: **2**
 
 ## Enregistrement des routeurs
@@ -259,8 +259,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `POST` | `/api/tools/reject` | `reject_tool` | Tools, tools | [Depends(require_role('admin'))] | Reject a pending tool. | [`backend/api/tools_routes.py:138`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py#L138) |
 | `GET` | `/api/tools/{name}` | `get_tool` | Tools, tools | — | Get a specific tool by name. | [`backend/api/tools_routes.py:169`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py#L169) |
 | `WEBSOCKET` | `/api/vault/collab/{page_id}` | `collab_ws` | Collaboration | — | Collab ws | [`backend/api/collab_routes.py:178`](https://github.com/ismigar/Gnosi/blob/main/backend/api/collab_routes.py#L178) |
-| `POST` | `/api/vault/genograms/graph` | `query_genogram` | Genograms | [Depends(get_workspace_context), Depends(require_plugins('genograms'))] | Query genogram | [`backend/domains/genograms/routes.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L54) |
-| `POST` | `/api/vault/genograms/prepare` | `prepare_genograms` | Genograms | [Depends(get_workspace_context), Depends(require_plugins('genograms'))], [Depends(require_role('editor'))] | Prepare genograms | [`backend/domains/genograms/routes.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L19) |
+| `POST` | `/api/vault/genograms/graph` | `query_genogram` | Genograms | [Depends(get_workspace_context)], [Depends(require_plugins('genograms'))] | Query genogram | [`backend/domains/genograms/routes.py:59`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L59) |
+| `POST` | `/api/vault/genograms/prepare` | `prepare_genograms` | Genograms | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Prepare genograms | [`backend/domains/genograms/routes.py:24`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L24) |
+| `GET` | `/api/vault/genograms/status` | `genograms_status` | Genograms | [Depends(get_workspace_context)] | Genograms status | [`backend/domains/genograms/routes.py:19`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/routes.py#L19) |
 | `POST` | `/api/vault/handwriting/recognize` | `recognize_handwriting` | Handwriting | — | Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`. | [`backend/api/handwriting_routes.py:68`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py#L68) |
 | `GET` | `/api/vault/handwriting/status` | `handwriting_status` | Handwriting | — | Indicates whether the local engine (transformers + PIL) is available. | [`backend/api/handwriting_routes.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py#L43) |
 | `POST` | `/api/vault/handwriting/warmup` | `handwriting_warmup` | Handwriting | — | Preloads the model in the background (idempotent, non-blocking). | [`backend/api/handwriting_routes.py:53`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py#L53) |

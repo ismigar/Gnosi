@@ -1,3 +1,4 @@
+import { sortPluginsByName } from './pluginSettingsModel';
 import { Download, Puzzle, Search, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,10 +10,10 @@ interface PluginCatalogGalleryProps {
 }
 
 export function PluginCatalogGallery({ controller }: PluginCatalogGalleryProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const tp = (key: string): string => t(`settings.plugins.${key}`);
     const normalizedSearch = controller.catalogSearch.trim().toLocaleLowerCase();
-    const visible = controller.gallery.filter((entry) => {
+    const visible = sortPluginsByName(controller.gallery, entry => entry.name || entry.id, i18n.resolvedLanguage ?? i18n.language).filter((entry) => {
         const matchesSource = controller.catalogSource === 'all'
             || (controller.catalogSource === 'official' ? entry.source === 'bundled' : entry.source === 'url');
         const haystack = `${entry.name ?? ''} ${entry.description ?? ''} ${entry.author ?? ''}`.toLocaleLowerCase();

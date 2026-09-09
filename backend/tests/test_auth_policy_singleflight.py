@@ -6,6 +6,7 @@ from threading import Event
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from starlette.requests import HTTPConnection
 
 from backend.services import auth_public_surface as surface
@@ -18,10 +19,9 @@ def isolated_policy(monkeypatch):
     auth.reset_auth_policy_cache()
     monkeypatch.setattr(surface, "_policy_reads", {})
     monkeypatch.setattr(auth, "deployment_is_exposed", lambda: False)
-    monkeypatch.setattr(auth, "ambient_identity_available", lambda _: True)
 
     def database():
-        yield object()
+        raise AssertionError("Authentication policy must not read account storage")
 
     monkeypatch.setattr(auth, "get_mgmt_db", database)
     yield
@@ -37,7 +37,7 @@ def _connection(path="/api/calendar/calendars"):
 
 def test_gate_burst_larger_than_executor_leaves_other_workers_available(monkeypatch):
     entered, release = Event(), Event()
-    reads, opened, closed = [], [], []
+    reads = []
 
     def exposed():
         reads.append(1)
@@ -45,15 +45,7 @@ def test_gate_burst_larger_than_executor_leaves_other_workers_available(monkeypa
         assert release.wait(timeout=4)
         return False
 
-    def database():
-        opened.append(1)
-        try:
-            yield object()
-        finally:
-            closed.append(1)
-
     monkeypatch.setattr(auth, "deployment_is_exposed", exposed)
-    monkeypatch.setattr(auth, "get_mgmt_db", database)
 
     async def scenario():
         asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
@@ -66,7 +58,7 @@ def test_gate_burst_larger_than_executor_leaves_other_workers_available(monkeypa
         finally:
             release.set()
         assert await asyncio.gather(*readers) == [None] * 20
-        assert reads == opened == closed == [1]
+        assert reads == [1]
         assert surface._policy_reads == {} and auth._auto_policy_pending is None
         await surface.enforce_authentication(_connection())
         assert reads == [1]
@@ -92,7 +84,7 @@ def test_sync_readers_share_one_read_and_explicit_sessions_bypass_it(monkeypatch
 
     monkeypatch.setattr(auth, "Future", ObservedFuture)
     monkeypatch.setattr(auth, "_read_auto_policy", read)
-    monkeypatch.setattr(auth, "ambient_identity_available", lambda db: db is not explicit)
+    monkeypatch.setattr(auth, "deployment_is_exposed", lambda: True)
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(auth.require_auth_enabled)
         try:
@@ -105,12 +97,42 @@ def test_sync_readers_share_one_read_and_explicit_sessions_bypass_it(monkeypatch
         assert first.result(timeout=2) is second.result(timeout=2) is False
     assert reads == [1] and auth._auto_policy_pending is None
     assert auth.require_auth_enabled(explicit) is True
-    monkeypatch.setattr(auth, "ambient_identity_available", lambda _: True)
+    monkeypatch.setattr(auth, "deployment_is_exposed", lambda: False)
     assert auth.require_auth_enabled(explicit) is False
 
 
-@pytest.mark.parametrize("failure_at", ["config", "accounts", "cleanup"])
-def test_failed_autodetection_is_closed_and_ttl_still_starts_before_the_read(monkeypatch, failure_at):
+def test_personal_gate_rechecks_exposure_after_invalidation(monkeypatch):
+    exposed = [False]
+    reads, identities = [], []
+
+    def deployment():
+        reads.append(exposed[0])
+        return exposed[0]
+
+    def identity(_connection):
+        identities.append(1)
+        return None
+
+    monkeypatch.setattr(auth, "deployment_is_exposed", deployment)
+    monkeypatch.setattr(surface, "resolve_identity", identity)
+
+    async def scenario():
+        await surface.enforce_authentication(_connection())
+        await surface.enforce_authentication(_connection())
+        assert reads == [False] and identities == []
+        exposed[0] = True
+        auth.reset_auth_policy_cache()
+        with pytest.raises(HTTPException) as denied:
+            await surface.enforce_authentication(_connection())
+        assert denied.value.status_code == 401
+        assert denied.value.detail == "Authentication required"
+        assert reads == [False, True] and identities == [1]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("error_type", [OSError, RuntimeError, ValueError])
+def test_failed_autodetection_is_closed_and_ttl_still_starts_before_the_read(monkeypatch, error_type):
     entered, release = Event(), Event()
     clock = [100.0]
     reads = []
@@ -121,25 +143,10 @@ def test_failed_autodetection_is_closed_and_ttl_still_starts_before_the_read(mon
         if len(reads) == 1:
             entered.set()
             assert release.wait(timeout=4)
-            if failure_at == "config":
-                raise OSError("Synthetic config unavailable")
+            raise error_type("Synthetic config unavailable")
         return False
 
-    def ambient(_):
-        if len(reads) == 1 and failure_at == "accounts":
-            raise OSError("Synthetic account lookup unavailable")
-        return True
-
-    def database():
-        try:
-            yield object()
-        finally:
-            if len(reads) == 1 and failure_at == "cleanup":
-                raise OSError("Synthetic database cleanup failure")
-
     monkeypatch.setattr(auth, "deployment_is_exposed", exposed)
-    monkeypatch.setattr(auth, "ambient_identity_available", ambient)
-    monkeypatch.setattr(auth, "get_mgmt_db", database)
 
     async def scenario():
         readers = [asyncio.create_task(surface._request_requires_auth()) for _ in range(8)]

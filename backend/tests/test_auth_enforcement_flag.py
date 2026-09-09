@@ -8,11 +8,9 @@ Two rules, tested from the outside wherever possible:
    to be ignored only while `GNOSI_REQUIRE_AUTH` was on, which made an open API
    the price of not showing a login screen. The two are now independent.
 
-2. **The login screen follows exposure, not a flag.** A native personal install
-   with one account has nothing a credential would protect that the OS login
-   does not already: the process runs as the user, on loopback, over their own
-   files. Docker, org mode and a second account each end that, and each turns
-   enforcement on by itself.
+2. **Personal mode opens directly for every local profile.** Account rows do
+   not change the mode. The stored personal owner supplies the local identity;
+   organization deployments and explicit enforcement still require credentials.
 
 The enforcement is an app-wide dependency rather than per-route gating, because
 a survey found 50 routes that never touch `get_workspace_context` and would
@@ -25,16 +23,17 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import backend.models.management  # noqa: F401 — registers the tables on Base
 from backend.app import factory as app_factory
 from backend.data.management_db import Base
-from backend.models.management import User
+from backend.models.management import Membership, User, Workspace
 from backend.services.auth_service import (
     LEGACY_USER_ID,
     REQUIRE_AUTH_ENV,
     auth_policy_override,
-    ambient_identity_available,
+    get_current_user_id,
     require_auth_enabled,
     reset_auth_policy_cache,
     resolve_effective_user_id,
@@ -73,7 +72,9 @@ def _refresh_health_snapshot(
 @pytest.fixture
 def mem_db():
     """A management DB of its own, so the account count is what the test says."""
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
     yield session
@@ -141,22 +142,66 @@ def test_an_explicit_off_survives_an_exposed_deployment(monkeypatch):
 
 def test_one_account_locally_needs_no_credential(local_personal, mem_db):
     _add_users(mem_db, "solo")
-    assert ambient_identity_available(mem_db) is True
     assert require_auth_enabled(mem_db) is False
 
 
 def test_a_fresh_install_needs_no_credential(local_personal, mem_db):
     """Zero accounts is the first run. Demanding a signup before the tool opens
     is the cloud-shaped ceremony this whole design is avoiding."""
-    assert ambient_identity_available(mem_db) is True
     assert require_auth_enabled(mem_db) is False
 
 
-def test_a_second_account_turns_enforcement_on(local_personal, mem_db):
-    """Ambient identity stops having one honest answer, so it stops existing."""
+def test_additional_accounts_do_not_turn_personal_mode_into_a_login(local_personal, mem_db):
     _add_users(mem_db, "one", "two")
-    assert ambient_identity_available(mem_db) is False
-    assert require_auth_enabled(mem_db) is True
+    assert require_auth_enabled(mem_db) is False
+    assert resolve_effective_user_id(None, mem_db) == "one"
+
+
+@pytest.mark.parametrize("placeholder_first", [False, True])
+@pytest.mark.parametrize("password_hash", [None, ""])
+def test_generated_placeholder_does_not_lock_personal_owner_out(
+    local_personal, mem_db, placeholder_first, password_hash,
+):
+    owner = User(id="personal-owner", email="owner@example.com")
+    placeholder = User(
+        id="generated", email="generated@example.com", auto_provisioned=True,
+        password_hash=password_hash,
+    )
+    mem_db.add_all([placeholder, owner] if placeholder_first else [owner, placeholder])
+    mem_db.commit()
+
+    assert require_auth_enabled(mem_db) is False
+    assert sole_account_id(mem_db) is None
+    assert resolve_effective_user_id(None, mem_db) == "personal-owner"
+
+
+def test_additional_credentialed_profile_does_not_require_personal_login(local_personal, mem_db):
+    _add_users(mem_db, "personal-owner")
+    mem_db.add(User(
+        id="generated", email="generated@example.com", auto_provisioned=True,
+        password_hash="existing-password-hash",
+    ))
+    mem_db.commit()
+
+    assert require_auth_enabled(mem_db) is False
+    assert sole_account_id(mem_db) is None
+    assert resolve_effective_user_id(None, mem_db) == "personal-owner"
+
+
+@pytest.mark.parametrize("account_count", [1, 2])
+def test_generated_profiles_also_open_without_registration(
+    local_personal, mem_db, account_count,
+):
+    for index in range(account_count):
+        mem_db.add(User(
+            id=f"generated-{index}", email=f"generated-{index}@example.com",
+            auto_provisioned=True,
+        ))
+    mem_db.commit()
+
+    assert require_auth_enabled(mem_db) is False
+    assert sole_account_id(mem_db) == ("generated-0" if account_count == 1 else None)
+    assert resolve_effective_user_id(None, mem_db) == "generated-0"
 
 
 def test_an_exposed_deployment_needs_a_credential(monkeypatch, mem_db):
@@ -198,13 +243,58 @@ def test_a_fresh_install_bootstraps_a_fixed_id(local_personal, mem_db):
     assert resolve_effective_user_id(None, mem_db) == LEGACY_USER_ID
 
 
-def test_unauthenticated_is_rejected_when_ambiguous(local_personal, mem_db):
-    from fastapi import HTTPException
+@pytest.mark.parametrize("owner_id", ["alice-personal", "bob-personal", "imported-profile"])
+def test_personal_access_uses_its_owner_for_any_profile(local_personal, mem_db, owner_id):
+    _add_users(mem_db, "earlier-org-account", owner_id, "later-account")
+    mem_db.add_all([
+        Workspace(id="personal", name="Personal"),
+        Membership(user_id=owner_id, workspace_id="personal", role="owner"),
+    ])
+    mem_db.commit()
 
-    _add_users(mem_db, "one", "two")
-    with pytest.raises(HTTPException) as exc:
-        resolve_effective_user_id(None, mem_db)
-    assert exc.value.status_code == 401
+    assert require_auth_enabled(mem_db) is False
+    assert resolve_effective_user_id(None, mem_db) == owner_id
+
+
+def test_personal_policy_never_reads_account_storage(local_personal, monkeypatch):
+    def unavailable():
+        raise AssertionError("Personal authentication must not depend on account storage")
+
+    monkeypatch.setattr("backend.services.auth_service.get_mgmt_db", unavailable)
+    assert require_auth_enabled() is False
+
+
+def test_expired_optional_cookie_does_not_block_personal_access(local_personal, mem_db, monkeypatch):
+    monkeypatch.setattr("backend.services.auth_service.decode_access_token", lambda _: None)
+    assert get_current_user_id("expired-cookie", None, mem_db) is None
+
+
+@pytest.mark.parametrize("owner_id", ["alice-personal", "bob-personal"])
+@pytest.mark.parametrize("stale_cookie", [False, True])
+def test_personal_workspace_opens_through_http_without_registering(
+    client, local_personal, mem_db, monkeypatch, owner_id, stale_cookie,
+):
+    from backend.data.management_db import get_mgmt_db
+
+    _add_users(mem_db, "unrelated-account", owner_id)
+    mem_db.add_all([
+        Workspace(id="personal", name="Personal"),
+        Membership(user_id=owner_id, workspace_id="personal", role="owner"),
+    ])
+    mem_db.commit()
+
+    def database():
+        yield mem_db
+
+    monkeypatch.setitem(client.app.dependency_overrides, get_mgmt_db, database)
+    _refresh_health_snapshot(client, monkeypatch)
+    if stale_cookie:
+        client.cookies.set("gnosi_session", "expired-cookie")
+
+    assert client.get("/api/health").json()["require_auth"] is False
+    response = client.get("/api/workspaces", headers={"X-User-ID": "unrelated-account"})
+    assert response.status_code == 200, response.text
+    assert [(row["id"], row["role"]) for row in response.json()] == [("personal", "owner")]
 
 
 def test_resolution_takes_no_header_at_all():

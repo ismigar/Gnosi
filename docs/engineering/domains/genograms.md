@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 source_paths:
   - backend/domains/genograms
   - frontend/src/features/genograms
@@ -11,6 +11,8 @@ source_paths:
 tests:
   - backend/tests/test_genograms.py
   - backend/tests/test_genograms_api.py
+  - frontend/src/features/genograms/GenogramsConfig.test.tsx
+  - frontend/src/shared/api/genograms.test.ts
   - frontend/src/features/genograms/genograms.test.tsx
   - frontend/src/features/genograms/export.test.ts
   - frontend/src/features/vault/view-config/page-view-modal/useViewAppearance.genogram.test.tsx
@@ -24,6 +26,8 @@ Preparation creates a Genograms database, People and Relationships tables, their
 main table views, and an initial Genogram view. Names follow the selected interface
 language (Catalan, English, Spanish or French). Repeating preparation reuses the
 stable table and field identities and restores missing required fields.
+
+Settings includes a destination Vault selector, initially using the active Vault. Both preparation and the read-only status request carry that selected Vault ID without switching the active Vault. When both tables exist, a translated confirmation naming the Vault replaces the primary preparation button. Status is refreshed when the panel opens, when the window regains focus and every 15 seconds while visible, so deleting either table restores the preparation action. Loading, error, empty and success messages are translated in Catalan, English, Spanish and French. Table status and editor-authorized preparation are available even when Genograms is disabled in the destination Vault; they do not enable the plugin. Graph queries still require the plugin to be enabled.
 
 Choose a reference person in the graphical view. Its default scope includes two
 ancestor generations, one descendant generation, the reference person's siblings,
@@ -89,6 +93,7 @@ in the legend. Complex overlapping branches can be adjusted manually.
 
 ## API and export
 
+- `GET /api/vault/genograms/status`: read-only readiness of both tables in the selected Vault.
 - `POST /api/vault/genograms/prepare`: editor-only, idempotent preparation.
 - `POST /api/vault/genograms/graph`: resolves saved or inline options, normalizes
   records, validates the network and returns visible IDs, issues and field mappings.
