@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import threading
 
 from typing import NamedTuple
 
@@ -44,7 +45,51 @@ from sqlalchemy.orm import Session
 from starlette.requests import HTTPConnection
 
 from backend.data.management_db import get_mgmt_db
-from backend.services.auth_service import require_auth_enabled, resolve_identity
+from backend.services import auth_service
+from backend.services.auth_service import require_auth_enabled as require_auth_enabled
+from backend.services.auth_service import resolve_identity
+
+_policy_reads: dict[tuple[asyncio.AbstractEventLoop, int], asyncio.Task[bool]] = {}
+_policy_reads_lock = threading.Lock()
+
+
+async def _request_requires_auth() -> bool:
+    """Keep cold-policy followers on the event loop, with one worker per burst."""
+    while True:
+        override = auth_service.auth_policy_override()
+        if override is not None:
+            return override
+        generation, cached = auth_service.auth_policy_cache_state()
+        if cached is not None:
+            return cached
+        key = (asyncio.get_running_loop(), generation)
+        with _policy_reads_lock:
+            pending = _policy_reads.get(key)
+            if pending is None:
+                # Share only autodetection. A temporary environment override
+                # must never become the shared result for another HTTP reader.
+                pending = asyncio.create_task(asyncio.to_thread(auth_service._auto_policy_requires_auth))
+                _policy_reads[key] = pending
+
+                def completed(
+                    task: asyncio.Task[bool],
+                    read_key: tuple[asyncio.AbstractEventLoop, int] = key,
+                ) -> None:
+                    with _policy_reads_lock:
+                        if _policy_reads.get(read_key) is task:
+                            _policy_reads.pop(read_key, None)
+                    if not task.cancelled():
+                        task.exception()
+
+                pending.add_done_callback(completed)
+        value = await asyncio.shield(pending)
+        current_generation, _ = auth_service.auth_policy_cache_state()
+        if current_generation != generation:
+            # An in-flight read retired by settings/reset cannot reopen a
+            # request after the new policy has become authoritative.
+            continue
+        override = auth_service.auth_policy_override()
+        return override if override is not None else value
 
 
 class PublicRule(NamedTuple):
@@ -100,7 +145,7 @@ async def enforce_authentication(conn: HTTPConnection) -> None:
     if is_public_endpoint(conn.scope.get("method", ""), conn.url.path):
         return
 
-    if not await asyncio.to_thread(require_auth_enabled):
+    if not await _request_requires_auth():
         return
 
     if await asyncio.to_thread(resolve_identity, conn):

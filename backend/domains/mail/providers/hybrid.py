@@ -329,20 +329,22 @@ def imap_list_messages(
         auth_err = _LAST_AUTH_ERROR.get(email)
         if auth_err:
             return {"messages": [], "total": 0, "error": auth_err}
-        return {"messages": [], "total": 0}
+        return {"messages": [], "total": 0, "error": "Mail server temporarily unavailable. Try again shortly."}
 
     try:
         folder_name = _imap_folder_name(imap, folder)
         if not folder_name:
-            return {"messages": [], "total": 0}
+            return {"messages": [], "total": 0, "error": "The requested mail folder is unavailable."}
 
         status, _ = imap.select(f'"{folder_name}"', readonly=True)
         if status != "OK":
-            return {"messages": [], "total": 0}
+            return {"messages": [], "total": 0, "error": "Unable to open the requested mail folder."}
 
         no_charset: Any = None
         status, data = imap.uid("search", no_charset, _imap_search_criteria(folder, search))
-        if status != "OK" or not data[0]:
+        if status != "OK" or not data or data[0] is None:
+            return {"messages": [], "total": 0, "error": "Unable to read the mail message list."}
+        if not data[0]:
             return {"messages": [], "total": 0}
 
         all_uids = data[0].split()
@@ -360,17 +362,22 @@ def imap_list_messages(
         # If the server is Gmail (X-GM-EXT-1), we request X-GM-THRID for the
         # transparent threading. Other IMAPs would ignore the argument.
         is_gmail = integration_manager.is_imap_oauth_account(acc)
-        fetch_args = "(FLAGS X-GM-THRID RFC822.HEADER)" if is_gmail else "(FLAGS RFC822.HEADER)"
+        # Lists use these six headers only. Trace/security headers can dominate
+        # large newsletter headers; body and attachment data stay in the detail
+        # request. PEEK explicitly preserves unread flags.
+        headers = "BODY.PEEK[HEADER.FIELDS (DATE SUBJECT FROM TO CC MESSAGE-ID)]"
+        fetch_args = f"(FLAGS X-GM-THRID {headers})" if is_gmail else f"(FLAGS {headers})"
         status, fetch_data = imap.uid("fetch", uid_str, fetch_args)
         if status != "OK":
-            return {"messages": [], "total": total}
+            return {"messages": [], "total": total, "error": "Unable to read mail message headers."}
 
         messages = [
             item
             for index in range(len(fetch_data))
             if (item := _imap_list_item(fetch_data, index, folder, email, folder_name)) is not None
         ]
-
+        if not messages:
+            return {"messages": [], "total": total, "error": "Mail message headers are temporarily unavailable."}
         return {"messages": messages, "total": total}
     except Exception:
         _imap_pool_invalidate(email)
@@ -559,11 +566,15 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> dict[str, A
 def imap_get_counts(email: str) -> dict[str, Any]:
     acc = _get_imap_account(email)
     if not acc:
-        return {}
+        raise RuntimeError("Mail account configuration is unavailable")
 
-    imap = _imap_pool_acquire(acc)
+    # Folder discovery and several STATUS round trips used to hold the same
+    # account connection lock needed by the message list. A short-lived count
+    # connection lets the visible list progress independently. The HTTP route
+    # coalesces overlapping count reads, and the connection is never retained.
+    imap = _imap_connect_fresh(acc)
     if not imap:
-        return {}
+        raise RuntimeError("Unable to connect while reading mail folder counts")
 
     counts: dict[str, Any] = {}
     try:
@@ -573,28 +584,23 @@ def imap_get_counts(email: str) -> dict[str, Any]:
             key = _IMAP_TYPE_TO_KEY.get(folder_type)
             if not key:
                 continue
-            try:
-                status, data = imap.status(f'"{folder_name}"', "(MESSAGES UNSEEN)")
-                if status == "OK" and data and data[0]:
-                    m = re.search(
-                        r"MESSAGES (\d+).*?UNSEEN (\d+)",
-                        data[0].decode("utf-8", errors="replace"),
-                        re.IGNORECASE,
-                    )
-                    if m:
-                        counts[key] = {
-                            "total": int(m.group(1)),
-                            "unread": int(m.group(2)),
-                        }
-            except Exception:
-                pass
+            status, data = imap.status(f'"{folder_name}"', "(MESSAGES UNSEEN)")
+            if status != "OK" or not data or not data[0]:
+                raise RuntimeError("Unable to read mail folder counts")
+            response = data[0].decode("utf-8", errors="replace")
+            total = re.search(r"\bMESSAGES (\d+)", response, re.IGNORECASE)
+            unread = re.search(r"\bUNSEEN (\d+)", response, re.IGNORECASE)
+            if total is None or unread is None:
+                raise RuntimeError("Invalid mail folder count response")
+            counts[key] = {"total": int(total.group(1)), "unread": int(unread.group(1))}
 
         counts["all"] = counts.get("INBOX", {"total": 0, "unread": 0})
         counts["NOT_ARCHIVED"] = counts.get("INBOX", {"total": 0, "unread": 0})
         counts["STARRED"] = {"total": 0, "unread": 0}
-    except Exception:
-        _imap_pool_invalidate(email)
     finally:
-        _imap_pool_release(email)
+        try:
+            imap.logout()
+        except Exception:
+            pass
 
     return counts

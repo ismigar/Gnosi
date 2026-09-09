@@ -1,7 +1,6 @@
 import { Calendar } from 'lucide-react';
 import { FileText } from 'lucide-react';
 import { Image } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
 import { Mail } from 'lucide-react';
 import { Paperclip } from 'lucide-react';
 import { PenTool } from 'lucide-react';
@@ -31,7 +30,7 @@ export function useSettingsGraph(state: Input) {
     {
       id: 'calendars',
       name: tn('graph.entity_calendars'),
-      icon: LucideIcons.Calendar,
+      icon: Calendar,
       color: '#ef4444',
       subItems: (integrations.calendars || []).map(c => ({ id: c.id ?? "", name: c.name })),
       fields: [
@@ -42,7 +41,7 @@ export function useSettingsGraph(state: Input) {
     {
       id: 'contacts',
       name: tn('graph.entity_contacts'),
-      icon: LucideIcons.Users,
+      icon: Users,
       color: '#10b981',
       subItems: (integrations.contacts || []).map(c => ({ id: c.id ?? "", name: c.name })),
       fields: [
@@ -67,7 +66,7 @@ export function useSettingsGraph(state: Input) {
     {
       id: 'mails',
       name: tn('graph.entity_mails'),
-      icon: LucideIcons.Mail,
+      icon: Mail,
       color: '#3b82f6',
       subItems: (integrations.mail_accounts || []).map(m => ({ id: m.id ?? "", name: m.email })),
       fields: [

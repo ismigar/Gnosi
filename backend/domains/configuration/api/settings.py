@@ -15,9 +15,11 @@ from backend.domains.configuration.settings_schemas import (
     ConfigurationDocument,
     ConfigurationUpdateRequest,
     ConfigurationUpdateResponse,
+    InterfaceSettings,
 )
 from backend.security.ai_credentials import (
     migrate_ai_provider_secrets,
+    normalize_credential_ref,
     sanitize_ai_config,
     sanitize_ai_config_concurrently,
 )
@@ -44,8 +46,8 @@ def _config_context_key() -> str:
     return "\x1f".join((str(active or ""), configured or "", host_path or ""))
 
 
-def _read_config_document() -> dict[str, object]:
-    """Read and sanitize Settings data in one blocking worker unit."""
+def _read_ui_parameters() -> dict[str, Any]:
+    """Copy stored parameters and resolve the vault path displayed by editors."""
     cfg = load_params(strict_env=False)
 
     safe_params: dict[str, Any] = copy.deepcopy(cfg.params or {})
@@ -57,6 +59,34 @@ def _read_config_document() -> dict[str, object]:
     )
     if vault_ui_path:
         safe_params["paths"]["vault"] = vault_ui_path
+    return safe_params
+
+
+def _read_editor_document() -> dict[str, object]:
+    """Read editable values without resolving read-only credential indicators."""
+    safe_params = _read_ui_parameters()
+    settings = safe_params.get("settings")
+    if isinstance(settings, dict):
+        settings.pop("password", None)
+        settings.pop("has_password", None)
+
+    ai_config = dict(safe_params.get("ai") or {})
+    providers = dict(ai_config.get("providers") or {})
+    for provider_id, provider_value in providers.items():
+        provider = dict(provider_value or {})
+        provider.pop("api_key", None)
+        provider.pop("has_api_key", None)
+        provider["credential_ref"] = normalize_credential_ref(provider_id, provider)
+        provider["enabled"] = provider.get("enabled", True)
+        providers[provider_id] = provider
+    ai_config["providers"] = providers
+    safe_params["ai"] = ai_config
+    return safe_params
+
+
+def _read_config_document() -> dict[str, object]:
+    """Read and sanitize Settings data in one blocking worker unit."""
+    safe_params = _read_ui_parameters()
 
     settings = safe_params.get("settings", {})
     check_system_password = isinstance(settings, dict) and (
@@ -83,6 +113,45 @@ def _read_config_document() -> dict[str, object]:
 
     safe_params["ai"] = sanitized_ai
     return safe_params
+
+
+def _read_interface_settings() -> InterfaceSettings:
+    settings = load_params(strict_env=False).settings
+    # Select known display fields explicitly: settings can also contain passwords.
+    values = {
+        key: value
+        for key in InterfaceSettings.model_fields
+        if isinstance(value := settings.get(key), str) and value
+    }
+    return InterfaceSettings.model_validate(values)
+
+
+def _read_graph_configuration() -> dict[str, object]:
+    """Read the graph's own preferences without inspecting AI credentials."""
+    params = load_params(strict_env=False).params or {}
+    return {"graph": copy.deepcopy(params.get("graph", {}))}
+
+
+@router.get("/config/graph", response_model=ConfigurationDocument)
+async def get_graph_configuration() -> dict[str, object]:
+    return await asyncio.to_thread(_read_graph_configuration)
+
+
+@router.get("/config/interface", response_model=InterfaceSettings)
+async def get_interface_settings() -> InterfaceSettings:
+    return await asyncio.to_thread(_read_interface_settings)
+
+
+@router.get("/config/editor", response_model=ConfigurationDocument)
+async def get_editor_configuration() -> dict[str, object]:
+    try:
+        return await asyncio.to_thread(_read_editor_document)
+    except Exception as error:
+        log.error("Error reading editor configuration: %s", error)
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(error, context="GET /config/editor"),
+        )
 
 
 @router.get("/config", response_model=ConfigurationDocument)

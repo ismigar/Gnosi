@@ -11,7 +11,7 @@ vi.mock('react-dom/client', () => ({ createRoot: () => {
   mocks.calls.push('create-root'); return { render: mocks.render };
 } }));
 vi.mock('../shared/i18n/i18n', () => ({ default: {} }));
-vi.mock('../shared/resources/fileResource', () => ({ syncActiveVaultCookie: () => { mocks.calls.push('cookie'); } }));
+vi.mock('../shared/resources/fileResourcePaths', () => ({ syncActiveVaultCookie: () => { mocks.calls.push('cookie'); } }));
 vi.mock('../shared/routing/vaultRouting', () => ({ initializeVaultRouting: mocks.routing, legacyBrowserPathToCanonical: mocks.canonical }));
 vi.mock('./initialization/interfaceLanguage', () => ({ initializeInterfaceLanguage: mocks.language }));
 vi.mock('./desktop/desktopMenu', () => ({ installDesktopApplicationMenu: () => { mocks.calls.push('menu'); } }));
@@ -30,20 +30,44 @@ beforeEach(() => {
   mocks.canonical.mockReset().mockImplementation(path => path);
   const root = document.createElement('div'); root.id = 'root'; document.body.append(root);
 });
-afterEach(() => { document.body.replaceChildren(); window.history.replaceState(null, '', '/'); });
+afterEach(async () => {
+  // Failed routing/language may reject before the queued preload turn runs.
+  await new Promise<void>(resolve => { setTimeout(resolve, 0); });
+  document.body.replaceChildren();
+  window.history.replaceState(null, '', '/');
+});
 
 describe('ordered native application bootstrap', () => {
-  it('starts routing, language and route preload together after the cookie and awaits all before rendering', async () => {
+  it('uses routing already started by the entry without starting another read', async () => {
+    let finishRouting!: () => void;
+    const routingReady = new Promise<void>(resolve => { finishRouting = resolve; });
+    const pending = bootstrap(routingReady);
+    expect(mocks.calls).toEqual(['language']);
+    expect(mocks.render).not.toHaveBeenCalled();
+    finishRouting();
+    await pending;
+    expect(mocks.routing).not.toHaveBeenCalled();
+    expect(mocks.preload).not.toHaveBeenCalled();
+    expect(mocks.render).toHaveBeenCalledOnce();
+  });
+  it('starts route preload after a dispatch turn and waits for routing and language before rendering', async () => {
     let finishRouting: () => void = () => { throw new Error('Routing not initialized'); };
     let finishLanguage: () => void = () => { throw new Error('Language not initialized'); };
     mocks.routing.mockImplementation(() => new Promise<void>(resolve => { mocks.calls.push('routing'); finishRouting = resolve; }));
     mocks.language.mockImplementation(() => new Promise<void>(resolve => { mocks.calls.push('language'); finishLanguage = resolve; }));
     const pending = bootstrap();
-    expect(mocks.calls).toEqual(['cookie', 'routing', 'language', 'preload']); expect(mocks.render).not.toHaveBeenCalled();
+    expect(mocks.calls).toEqual(['cookie', 'routing', 'language']); expect(mocks.render).not.toHaveBeenCalled();
+    await vi.waitFor(() => { expect(mocks.preload).toHaveBeenCalledOnce(); });
     finishRouting(); await Promise.resolve();
     expect(mocks.calls).toEqual(['cookie', 'routing', 'language', 'preload']); expect(mocks.render).not.toHaveBeenCalled();
     finishLanguage(); await pending;
     expect(mocks.calls).toEqual(['cookie', 'routing', 'language', 'preload', 'menu', 'create-root']);
+    expect(mocks.render).toHaveBeenCalledOnce();
+  });
+
+  it('renders the shell without waiting for a slow route download', async () => {
+    mocks.preload.mockReturnValue(new Promise(() => undefined));
+    await bootstrap();
     expect(mocks.render).toHaveBeenCalledOnce();
   });
 
@@ -73,7 +97,7 @@ describe('ordered native application bootstrap', () => {
     expect(mocks.calls).not.toContain('create-root'); expect(mocks.render).not.toHaveBeenCalled();
   });
 
-  it.each(['routing', 'language', 'preload'] as const)('does not render after %s fails', async step => {
+  it.each(['routing', 'language'] as const)('does not render after %s fails', async step => {
     mocks[step].mockRejectedValue(new Error('Initialization failed'));
     await expect(bootstrap()).rejects.toThrow('Initialization failed');
     expect(mocks.render).not.toHaveBeenCalled(); expect(mocks.calls).not.toContain('menu');

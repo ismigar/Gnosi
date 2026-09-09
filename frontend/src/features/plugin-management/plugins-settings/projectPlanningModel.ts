@@ -4,7 +4,7 @@ import type {
     PlanningResourceInput,
     PlanningState,
 } from '../../../shared/api/planning';
-import type { VaultPageSummary } from '../../../shared/api/vaults';
+import type { VaultPageReference } from '../../../shared/api/vaults';
 import type { VaultTable } from './pluginSettingsModel';
 
 export interface HolidayRow {
@@ -41,7 +41,7 @@ export interface ProjectPlanningController {
     readonly planningLoading: boolean;
     readonly planningState: PlanningState | undefined;
     readonly previewLeveling: () => Promise<void>;
-    readonly projectPages: readonly VaultPageSummary[];
+    readonly projectPages: readonly VaultPageReference[];
     readonly resourceDraft: PlanningResourceInput;
     readonly saveHolidays: (rows?: readonly HolidayRow[]) => void;
     readonly setAssignmentDraft: (draft: AssignmentDraft) => void;
@@ -50,11 +50,11 @@ export interface ProjectPlanningController {
     readonly setHoursPerDayInput: (value: string) => void;
     readonly setPlanningSettings: (patch: Readonly<Record<string, unknown>>) => void;
     readonly setResourceDraft: (draft: PlanningResourceInput) => void;
-    readonly sortedProjects: readonly VaultPageSummary[];
+    readonly sortedProjects: readonly VaultPageReference[];
     readonly sortedTables: readonly VaultTable[];
-    readonly sortedTasks: readonly VaultPageSummary[];
+    readonly sortedTasks: readonly VaultPageReference[];
     readonly tables: readonly VaultTable[];
-    readonly taskPages: readonly VaultPageSummary[];
+    readonly taskPages: readonly VaultPageReference[];
     readonly updateHolidayRow: (index: number, field: keyof HolidayRow, value: string) => void;
     readonly addHolidayRow: () => void;
     readonly removeHolidayRow: (index: number) => void;

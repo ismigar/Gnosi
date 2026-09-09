@@ -65,7 +65,7 @@ export function hydrateDraft(previous: SettingsDraft, config: Record<string, unk
     settings: { ...previous.settings, ...settings },
     paths: { ...previous.paths, ...paths },
     graph: { ...previous.graph, ...graph },
-    ai: { ...previous.ai, agents: settingsAgents(ai.agents), active_agent_id: typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '' },
+    ai: { ...previous.ai, providers: section(ai.providers), agents: settingsAgents(ai.agents), active_agent_id: typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '' },
   };
 }
 

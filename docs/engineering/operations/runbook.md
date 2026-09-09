@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-09
 source_paths:
   - package.json
   - pyproject.toml
@@ -11,7 +11,11 @@ source_paths:
   - scripts/runtime/run_native_frontend.sh
   - scripts/check_public_runtime.py
   - frontend/vite.config.js
+  - frontend/src/app/App.tsx
+  - frontend/src/shared/plugins/usePlugins.ts
   - backend/app/health_contracts.py
+  - backend/domains/calendar/timing.py
+  - backend/utils/request_profile.py
   - backend/config/data_dir.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
@@ -36,6 +40,11 @@ source_paths:
   - tests/e2e/support/auth-state.ts
 tests:
   - pipeline/tests/test_native_runtime_wrappers.py
+  - frontend/src/app/App.pluginRecovery.test.tsx
+  - frontend/src/app/App.loginPluginRecovery.test.tsx
+  - backend/domains/calendar/tests/test_timing.py
+  - backend/tests/test_request_profile.py
+  - backend/tests/test_graph_request_timing.py
   - backend/tests/test_vault_creation_membership.py
   - backend/tests/test_data_dir.py
   - backend/tests/test_env_loading.py
@@ -54,6 +63,15 @@ This guide describes contracts reviewed in public source. The verification date
 records that review, not a successful installation, migration or release on
 every platform. Commands below are operator instructions, not evidence that
 they have been executed.
+
+Browser liveness uses the same process-wide snapshot as native probes: an
+active-vault cookie, header or query does not trigger vault resolution for the
+exact `GET /api/health` route. Other paths and methods retain normal routing.
+Auth-policy autodetection shares only pending reads, with HTTP followers awaiting
+one task rather than consuming blocked worker slots. The existing five-second
+TTL still starts at the original read; reset retires the pending generation,
+explicit environment overrides remain fresh, explicit database sessions bypass
+reuse, and errors continue to require authentication.
 
 Native personal mode opens without registration for every local profile.
 Additional account rows do not enable authentication: anonymous requests reuse
@@ -99,11 +117,115 @@ The frontend wrapper sets `COREPACK_ENABLE_NETWORK=0` and runs
 must already be available. The example passes an explicit Vite configuration
 and loopback host; without `--host`, Vite's configured host applies.
 Set `VITE_BACKEND_HOST` and `VITE_BACKEND_PORT` explicitly for another backend
-(defaults: `localhost` and `5002`). Vite owns frontend dotenv loading; the
+(defaults: `127.0.0.1` and `5002`). Vite owns frontend dotenv loading; the
 wrapper does not export a default `VITE_FRONTEND_PORT` that would shadow it.
 Both wrappers validate supplied ports in the range 1–65535, forward arguments
 and propagate process exits. The frontend preserves explicit checkout labels
 and reports an already-merged checkout behind `origin/main`.
+
+For everyday native use, build once and serve the compiled application:
+
+```sh
+corepack pnpm --dir frontend run build
+GNOSI_NATIVE_FRONTEND_MODE=preview bash scripts/runtime/run_native_frontend.sh
+```
+
+Preview uses the same strict port, HTTPS certificates, HTTP-to-HTTPS redirect
+and backend proxy. It serves an isolated copy of `frontend/dist`, so a later
+build cannot remove assets from the running application. Shutdown removes only
+that process's copy. Build again and restart to apply source changes; the default
+`GNOSI_NATIVE_FRONTEND_MODE=dev` retains live source updates. A missing build or
+an invalid mode fails explicitly. A managed LaunchAgent can select preview with
+that environment variable; reload the job after changing its stored environment.
+
+Compiled builds include a Vite manifest. Preview uses it to identify exact,
+content-hashed public assets and serves them with immutable browser caching on
+successful GET/HEAD responses, including 304 validation. HTML, API responses,
+missing assets, unlisted public files and other methods retain their existing
+cache policy. Changing content changes its compiled URL; the HTML entry still
+revalidates to discover the current build. Older builds without a manifest keep
+Vite's original policy. This removes repeated asset revalidation after a browser
+has received the new headers; it does not remove first-download or API latency.
+
+Startup lets routing and health requests pass through their asynchronous
+middleware before scheduling route and shell downloads. This yields one browser
+turn, without waiting for either response; rendering still respects routing and
+language readiness. The build groups only the 51 explicitly reviewed shell
+icons. Other icons and heavy routes remain lazy, and shared icon dependencies
+keep automatic placement. After changing this group, check the compiled import
+graph for new cycles and unexpected initial dependencies, as well as byte budgets.
+
+An invalid session cookie can reject vault requests even when local anonymous
+access is allowed. `/auth/me` distinguishes that case from an ordinary anonymous
+401. The interface offers an explicit session recovery action for the invalid
+cookie: it calls the existing logout endpoint, clears local identity metadata
+only after success, and reloads the application. A failed logout keeps recovery
+available. This does not change authentication policy or public shared-page access.
+
+An explicit protected-route 401 with `Authentication required` is a different
+case: when `/api/auth/me` reports an anonymous user, present Login rather than
+diagnosing an expired cookie or prompting logout. The plugin catalogue's
+server response takes precedence over an earlier health snapshot reporting
+authentication disabled. The `authenticationRequired` source correction in
+`usePlugins` and App has 17 focused tests, a focused type check, existing-file
+lint and a compiled build passing. One additional App integration test verifies
+that login in the same vault reloads plugins and leaves Login; its lint also
+passes. Trusted-TLS activation and the live Login screen are verified; no
+real login/logout or credential reads were performed. See the remaining
+calendar timing work in the [navigation latency audit](navigation-latency-audit-2026-09-08.md).
+
+Privileged Python profiling is not the only diagnostic path. Opt-in calendar
+duration instrumentation using `X-Gnosi-Calendar-Timing: 1` and `Server-Timing`
+is implemented and activated for the calendars/events routes. It reports
+queue, credential-resolution and HTTP timings without exposing credentials or
+calendar content. Only the `CalendarTiming` context is propagated; vault and
+authentication contexts and query results are unchanged. Timings are inclusive
+and may run concurrently, so do not add them to reconstruct the total.
+`cal_total` excludes middleware and response validation and is not the full
+HTTP duration. `cal_service` includes facade access, discovery imports before
+nested credentials and client construction; it is not pure `build` time.
+The 35-test calendar batch, a repeat of its 9 new tests, Ruff
+and mypy passed. Live data-access verification returned HTTP 200 with one
+calendar and two events visible after 10.557 s. The earlier 47–52 s server
+wait was not reproduced; unexplained local intervals remain, and this diagnostic
+change does not establish an attributable overall latency improvement. This
+path requires no administrative authorization.
+
+An in-process Python sampler is implemented for graph requests with
+`X-Gnosi-Graph-Profile: 1`, and calendar event requests with both
+`X-Gnosi-Calendar-Profile: 1` and `X-Gnosi-Calendar-Timing: 1`. It allows one
+sampler at a time, for up to 15 s at 20 Hz, observing the main thread and
+explicitly registered workers. It records normalized code filenames, function
+names and line numbers only, without locals, globals, arguments, thread names,
+user data or mail tracing. Aggregate output is limited to 256 stacks of 32
+frames and includes the process ID and monotonic start time. The mode-`0600`
+file `/tmp/gnosi-request-profile-<id>.json` is saved at the 15 s deadline even
+if the request is still pending. Stopping waits at most 250 ms; the response
+includes `X-Gnosi-Request-Profile-Id` when persistence is already complete.
+No administrative authorization is needed. The 35-test sampler/calendar/graph
+batch, Ruff, mypy and backend activation passed. Graph and calendar captures
+completed without administrative privileges.
+The graph capture had 39 sampling observations in a maximum 15 s window,
+33 aggregate stacks and none dropped. The nominal 50 ms interval was not
+constant in practice: do not multiply observation counts by that interval to
+derive durations. An uvloop runner frame does not distinguish idle time from
+native C work. The subsequent calendar capture had 34 observations, 19 stacks
+and none dropped; worker wait and discovery-cache frames are observations,
+not additive elapsed durations. These limits describe diagnostic collection,
+not a latency fix. JSON decoding, bounded metadata-cache admission and Google
+static-discovery corrections are implemented and validated: 80 unique test
+cases, Ruff, mypy and the diff check passed. Backend activation completed in
+185.3 s. Subsequent direct openings with timing only and cached compiled assets
+showed the graph after 22.128 s and fresh calendar data after 16.081 s. These
+measurements do not demonstrate a broad latency improvement or the 0.5 s goal.
+Final warm navigation showed graph data after 7.447 s and fresh calendar data
+after 5.392 s; calendar data already loaded was visible at 398 ms. Keep visible
+and fresh-data timings separate. Verification and cleanup are complete, while
+the latency objective remains partial. The native snapshot HTML was restored,
+the timing script and both created profiles were removed, and the accessible
+loopback calendar was returned to Month without an audit query. HTTPS returned
+200 with successful TLS verification and `no-cache` HTML; HTTP redirected with
+307 to HTTPS, and compiled assets retained one-year immutable caching.
 
 For a local vault, configure its actual directory and select
 `GNOSI_FILES_PROVIDER=local`; no download helper is required. Keep the active
@@ -123,6 +245,385 @@ certificates; `VITE_DEV_HTTPS=false` forces HTTP and `VITE_DEV_HTTPS=true`
 requires certificates. Restart Vite after certificate changes. Source changes
 reload; dependency changes require synchronizing the locks and restarting the
 affected process. Restart the frontend for startup-injected version values.
+
+The managed native frontend sets `pnpm_config_verify_deps_before_run=warn`
+by default, preserving an explicit override. A service restart must not trigger
+an implicit dependency reinstall when another task changes workspace manifests.
+Install and synchronize dependencies explicitly before restarting the affected
+server; the warning is not proof that installed dependencies match the lock.
+
+For trusted local HTTPS, install `mkcert` and run
+`bash scripts/runtime/setup-https-dev.sh`, then restart the frontend process.
+The setup installs a local certificate authority in the machine's trust store
+and generates ignored certificates under `frontend/certs/`. With those
+certificates, `https://localhost:5173` serves the application and plain HTTP
+redirects to the same path and query over HTTPS. The certificate files alone
+are insufficient if the local authority is not trusted by the browser.
+
+Native development uses filesystem notifications. Set
+`CHOKIDAR_USEPOLLING=true` only for filesystems or container bind mounts that
+need polling. Vite warms the application shell, Knowledge and Control Center
+on startup; the other screens remain lazy and preload on navigation intent.
+
+Initial language and record formatting use `/api/config/interface`, a small,
+vault-scoped display-preference response with the same permission gate as
+configuration. It reads no credential status; `/api/config` remains the complete
+configuration response, including credential indicators. Editors and the Control
+Center read `/api/config/editor`, which retains editable fields and extensions,
+normalizes provider references and defaults, and excludes plaintext credentials
+and read-only availability indicators without querying credential stores. Saving
+configuration invalidates the corresponding frontend caches. Editor reads share
+only overlapping requests per vault; later reads revalidate immediately.
+Settings hydrates its editable documents once per modal opening, including when
+development mode replays mount effects. Closing and reopening still requests
+fresh configuration, integration and identity documents.
+Field and record selectors reuse one locale collator per sort. Planning settings
+retain sorted tables, projects and tasks until their data or locale changes,
+so editing unrelated fields does not reorder hundreds of choices again.
+
+Vault routing resolves cold SQLite/cloud-folder lookups in workers. Concurrent
+requests for the same identity share one lookup; the 60-second identity cache is
+invalidated by vault changes, including lookups still in flight. The active
+vault context is set in the request task after lookup, before endpoint dispatch.
+Overlapping HTTP readers await a shared task rather than occupying workers while
+another worker resolves the same identity. A disconnected reader cannot cancel
+the lookup needed by other requests.
+
+Configuration readers reuse successful directory preparation for up to 30 seconds,
+bounded to 256 paths. YAML, vault selection and file reads retain their normal
+freshness and permission checks. Failed preparation is retried, and direct
+`get_paths()` calls still check and repair immediately. If a prepared directory
+is removed, a configuration read may defer its recreation until this interval
+expires.
+
+Mail account reads resolve credentials only for the selected account (or enabled
+mail accounts during synchronization), excluding unrelated integrations. Mail
+folder reads, calendar reminders and graph construction run in workers, including
+configuration/registry loading. Settings loads auxiliary model, calendar, reader
+and social data when opening the section that uses it. The graph displays ready
+data immediately without a minimum loading delay and reuses the resolved vault
+configuration path when reading managed metadata for each node. When a page index
+is available, graph discovery uses its paths and modification times, avoiding a
+second cloud filesystem walk. Unchanged nodes retain their full cached body links;
+changed nodes are reparsed. An absent or foreign legacy index falls back to the
+filesystem walk. Index freshness follows the existing watcher/background refresh.
+The parsed-node disk cache is written only after a node changes. Persistence
+encodes one snapshot and uses the atomic writer instead of millions of small JSON
+writes. Concurrent initial readers wait for one complete load; changes arriving
+during a save remain dirty, and failed saves are retried on the next rebuild.
+Persistent graph node caches are partitioned by vault path under
+`LOCAL_CACHE/graph_nodes/`. A vault without its own cache reads its entries from
+the legacy `graph_node_cache.json` once and writes its partition; the legacy file
+remains intact for other vaults. Loaded and dirty state is tracked separately per
+vault, so opening one does not require decoding every other vault's old entries.
+An adjacent metadata file binds parsed nodes to their classification, colours
+and managed sidecars using a digest of the actual node JSON. Older caches or
+mismatched markers require one regeneration. Markers are published only after
+a complete successful build and save; failed or partial reads remain retryable.
+The graph viewer lets Sigma render its batched topology, visibility and position
+updates without forcing a second complete reindex per layout tick. Hover changes
+still invalidate their display state. Initial projection and visibility filters
+are applied before constructing Sigma, so its first index sees the prepared
+topology. The timeline uses its effective initial cutoff before committing that
+value to state, avoiding a second initial D3 simulation for the same data and
+filters; later timeline changes still update the layout.
+The minimap coalesces graph, camera and
+renderer events into one paint per frame, batches node circles, resizes only when
+needed and cancels queued work on replacement/unmount. Delayed camera fits are
+also cancelled when their graph view closes or changes.
+Graph field-filter counts reuse the already normalized filter graph and traverse
+its nodes once for all configured fields. Metadata is normalized only once per
+node; counting preserves table classification, case-insensitive field lookup,
+repeated values and the stable order of equal counts.
+The page fetches the global title index only when configured field filters need
+it. Those filters retain the canonical index's title precedence. Graph, table,
+configuration and index queries are scoped to the active vault; embedded graph
+views share the same graph query and prefix invalidation.
+Each backend graph batch also resolves a table's relation field names and aliases
+once, including tables with no relations. This cache belongs only to that batch;
+the next build reads its current registry schema, and cached page metadata is
+never modified when converting relation wikilinks to IDs.
+The graph API retains one validated JSON body for the current graph snapshot,
+checking the service's current object before reuse. Rebuilds and invalidations
+replace that object, partial graphs are never retained, and failed validation
+cannot publish a body. Encoding runs in the request worker; response headers and
+background tasks remain independent for each request.
+
+Media roots, tree, album, view and page reads also run in workers so cloud-folder
+latency does not block unrelated requests. A media page resolves each vault/root
+once within that request; the scope is discarded after success or failure.
+Concurrent reads of the same contained media tree share only their pending work.
+Parent and child directory listings have a shared global limit of four scans,
+preserving folder filters and stable ordering. There is no tree TTL: later requests
+read current directories, and failures are not retained for a later request.
+Persisted media indexes retain validated path strings and modification times in
+an immutable sequence. Default pagination constructs `Path` objects only for the
+selected page, rather than every indexed file. Loading still validates the entire
+index; filters and custom sorting still inspect every applicable entry. The JSON
+format and 24-hour freshness interval remain compatible. When that interval
+expires, the browser API returns the stored snapshot while at most two workers
+refresh it; the combined running/pending queue is bounded to eight jobs. Requests
+for the same index share that work. A first index without usable stored data
+still waits for its initial scan.
+
+`GET /api/vault/media` reports `X-Gnosi-Media-Index` (`fresh`, `refreshing`, or
+`failed`), an opaque `X-Gnosi-Media-Index-Revision`, and
+`X-Gnosi-Media-Next-Offset`. The body keeps its existing contract. Files removed
+since the snapshot are omitted from items, but its slots and total stay stable;
+consumers advance by the next-offset header, including empty windows. Failed
+refreshes retain the stored snapshot and return a `Retry-After` cooldown of up
+to 30 seconds. The gallery polls a refresh every five seconds, up to 60 times,
+then offers manual retry. It retains loaded photos and replaces their entire
+loaded prefix only after matching revisions across pages. Root, album, filters,
+vault changes and unmounts cancel requests and timers.
+
+Partial scans cannot replace a complete index. Invalidation retires the
+publication generation and persistence replaces an encoded temporary file
+atomically. A fully read index remains usable in memory if writing its cache
+fails. Legacy Python callers retain blocking reads and best-effort partial
+results, but do not publish partial scans. The historical JSON format cannot
+retrospectively certify that an old index was complete; its structure is
+validated when loading it. A cache that cannot be written does not survive a
+process restart.
+
+Social configuration resolves only its own integration section, preserving explicit empty
+lists and default settings without opening unrelated credentials.
+
+Unhandled-error notifications run in a worker so their database, file and native
+notification I/O cannot block unrelated HTTP requests. Deferred scheduler startup
+also runs in a worker. Cancellation waits for its in-progress start before
+shutdown calls stop, preventing a scheduler from starting after it was stopped.
+These boundaries preserve request ContextVars and the existing safe 500 response.
+
+Plugin settings loads installed plugins and permissions independently of the
+marketplace. Catalog and trust data load when their section opens, and a pending
+trust read does not hide a ready catalog. Failed reads show a retry action before
+configuration becomes editable. The backend reuses decoded plugin state only when
+the file's modification time, change time, size and inode match; saves invalidate
+it, and every returned document is an independent copy scoped to its file path.
+
+The browser entry starts vault routing and the requested screen download before
+loading React DOM and the application shell. It shares the pending routing read
+with the shell, which still waits for routing and interface language before
+rendering. The entry sets the active-vault cookie before any initial requests.
+The routing read starts before speculative screen imports and carries a high
+fetch priority; browser scheduling still needs to be measured on the target host.
+Build budgets separately bound the code needed to start those requests and retain
+the required dynamic bootstrap in the complete startup budget.
+The vault catalog reads mode and default storage from one configuration snapshot
+per request; subsequent requests still read the current configuration.
+
+Project-planning selectors request every page ID and title from the table's
+`references` endpoint. It uses the same template filter and title hydration as
+the full table response, but does not transfer unused metadata. Concurrent reads
+share only an identical vault, table and filter; later reads revalidate immediately.
+An open settings editor cancels its table/reference reads on a vault change and
+does not display results from the previous vault, even if table IDs coincide.
+On the local 748-task/45-project dataset, these two decoded responses totalled
+67,381 bytes instead of 1,130,202 bytes (94.04% less), with identical ordered
+IDs and titles. The measured reference requests took 118 ms and 22 ms; this
+does not establish the elapsed time until the complete settings form is usable.
+
+The calendar mounts its grid while local notes and preferences are loading, so
+FullCalendar's actual visible range can start external event reads concurrently.
+The grid is hidden and inert only on the first local read without usable data.
+Complete local sources live in a vault-scoped query and revalidate on every open
+(`staleTime: 0`). Reopening displays that snapshot and completed same-range events
+while an activity indicator identifies pending refreshes; the external event
+freshness interval remains 30 seconds. A partial refresh cannot overwrite the
+last complete local snapshot. A first partial result can still show useful notes,
+with an explicit error and retry. Calendar lists, ranges, reminder queries and
+mutation invalidations are vault-scoped; previous-range placeholders never cross
+vaults. Saved visibility is applied before selecting early-arriving calendars.
+Refreshing notes retains the grid instance, selected period and view.
+Deferred-response tests exercise the real FullCalendar remount with an aged
+same-range result; visible cached content and freshly completed data must be
+measured separately in the host browser.
+
+Settings no longer imports Lucide's complete component registry. The agent icon
+picker loads searchable names on opening and renders only requested icons,
+including saved numbered aliases. The build checks the transitive static settings
+imports, not just its entry file size, to prevent thousands of small icon downloads.
+Autosave establishes its baseline only after all editable documents finish loading;
+opening or closing a slowly hydrated settings session must not trigger writes.
+The same configuration response supplies sanitized AI provider settings. Hydration
+does not fetch the entire provider/model catalog a second time just to obtain those
+fields; credential references, availability flags and provider extensions survive.
+Settings editors load with their selected section, and secondary dialogs load only
+when opened. The installed-plugin list similarly defers each built-in plugin editor
+until its configuration opens. Loading indicators stay within the selected content
+so the settings navigation and close button remain available.
+
+The mail inbox loads its reader and composer only when a message or draft opens.
+Its empty detail pane is independent of the rich-text editor and calendar tools;
+the inbox and a close action remain available while either module loads. Calendar
+event forms, availability tools and global search similarly load on opening,
+without changing draft autosave, event visibility or recurrence handling.
+Title previews defer their page card and Markdown renderer until a title is
+hovered or opened from the keyboard. Pointer entry starts the module load during
+the existing hover delay; leaving still cancels opening and navigation stays usable.
+Build budgets cover the complete static import graphs for mail and calendar,
+including shared startup code, so a small route entry cannot hide an eager editor.
+
+Mail push subscriptions wait asynchronously; idle tabs no longer occupy the shared
+worker pool between events. Thread-originated notifications retain account filters,
+bounded ordering and cancellation/disconnect cleanup. Local mail views and tag
+queries use synchronous FastAPI worker dispatch, preserving the active vault
+context while leaving the request loop available. Cold hybrid-provider imports also
+run in workers and are skipped on cached message reads.
+
+Integration updates preserve secure-store references and resolve only changed
+credentials. Reference-only configuration reads do not wait behind a reader that
+is unlocking credentials. IMAP synchronization resolves the selected account from
+either supported account section instead of unlocking every mail account.
+Calendar provider dispatch reads account metadata without unlocking credentials.
+Google and CalDAV clients resolve only matching calendar/email identities; Google
+also filters by provider and OAuth authentication before accessing the secure store.
+Calendar-before-email precedence and fresh credential reads remain unchanged.
+Concurrent Google Calendar credential reads share only work still pending for the
+same email, configuration document and revision/reference snapshot. Completed or
+failed reads are removed immediately; later calls resolve credentials again.
+Each caller receives independent credential data and constructs its own client.
+Meeting-reminder state paths use `resolve_data_dir()` directly, without loading
+vault parameters or creating directories during path resolution. The atomic writer
+prepares the local parent directory when state must be saved.
+
+Configuration reuses decoded YAML for unchanged files, checking device, inode,
+size, modification/change times and permissions on every read. Concurrent readers
+share a cold read of the same file; unrelated vaults keep independent reads and
+all callers receive independent documents. Failed or unstable reads are not reused.
+The cache retains at most 16 documents of up to 1 MiB each. Environment and active
+vault selection remain fresh. Path discovery reuses only the module's checkout
+location and checks existing directories before attempting creation; deleted
+directories and changed data/vault selectors retain the normal repair behavior.
+
+Credential availability resolves provider environment aliases from the current
+catalog snapshot, local downloaded metadata or bundled metadata. It does not
+refresh models.dev, probe Ollama, or wait on an ongoing model-catalog refresh.
+Explicit model-catalog reads still refresh normally. Local alias indexes are
+bounded and re-read after file replacement or modification; secret resolution
+and sanitized `has_api_key` flags retain their existing precedence.
+Concurrent credential checks share the initial decode of each unchanged catalog
+file. Different files and replacements proceed independently; failed reads are
+released and retried on the next lookup without retaining a failed cache entry.
+
+Settings navigation and inline plugin editors use React transitions to keep the
+current controls available while loading another editor. Concurrent table and
+table-page reads share a request per vault, table and filter, including development
+remounts; later reads always revalidate, and one dismissed consumer cannot abort
+another.
+
+Table page reads prepare current field names, immutable IDs and aliases once per
+batch. Rows whose keys already need no renaming take a copy without collision
+bookkeeping. Name/ID/alias precedence, original key order, opaque local metadata
+and HTTP metadata validation are retained. Prepared maps stay inside one table
+read; later queries rebuild them so renames and different vault schemas remain
+independent.
+
+The graph requests only its own configuration document at `/api/config/graph`.
+That read inherits the existing configuration permission gate and vault context,
+but never inspects AI provider or system-password credentials. The full Settings
+document retains its sanitized credential-status behavior. Graph preference
+refreshes still read current configuration after changes.
+After projection, graph construction clears the temporary NetworkX adjacency
+and attribute storage, including on partial results or failures. Its cached views
+can otherwise retain that storage until a process-wide cyclic collection; the
+projected response and parsed-node cache keep their data independently.
+Embedded vault graphs use their explicit view options and do not fetch an unused
+global configuration document on mount, configuration changes or partial retries.
+
+The Settings entry point, its section navigation and built-in plugin configuration
+buttons prepare their selected editor module on pointer, keyboard-focus or touch
+intent. The same import loaders serve React.lazy; preparation never mounts a
+section, reads editable documents or saves settings. Failed speculative downloads
+are ignored so opening the section still owns normal loading/error handling.
+Measure time from the click to populated, enabled controls separately from module
+preparation and the first modal frame; moving a download before a click does not
+prove that data hydration fits the navigation latency target.
+
+Before accepting requests, startup visits FastAPI's included route validation
+contexts in a worker without generating the optional public API schema or executing
+endpoint dependencies. This prevents lazy route construction on the first browser
+request while leaving schema generation and caching to its normal on-demand path.
+Integration startup remains deferred until route preparation finishes;
+authentication and parameter validation still run on each applicable request.
+
+Vault schema revisions `vault_0005`–`vault_0006` add Reader indexes for publication date,
+read status and source. It avoids scanning article bodies and sorting the whole
+table before applying the list limit. The normal migration runner backs up the
+database and verifies schema, integrity and row counts; article content and list
+response fields are preserved. A covering inventory index prevents source/count
+aggregation from opening article bodies. Query-plan tests cover the four list
+variants and inventory aggregation.
+The Reader UI requests `include_content=false` for its article list, keeping
+metadata, filtering and order while leaving stored bodies out of the SQL query
+and HTTP payload. Opening an article fetches its complete body separately; a new
+selection cancels the previous request, and failures offer retry. The default
+article-list API and direct article links retain their complete-content contract.
+
+Planning treats an existing but unreadable state/history file, or a corrupt
+state document, as unavailable, never as a new empty plan. Malformed individual
+history lines still follow the existing skip behavior. Temporary provider errors return 503
+with `planning_storage_pending` and `Retry-After`; read queries retry within a
+bounded window, while mutations are never automatically repeated. Planning
+query keys include the active vault, and previous-project placeholders are
+reused only within that vault. The selected project is resolved from compact
+page references before loading its schedule and baselines.
+
+Image responses distinguish provider downloads still pending from confirmed
+failures through `X-Gnosi-File-Availability`. The thumbnail retries only after an
+actual image error, respects the retry delay, cancels on unmount and reuses the
+successful response bytes. Failed downloads show a manual retry after a short
+cooldown. A warmup request or an allocated file block does not prove availability:
+the provider checks readability in a worker. Cloud download completion still
+depends on the file provider and must be verified with real files.
+
+A plugin-catalog timeout keeps feature gates closed and displays an explicit
+retry action in the application shell and plugin route gate. A failed catalog
+read is not evidence that plugins were disabled; do not replace its unavailable
+state with an empty successful catalog.
+Reads and pending activation/settings responses are scoped to the active vault;
+a late success or rollback from an earlier vault cannot replace the current state.
+
+Graph rebuilds coalesce per vault; cache hits avoid rebuilding the registry.
+After 30 seconds, the service revalidates indexed paths/modification times,
+registry data, contact columns, pending proposals, settings and managed sidecars.
+An unchanged complete snapshot retains its graph object and encoded bodies.
+Small successful sidecar reads reuse an LRU of at most 512 documents of 64 KiB
+each, after checking device, inode, mode, times, size and allocation. Failed or
+unstable reads are never retained; returned documents are independent copies.
+A changed snapshot is rebuilt from the captured inputs and checked again before
+publication. Unreliable inputs cannot renew a successful response. Sidecar reads
+are strict and scoped to the request's vault; semantic changes also refresh that
+vault's parsed nodes. Without a canonical index, normal periodic rebuilding
+remains the fallback.
+Graph JSON compression runs in a worker and reuses bytes for the same immutable
+snapshot, preserving invalidation and partial-result handling. Mail folder counts
+use a separate, short-lived connection so their scan does not serialize message
+listing on its connection. Header listing fetches only the fields it consumes;
+credential resolution remains fresh at provider use. Settings load tables and
+databases concurrently and retain either successful result if the other fails.
+Startup overlaps the health read with route preparation, sharing its pending
+request with the authentication gate and sidebar.
+
+Mail message reads retain their explicit error field when the provider cannot
+connect, select/search the folder or fetch headers. Such responses never replace
+a valid list cache or renew its freshness. Counts return retryable 503 on
+failure or after the overall 30-second read deadline; a shared read may finish
+in the background for another caller. Microsoft list/count GETs also use a
+20-second network timeout, so the underlying worker is bounded. The UI publishes
+successful account counts as they arrive and identifies pending/unavailable
+accounts and any retained previous counts. A visible list or an HTTP200 message
+response alone does not prove a successful fresh read of every account.
+Invalidating counts also retires in-progress read identities, preventing an old
+worker from publishing or renewing a pre-mutation count. Pagination publishes
+each account's page independently. Failed pages preserve their cursor and visible
+messages, and the retry action requests only those failed pages.
+
+Measure both first reads and repeats, and distinguish complete API responses from
+usable rendered content. A warm list under 500 ms does not establish a 500 ms
+navigation budget: initial cloud scans, external catalogs, thumbnails and browser
+rendering still require separate measurements.
 
 ## Frontend build and direct links
 

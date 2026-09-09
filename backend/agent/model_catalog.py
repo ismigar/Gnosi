@@ -28,7 +28,9 @@ import logging
 import re
 import threading
 import time
+from concurrent.futures import Future
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -407,9 +409,9 @@ def load_catalog(force_refresh: bool = False) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Lookups used by credentials / factory / usage accounting. All of them go
-# through load_catalog (memory-cached ~5 min) and swallow errors: callers sit
-# on hot request paths and must never fail because the catalog is unreachable.
+# Lookups used by credentials / factory / usage accounting. Model lookups use
+# load_catalog (memory-cached ~5 min); credential env aliases use local metadata
+# so availability checks do not wait for model discovery.
 # ---------------------------------------------------------------------------
 def catalog_provider(provider_id: str) -> Optional[Dict[str, Any]]:
     """Catalog entry for a provider id, or None."""
@@ -425,10 +427,84 @@ def catalog_provider(provider_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _env_index(catalog: Dict[str, Any]) -> dict[str, tuple[str, ...]]:
+    """Select credential metadata without retaining model descriptions."""
+    return {
+        provider["id"]: tuple(
+            value for value in provider.get("env", []) if isinstance(value, str) and value
+        )
+        for provider in catalog.get("providers", [])
+        if isinstance(provider, dict) and isinstance(provider.get("id"), str)
+    }
+
+
+@lru_cache(maxsize=8)
+def _file_env_index(path: Path, _stamp: tuple[int, ...]) -> dict[str, tuple[str, ...]]:
+    catalog = _read_json(path)
+    if catalog is None:
+        # Do not retain failed reads: an unreadable file can recover without
+        # changing its modification time.
+        raise ValueError("Model catalog metadata is unavailable")
+    return _env_index(catalog)
+
+
+_env_read_guard = threading.Lock()
+_env_reads: dict[tuple[Path, tuple[int, ...]], Future[dict[str, tuple[str, ...]]]] = {}
+
+
+def _shared_file_env_index(path: Path, stamp: tuple[int, ...]) -> dict[str, tuple[str, ...]]:
+    """Share cold metadata reads; lru_cache alone permits concurrent decoding."""
+    key = (path, stamp)
+    with _env_read_guard:
+        pending = _env_reads.get(key)
+        owner = pending is None
+        if pending is None:
+            pending = Future()
+            _env_reads[key] = pending
+    if not owner:
+        return pending.result()
+    try:
+        index = _file_env_index(path, stamp)
+        pending.set_result(index)
+        return index
+    except BaseException as error:
+        pending.set_exception(error)
+        raise
+    finally:
+        with _env_read_guard:
+            if _env_reads.get(key) is pending:
+                _env_reads.pop(key)
+
+
 def catalog_env_keys(provider_id: str) -> List[str]:
-    """API-key env var names models.dev knows for this provider."""
-    provider = catalog_provider(provider_id)
-    return [e for e in (provider or {}).get("env", []) if e]
+    """Resolve env names from local metadata without refreshing remote models.
+
+    Credential checks run while opening unrelated Settings and plugin panels.
+    They need env aliases, never the Ollama model inventory or a models.dev
+    round trip. Explicit catalog reads/refreshes still update the shared snapshot.
+    """
+    wanted = (provider_id or "").strip().lower()
+    if not wanted:
+        return []
+    # Read the published snapshot without waiting on _mem_lock: another caller
+    # may hold it throughout an optional remote refresh.
+    snapshot = _mem_cache
+    if snapshot is not None:
+        aliases = _env_index(snapshot).get(wanted)
+        if aliases is not None:
+            return list(aliases)
+    for path in (_cache_path(), VENDORED_PATH):
+        if path is None:
+            continue
+        try:
+            stat = path.stat()
+            stamp = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+            aliases = _shared_file_env_index(path, stamp).get(wanted)
+        except (OSError, ValueError, TypeError):
+            continue
+        if aliases is not None:
+            return list(aliases)
+    return []
 
 
 def catalog_base_url(provider_id: str) -> str:

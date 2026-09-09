@@ -1,15 +1,12 @@
-import {memo, useState} from 'react';
+import {memo, type RefObject} from 'react';
 import {useTranslation} from 'react-i18next';
 import {NON_IMAGE_THUMB} from './constants';
 import type {MediaLayout} from './model';
-import {CloudOff} from 'lucide-react';
-export const Thumb = memo(function Thumb({ src, alt, viewMode, kind }: {src: string; alt: string; viewMode: MediaLayout; kind: string}) {
+import {CloudOff, Loader2} from 'lucide-react';
+import {useImageRecovery} from './useImageRecovery';
+import {useThumbnailVisibility} from './useThumbnailVisibility';
+export const Thumb = memo(function Thumb({ src, alt, viewMode, kind, scrollRoot }: {src: string; alt: string; viewMode: MediaLayout; kind: string; scrollRoot?: RefObject<Element | null>}) {
   const { t } = useTranslation();
-  const [attempt, setAttempt] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY_MS = 4000;
-
   const wrapperClass = viewMode === 'grid'
     ? 'aspect-square relative overflow-hidden bg-gray-900'
     : 'w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900';
@@ -28,34 +25,46 @@ export const Thumb = memo(function Thumb({ src, alt, viewMode, kind }: {src: str
     );
   }
 
-  // The `?_r=N` query param forces the browser not to serve it from cache.
-  const finalSrc = attempt === 0 ? src : `${src}${src.includes('?') ? '&' : '?'}_r=${String(attempt)}`;
+  // A different source has its own retry lifecycle, including timer/blob cleanup.
+  return <ImageThumb key={src} src={src} alt={alt} wrapperClass={wrapperClass} scrollRoot={scrollRoot}/>;
+});
 
-  if (failed) {
+function ImageThumb({src, alt, wrapperClass, scrollRoot}: {src: string; alt: string; wrapperClass: string; scrollRoot?: RefObject<Element | null>}) {
+  const {t} = useTranslation();
+  const {targetRef, visible} = useThumbnailVisibility(scrollRoot);
+  const recovery = useImageRecovery(src);
+
+  if (recovery.phase === 'failed') {
     return (
       <div className={`${wrapperClass} bg-slate-800 text-slate-400 flex flex-col items-center justify-center gap-1 p-2`}>
         <CloudOff size={28} className="opacity-60" />
         <span className="text-[9px] text-center leading-tight opacity-70">{t('media.not_downloaded')}</span>
+        <button type="button" disabled={!recovery.retryReady}
+          className="text-xs underline disabled:opacity-50"
+          onClick={event => {event.stopPropagation(); recovery.recover();}}>
+          {t('common.retry')}
+        </button>
       </div>
     );
   }
 
   return (
-    <div className={wrapperClass}>
-      <img
-        src={finalSrc}
+    <div ref={targetRef} className={wrapperClass} aria-busy={recovery.phase === 'pending'}>
+      {visible && recovery.phase !== 'pending' && <img
+        src={recovery.recoveredSrc ?? src}
         alt={alt}
         title={alt}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         loading="lazy"
-        onError={() => {
-          if (attempt < MAX_RETRIES) {
-            setTimeout(() => { setAttempt((n) => n + 1); }, RETRY_DELAY_MS * (attempt + 1));
-          } else {
-            setFailed(true);
-          }
-        }}
-      />
+        decoding="async"
+        onError={recovery.onError}
+      />}
+      {recovery.phase === 'pending' && (
+        <div role="status" className="absolute inset-0 bg-slate-800 text-slate-300 flex flex-col items-center justify-center gap-2 p-2">
+          <Loader2 size={24} className="animate-spin"/>
+          <span className="text-xs">{t('media.loading')}</span>
+        </div>
+      )}
     </div>
   );
-});
+}

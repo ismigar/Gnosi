@@ -16,12 +16,8 @@ def test_normalize_datetime_preserves_aware_iso_value() -> None:
 def test_google_dispatch_uses_selected_account(monkeypatch) -> None:
     monkeypatch.setattr(
         service.integration_manager,
-        "get_raw",
-        lambda section: (
-            [{"email": "user@example.com", "provider": "google"}]
-            if section == "calendars"
-            else []
-        ),
+        "_load_secured",
+        lambda: {"calendars": [{"email": "user@example.com", "provider": "google"}]},
     )
     monkeypatch.setattr(
         service,
@@ -48,9 +44,9 @@ def test_google_dispatch_uses_selected_account(monkeypatch) -> None:
 def test_nextcloud_account_dispatches_through_caldav(monkeypatch) -> None:
     monkeypatch.setattr(
         service.integration_manager,
-        "get_raw",
-        lambda section: (
-            [
+        "_load_secured",
+        lambda: {
+            "calendars": [
                 {
                     "email": "user@example.com",
                     "provider": "caldav",
@@ -58,9 +54,7 @@ def test_nextcloud_account_dispatches_through_caldav(monkeypatch) -> None:
                     "password": "resolved-app-password",
                 }
             ]
-            if section == "calendars"
-            else []
-        ),
+        },
     )
     monkeypatch.setattr(
         service,
@@ -84,8 +78,8 @@ def test_nextcloud_account_dispatches_through_caldav(monkeypatch) -> None:
 def test_unknown_account_returns_no_events(monkeypatch) -> None:
     monkeypatch.setattr(
         service.integration_manager,
-        "get_raw",
-        lambda _section: [],
+        "_load_secured",
+        lambda: {},
     )
 
     assert service.list_events("missing@example.com", "start", "end") == []

@@ -6,17 +6,14 @@ import {
     Share2, Store, Users,
     type LucideIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { notifyError } from '../../../shared/notifications/notifyError';
 import { BUILTIN_PLUGINS } from '../../../shared/plugins/registry';
 import { usePlugins } from '../../../shared/plugins/usePlugins';
 import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
-import ResourcesPluginConfig from '../../literature/settings/ResourcesPluginConfig';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
-import { DailyNotesConfig } from './DailyNotesConfig';
-import { LlmWikiConfig } from './LlmWikiConfig';
 import {
     isPluginSection,
     lifecycleConflict,
@@ -28,9 +25,7 @@ import {
     type PluginConfigComponent,
     type PluginSection,
 } from './pluginSettingsModel';
-import { ProjectPlanningConfig } from './ProjectPlanningConfig';
 import { ThirdPartyPlugins } from './ThirdPartyPlugins';
-import { WebClipperConfig } from './WebClipperConfig';
 
 const ICONS: Readonly<Record<string, LucideIcon>> = {
     BookOpen, BrainCircuit, Calendar, CalendarDays, CalendarRange, Clock3,
@@ -38,16 +33,22 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
     NotebookTabs, Scissors, Share2, Users,
 };
 
-const GenogramsConfig = lazy(loadGenogramsConfig);
-
-const INLINE_CONFIGS: Readonly<Record<string, PluginConfigComponent>> = {
-    genograms: GenogramsConfig,
-    'daily-notes': DailyNotesConfig,
-    'llm-wiki': LlmWikiConfig,
-    'project-planning': ProjectPlanningConfig,
-    resources: ResourcesPluginConfig,
-    'web-clipper': WebClipperConfig,
+const INLINE_CONFIG_LOADERS: Readonly<Record<string, () => Promise<{ default: PluginConfigComponent }>>> = {
+    genograms: loadGenogramsConfig,
+    'daily-notes': () => import('./DailyNotesConfig').then(module => ({ default: module.DailyNotesConfig })),
+    'llm-wiki': () => import('./LlmWikiConfig').then(module => ({ default: module.LlmWikiConfig })),
+    'project-planning': () => import('./ProjectPlanningConfig').then(module => ({ default: module.ProjectPlanningConfig })),
+    resources: () => import('../../literature/settings/ResourcesPluginConfig'),
+    'web-clipper': () => import('./WebClipperConfig').then(module => ({ default: module.WebClipperConfig })),
 };
+const INLINE_CONFIGS: Readonly<Record<string, PluginConfigComponent>> = Object.fromEntries(
+    Object.entries(INLINE_CONFIG_LOADERS).map(([id, loader]) => [id, lazy(loader)]),
+);
+
+function preloadPluginConfiguration(pluginId: string): void {
+    // Do not mount an editor or read/write its settings until it is opened.
+    void INLINE_CONFIG_LOADERS[pluginId]?.().catch(() => {});
+}
 
 export interface PluginsSettingsProps {
     readonly initialPluginId?: string | null;
@@ -70,6 +71,7 @@ export function PluginsSettingsView({
     const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null);
     const [busyPluginIds, setBusyPluginIds] = useState<ReadonlySet<string>>(() => new Set());
     const [configuredPluginId, setConfiguredPluginId] = useState<string | null>(null);
+    const [isConfigPending, startConfigTransition] = useTransition();
     const tp = (key: string, values: Readonly<Record<string, unknown>> = {}): string => (
         t(`settings.plugins.${key}`, values)
     );
@@ -96,7 +98,9 @@ export function PluginsSettingsView({
 
     const openPluginConfiguration = (pluginId: string, settingsTab?: string): void => {
         if (INLINE_CONFIGS[pluginId]) {
-            setConfiguredPluginId((current) => current === pluginId ? null : pluginId);
+            startConfigTransition(() => {
+                setConfiguredPluginId((current) => current === pluginId ? null : pluginId);
+            });
         } else if (settingsTab) {
             onOpenSettingsTab?.(settingsTab, pluginId);
         }
@@ -154,7 +158,7 @@ export function PluginsSettingsView({
     );
 
     return (
-        <div>
+        <div aria-busy={isConfigPending}>
             <div style={{ alignItems: 'center', display: 'flex', gap: 8, marginBottom: 6 }}>
                 <Puzzle size={18} /><h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tp('title')}</h3>
             </div>
@@ -193,13 +197,15 @@ export function PluginsSettingsView({
                                             <div style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{tp(`catalog.${plugin.id}.description`)}</div>
                                         </div>
                                         {plugin.settingsTab && enabled && (
-                                            <button type="button" onClick={() => { openPluginConfiguration(plugin.id, plugin.settingsTab); }} aria-label={tp('configure')} aria-expanded={InlineConfig ? isConfigOpen : undefined} title={tp('configure')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-tertiary, #94a3b8)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Settings size={16} /></button>
+                                            <button type="button" onPointerEnter={() => { preloadPluginConfiguration(plugin.id); }} onFocus={() => { preloadPluginConfiguration(plugin.id); }} onTouchStart={() => { preloadPluginConfiguration(plugin.id); }} onClick={() => { openPluginConfiguration(plugin.id, plugin.settingsTab); }} aria-label={tp('configure')} aria-expanded={InlineConfig ? isConfigOpen : undefined} title={tp('configure')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-tertiary, #94a3b8)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Settings size={16} /></button>
                                         )}
                                         <button type="button" role="switch" aria-checked={enabled} onClick={() => { void togglePlugin(plugin.id, !enabled); }} disabled={busyPluginIds.has(plugin.id)} style={{ background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)', border: 'none', borderRadius: 999, cursor: 'pointer', flexShrink: 0, height: 24, opacity: busyPluginIds.has(plugin.id) ? 0.65 : 1, position: 'relative', transition: 'background 0.15s', width: 42 }} title={enabled ? tp('disable') : tp('enable')}>
                                             <span style={{ background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', height: 20, left: enabled ? 20 : 2, position: 'absolute', top: 2, transition: 'left 0.15s', width: 20 }} />
                                         </button>
                                     </div>
-                                    <Suspense fallback={<div role="status">{t('common.loading')}</div>}>{InlineConfig && isConfigOpen && <InlineConfig />}</Suspense>
+                                    <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
+                                        {InlineConfig && isConfigOpen && <InlineConfig />}
+                                    </Suspense>
                                 </div>
                             );
                         })}

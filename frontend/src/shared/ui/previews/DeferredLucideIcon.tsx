@@ -90,13 +90,17 @@ export function DeferredLucideIcon({
   }
   if (!dynamicModule) return loadingFallback;
   const names: readonly string[] = dynamicModule.iconNames;
-  if (!names.includes(normalizedName)) return invalidFallback;
+  // Stored PascalCase names also include numbered aliases such as BarChart3.
+  // Their dynamic module is bar-chart-3, which a camel-case split cannot infer.
+  const resolvedName = names.includes(normalizedName) ? normalizedName
+    : names.find(candidate => candidate.replaceAll('-', '') === normalizedName.replaceAll('-', ''));
+  if (!resolvedName) return invalidFallback;
   const DynamicIcon = dynamicModule.DynamicIcon;
   return (
     <DynamicIcon
       {...iconProps}
-      data-icon={normalizedName}
-      name={normalizedName as (typeof dynamicModule.iconNames)[number]}
+      data-icon={resolvedName}
+      name={resolvedName as (typeof dynamicModule.iconNames)[number]}
     />
   );
 }

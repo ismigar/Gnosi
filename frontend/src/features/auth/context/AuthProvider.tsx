@@ -26,6 +26,7 @@ import {
 } from '../../../shared/api/request-context';
 import { fetchSystemHealth } from '../../../shared/api/system';
 import { emitAppEvent } from '../../../shared/platform/app-events';
+import { reloadBrowserPage } from '../../../shared/platform/browser-events';
 import {
     readStorage,
     removeStorage,
@@ -90,6 +91,15 @@ function clearPersistedUser(): void {
     removeStorage(WORKSPACE_ID_STORAGE_KEY);
 }
 
+function isInvalidSession(error: unknown): boolean {
+    if (!(error instanceof GnosiApiError) || error.status !== 401) return false;
+    const payload = error.payload;
+    // /auth/me also returns 401 for a valid anonymous local session. Only this
+    // existing backend detail identifies a credential that must be cleared.
+    return typeof payload === 'object' && payload !== null
+        && 'detail' in payload && payload.detail === 'Sessió expirada o invàlida';
+}
+
 async function refreshVaultRouting(): Promise<void> {
     const { active } = await initializeVaultRouting({ force: true });
     emitAppEvent('gnosi:vault-changed', {
@@ -103,15 +113,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [gnosiMode, setGnosiMode] = useState<string | null>(null);
     const [requireAuth, setRequireAuth] = useState(false);
+    const [invalidSession, setInvalidSession] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const refresh = useCallback(async (): Promise<AuthUser | null> => {
         try {
             const currentUser = await fetchCurrentAuthUser();
+            setInvalidSession(false);
             setUser(currentUser);
             persistUser(currentUser);
             return currentUser;
         } catch (error: unknown) {
+            if (isInvalidSession(error)) setInvalidSession(true);
             if (!(error instanceof GnosiApiError) || error.status !== 401) {
                 logError('auth-current-user', error);
             }
@@ -139,11 +152,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
             const authResult = authRequest.promise
                 .then((currentUser) => {
                     if (!alive) return;
+                    setInvalidSession(false);
                     setUser(currentUser);
                     persistUser(currentUser);
                 })
                 .catch((error: unknown) => {
                     if (!alive) return;
+                    if (isInvalidSession(error)) setInvalidSession(true);
                     if (!(error instanceof GnosiApiError) || error.status !== 401) {
                         if (!(error instanceof DOMException)) {
                             logError('auth-current-user', error);
@@ -167,6 +182,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         password: string,
     ): Promise<AuthUser> => {
         const currentUser = await loginWithPassword({ email, password });
+        setInvalidSession(false);
         setUser(currentUser);
         persistUser(currentUser);
         await refreshVaultRouting();
@@ -200,6 +216,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             }
         }
         setUser(currentUser);
+        setInvalidSession(false);
         persistUser(currentUser);
         return currentUser;
     }, []);
@@ -233,10 +250,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setUser(null);
     }, []);
 
+    const recoverInvalidSession = useCallback(async (): Promise<void> => {
+        // Recovery is an explicit user action. A failed logout must leave both
+        // the metadata and the recovery screen intact so the user can retry.
+        await logoutCurrentUser();
+        clearPersistedUser();
+        setUser(null);
+        reloadBrowserPage();
+    }, []);
+
     const value: AuthContextValue = {
         user,
         gnosiMode,
         requireAuth,
+        sessionRecovery: invalidSession ? { recover: recoverInvalidSession } : null,
         loading,
         login,
         register,

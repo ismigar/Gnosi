@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { ReaderArticle } from '../../../shared/api/reader';
 import { readerArticleMeta } from './readerDashboardModel';
+import { useReaderArticleBody } from './useReaderArticleBody';
 
 const ARTICLE_IFRAME_CSS = `
     :root { color-scheme: light dark; }
@@ -122,6 +123,7 @@ function fitIframeToContent(event: SyntheticEvent<HTMLIFrameElement>): void {
 
 interface ReaderArticleContentProps {
     readonly article: ReaderArticle;
+    readonly loadFullContent?: boolean;
     readonly locale: string;
     readonly onBack: () => void;
     readonly onMarkRead: (articleId: number) => void;
@@ -129,12 +131,13 @@ interface ReaderArticleContentProps {
 
 export function ReaderArticleContent({
     article,
+    loadFullContent = false,
     locale,
     onBack,
     onMarkRead,
 }: ReaderArticleContentProps) {
     const { t } = useTranslation();
-    const body = article.full_content || article.content || '';
+    const { body, loading, failed, retry } = useReaderArticleBody(article, loadFullContent);
     const isHtml = body.includes('<');
     const paragraphs = isHtml ? [] : body.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
     return <article className="max-w-[640px] mx-auto py-12 px-6 md:px-10 animate-fade-in-up">
@@ -153,7 +156,10 @@ export function ReaderArticleContent({
                 <span>{t('reader_original_source')}</span><ExternalLink size={13} />
             </a>
         </div>
-        {isHtml ? <iframe
+        {loading ? <div role="status">{t('common.loading')}</div> : failed ? <div role="alert">
+            {t('reader_analysis_evidence_error')}
+            <button type="button" onClick={retry}>{t('common.retry')}</button>
+        </div> : isHtml ? <iframe
             key={article.id}
             srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>${ARTICLE_IFRAME_CSS}</style></head><body>${body}</body></html>`}
             sandbox="allow-same-origin allow-popups"

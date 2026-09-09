@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -15,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from backend.domains.mail.cache import (
     _COUNTS_CACHE,
     _MAIL_CACHE,
+    _CountsReadGeneration,
     _invalidate_mail_cache,
 )
 from backend.domains.mail.repositories.vault import (
@@ -37,6 +39,36 @@ from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
+_COUNTS_INFLIGHT: dict[
+    tuple[asyncio.AbstractEventLoop, str, _CountsReadGeneration], asyncio.Task[Any]
+] = {}
+_COUNTS_READ_TIMEOUT_S = 30
+
+
+async def _load_mail_counts(email: str) -> Any:
+    from backend.services.integration_manager import integration_manager
+
+    acc = await asyncio.to_thread(integration_manager.get_mail_account, email, resolve_secrets=False)
+    if acc and integration_manager.is_microsoft_account(acc):
+        from backend.services.microsoft_mail_service import microsoft_get_counts
+
+        counts = await asyncio.to_thread(microsoft_get_counts, email)
+    elif acc and integration_manager.is_imap_account(acc):
+        provider = await asyncio.to_thread(
+            importlib.import_module, "backend.services.hybrid_mail_service"
+        )
+        counts = await asyncio.to_thread(provider.imap_get_counts, email)
+    else:
+        raise RuntimeError("Mail account configuration is unavailable")
+    return counts
+
+
+async def _load_current_mail_counts(email: str, generation: _CountsReadGeneration) -> Any:
+    counts = await _load_mail_counts(email)
+    if not _COUNTS_CACHE.set_if_current(email, generation, counts):
+        raise RuntimeError("Mail counts changed while this read was in progress")
+    return counts
+
 
 @router.get(
     "/counts",
@@ -54,21 +86,31 @@ async def get_mail_counts(email: str = Query(...)) -> Any:
     if cached is not None:
         return cached
 
-    from backend.services.hybrid_mail_service import imap_get_counts
-    from backend.services.integration_manager import integration_manager
+    # Deduplicate work only while it is in progress, preserving the existing
+    # cache lifetime. Cancellation of one tab must not cancel another reader.
+    generation = _COUNTS_CACHE.read_generation(email)
+    key = (asyncio.get_running_loop(), email, generation)
+    task = _COUNTS_INFLIGHT.get(key)
+    if task is None or task.done():
+        task = asyncio.create_task(_load_current_mail_counts(email, generation))
+        _COUNTS_INFLIGHT[key] = task
 
-    acc = integration_manager.get_mail_account(email)
-    if acc and integration_manager.is_microsoft_account(acc):
-        from backend.services.microsoft_mail_service import microsoft_get_counts
+        def completed(finished: asyncio.Task[Any]) -> None:
+            if _COUNTS_INFLIGHT.get(key) is finished:
+                _COUNTS_INFLIGHT.pop(key, None)
+            if not finished.cancelled():
+                finished.exception()  # Retrieve a failure even if every waiter left.
 
-        counts = await asyncio.to_thread(microsoft_get_counts, email)
-    elif acc and integration_manager.is_imap_account(acc):
-        counts = await asyncio.to_thread(imap_get_counts, email)
-    else:
-        counts = {}
-
-    _COUNTS_CACHE.set(email, counts)
-    return counts
+        task.add_done_callback(completed)
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), timeout=_COUNTS_READ_TIMEOUT_S)
+    except Exception as error:
+        log.warning("Mail counts unavailable (%s)", type(error).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Mail folder counts are temporarily unavailable. Try again shortly.",
+            headers={"Retry-After": "3"},
+        ) from error
 
 
 @router.get(
@@ -87,7 +129,6 @@ async def get_messages(
     force: bool = Query(False),
 ) -> Any:
     """Hybrid: query IMAP (Google and manual accounts) or Microsoft Graph directly."""
-    from backend.services.hybrid_mail_service import imap_list_messages
     from backend.services.integration_manager import integration_manager
 
     cache_key = f"{email}|{folder}|{category}|{page_token}|{offset}|{search}"
@@ -95,10 +136,10 @@ async def get_messages(
         cached = _MAIL_CACHE.get(cache_key)
         if cached is not None:
             return cached
-    else:
-        _MAIL_CACHE.pop(cache_key)
+    # A forced revalidation bypasses a valid snapshot but does not discard it.
+    # Only a successful provider read replaces the cache or restarts its TTL.
 
-    acc = integration_manager.get_mail_account(email)
+    acc = await asyncio.to_thread(integration_manager.get_mail_account, email, resolve_secrets=False)
     # Hard cap on remote mail listings. IMAP servers in particular can hang
     # for minutes on flaky networks, leaving the HTTP request pending and
     # blocking the frontend tab. 30s aligns with the IMAP socket timeout in
@@ -121,9 +162,12 @@ async def get_messages(
                 timeout=REMOTE_LIST_TIMEOUT_S,
             )
         else:
+            provider = await asyncio.to_thread(
+                importlib.import_module, "backend.services.hybrid_mail_service"
+            )
             result = await asyncio.wait_for(
                 asyncio.to_thread(
-                    imap_list_messages,
+                    provider.imap_list_messages,
                     email,
                     folder=folder or "INBOX",
                     search=search,
@@ -138,13 +182,18 @@ async def get_messages(
             "next_page_token": None,
             "total": 0,
             "error": (
-                f"Timeout after {REMOTE_LIST_TIMEOUT_S}s listing mail for "
-                f"{email}. The remote server is unreachable or slow."
+                "Mail server timed out while listing messages. Try again shortly."
             ),
+        }
+    except Exception as read_error:
+        log.warning("Mail message list unavailable (%s)", type(read_error).__name__)
+        return {
+            "messages": [], "next_page_token": None, "total": 0,
+            "error": "Mail server temporarily unavailable. Try again shortly.",
         }
     if not (acc and integration_manager.is_microsoft_account(acc)):
         if folder and folder.upper() in ("DRAFTS", "DRAFT"):
-            vault_drafts = _load_vault_drafts(email)
+            vault_drafts = await asyncio.to_thread(_load_vault_drafts, email)
             existing_ids = {m.get("id") for m in result.get("messages", [])}
             extra = [d for d in vault_drafts if d["id"] not in existing_ids]
             result = dict(result)
@@ -181,18 +230,22 @@ async def get_message(
     IMAP, it's interpreted as a bare UID.
 
     """
-    from backend.services.hybrid_mail_service import imap_get_message
     from backend.services.integration_manager import integration_manager
 
     if email:
-        acc = integration_manager.get_mail_account(email)
+        acc = await asyncio.to_thread(integration_manager.get_mail_account, email)
         if acc and integration_manager.is_microsoft_account(acc):
             from backend.services.microsoft_mail_service import microsoft_get_message
 
             result = await asyncio.to_thread(microsoft_get_message, email, message_id)
         elif acc and integration_manager.is_imap_account(acc):
+            provider = await asyncio.to_thread(
+                importlib.import_module, "backend.services.hybrid_mail_service"
+            )
             uid = message_id[5:] if message_id.startswith("imap_") else message_id
-            result = await asyncio.to_thread(imap_get_message, email, uid, folder or "INBOX")
+            result = await asyncio.to_thread(
+                provider.imap_get_message, email, uid, folder or "INBOX"
+            )
         else:
             result = None
 
@@ -251,7 +304,7 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
     """
     from backend.services.integration_manager import integration_manager
 
-    acc = integration_manager.get_mail_account(email)
+    acc = await asyncio.to_thread(integration_manager.get_mail_account, email)
     if not acc:
         return {"messages": []}
 
@@ -265,9 +318,10 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
         if not thread_id.isdigit():
             # Not an X-GM-THRID, check whether it's a current UID
             uid_only = thread_id[5:] if thread_id.startswith("imap_") else thread_id
-            from backend.services.hybrid_mail_service import imap_get_message
-
-            mail = await asyncio.to_thread(imap_get_message, email, uid_only, "INBOX")
+            provider = await asyncio.to_thread(
+                importlib.import_module, "backend.services.hybrid_mail_service"
+            )
+            mail = await asyncio.to_thread(provider.imap_get_message, email, uid_only, "INBOX")
             if mail and mail.get("gm_thrid"):
                 gm_thrid = mail["gm_thrid"]
             else:
@@ -281,7 +335,9 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
 
     # Fallback: Gmail API (only if some account still has no refresh_token)
     if acc and integration_manager.is_google_account(acc):
-        from backend.services.hybrid_mail_service import _parse_gmail_meta
+        provider = await asyncio.to_thread(
+            importlib.import_module, "backend.services.hybrid_mail_service"
+        )
 
         thread = await asyncio.to_thread(get_thread_details, email, thread_id)
         if not thread:
@@ -289,7 +345,7 @@ async def get_thread(thread_id: str, email: str = Query(...)) -> Any:
         messages = []
         for msg in thread.get("messages", []):
             try:
-                messages.append(_parse_gmail_meta(msg, email))
+                messages.append(provider._parse_gmail_meta(msg, email))
             except Exception:
                 pass
         messages.sort(key=lambda m: m.get("timestamp", 0))
@@ -319,9 +375,8 @@ async def mail_events(email: Optional[str] = Query(None)) -> StreamingResponse:
         last_ping = time.monotonic()
         try:
             yield "event: ready\ndata: {}\n\n"
-            while True:
-                # pop_blocking is synchronous; run it in a thread so it doesn't block the loop.
-                evt = await asyncio.to_thread(sub.pop_blocking, 5.0)
+            while sub.alive:
+                evt = await sub.pop(5.0)
                 if evt:
                     name = evt.get("type", "event")
                     import json as _json

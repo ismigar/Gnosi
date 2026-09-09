@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import logging
 from typing import Optional, Sequence
 
+from backend.domains.calendar.timing import calendar_worker_map
 from backend.services.hybrid_calendar_service import (
     GoogleAuthExpired,
     list_calendars,
@@ -54,7 +55,7 @@ def fetch_calendar_lists(accounts: Sequence[str]) -> list[CalendarAccountCalenda
         return []
     worker_count = min(_MAX_ACCOUNT_FETCH_WORKERS, len(accounts))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        return list(executor.map(fetch_account, accounts))
+        return calendar_worker_map(executor, fetch_account, accounts)
 
 
 def fetch_calendar_accounts(
@@ -85,4 +86,4 @@ def fetch_calendar_accounts(
         return []
     worker_count = min(_MAX_ACCOUNT_FETCH_WORKERS, len(accounts))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        return list(executor.map(fetch_account, accounts))
+        return calendar_worker_map(executor, fetch_account, accounts)

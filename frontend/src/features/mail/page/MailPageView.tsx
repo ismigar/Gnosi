@@ -1,12 +1,11 @@
-import type { ComponentType } from 'react';
+import { lazy, Suspense, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Inbox, PanelLeft } from 'lucide-react';
 
 import { AppHeader } from '../../../shared/ui/layout/AppHeader';
-import MailComposer from '../components/MailComposer';
 import MailList from '../components/MailList';
 import MailSidebar from '../components/MailSidebar';
-import MailViewer from '../components/MailViewer';
+import { MailViewerEmpty } from '../components/MailViewerEmpty';
 import type { MailView } from '../../../shared/api/mail';
 import type { MailPageController } from './useMailPageController';
 import { mailMessageIdentity } from '../mailIdentity';
@@ -15,6 +14,8 @@ import type {
   MailComposeData,
 } from './mailPageModel';
 
+const MailComposer = lazy(() => import('../components/MailComposer'));
+const MailViewer = lazy(() => import('../components/MailViewer'));
 
 interface MailSidebarBoundaryProps {
   readonly accounts: readonly MailAccount[];
@@ -76,6 +77,30 @@ export function MailPageView({ controller }: MailPageViewProps) {
           <PanelLeft size={18} />
         </button>
       </AppHeader>
+      {controller.countStatuses.some(account => account.status !== 'ready') && (
+        <div
+          role="status"
+          data-mail-counts-status={controller.countStatuses.some(account => account.status === 'unavailable') ? 'unavailable' : 'pending'}
+          className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] px-4 py-2 text-xs text-[var(--text-secondary)]"
+        >
+          <p>{t('mail.counts_partial', 'Folder counts are incomplete or awaiting an update.')}</p>
+          <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+            {controller.countStatuses.filter(account => account.status !== 'ready').map(account => (
+              <li key={account.email} data-mail-count-account={account.email} data-count-state={account.status}>
+                {account.email}: {account.status === 'pending'
+                  ? t('mail.counts_pending', 'Updating')
+                  : t('mail.counts_unavailable', 'Unavailable')}
+                {account.hasPrevious && <> · {t('mail.counts_previous', 'Previous count retained')}</>}
+              </li>
+            ))}
+          </ul>
+          {controller.countStatuses.some(account => account.status === 'unavailable') && (
+            <button type="button" className="mt-1 font-semibold text-[var(--gnosi-blue)] hover:underline" onClick={controller.refreshCounts}>
+              {t('common.retry', 'Retry')}
+            </button>
+          )}
+        </div>
+      )}
       <div className="mail-workspace">
         {controller.isCompact && controller.showMailboxSidebar && (
           <button
@@ -139,30 +164,40 @@ export function MailPageView({ controller }: MailPageViewProps) {
           </div>
 
           <div className={`mail-workspace__detail ${hasDetail ? 'mail-workspace__detail--active' : ''}`}>
-            {controller.isComposing ? (
-              <TypedMailComposer
-                account={controller.selectedAccount}
-                accounts={controller.identities}
-                onClose={controller.closeComposer}
-                onSent={controller.closeComposer}
-                onDraftSaved={() => {
-                  controller.setListRefreshToken((current) => current + 1);
-                }}
-                {...(controller.composeData ?? {})}
-              />
-            ) : (
-            <MailViewer
-                account={controller.selectedAccount}
-                mail={controller.selectedMail}
-                onClose={() => {
-                  controller.setSelectedMail(null);
-                }}
-                onMailRead={controller.handleMailRead}
-                onActionDone={controller.handleActionDone}
-                onMoved={controller.handleMailMoved}
-                onCompose={controller.handleOpenComposer}
-              />
-            )}
+            <Suspense fallback={
+              <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                <p role="status">{t('mail.loading')}</p>
+                <button type="button" className="gnosi-btn gnosi-btn-secondary" onClick={() => {
+                  if (controller.isComposing) controller.closeComposer();
+                  else controller.setSelectedMail(null);
+                }}>{t('common.close', 'Close')}</button>
+              </div>
+            }>
+              {controller.isComposing ? (
+                <TypedMailComposer
+                  account={controller.selectedAccount}
+                  accounts={controller.identities}
+                  onClose={controller.closeComposer}
+                  onSent={controller.closeComposer}
+                  onDraftSaved={() => {
+                    controller.setListRefreshToken((current) => current + 1);
+                  }}
+                  {...(controller.composeData ?? {})}
+                />
+              ) : controller.selectedMail ? (
+              <MailViewer
+                  account={controller.selectedAccount}
+                  mail={controller.selectedMail}
+                  onClose={() => {
+                    controller.setSelectedMail(null);
+                  }}
+                  onMailRead={controller.handleMailRead}
+                  onActionDone={controller.handleActionDone}
+                  onMoved={controller.handleMailMoved}
+                  onCompose={controller.handleOpenComposer}
+                />
+              ) : <MailViewerEmpty />}
+            </Suspense>
           </div>
         </div>
       </div>

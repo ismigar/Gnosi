@@ -38,6 +38,13 @@ class PageInfo(BaseModel):
     resolved_table_id: Optional[str] = None
 
 
+class PageReference(BaseModel):
+    """Complete identity and display title for a page selector."""
+
+    id: str
+    title: str
+
+
 class PageDetailResponse(BaseModel):
     """Full page document; metadata remains open for user-defined frontmatter."""
 

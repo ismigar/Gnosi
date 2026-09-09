@@ -15,6 +15,7 @@ from backend.services.calendar_event_aggregation import (
     CalendarAccountCalendars,
     CalendarAccountEvents,
 )
+from backend.domains.calendar.timing import calendar_phase
 
 JsonObject = dict[str, object]
 
@@ -75,7 +76,9 @@ def load_calendars(
             pending_accounts.append(email)
 
     auth_errors: list[str] = []
-    for result in fetch_lists(pending_accounts):
+    with calendar_phase("calendars"):
+        results = fetch_lists(pending_accounts)
+    for result in results:
         if result.auth_expired:
             auth_errors.append(result.email)
         elif result.succeeded:
@@ -121,17 +124,21 @@ def collect_events(
         else:
             pending.append((email, cache_key))
 
-    for result in fetch_accounts(pending, time_min, time_max, search, calendar_id):
+    with calendar_phase("events"):
+        results = fetch_accounts(pending, time_min, time_max, search, calendar_id)
+    for result in results:
         if result.succeeded:
             loaded = [dict(event) for event in result.events]
             EVENTS_CACHE[result.cache_key] = (time.time() + EVENTS_CACHE_TTL, loaded)
             events.extend(loaded)
 
-    hidden_ids = hidden_ids_loader()
+    with calendar_phase("hidden_db"):
+        hidden_ids = hidden_ids_loader()
     if hidden_ids:
         events = [event for event in events if event.get("id") not in hidden_ids]
     if include_vault:
-        vault_events = vault_events_loader(time_min, time_max, search)
+        with calendar_phase("vault_projection"):
+            vault_events = vault_events_loader(time_min, time_max, search)
         if hidden_ids:
             vault_events = [event for event in vault_events if event.get("id") not in hidden_ids]
         events.extend(vault_events)

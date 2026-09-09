@@ -181,7 +181,9 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, Linux, ARM64]
+    # Native startup and Vite optimization need independent capacity too.
+    # Public PRs use a fresh Linux ARM64 VM, matching the backend policy.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -205,6 +207,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen
         timeout-minutes: 45
+      - name: Install Chromium system dependencies on hosted Linux
+        if: runner.environment == 'github-hosted'
+        run: pnpm --filter @gnosi/e2e exec playwright install-deps chromium
       - run: pnpm test:e2e:install
       - name: Start native services
         timeout-minutes: 7
@@ -213,6 +218,7 @@ jobs:
           GNOSI_DATA_DIR: ${{ runner.temp }}/gnosi-data
           GNOSI_DISABLE_SCHEDULER: '1'
           PYTHONUNBUFFERED: '1'
+          VITE_DEV_HTTPS: 'false'
         run: |
           uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
           pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &

@@ -14,9 +14,14 @@ import { fetchSystemHealth } from '../../shared/api/system';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
 // entering the initial bundle just because the sidebar references the modal.
-const GlobalSettingsModal = lazy(() =>
-  import('../../features/settings/GlobalSettingsModal').then((m) => ({ default: m.GlobalSettingsModal })),
-) as unknown as ComponentType<GlobalSettingsModalProps>;
+const loadGlobalSettingsModal = () => import('../../features/settings/GlobalSettingsModal')
+    .then((module) => ({ default: module.GlobalSettingsModal }));
+const GlobalSettingsModal = lazy(loadGlobalSettingsModal) as unknown as ComponentType<GlobalSettingsModalProps>;
+
+function preloadGlobalSettings(): void {
+    // Download the editor on intent; mounting it still owns all data reads.
+    void loadGlobalSettingsModal().catch(() => {});
+}
 import { WorkspaceSwitcher } from '../../features/workspaces/Navigation/WorkspaceSwitcher';
 import {
     QuickAccessMenu,
@@ -323,6 +328,7 @@ export function AppSidebar() {
                     isPersonal={gnosiMode === 'personal'}
                     onLogout={handleLogout}
                     onOpenSettings={openSettings}
+                    onPreloadSettings={preloadGlobalSettings}
                     onSelect={closeNavigation}
                     userLabel={userLabel}
                 />

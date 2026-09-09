@@ -18,6 +18,7 @@ names): the resolver matches by id, current name, or alias, and `to_storage_name
 `docs/dev_memory/directives/vault_persist_by_name.md` directive.
 """
 
+from collections.abc import Callable
 from typing import TypeAlias
 
 from backend.domains.vault.registry.records import is_record
@@ -174,22 +175,11 @@ _PRIO_CURRENT_NAME = 0
 _PRIO_FIELD_ID = 1
 _PRIO_ALIAS = 2
 
+FieldNameMaps: TypeAlias = tuple[set[str], dict[object, str], dict[object, str]]
 
-def to_storage_names(metadata: object, table: TableSchema) -> tuple[Metadata, bool]:
-    """Rewrites ALL resolvable keys to the column's **current name**.
 
-    This is the canonical WRITE boundary (disk) and response boundary: it guarantees that a
-    `fld_*` or an old name (alias) is never persisted. Keys that don't resolve to
-    any property (genuine local properties) are kept intact.
-
-    Conflict (several keys → same column): priority order is
-    current name > id > alias.
-
-    Returns (new_metadata, has_changed). Does not mutate the input.
-    """
-    if not is_record(metadata) or not metadata or not table:
-        return (dict(metadata) if is_record(metadata) else {}), False
-
+def _field_name_maps(table: TableSchema) -> FieldNameMaps:
+    """Prepare name/ID/alias precedence once for one table read."""
     props = _properties(table)
     name_set = {name for p in props if isinstance((name := p.get("name")), str) and name}
     id_to_name: dict[object, str] = {
@@ -212,6 +202,18 @@ def to_storage_names(metadata: object, table: TableSchema) -> tuple[Metadata, bo
                 and a not in name_set
             ):
                 alias_to_name[a] = cname
+    return name_set, id_to_name, alias_to_name
+
+
+def _resolve_metadata_names(metadata: Metadata, maps: FieldNameMaps) -> tuple[Metadata, bool]:
+    name_set, id_to_name, alias_to_name = maps
+    # Most indexed rows already use current names. In that case there are no
+    # collisions to resolve; retain order and opaque values in a defensive copy.
+    if type(metadata) is dict and all(
+        key in name_set or (key not in id_to_name and key not in alias_to_name)
+        for key in metadata
+    ):
+        return dict(metadata), False
 
     chosen: dict[object, tuple[int, object]] = {}  # current_name -> (priority, value)
     passthrough: Metadata = {}  # unresolvable keys (real locals)
@@ -241,6 +243,34 @@ def to_storage_names(metadata: object, table: TableSchema) -> tuple[Metadata, bo
 
     changed = list(out.items()) != list(metadata.items())
     return out, changed
+
+
+def to_storage_names(metadata: object, table: TableSchema) -> tuple[Metadata, bool]:
+    """Rewrite resolvable keys to current names, preserving unknown local keys.
+
+    Current name > immutable ID > alias; first appearance determines key order.
+    Return a new dictionary and whether its ordered items differ from the input.
+    """
+    if not is_record(metadata) or not metadata or not table:
+        return (dict(metadata) if is_record(metadata) else {}), False
+    return _resolve_metadata_names(metadata, _field_name_maps(table))
+
+
+def prepare_response_names(table: TableSchema) -> Callable[[object], Metadata]:
+    """Reuse one table's name maps within a single batch, never across reads."""
+    maps: FieldNameMaps | None = None
+
+    def resolve(metadata: object) -> Metadata:
+        nonlocal maps
+        if not is_record(metadata) or not metadata or not table:
+            return dict(metadata) if is_record(metadata) else {}
+        # Match the single-row boundary: empty metadata need not inspect an
+        # invalid schema. Real rows still surface invalid non-iterable aliases.
+        if maps is None:
+            maps = _field_name_maps(table)
+        return _resolve_metadata_names(metadata, maps)[0]
+
+    return resolve
 
 
 def to_response_names(metadata: object, table: TableSchema) -> Metadata:

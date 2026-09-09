@@ -48,7 +48,6 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
   );
   const [integrations, setIntegrations] = useState<SettingsIntegrations>({ calendars: [], contacts: [], mail_accounts: [] });
   const configLoadedRef = useRef(false);
-  const aiCatalogLoadedRef = useRef(false);
   const integrationsLoadedRef = useRef(false);
   const identityLoadedRef = useRef(false);
   const hydrationGenerationRef = useRef(0);
@@ -99,7 +98,7 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
     activeTab, setActiveTab, readerSection, setReaderSection, aiSection, setAiSection,
     generalSection, setGeneralSection, mailSection, setMailSection, graphSection, setGraphSection,
     socialSection, setSocialSection, isAdvancedOpen, setIsAdvancedOpen, integrations, setIntegrations,
-    configLoadedRef, aiCatalogLoadedRef, integrationsLoadedRef, identityLoadedRef, hydrationGenerationRef, googleSubCalendars,
+    configLoadedRef, integrationsLoadedRef, identityLoadedRef, hydrationGenerationRef, googleSubCalendars,
     setGoogleSubCalendars, databases, setDatabases, tables, setTables, graphNodes,
     setGraphNodes, graphNodesLoading, setGraphNodesLoading, graphNodesFetchedRef, aiRegistry, setAiRegistry,
     aiUsage, setAiUsage, isUsageHistoryOpen, setIsUsageHistoryOpen, monthlyCostCap, setMonthlyCostCap,

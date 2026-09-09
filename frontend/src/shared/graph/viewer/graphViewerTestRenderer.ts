@@ -42,11 +42,54 @@ export class TestRenderer {
         on: (_event: string, listener: () => void) => { this.cameraListeners.add(listener); },
         off: (_event: string, listener: () => void) => { this.cameraListeners.delete(listener); },
     };
-    readonly refresh = vi.fn();
-    readonly kill = vi.fn(() => { this.listeners.clear(); });
+    private indexedNodes = new Set<string>();
+    private indexedEdges = new Set<string>();
+    private clearIndices = () => {
+        this.indexedNodes.clear();
+        this.indexedEdges.clear();
+    };
+    // Sigma's batched non-layout updates repaint existing program slots. They
+    // fail if new topology has not had its initial synchronous refresh yet.
+    private repaintNodes = ({ hints }: { hints?: { attributes?: (string | number)[] } }) => {
+        if (!hints?.attributes || hints.attributes.some(attribute => attribute === 'x' || attribute === 'y' || attribute === 'zIndex' || attribute === 'type')) return;
+        if (this.graph.nodes().some(node => !this.indexedNodes.has(node)))
+            throw new Error('Cannot repaint a node before its first indexed render');
+    };
+    private repaintEdges = ({ hints }: { hints?: { attributes?: (string | number)[] } }) => {
+        if (!hints?.attributes || hints.attributes.some(attribute => attribute === 'zIndex' || attribute === 'type')) return;
+        if (this.graph.edges().some(edge => !this.indexedEdges.has(edge)))
+            throw new Error('Cannot repaint an edge before its first indexed render');
+    };
+    readonly refresh = vi.fn(() => {
+        this.indexedNodes = new Set(this.graph.nodes());
+        this.indexedEdges = new Set(this.graph.edges());
+    });
+    readonly kill = vi.fn(() => {
+        this.listeners.clear();
+        this.graph.off('cleared', this.clearIndices);
+        this.graph.off('eachNodeAttributesUpdated', this.repaintNodes);
+        this.graph.off('eachEdgeAttributesUpdated', this.repaintEdges);
+        this.graph.off('nodeAdded', this.nodeAdded);
+        this.graph.off('edgeAdded', this.edgeAdded);
+    });
     readonly setSetting = vi.fn();
+    readonly initialNodes: ReadonlyArray<{ key: string; hidden: boolean; isolated: boolean; size?: number }>;
+    readonly initialEdges: ReadonlyArray<{ key: string; hidden: boolean }>;
+    readonly nodeAdded = vi.fn();
+    readonly edgeAdded = vi.fn();
     constructor(readonly graph: ViewerGraph, readonly container: HTMLElement, readonly settings: ReturnType<typeof createSettings>) {
+        this.initialNodes = graph.mapNodes((key, attrs) => ({
+            key, hidden: Boolean(attrs.hidden), isolated: Boolean(attrs.isolated), size: attrs.size,
+        }));
+        this.initialEdges = graph.mapEdges((key, attrs) => ({ key, hidden: Boolean(attrs.hidden) }));
         TestRenderer.instances.push(this);
+        graph.on('cleared', this.clearIndices);
+        graph.on('eachNodeAttributesUpdated', this.repaintNodes);
+        graph.on('eachEdgeAttributesUpdated', this.repaintEdges);
+        graph.on('nodeAdded', this.nodeAdded);
+        graph.on('edgeAdded', this.edgeAdded);
+        // The real Sigma constructor synchronously refreshes its initial graph.
+        this.refresh();
     }
     getCamera() { return this.camera; }
     getGraph() { return this.graph; }

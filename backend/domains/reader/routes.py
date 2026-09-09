@@ -380,15 +380,18 @@ def get_articles(
     source_id: Optional[List[int]] = Query(default=None),
     limit: int = 500,
     db: Session = Depends(get_db),
+    *,
+    include_content: bool = True,
 ) -> RouteReturn:
     """List articles. Filters: unread only, one or more source IDs.
 
     `source_id` can be repeated (`?source_id=1&source_id=2`) or omitted to
-    return articles from all sources.
+    return articles from all sources. Set `include_content=false` for a list
+    without article bodies; the article detail endpoint retains complete text.
     """
     from sqlalchemy.orm import joinedload
 
-    query = db.query(models.Article).options(joinedload(models.Article.source))
+    query = db.query(models.Article)
 
     if unread_only:
         query = query.filter(models.Article.is_read == False)
@@ -397,7 +400,32 @@ def get_articles(
         # Filter by any of the provided source IDs (OR semantics).
         query = query.filter(models.Article.source_id.in_(source_id))
 
-    articles = query.order_by(models.Article.published_at.desc()).limit(limit).all()
+    if not include_content:
+        rows = (
+            query.outerjoin(models.FeedSource, models.Article.source_id == models.FeedSource.id)
+            .with_entities(
+                models.Article.id,
+                models.Article.source_id,
+                models.Article.title,
+                models.Article.url,
+                models.Article.published_at,
+                models.Article.is_read,
+                models.Article.created_at,
+                models.FeedSource.name.label("source_name"),
+            )
+            .order_by(models.Article.published_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            models.ArticleResponse(**dict(row._mapping), content="", full_content=None)
+            for row in rows
+        ]
+
+    articles = (
+        query.options(joinedload(models.Article.source))
+        .order_by(models.Article.published_at.desc()).limit(limit).all()
+    )
 
     result = []
     for art in articles:

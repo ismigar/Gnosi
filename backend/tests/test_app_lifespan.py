@@ -119,6 +119,13 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "refresh_health_snapshot",
         lambda _app: record("health.snapshot"),
     )
+    prepare_routes = app_factory.prepare_application_routes
+
+    async def prepare_application_routes(app: FastAPI) -> None:
+        await prepare_routes(app)
+        record("routes.ready")
+
+    monkeypatch.setattr(app_factory, "prepare_application_routes", prepare_application_routes)
     monkeypatch.setattr(
         scheduler_manager,
         "start",
@@ -248,6 +255,7 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "plugins.wire",
         "registry.lock",
         "registry.load",
+        "routes.ready",
         "yield",
         "scheduler.start",
         "file-index.stop",

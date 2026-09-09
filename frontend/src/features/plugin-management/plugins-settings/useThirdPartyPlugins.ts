@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { notifyError } from '../../../shared/notifications/notifyError';
@@ -22,20 +22,30 @@ import {
     type PluginCatalogEntry,
     type PluginTrustedKey,
 } from '../../../shared/api/plugins';
-import { apiErrorMessage } from './pluginSettingsModel';
+import { apiErrorMessage, type PluginSection } from './pluginSettingsModel';
 import {
     downloadBlob,
     type ThirdPartyPluginsController,
     type TrustedKeyDraft,
 } from './thirdPartyModel';
 
-export function useThirdPartyPlugins(): ThirdPartyPluginsController {
+type ReadGroup = 'installed' | 'catalog' | 'trust';
+
+function sectionReads(section: PluginSection): readonly ReadGroup[] {
+    if (section === 'catalog') return ['catalog', 'trust'];
+    if (section === 'updates') return ['installed', 'catalog'];
+    return ['installed'];
+}
+
+export function useThirdPartyPlugins(section: PluginSection): ThirdPartyPluginsController {
     const { t } = useTranslation();
     const { isEnabled, setPluginEnabled, reload: reloadPluginState } = usePlugins();
     const [installed, setInstalled] = useState<readonly InstalledPlugin[]>([]);
     const [permissions, setPermissions] = useState<Readonly<Record<string, string>>>({});
     const [gallery, setGallery] = useState<readonly PluginCatalogEntry[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loaded, setLoaded] = useState<Readonly<Record<ReadGroup, boolean>>>({ installed: false, catalog: false, trust: false });
+    const [failedReads, setFailedReads] = useState<Partial<Record<ReadGroup, boolean>>>({});
+    const reads = useRef<Partial<Record<ReadGroup, Promise<void>>>>({});
     const [busy, setBusy] = useState('');
     const [lifecycleBusyId, setLifecycleBusyId] = useState<string | null>(null);
     const [error, setError] = useState('');
@@ -47,25 +57,48 @@ export function useThirdPartyPlugins(): ThirdPartyPluginsController {
     const [catalogSource, setCatalogSource] = useState('all');
     const tp = useCallback((key: string): string => t(`settings.plugins.${key}`), [t]);
 
-    const refresh = useCallback(async (): Promise<void> => {
-        const [plugins, permissionCatalog, catalog, keys, registry] = await Promise.all([
-            fetchInstalledPlugins().then((response) => response.plugins).catch(() => []),
-            fetchPluginPermissionsCatalog().then((response) => response.permissions).catch(() => ({})),
-            fetchPluginCatalog().then((response) => response.catalog).catch(() => []),
-            fetchPluginTrustedKeys().then((response) => response.keys).catch(() => []),
-            fetchPluginRegistryUrl().then((response) => response.url).catch(() => ''),
-        ]);
-        setInstalled(plugins);
-        setPermissions(permissionCatalog);
-        setGallery(catalog);
-        setTrustKeys(keys);
-        setRegistryUrl(registry);
-        setLoading(false);
+    const readGroup = useCallback((group: ReadGroup, force: boolean): Promise<void> => {
+        if (!force && reads.current[group]) return reads.current[group];
+        const request = Promise.resolve().then(async () => {
+            if (group === 'installed') {
+                const [plugins, permissionCatalog] = await Promise.all([
+                    fetchInstalledPlugins(), fetchPluginPermissionsCatalog(),
+                ]);
+                if (reads.current[group] !== request) return;
+                setInstalled(plugins.plugins);
+                setPermissions(permissionCatalog.permissions);
+            } else if (group === 'catalog') {
+                const catalog = await fetchPluginCatalog();
+                if (reads.current[group] !== request) return;
+                setGallery(catalog.catalog);
+            } else {
+                const [keys, registry] = await Promise.all([
+                    fetchPluginTrustedKeys(), fetchPluginRegistryUrl(),
+                ]);
+                if (reads.current[group] !== request) return;
+                setTrustKeys(keys.keys);
+                setRegistryUrl(registry.url);
+            }
+            setLoaded((current) => ({ ...current, [group]: true }));
+            setFailedReads((current) => ({ ...current, [group]: false }));
+        }).catch(() => {
+            if (reads.current[group] !== request) return;
+            reads.current[group] = undefined;
+            setFailedReads((current) => ({ ...current, [group]: true }));
+        });
+        reads.current[group] = request;
+        return request;
     }, []);
 
+    const refresh = useCallback(async (): Promise<void> => {
+        // A mutation can change installed badges in a catalog opened later.
+        const groups = new Set([...sectionReads(section), ...Object.keys(reads.current) as ReadGroup[]]);
+        await Promise.all([...groups].map((group) => readGroup(group, true)));
+    }, [readGroup, section]);
+
     useEffect(() => {
-        void Promise.resolve().then(refresh);
-    }, [refresh]);
+        void Promise.all(sectionReads(section).map((group) => readGroup(group, false)));
+    }, [readGroup, section]);
 
     const saveRegistryUrl = async (): Promise<void> => {
         setError('');
@@ -216,7 +249,10 @@ export function useThirdPartyPlugins(): ThirdPartyPluginsController {
     return {
         addTrustKey, busy, catalogSearch, catalogSource, error, exportPackage,
         gallery, installFromCatalog, installZip, installed, isEnabled,
-        lifecycleBusyId, loading, newKey, notice, permissions, registryUrl,
+        lifecycleBusyId, loading: sectionReads(section).some((group) => !loaded[group]),
+        loadFailed: sectionReads(section).some((group) => failedReads[group]), retryLoad: refresh,
+        catalogLoading: !loaded.catalog, trustLoading: !loaded.trust,
+        newKey, notice, permissions, registryUrl,
         removeTrustKey, saveRegistryUrl, setCatalogSearch, setCatalogSource,
         setNewKey, setRegistryUrl, submitPackage, togglePermission,
         toggleThirdParty, trustKeys, uninstall,

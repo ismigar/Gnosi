@@ -7,6 +7,8 @@ import {
 } from '../api/plugins';
 import { updatePluginSettings } from '../api/plugin-runtime';
 import { subscribeAppEvent } from '../platform/app-events';
+import { getActiveVaultId } from '../api/vault-context';
+import { GnosiApiError } from '../api/errors';
 
 import { BUILTIN_PLUGINS } from './registry';
 import type { BuiltinPluginDefinition } from './registry';
@@ -16,6 +18,7 @@ export const PLUGIN_BOOTSTRAP_TIMEOUT_MS = 10_000;
 type UnknownRecord = Record<string, unknown>;
 
 interface PluginSnapshot {
+    authenticationRequired?: true;
     builtins: readonly (BuiltinPluginDefinition | UnknownRecord)[];
     disabled: Set<string>;
     enabledBuiltin: Set<string>;
@@ -60,7 +63,10 @@ const EMPTY_STATE: PluginSnapshot = {
 };
 
 let _state = EMPTY_STATE;
+let _stateVaultId = getActiveVaultId();
+let _loadGeneration = 0;
 let _loading: Promise<PluginSnapshot> | null = null;
+let _loadingController: AbortController | null = null;
 const _subs = new Set<(state: PluginSnapshot) => void>();
 
 function _snapshot(payload: PluginState = {}): PluginSnapshot {
@@ -87,8 +93,23 @@ function _apply(payload: PluginState): PluginSnapshot {
     return _state;
 }
 
-async function _fetchPluginStateWithTimeout(): Promise<PluginState> {
-    const controller = new AbortController();
+function _syncActiveVault(): void {
+    const vaultId = getActiveVaultId();
+    if (_stateVaultId === vaultId) return;
+    _stateVaultId = vaultId;
+    _loadGeneration += 1;
+    _loadingController?.abort();
+    _loadingController = null;
+    _loading = null;
+    _state = EMPTY_STATE;
+    _notify();
+}
+
+function _isCurrentVault(generation: number, vaultId: string): boolean {
+    return generation === _loadGeneration && vaultId === getActiveVaultId();
+}
+
+async function _fetchPluginStateWithTimeout(controller: AbortController): Promise<PluginState> {
     let clearRequestTimeout = (): void => undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
         const timeoutId = setTimeout(() => {
@@ -110,17 +131,37 @@ async function _fetchPluginStateWithTimeout(): Promise<PluginState> {
 }
 
 async function _load(force = false): Promise<PluginSnapshot> {
+    _syncActiveVault();
     if (_state.loaded && !force) return _state;
     if (!_loading) {
-        _loading = _fetchPluginStateWithTimeout()
-            .then((payload) => _apply(payload))
-            .catch(() => {
+        const generation = _loadGeneration;
+        const vaultId = _stateVaultId;
+        const controller = new AbortController();
+        const isCurrent = () => _isCurrentVault(generation, vaultId);
+        const pending = _fetchPluginStateWithTimeout(controller)
+            .then((payload) => isCurrent() ? _apply(payload) : _state)
+            .catch((error: unknown) => {
                 // A failed read is not evidence that every plugin was disabled.
-                _state = { ..._state, loadError: true };
-                _notify();
+                if (isCurrent()) {
+                    _state = { ..._state, loadError: true };
+                    // Preserve an explicit authentication denial through later
+                    // transport errors until a successful read or vault switch.
+                    if (error instanceof GnosiApiError && error.status === 401
+                        && isRecord(error.payload)
+                        && error.payload.detail === 'Authentication required') {
+                        _state.authenticationRequired = true;
+                    }
+                    _notify();
+                }
                 return _state;
             })
-            .finally(() => { _loading = null; });
+            .finally(() => {
+                if (_loading !== pending) return;
+                _loading = null;
+                _loadingController = null;
+            });
+        _loading = pending;
+        _loadingController = controller;
     }
     return _loading;
 }
@@ -130,14 +171,16 @@ export function reloadPluginState(): Promise<PluginSnapshot> {
 }
 
 export function usePlugins(): PluginsState {
-    const [state, setState] = useState(_state);
+    const [state, setState] = useState(() => (
+        _stateVaultId === getActiveVaultId() ? _state : EMPTY_STATE
+    ));
 
     useEffect(() => {
         _subs.add(setState);
         void _load();
         const refresh = () => {
-            _state = EMPTY_STATE;
-            _notify();
+            // All subscribers to one vault switch share the same new request.
+            _syncActiveVault();
             void _load(true);
         };
         const unsubscribeVault = subscribeAppEvent('gnosi:vault-changed', refresh);
@@ -156,12 +199,15 @@ export function usePlugins(): PluginsState {
         enabled: boolean,
         options: PluginLifecycleOptions = {},
     ) => {
+        _syncActiveVault();
+        const generation = _loadGeneration;
+        const vaultId = _stateVaultId;
         const payload = await setPluginLifecycle(id, {
             enabled,
             confirm_dependencies: options.confirmDependencies === true,
             confirm_disable: options.confirmDisable === true,
         });
-        _apply(payload);
+        if (_isCurrentVault(generation, vaultId)) _apply(payload);
         return payload;
     }, []);
 
@@ -174,6 +220,9 @@ export function usePlugins(): PluginsState {
         id: string,
         patch: Readonly<Record<string, unknown>>,
     ): Promise<void> => {
+        _syncActiveVault();
+        const generation = _loadGeneration;
+        const vaultId = _stateVaultId;
         const previous = _state;
         const current = _state.settings[id];
         const merged = { ...(isRecord(current) ? current : {}), ...patch };
@@ -184,6 +233,7 @@ export function usePlugins(): PluginsState {
         _notify();
         try {
             const response = await updatePluginSettings(id, patch);
+            if (!_isCurrentVault(generation, vaultId)) return;
             _state = {
                 ..._state,
                 settings: {
@@ -193,8 +243,10 @@ export function usePlugins(): PluginsState {
             };
             _notify();
         } catch (error) {
-            _state = previous;
-            _notify();
+            if (_isCurrentVault(generation, vaultId)) {
+                _state = previous;
+                _notify();
+            }
             throw error;
         }
     }, []);

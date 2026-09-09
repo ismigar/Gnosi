@@ -1,32 +1,36 @@
-import { useEffect } from 'react';
-import { rebuildProjection, filterProjection } from './graphViewerProjection';
+import { useEffect, useRef } from 'react';
+import { filterProjection } from './graphViewerProjection';
 import { createPhysics } from './graphViewerPhysics';
 import { fitGraph } from './graphViewerRuntime';
 import { logError } from '../../notifications/notifyError';
-import type { ContainerRef, OptionsRef, RuntimeRef, ViewerOptions } from './types';
+import type { ContainerRef, OptionsRef, RuntimeRef, ViewerGraph, ViewerOptions } from './types';
 export function useGraphViewerData(containerRef: ContainerRef, runtimeRef: RuntimeRef, latestRef: OptionsRef, options: ViewerOptions): void {
     const { graphData, filters, isPhysicsEnabled } = options;
+    const filteredGraph = useRef<ViewerGraph | null>(null);
     useEffect(() => {
         const { graph, renderer, clearHover } = runtimeRef.current;
         if (!graph || !graphData)
             return;
         clearHover?.(false);
-        rebuildProjection(graph, graphData);
+        let timer: ReturnType<typeof setTimeout> | undefined;
         if (renderer && containerRef.current && containerRef.current.offsetWidth > 0) {
-            renderer.refresh();
+            // The renderer constructor already indexed the populated graph.
             if (!latestRef.current.isPhysicsEnabled)
-                setTimeout(() => { fitGraph(runtimeRef, 800); }, 100);
+                timer = setTimeout(() => { fitGraph(runtimeRef, 800); }, 100);
         }
+        return () => { clearTimeout(timer); };
     }, [containerRef, runtimeRef, latestRef, graphData]);
     useEffect(() => {
         const { graph, renderer, clearHover } = runtimeRef.current;
         if (!graph || !renderer)
             return;
         clearHover?.(false);
-        runtimeRef.current.semanticEdges = filterProjection(graph, filters, graphData);
+        // Each replacement graph was filtered before its Sigma constructor.
+        // Later filter changes still update the same live graph and its overlay.
+        if (filteredGraph.current !== graph) filteredGraph.current = graph;
+        else runtimeRef.current.semanticEdges = filterProjection(graph, filters, graphData);
         let timer: ReturnType<typeof setTimeout> | undefined;
         if (containerRef.current && containerRef.current.offsetWidth > 0) {
-            renderer.refresh();
             if (!isPhysicsEnabled)
                 timer = setTimeout(() => { fitGraph(runtimeRef, 500); }, 120);
         }
@@ -46,6 +50,7 @@ export function useGraphViewerPhysics(containerRef: ContainerRef, runtimeRef: Ru
         let totalTicks = 0;
         let running = true;
         let frame: number;
+        let fitTimer: ReturnType<typeof setTimeout> | undefined;
         const copyPositions = () => {
             graph.updateEachNodeAttributes((node, attrs) => {
                 const position = simulationNodeById.get(node);
@@ -63,17 +68,15 @@ export function useGraphViewerPhysics(containerRef: ContainerRef, runtimeRef: Ru
                 running = false;
                 return;
             }
-            runtimeRef.current.clearHover?.(false);
+            runtimeRef.current.clearHover?.();
+            // Sigma observes the batched coordinate change and schedules its
+            // render. A full refresh here reindexes every node and edge again.
             copyPositions();
             totalTicks += 4;
-            if (containerRef.current && containerRef.current.offsetWidth > 0)
-                renderer.refresh();
             if (totalTicks >= 300 || simulation.alpha() <= simulation.alphaMin()) {
                 running = false;
                 simulation.stop();
-                copyPositions();
-                renderer.refresh();
-                setTimeout(() => { fitGraph(runtimeRef, 900); }, 300);
+                fitTimer = setTimeout(() => { fitGraph(runtimeRef, 900); }, 300);
                 return;
             }
             frame = requestAnimationFrame(step);
@@ -83,6 +86,7 @@ export function useGraphViewerPhysics(containerRef: ContainerRef, runtimeRef: Ru
             running = false;
             simulation.stop();
             cancelAnimationFrame(frame);
+            clearTimeout(fitTimer);
         };
     }, [containerRef, runtimeRef, latestRef, isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution]);
 }

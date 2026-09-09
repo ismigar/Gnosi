@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import traceback
 
@@ -23,7 +24,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
     try:
         short_trace = trace.split("\n")[-3] if trace else error_detail
-        _notify_fn(
+        await asyncio.to_thread(
+            _notify_fn,
             f"Application error: {route}",
             f"{error_detail}\n\n{short_trace}",
             level="ERROR",

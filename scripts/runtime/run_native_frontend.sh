@@ -2,6 +2,8 @@
 # Start the native frontend with the root workspace's pinned package manager.
 # Usage: run_native_frontend.sh [VITE_ARGS...]. Configure ports in the process
 # environment; Vite owns its dotenv files, which must never be sourced by shell.
+# GNOSI_NATIVE_FRONTEND_MODE=preview serves an isolated copy of the last build;
+# the default dev mode retains live source updates.
 set -euo pipefail
 
 BASE="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -38,6 +40,10 @@ if (( EXPECT_PORT )); then validate_port --port ""; fi
 
 # Never download a missing package manager during startup.
 export COREPACK_ENABLE_NETWORK=0
+# pnpm 11 otherwise installs automatically when another task updates the
+# workspace manifest. A launchd restart must not replace dependencies beneath
+# a running server or wait for an interactive install prompt.
+export pnpm_config_verify_deps_before_run="${pnpm_config_verify_deps_before_run-warn}"
 
 REPO_ROOT="$(git -C "$BASE" rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -n "$REPO_ROOT" ]]; then
@@ -61,4 +67,15 @@ if [[ -n "$REPO_ROOT" ]]; then
     fi
 fi
 
-exec corepack pnpm --filter @gnosi/frontend dev "$@"
+case "${GNOSI_NATIVE_FRONTEND_MODE-dev}" in
+    dev)
+        exec corepack pnpm --filter @gnosi/frontend dev "$@"
+        ;;
+    preview)
+        exec corepack pnpm --filter @gnosi/frontend exec node scripts/native-preview.ts "$@"
+        ;;
+    *)
+        echo "ERROR: GNOSI_NATIVE_FRONTEND_MODE must be dev or preview." >&2
+        exit 2
+        ;;
+esac

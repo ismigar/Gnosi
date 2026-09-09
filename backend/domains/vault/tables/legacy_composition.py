@@ -193,7 +193,7 @@ from backend.services import builtin_plugins, translation_index
 from backend.services import option_catalogs as option_catalogs_service
 from backend.services import relation_sync as relation_rules
 from backend.services.context_vars import active_vault_path, get_active_vault_path
-from backend.services.field_resolver import to_response_names, to_storage_names
+from backend.services.field_resolver import prepare_response_names, to_response_names, to_storage_names
 from backend.services.media_service import media_service
 from backend.services.relation_links import (
     RELATION_WIKILINK_RE,
@@ -431,6 +431,7 @@ table_row_query_dependencies = table_rows.TableRowQueryDependencies(
     refresh_metadata=lambda pages: _refresh_table_pages_metadata(pages),
     inject_virtual_fields=_vf_inject_for_table,
     response_names=lambda metadata, table: to_response_names(metadata, table),
+    prepare_response_names=prepare_response_names,
     vault_root=lambda: _legacy.get_p("VAULT"),
     logger=_legacy.log,
 )

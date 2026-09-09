@@ -11,7 +11,7 @@ import type { useSettingsMailEffects } from './useSettingsMailEffects';
 type Input = SettingsState & ReturnType<typeof useSettingsMailEffects>;
 
 export function useSettingsPersistence(state: Input) {
-  const { aiCatalogLoadedRef, autoSaveTimeoutRef, configLoadedRef, confirmConfig, draft, editingAccountId, identityAutoSaveRef, identityLoadedRef, integrations, integrationsLoadedRef, isModelComparisonOpen, isOpen, isSaving, lastSavedDataRef, lastSavedNewsletterAccountRef, mailFieldsRef, newsletterAccount, newsletterAccountLoaded, newsletterAccountSaveTimerRef, newsletterPasswordDirty, onClose, panelRef, pickerOpen, setAccountEditorTarget, setAddAccountType, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setIsSaving, setSavingStatus, setSnippetEditorTarget, setTableColorEditorTarget } = state;
+  const { autoSaveTimeoutRef, configLoadedRef, confirmConfig, draft, editingAccountId, identityAutoSaveRef, identityLoadedRef, integrations, integrationsLoadedRef, isModelComparisonOpen, isOpen, isSaving, lastSavedDataRef, lastSavedNewsletterAccountRef, mailFieldsRef, newsletterAccount, newsletterAccountLoaded, newsletterAccountSaveTimerRef, newsletterPasswordDirty, onClose, panelRef, pickerOpen, setAccountEditorTarget, setAddAccountType, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setIsSaving, setSavingStatus, setSnippetEditorTarget, setTableColorEditorTarget } = state;
   const childModalOpen = pickerOpen || confirmConfig.isOpen || isModelComparisonOpen;
 
   const handleClose = async () => {
@@ -161,21 +161,21 @@ export function useSettingsPersistence(state: Input) {
       identity: draft.identity
     });
 
-    // Initialize baseline on first load
-    if (lastSavedDataRef.current === null) {
-      lastSavedDataRef.current = currentData;
-      return;
-    }
-
     // The draft is hydrated by independent requests. Treat their completion
     // as one initialization gate so the first autosave pass only records a
     // complete baseline and never persists initial placeholder values.
     if (
       !configLoadedRef.current
-      || !aiCatalogLoadedRef.current
       || !integrationsLoadedRef.current
       || !identityLoadedRef.current
     ) {
+      return;
+    }
+
+    // Record the baseline only after all documents arrive. With a slow request,
+    // the debounce can fire while the draft still contains placeholders.
+    if (lastSavedDataRef.current === null) {
+      lastSavedDataRef.current = currentData;
       return;
     }
 

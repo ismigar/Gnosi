@@ -21,6 +21,7 @@ Limitations:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
 import threading
@@ -45,17 +46,69 @@ class _Subscriber:
         self.queue: Deque[dict[str, Any]] = deque(maxlen=1024)
         self.cond = threading.Condition()
         self.alive = True
+        self._async_waiters: set[asyncio.Future[None]] = set()
+
+    @staticmethod
+    def _wake(waiter: asyncio.Future[None]) -> None:
+        if not waiter.done():
+            waiter.set_result(None)
+
+    def _notify_async(self) -> None:
+        # Called with cond held. Only the owning loop may complete its futures.
+        waiters = tuple(self._async_waiters)
+        self._async_waiters.clear()
+        for waiter in waiters:
+            try:
+                waiter.get_loop().call_soon_threadsafe(self._wake, waiter)
+            except RuntimeError:
+                # A disconnected client's loop may already be closed.
+                pass
 
     def push(self: Any, event: dict[str, Any]) -> None:
         if self.account_filter and event.get("account") != self.account_filter:
             return
         with self.cond:
+            if not self.alive:
+                return
             self.queue.append(event)
             self.cond.notify()
+            self._notify_async()
+
+    async def pop(self, timeout: float = 30.0) -> Optional[dict[str, Any]]:
+        """Wait for a push without reserving a shared executor worker."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            with self.cond:
+                if not self.alive:
+                    return None
+                if self.queue:
+                    return dict(self.queue.popleft())
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    return None
+                waiter = loop.create_future()
+                # Register under the queue lock so a push cannot be lost
+                # between checking the queue and starting to wait.
+                self._async_waiters.add(waiter)
+            try:
+                async with asyncio.timeout(remaining):
+                    await waiter
+            except asyncio.TimeoutError:
+                return None
+            finally:
+                with self.cond:
+                    self._async_waiters.discard(waiter)
+
+    def close(self) -> None:
+        with self.cond:
+            self.alive = False
+            self.cond.notify_all()
+            self._notify_async()
 
     def pop_blocking(self: Any, timeout: float = 30.0) -> Optional[dict[str, Any]]:
         with self.cond:
-            if not self.queue:
+            if not self.queue and self.alive:
                 self.cond.wait(timeout=timeout)
             if self.queue:
                 return dict(self.queue.popleft())
@@ -81,7 +134,7 @@ class ImapIdleManager:
         return sub
 
     def unsubscribe(self: Any, sub: _Subscriber) -> None:
-        sub.alive = False
+        sub.close()
         with self._sub_lock:
             try:
                 self._subscribers.remove(sub)

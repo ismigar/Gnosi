@@ -1,18 +1,6 @@
-import Graph from 'graphology';
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force';
 import { seededUnitInterval } from './graphViewerModel';
 import type { ViewerGraph, ViewerOptions } from './types';
-interface LayoutAttributes {
-    x: number;
-    y: number;
-    size: number;
-    unresolved: boolean;
-}
-interface LayoutEdge {
-    [key: string]: unknown;
-    weight?: unknown;
-    unresolved?: unknown;
-}
 export interface LayoutNode {
     id: string;
     radius: number;
@@ -23,66 +11,86 @@ export interface LayoutNode {
     fx?: number;
     fy?: number;
 }
-interface LayoutLink {
+export interface LayoutLink {
     source: string | LayoutNode;
     target: string | LayoutNode;
     weight: number;
     unresolved: boolean;
 }
-export function createPhysics(graph: ViewerGraph, options: ViewerOptions) {
-    const { gravity, strongGravityMode, repulsion, friction, linLogMode, edgeInfluence, outboundAttractionDistribution } = options;
-    // Builds a subgraph with ONLY visible nodes and their connections
-    const subG = new Graph<LayoutAttributes, LayoutEdge>();
+
+export interface VisibleLayout {
+    nodes: LayoutNode[];
+    links: LayoutLink[];
+    nodeById: Map<string, LayoutNode>;
+    degreeById: Map<string, number>;
+}
+
+/** Build D3's visible inputs without duplicating the Graphology projection. */
+export function buildVisibleLayout(graph: ViewerGraph): VisibleLayout | null {
+    const nodes: LayoutNode[] = [];
+    const nodeById = new Map<string, LayoutNode>();
     graph.forEachNode((node, attrs) => {
         if (!attrs.hidden) {
-            subG.addNode(node, {
-                x: attrs.x || 0,
-                y: attrs.y || 0,
-                size: attrs.size || 5,
+            const item: LayoutNode = {
+                id: node,
+                radius: attrs.size || 5,
                 unresolved: attrs.kind === 'unresolved',
-            });
+                isolated: false,
+                x: 0,
+                y: 0,
+            };
+            nodes.push(item);
+            nodeById.set(node, item);
         }
     });
+    if (nodes.length === 0) return null;
+
+    const links: LayoutLink[] = [];
+    const degreeById = new Map<string, number>();
+    const targetsBySource = new Map<string, Set<string>>();
     graph.forEachEdge((_edge, attrs, source, target) => {
-        if (!attrs.hidden && subG.hasNode(source) && subG.hasNode(target) && !subG.hasEdge(source, target)) {
-            subG.addEdge(source, target, attrs);
+        if (attrs.hidden || !nodeById.has(source) || !nodeById.has(target)) return;
+        // The previous mixed subgraph used addEdge (directed by default).
+        // Preserve the first ordered pair, reverse links, and degree-2 loops.
+        let targets = targetsBySource.get(source);
+        if (targets?.has(target)) return;
+        if (!targets) {
+            targets = new Set();
+            targetsBySource.set(source, targets);
         }
-    });
-    if (subG.order === 0)
-        return null;
-    const simulationNodes: LayoutNode[] = [];
-    const simulationNodeById = new Map<string, LayoutNode>();
-    subG.forEachNode((node, attrs) => {
-        const angle = seededUnitInterval(`${node}:angle`) * Math.PI * 2;
-        const seedRadius = Math.max(240, Math.sqrt(subG.order) * 25);
-        const radius = Math.sqrt(seededUnitInterval(`${node}:radius`)) * seedRadius;
-        const isolated = subG.degree(node) === 0;
-        const x = Math.cos(angle) * radius;
-        const y = Math.sin(angle) * radius;
-        const item = {
-            id: node,
-            radius: attrs.size || 2,
-            unresolved: attrs.unresolved,
-            isolated,
-            x,
-            y,
-            // Obsidian keeps isolates scattered around the canvas. Pinning
-            // only zero-degree nodes prevents global repulsion from
-            // arranging them into an artificial circular shell.
-            ...(isolated ? { fx: x, fy: y } : {}),
-        };
-        simulationNodes.push(item);
-        simulationNodeById.set(node, item);
-    });
-    const simulationLinks: LayoutLink[] = [];
-    subG.forEachEdge((_edge, attrs, source, target) => {
-        simulationLinks.push({
+        targets.add(target);
+        links.push({
             source,
             target,
             weight: Number(attrs.weight || 1),
             unresolved: Boolean(attrs.unresolved),
         });
+        degreeById.set(source, (degreeById.get(source) ?? 0) + 1);
+        degreeById.set(target, (degreeById.get(target) ?? 0) + 1);
     });
+    const seedRadius = Math.max(240, Math.sqrt(nodes.length) * 25);
+    nodes.forEach((node) => {
+        const degree = degreeById.get(node.id) ?? 0;
+        degreeById.set(node.id, degree);
+        const angle = seededUnitInterval(`${node.id}:angle`) * Math.PI * 2;
+        const radius = Math.sqrt(seededUnitInterval(`${node.id}:radius`)) * seedRadius;
+        node.isolated = degree === 0;
+        node.x = Math.cos(angle) * radius;
+        node.y = Math.sin(angle) * radius;
+        // Keep the original deterministic placement and pin only isolates.
+        if (node.isolated) {
+            node.fx = node.x;
+            node.fy = node.y;
+        }
+    });
+    return { nodes, links, nodeById, degreeById };
+}
+
+export function createPhysics(graph: ViewerGraph, options: ViewerOptions) {
+    const { gravity, strongGravityMode, repulsion, friction, linLogMode, edgeInfluence, outboundAttractionDistribution } = options;
+    const layout = buildVisibleLayout(graph);
+    if (!layout) return null;
+    const { nodes: simulationNodes, links: simulationLinks, nodeById: simulationNodeById, degreeById } = layout;
     const centerStrength = Math.min(1, Math.max(0, gravity * 5.18713248970312 * (strongGravityMode ? 1.35 : 1)));
     // Normalize Gnosi's legacy 0-1000 control to D3 graph-space and clamp
     // close encounters so dense hubs do not collapse into one point.
@@ -103,8 +111,8 @@ export function createPhysics(graph: ViewerGraph, options: ViewerOptions) {
         const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
         const targetId = typeof link.target === 'object' ? link.target.id : link.target;
         const degreeDivisor = outboundAttractionDistribution
-            ? subG.degree(sourceId)
-            : Math.min(subG.degree(sourceId), subG.degree(targetId));
+            ? degreeById.get(sourceId) ?? 0
+            : Math.min(degreeById.get(sourceId) ?? 0, degreeById.get(targetId) ?? 0);
         return weightedStrength / Math.max(1, degreeDivisor);
     });
     const simulation = forceSimulation(simulationNodes)

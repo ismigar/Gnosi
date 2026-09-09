@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Optional, cast
 
-from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
@@ -45,17 +45,10 @@ _NOTIFIED_TTL_HOURS = 24      # cleans up dedup keys older than this
 
 # ── Persistent state ─────────────────────────────────────────────────────────
 
-def _state_path() -> Optional[Path]:
-    cfg = load_params(strict_env=False)
-    local_data = cfg.paths.get("LOCAL_DATA")
-    if not local_data:
-        return None
-    p = Path(local_data) / "system" / "meeting_reminders.json"
-    try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
-    return p
+def _state_path() -> Path:
+    # Reminder state is per-device. Reads need neither vault configuration nor
+    # directory creation; the atomic writer prepares its parent when needed.
+    return resolve_data_dir() / "system" / "meeting_reminders.json"
 
 
 def _load_state() -> JsonObject:

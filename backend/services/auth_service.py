@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import os
+import threading
 import time
+from concurrent.futures import Future
 from datetime import datetime, timedelta, timezone
 from collections.abc import Callable, Generator
 from typing import Any, Optional, cast
@@ -156,13 +158,37 @@ def deployment_is_exposed() -> bool:
 # design (see `auth_public_surface.enforce_authentication`) and this preserves it.
 _AUTO_POLICY_TTL_SECONDS = 5.0
 _auto_policy_cache: Optional[tuple[float, bool]] = None
+_auto_policy_lock = threading.Lock()
+_auto_policy_generation = 0
+_auto_policy_pending: Future[bool] | None = None
 
 
 def reset_auth_policy_cache() -> None:
     """Drop the cached autodetection. For tests and for settings writes that
     change `gnosi_mode`."""
-    global _auto_policy_cache
-    _auto_policy_cache = None
+    global _auto_policy_cache, _auto_policy_generation, _auto_policy_pending
+    with _auto_policy_lock:
+        _auto_policy_generation += 1
+        _auto_policy_cache = None
+        _auto_policy_pending = None
+
+
+def auth_policy_cache_state() -> tuple[int, bool | None]:
+    """Read the current generation and a fresh answer without storage access."""
+    with _auto_policy_lock:
+        cached = _auto_policy_cache
+        value = (cached[1] if cached is not None
+                 and time.monotonic() - cached[0] < _AUTO_POLICY_TTL_SECONDS else None)
+        return _auto_policy_generation, value
+
+
+def _read_auto_policy() -> bool:
+    try:
+        return deployment_is_exposed()
+    except Exception:
+        log.warning("Auth policy autodetection failed; requiring authentication",
+                    exc_info=True)
+        return True
 
 
 def _auto_policy_requires_auth(db: Session | None = None) -> bool:
@@ -177,21 +203,35 @@ def _auto_policy_requires_auth(db: Session | None = None) -> bool:
         # identity, so it gets the exact answer rather than the cached one.
         return deployment_is_exposed()
 
-    global _auto_policy_cache
+    global _auto_policy_cache, _auto_policy_pending
     now = time.monotonic()
-    cached = _auto_policy_cache
-    if cached is not None and now - cached[0] < _AUTO_POLICY_TTL_SECONDS:
-        return cached[1]
-
+    with _auto_policy_lock:
+        cached = _auto_policy_cache
+        if cached is not None and now - cached[0] < _AUTO_POLICY_TTL_SECONDS:
+            return cached[1]
+        pending = _auto_policy_pending
+        owner = pending is None
+        if pending is None:
+            pending = Future()
+            _auto_policy_pending = pending
+        generation = _auto_policy_generation
+    if not owner:
+        return pending.result()
     try:
-        value = deployment_is_exposed()
-    except Exception:
-        log.warning("Auth policy autodetection failed; requiring authentication",
-                    exc_info=True)
-        value = True
-
-    _auto_policy_cache = (now, value)
-    return value
+        value = _read_auto_policy()
+        with _auto_policy_lock:
+            if generation == _auto_policy_generation:
+                # Preserve the existing expiry measured from the read's start.
+                _auto_policy_cache = (now, value)
+        pending.set_result(value)
+        return value
+    except BaseException as error:
+        pending.set_exception(error)
+        raise
+    finally:
+        with _auto_policy_lock:
+            if _auto_policy_pending is pending:
+                _auto_policy_pending = None
 
 
 def require_auth_enabled(db: Session | None = None) -> bool:
@@ -205,7 +245,11 @@ def require_auth_enabled(db: Session | None = None) -> bool:
     override = auth_policy_override()
     if override is not None:
         return override
-    return _auto_policy_requires_auth(db)
+    value = _auto_policy_requires_auth(db)
+    # A reader waiting on autodetection must still honor an override changed
+    # while that work was in flight. Overrides are never stored in the cache.
+    override = auth_policy_override()
+    return override if override is not None else value
 
 
 # ---------- Personal Access Tokens ----------

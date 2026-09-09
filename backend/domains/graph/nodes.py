@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, cast
 
 from backend.domains.graph.adapters import Graph
-from backend.domains.vault.registry.records import RecordReader
+from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.graph.scanning import (
     COLOR_PALETTE,
     _KIND_PATTERNS,
@@ -53,6 +54,7 @@ def load_page_data(
     mtime: float,
     cfg: Any,
     cache: Dict[str, NodeData],
+    managed_states: Dict[str, Dict[str, Any]] | None = None,
 ) -> NodeData:
     """Return cached page data or parse and cache the current file."""
     cache_key = str(file_path)
@@ -64,7 +66,7 @@ def load_page_data(
     raw_metadata, body = parse_frontmatter(raw_content, file_path)
     file_id = file_path.stem
     node_id = raw_metadata.get("id") or file_id
-    metadata, managed_kind = _managed_metadata(raw_metadata, node_id)
+    metadata, managed_kind = _managed_metadata(raw_metadata, node_id, cfg, managed_states)
     title = metadata.get("title") or file_id
     kind = _classify_kind(metadata, managed_kind, path_str, cfg)
     color = _node_color(metadata, kind, cfg)
@@ -85,11 +87,26 @@ def load_page_data(
     return data
 
 
-def _managed_metadata(metadata: RecordReader, node_id: object) -> tuple[RecordReader, str]:
+def _managed_metadata(
+    metadata: RecordReader, node_id: object, cfg: Any,
+    managed_states: Dict[str, Dict[str, Any]] | None = None,
+) -> tuple[RecordReader, str]:
+    if managed_states is not None:
+        from backend.services import llm_wiki_config, llm_wiki_storage
+
+        merged = deepcopy(metadata) if is_record(metadata) else {}
+        merged.update(managed_states.get(llm_wiki_storage._safe_component(node_id), {}))
+        return merged, str(llm_wiki_config.metadata_note_type(merged))
     try:
         from backend.services import llm_wiki_config, llm_wiki_storage
 
-        merged = llm_wiki_storage.merge_page_metadata(metadata, str(node_id))
+        # The graph already resolved this vault's configuration. Reusing its
+        # path avoids rereading YAML and creating cloud folders for every node.
+        config_dir = cfg.paths.get("GNOSI_CONFIG")
+        state_directory = config_dir / "llm_wiki" if isinstance(config_dir, Path) else None
+        merged = llm_wiki_storage.merge_page_metadata(
+            metadata, str(node_id), state_directory=state_directory
+        )
         return merged, str(llm_wiki_config.metadata_note_type(merged))
     except Exception:  # noqa: BLE001
         return metadata, ""
@@ -143,18 +160,28 @@ def infer_table_ids(
 
 
 def relation_metadata(
-    metadata: Dict[str, Any], table_id: Any, registry: Dict[str, Any]
+    metadata: Dict[str, Any], table_id: Any, registry: Dict[str, Any],
+    *, relation_keys_cache: Dict[str | None, set[str]] | None = None,
 ) -> Dict[str, Any]:
     """Normalize only fields declared as relations by the table schema."""
-    table = next(
-        (
-            item
-            for item in cast(List[Dict[str, Any]], registry.get("tables", []))
-            if item.get("id") == table_id
-        ),
-        None,
-    )
-    relation_keys = relation_keys_from_table(table)
+    if (
+        relation_keys_cache is not None
+        and (isinstance(table_id, str) or table_id is None)
+        and table_id in relation_keys_cache
+    ):
+        relation_keys = relation_keys_cache[table_id]
+    else:
+        table = next(
+            (
+                item
+                for item in cast(List[Dict[str, Any]], registry.get("tables", []))
+                if item.get("id") == table_id
+            ),
+            None,
+        )
+        relation_keys = relation_keys_from_table(table)
+        if relation_keys_cache is not None and (isinstance(table_id, str) or table_id is None):
+            relation_keys_cache[table_id] = relation_keys
     if relation_keys:
         return strip_relation_wikilinks(dict(metadata), relation_keys)
     return metadata

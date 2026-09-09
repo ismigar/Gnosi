@@ -173,7 +173,7 @@
     "action_claim": "77da66a8fd6f605ba89b1538726466a92139e396"
   },
   "post_2x_revisions": {
-    "vault": ["vault_0004"]
+    "vault": ["vault_0004", "vault_0005", "vault_0006"]
   },
   "limits": [
     "The public tags prove source snapshots, not every database ever produced by an untagged local checkout.",

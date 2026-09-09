@@ -76,6 +76,7 @@ CI_COMMANDS = {
         "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
+        "pnpm --filter @gnosi/e2e exec playwright install-deps chromium",
         "pnpm test:e2e:install",
         *r'''uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
 pnpm dev:frontend --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &
@@ -290,6 +291,10 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         if name == "docker":
             assert conditional_steps == [steps[-1]]
             assert steps[-1]["if"] == "always()"
+        elif name == "native-smoke":
+            assert len(conditional_steps) == 1
+            assert conditional_steps[0]["if"] == "runner.environment == 'github-hosted'"
+            assert conditional_steps[0]["run"] == "pnpm --filter @gnosi/e2e exec playwright install-deps chromium"
         else:
             assert conditional_steps == []
         commands = [

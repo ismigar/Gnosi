@@ -269,7 +269,7 @@ def microsoft_list_messages(
     else:
         path = f"/me/mailFolders/{graph_folder}/messages"
 
-    data = _authed_get(email, path, params=params)
+    data = _authed_get(email, path, params=params, timeout=20)
     if data is None:
         msg = f"Could not connect to Microsoft 365 for {email}. Check the credentials."
         return {"messages": [], "next_page_token": None, "total": 0, "error": msg}
@@ -350,9 +350,9 @@ def microsoft_get_inline_parts(
 
 
 def microsoft_get_counts(email: str) -> dict[str, dict[str, int]]:
-    data = _authed_get(email, "/me/mailFolders", params={"$top": 20})
+    data = _authed_get(email, "/me/mailFolders", params={"$top": 20}, timeout=20)
     if not data:
-        return {}
+        raise RuntimeError("Microsoft mail folder counts are temporarily unavailable")
     counts: dict[str, dict[str, int]] = {}
     for folder in data.get("value", []):
         key = _WELL_KNOWN_FOLDERS.get(folder.get("wellKnownName", "").lower())

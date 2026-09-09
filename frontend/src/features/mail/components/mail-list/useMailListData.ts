@@ -104,16 +104,21 @@ export function useMailListData({
   const messageCacheRef = useRef<MessageMemoryCache>({});
   const fetchAbortRef = useRef<AbortController | null>(null);
   const loadMoreAbortRef = useRef<AbortController | null>(null);
+  const unavailableAccountsRef = useRef(new Set<string>());
+  const unavailablePagesRef = useRef(new Set<string>());
 
   const fetchMessages = useCallback((options: FetchMessagesOptions = {}): void => {
     fetchAbortRef.current?.abort();
     loadMoreAbortRef.current?.abort();
+    loadMoreAbortRef.current = null;
     setLoadingMore(false);
     const abortController = new AbortController();
     fetchAbortRef.current = abortController;
     setPageTokens({});
     setOffsets({});
     setTotals({});
+    unavailableAccountsRef.current.clear();
+    unavailablePagesRef.current.clear();
     setUnavailableAccountCount(0);
     if (emails.length === 0) {
       setMessages([]);
@@ -148,7 +153,6 @@ export function useMailListData({
       staleByAccount.set(messageAccount, accountMessages);
     }
     let settledCount = 0;
-    let unavailableCount = 0;
 
     const publishResult = (
       email: string,
@@ -158,7 +162,9 @@ export function useMailListData({
       if (abortController.signal.aborted) return;
       settledResults.set(email, result);
       settledCount += 1;
-      if (unavailable) unavailableCount += 1;
+      if (unavailable) unavailableAccountsRef.current.add(email);
+      else unavailableAccountsRef.current.delete(email);
+      const unavailableCount = unavailableAccountsRef.current.size;
       const newTokens: TokenByAccount = {};
       const newOffsets: NumberByAccount = {};
       const newTotals: NumberByAccount = {};
@@ -213,54 +219,67 @@ export function useMailListData({
     || Boolean(totals[email] && (offsets[email] ?? 0) < (totals[email] ?? 0))
   ));
 
-  const loadMore = useCallback((): void => {
-    if (loadingMore) return;
-    loadMoreAbortRef.current?.abort();
+  const loadMore = useCallback((retryEmails?: readonly string[]): void => {
+    if (loading || syncing || loadingMore || loadMoreAbortRef.current) return;
+    const requestedEmails = (retryEmails ?? emails).filter(email => (
+      Boolean(pageTokens[email])
+      || Boolean(totals[email] && (offsets[email] ?? 0) < (totals[email] ?? 0))
+    ));
+    if (requestedEmails.length === 0) return;
     const abortController = new AbortController();
     loadMoreAbortRef.current = abortController;
     setLoadingMore(true);
-    void Promise.all(emails.map(async (email) => {
+    let pending = requestedEmails.length;
+    const unavailable = (email: string): void => {
+      if (abortController.signal.aborted) return;
+      unavailableAccountsRef.current.add(email);
+      unavailablePagesRef.current.add(email);
+      setUnavailableAccountCount(unavailableAccountsRef.current.size);
+    };
+    requestedEmails.forEach(email => {
       const token = pageTokens[email];
       const offset = offsets[email] ?? 0;
-      const total = totals[email] ?? 0;
-      if (!token && total && offset >= total) {
-        return { ...EMPTY_MAIL_MESSAGES, total };
-      }
-      try {
-        return await fetchMailMessages(buildMailListQuery(
-          email,
-          folder,
-          category,
-          { offset, pageToken: token },
-        ), abortController.signal);
-      } catch (error) {
-        if (abortController.signal.aborted) throw error;
-        return EMPTY_MAIL_MESSAGES;
-      }
-    })).then((results) => {
-      if (abortController.signal.aborted) return;
-      const newTokens = { ...pageTokens };
-      const newOffsets = { ...offsets };
-      results.forEach((result, index) => {
-        const email = emails[index];
-        if (!email) return;
-        newTokens[email] = result.next_page_token;
-        newOffsets[email] = (newOffsets[email] ?? 0) + result.messages.length;
+      void fetchMailMessages(buildMailListQuery(
+        email,
+        folder,
+        category,
+        { offset, pageToken: token },
+      ), abortController.signal).then(result => {
+        if (abortController.signal.aborted) return;
+        if (result.error) {
+          unavailable(email);
+          return;
+        }
+        unavailableAccountsRef.current.delete(email);
+        unavailablePagesRef.current.delete(email);
+        setUnavailableAccountCount(unavailableAccountsRef.current.size);
+        setPageTokens(current => ({ ...current, [email]: result.next_page_token }));
+        setOffsets(current => ({ ...current, [email]: offset + result.messages.length }));
+        setTotals(current => ({ ...current, [email]: result.total }));
+        setMessages(current => deduplicateMailListMessages(
+          [...current, ...result.messages],
+          { collapseInternetCopies: account === null },
+        ));
+      }).catch(() => {
+        unavailable(email);
+      }).finally(() => {
+        if (abortController.signal.aborted) return;
+        pending -= 1;
+        if (pending === 0) {
+          loadMoreAbortRef.current = null;
+          setLoadingMore(false);
+        }
       });
-      setPageTokens(newTokens);
-      setOffsets(newOffsets);
-      setMessages((current) => {
-        return deduplicateMailListMessages([
-          ...current,
-          ...results.flatMap((result) => result.messages),
-        ], { collapseInternetCopies: account === null });
-      });
-      setLoadingMore(false);
-    }).catch(() => {
-      if (abortController.signal.aborted) return;
-      setLoadingMore(false);
     });
-  }, [account, category, emails, folder, loadingMore, offsets, pageTokens, totals]);
+  }, [account, category, emails, folder, loading, loadingMore, offsets, pageTokens, syncing, totals]);
+
+  const retryUnavailable = useCallback((): void => {
+    if (unavailablePagesRef.current.size > 0) {
+      loadMore([...unavailablePagesRef.current]);
+    } else {
+      fetchMessages({ force: true });
+    }
+  }, [fetchMessages, loadMore]);
 
   const fetchRef = useRef(fetchMessages);
   useEffect(() => {
@@ -368,6 +387,7 @@ export function useMailListData({
     messages,
     purgeMessageFromCaches,
     purgeMessagesFromCaches,
+    retryUnavailable,
     setLoading,
     setMessages,
     syncing,

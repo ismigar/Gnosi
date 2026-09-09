@@ -10,7 +10,10 @@ so the contextvar DOES propagate to the endpoint (async) and to its `anyio.to_th
 
 from __future__ import annotations
 
+import asyncio
+import threading
 import time
+from concurrent.futures import Future
 from contextvars import Token
 from pathlib import Path
 from urllib.parse import parse_qs, unquote
@@ -21,6 +24,12 @@ from backend.services.context_vars import active_vault_path
 
 VaultIdentity = tuple[str, str]
 _id_path_cache: dict[str, tuple[VaultIdentity | None, float]] = {}
+_identity_reads: dict[str, Future[VaultIdentity | None]] = {}
+_request_identity_reads: dict[
+    tuple[asyncio.AbstractEventLoop, str], asyncio.Task[VaultIdentity | None]
+] = {}
+_identity_cache_lock = threading.Lock()
+_identity_cache_generation = 0
 _TTL = 60.0
 
 _CANONICAL_API_PREFIX = "/api/v1/vaults/"
@@ -43,30 +52,60 @@ _APP_LEGACY_PREFIXES = {
 
 def reset_vault_path_cache() -> None:
     """Invalidates the id→path cache (when creating/deleting vaults)."""
-    _id_path_cache.clear()
+    global _identity_cache_generation
+    with _identity_cache_lock:
+        _identity_cache_generation += 1
+        _id_path_cache.clear()
+        _identity_reads.clear()
+        _request_identity_reads.clear()
 
 
 def _resolve_vault_identity(identifier: str) -> VaultIdentity | None:
-    """Resolve either an immutable vault id or a canonical vault slug."""
+    """Share one blocking lookup among concurrent requests for the same vault."""
     if not identifier:
         return None
-    now = time.monotonic()
-    hit = _id_path_cache.get(identifier)
-    if hit and (now - hit[1]) < _TTL:
-        return hit[0]
+    with _identity_cache_lock:
+        hit = _id_path_cache.get(identifier)
+        if hit and (time.monotonic() - hit[1]) < _TTL:
+            return hit[0]
+        pending = _identity_reads.get(identifier)
+        owner = pending is None
+        if pending is None:
+            pending = Future()
+            _identity_reads[identifier] = pending
+        generation = _identity_cache_generation
+    if not owner:
+        return pending.result()
+    try:
+        identity = _read_vault_identity(identifier)
+        with _identity_cache_lock:
+            if generation == _identity_cache_generation:
+                _id_path_cache[identifier] = (identity, time.monotonic())
+        pending.set_result(identity)
+        return identity
+    except BaseException as error:
+        pending.set_exception(error)
+        raise
+    finally:
+        with _identity_cache_lock:
+            if _identity_reads.get(identifier) is pending:
+                _identity_reads.pop(identifier)
+
+
+def _read_vault_identity(identifier: str) -> VaultIdentity | None:
+    """Resolve a stored identity without holding the shared cache lock."""
     identity = None
     try:
         from backend.data.management_db import _get_or_init_mgmt_engine
         from backend.models.management import Vault
-        from backend.services.vault_routing import ensure_vault_slugs
+        from backend.services.vault_routing import resolve_vault_slug
 
         _, SessionLocal = _get_or_init_mgmt_engine()
         db = SessionLocal()
         try:
             v = db.query(Vault).filter(Vault.id == identifier).first()
             if not v:
-                ensure_vault_slugs(db)
-                v = db.query(Vault).filter(Vault.slug == identifier).first()
+                v = resolve_vault_slug(db, identifier)
             if v and v.path_override:
                 identity = (v.id, v.path_override)
         finally:
@@ -75,11 +114,43 @@ def _resolve_vault_identity(identifier: str) -> VaultIdentity | None:
         identity = None
     if identity:
         try:
-            Path(identity[1]).mkdir(parents=True, exist_ok=True)
+            directory = Path(identity[1])
+            # Resolving a saved vault is a read. File Providers can make even
+            # mkdir(exist_ok=True) an expensive mutation of an existing folder.
+            if not directory.is_dir():
+                directory.mkdir(parents=True, exist_ok=True)
         except Exception:
             identity = None
-    _id_path_cache[identifier] = (identity, now)
     return identity
+
+
+async def _resolve_request_vault_identity(identifier: str) -> VaultIdentity | None:
+    # The in-memory hit is cheap; a miss can touch SQLite and a cloud filesystem.
+    # Set the ContextVar later, in the request task, so endpoints inherit it.
+    if not identifier:
+        return None
+    key = (asyncio.get_running_loop(), identifier)
+    with _identity_cache_lock:
+        hit = _id_path_cache.get(identifier)
+        if hit and (time.monotonic() - hit[1]) < _TTL:
+            return hit[0]
+        pending = _request_identity_reads.get(key)
+        if pending is None:
+            pending = asyncio.create_task(asyncio.to_thread(_resolve_vault_identity, identifier))
+            _request_identity_reads[key] = pending
+
+            def completed(task: asyncio.Task[VaultIdentity | None]) -> None:
+                with _identity_cache_lock:
+                    if _request_identity_reads.get(key) is task:
+                        _request_identity_reads.pop(key)
+                # The last HTTP reader may have disconnected before a failure.
+                if not task.cancelled():
+                    task.exception()
+
+            pending.add_done_callback(completed)
+    # Followers wait on the event loop, not in executor threads blocked in
+    # Future.result(). A disconnected reader must not cancel shared work.
+    return await asyncio.shield(pending)
 
 
 def _resolve_vault_path(vault_id: str) -> str | None:
@@ -141,7 +212,7 @@ async def _rewrite_canonical_scope(
     if canonical is None:
         return scope, None, True
     slug, legacy_path = canonical
-    identity = _resolve_vault_identity(slug)
+    identity = await _resolve_request_vault_identity(slug)
     if identity is None:
         await _send_unknown_vault(scope, send)
         return scope, None, False
@@ -204,6 +275,12 @@ class ActiveVaultMiddleware:
         if scope.get("type") not in {"http", "websocket"}:
             await self.app(scope, receive, send)
             return
+        if (scope.get("type") == "http" and scope.get("method") == "GET"
+                and scope.get("path") == "/api/health"):
+            # Liveness serves a process-wide startup snapshot. A browser's
+            # active-vault cookie must not turn that read into SQLite/cloud I/O.
+            await self.app(scope, receive, send)
+            return
         scope, canonical_identity, should_continue = await _rewrite_canonical_scope(
             dict(scope),
             send,
@@ -225,7 +302,7 @@ class ActiveVaultMiddleware:
         # active vault (setActiveVaultCookie). Priority: header > `?vault=` > cookie.
         token: Token[Path | None] | None = None
         if vault_id:
-            identity = canonical_identity or _resolve_vault_identity(vault_id)
+            identity = canonical_identity or await _resolve_request_vault_identity(vault_id)
             if identity:
                 token = active_vault_path.set(Path(identity[1]))
         try:

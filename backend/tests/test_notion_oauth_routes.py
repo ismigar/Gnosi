@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 
+import pytest
 from starlette.requests import Request
 
 from backend.api import notion_oauth_routes
@@ -69,7 +70,12 @@ def test_integration_manager_delete_key_is_atomic_and_idempotent(monkeypatch) ->
     manager._lock = threading.RLock()
     stored = {"notion_mcp": {"token": "secret"}, "other": {"enabled": True}}
     saves: list[dict[str, object]] = []
-    monkeypatch.setattr(manager, "_load", lambda: dict(stored))
+    monkeypatch.setattr(manager, "_load_secured", lambda: dict(stored))
+    monkeypatch.setattr(
+        manager,
+        "_load",
+        lambda: pytest.fail("Deleting an integration must not resolve unrelated credentials"),
+    )
     monkeypatch.setattr(manager, "_save", lambda value: saves.append(dict(value)))
 
     manager.delete_key("notion_mcp")

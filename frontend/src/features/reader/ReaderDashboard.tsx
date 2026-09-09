@@ -42,6 +42,7 @@ export default function ReaderDashboard() {
     const podcastEnabled = isEnabled('ai-platform');
     const locale = getIntlLocale(i18n.resolvedLanguage || i18n.language);
     const [selectedArticle, setSelectedArticle] = useState<ReaderArticle | null>(null);
+    const [selectedArticleIsSummary, setSelectedArticleIsSummary] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
     const [generatedPodcastUrl, setGeneratedPodcastUrl] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function ReaderDashboard() {
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const sourcesQuery = useReaderSources();
     const articlesQuery = useReaderArticles({
+        includeContent: false,
         unreadOnly: showUnreadOnly,
         sourceIds: selectedSourceId === null ? undefined : [selectedSourceId],
     });
@@ -89,7 +91,10 @@ export default function ReaderDashboard() {
         }
         void fetchReaderArticle(numericArticleId)
             .then((article) => {
-                if (active) setSelectedArticle(article);
+                if (active) {
+                    setSelectedArticle(article);
+                    setSelectedArticleIsSummary(false);
+                }
             })
             .catch((error: unknown) => {
                 logError('reader-open-evidence', error);
@@ -248,7 +253,10 @@ export default function ReaderDashboard() {
                 articlesLoading={articlesQuery.isPending}
                 groups={articleGroups}
                 locale={locale}
-                onSelectArticle={setSelectedArticle}
+                onSelectArticle={(article) => {
+                    setSelectedArticle(article);
+                    setSelectedArticleIsSummary(true);
+                }}
                 onToggleUnreadOnly={() => { setShowUnreadOnly((current) => !current); }}
                 selectedArticle={selectedArticle}
                 selectedSource={selectedSource}
@@ -258,6 +266,7 @@ export default function ReaderDashboard() {
             <div className={`flex-1 bg-[var(--bg-primary)] h-full overflow-y-auto ${selectedArticle ? 'block' : 'hidden md:block'}`}>
                 {selectedArticle ? <ReaderArticleContent
                     article={selectedArticle}
+                    loadFullContent={selectedArticleIsSummary}
                     locale={locale}
                     onBack={() => { setSelectedArticle(null); }}
                     onMarkRead={(articleId) => { void handleMarkRead(articleId); }}

@@ -51,6 +51,43 @@ function graphData(
 
 
 describe('graph page model', () => {
+  it('counts multiple fields from their own tables, preserving value precedence, duplicates and ties', () => {
+    const data = graphData([
+      node('a', {
+        kind: 'record', table_id: 'table-a', Status: 'Active',
+        metadata: { status: 'Ignored by top-level value', tags: ['Alpha', 'Alpha', 'Beta'], Zero: 0, Flag: false },
+      }),
+      node('b', { kind: 'record', table_id: 'table-a', metadata: { STATUS: 'Active', tags: ['Beta', null, ''] } }),
+      node('c', { kind: 'record', table_id: 'table-b', metadata: { Status: 'Done' } }),
+      node('wiki', { metadata: { Status: 'Wiki' } }),
+      node('event', { kind: 'calendar', table_id: 'table-a', metadata: { calendar_id: 'calendar-a', Status: 'Event' } }),
+    ]);
+    const original = structuredClone(data);
+    const graph = buildFilterGraph(data);
+    const fields = ['invalid', 'table-a:Status', 'table-a:Tags', 'table-a:Zero', 'table-a:Flag',
+      'table-b:Status', 'wiki:Status', 'table-a:Missing', 'table-a:Tags'];
+    expect(deriveFieldValues(graph, fields)).toEqual({
+      'table-a:Status': [['Active', 2]],
+      'table-a:Tags': [['Alpha', 2], ['Beta', 2]],
+      'table-a:Zero': [['0', 1]],
+      'table-a:Flag': [['false', 1]],
+      'table-b:Status': [['Done', 1]],
+      'wiki:Status': [['Wiki', 1]],
+      'table-a:Missing': [],
+    });
+    expect(data).toEqual(original);
+    expect(deriveFieldValues(graph, [])).toEqual({});
+    expect(deriveFieldValues(null, ['table-a:Status'])).toEqual({ 'table-a:Status': [] });
+  });
+
+  it('updates counts after graph data or the configured fields change', () => {
+    const graph = buildFilterGraph(graphData([node('a', { metadata: { Status: 'Before', Tags: ['one'] } })]));
+    expect(deriveFieldValues(graph, ['wiki:Status'])).toEqual({ 'wiki:Status': [['Before', 1]] });
+    graph?.setNodeAttribute('a', 'metadata', { Status: 'After', Tags: ['two', 'three'] });
+    expect(deriveFieldValues(graph, ['wiki:Status', 'wiki:Tags'])).toEqual({
+      'wiki:Status': [['After', 1]], 'wiki:Tags': [['two', 1], ['three', 1]],
+    });
+  });
   it('normalizes graph settings and preserves seeded source configuration', () => {
     const document: ConfigurationDocument = {
       graph: {
@@ -102,13 +139,15 @@ describe('graph page model', () => {
       }),
     ]);
 
-    expect(deriveFieldValues(data, ['wiki:Status'])).toEqual({
+    expect(deriveFieldValues(buildFilterGraph(data), ['wiki:Status'])).toEqual({
       'wiki:Status': [['Done', 1]],
     });
     expect(deriveIdLabels(data, { external: 'External page' })).toMatchObject({
       external: 'External page',
       'page-a': 'Alpha',
     });
+    expect(deriveIdLabels(data, { 'page-a': 'Canonical indexed title' })['page-a'])
+      .toBe('Canonical indexed title');
     expect(deriveFolderNames(data).get('inline-table')).toBe('Titulacions');
     expect(deriveMediaTags(data)).toEqual(['travel']);
     expect(deriveTimelineRange(data)).toEqual([

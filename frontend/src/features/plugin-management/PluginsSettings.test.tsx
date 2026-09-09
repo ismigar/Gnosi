@@ -10,7 +10,7 @@ import type {
     PluginTrustedKeysResponse,
 } from '../../shared/api/plugins';
 import { notifyError } from '../../shared/notifications/notifyError';
-import { PluginsSettings } from './PluginsSettings';
+import { PluginsSettings } from './index';
 
 const pluginState = vi.hoisted(() => ({
     enabled: new Set<string>(),
@@ -49,6 +49,7 @@ vi.mock('../../shared/api/plugin-runtime', () => pluginRuntimeApi);
 vi.mock('../../shared/api/plugins', () => pluginApi);
 vi.mock('../../shared/api/vaults', () => ({
     fetchVaultPagesByTable: vi.fn(),
+    fetchVaultPageReferencesByTable: vi.fn(),
     fetchVaultTables,
 }));
 vi.mock('react-i18next', () => ({
@@ -172,6 +173,71 @@ async function click(button: HTMLButtonElement): Promise<void> {
 }
 
 describe('PluginsSettings lifecycle and marketplace flows', () => {
+    it.each(['pointerover', 'focusin', 'touchstart'])('prepares an editor on %s without mounting it or writing settings', async (eventType) => {
+        pluginState.enabled.add('daily-notes');
+        const view = await renderSettings();
+        expect(fetchVaultTables).not.toHaveBeenCalled();
+        expect(pluginState.getPluginSettings).not.toHaveBeenCalled();
+        const row = view.querySelector('#settings-plugin-daily-notes');
+        const configure = row?.querySelector('button[aria-label="settings.plugins.configure"]');
+        if (!(configure instanceof HTMLButtonElement)) throw new Error('Missing configure action');
+        await act(async () => {
+            configure.dispatchEvent(new Event(eventType, { bubbles: true }));
+            await vi.dynamicImportSettled();
+        });
+        expect(row?.querySelector('select')).toBeNull();
+        expect(fetchVaultTables).not.toHaveBeenCalled();
+        expect(pluginState.getPluginSettings).not.toHaveBeenCalled();
+        expect(pluginState.setPluginSettings).not.toHaveBeenCalled();
+        await click(configure);
+        await act(async () => { await vi.dynamicImportSettled(); });
+        expect(fetchVaultTables).toHaveBeenCalledTimes(1);
+        expect(pluginState.getPluginSettings).toHaveBeenCalledWith('daily-notes');
+        const selector = row?.querySelector('select');
+        expect(selector).toBeInstanceOf(HTMLSelectElement);
+        expect(selector?.disabled).toBe(false);
+        expect(pluginState.setPluginSettings).not.toHaveBeenCalled();
+        expect(pluginApi.fetchPluginLlmWikiConfig).not.toHaveBeenCalled();
+        await click(configure);
+        expect(row?.querySelector('select')).toBeNull();
+    });
+
+    it('shows installed plugins without requesting the marketplace or trust settings', async () => {
+        pluginApi.fetchPluginCatalog.mockImplementation(() => new Promise(() => {}));
+        pluginApi.fetchPluginTrustedKeys.mockImplementation(() => new Promise(() => {}));
+        const view = await renderSettings();
+        expect(view.textContent).toContain('Sample plugin');
+        expect(pluginApi.fetchPluginCatalog).not.toHaveBeenCalled();
+        expect(pluginApi.fetchPluginTrustedKeys).not.toHaveBeenCalled();
+        expect(pluginApi.fetchPluginRegistryUrl).not.toHaveBeenCalled();
+        await click(buttonByText(view, 'settings.plugins.catalog_tab'));
+        expect(pluginApi.fetchPluginCatalog).toHaveBeenCalledTimes(1);
+        expect(pluginApi.fetchPluginTrustedKeys).toHaveBeenCalledTimes(1);
+        await click(buttonByText(view, 'settings.plugins.installed_tab'));
+        expect(view.textContent).toContain('Sample plugin');
+        expect(view.textContent).not.toContain('settings.plugins.loading');
+        expect(pluginApi.fetchInstalledPlugins).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the catalog while trust settings are still loading', async () => {
+        pluginApi.fetchPluginTrustedKeys.mockImplementation(() => new Promise(() => {}));
+        const view = await renderSettings();
+        await click(buttonByText(view, 'settings.plugins.catalog_tab'));
+        expect(view.textContent).toContain('Catalog plugin');
+        expect(view.querySelector('[role="status"]')).not.toBeNull();
+        expect(view.querySelector('input[type="url"]')).toBeNull();
+    });
+
+    it('retries a failed read without presenting editable empty configuration', async () => {
+        pluginApi.fetchInstalledPlugins.mockRejectedValueOnce(new Error('temporarily unavailable'));
+        const view = await renderSettings();
+        expect(view.querySelector('[role="alert"]')).not.toBeNull();
+        expect(view.textContent).not.toContain('Sample plugin');
+        await click(buttonByText(view, 'common.retry'));
+        expect(view.querySelector('[role="alert"]')).toBeNull();
+        expect(view.textContent).toContain('Sample plugin');
+    });
+
     it('locks a lifecycle switch and reports a failed request', async () => {
         let rejectRequest: ((reason: unknown) => void) | null = null;
         pluginState.setPluginEnabled.mockImplementation(() => new Promise((_resolve, reject) => {

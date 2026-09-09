@@ -25,6 +25,7 @@ _TEXT_OPEN_SUFFIXES = frozenset(
     {
         ".csv",
         ".json",
+        ".jsonl",
         ".md",
         ".txt",
         ".yaml",
@@ -209,12 +210,20 @@ class OnDemandFilesProvider(FilesProvider):
         return ok
 
     def _is_materialized(self, container_path: Path) -> bool:
-        """Return whether a logical path exists and is available locally."""
+        """Verify in a worker that allocated blocks are actually readable.
+
+        File Provider can still reject reads with EDEADLK after allocating
+        blocks. Treating stat alone as success leaves that file unrecovered.
+        """
         try:
             stat_result = container_path.stat()
+            if self.is_online_only(container_path, stat_result):
+                return False
+            with container_path.open("rb") as source:
+                source.read(1)
         except OSError:
             return False
-        return not self.is_online_only(container_path, stat_result)
+        return True
 
     def _open_app_for(self, container_path: Path) -> str:
         """Choose a GUI reader that can actually consume the file type."""
@@ -230,7 +239,7 @@ class OnDemandFilesProvider(FilesProvider):
         `-g` doesn't bring the app to the foreground and `-j` launches it hidden:
         it doesn't steal focus."""
         limit = timeout_s if timeout_s is not None else self.warmup_timeout_s
-        if self._is_materialized(container_path):
+        if await asyncio.to_thread(self._is_materialized, container_path):
             return True
         app = self._open_app_for(container_path)
         try:
@@ -262,7 +271,7 @@ class OnDemandFilesProvider(FilesProvider):
         while waited < limit:
             await asyncio.sleep(1.0)
             waited += 1.0
-            if self._is_materialized(container_path):
+            if await asyncio.to_thread(self._is_materialized, container_path):
                 log.info(
                     "☁️→💾 Materialitzat (open/%s) %s en %.0fs",
                     app,
@@ -319,7 +328,7 @@ class OnDemandFilesProvider(FilesProvider):
         inflight = self._inflight.get(key)
         if inflight is not None:
             try:
-                return await inflight
+                return await asyncio.shield(inflight)
             except Exception:
                 return False
         fut: asyncio.Future[bool] = asyncio.get_event_loop().create_future()
@@ -345,11 +354,13 @@ class OnDemandFilesProvider(FilesProvider):
             if not fut.done():
                 fut.set_result(ok)
             return ok
-        except Exception as e:
+        except Exception:
             if not fut.done():
-                fut.set_exception(e)
+                fut.set_result(False)
             return False
         finally:
+            if not fut.done():
+                fut.set_result(False)
             self._inflight.pop(key, None)
 
     async def materialize(self, container_path: Path) -> bool:
@@ -391,7 +402,7 @@ class OnDemandFilesProvider(FilesProvider):
         inflight = self._inflight.get(host_path)
         if inflight is not None:
             try:
-                return await inflight
+                return await asyncio.shield(inflight)
             except Exception:
                 return False
 

@@ -18,6 +18,7 @@ from typing import Any, Callable
 import requests
 
 from backend.services.integration_manager import integration_manager
+from backend.domains.calendar.timing import calendar_phase
 
 log = logging.getLogger(__name__)
 
@@ -38,21 +39,10 @@ _calendar_list_cache_lock = threading.Lock()
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _get_account(email: str) -> JsonObject | None:
-    raw_accounts: list[object] = []
-    for section in ("calendars", "emails"):
-        values = integration_manager.get_raw(section)
-        if isinstance(values, list):
-            raw_accounts.extend(values)
-    return next(
-        (
-            account
-            for account in raw_accounts
-            if isinstance(account, dict)
-            and (account.get("email") or account.get("username")) == email
-        ),
-        None,
-    )
+def _get_account(email: str, *, resolve_secrets: bool = True) -> JsonObject | None:
+    with calendar_phase("credentials" if resolve_secrets else "integrations"):
+        accounts = integration_manager.get_calendar_accounts(email, resolve_secrets=resolve_secrets)
+    return next(iter(accounts), None)
 
 
 def _normalize_dt(val: object) -> str:
@@ -89,9 +79,10 @@ def _ical_prop(component: Any, name: str, default: str = "") -> str:
 
 
 def _google_service(email: str) -> Any:
-    from backend.services.google_calendar_service import get_google_calendar_service
+    with calendar_phase("service"):
+        from backend.services.google_calendar_service import get_google_calendar_service
 
-    return get_google_calendar_service(email)
+        return get_google_calendar_service(email)
 
 
 class GoogleAuthExpired(Exception):
@@ -147,7 +138,8 @@ def _cached_calendar_list(
 def _load_google_calendars(email: str, provider_service: Any) -> list[JsonObject]:
     """Load Google calendar metadata with an already constructed client."""
     try:
-        result = provider_service.calendarList().list().execute()
+        with calendar_phase("http"):
+            result = provider_service.calendarList().list().execute()
         return [
             {
                 "id": c["id"],
@@ -233,7 +225,8 @@ def google_list_events(
             batch = service.new_batch_http_request(callback=collect_batch_result)
             for request_id, cal in calendars_by_request.items():
                 batch.add(request_for(cal), request_id=request_id)
-            batch.execute()
+            with calendar_phase("http"):
+                batch.execute()
             return events
         except Exception as ex:
             # Some self-hosted Google-compatible endpoints do not implement the
@@ -243,7 +236,8 @@ def google_list_events(
 
     for cal in calendars:
         try:
-            result = request_for(cal).execute()
+            with calendar_phase("http"):
+                result = request_for(cal).execute()
             for e in result.get("items", []):
                 events.append(_normalize_google_event(e, email, cal))
         except Exception as ex:
@@ -358,9 +352,10 @@ def caldav_list_calendars(email: str) -> list[JsonObject]:
   </d:prop>
 </d:propfind>"""
     try:
-        r = session.request(
-            "PROPFIND", base_url + "/", data=body, headers={"Depth": "1"}, timeout=15
-        )
+        with calendar_phase("http"):
+            r = session.request(
+                "PROPFIND", base_url + "/", data=body, headers={"Depth": "1"}, timeout=15
+            )
         r.raise_for_status()
     except Exception as ex:
         log.error(f"caldav_list_calendars {email}: {ex}")
@@ -434,7 +429,8 @@ def caldav_list_events(
   </cal:filter>
 </cal:calendar-query>"""
         try:
-            r = session.request("REPORT", cal_url, data=body, headers={"Depth": "1"}, timeout=20)
+            with calendar_phase("http"):
+                r = session.request("REPORT", cal_url, data=body, headers={"Depth": "1"}, timeout=20)
             r.raise_for_status()
             events.extend(_parse_caldav_response(r.text, email, cal, search))
         except Exception as ex:
@@ -534,7 +530,7 @@ def _normalize_caldav_event(component: Any, email: str, cal: JsonObject) -> Json
 
 
 def list_calendars(email: str) -> list[JsonObject]:
-    acc = _get_account(email)
+    acc = _get_account(email, resolve_secrets=False)
     if not acc:
         return []
     if acc.get("provider") == "google":
@@ -551,7 +547,7 @@ def list_events(
     search: str | None = None,
     calendar_id: str | None = None,
 ) -> list[JsonObject]:
-    acc = _get_account(email)
+    acc = _get_account(email, resolve_secrets=False)
     if not acc:
         return []
     if acc.get("provider") == "google":
@@ -562,7 +558,7 @@ def list_events(
 
 
 def get_event(email: str, event_id: str, calendar_id: str | None = None) -> JsonObject | None:
-    acc = _get_account(email)
+    acc = _get_account(email, resolve_secrets=False)
     if not acc:
         return None
     if acc.get("provider") == "google":

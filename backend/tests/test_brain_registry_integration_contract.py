@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -81,27 +82,37 @@ def test_option_lookup_keeps_native_attribute_error(raw: object) -> None:
 
 
 def test_graph_retains_merged_document_or_original_on_failure(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     original: PageMetadata = {7: object()}
     merged: PageMetadata = {8: object(), "note_type": "reading"}
     calls: list[object] = []
+    cfg = SimpleNamespace(paths={"GNOSI_CONFIG": tmp_path})
 
-    def merge(value: object, page_id: str) -> PageMetadata:
+    def merge(
+        value: object, page_id: str, *, state_directory: Path | None = None,
+    ) -> PageMetadata:
         assert value is original
+        assert state_directory == tmp_path / "llm_wiki"
         calls.append(page_id)
         return merged
 
     monkeypatch.setattr(storage, "merge_page_metadata", merge)
-    result, kind = nodes._managed_metadata(original, 12)
+    result, kind = nodes._managed_metadata(original, 12, cfg)
     assert result is merged and kind == "lectura" and calls == ["12"]
 
-    def failed(value: object, page_id: str) -> PageMetadata:
+    def failed(
+        value: object, page_id: str, *, state_directory: Path | None = None,
+    ) -> PageMetadata:
+        assert value is original and page_id == "12"
+        assert state_directory == tmp_path / "llm_wiki"
+        calls.append(f"failed:{page_id}")
         raise OSError("synthetic unavailable sidecar")
 
     monkeypatch.setattr(storage, "merge_page_metadata", failed)
-    result, kind = nodes._managed_metadata(original, 12)
+    result, kind = nodes._managed_metadata(original, 12, cfg)
     assert result is original and kind == ""
+    assert calls == ["12", "failed:12"]
 
 
 def test_index_write_preserves_open_document_and_prepare_save_register_order(

@@ -51,6 +51,7 @@ export type VaultTableDeleteQuery = NonNullable<
   ]['parameters']['query']
 >;
 export type VaultPageSummary = components['schemas']['PageInfo'];
+export type VaultPageReference = components['schemas']['PageReference'];
 export type VaultSidebarPageSummary = components['schemas']['SidebarPageInfo'];
 type VaultSidebarTreePage = components['schemas']['SidebarTreePageInfo'];
 export type VaultPage = components['schemas']['PageDetailResponse'];
@@ -138,12 +139,19 @@ export async function fetchVaultTables(
   databaseId?: string,
   signal?: AbortSignal,
 ): Promise<VaultRegistryRecord[]> {
-  return unwrapApiResult<VaultRegistryRecord[], unknown>(
-    await apiClient.GET('/api/vault/tables', {
-      params: { query: { database_id: databaseId } },
-      signal,
-    }),
-  );
+  return fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultTables(databaseId),
+    signal,
+    // Share overlapping reads (including StrictMode remounts), but always
+    // revalidate a later visit so edits and external vault changes are visible.
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultRegistryRecord[], unknown>(
+      await apiClient.GET('/api/vault/tables', {
+        params: { query: { database_id: databaseId } },
+        signal: sharedSignal,
+      }),
+    ),
+  });
 }
 
 
@@ -273,12 +281,36 @@ export async function fetchVaultPagesByTable(
   query: VaultTablePagesQuery = {},
   signal?: AbortSignal,
 ): Promise<VaultPageSummary[]> {
-  return unwrapApiResult<VaultPageSummary[], unknown>(
-    await apiClient.GET('/api/vault/pages/by-table/{table_id}', {
-      params: { path: { table_id: tableId }, query },
-      signal,
-    }),
-  );
+  return fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultTablePages(tableId, query),
+    signal,
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultPageSummary[], unknown>(
+      await apiClient.GET('/api/vault/pages/by-table/{table_id}', {
+        params: { path: { table_id: tableId }, query },
+        signal: sharedSignal,
+      }),
+    ),
+  });
+}
+
+
+export async function fetchVaultPageReferencesByTable(
+  tableId: string,
+  query: VaultTablePagesQuery = {},
+  signal?: AbortSignal,
+): Promise<VaultPageReference[]> {
+  return fetchCachedQuery({
+    queryKey: bootstrapQueryKeys.vaultTablePageReferences(tableId, query),
+    signal,
+    staleTime: 0,
+    queryFn: async (sharedSignal) => unwrapApiResult<VaultPageReference[], unknown>(
+      await apiClient.GET('/api/vault/pages/by-table/{table_id}/references', {
+        params: { path: { table_id: tableId }, query },
+        signal: sharedSignal,
+      }),
+    ),
+  });
 }
 
 

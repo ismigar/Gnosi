@@ -21,6 +21,7 @@ export interface AuthContextValue {
         name?: string,
     ) => Promise<AuthUser>;
     readonly requireAuth: boolean;
+    readonly sessionRecovery: { readonly recover: () => Promise<void> } | null;
     readonly updateProfile: (fields: AuthProfileUpdateInput) => Promise<AuthUser>;
     readonly user: AuthUser | null;
 }

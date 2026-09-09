@@ -1,4 +1,4 @@
-import { fetchVaultCatalog, invalidateVaultCatalog } from '../api/vaults';
+import { fetchVaultCatalog, invalidateVaultCatalog } from '../api/vault-catalog';
 import {
     ACTIVE_VAULT_ID_KEY,
     ACTIVE_VAULT_NAME_KEY,

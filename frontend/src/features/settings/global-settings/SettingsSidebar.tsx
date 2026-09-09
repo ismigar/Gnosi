@@ -2,7 +2,7 @@ import { pluginForSettingsTab } from './pluginSettingsNavigation';
 import { ChevronDown } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
 import { Globe } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { KeyRound, PanelLeft, Puzzle, UserCog } from 'lucide-react';
 import { Palette } from 'lucide-react';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { SettingsNavGroup } from './SettingsNavigation';
@@ -31,15 +31,15 @@ export function SettingsSidebar({ context }: Props) {
       <SettingsNavGroup label={t('settings.navigation.basic')}>
         <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
         <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
-        {sidebarNavigation && <SidebarItem id="menu" icon={LucideIcons.PanelLeft} label={t('settings.tabs.menu', 'Menú')} active={activeTab === 'menu'} onClick={() => { setActiveTab('menu'); setAddAccountType(null); }} />}
+        {sidebarNavigation && <SidebarItem id="menu" icon={PanelLeft} label={t('settings.tabs.menu', 'Menú')} active={activeTab === 'menu'} onClick={() => { setActiveTab('menu'); setAddAccountType(null); }} />}
         <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
         <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
-        <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
+        <SidebarItem id="account" icon={UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
         <SidebarItem id="workspace" icon={Users} label={t('settings.tabs.workspace') || 'Workspace'} active={activeTab === 'workspace'} onClick={() => { setActiveTab('workspace'); setAddAccountType(null); }} />
       </SettingsNavGroup>
 
       <SettingsNavGroup label={t('settings.navigation.knowledge')}>
-        <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins' || Boolean(pluginForSettingsTab(activeTab))} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
+        <SidebarItem id="plugins" icon={Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins' || Boolean(pluginForSettingsTab(activeTab))} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
         <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
       </SettingsNavGroup>
 
@@ -55,7 +55,7 @@ export function SettingsSidebar({ context }: Props) {
         </button>
         {isAdvancedOpen && (
           <div className="settings-sidebar-group__content">
-            <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
+            <SidebarItem id="api" icon={KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
           </div>
         )}
       </section>

@@ -35,6 +35,7 @@ class TableRowQueryDependencies:
     response_names: Callable[[object, RegistryData], RegistryData]
     vault_root: Callable[[], Path]
     logger: logging.Logger
+    prepare_response_names: Callable[[RegistryData], Callable[[object], RegistryData]] | None = None
 
 
 @dataclass(frozen=True)
@@ -360,8 +361,13 @@ def enrich_table_query_pages(
         lambda requested_table_id: virtual_page_loader(requested_table_id, dependencies),
     )
     if table:
+        resolve_names = (
+            dependencies.prepare_response_names(table)
+            if dependencies.prepare_response_names is not None
+            else lambda metadata: dependencies.response_names(metadata, table)
+        )
         for page in pages:
-            response_metadata = dependencies.response_names(page.metadata or {}, table)
+            response_metadata = resolve_names(page.metadata or {})
             page.metadata = PageInfo.model_validate(
                 {**page.model_dump(), "metadata": response_metadata}
             ).metadata

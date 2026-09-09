@@ -313,7 +313,9 @@ def test_persistent_cache_wire_format_uses_current_facade_path(
         "ts": 99.0,
         "entries": [[str(tmp_path / "a.jpg"), 42.5]],
     }
-    assert service._load_persisted(target) == (99.0, entries)
+    persisted = service._load_persisted(target)
+    assert persisted is not None and persisted[0] == 99.0
+    assert list(persisted[1]) == entries
     service.invalidate_cache(target)
     assert not cache_path.exists()
 

@@ -31,6 +31,11 @@ const PYTHON_DOWNLOAD_ENV = {
   UV_CONCURRENT_INSTALLS: '2',
 };
 const CI_PREDECESSORS = { frontend: 'backend', docker: 'frontend' };
+const HOSTED_CHROMIUM_SETUP = {
+  name: 'Install Chromium system dependencies on hosted Linux',
+  if: "runner.environment == 'github-hosted'",
+  run: 'pnpm --filter @gnosi/e2e exec playwright install-deps chromium',
+};
 const DEPENDENCIES = {
   preflight: [],
   quality: ['preflight'],
@@ -83,12 +88,18 @@ function assertFatalGates(workflow, reusableCI = false) {
       ? (name === 'documentation' ? DOCUMENTATION_IF
         : predecessor ? `!cancelled() && (${TRUSTED_PR_IF})` : TRUSTED_PR_IF) : undefined,
     `${name} must retain its exact trust and cancellation guard`);
+    if (reusableCI && name === 'native-smoke') {
+      assert.deepEqual(job.steps.filter((step) => step.name === HOSTED_CHROMIUM_SETUP.name),
+        [HOSTED_CHROMIUM_SETUP], 'native smoke must retain exactly the reviewed hosted dependency setup');
+    }
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
       const expectedIf = reusableCI && name === 'docker'
-        && step.name === 'Release unused Docker resources' ? 'always()' : undefined;
+        && step.name === 'Release unused Docker resources' ? 'always()'
+        : reusableCI && name === 'native-smoke' && step.name === HOSTED_CHROMIUM_SETUP.name
+          ? HOSTED_CHROMIUM_SETUP.if : undefined;
       assert.equal(step.if, expectedIf,
-        `${label} must not skip validation; only the exact Docker cleanup may use always()`);
+        `${label} must retain its reviewed condition without skipping validation`);
       assert.equal(step['continue-on-error'], undefined, `${label} must fail the job`);
     }
   }
@@ -172,7 +183,9 @@ function assertReviewedCIRunners(workflow) {
     backend: "${{ fromJSON(github.event_name == 'pull_request' && "
       + "github.event.repository.visibility == 'public' && "
       + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
-    'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
+    'native-smoke': "${{ fromJSON(github.event_name == 'pull_request' && "
+      + "github.event.repository.visibility == 'public' && "
+      + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
     docker: ['self-hosted', 'Linux', 'ARM64'],
   };
   assert.deepEqual(Object.keys(workflow.jobs).sort(), Object.keys(expectedRunners).sort());
@@ -257,7 +270,7 @@ test('shared CI uses reviewed public-PR runners and local release fallbacks', ()
 
 test('shared CI rejects unguarded hosted capacity and changed release fallbacks', () => {
   assertReviewedCIRunners(ci);
-  for (const name of ['frontend', 'backend']) {
+  for (const name of ['frontend', 'backend', 'native-smoke']) {
     const runner = ci.jobs[name]['runs-on'];
     for (const replacement of [
       runner.replace("github.event_name == 'pull_request' && ", ''),
@@ -272,6 +285,27 @@ test('shared CI rejects unguarded hosted capacity and changed release fallbacks'
       assert.throws(() => assertReviewedCIRunners(changed), assert.AssertionError);
     }
   }
+});
+
+test('hosted dependency setup cannot be removed, duplicated or used to skip smoke validation', () => {
+  assertFatalGates(ci, true);
+  const setupIndex = ci.jobs['native-smoke'].steps.findIndex((step) => step.name === HOSTED_CHROMIUM_SETUP.name);
+  for (const mutate of [
+    (steps) => { steps.splice(setupIndex, 1); },
+    (steps) => { steps.push(structuredClone(HOSTED_CHROMIUM_SETUP)); },
+    (steps) => { delete steps[setupIndex].if; },
+    (steps) => { steps[setupIndex].if = "runner.environment == 'self-hosted'"; },
+    (steps) => { steps[setupIndex].run = 'pnpm test:e2e:smoke'; },
+    (steps) => { steps[setupIndex].run += ' || true'; },
+    (steps) => { steps.find((step) => step.run === 'pnpm test:e2e:smoke').if = HOSTED_CHROMIUM_SETUP.if; },
+  ]) {
+    const changed = structuredClone(ci);
+    mutate(changed.jobs['native-smoke'].steps);
+    assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
+  }
+  const wrongJob = structuredClone(ci);
+  wrongJob.jobs.frontend.steps.push(structuredClone(HOSTED_CHROMIUM_SETUP));
+  assert.throws(() => assertFatalGates(wrongJob, true), assert.AssertionError);
 });
 
 test('shared CI prevents fork pull requests from reaching self-hosted runners', () => {

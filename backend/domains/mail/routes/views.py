@@ -42,7 +42,7 @@ def _view_to_dict(view: MailView) -> dict[str, object]:
     response_model=list[MailViewResponse],
     response_model_exclude_unset=True,
 )
-async def list_views(db: Session = Depends(get_db)) -> list[dict[str, object]]:
+def list_views(db: Session = Depends(get_db)) -> list[dict[str, object]]:
     views = db.query(MailView).order_by(MailView.created_at).all()
     return [_view_to_dict(v) for v in views]
 
@@ -53,7 +53,7 @@ async def list_views(db: Session = Depends(get_db)) -> list[dict[str, object]]:
     response_model=MailViewResponse,
     response_model_exclude_unset=True,
 )
-async def create_view(
+def create_view(
     payload: MailViewCreateSchema,
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
@@ -78,7 +78,7 @@ async def create_view(
     response_model=MailViewResponse,
     response_model_exclude_unset=True,
 )
-async def update_view(
+def update_view(
     view_id: str, payload: MailViewUpdateSchema, db: Session = Depends(get_db)
 ) -> dict[str, object]:
     view = db.query(MailView).filter(MailView.id == view_id).first()
@@ -104,7 +104,7 @@ async def update_view(
     response_model=None,
     dependencies=[Depends(require_role("editor"))],
 )
-async def delete_view(view_id: str, db: Session = Depends(get_db)) -> None:
+def delete_view(view_id: str, db: Session = Depends(get_db)) -> None:
     view = db.query(MailView).filter(MailView.id == view_id).first()
     if not view:
         raise HTTPException(status_code=404, detail="Vista no trobada")

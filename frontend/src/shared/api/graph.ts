@@ -1,12 +1,13 @@
 import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
+import { getActiveVaultId } from './vault-context';
 
 
 export type VaultGraphData = components['schemas']['GraphResponse'];
 export type VaultGraphNode = components['schemas']['GraphNodeResponse'];
 export type VaultGraphEdge = components['schemas']['GraphEdgeResponse'];
-export const graphQueryKey = ['graph'] as const;
+export const graphQueryKey = (vaultId = getActiveVaultId()) => ['graph', vaultId] as const;
 
 
 export async function fetchVaultGraph(

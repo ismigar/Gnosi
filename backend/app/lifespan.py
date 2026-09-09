@@ -245,7 +245,15 @@ async def _start_deferred_integrations(
     )
     await asyncio.sleep(delay)
     if scheduler_enabled:
-        scheduler_manager.start()
+        scheduler_start = asyncio.create_task(asyncio.to_thread(scheduler_manager.start))
+        try:
+            await asyncio.shield(scheduler_start)
+        except asyncio.CancelledError:
+            # Cancelling the await cannot stop the worker. Finish startup before
+            # shutdown calls stop(), so the scheduler cannot start after it stops.
+            with suppress(Exception):
+                await scheduler_start
+            raise
     else:
         log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
     await asyncio.to_thread(_start_mail_idle, enabled=mail_enabled)
@@ -254,15 +262,16 @@ async def _start_deferred_integrations(
 async def _shutdown_runtime(
     app: FastAPI,
     confirmation_maintenance_task: asyncio.Task[None],
-    integration_startup_task: asyncio.Task[None],
+    integration_startup_task: asyncio.Task[None] | None,
 ) -> None:
     """Stop workers and MCP without allowing one shutdown path to hang reload."""
     from backend.services.durable_job_worker import durable_job_worker
 
     log.info("🛑 Shutting down...")
-    integration_startup_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await integration_startup_task
+    if integration_startup_task is not None:
+        integration_startup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await integration_startup_task
     scheduler_stopped = await asyncio.to_thread(scheduler_manager.stop)
     if not scheduler_stopped:
         log.warning("⚠️ Scheduler workers exceeded their shutdown bound.")
@@ -310,7 +319,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     migrated_databases = migrate_existing_databases(resolve_data_dir())
     log.info("Database schema verification complete (%s stores).", len(migrated_databases))
     assert_signing_secret_safe()
-    from backend.app.factory import refresh_health_snapshot
+    from backend.app.factory import prepare_application_routes, refresh_health_snapshot
 
     await asyncio.to_thread(refresh_health_snapshot, app)
 
@@ -327,14 +336,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _warm_vault_indexes()
     _wire_plugin_system()
     _repair_main_views()
-    integration_startup_task = asyncio.create_task(
-        _start_deferred_integrations(
-            scheduler_enabled=_scheduler_start_enabled(),
-            mail_enabled=mail_enabled,
-        )
-    )
-
+    integration_startup_task = None
     try:
+        await prepare_application_routes(app)
+        integration_startup_task = asyncio.create_task(
+            _start_deferred_integrations(
+                scheduler_enabled=_scheduler_start_enabled(),
+                mail_enabled=mail_enabled,
+            )
+        )
         yield
     finally:
         await _shutdown_runtime(app, confirmation_task, integration_startup_task)

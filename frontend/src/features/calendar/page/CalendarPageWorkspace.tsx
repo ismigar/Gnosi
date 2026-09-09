@@ -4,7 +4,7 @@ import { CalendarSidebarRight } from '../components/CalendarSidebarRight';
 import type { CalendarPageController } from './useCalendarPage';
 
 export function CalendarPageWorkspace({ controller }: {controller: CalendarPageController}) {
- const { t, isCompact, showLeftSidebar, showRightSidebar, setShowLeftSidebar, setShowRightSidebar, calendarRef, calendarConfigs, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, integrations, undatedNotes, handleEventClick, loading, externalEventsLoading, externalEventsError, pages, externalEvents, searchQuery, handleContextMenu, fetchPages, fetchExternalEvents, setCurrentTitle, setDateRange, handleCreateEventAtDate, colorMap, setSearchQuery, eventPanel, closePanel, handleEventSaved, handleRsvp, setIsGlobalSearchOpen, defaultCalendarId, activeView } = controller;
+ const { t, isCompact, showLeftSidebar, showRightSidebar, setShowLeftSidebar, setShowRightSidebar, calendarRef, calendarConfigs, selectedCalendars, toggleCalendar, renameCalendar, updateColor, setDefaultCalendar, integrations, undatedNotes, handleEventClick, loading, refreshing, localSourcesError, externalEventsLoading, externalSourcesUpdating, externalEventsError, pages, externalEvents, searchQuery, handleContextMenu, fetchPages, fetchExternalEvents, setCurrentTitle, setDateRange, handleCreateEventAtDate, colorMap, setSearchQuery, eventPanel, closePanel, handleEventSaved, handleRsvp, setIsGlobalSearchOpen, defaultCalendarId, activeView } = controller;
  return <>            <div className="calendar-workspace">
                 {isCompact && (showLeftSidebar || showRightSidebar) && (
                     <button
@@ -37,13 +37,11 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                     </div>
                 </div>
 
-                <div className="calendar-workspace__canvas">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-full text-[var(--text-secondary)]" role="status" aria-live="polite">
-                            {t('calendar.loading_events')}
-                        </div>
-                    ) : (
+                <div className="calendar-workspace__canvas" aria-busy={loading || refreshing || externalSourcesUpdating}>
                         <div className="h-full relative">
+                            {/* Mount once so the visible range can start external reads
+                                while local notes and settings are still loading. */}
+                            <div className="h-full" style={loading ? { visibility: 'hidden' } : undefined} aria-hidden={loading || undefined} inert={loading}>
                             <DigitalBrainCalendar
                                 allNotes={[...pages, ...externalEvents]}
                                 initialView={activeView}
@@ -64,21 +62,25 @@ export function CalendarPageWorkspace({ controller }: {controller: CalendarPageC
                                 calendarConfigs={calendarConfigs}
                                 colorMap={colorMap}
                             />
-                            {externalEventsLoading && (
+                            </div>
+                            {loading ? (
+                                <div className="absolute inset-0 flex items-center justify-center text-[var(--text-secondary)]" role="status" aria-live="polite">
+                                    {t('calendar.loading_events')}
+                                </div>
+                            ) : (externalEventsLoading || refreshing || externalSourcesUpdating) && (
                                 <div className="absolute top-3 right-3 z-10 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)]/95 px-3 py-2 text-xs text-[var(--text-secondary)] shadow-sm" role="status" aria-live="polite">
                                     {t('calendar.loading_events')}
                                 </div>
                             )}
-                            {externalEventsError && (
+                            {!loading && (externalEventsError || localSourcesError) && (
                                 <div className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-[var(--danger-border)] bg-[var(--bg-primary)]/95 px-3 py-2 text-xs text-[var(--text-secondary)] shadow-sm" role="alert">
-                                    <span>{t('calendar.error_loading_event')}</span>
-                                    <button type="button" className="font-semibold text-[var(--gnosi-primary)]" onClick={() => { void fetchExternalEvents(); }}>
+                                    <span>{t(localSourcesError ? 'calendar.error_loading_pages' : 'calendar.error_loading_event')}</span>
+                                    <button type="button" className="font-semibold text-[var(--gnosi-primary)]" onClick={() => { if (localSourcesError) void fetchPages(); if (externalEventsError) void fetchExternalEvents(); }}>
                                         {t('common.retry')}
                                     </button>
                                 </div>
                             )}
                         </div>
-                    )}
                 </div>
 
                 {/* Barra Dreta Col·lapsable */}

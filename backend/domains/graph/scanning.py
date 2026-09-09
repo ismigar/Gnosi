@@ -188,6 +188,42 @@ def get_markdown_files_efficient(
     return md_files
 
 
+def indexed_markdown_files(vault_path: Path) -> List[tuple[Path, float]] | None:
+    """Use the canonical page index, including its cached file modification times.
+
+    The page index follows edits and background reconciliation. Rewalking a File
+    Provider mount here needlessly hydrates directories and stats every note.
+    Standalone graph consumers without the index retain filesystem discovery.
+    """
+    from backend.domains.vault.pages.index_service import get_available_page_entries
+
+    entries = get_available_page_entries(vault_path)
+    if entries is None:
+        return None
+    indexed: List[tuple[Path, float]] = []
+    has_vault_entry = not entries
+    for entry in entries:
+        path = Path(str(entry.get("path") or ""))
+        try:
+            relative = path.relative_to(vault_path)
+        except ValueError:
+            continue
+        has_vault_entry = True
+        if (
+            path.suffix != ".md"
+            or path.name.startswith(".")
+            or any(part in IGNORED_DIRS or part.startswith(".") for part in relative.parts[:-1])
+        ):
+            continue
+        mtime = entry.get("mtime")
+        if not isinstance(mtime, (int, float)):
+            return None
+        indexed.append((path, float(mtime)))
+    # A legacy cache may belong to another vault. Discover the requested vault
+    # in that case instead of treating a foreign index as an empty graph.
+    return indexed if has_vault_entry else None
+
+
 def parse_section_links(content: str) -> dict[str | None, list[str]]:
     """Extracts wikilinks from the .md body grouped by heading.
 

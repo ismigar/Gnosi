@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Text, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from backend.data.db import Base
@@ -22,6 +22,12 @@ class FeedSource(Base):
 
 class Article(Base):
     __tablename__ = "articles"
+    __table_args__ = (
+        Index("ix_articles_published_at", "published_at"),
+        Index("ix_articles_unread_published_at", "is_read", "published_at"),
+        Index("ix_articles_source_published_at", "source_id", "published_at"),
+        Index("ix_articles_inventory", "is_read", "source_id", "published_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     source_id = Column(Integer, ForeignKey("feed_sources.id"))

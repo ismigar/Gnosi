@@ -1,15 +1,15 @@
 import { MailCalendarPicker } from './MailCalendarPicker';
 import {
   MailViewerContent,
-  MailViewerEmpty,
   MailViewerLoading,
 } from './MailViewerContent';
+import { MailViewerEmpty } from './MailViewerEmpty';
 import { MailViewerToolbar } from './MailViewerToolbar';
 import type { MailViewerController } from './useMailViewerController';
 
 
 export function MailViewerView({ controller }: { readonly controller: MailViewerController }) {
-  if (!controller.selectedMail) return <MailViewerEmpty controller={controller} />;
+  if (!controller.selectedMail) return <MailViewerEmpty />;
   if (controller.loading && !controller.mailData) {
     return <MailViewerLoading controller={controller} />;
   }

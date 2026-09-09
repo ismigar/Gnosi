@@ -9,6 +9,7 @@ from .env_config import get_env, load_env
 from .paths_config import get_paths
 from .schema_keys import get_schema_keys
 from .validation_runtime import validation_runtime_enabled
+from .yaml_cache import ConfigYamlCache
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,11 @@ ENV_PROVIDER_MIGRATIONS = {
     "GOOGLE_API_KEY": ("google", "__keychain__:google_api_key"),
 }
 ConfigDict = dict[str, Any]
+# Configuration is read by authentication and workspace dependencies as well as
+# page handlers. The Python scanner held the GIL throughout every repeated read.
+# LibYAML uses the same safe constructors and preserves fresh reads on each call.
+_CONFIG_YAML_LOADER: type[Any] = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+_CONFIG_YAML_CACHE = ConfigYamlCache()
 
 
 def normalize_interface_language(value: object) -> str:
@@ -102,7 +108,9 @@ class Config:
         )
 
         # Load paths with optional overrides from params.yaml.
-        self.paths: dict[str, Path | None] = get_paths(params.get("paths", {}))
+        self.paths: dict[str, Path | None] = get_paths(
+            params.get("paths", {}), reuse_directory_checks=True
+        )
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.params.get(key, default)
@@ -171,9 +179,7 @@ def _merge_user_params(
     if user_params_path is None:
         return params, params_path
     try:
-        with user_params_path.open("r", encoding="utf-8") as handle:
-            loaded = yaml.safe_load(handle) or {}
-            user_params = cast(ConfigDict, loaded) if isinstance(loaded, dict) else {}
+        user_params = _CONFIG_YAML_CACHE.read(user_params_path, _CONFIG_YAML_LOADER)
         return deep_merge(params, user_params), user_params_path
     except OSError as error:
         log.warning(
@@ -214,9 +220,7 @@ def load_params(strict_env: bool = True) -> Config:
     # ── 1. Load the local base configuration ──
     params: ConfigDict = {}
     if not validation_runtime_enabled() and local_path.exists():
-        with open(local_path, "r", encoding="utf-8") as f:
-            loaded = yaml.safe_load(f) or {}
-            params = cast(ConfigDict, loaded) if isinstance(loaded, dict) else {}
+        params = _CONFIG_YAML_CACHE.read(local_path, _CONFIG_YAML_LOADER)
 
     params_path = local_path
 

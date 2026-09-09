@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { requestAt, resetApiTestStorage } from '../../../tests/api-request';
+import { requestAt, resetApiTestStorage, writeApiTestStorage } from '../../../tests/api-request';
 import { queryClient } from './query-client';
 import {
   createVaultPage,
@@ -9,6 +9,7 @@ import {
   fetchVaultPages,
   fetchVaultSidebarSummary,
   fetchVaultPagesByTable,
+  fetchVaultPageReferencesByTable,
   fetchVaultTablePagesSnapshot,
   patchVaultPage,
   saveVaultPage,
@@ -18,6 +19,50 @@ import {
 afterEach(() => { queryClient.clear(); resetApiTestStorage(); vi.unstubAllGlobals(); });
 
 describe('vault pages API', () => {
+  it('keeps selector reads separate from complete pages, vaults and template filters, then revalidates', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(Response.json([{ id: 'page', title: 'Name' }])));
+    vi.stubGlobal('fetch', fetchMock);
+    writeApiTestStorage('gnosi_active_vault', 'vault-a');
+    const first = fetchVaultPageReferencesByTable('tasks', { include_templates: false });
+    const shared = fetchVaultPageReferencesByTable('tasks', { include_templates: false });
+    const complete = fetchVaultPagesByTable('tasks', { include_templates: false });
+    const templates = fetchVaultPageReferencesByTable('tasks', { include_templates: true });
+    writeApiTestStorage('gnosi_active_vault', 'vault-b');
+    const anotherVault = fetchVaultPageReferencesByTable('tasks', { include_templates: false });
+    const results = await Promise.all([first, shared, complete, templates, anotherVault]);
+    expect(results[0]).toEqual(results[1]);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const requests = [0, 1, 2, 3].map(index => requestAt(fetchMock.mock.calls, index));
+    expect(requests.map(request => request.headers.get('X-Vault-ID'))).toEqual(['vault-a', 'vault-a', 'vault-a', 'vault-b']);
+    expect(requests.map(request => new URL(request.url).pathname)).toEqual([
+      '/api/vault/pages/by-table/tasks/references', '/api/vault/pages/by-table/tasks',
+      '/api/vault/pages/by-table/tasks/references', '/api/vault/pages/by-table/tasks/references',
+    ]);
+    expect(requests.map(request => new URL(request.url).searchParams.get('include_templates'))).toEqual(['false', 'false', 'true', 'false']);
+    await fetchVaultPageReferencesByTable('tasks', { include_templates: false });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('shares simultaneous page-list reads only when the table and filters agree, then revalidates', async () => {
+    const fetchMock = vi.fn<typeof fetch>((input) => {
+      const url = new URL(new Request(input).url);
+      return Promise.resolve(Response.json([{ id: url.pathname, template: url.searchParams.get('include_templates') }]));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const [first, repeated, templates, anotherTable] = await Promise.all([
+      fetchVaultPagesByTable('projects', { include_templates: false }),
+      fetchVaultPagesByTable('projects', { include_templates: false }),
+      fetchVaultPagesByTable('projects', { include_templates: true }),
+      fetchVaultPagesByTable('tasks', { include_templates: false }),
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(repeated).toEqual(first);
+    expect(templates).not.toEqual(first);
+    expect(anotherTable).not.toEqual(first);
+    await fetchVaultPagesByTable('projects', { include_templates: false });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it('loads page lists and details with exact query, path and abort signal', async () => {
     const pages = [{ id: 'page-1', title: 'Page one' }];
     const page = { content: '# Page one', id: 'page-1', title: 'Page one' };

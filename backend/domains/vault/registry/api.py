@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -24,7 +25,9 @@ class RegistryApiDependencies:
 
 async def get_registry(dependencies: RegistryApiDependencies) -> RegistryData:
     try:
-        registry = dependencies.load_registry()
+        # Registry reads may touch a cloud-backed vault. Keep that I/O off the
+        # request loop so navigation cannot stall health, auth or other screens.
+        registry = await asyncio.to_thread(dependencies.load_registry)
         response = dict(registry)
         databases = registry.get("databases", [])
         tables = registry.get("tables", [])

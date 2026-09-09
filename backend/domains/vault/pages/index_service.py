@@ -410,6 +410,19 @@ def get_cached_page_entries(
     return _filter_by_search_paths(updated.values(), search_paths)
 
 
+def get_available_page_entries(vault_path: Path) -> list[PageCacheEntry] | None:
+    """Read an existing vault index without initiating filesystem discovery."""
+    if _dependencies is None:
+        return None
+    dependencies = _dependencies
+    vault_key = str(vault_path)
+    if not dependencies.index_initialized.get(vault_key):
+        if not dependencies.load_from_disk(vault_key):
+            return None
+    with dependencies.index_lock:
+        return list(dependencies.index_entries.get(vault_key, {}).values())
+
+
 def _calendar_scope(
     only_calendar: bool,
     registry: RegistryData,
@@ -671,6 +684,7 @@ __all__ = [
     "cached_page_entry_count",
     "configure",
     "get_cached_page_entries",
+    "get_available_page_entries",
     "get_pages_snapshot",
     "refresh_page_index_entry",
     "refresh_table_pages_metadata",

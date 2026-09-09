@@ -6,6 +6,7 @@ import asyncio
 import logging
 import mimetypes
 import os
+import stat
 import urllib.parse
 from pathlib import Path
 
@@ -24,12 +25,27 @@ def image_error(
     status: int,
     detail: str,
     retry_after: int | None = None,
+    availability: str | None = None,
 ) -> HTTPException:
     """Create a non-cacheable image error response."""
     headers = _NO_STORE_HEADERS
     if retry_after is not None:
         headers = {**_NO_STORE_HEADERS, "Retry-After": str(retry_after)}
+    if availability is not None:
+        headers = {**headers, "X-Gnosi-File-Availability": availability}
     return HTTPException(status_code=status, detail=detail, headers=headers)
+
+
+def schedule_image_download(provider: FilesProvider, path: Path) -> HTTPException:
+    """Report queued downloads separately from a completed, failed attempt."""
+    if provider.warmup_status(path) == "failed":
+        return image_error(
+            503, "Image download failed; try again", retry_after=30, availability="failed"
+        )
+    provider.schedule_warmup(path)
+    return image_error(
+        503, "Image warming up; retry shortly", retry_after=3, availability="pending"
+    )
 
 
 def read_failure_hint(error: OSError) -> str:
@@ -45,11 +61,14 @@ def read_failure_hint(error: OSError) -> str:
 
 async def probe_readable(path: Path) -> OSError | None:
     """Probe one byte with the legacy cloud-mount retry schedule."""
+    def read_one_byte() -> None:
+        with path.open("rb") as file_handle:
+            file_handle.read(1)
+
     last_error: OSError | None = None
     for attempt in range(5):
         try:
-            with path.open("rb") as file_handle:
-                file_handle.read(1)
+            await asyncio.to_thread(read_one_byte)
             return None
         except OSError as exc:
             last_error = exc
@@ -102,12 +121,7 @@ async def serve_file_with_containment(
     media_type, _ = mimetypes.guess_type(str(requested))
     if provider.is_online_only(requested, stat_result):
         if media_type and media_type.startswith("image/"):
-            provider.schedule_warmup(requested)
-            raise image_error(
-                503,
-                "Image warming up; retry shortly",
-                retry_after=3,
-            )
+            raise schedule_image_download(provider, requested)
         await provider.materialize(requested)
         try:
             stat_result = requested.stat()
@@ -127,6 +141,13 @@ async def serve_file_with_containment(
     async with state.semaphore:
         last_error = await probe_readable(requested)
         if last_error is not None:
+            if (
+                last_error.errno in (11, 35)
+                and provider.name != "local"
+                and media_type
+                and media_type.startswith("image/")
+            ):
+                raise schedule_image_download(provider, requested)
             log.warning(
                 "☁️ Read failed after retries for %s: %s%s",
                 requested,
@@ -141,14 +162,12 @@ async def serve_file_with_containment(
         )
 
 
-async def serve_vault_image(
+def _inspect_vault_image(
     vault_path: Path,
     image_path: str,
-    *,
-    state: FileServingState,
     provider: FilesProvider,
-) -> FileResponse:
-    """Serve one image below the active vault's Images directory."""
+) -> tuple[Path, os.stat_result, bool]:
+    """Contain and inspect one image in a worker, including provider metadata."""
     if not vault_path:
         raise image_error(500, "Vault not configured")
     image_root = (vault_path / "Images").resolve()
@@ -162,32 +181,46 @@ async def serve_vault_image(
             )
             raise image_error(403, "Access denied")
     except (ValueError, AttributeError):
-        if not str(requested).startswith(str(image_root)):
+        if not str(requested).startswith(str(image_root) + os.sep):
             log.warning("⛔ Fallback startswith: access denied for %s", requested)
             raise image_error(403, "Access denied")
 
-    if not requested.exists() or not requested.is_file():
-        log.error("❌ Image not found on disk: %s", requested)
-        raise image_error(404, "Image not found")
     try:
         stat_result = requested.stat()
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        raise image_error(404, "Image not found") from exc
     except OSError as exc:
         log.warning("stat() failed for %s: %s", requested, exc)
         raise image_error(503, "Image temporarily unavailable") from exc
+    if not stat.S_ISREG(stat_result.st_mode):
+        raise image_error(404, "Image not found")
     if stat_result.st_size == 0:
         log.warning(
             "☁️ Placeholder file detected (0 bytes): %s. Download it from OneDrive.", requested
         )
         raise image_error(404, "Image is an empty placeholder (OneDrive)")
 
-    if provider.is_online_only(requested, stat_result):
-        provider.schedule_warmup(requested)
-        log.info("☁️ Background warmup started for %s (503 pending)", requested)
-        raise image_error(503, "Image warming up; retry shortly", retry_after=3)
+    return requested, stat_result, provider.is_online_only(requested, stat_result)
 
+
+async def serve_vault_image(
+    vault_path: Path,
+    image_path: str,
+    *,
+    state: FileServingState,
+    provider: FilesProvider,
+) -> FileResponse:
+    """Serve an image without blocking other routes on FileProvider metadata."""
     async with state.semaphore:
+        requested, stat_result, online_only = await asyncio.to_thread(
+            _inspect_vault_image, vault_path, image_path, provider
+        )
+        if online_only:
+            raise schedule_image_download(provider, requested)
         last_error = await probe_readable(requested)
         if last_error is not None:
+            if last_error.errno in (11, 35) and provider.name != "local":
+                raise schedule_image_download(provider, requested)
             log.warning(
                 "☁️ Read failed after retries for %s: %s%s",
                 requested,
@@ -208,6 +241,7 @@ async def serve_vault_image(
         return FileResponse(
             path=str(requested),
             media_type=media_type,
+            stat_result=stat_result,
             headers={"Cache-Control": "public, max-age=300"},
         )
 
