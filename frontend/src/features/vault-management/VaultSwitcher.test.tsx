@@ -35,9 +35,12 @@ vi.mock('../../shared/routing/vaultRouting', () => ({
 
 
 vi.mock('../../shared/api/vault-context', () => ({
-    ACTIVE_VAULT_NAME_KEY: 'gnosi_active_vault_name',
+    withActiveVaultSelection: (vaults: unknown) => vaults,
 }));
 
+vi.mock('../../shared/hooks/useActiveVaultId', () => ({
+    useActiveVaultId: () => '',
+}));
 
 vi.mock('../../shared/platform/browser-storage', () => ({
     defineStorageKey: (name: string) => ({ name }),
@@ -139,10 +142,6 @@ describe('VaultSwitcher', () => {
         });
 
         expect(mocks.persistCatalog).toHaveBeenCalledOnce();
-        expect(mocks.storageSet).toHaveBeenCalledWith(
-            'gnosi_active_vault_name',
-            'Main',
-        );
         const second = [...container.querySelectorAll('button')]
             .find((button) => button.textContent.includes('Second'));
         if (!second) throw new Error('Second vault was not rendered');

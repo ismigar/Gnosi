@@ -110,6 +110,17 @@ export function readVaultCatalog(): StoredVault[] {
 }
 
 
+/** The browser selection wins over request-time flags in a cached catalog. */
+export function withActiveVaultSelection<T extends { readonly id: string; readonly active?: boolean }>(
+  vaults: readonly T[],
+  activeId = getActiveVaultId(),
+): Array<T & { active: boolean }> {
+  const selected = vaults.find((vault) => vault.id === activeId)
+    ?? vaults.find((vault) => vault.active);
+  return vaults.map((vault) => ({ ...vault, active: vault.id === selected?.id }));
+}
+
+
 export function persistVaultCatalog(vaults: unknown): StoredVault[] {
   const normalized = Array.isArray(vaults)
     ? vaults.filter((vault): vault is StoredVault => (
@@ -121,8 +132,9 @@ export function persistVaultCatalog(vaults: unknown): StoredVault[] {
       && Boolean((vault as Partial<StoredVault>).slug)
     ))
     : [];
-  storageSet(VAULT_CATALOG_KEY, JSON.stringify(normalized));
-  return normalized;
+  const selected = withActiveVaultSelection(normalized);
+  storageSet(VAULT_CATALOG_KEY, JSON.stringify(selected));
+  return selected;
 }
 
 

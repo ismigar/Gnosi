@@ -15,14 +15,8 @@ import {
     canonicalVaultSwitchPath,
     persistVaultCatalog,
 } from '../../shared/routing/vaultRouting';
-import {
-    ACTIVE_VAULT_NAME_KEY,
-} from '../../shared/api/vault-context';
-import {
-    defineStorageKey,
-    stringStorageCodec,
-    writeStorage,
-} from '../../shared/platform/browser-storage';
+import { withActiveVaultSelection } from '../../shared/api/vault-context';
+import { useActiveVaultId } from '../../shared/hooks/useActiveVaultId';
 import {
     createVault,
     deleteVault,
@@ -32,12 +26,6 @@ import {
 
 
 type MarketplaceSection = 'catalog' | 'publish';
-
-
-const activeVaultNameStorageKey = defineStorageKey(
-    ACTIVE_VAULT_NAME_KEY,
-    stringStorageCodec,
-);
 
 
 function errorMessage(error: unknown): string {
@@ -55,7 +43,9 @@ export default function VaultSwitcher() {
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
-    const [vaults, setVaults] = useState<VaultSummary[]>([]);
+    const [catalog, setVaults] = useState<VaultSummary[]>([]);
+    const activeId = useActiveVaultId();
+    const vaults = withActiveVaultSelection(catalog, activeId);
     const [busy, setBusy] = useState('');
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState('');
@@ -69,10 +59,6 @@ export default function VaultSwitcher() {
             const list = data.vaults;
             persistVaultCatalog(list);
             setVaults(list);
-            const active = list.find((vault) => vault.active);
-            if (active?.name) {
-                writeStorage(activeVaultNameStorageKey, active.name);
-            }
         } catch (error) {
             if (!signal?.aborted) setError(errorMessage(error));
         }
@@ -136,7 +122,7 @@ export default function VaultSwitcher() {
                         border: `1px solid ${v.active ? 'var(--gnosi-primary)' : 'var(--settings-border)'}`, overflow: 'hidden' }}>
                         <button type="button" onClick={() => {
                             if (!v.active) switchTo(v.id);
-                        }} title={v.path}
+                        }} aria-pressed={v.active} title={v.path}
                             style={{ ...inp, border: 'none', borderRadius: 0, cursor: v.active ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
                                 color: v.active ? 'var(--gnosi-primary)' : 'var(--text-primary)', fontWeight: v.active ? 700 : 400 }}>
                             {v.active && <Check size={13} />}{v.name}

@@ -159,6 +159,14 @@ modèles de réponse Pydantic dédiés, tout en conservant leur structure
 historique de dictionnaire pour les appels directs et une interface OpenAPI
 identique octet par octet.
 
+Le catalogue des Vaults ne marque qu'une seule identité du registre comme active,
+même lorsque d'anciens alias partagent un dossier. La sélection suit l'en-tête
+de la requête, le paramètre de requête, puis le cookie, parmi les entrées
+correspondant au dossier actif résolu. La sélection actuelle du navigateur prime
+sur les indicateurs du catalogue en cache, ce qui synchronise le menu, le
+sélecteur des paramètres et le nom du Vault affiché. Changer de Vault ne réécrit
+ni les alias du registre ni les métadonnées des favoris.
+
 ## Cycle de vie des pages
 
 ```mermaid

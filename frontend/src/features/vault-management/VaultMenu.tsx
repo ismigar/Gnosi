@@ -10,11 +10,11 @@ import {
     persistVaultCatalog,
 } from '../../shared/routing/vaultRouting';
 import {
-    ACTIVE_VAULT_NAME_KEY,
-    storageSet,
+    withActiveVaultSelection,
     type StoredVault,
 } from '../../shared/api/vault-context';
 import { createVault, fetchVaultCatalog } from '../../shared/api/vaults';
+import { useActiveVaultId } from '../../shared/hooks/useActiveVaultId';
 
 interface VaultMenuPosition {
     readonly left: number;
@@ -32,7 +32,9 @@ export default function VaultMenu() {
     const location = useLocation();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
-    const [vaults, setVaults] = useState<StoredVault[]>([]);
+    const [catalog, setVaults] = useState<StoredVault[]>([]);
+    const activeId = useActiveVaultId();
+    const vaults = withActiveVaultSelection(catalog, activeId);
     const [pos, setPos] = useState<VaultMenuPosition | null>(null);
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState('');
@@ -44,10 +46,6 @@ export default function VaultMenu() {
             const data = await fetchVaultCatalog();
             const list = persistVaultCatalog(data.vaults);
             setVaults(list);
-            const active = list.find(v => v.active);
-            if (active?.name) {
-                storageSet(ACTIVE_VAULT_NAME_KEY, active.name);
-            }
         } catch { /* */ }
     }, []);
     useEffect(() => {
@@ -115,7 +113,7 @@ export default function VaultMenu() {
                     {vaults.map(v => (
                         <button key={v.id} onClick={() => {
                             if (!v.active) switchTo(v.id);
-                        }} title={typeof v.path === 'string' ? v.path : undefined}
+                        }} aria-pressed={v.active} title={typeof v.path === 'string' ? v.path : undefined}
                             style={{ ...itemBtn, cursor: v.active ? 'default' : 'pointer',
                                 color: v.active ? 'var(--gnosi-primary)' : 'var(--text-primary)', fontWeight: v.active ? 700 : 400 }}>
                             {v.active ? <Check size={13} /> : <span style={{ width: 13, flexShrink: 0 }} />}

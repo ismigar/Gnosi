@@ -73,6 +73,7 @@ export function activateVault(
     storageSet(ACTIVE_VAULT_SLUG_KEY, vault.slug);
     storageSet(ACTIVE_VAULT_NAME_KEY, vault.name || '');
     setActiveVaultCookie(vault.id);
+    persistVaultCatalog(readVaultCatalog());
     if (changed && notify && typeof window !== 'undefined') {
         emitAppEvent('gnosi:vault-changed', {
             id: vault.id,

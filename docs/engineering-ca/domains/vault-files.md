@@ -153,6 +153,14 @@ pujada. Models de resposta Pydantic específics validen els diccionaris d'estat,
 preescalfament i reconeixement abans de conservar-ne l'estructura històrica per
 als consumidors directes i la superfície OpenAPI estable byte a byte.
 
+El catàleg de Vaults marca una sola identitat del registre com a activa, encara
+que diversos àlies antics comparteixin carpeta. La selecció segueix la capçalera
+de la petició, el paràmetre de consulta i després la galeta, limitada a les
+entrades que coincideixen amb la carpeta activa resolta. La selecció actual del
+navegador té prioritat sobre els indicadors desats a la memòria cau, mantenint
+sincronitzats el menú, el selector de configuració i el nom del Vault mostrat.
+Canviar de Vault no reescriu els àlies del registre ni les metadades dels favorits.
+
 ## Cicle de vida de les pàgines
 
 ```mermaid

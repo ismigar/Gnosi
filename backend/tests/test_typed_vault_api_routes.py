@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from starlette.requests import Request
 
 from backend.services.workspace_service import WorkspaceContext
 
@@ -50,7 +51,11 @@ def test_list_vaults_keeps_nested_mapping_shape(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(vaults_routes, "ensure_vault_slugs", lambda *_args: None)
     monkeypatch.setattr(vaults_routes, "get_active_vault_path", lambda: tmp_path)
 
-    result = vaults_routes.list_vaults(ctx=context, db=_VaultDatabase(rows))
+    result = vaults_routes.list_vaults(
+        request=Request({"type": "http", "headers": [], "query_string": b""}),
+        ctx=context,
+        db=_VaultDatabase(rows),
+    )
 
     assert result == {
         "vaults": [
@@ -75,6 +80,43 @@ def test_list_vaults_keeps_nested_mapping_shape(tmp_path, monkeypatch) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("headers", "query", "selected_id"),
+    [
+        ([], b"", "principal"),
+        ([(b"x-vault-id", b"alias")], b"", "alias"),
+        ([(b"cookie", b"gnosi_active_vault=alias")], b"", "alias"),
+        ([], b"vault=alias", "alias"),
+        ([(b"x-vault-id", b"principal"), (b"cookie", b"gnosi_active_vault=alias")], b"vault=alias", "principal"),
+        ([(b"x-vault-id", b"other-workspace")], b"", "principal"),
+    ],
+)
+def test_vault_catalog_selects_one_identity_when_registry_paths_are_duplicated(
+    tmp_path, monkeypatch, headers, query, selected_id,
+):
+    from backend.api import vaults_routes
+
+    rows = [
+        SimpleNamespace(id=identifier, name=identifier, slug=identifier, path_override=str(tmp_path))
+        for identifier in ("principal", "alias")
+    ]
+    rows.append(SimpleNamespace(id="proves", name="Proves", slug="proves", path_override=str(tmp_path / "proves")))
+    monkeypatch.setattr(vaults_routes, "load_params", lambda **_: SimpleNamespace(
+        gnosi_mode="personal", paths={"VAULT": tmp_path},
+    ))
+    monkeypatch.setattr(vaults_routes, "_ensure_main_vault", lambda *_: None)
+    monkeypatch.setattr(vaults_routes, "_prune_container_rows", lambda *_: None)
+    monkeypatch.setattr(vaults_routes, "ensure_vault_slugs", lambda *_: None)
+    monkeypatch.setattr(vaults_routes, "get_active_vault_path", lambda: tmp_path)
+    result = vaults_routes.list_vaults(
+        request=Request({"type": "http", "headers": headers, "query_string": query}),
+        ctx=WorkspaceContext("workspace", "user", "owner", tmp_path),
+        db=_VaultDatabase(rows),
+    )
+    assert [vault["id"] for vault in result["vaults"] if vault["active"]] == [selected_id]
+    assert len(result["vaults"]) == 3  # Preserve aliases and their existing references.
+
+
 @pytest.mark.parametrize("mode", ["personal", "org"])
 def test_vault_catalog_uses_one_fresh_configuration_per_request(tmp_path, monkeypatch, mode):
     from backend.api import vaults_routes
@@ -97,7 +139,11 @@ def test_vault_catalog_uses_one_fresh_configuration_per_request(tmp_path, monkey
     context = WorkspaceContext("workspace", "user", "owner", tmp_path)
 
     for index in range(2):
-        result = vaults_routes.list_vaults(ctx=context, db=_VaultDatabase([]))
+        result = vaults_routes.list_vaults(
+            request=Request({"type": "http", "headers": [], "query_string": b""}),
+            ctx=context,
+            db=_VaultDatabase([]),
+        )
         assert result == {"vaults": [], "active_path": str(tmp_path)}
         assert len(reads) == index + 1
     assert prepared == (reads if mode == "personal" else [])
@@ -113,7 +159,11 @@ def test_vault_catalog_still_reports_an_unconfigured_personal_vault(monkeypatch,
     ))
     context = WorkspaceContext("workspace", "user", "owner", tmp_path)
     with pytest.raises(HTTPException) as error:
-        vaults_routes.list_vaults(ctx=context, db=_VaultDatabase([]))
+        vaults_routes.list_vaults(
+            request=Request({"type": "http", "headers": [], "query_string": b""}),
+            ctx=context,
+            db=_VaultDatabase([]),
+        )
     assert error.value.status_code == 503
     assert error.value.detail == "The primary Vault path is not configured"
 

@@ -11,8 +11,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 533 | 2226 |
-| pytest | 522 | 3687 |
+| Vitest | 534 | 2228 |
+| pytest | 522 | 3688 |
 
 ## Fichiers
 
@@ -246,6 +246,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/social/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/social/publishing/PublishSocialModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/PublishSocialModal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/social/publishing/publish-social/publishSocialModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/publishSocialModel.test.ts) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault-management/VaultSelection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSelection.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault-management/VaultSwitcher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSwitcher.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/collaboration/collabProvider.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/collaboration/collabProvider.test.ts) | 2 | call-pattern estimate |
@@ -965,7 +966,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_typed_citation_pdf_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_citation_pdf_routes.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_typed_public_share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_public_share_routes.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_typed_small_api_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_small_api_routes.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_typed_vault_api_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_vault_api_routes.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_typed_vault_api_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_typed_vault_api_routes.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_unsplash_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_unsplash_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_validation_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_validation_runtime.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_validator_string_dunder.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_validator_string_dunder.py) | 4 | Python AST |

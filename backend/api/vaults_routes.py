@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -168,6 +168,7 @@ def _ensure_main_vault(db: Session, ws_id: str, default_path: Path) -> Vault | N
 
 @router.get("", response_model=VaultListResponse)
 def list_vaults(
+    request: Request,
     ctx: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
 ) -> dict[str, Any]:
@@ -181,13 +182,24 @@ def list_vaults(
     ensure_vault_slugs(db)
     active = str((get_active_vault_path() or "") if personal else ctx.vault_path)
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
+    # Legacy registry aliases can share a folder. Only the requested identity
+    # should be checked, with one deterministic fallback when no ID is supplied.
+    requested_id = (
+        request.headers.get("x-vault-id")
+        or request.query_params.get("vault")
+        or request.cookies.get("gnosi_active_vault")
+    )
+    candidates = [v for v in rows if (v.path_override or "") == active]
+    selected = next((v for v in candidates if v.id == requested_id), None)
+    if selected is None and candidates:
+        selected = candidates[0]
     vaults = [
         VaultSummaryResponse(
             id=v.id,
             name=v.name,
             slug=v.slug,
             path=v.path_override or "",
-            active=(v.path_override or "") == active,
+            active=selected is not None and v.id == selected.id,
         )
         for v in rows
     ]
