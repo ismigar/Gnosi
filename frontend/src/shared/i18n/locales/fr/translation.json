@@ -4282,7 +4282,7 @@
     "info_section": "Informations de contact",
     "details_section": "Détails supplémentaires",
     "fetch_gmail_avatar": "Obtenir l'avatar Gmail",
-    "photo_url_hint": "Saisissez une URL directe vers une image ou utilisez le bouton Gmail si possible.",
+    "photo_url_hint": "Saisissez l’URL d’une image. Les photos Google disponibles sont importées lors de la synchronisation des contacts Google.",
     "name_placeholder": "Ex. : Joan Sala",
     "photo_preview_alt": "Aperçu",
     "photo_url_placeholder": "https://exemple.com/photo.jpg",

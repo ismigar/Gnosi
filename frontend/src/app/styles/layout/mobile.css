@@ -405,6 +405,11 @@
     transform: translateX(0);
   }
 
+  .app-quick-access {
+    inset-inline-start: calc(68px + 0.55rem);
+    z-index: calc(var(--z-overlay) + 2);
+  }
+
   .app-sidebar__item {
     width: var(--control-height-touch);
     height: var(--control-height-touch);

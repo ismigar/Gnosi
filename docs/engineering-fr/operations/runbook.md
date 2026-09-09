@@ -162,13 +162,14 @@ communes des icônes conservent leur placement automatique. Après toute modific
 de ce groupe, vérifiez le graphe des imports compilés : nouveaux cycles,
 dépendances initiales inattendues et budgets en octets.
 
-Un cookie de session invalide peut faire rejeter les requêtes du vault même
-lorsque l’accès anonyme local est autorisé. `/auth/me` distingue ce cas d’une
-réponse 401 anonyme ordinaire. L’interface propose une action explicite de
-récupération de session : elle appelle l’endpoint de déconnexion existant,
-efface les métadonnées d’identité locales uniquement après réussite et recharge
-l’application. Si la déconnexion échoue, la récupération reste disponible.
-La politique d’authentification et l’accès public aux pages partagées restent identiques.
+Un cookie de session facultatif invalide est ignoré lorsque l'accès personnel
+local est autorisé ; une session expirée n'introduit donc aucune inscription ni
+connexion. Lorsque des identifiants sont requis, `/auth/me` distingue un cookie
+invalide d'une réponse 401 anonyme ordinaire. L'interface propose une action
+explicite de récupération : elle appelle l'endpoint de déconnexion existant,
+efface les métadonnées locales d'identité uniquement après réussite et recharge
+l'application. En cas d'échec, la récupération reste disponible. Cela ne change
+ni la politique d'authentification ni l'accès public aux pages partagées.
 
 Une réponse 401 explicite d’une route protégée avec `Authentication required`
 est un autre cas : si `/api/auth/me` indique un utilisateur anonyme, affichez

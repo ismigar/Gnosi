@@ -67,6 +67,20 @@ La regla crítica de fusión es conservar la información añadida exclusivament
 
 Correo busca contactos para seleccionar destinatarios y enlazar entidades. Calendario busca contactos para seleccionar asistentes. Estos consumidores reciben datos de presentación normalizados y no acceden a credenciales de proveedores ni a payloads de sincronización sin procesar.
 
+El correo comparte una consulta local de contactos en caché para mostrar las fotos
+de los remitentes en la lista, las cabeceras de conversación, las vistas previas y
+las sugerencias de destinatarios. La coincidencia admite cabeceras con nombre y
+todos los campos de correo guardados, sin distinguir mayúsculas. El mismo
+componente muestra las fotos en la lista, el detalle y el editor de contactos;
+si la imagen falla, muestra las iniciales y reintenta cuando cambia la URL.
+
+Las fotos de Google llegan mediante la sincronización autorizada de contactos de
+People API, con todas las páginas de resultados y las fotos disponibles de perfiles
+vinculados. Se ignoran las imágenes de sustitución generadas por Google para
+preservar las fotos locales reales. Una dirección Gmail sola no es una URL pública
+de fotografía. La sincronización invalida la caché del servidor y la configuración
+de las cuentas actualiza las consultas de contactos de la interfaz.
+
 ## Invariantes
 
 - Cada consulta y modificación se limita a un workspace.

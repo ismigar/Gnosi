@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Filter, Search } from 'lucide-react';
 
 import type { Contact, ContactQuery } from '../../../shared/api/contacts';
-import { getGoogleAvatarUrl, isGmail } from '../model/avatar-utils';
+import { ContactAvatar } from '../../../shared/ui/avatars/ContactAvatar';
 
 
 export interface ContactListProps {
@@ -143,10 +143,6 @@ export default function ContactList({
                 </div>
               )
             : contacts.map((contact) => {
-                const googleAvatar = isGmail(contact.email)
-                  ? getGoogleAvatarUrl(contact.email)
-                  : '';
-                const avatarUrl = contact.photo_url || googleAvatar;
                 const selected = selectedId === contact.id;
                 return (
                   <button
@@ -184,43 +180,7 @@ export default function ContactList({
                       }
                     }}
                   >
-                    <div
-                      style={{
-                        alignItems: 'center',
-                        background: avatarUrl ? 'transparent' : 'var(--gnosi-blue)',
-                        borderRadius: '8px',
-                        color: avatarUrl ? 'inherit' : 'white',
-                        display: 'flex',
-                        flexShrink: 0,
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        height: '32px',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        width: '32px',
-                      }}
-                    >
-                      {avatarUrl && (
-                        <img
-                          src={avatarUrl}
-                          alt={contact.name}
-                          style={{ height: '100%', objectFit: 'cover', width: '100%' }}
-                          onError={(event) => {
-                            const image = event.currentTarget;
-                            image.style.display = 'none';
-                            const fallback = image.nextElementSibling;
-                            if (fallback instanceof HTMLElement) fallback.style.display = 'block';
-                            if (image.parentElement) {
-                              image.parentElement.style.background = 'var(--gnosi-blue)';
-                              image.parentElement.style.color = 'white';
-                            }
-                          }}
-                        />
-                      )}
-                      <div style={{ display: avatarUrl ? 'none' : 'block', textAlign: 'center', width: '100%' }}>
-                        {(contact.name || '?').charAt(0).toUpperCase()}
-                      </div>
-                    </div>
+                    <ContactAvatar name={contact.name} email={contact.email} photoUrl={contact.photo_url} />
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ alignItems: 'center', display: 'flex', gap: '6px' }}>

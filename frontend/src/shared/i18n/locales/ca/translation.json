@@ -2925,7 +2925,7 @@
     "info_section": "Informació de contacte",
     "details_section": "Detalls addicionals",
     "fetch_gmail_avatar": "Obtenir avatar de Gmail",
-    "photo_url_hint": "Posa una URL directa a una imatge o fes servir el botó de Gmail si és possible.",
+    "photo_url_hint": "Introdueix l’URL d’una imatge. Les fotos disponibles de Google s’importen en sincronitzar els contactes de Google.",
     "name_placeholder": "Ex: Joan Sala",
     "photo_preview_alt": "Preview",
     "photo_url_placeholder": "https://exemple.com/foto.jpg",

@@ -158,13 +158,14 @@ de los iconos mantienen su ubicación automática. Después de cambiar el grupo,
 revise el grafo de importaciones compiladas para detectar ciclos nuevos o
 dependencias iniciales inesperadas, además de los límites de bytes.
 
-Una cookie de sesión inválida puede rechazar peticiones de vault aunque se permita
-el acceso anónimo local. `/auth/me` distingue ese caso de un 401 anónimo habitual.
-La interfaz ofrece una acción explícita de recuperación de la cookie inválida:
-llama al endpoint existente de cierre de sesión, borra los metadatos locales de
-identidad solo si tiene éxito y recarga la aplicación. Si falla el cierre, la
-recuperación sigue disponible. Esto no cambia la política de autenticación ni
-el acceso a páginas compartidas públicas.
+Una cookie de sesión opcional inválida se ignora cuando el acceso personal
+local está permitido, por lo que una sesión caducada no introduce ningún registro
+ni inicio de sesión. Cuando se requieren credenciales, `/auth/me` distingue una
+cookie inválida de un 401 anónimo habitual. La interfaz ofrece una acción explícita
+de recuperación: llama al endpoint existente de cierre de sesión, borra los
+metadatos locales de identidad solo si tiene éxito y recarga la aplicación. Si
+falla, la recuperación sigue disponible. Esto no cambia la política de
+autenticación ni el acceso a páginas compartidas públicas.
 
 Un 401 explícito de una ruta protegida con `Authentication required` es un caso
 diferente: cuando `/api/auth/me` informa de un usuario anónimo, muestre Login en

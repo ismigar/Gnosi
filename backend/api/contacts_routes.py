@@ -274,6 +274,7 @@ async def sync_contacts(
         # 2. Initialize engine with integration details
         sync_engine = ContactsSyncEngine(db, x_workspace_id, integration)
         result = sync_engine.sync_full_bidirectional()
+        _contacts_cache.clear()
 
         # Check for errors in the individual sync processes
         has_errors = (

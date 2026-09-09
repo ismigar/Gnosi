@@ -70,6 +70,20 @@ La règle essentielle de fusion est de préserver l'enrichissement strictement l
 
 Mail recherche les contacts pour les destinataires et les liens entre entités. Calendrier les recherche pour les participants. Ces consommateurs reçoivent des données d'affichage normalisées et n'accèdent ni aux identifiants secrets des fournisseurs ni aux payloads bruts de synchronisation.
 
+La messagerie partage une requête locale de contacts en cache pour afficher les
+photos des expéditeurs dans la liste, les en-têtes de conversation, les aperçus et
+les suggestions de destinataires. La correspondance accepte les en-têtes avec nom
+et tous les champs de courriel enregistrés, sans distinction de casse. Le même
+composant affiche les photos dans la liste, le détail et l'éditeur de contacts ;
+si l'image échoue, il affiche les initiales et réessaie lorsque l'URL change.
+
+Les photos Google proviennent de la synchronisation autorisée des contacts via
+People API, avec toutes les pages de résultats et les photos disponibles des
+profils liés. Les images de remplacement générées par Google sont ignorées pour
+préserver les vraies photos locales. Une adresse Gmail seule n'est pas une URL
+publique de photo. La synchronisation invalide le cache du serveur et les
+paramètres des comptes actualisent les requêtes de contacts de l'interface.
+
 ## Invariants
 
 - Chaque requête et mutation est limitée à son workspace.

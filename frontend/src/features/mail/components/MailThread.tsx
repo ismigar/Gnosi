@@ -2,6 +2,8 @@ import { format } from 'date-fns';
 import { ca } from 'date-fns/locale';
 import { ChevronDown } from 'lucide-react';
 
+import { ContactAvatar } from '../../../shared/ui/avatars/ContactAvatar';
+
 import { MailAttachments } from './MailAttachments';
 import { MailBody } from './MailBody';
 import { isSameMailMessage, mailMessageIdentity } from '../mailIdentity';
@@ -44,9 +46,7 @@ export function MailThread({ controller }: { readonly controller: MailViewerCont
         return (
           <div className={`rounded-xl overflow-hidden border transition-all ${sent ? 'border-[var(--gnosi-blue)]/40 bg-[var(--sidebar-item-active)]/40' : 'border-[var(--border-primary)] bg-[var(--bg-primary)]'}`} key={identity}>
             <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-secondary)]/60 transition-colors text-left" onClick={() => { controller.toggleThreadMessage(message); }} type="button">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[12px] font-bold shrink-0 ${sent ? 'bg-[var(--gnosi-blue)] text-white' : 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'}`}>
-                {sender[0]?.toLocaleUpperCase() || '?'}
-              </div>
+              <ContactAvatar name={cleanMailAddress(message.sender)} email={message.sender} borderRadius={12} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-[13px] font-bold ${sent ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-primary)]'}`}>{sender}</span>

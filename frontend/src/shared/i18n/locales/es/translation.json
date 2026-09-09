@@ -2871,7 +2871,7 @@
     "phones_section": "Teléfonos",
     "addresses_section": "Direcciones",
     "fetch_gmail_avatar": "Obtener avatar de Gmail",
-    "photo_url_hint": "Introduce una URL directa a una imagen o usa el botón de Gmail si es posible.",
+    "photo_url_hint": "Introduce la URL de una imagen. Las fotos disponibles de Google se importan al sincronizar los contactos de Google.",
     "name_placeholder": "Ej: Joan Sala",
     "photo_preview_alt": "Vista previa",
     "photo_url_placeholder": "https://ejemplo.com/foto.jpg",

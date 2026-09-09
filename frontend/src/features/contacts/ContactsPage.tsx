@@ -63,6 +63,8 @@ export default function ContactsPage() {
     [integrationsQuery.data],
   );
   const contacts = contactsQuery.data ?? [];
+  const displayedContact = contacts.find((contact) => contact.id === selectedContact?.id)
+    ?? selectedContact;
   const hasActivePane = isEditing || selectedContact !== null;
 
   useEffect(() => {
@@ -169,8 +171,9 @@ export default function ContactsPage() {
             : selectedContact
               ? (
                   <ContactDetail
-                    contact={selectedContact}
+                    contact={displayedContact}
                     onEdit={() => {
+                      setSelectedContact(displayedContact);
                       setIsEditing(true);
                     }}
                     onDelete={(contactId: string) => {

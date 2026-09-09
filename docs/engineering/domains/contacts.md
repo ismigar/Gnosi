@@ -76,6 +76,18 @@ Mail searches contacts for recipients and entity linking. Calendar searches
 contacts for attendees. These consumers receive normalized display data and do
 not access provider credentials or raw synchronization payloads.
 
+Mail shares one cached local contact query for sender photos in the list,
+conversation headers, previews, and recipient suggestions. Matching handles
+display-name email headers and all stored email fields, case-insensitively.
+The same avatar component renders contact list, detail, and editor photos,
+falls back to initials on failure, and retries when the photo URL changes.
+
+Google photos arrive through authorized People API contact synchronization,
+including every result page and available linked profile photos. Generated
+Google placeholders are ignored to preserve real local photos. A Gmail address
+alone is not a public photo URL. Synchronization invalidates the server contact
+cache and the account settings refresh the frontend contact queries.
+
 ## Invariants
 
 - Every query and mutation is workspace-scoped.

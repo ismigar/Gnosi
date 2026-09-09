@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import postcss, { type ChildNode, type Root } from 'postcss';
+import postcss, { type ChildNode, type Root, type Rule } from 'postcss';
 import { describe, expect, it } from 'vitest';
 import { cssContracts } from './css-modules.baseline';
 
@@ -62,9 +62,34 @@ function expand(path: string, visited = new Set<string>()): Root {
   return root;
 }
 
+function removeVerifiedMobileQuickAccessRule(root: Root): void {
+  const matches: Rule[] = [];
+  root.walkRules('.app-quick-access', rule => {
+    const parent = rule.parent;
+    if (parent?.type === 'atrule' && parent.name === 'media'
+      && parent.params === '(max-width: 768px)') matches.push(rule);
+  });
+  expect(matches).toHaveLength(1);
+  const actual = matches[0];
+  if (!actual) throw new Error('Missing mobile quick-access rule');
+  const expected = postcss.parse(`
+.app-quick-access {
+  inset-inline-start: calc(68px + 0.55rem);
+  z-index: calc(var(--z-overlay) + 2);
+}`).nodes[0];
+  if (!expected) throw new Error('Missing expected quick-access rule');
+  expect(semantic(actual)).toEqual(semantic(expected));
+  expect(actual.prev()).toMatchObject({ type: 'rule', selector: '.app-sidebar--open' });
+  expect(actual.next()).toMatchObject({ type: 'rule', selector: '.app-sidebar__item' });
+  actual.remove();
+}
+
 function extractionTree(entry: string): Root {
   const root = expand(resolve(frontend, entry));
   if (entry === 'src/app/styles/index.css') {
+    // Verify the mobile control's exact scope, declarations and cascade position
+    // before removing this reviewed addition from the immutable baseline check.
+    removeVerifiedMobileQuickAccessRule(root);
     // Assert the reviewed keyboard-focus changes before restoring only those
     // rules for comparison with the immutable extraction baseline.
     const addedRules = postcss.parse(`
@@ -116,7 +141,7 @@ function extractionTree(entry: string): Root {
 describe('semantic CSS extraction contracts', () => {
   for (const contract of cssContracts) {
     describe(contract.entry, () => {
-      it('preserves the ordered AST apart from asserted accessibility and focus changes', () => {
+      it('preserves the ordered AST apart from explicitly asserted UI changes', () => {
         const expanded = extractionTree(contract.entry);
         expect(digest(expanded)).toBe(contract.astSha256);
         expect(expanded.nodes.filter(node => node.type !== 'comment'))

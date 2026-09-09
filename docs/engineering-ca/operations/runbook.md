@@ -159,13 +159,14 @@ compartides de les icones mantenen la ubicació automàtica. Després de canviar
 aquest grup, comproveu el graf d’importacions compilat per detectar cicles nous
 i dependències inicials inesperades, a més dels límits de bytes.
 
-Una galeta de sessió invàlida pot rebutjar peticions de vault encara que l’accés
-anònim local estigui permès. `/auth/me` distingeix aquest cas d’un 401 anònim
-habitual. La interfície ofereix una acció explícita de recuperació per a la galeta
-invàlida: crida l’endpoint existent de tancament de sessió, esborra les metadades
-locals d’identitat només si té èxit i recarrega l’aplicació. Si el tancament falla,
-la recuperació continua disponible. Això no canvia la política d’autenticació
-ni l’accés a pàgines compartides públiques.
+Una galeta de sessió opcional invàlida s'ignora quan l'accés personal local està
+permès, de manera que una sessió caducada no introdueix cap registre ni inici de
+sessió. Quan calen credencials, `/auth/me` distingeix una galeta invàlida d'un
+401 anònim habitual. La interfície ofereix una acció explícita de recuperació:
+crida l'endpoint existent de tancament de sessió, esborra les metadades locals
+d'identitat només si té èxit i recarrega l'aplicació. Si falla, la recuperació
+continua disponible. Això no canvia la política d'autenticació ni l'accés a
+pàgines compartides públiques.
 
 Un 401 explícit d’una ruta protegida amb `Authentication required` és un cas
 diferent: quan `/api/auth/me` informa d’un usuari anònim, mostreu Login en lloc

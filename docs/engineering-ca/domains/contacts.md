@@ -79,6 +79,20 @@ Correu cerca contactes per triar destinataris i enllaçar entitats. Calendari
 en cerca per als assistents. Aquests consumidors reben dades de visualització
 normalitzades i no accedeixen a credencials ni als payloads bruts de sincronització.
 
+El correu comparteix una consulta local de contactes en memòria cau per mostrar
+les fotos dels remitents a la llista, les capçaleres de conversa, les
+previsualitzacions i els suggeriments de destinataris. La coincidència admet
+capçaleres amb nom i tots els camps de correu desats, sense distingir majúscules.
+El mateix component mostra les fotos a la llista, el detall i l'editor de
+contactes; si la imatge falla, mostra les inicials i reintenta quan canvia l'URL.
+
+Les fotos de Google arriben mitjançant la sincronització autoritzada de contactes
+de People API, amb totes les pàgines de resultats i les fotos de perfils vinculats
+disponibles. S'ignoren les imatges de substitució generades per Google per preservar
+les fotos locals reals. Una adreça Gmail sola no és una URL pública de fotografia.
+La sincronització invalida la memòria cau del servidor i la configuració dels
+comptes actualitza les consultes de contactes de la interfície.
+
 ## Invariants
 
 - Totes les consultes i mutacions queden acotades a l'espai de treball.

@@ -88,6 +88,40 @@ def test_create_google_contact_builds_people_api_shape(
     }
 
 
+def test_list_google_contacts_includes_photos_beyond_first_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _Service()
+    calls: list[dict[str, Any]] = []
+
+    def list_page(**kwargs: Any) -> _Request:
+        calls.append(kwargs)
+        if not kwargs.get("pageToken"):
+            return _Request({"connections": [{"resourceName": "people/1"}], "nextPageToken": "next"})
+        return _Request({"connections": [{"resourceName": "people/2", "photos": [{"url": "photo"}]}]})
+
+    monkeypatch.setattr(service.people_api, "list", list_page)
+    monkeypatch.setattr(google_contacts_service, "get_google_contacts_service", lambda _: (service, None))
+    contacts = google_contacts_service.list_google_contacts("user@example.test")
+    assert len(contacts) == 2
+    assert contacts[1]["photos"] == [{"url": "photo"}]
+    assert calls[1]["pageToken"] == "next"
+    assert all("photos" in call["personFields"].split(",") for call in calls)
+
+
+def test_parse_google_contact_uses_real_profile_photo_over_default_primary() -> None:
+    parsed = google_contacts_service.parse_google_contact_to_dict({
+        "photos": [
+            {"url": "placeholder", "default": True, "metadata": {"primary": True}},
+            {"url": "profile", "default": False},
+        ],
+    })
+    assert parsed["photo_url"] == "profile"
+    assert google_contacts_service.parse_google_contact_to_dict({
+        "photos": [{"url": "placeholder", "default": True}],
+    })["photo_url"] == ""
+
+
 def test_parse_google_contact_normalizes_primary_values() -> None:
     parsed = google_contacts_service.parse_google_contact_to_dict(
         {
