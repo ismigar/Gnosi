@@ -151,7 +151,9 @@ function filterRecord(value: unknown): Readonly<Record<string, FilterValue>> {
 export function graphNodeAttributes(node: VaultGraphNode): GraphNodeAttributes {
   const attributes: GraphNodeAttributes = { x: 0, y: 0 };
   Object.entries(node).forEach(([key, value]) => {
-    attributes[key] = toFilterValue(value);
+    // Metadata is normalized below; avoid constructing and discarding a full
+    // recursive copy before assigning that canonical mapping.
+    if (key !== 'metadata') attributes[key] = toFilterValue(value);
   });
   attributes.cluster = optionalString(node.cluster);
   attributes.database_id = optionalString(node.database_id);
@@ -336,26 +338,34 @@ export function findShortestPath(
 
 
 export function deriveFieldValues(
-  data: GraphData | null,
+  graph: GraphPageGraph | null,
   visibleFields: readonly string[],
 ): FieldValuesByKey {
-  const result: Record<string, Array<readonly [string, number]>> = {};
+  const fields = new Map<string, { name: string; counts: Map<string, number> }>();
+  const fieldsByTable = new Map<string, Array<{ name: string; counts: Map<string, number> }>>();
   visibleFields.forEach((fieldKey) => {
-    if (!fieldKey.includes(':')) return;
+    if (!fieldKey.includes(':') || fields.has(fieldKey)) return;
     const [tableId = '', fieldName = ''] = fieldKey.split(':');
-    const counts = new Map<string, number>();
-    data?.nodes.forEach((node) => {
-      const attributes = graphNodeAttributes(node);
-      if (getEffectiveTableId(attributes) !== tableId) return;
-      toValueStrings(resolveMetaValue(attributes, fieldName)).forEach((value) => {
+    const field = { name: fieldName, counts: new Map<string, number>() };
+    fields.set(fieldKey, field);
+    const tableFields = fieldsByTable.get(tableId) ?? [];
+    tableFields.push(field);
+    fieldsByTable.set(tableId, tableFields);
+  });
+  // The filter graph already holds normalized attributes. Count all configured
+  // fields in one traversal instead of cloning every node again for each field.
+  if (fields.size > 0) graph?.forEachNode((_key, attributes) => {
+    const tableId = getEffectiveTableId(attributes);
+    const tableFields = tableId === null ? undefined : fieldsByTable.get(tableId);
+    tableFields?.forEach(({ name, counts }) => {
+      toValueStrings(resolveMetaValue(attributes, name)).forEach((value) => {
         counts.set(value, (counts.get(value) ?? 0) + 1);
       });
     });
-    result[fieldKey] = [...counts.entries()].sort((left, right) => (
-      right[1] - left[1]
-    ));
   });
-  return result;
+  return Object.fromEntries([...fields].map(([fieldKey, { counts }]) => [
+    fieldKey, [...counts].sort((left, right) => right[1] - left[1]),
+  ]));
 }
 
 

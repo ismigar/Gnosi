@@ -33,8 +33,12 @@ export function ThirdPartyCatalog({ controller }: ThirdPartyCatalogProps) {
                 </button>
             </div>
             {controller.error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 12, marginBottom: 10, padding: '8px 10px' }}>{controller.error}</div>}
-            <PluginCatalogGallery controller={controller} />
-            <PluginRegistryTrust controller={controller} />
+            {controller.catalogLoading
+                ? <div role="status">{tp('loading')}</div>
+                : <PluginCatalogGallery controller={controller} />}
+            {controller.trustLoading
+                ? <div role="status">{tp('loading')}</div>
+                : <PluginRegistryTrust controller={controller} />}
         </>
     );
 }

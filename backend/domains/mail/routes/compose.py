@@ -413,7 +413,7 @@ async def send_mail(
 )
 async def get_folders(email: str = Query(...)) -> Any:
     """Returns available IMAP folders for an account."""
-    if not _is_imap_account(email):
+    if not await asyncio.to_thread(_is_imap_account, email):
         # Gmail: return standard label-based folders
         return {
             "folders": [
@@ -424,7 +424,7 @@ async def get_folders(email: str = Query(...)) -> Any:
                 {"name": "DRAFTS", "type": "Draft"},
             ]
         }
-    folders = imap_sync_service.list_folders(email)
+    folders = await asyncio.to_thread(imap_sync_service.list_folders, email)
     return {"folders": folders}
 
 

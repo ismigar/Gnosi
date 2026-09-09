@@ -47,7 +47,7 @@ def test_social_openapi_exposes_concrete_response_models() -> None:
 def test_social_routes_validate_stream_and_scheduled_payloads(monkeypatch) -> None:
     monkeypatch.setattr(
         social_routes.integration_manager,
-        "_load",
+        "_load_secured",
         lambda: {
             "social_streams": [
                 {

@@ -1,4 +1,5 @@
 import {
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -7,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { PageHoverCard } from './PageHoverCard';
+import { DeferredPageHoverCard } from './page-hover-card/DeferredPageHoverCard';
 
 
 const HOVER_OPEN_DELAY = 350;
@@ -84,6 +85,8 @@ export function useTitlePreview({
   const openHover = useCallback((pageId: string, rect: DOMRect): void => {
     if (!pageId) return;
     clearTimers();
+    // Use the existing hover delay to load the preview without delaying the view.
+    void import('./PageHoverCard').catch(() => undefined);
     openTimer.current = window.setTimeout(() => {
       setActive({ pageId, rect, viaKeyboard: false });
     }, HOVER_OPEN_DELAY);
@@ -103,15 +106,17 @@ export function useTitlePreview({
   }), [openHover, scheduleClose]);
 
   const preview = active ? (
-    <PageHoverCard
-      pageId={active.pageId}
-      anchorRect={active.rect}
-      viaKeyboard={active.viaKeyboard}
-      onClose={close}
-      onOpenPage={onOpenPage}
-      onMouseEnter={clearTimers}
-      onMouseLeave={scheduleClose}
-    />
+    <Suspense fallback={null}>
+      <DeferredPageHoverCard
+        pageId={active.pageId}
+        anchorRect={active.rect}
+        viaKeyboard={active.viaKeyboard}
+        onClose={close}
+        onOpenPage={onOpenPage}
+        onMouseEnter={clearTimers}
+        onMouseLeave={scheduleClose}
+      />
+    </Suspense>
   ) : null;
 
   return {

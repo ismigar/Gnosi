@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BUILTIN_PLUGIN_BY_ID } from './registry';
 import { usePlugins } from './usePlugins';
+import { PluginLoadingState } from './PluginLoadingState';
 import { emitAppEvent } from '../platform/app-events';
 
 function openPluginSettings(pluginId: string): void {
@@ -17,15 +18,11 @@ export interface PluginRouteProps {
 
 export function PluginRoute({ pluginId, children }: PluginRouteProps) {
     const { t } = useTranslation();
-    const { isEnabled, loaded } = usePlugins();
+    const state = usePlugins();
+    const { isEnabled, loaded } = state;
 
     if (!loaded) {
-        return (
-            <div className="gnosi-route-skeleton" role="status" aria-live="polite">
-                <span className="gnosi-skeleton gnosi-route-skeleton__title" />
-                <span className="sr-only">{t('common.loading', 'Loading...')}</span>
-            </div>
-        );
+        return <PluginLoadingState state={state} />;
     }
 
     if (isEnabled(pluginId)) return children;

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from _thread import LockType
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TypedDict
 
 MediaEntry = tuple[Path, float]
-ScanCache = dict[str, tuple[float, list[MediaEntry]]]
+MediaEntries = Sequence[MediaEntry]
+ScanCache = dict[str, tuple[float, MediaEntries]]
 ScanLocks = dict[str, LockType]
 
 

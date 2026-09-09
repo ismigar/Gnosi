@@ -31,9 +31,44 @@ STATIC_IMPORT_RE = re.compile(r"\bimport\s+(?!type\b)([^;]+?)\s+from\s+['\"]([^'
 
 
 LAZY_IMPORT_RE = re.compile(
-    r"const\s+([A-Za-z_$][\w$]*)\s*=\s*lazy\(.*?import\(['\"]([^'\"]+)['\"]\)",
-    re.DOTALL,
+    r"const\s+([A-Za-z_$][\w$]*)\s*=\s*lazy\(\s*(?:async\s+)?\(\s*\)\s*=>\s*"
+    r"(?:\{\s*return\s+)?import\(['\"]([^'\"]+)['\"]\)",
 )
+
+LAZY_LOADER_RE = re.compile(
+    r"const\s+([A-Za-z_$][\w$]*)\s*=\s*lazy\(\s*"
+    r"([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\)",
+)
+JS_STRUCTURE_RE = re.compile(
+    r"//[^\n]*|/\*[\s\S]*?\*/|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|"
+    r"`(?:\\.|[^`\\])*`|[{}()\[\],]",
+)
+
+
+def shared_loader_imports(text: str, registry: str) -> dict[str, str]:
+    """Read literal import callbacks in one exported object, never evaluating JS."""
+    opening = re.search(r"\bexport\s+const\s+" + re.escape(registry) + r"\s*=\s*\{", text)
+    if opening is None:
+        return {}
+    imports: dict[str, str] = {}
+    depth, start = 1, opening.end()
+    for token in JS_STRUCTURE_RE.finditer(text, start):
+        value = token.group()
+        if value in {"{", "(", "["}:
+            depth += 1
+        elif value in {"}", ")", "]"}:
+            depth -= 1
+        if (value == "," and depth == 1) or depth == 0:
+            member = re.match(
+                r"\s*([A-Za-z_$][\w$]*)\s*:\s*\(\s*\)\s*=>\s*"
+                r"import\(['\"]([^'\"]+)['\"]\)", text[start:token.start()],
+            )
+            if member:
+                imports[member.group(1)] = member.group(2)
+            start = token.end()
+        if depth == 0:
+            return imports
+    return {}  # An incomplete object cannot certify its member imports.
 
 
 @dataclass(frozen=True)
@@ -73,6 +108,7 @@ def resolve_frontend_import(
 def frontend_imports(text: str, path: Path, app_root: Path) -> dict[str, str]:
     """Resolve default, named/aliased and lazy component imports in one module."""
     imports: dict[str, str] = {}
+    named_bindings: dict[str, tuple[str, str]] = {}
     for clause, source in STATIC_IMPORT_RE.findall(text):
         resolved = resolve_frontend_import(source, app_root, importer=path)
         default = re.match(r"([A-Za-z_$][\w$]*)", clause)
@@ -86,9 +122,25 @@ def frontend_imports(text: str, path: Path, app_root: Path) -> dict[str, str]:
                     item.strip(),
                 )
                 if binding:
-                    imports[binding.group(2) or binding.group(1)] = resolved
+                    local_name = binding.group(2) or binding.group(1)
+                    imports[local_name] = resolved
+                    named_bindings[local_name] = (resolved, binding.group(1))
     for component, source in LAZY_IMPORT_RE.findall(text):
         imports[component] = resolve_frontend_import(source, app_root, importer=path)
+    registries: dict[tuple[str, str], dict[str, str]] = {}
+    for component, registry, member in LAZY_LOADER_RE.findall(text):
+        imports[component] = "unresolved"
+        registry_binding = named_bindings.get(registry)
+        if registry_binding is None or not registry_binding[0].startswith("frontend/src/"):
+            continue
+        declaring_module = app_root / registry_binding[0]
+        if registry_binding not in registries:
+            registries[registry_binding] = shared_loader_imports(
+                read_text(declaring_module), registry_binding[1],
+            )
+        source = registries[registry_binding].get(member)
+        if source:
+            imports[component] = resolve_frontend_import(source, app_root, importer=declaring_module)
     return imports
 
 

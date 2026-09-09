@@ -1,4 +1,4 @@
-import { FileText, Mail, Tag } from 'lucide-react';
+import { FileText, Tag } from 'lucide-react';
 
 import { TagPill } from './MailTagPicker';
 import { MailSmartSuggestions } from './MailSmartSuggestions';
@@ -37,17 +37,6 @@ export function MailViewerContent({ controller }: { readonly controller: MailVie
         <MailSmartSuggestions controller={controller} />
         <MailThread controller={controller} />
       </div>
-    </div>
-  );
-}
-
-
-export function MailViewerEmpty({ controller }: { readonly controller: MailViewerController }) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-primary)]">
-      <div className="w-24 h-24 rounded-3xl bg-[var(--bg-secondary)] flex items-center justify-center mb-6 shadow-inner"><Mail className="text-[var(--border-primary)]" size={40} /></div>
-      <p className="text-lg font-semibold text-[var(--text-secondary)]">{controller.t('mail.select_mail')}</p>
-      <p className="text-sm text-[var(--text-secondary)] opacity-60">{controller.t('mail.select_mail_hint')}</p>
     </div>
   );
 }

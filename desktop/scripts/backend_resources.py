@@ -129,6 +129,8 @@ MIGRATIONS = (
     "vault_0002",
     "vault_0003",
     "vault_0004",
+    "vault_0005",
+    "vault_0006",
 )
 # Keep paths relative to __file__ in model_catalog, runner, directive_tools,
 # plugin_sandbox, plugin_catalog and csl_styles. Vault Templates are user data;

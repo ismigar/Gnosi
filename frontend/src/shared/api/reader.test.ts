@@ -65,12 +65,13 @@ describe('reader API', () => {
       .mockResolvedValueOnce(Response.json({ message: 'Article marked as read' }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchReaderArticles({ sourceIds: [2, 3], unreadOnly: true });
+    await fetchReaderArticles({ sourceIds: [2, 3], unreadOnly: true, includeContent: false });
     await markReaderArticleRead(9);
 
     const articlesUrl = new URL(requestFrom(fetchMock).url);
     expect(articlesUrl.searchParams.getAll('source_id')).toEqual(['2', '3']);
     expect(articlesUrl.searchParams.get('unread_only')).toBe('true');
+    expect(articlesUrl.searchParams.get('include_content')).toBe('false');
     const readRequest = fetchMock.mock.calls[1]?.[0];
     expect(readRequest).toBeInstanceOf(Request);
     if (!(readRequest instanceof Request)) throw new Error('Expected a Request instance');

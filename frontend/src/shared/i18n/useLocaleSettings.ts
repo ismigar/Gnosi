@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useConfigChanged } from '../platform/configEvents';
 import { parseCurrencyCode, localeForDecimalSymbol } from '../records/model/formatUtils';
 import { getIntlLocale } from './locales/registry';
-import { fetchConfiguration } from '../api/configuration';
+import { fetchInterfaceSettings } from '../api/configuration';
 
 interface LocaleConfigurationSettings {
     readonly currency?: string;
@@ -31,11 +31,6 @@ export interface LocaleFormatSettings {
     readonly decimalSymbol: string;
     readonly numberLocale: string;
 }
-
-const CONFIG_CACHE_TTL = 5000;
-let cachedSettings: LocaleConfigurationSettings | null = null;
-let cachedSettingsAt = 0;
-let settingsRequest: Promise<LocaleConfigurationSettings> | null = null;
 
 function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -53,29 +48,7 @@ function normalizeLocaleSettings(value: unknown): LocaleConfigurationSettings {
 }
 
 async function fetchLocaleSettings(): Promise<LocaleConfigurationSettings> {
-    const now = Date.now();
-    if (cachedSettings && now - cachedSettingsAt < CONFIG_CACHE_TTL) {
-        return cachedSettings;
-    }
-
-    if (!settingsRequest) {
-        settingsRequest = fetchConfiguration()
-            .then((config) => {
-                cachedSettings = normalizeLocaleSettings(config.settings);
-                cachedSettingsAt = Date.now();
-                return cachedSettings;
-            })
-            .finally(() => {
-                settingsRequest = null;
-            });
-    }
-
-    return settingsRequest;
-}
-
-function invalidateLocaleSettings(): void {
-    cachedSettings = null;
-    cachedSettingsAt = 0;
+    return normalizeLocaleSettings(await fetchInterfaceSettings());
 }
 
 export function useLocaleSettings(): LocaleFormatSettings {
@@ -89,7 +62,7 @@ export function useLocaleSettings(): LocaleFormatSettings {
     }, []);
 
     useEffect(() => { load(); }, [load]);
-    useConfigChanged(() => { invalidateLocaleSettings(); load(); });
+    useConfigChanged(load);
 
     const decimalSymbol = settings?.decimal_symbol || ',';
     const dateLocale = getIntlLocale(i18n.resolvedLanguage || i18n.language);

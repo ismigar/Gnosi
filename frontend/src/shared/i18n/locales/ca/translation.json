@@ -3472,7 +3472,11 @@
     "move_batch_error_many": "No s'han pogut moure {{count}} missatges",
     "attachments_count_many": "{{count}} adjunts",
     "thread_messages_count_many": "{{count}} missatges",
-    "move_batch_menu_title_many": "Moure {{count}} missatges a..."
+    "move_batch_menu_title_many": "Moure {{count}} missatges a...",
+    "counts_partial": "Els recomptes de les carpetes són incomplets o estan pendents d'actualitzar.",
+    "counts_pending": "Actualitzant",
+    "counts_unavailable": "No disponible",
+    "counts_previous": "Es conserva el recompte anterior"
   },
   "subs_section_title": "Fonts d'Informació",
   "subs_btn_reload": "Recarregar",
@@ -4171,7 +4175,12 @@
     "saving": "Desant…",
     "saved": "Desat",
     "save_error": "Error en desar",
-    "autosave": "Auto-desat"
+    "autosave": "Auto-desat",
+    "no_files_in_page": "No hi ha fitxers disponibles en aquesta part.",
+    "index_updating": "S’està actualitzant la biblioteca. Pots consultar les fotos disponibles.",
+    "index_update_failed": "No s’ha pogut actualitzar la biblioteca. Torna-ho a provar.",
+    "index_update_paused": "L’actualització encara no s’ha confirmat. Torna a comprovar-ne l’estat.",
+    "index_retry_wait": "Reintent disponible en uns segons"
   },
   "tldraw": {
     "untitled_drawing": "Dibuix sense títol",
@@ -4886,7 +4895,11 @@
     "register_success": "Compte creat. Benvingut/da a Gnosi!",
     "register_title": "Crea el teu compte",
     "switch_to_login": "Ja tens compte? Inicia sessió",
-    "switch_to_register": "No tens compte? Registra-t’hi"
+    "switch_to_register": "No tens compte? Registra-t’hi",
+    "session_recovery_title": "Aquesta sessió ja no és vàlida",
+    "session_recovery_description": "Tanca aquesta sessió i torna a carregar Gnosi per continuar.",
+    "session_recovery_action": "Tanca la sessió i torna-ho a provar",
+    "session_recovery_error": "No s'ha pogut tancar la sessió. Torna-ho a provar."
   },
   "link_card": {
     "loading": "Carregant previsualització…",

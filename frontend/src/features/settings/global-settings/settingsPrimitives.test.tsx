@@ -13,6 +13,10 @@ const rawSyncErrors = defineStorageKey('gnosi_mail_sync_errors', stringStorageCo
 const localPluginRequest = defineStorageKey('gnosi:configure-plugin', stringStorageCodec);
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('lucide-react/dynamic', () => ({
+  iconNames: ['brain', 'bot', 'fish', 'bar-chart-3'],
+  DynamicIcon: ({ name }: { name: string }) => <svg data-icon={name} />,
+}));
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
@@ -94,18 +98,32 @@ describe('public settings primitives', () => {
     expect(input.autocomplete).toBe('new-password');
     expect(submit).not.toHaveBeenCalled();
   });
-  it('selects an agent icon and closes on Escape without changing selection', () => {
+  it('selects an agent icon and closes on Escape without changing selection', async () => {
     const change = vi.fn();
     act(() => { root.render(<AgentIconSelect value="lucide:Brain:blue" onChange={change} label="Icon" searchPlaceholder="Search" noResultsLabel="None" />); });
-    act(() => { element('[aria-haspopup=listbox]', HTMLButtonElement).click(); });
+    await act(async () => { element('[aria-haspopup=listbox]', HTMLButtonElement).click(); await Promise.resolve(); });
     expect(element('[role=listbox]', HTMLDivElement)).toBeTruthy();
     act(() => { element('[role=option][aria-label=Bot]', HTMLButtonElement).click(); });
     expect(change).toHaveBeenCalledWith('lucide:Bot:blue');
     expect(container.querySelector('[role=listbox]')).toBeNull();
-    act(() => { element('[aria-haspopup=listbox]', HTMLButtonElement).click(); });
+    await act(async () => { element('[aria-haspopup=listbox]', HTMLButtonElement).click(); await Promise.resolve(); });
     act(() => { dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
     expect(container.querySelector('[role=listbox]')).toBeNull();
     expect(change).toHaveBeenCalledTimes(1);
+  });
+  it('preserves numbered saved icons and searches beyond the built-in favorites', async () => {
+    const change = vi.fn();
+    await act(async () => { root.render(<AgentIconSelect value="lucide:BarChart3:blue" onChange={change} label="Icon" searchPlaceholder="Search" noResultsLabel="None" />); await Promise.resolve(); });
+    expect(container.querySelector('[data-icon="bar-chart-3"]')).not.toBeNull();
+    await act(async () => { element('[aria-haspopup=listbox]', HTMLButtonElement).click(); await Promise.resolve(); });
+    const input = element('input', HTMLInputElement);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'fish');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelectorAll('[role=option]')).toHaveLength(1);
+    act(() => { element('[role=option][aria-label=Fish]', HTMLButtonElement).click(); });
+    expect(change).toHaveBeenCalledWith('lucide:Fish:blue');
   });
 });
 

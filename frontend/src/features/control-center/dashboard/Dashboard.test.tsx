@@ -10,7 +10,7 @@ import {DirectiveEditor} from './DirectiveEditor';
 import {PermissionsDialog} from './PermissionsDialog';
 import * as scheduler from '../../../shared/api/scheduler';
 import * as analytics from '../../../shared/api/analytics';
-import {fetchConfiguration} from '../../../shared/api/configuration';
+import {fetchEditorConfiguration} from '../../../shared/api/configuration';
 import toast from '../../../shared/notifications/toast';
 import {readStorage, writeStorage, removeStorage} from '../../../shared/platform/browser-storage';
 import {USER_ROLE_STORAGE_KEY, WORKSPACE_ID_STORAGE_KEY} from '../../../shared/api/request-context';
@@ -31,7 +31,7 @@ vi.mock('../../../shared/api/use-api', () => ({useApi: () => ({apiFetch: mocks.a
 vi.mock('../../../shared/plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => mocks.enabled})}));
 vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
 vi.mock('../../../shared/notifications/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}}));
-vi.mock('../../../shared/api/configuration', () => ({fetchConfiguration: vi.fn()}));
+vi.mock('../../../shared/api/configuration', () => ({fetchEditorConfiguration: vi.fn()}));
 vi.mock('../../../shared/api/scheduler', () => ({
     fetchScheduledTasks: vi.fn(), fetchSchedulerHistory: vi.fn(),
     updateScheduledTask: vi.fn(), runScheduledTask: vi.fn(), clearSchedulerHistory: vi.fn(),
@@ -72,7 +72,7 @@ beforeEach(() => {
         if (url.endsWith('/vaults')) return Promise.resolve([]);
         return Promise.resolve([]);
     });
-    vi.mocked(fetchConfiguration).mockResolvedValue({settings: {gnosi_mode: 'org'}});
+    vi.mocked(fetchEditorConfiguration).mockResolvedValue({settings: {gnosi_mode: 'org'}});
     vi.mocked(scheduler.fetchScheduledTasks).mockResolvedValue([mocks.task]);
     vi.mocked(scheduler.fetchSchedulerHistory).mockResolvedValue({items: [], total: 31, limit: 15, offset: 0, has_more: true});
     vi.mocked(analytics.fetchDirectiveAnalytics).mockResolvedValue({directives: [mocks.directive], total: 25, limit: 12, offset: 0, has_more: true});

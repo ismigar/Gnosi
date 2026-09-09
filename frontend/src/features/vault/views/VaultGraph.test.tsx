@@ -150,6 +150,6 @@ describe('VaultGraph', () => {
             await Promise.resolve();
         });
         expect(testState.refetch).toHaveBeenCalledOnce();
-        expect(testState.fetchConfiguration).toHaveBeenCalledTimes(2);
+        expect(testState.fetchConfiguration).not.toHaveBeenCalled();
     });
 });

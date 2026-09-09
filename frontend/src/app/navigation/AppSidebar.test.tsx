@@ -102,6 +102,26 @@ afterEach(async () => {
 });
 
 describe('AppSidebar documentation access', () => {
+    it('prepares Settings on focus without opening or mounting the modal', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+        await renderSidebar(root);
+        const settings = container.querySelector('[aria-label="sidebar.nav_settings"]');
+        if (!(settings instanceof HTMLButtonElement)) throw new Error('Missing settings action');
+        await act(async () => {
+            settings.focus();
+            await vi.dynamicImportSettled();
+        });
+        expect(container.querySelector('[data-testid="settings-modal"]')).toBeNull();
+        await act(async () => {
+            settings.click();
+            await vi.dynamicImportSettled();
+        });
+        expect(container.querySelector('[data-testid="settings-modal"]')).not.toBeNull();
+    });
+
     it('opens the canonical engineering portal in a separate browser context', async () => {
         const container = document.createElement('div');
         document.body.appendChild(container);

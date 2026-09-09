@@ -7,7 +7,13 @@ import { transportFetch } from './transports';
 export type MediaRoot = components['schemas']['MediaRootResponse'];
 export type MediaTreeNode = components['schemas']['MediaTreeNodeResponse'];
 export type MediaItem = components['schemas']['MediaItemResponse'];
-export type MediaPage = components['schemas']['MediaPageResponse'];
+export type MediaIndexState = 'fresh' | 'refreshing' | 'failed';
+export type MediaPage = components['schemas']['MediaPageResponse'] & {
+  readonly indexState?: MediaIndexState;
+  readonly indexRevision?: string;
+  readonly indexRetryAfter?: number;
+  readonly nextOffset?: number;
+};
 export type MediaPageQuery = NonNullable<
   paths['/api/vault/media']['get']['parameters']['query']
 >;
@@ -81,14 +87,27 @@ export async function fetchMediaPage(
   signal?: AbortSignal,
   timeoutMs = MEDIA_PAGE_TIMEOUT_MS,
 ): Promise<MediaPage> {
-  return withTimeout(timeoutMs, signal, async (timedSignal) => (
-    unwrapApiResult<MediaPage, unknown>(
-      await apiClient.GET('/api/vault/media', {
+  return withTimeout(timeoutMs, signal, async (timedSignal) => {
+    const result = await apiClient.GET('/api/vault/media', {
         params: { query },
         signal: timedSignal,
-      }),
-    )
-  ));
+      });
+    const page = unwrapApiResult<MediaPage, unknown>(result);
+    const state = result.response.headers.get('X-Gnosi-Media-Index');
+    const revision = result.response.headers.get('X-Gnosi-Media-Index-Revision');
+    const retryAfter = Number(result.response.headers.get('Retry-After'));
+    const nextOffsetHeader = result.response.headers.get('X-Gnosi-Media-Next-Offset');
+    const nextOffset = nextOffsetHeader !== null && /^\d+$/.test(nextOffsetHeader)
+      ? Number(nextOffsetHeader) : undefined;
+    return {
+      ...page,
+      ...(state === 'fresh' || state === 'refreshing' || state === 'failed' ? { indexState: state } : {}),
+      ...(revision ? { indexRevision: revision } : {}),
+      ...(nextOffset !== undefined && Number.isSafeInteger(nextOffset) ? { nextOffset } : {}),
+      ...(state === 'failed' && Number.isFinite(retryAfter) && retryAfter > 0
+        ? { indexRetryAfter: Math.min(300, Math.ceil(retryAfter)) } : {}),
+    };
+  });
 }
 
 

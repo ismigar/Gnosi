@@ -91,8 +91,7 @@ class ImapMailSyncCore:
                 pass
 
     def _get_account_data(self: Any, email_account: str) -> dict[str, Any] | None:
-        integrations = integration_manager.get_raw("mail_accounts")
-        return next((a for a in integrations if a.get("email") == email_account), None)
+        return integration_manager.get_mail_account(email_account)
 
     @contextmanager
     def _connect(self: Any, email_account: str) -> Any:

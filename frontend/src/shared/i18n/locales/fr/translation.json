@@ -2281,7 +2281,11 @@
     "move_batch_error_many": "Impossible de déplacer {{count}} messages",
     "attachments_count_many": "{{count}} pièces jointes",
     "thread_messages_count_many": "{{count}} messages",
-    "move_batch_menu_title_many": "Déplacer {{count}} messages vers..."
+    "move_batch_menu_title_many": "Déplacer {{count}} messages vers...",
+    "counts_partial": "Les compteurs des dossiers sont incomplets ou en attente de mise à jour.",
+    "counts_pending": "Mise à jour",
+    "counts_unavailable": "Indisponible",
+    "counts_previous": "Le compteur précédent est conservé"
   },
   "subs_section_title": "Sources d'information",
   "subs_btn_reload": "Recharger",
@@ -4010,7 +4014,12 @@
     "saving": "Enregistrement…",
     "saved": "Enregistré",
     "save_error": "Erreur d'enregistrement",
-    "autosave": "Enregistrement auto"
+    "autosave": "Enregistrement auto",
+    "no_files_in_page": "Aucun fichier n’est disponible dans cette partie.",
+    "index_updating": "La bibliothèque est en cours de mise à jour. Vous pouvez consulter les photos disponibles.",
+    "index_update_failed": "La bibliothèque n’a pas pu être mise à jour. Réessayez.",
+    "index_update_paused": "La mise à jour n’est pas encore confirmée. Vérifiez à nouveau son état.",
+    "index_retry_wait": "Nouvelle tentative disponible dans quelques secondes"
   },
   "tldraw": {
     "untitled_drawing": "Dessin sans titre",
@@ -4886,7 +4895,11 @@
     "register_success": "Compte créé. Bienvenue sur Gnosi !",
     "register_title": "Créez votre compte",
     "switch_to_login": "Vous avez déjà un compte ? Connectez-vous",
-    "switch_to_register": "Vous n'avez pas de compte ? Inscrivez-vous"
+    "switch_to_register": "Vous n'avez pas de compte ? Inscrivez-vous",
+    "session_recovery_title": "Cette session n’est plus valide",
+    "session_recovery_description": "Fermez cette session et rechargez Gnosi pour continuer.",
+    "session_recovery_action": "Fermer la session et réessayer",
+    "session_recovery_error": "Impossible de fermer la session. Veuillez réessayer."
   },
   "link_card": {
     "loading": "Chargement de l'aperçu…",

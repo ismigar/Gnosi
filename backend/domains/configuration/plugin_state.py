@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 import threading
+from collections import OrderedDict
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -34,12 +36,25 @@ class PluginStateStore:
     dependencies: PluginStateDependencies
     lock: threading.Lock = field(default_factory=threading.Lock)
     mutation_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    _read_cache: OrderedDict[Path, tuple[tuple[int, int, int, int], PluginState]] = field(
+        default_factory=OrderedDict, init=False, repr=False
+    )
 
     def load(self) -> PluginState:
         with self.lock:
             try:
                 path = self.dependencies.path()
-                raw = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+                try:
+                    stat = path.stat()
+                    stamp = (stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino)
+                except FileNotFoundError:
+                    stamp = None
+                cached = self._read_cache.get(path)
+                if stamp is not None and cached is not None and cached[0] == stamp:
+                    self._read_cache.move_to_end(path)
+                    return deepcopy(cached[1])
+                self._read_cache.pop(path, None)
+                raw = json.loads(path.read_text(encoding="utf-8")) if stamp is not None else {}
                 data, changed = self.dependencies.normalize_state(raw)
                 if changed:
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +64,12 @@ class PluginStateStore:
                         indent=2,
                         ensure_ascii=False,
                     )
+                elif stamp is not None:
+                    # Check the file on every read so external permission changes
+                    # remain visible; only reuse decoding and normalization.
+                    self._read_cache[path] = (stamp, deepcopy(data))
+                    while len(self._read_cache) > 16:
+                        self._read_cache.popitem(last=False)
                 return data
             except Exception as exc:
                 self.dependencies.logger.warning(
@@ -63,6 +84,7 @@ class PluginStateStore:
         payload, _ = self.dependencies.normalize_state(state)
         with self.lock:
             path = self.dependencies.path()
+            self._read_cache.pop(path, None)
             path.parent.mkdir(parents=True, exist_ok=True)
             self.dependencies.write_json(
                 path,

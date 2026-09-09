@@ -1,4 +1,5 @@
-import { useEffect, useState, type ComponentType } from 'react';
+import { useState, type ComponentType } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-react';
 
@@ -14,11 +15,11 @@ import {
     usePlanningBaselines,
     usePlanningWorklogs,
     useProjectSchedule,
+    planningQueryKeys,
 } from '../../shared/api/usePlanningData';
 import type { PlanningLevelingProposal } from '../../shared/api/planning';
 import {
-    fetchVaultPagesByTable,
-    type VaultPageSummary,
+    fetchVaultPageReferencesByTable,
 } from '../../shared/api/vaults';
 
 
@@ -57,21 +58,35 @@ const PlanningTimeline = VaultTimeline as unknown as ComponentType<
 
 export default function ProjectPlanningPage() {
     const { t } = useTranslation();
-    const { getPluginSettings } = usePlugins();
+    const { getPluginSettings, loaded: pluginsLoaded, loadError: pluginsLoadError } = usePlugins();
     const projectTableId = projectTableIdFromSettings(
         getPluginSettings('project-planning'),
     );
-    const [projects, setProjects] = useState<VaultPageSummary[]>([]);
+    const projectsQuery = useQuery({
+        enabled: pluginsLoaded && Boolean(projectTableId),
+        staleTime: 0,
+        queryKey: planningQueryKeys.projectReferences(projectTableId ?? ''),
+        queryFn: ({ signal }) => fetchVaultPageReferencesByTable(
+            projectTableId ?? '',
+            { include_templates: false },
+            signal,
+        ),
+    });
     const [projectId, setProjectId] = useState('default');
     const [error, setError] = useState('');
     const [proposal, setProposal] = useState<PlanningLevelingProposal | null>(null);
     const [baselineName, setBaselineName] = useState('');
     const [worklog, setWorklog] = useState({ task_id: '', date: '', hours: '' });
-    const selectedProjectId = projectTableId ? projectId : 'default';
-    const visibleProjects = projectTableId ? projects : [];
-    const scheduleQuery = useProjectSchedule(selectedProjectId);
+    const visibleProjects = projectTableId ? projectsQuery.data ?? [] : [];
+    const selectedProjectId = projectTableId
+        ? visibleProjects.find((project) => project.id === projectId)?.id
+            ?? visibleProjects[0]?.id ?? 'default'
+        : 'default';
+    const projectReady = pluginsLoaded && !pluginsLoadError
+        && (!projectTableId || projectsQuery.isSuccess);
+    const scheduleQuery = useProjectSchedule(selectedProjectId, projectReady);
     const allocationQuery = usePlanningAllocation();
-    const baselinesQuery = usePlanningBaselines(selectedProjectId);
+    const baselinesQuery = usePlanningBaselines(selectedProjectId, projectReady);
     const worklogsQuery = usePlanningWorklogs();
     const createBaselineMutation = useCreatePlanningBaseline();
     const createWorklogMutation = useCreatePlanningWorklog();
@@ -81,48 +96,21 @@ export default function ProjectPlanningPage() {
     const allocation = allocationQuery.data || null;
     const baselines = baselinesQuery.data?.baselines || [];
     const worklogs = worklogsQuery.data?.worklogs || [];
-    const loading = scheduleQuery.isFetching
+    const loading = !pluginsLoaded || projectsQuery.isFetching || scheduleQuery.isFetching
         || allocationQuery.isFetching
         || baselinesQuery.isFetching
         || worklogsQuery.isFetching;
-    const loadError = scheduleQuery.isError
+    const loadError = pluginsLoadError || projectsQuery.isError || scheduleQuery.isError
         || allocationQuery.isError
         || baselinesQuery.isError
         || worklogsQuery.isError;
 
-    useEffect(() => {
-        if (!projectTableId) return undefined;
-        let active = true;
-        const controller = new AbortController();
-        fetchVaultPagesByTable(
-            projectTableId,
-            { include_templates: false },
-            controller.signal,
-        )
-            .then((pages) => {
-                if (!active) return;
-                setProjects(pages);
-                setProjectId((current) => (
-                    pages.some((project) => project.id === current)
-                        ? current
-                        : (pages[0]?.id || 'default')
-                ));
-            })
-            .catch(() => {
-                if (active) setProjects([]);
-            });
-        return () => {
-            active = false;
-            controller.abort();
-        };
-    }, [projectTableId]);
-
     const load = async () => {
         try {
             await Promise.all([
-                scheduleQuery.refetch(),
+                ...(projectReady ? [scheduleQuery.refetch(), baselinesQuery.refetch()] : []),
+                ...(projectTableId ? [projectsQuery.refetch()] : []),
                 allocationQuery.refetch(),
-                baselinesQuery.refetch(),
                 worklogsQuery.refetch(),
             ]);
             setError('');
@@ -139,7 +127,7 @@ export default function ProjectPlanningPage() {
         metadata: { Schedule: { start: task.start, end: task.end } },
     }));
     const createBaseline = async () => {
-        if (!baselineName.trim() || schedule?.scheduleRevision == null) return;
+        if (!projectReady || !baselineName.trim() || schedule?.scheduleRevision == null) return;
         await createBaselineMutation.mutateAsync({
             baseline: { name: baselineName, schedule_revision: schedule.scheduleRevision },
             projectId: selectedProjectId,
@@ -152,6 +140,7 @@ export default function ProjectPlanningPage() {
         setWorklog({ task_id: '', date: '', hours: '' });
     };
     const createProposal = async () => {
+        if (!projectReady) return;
         setProposal(await createProposalMutation.mutateAsync(selectedProjectId));
     };
     const applyProposal = async () => {
@@ -172,7 +161,7 @@ export default function ProjectPlanningPage() {
                 title={t('planning_page.title', 'Project planning')}
                 subtitle={t('planning_page.subtitle', 'Schedule, critical path, resources and planning diagnostics.')}
             >
-                <select value={selectedProjectId} onChange={(event) => {
+                <select disabled={!projectReady} value={selectedProjectId} onChange={(event) => {
                     setProjectId(event.target.value);
                 }} aria-label={t('planning_page.project', 'Project')} className="gnosi-button gnosi-button--secondary max-w-56 bg-[var(--bg-primary)] text-sm">{visibleProjects.length === 0 ? <option value="default">{t('planning_page.default_project', 'Default project')}</option> : visibleProjects.map((project) => <option key={project.id} value={project.id}>{project.title || project.id}</option>)}</select>
                 <button onClick={() => void load()} className="gnosi-button gnosi-button--primary"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} />{t('planning_page.refresh', 'Refresh')}</button>

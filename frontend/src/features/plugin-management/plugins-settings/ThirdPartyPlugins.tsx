@@ -5,7 +5,14 @@ import type { ThirdPartyPluginsProps } from './thirdPartyModel';
 import { useThirdPartyPlugins } from './useThirdPartyPlugins';
 
 export function ThirdPartyPlugins({ section, installedFilter }: ThirdPartyPluginsProps) {
-    const controller = useThirdPartyPlugins();
+    const { t } = useTranslation();
+    const controller = useThirdPartyPlugins(section);
+    if (controller.loadFailed) return (
+        <div role="alert">
+            {t('settings.plugins.llm_wiki_load_error')}
+            <button type="button" onClick={() => { void controller.retryLoad(); }}>{t('common.retry')}</button>
+        </div>
+    );
     return (
         <div style={{ marginTop: section === 'installed' ? 28 : 0 }}>
             {section === 'installed' && <ThirdPartyInstalled controller={controller} filter={installedFilter} />}
@@ -14,3 +21,4 @@ export function ThirdPartyPlugins({ section, installedFilter }: ThirdPartyPlugin
         </div>
     );
 }
+import { useTranslation } from 'react-i18next';

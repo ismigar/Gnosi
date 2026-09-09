@@ -140,6 +140,7 @@ describe('ReaderDashboard', () => {
         expect(mocks.useArticles).toHaveBeenCalledWith({
             sourceIds: undefined,
             unreadOnly: true,
+            includeContent: false,
         });
         expect(mocks.emitEvent).toHaveBeenCalledWith(
             'gnosi:module-context',
@@ -159,6 +160,7 @@ describe('ReaderDashboard', () => {
         expect(mocks.useArticles).toHaveBeenLastCalledWith({
             sourceIds: [7],
             unreadOnly: true,
+            includeContent: false,
         });
         expect(container.querySelector('[data-testid="select-source"]')?.getAttribute('data-selected-source'))
             .toBe('7');

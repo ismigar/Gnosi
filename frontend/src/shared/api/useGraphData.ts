@@ -6,6 +6,6 @@ import { fetchVaultGraph, graphQueryKey } from './graph';
 export function useVaultGraphData() {
   return useQuery({
     queryFn: ({ signal }) => fetchVaultGraph(signal),
-    queryKey: graphQueryKey,
+    queryKey: graphQueryKey(),
   });
 }

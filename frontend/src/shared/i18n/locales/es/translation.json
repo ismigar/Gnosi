@@ -3418,7 +3418,11 @@
     "move_batch_error_many": "No se han podido mover {{count}} mensajes",
     "attachments_count_many": "{{count}} adjuntos",
     "thread_messages_count_many": "{{count}} mensajes",
-    "move_batch_menu_title_many": "Mover {{count}} mensajes a..."
+    "move_batch_menu_title_many": "Mover {{count}} mensajes a...",
+    "counts_partial": "Los recuentos de las carpetas están incompletos o pendientes de actualizar.",
+    "counts_pending": "Actualizando",
+    "counts_unavailable": "No disponible",
+    "counts_previous": "Se conserva el recuento anterior"
   },
   "subs_section_title": "Fuentes de información",
   "subs_btn_reload": "Recargar",
@@ -4117,7 +4121,12 @@
     "saving": "Guardando…",
     "saved": "Guardado",
     "save_error": "Error al guardar",
-    "autosave": "Auto-guardado"
+    "autosave": "Auto-guardado",
+    "no_files_in_page": "No hay archivos disponibles en esta parte.",
+    "index_updating": "La biblioteca se está actualizando. Puedes consultar las fotos disponibles.",
+    "index_update_failed": "No se ha podido actualizar la biblioteca. Vuelve a intentarlo.",
+    "index_update_paused": "La actualización aún no se ha confirmado. Comprueba de nuevo su estado.",
+    "index_retry_wait": "Reintento disponible en unos segundos"
   },
   "tldraw": {
     "untitled_drawing": "Dibujo sin título",
@@ -4886,7 +4895,11 @@
     "register_success": "Cuenta creada. ¡Bienvenido/a a Gnosi!",
     "register_title": "Crea tu cuenta",
     "switch_to_login": "¿Ya tienes cuenta? Inicia sesión",
-    "switch_to_register": "¿No tienes cuenta? Regístrate"
+    "switch_to_register": "¿No tienes cuenta? Regístrate",
+    "session_recovery_title": "Esta sesión ya no es válida",
+    "session_recovery_description": "Cierra esta sesión y vuelve a cargar Gnosi para continuar.",
+    "session_recovery_action": "Cerrar sesión y reintentar",
+    "session_recovery_error": "No se ha podido cerrar la sesión. Vuelve a intentarlo."
   },
   "link_card": {
     "loading": "Cargando vista previa…",

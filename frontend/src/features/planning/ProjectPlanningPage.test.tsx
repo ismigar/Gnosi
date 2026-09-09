@@ -1,4 +1,5 @@
 import React, { act } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +12,10 @@ const mocks = vi.hoisted(() => ({
   createProposal: vi.fn(),
   createWorklog: vi.fn(),
   refetch: vi.fn(),
+  pluginSettings: vi.fn(),
+  projectReferences: vi.fn(),
+  projectQuery: vi.fn(),
+  baselinesQuery: vi.fn(),
 }));
 
 
@@ -38,16 +43,19 @@ vi.mock('../../shared/record-views/VaultTimeline', () => ({
 
 
 vi.mock('../../shared/plugins/usePlugins', () => ({
-  usePlugins: () => ({ getPluginSettings: () => ({}) }),
+  usePlugins: () => ({ getPluginSettings: mocks.pluginSettings, loaded: true, loadError: false }),
 }));
 
 
 vi.mock('../../shared/api/vaults', () => ({
-  fetchVaultPagesByTable: vi.fn(),
+  fetchVaultPageReferencesByTable: mocks.projectReferences,
 }));
 
 
 vi.mock('../../shared/api/usePlanningData', () => ({
+  planningQueryKeys: {
+    projectReferences: (tableId: string) => ['planning', 'test-vault', 'project-references', tableId],
+  },
   useApplyPlanningLevelingProposal: () => ({ mutateAsync: mocks.applyProposal }),
   useCreatePlanningBaseline: () => ({ mutateAsync: mocks.createBaseline }),
   useCreatePlanningLevelingProposal: () => ({ mutateAsync: mocks.createProposal }),
@@ -64,19 +72,24 @@ vi.mock('../../shared/api/usePlanningData', () => ({
     isFetching: false,
     refetch: mocks.refetch,
   }),
-  usePlanningBaselines: () => ({
+  usePlanningBaselines: (projectId: string, enabled: boolean) => {
+    mocks.baselinesQuery(projectId, enabled);
+    return {
     data: { baselines: [] },
     isError: false,
     isFetching: false,
     refetch: mocks.refetch,
-  }),
+    };
+  },
   usePlanningWorklogs: () => ({
     data: { worklogs: [] },
     isError: false,
     isFetching: false,
     refetch: mocks.refetch,
   }),
-  useProjectSchedule: () => ({
+  useProjectSchedule: (projectId: string, enabled: boolean) => {
+    mocks.projectQuery(projectId, enabled);
+    return {
     data: {
       criticalTaskIds: ['task-1'],
       diagnostics: [{ code: 'warning', message: 'Needs review' }],
@@ -94,7 +107,8 @@ vi.mock('../../shared/api/usePlanningData', () => ({
     isError: false,
     isFetching: false,
     refetch: mocks.refetch,
-  }),
+    };
+  },
 }));
 
 
@@ -106,6 +120,11 @@ reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement;
 let root: Root;
+let queryClient: QueryClient;
+
+function renderPage(): void {
+  root.render(<QueryClientProvider client={queryClient}><ProjectPlanningPage /></QueryClientProvider>);
+}
 
 
 function setControlValue(
@@ -132,7 +151,10 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.resetAllMocks();
+  mocks.pluginSettings.mockReturnValue({});
+  mocks.projectReferences.mockResolvedValue([]);
   mocks.refetch.mockResolvedValue({ data: {} });
   mocks.createBaseline.mockResolvedValue({ id: 'baseline-1' });
   mocks.createWorklog.mockResolvedValue({ id: 'worklog-1' });
@@ -158,13 +180,14 @@ afterEach(() => {
     root.unmount();
   });
   container.remove();
+  queryClient.clear();
 });
 
 
 describe('ProjectPlanningPage', () => {
   it('renders the typed schedule and creates a baseline and worklog', async () => {
     act(() => {
-      root.render(<ProjectPlanningPage />);
+      renderPage();
     });
     expect(container.textContent).toContain('Plan migration');
     expect(container.textContent).toContain('1200');
@@ -222,7 +245,7 @@ describe('ProjectPlanningPage', () => {
 
   it('generates and applies a leveling proposal with concurrency metadata', async () => {
     act(() => {
-      root.render(<ProjectPlanningPage />);
+      renderPage();
     });
     const generate = [...container.querySelectorAll('button')]
       .find((button) => button.textContent.includes('Generate proposal'));
@@ -247,5 +270,33 @@ describe('ProjectPlanningPage', () => {
       },
       proposalId: 'proposal-1',
     });
+  });
+
+  it('waits for compact project references before reading a configured project', async () => {
+    mocks.pluginSettings.mockReturnValue({ project_table_id: 'projects-table' });
+    let resolveProjects!: (pages: { id: string; title: string }[]) => void;
+    mocks.projectReferences.mockReturnValue(new Promise((resolve) => { resolveProjects = resolve; }));
+    await act(async () => {
+      renderPage();
+      await Promise.resolve();
+    });
+    expect(mocks.projectQuery).toHaveBeenLastCalledWith('default', false);
+    expect(mocks.baselinesQuery).toHaveBeenLastCalledWith('default', false);
+    expect(mocks.projectReferences).toHaveBeenCalledWith(
+      'projects-table', { include_templates: false }, expect.any(AbortSignal),
+    );
+    await act(async () => {
+      resolveProjects([{ id: 'project-1', title: 'Project one' }]);
+      await new Promise((resolve) => { setTimeout(resolve, 0); });
+    });
+    await act(async () => {
+      await new Promise((resolve) => { setTimeout(resolve, 0); });
+    });
+    expect(mocks.projectQuery).toHaveBeenLastCalledWith('project-1', true);
+    expect(mocks.baselinesQuery).toHaveBeenLastCalledWith('project-1', true);
+    const selector = container.querySelector('select[aria-label="Project"]');
+    expect(selector).toHaveProperty('disabled', false);
+    expect(selector).toHaveProperty('value', 'project-1');
+    expect(mocks.projectQuery.mock.calls).not.toContainEqual(['default', true]);
   });
 });

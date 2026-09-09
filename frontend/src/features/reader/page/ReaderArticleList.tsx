@@ -1,4 +1,5 @@
 import { History } from 'lucide-react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ReaderArticle, ReaderSource } from '../../../shared/api/reader';
@@ -31,6 +32,10 @@ export function ReaderArticleList({
     totalArticles,
 }: ReaderArticleListProps) {
     const { t } = useTranslation();
+    const dateFormatter = useMemo(
+        () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }),
+        [locale],
+    );
     const countLabel = showUnreadOnly
         ? totalArticles === 1
             ? t('reader_articles_pending_one')
@@ -77,7 +82,7 @@ export function ReaderArticleList({
                         {selected ? <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[var(--gnosi-blue)]" aria-hidden="true" /> : null}
                         {!read && !selected ? <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)]" aria-hidden="true" /> : null}
                         <span className={`block text-[11px] mb-1.5 truncate ${read ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>
-                            {readerArticleMeta(article, locale)}
+                            {readerArticleMeta(article, dateFormatter)}
                         </span>
                         <span className={`block text-[15px] leading-snug line-clamp-3 ${selected ? 'font-semibold text-[var(--text-primary)]' : read ? 'font-normal text-slate-400 dark:text-slate-500' : 'font-medium text-slate-800 dark:text-slate-100'}`}>
                             {article.title}

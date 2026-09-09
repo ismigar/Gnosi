@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchConfiguration, updateConfiguration } from '../../shared/api/configuration';
+import { fetchGraphConfiguration, updateConfiguration } from '../../shared/api/configuration';
 import { fetchVaultGraph } from '../../shared/api/graph';
 import { fetchVaultGlobalIndex, fetchVaultTables } from '../../shared/api/vaults';
 import { dispatchWindowEvent } from '../../shared/platform/browser-events';
@@ -42,7 +42,7 @@ vi.mock('react-router-dom', () => ({
 
 
 vi.mock('../../shared/api/configuration', () => ({
-  fetchConfiguration: vi.fn(),
+  fetchGraphConfiguration: vi.fn(),
   updateConfiguration: vi.fn(),
 }));
 
@@ -161,7 +161,7 @@ const reactTestGlobal = globalThis as typeof globalThis & {
 reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
 
-const mockedFetchConfiguration = vi.mocked(fetchConfiguration);
+const mockedFetchConfiguration = vi.mocked(fetchGraphConfiguration);
 const mockedFetchGraph = vi.mocked(fetchVaultGraph);
 const mockedFetchGlobalIndex = vi.mocked(fetchVaultGlobalIndex);
 const mockedFetchTables = vi.mocked(fetchVaultTables);
@@ -236,7 +236,7 @@ async function renderLoadedPage(): Promise<void> {
     await Promise.resolve();
   });
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(901);
+    await vi.advanceTimersByTimeAsync(1);
   });
 }
 
@@ -253,6 +253,11 @@ function button(label: string): HTMLButtonElement {
 
 
 describe('GraphPage', () => {
+  it('shows available graph data without an artificial loading delay', async () => {
+    await renderLoadedPage();
+    expect(container.querySelector('[data-testid="graph-viewer"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('Loading');
+  });
   it('does not seed graph sources before graph configuration exists', async () => {
     mockedFetchConfiguration.mockResolvedValue({});
     await renderLoadedPage();

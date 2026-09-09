@@ -1,4 +1,4 @@
-import { fetchConfiguration } from '../../shared/api/configuration';
+import { fetchInterfaceSettings } from '../../shared/api/configuration';
 import { changeI18nLanguage, initializeI18n } from '../../shared/i18n/i18n';
 import {
   defineStorageKey,
@@ -29,7 +29,7 @@ interface JsonResponseLike {
 
 
 interface ResolveLanguageOptions {
-  readonly fetchConfig?: () => Promise<unknown>;
+  readonly fetchSettings?: () => Promise<unknown>;
   readonly storage?: Storage | null;
 }
 
@@ -50,9 +50,7 @@ function isJsonResponseLike(value: unknown): value is JsonResponseLike {
 
 function configuredLanguage(value: unknown): unknown {
   if (typeof value !== 'object' || value === null) return undefined;
-  const settings = (value as { readonly settings?: unknown }).settings;
-  if (typeof settings !== 'object' || settings === null) return undefined;
-  return (settings as { readonly language?: unknown }).language;
+  return (value as { readonly language?: unknown }).language;
 }
 
 
@@ -76,9 +74,9 @@ export async function resolveInitialInterfaceLanguage(
   const storedLanguage = getStoredInterfaceLanguage(options.storage);
   if (storedLanguage) return storedLanguage;
 
-  const fetchConfig = options.fetchConfig ?? fetchConfiguration;
+  const fetchSettings = options.fetchSettings ?? fetchInterfaceSettings;
   try {
-    const result = await fetchConfig();
+    const result = await fetchSettings();
     const config = isJsonResponseLike(result)
       ? (result.ok === false ? null : await result.json())
       : result;

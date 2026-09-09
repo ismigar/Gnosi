@@ -53,6 +53,46 @@ beforeEach(() => {
 });
 afterEach(async () => {await run(() => {root.unmount();}); container.remove(); vi.useRealTimers();});
 describe('MediaCenter complete behavior', () => {
+    it('offers the next page when an entire index window contains deleted files', async () => {
+        vi.mocked(api.fetchMediaPage).mockResolvedValueOnce({items: [], total: 100, limit: 50, offset: 0, root: 'images', indexState: 'fresh', indexRevision: 'same', nextOffset: 50});
+        await run(() => {root.render(<MediaCenter/>);});
+        expect(container.textContent).toContain('media.no_files_in_page');
+        expect(container.textContent).not.toContain('media.folder_empty');
+        vi.mocked(api.fetchMediaPage).mockResolvedValueOnce({items: [mediaAsset('surviving')], total: 100, limit: 50, offset: 50, root: 'images', indexState: 'fresh', indexRevision: 'same', nextOffset: 100});
+        await run(() => {button('media.load_more').click();});
+        expect(api.fetchMediaPage).toHaveBeenLastCalledWith({root: 'images', offset: 50, limit: 50}, expect.any(AbortSignal), 600_000);
+        expect(container.querySelector('img')?.getAttribute('alt')).toBe('surviving.png');
+        expect(container.textContent).not.toContain('media.load_more');
+    });
+    it('shows an update notice instead of a blocking spinner for a valid empty index', async () => {
+        vi.useFakeTimers();
+        vi.mocked(api.fetchMediaPage).mockResolvedValueOnce({items: [], total: 0, limit: 50, offset: 0, root: 'images', indexState: 'refreshing', indexRevision: 'old'});
+        await run(() => {root.render(<MediaCenter/>);});
+        expect(container.querySelector('[role="status"]')?.textContent).toContain('media.index_updating');
+        expect(container.textContent).toContain('media.no_files');
+        expect(container.textContent).not.toContain('media.indexing');
+        let finish: ((page: api.MediaPage) => void) | undefined;
+        vi.mocked(api.fetchMediaPage).mockReturnValueOnce(new Promise(resolve => {finish = resolve;}));
+        await run(async () => {await vi.advanceTimersByTimeAsync(5000);});
+        expect(container.textContent).not.toContain('media.indexing');
+        await run(() => {finish?.({items: [], total: 0, limit: 50, offset: 0, root: 'images', indexState: 'fresh', indexRevision: 'new'});});
+        expect(container.querySelector('[role="status"]')).toBeNull();
+    });
+    it('keeps photos visible after an index failure and exposes an explicit retry after the cooldown', async () => {
+        vi.useFakeTimers();
+        vi.mocked(api.fetchMediaPage).mockResolvedValueOnce({items: [mediaAsset()], total: 1, limit: 50, offset: 0, root: 'images', indexState: 'failed', indexRevision: 'old', indexRetryAfter: 30});
+        await run(() => {root.render(<MediaCenter/>);});
+        expect(container.querySelectorAll('img')).toHaveLength(1);
+        expect(container.querySelector('[role="alert"]')?.textContent).toContain('media.index_update_failed');
+        expect(button('media.index_retry_wait').hasAttribute('disabled')).toBe(true);
+        await run(async () => {await vi.advanceTimersByTimeAsync(30_000);});
+        expect(api.fetchMediaPage).toHaveBeenCalledOnce();
+        vi.mocked(api.fetchMediaPage).mockResolvedValueOnce({items: [mediaAsset('new')], total: 1, limit: 50, offset: 0, root: 'images', indexState: 'fresh', indexRevision: 'new'});
+        await run(() => {button('common.retry').click();});
+        expect(api.fetchMediaPage).toHaveBeenCalledTimes(2);
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+        expect(container.querySelector('img')?.getAttribute('alt')).toBe('new.png');
+    });
     it('loads available roots, preserves page timeout/offsets and resets pagination with filters', async () => {
         const firstPage = Array.from({length: 50}, (_, index) => mediaAsset(String(index)));
         vi.mocked(api.fetchMediaPage).mockResolvedValueOnce({items: firstPage, total: 51, limit: 50, offset: 0, root: 'images'});
@@ -60,17 +100,17 @@ describe('MediaCenter complete behavior', () => {
         expect(state().roots.map(item => item.key)).toEqual(['images','assets','nextcloud']);
         expect(state().hasMore).toBe(true);
         await run(async () => {await state().fetchMedia(false);});
-        expect(api.fetchMediaPage).toHaveBeenLastCalledWith({root: 'images', limit: 50, offset: 50}, undefined, 600_000);
+        expect(api.fetchMediaPage).toHaveBeenLastCalledWith({root: 'images', limit: 50, offset: 50}, expect.any(AbortSignal), 600_000);
         expect(state().media).toHaveLength(52);
         await run(() => {state().setFilters({...DEFAULT_FILTERS, kinds: ['video']});});
-        expect(api.fetchMediaPage).toHaveBeenLastCalledWith({root: 'images', limit: 50, offset: 0, kinds: 'video'}, undefined, 600_000);
+        expect(api.fetchMediaPage).toHaveBeenLastCalledWith({root: 'images', limit: 50, offset: 0, kinds: 'video'}, expect.any(AbortSignal), 600_000);
     });
     it('applies views across provider roots without losing their album or filters', async () => {
         await run(() => {root.render(<Harness/>);});
         await run(() => {state().applyView(savedView());});
         expect(state().activeRoot).toBe('nextcloud'); expect(state().activeAlbum).toBe('Photos/2026');
         expect(api.fetchMediaPage).toHaveBeenLastCalledWith({root: 'nextcloud', album: 'Photos/2026', limit: 50, offset: 0,
-            kinds: 'image', tags_any: 'fixture', sort: 'filename', dir: 'asc'}, undefined, 600_000);
+            kinds: 'image', tags_any: 'fixture', sort: 'filename', dir: 'asc'}, expect.any(AbortSignal), 600_000);
         await run(() => {state().resetFilters();});
         expect(state().filters).toEqual(DEFAULT_FILTERS); expect(state().sort).toEqual(DEFAULT_SORT);
         expect(state().activeViewId).toBeNull();

@@ -12,7 +12,7 @@ import time
 import typing as _typing
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from fastapi import HTTPException, UploadFile
 
@@ -217,14 +217,14 @@ class MediaService:
     def _load_persisted(
         self,
         target_dir: Path,
-    ) -> Optional[Tuple[float, List[Tuple[Path, float]]]]:
+    ) -> Optional[Tuple[float, Sequence[Tuple[Path, float]]]]:
         return _scan_cache_domain.load_persisted(target_dir, self._persist_path, log)
 
     def _save_persisted(
         self,
         target_dir: Path,
         ts: float,
-        entries: List[Tuple[Path, float]],
+        entries: Sequence[Tuple[Path, float]],
     ) -> None:
         _scan_cache_domain.save_persisted(target_dir, ts, entries, self._persist_path, log)
 
@@ -232,7 +232,7 @@ class MediaService:
         self,
         target_dir: Path,
         skip_dirs: Optional[set[str]] = None,
-    ) -> List[Tuple[Path, float]]:
+    ) -> Sequence[Tuple[Path, float]]:
         """Returns the index (path, mtime) for `target_dir` with a TTL cache +
         disk persistence to survive container restarts.
 
@@ -367,7 +367,7 @@ class MediaService:
 
     def _apply_filters_and_sort(
         self,
-        entries: List[Tuple[Path, float]],
+        entries: Sequence[Tuple[Path, float]],
         root: str,
         *,
         kinds: Optional[set[str]],
@@ -463,27 +463,28 @@ class MediaService:
         - dir_: asc|desc  (default: desc)
 
         """
-        result = _query.get_all_media(
-            _typing.cast(_query.QueryService, self),
-            album,
-            limit,
-            offset,
-            root,
-            kinds=kinds,
-            extensions=extensions,
-            q=q,
-            desc_contains=desc_contains,
-            tags_any=tags_any,
-            tags_all=tags_all,
-            tags_none=tags_none,
-            size_min=size_min,
-            size_max=size_max,
-            mtime_from=mtime_from,
-            mtime_to=mtime_to,
-            sort=sort,
-            dir_=dir_,
-            vault_skip_dirs=_VAULT_SKIP_DIRS,
-        )
+        with _roots.reuse_root_resolution():
+            result = _query.get_all_media(
+                _typing.cast(_query.QueryService, self),
+                album,
+                limit,
+                offset,
+                root,
+                kinds=kinds,
+                extensions=extensions,
+                q=q,
+                desc_contains=desc_contains,
+                tags_any=tags_any,
+                tags_all=tags_all,
+                tags_none=tags_none,
+                size_min=size_min,
+                size_max=size_max,
+                mtime_from=mtime_from,
+                mtime_to=mtime_to,
+                sort=sort,
+                dir_=dir_,
+                vault_skip_dirs=_VAULT_SKIP_DIRS,
+            )
         return _typing.cast(Dict[str, Any], result)
 
     def get_albums(self) -> List[str]:

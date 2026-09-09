@@ -94,10 +94,16 @@ def _read_page_state(path: Path) -> dict[str, object]:
 def load_page_state(
     page_id: str,
     legacy_metadata: object = None,
+    *,
+    state_directory: Path | None = None,
 ) -> dict[str, object]:
     """Load managed metadata, falling back to legacy Markdown frontmatter."""
     try:
-        stored = _read_page_state(page_state_path(page_id)) if page_id else {}
+        path = (
+            state_directory / "pages" / f"{_safe_component(page_id)}.json"
+            if state_directory is not None else page_state_path(page_id)
+        ) if page_id else None
+        stored = _read_page_state(path) if path is not None else {}
     except (KeyError, RuntimeError, TypeError):
         stored = {}
     return {**_legacy_page_state(legacy_metadata), **stored}
@@ -106,12 +112,14 @@ def load_page_state(
 def merge_page_metadata(
     metadata: object,
     page_id: str = "",
+    *,
+    state_directory: Path | None = None,
 ) -> PageMetadata:
     """Overlay synchronized managed state onto portable page metadata."""
     merged = deepcopy(metadata) if is_record(metadata) else {}
     resolved_id = str(page_id or merged.get("id") or "")
     if resolved_id:
-        merged.update(load_page_state(resolved_id, merged))
+        merged.update(load_page_state(resolved_id, merged, state_directory=state_directory))
     return merged
 
 

@@ -3443,7 +3443,11 @@
     "batch_action_error": "Could not update {{count}} message(s)",
     "spam_added": "Marked as spam",
     "spam_removed": "Removed from spam",
-    "error_updating": "Could not update the message"
+    "error_updating": "Could not update the message",
+    "counts_partial": "Folder counts are incomplete or awaiting an update.",
+    "counts_pending": "Updating",
+    "counts_unavailable": "Unavailable",
+    "counts_previous": "Previous count retained"
   },
   "subs_section_title": "Information sources",
   "subs_btn_reload": "Reload",
@@ -4085,7 +4089,12 @@
     "saving": "Saving…",
     "saved": "Saved",
     "save_error": "Error saving",
-    "autosave": "Auto-saved"
+    "autosave": "Auto-saved",
+    "no_files_in_page": "No files are available in this part of the list.",
+    "index_updating": "The library is updating. You can browse the available photos.",
+    "index_update_failed": "The library could not be updated. Try again.",
+    "index_update_paused": "The update has not been confirmed yet. Check its status again.",
+    "index_retry_wait": "Retry available shortly"
   },
   "tldraw": {
     "untitled_drawing": "Untitled drawing",
@@ -4689,7 +4698,11 @@
     "register_success": "Account created. Welcome to Gnosi!",
     "register_title": "Create your account",
     "switch_to_login": "Already have an account? Sign in",
-    "switch_to_register": "Don't have an account? Sign up"
+    "switch_to_register": "Don't have an account? Sign up",
+    "session_recovery_title": "This session is no longer valid",
+    "session_recovery_description": "Clear this session and reload Gnosi to continue.",
+    "session_recovery_action": "Clear session and retry",
+    "session_recovery_error": "The session could not be cleared. Please try again."
   },
   "link_card": {
     "loading": "Loading preview…",

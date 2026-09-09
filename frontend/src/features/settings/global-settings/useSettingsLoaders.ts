@@ -1,5 +1,4 @@
-import { fetchAiCatalog } from '../../../shared/api/ai';
-import { fetchConfiguration } from '../../../shared/api/configuration';
+import { fetchEditorConfiguration } from '../../../shared/api/configuration';
 import { fetchGoogleOAuthStatus } from '../../../shared/api/google-auth';
 import { fetchIdentity } from '../../../shared/api/identity';
 import { fetchIntegrations } from '../../../shared/api/integrations';
@@ -14,7 +13,7 @@ import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 type Input = SettingsState;
 
 export function useSettingsLoaders(state: Input) {
-  const { aiCatalogLoadedRef, configLoadedRef, hydrationGenerationRef, identityLoadedRef, integrationsLoadedRef, setDatabases, setDraft, setGoogleAuthConfigured, setIntegrations, setTables } = state;
+  const { configLoadedRef, hydrationGenerationRef, identityLoadedRef, integrationsLoadedRef, setDatabases, setDraft, setGoogleAuthConfigured, setIntegrations, setTables } = state;
   const loadIdentity = async (hydrationGeneration: number | null = null) => {
     try {
       const identity = await fetchIdentity();
@@ -40,7 +39,7 @@ export function useSettingsLoaders(state: Input) {
 
   const loadConfig = async (hydrationGeneration: number | null = null) => {
     try {
-      const cfg = await fetchConfiguration();
+      const cfg = await fetchEditorConfiguration();
       setDraft(prev => hydrateDraft(prev, cfg));
       // Sync the backend-persisted theme into the browser persistence channel the
       // theme engine reads, so the saved preference survives a reload.
@@ -76,38 +75,18 @@ export function useSettingsLoaders(state: Input) {
     }
   };
 
-  const loadAiCatalog = async (hydrationGeneration: number | null = null) => {
-    try {
-      const payload = await fetchAiCatalog();
-      const providers = payload.config.providers;
-      if (isJsonRecord(providers)) {
-        setDraft(prev => ({
-          ...prev,
-          ai: { ...prev.ai, providers }
-        }));
-      }
-    } catch (err) {
-      console.error("Error loading AI catalog:", err);
-    } finally {
-      if (
-        hydrationGeneration === null
-        || hydrationGeneration === hydrationGenerationRef.current
-      ) {
-        aiCatalogLoadedRef.current = true;
-      }
-    }
-  };
-
   const loadTablesAndDatabases = async () => {
     // Vault Tables and Databases — used by the Calendar
     // (table selection) and Databases tabs. They used to be loaded inside
     // loadZoteroData, removed when the Zotero integration was taken out of Settings.
-    try {
-      setTables(settingsRegistry(await fetchVaultTables()));
-    } catch (e) { console.error("Tables fetch error:", e); }
-    try {
-      setDatabases(settingsRegistry(await fetchVaultDatabases()));
-    } catch (e) { console.error("Databases fetch error:", e); }
+    await Promise.all([
+      fetchVaultTables()
+        .then(tables => { setTables(settingsRegistry(tables)); })
+        .catch((error: unknown) => { console.error("Tables fetch error:", error); }),
+      fetchVaultDatabases()
+        .then(databases => { setDatabases(settingsRegistry(databases)); })
+        .catch((error: unknown) => { console.error("Databases fetch error:", error); }),
+    ]);
   };
-  return { checkGoogleAuth, loadAiCatalog, loadConfig, loadIdentity, loadIntegrations, loadTablesAndDatabases };
+  return { checkGoogleAuth, loadConfig, loadIdentity, loadIntegrations, loadTablesAndDatabases };
 }

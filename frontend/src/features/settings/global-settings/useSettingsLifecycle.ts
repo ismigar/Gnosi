@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import { subscribeDocumentEvent, subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import type { SettingsState } from './stateTypes';
 import type { useSettingsLoaders } from './useSettingsLoaders';
@@ -9,7 +9,9 @@ import type { useSettingsSocial } from './useSettingsSocial';
 type Input = SettingsState & ReturnType<typeof useSettingsLoaders> & ReturnType<typeof useSettingsModels> & ReturnType<typeof useSettingsReader> & ReturnType<typeof useSettingsSocial>;
 
 export function useSettingsLifecycle(state: Input) {
-  const { activeTab, aiCatalogLoadedRef, checkGoogleAuth, configLoadedRef, hydrationGenerationRef, identityLoadedRef, initialPluginId, initialTab, integrationsLoadedRef, isOpen, lastSavedDataRef, loadAiCatalog, loadAiRegistry, loadConfig, loadIdentity, loadIntegrations, loadNewsletterAccount, loadNewsletterSources, loadSocialSettings, loadTablesAndDatabases, setAccountEditorTarget, setActiveTab, setAddAccountType, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setIsAdvancedOpen, setReaderSection, setSnippetEditorTarget, setTableColorEditorTarget } = state;
+  const loadedSections = useRef(new Set<string>());
+  const hydratedOpen = useRef(false);
+  const { activeTab, checkGoogleAuth, configLoadedRef, hydrationGenerationRef, identityLoadedRef, initialPluginId, initialTab, integrationsLoadedRef, isOpen, lastSavedDataRef, loadAiRegistry, loadConfig, loadIdentity, loadIntegrations, loadNewsletterAccount, loadNewsletterSources, loadSocialSettings, loadTablesAndDatabases, setAccountEditorTarget, setActiveTab, setAddAccountType, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setIsAdvancedOpen, setReaderSection, setSnippetEditorTarget, setTableColorEditorTarget } = state;
   useEffect(() => {
     if (!isOpen) return;
     const requestedTab = initialTab === 'newsletters' ? 'reader' : (initialTab ?? 'general');
@@ -34,26 +36,53 @@ export function useSettingsLifecycle(state: Input) {
   }, [activeTab, setAccountEditorTarget, setAddAccountType, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setSnippetEditorTarget, setTableColorEditorTarget]);
 
   const hydrate = useEffectEvent(() => {
+    if (isOpen && hydratedOpen.current) return;
+    // StrictMode replays mount effects. Hydrate once per visible opening;
+    // closing resets the guard so a later visit still reads fresh documents.
+    hydratedOpen.current = isOpen;
+    loadedSections.current.clear();
     if (isOpen) {
       const hydrationGeneration = ++hydrationGenerationRef.current;
       configLoadedRef.current = false;
-      aiCatalogLoadedRef.current = false;
       integrationsLoadedRef.current = false;
       identityLoadedRef.current = false;
       lastSavedDataRef.current = null; // Reset baseline to avoid spurious saves
       void loadConfig(hydrationGeneration);
-      void loadAiCatalog(hydrationGeneration);
-      void loadAiRegistry();
-      void loadTablesAndDatabases();
       void loadIntegrations(hydrationGeneration);
-      void loadNewsletterSources();
-      void loadNewsletterAccount();
-      void checkGoogleAuth();
       void loadIdentity(hydrationGeneration);
-      void loadSocialSettings();
     }
   });
   useEffect(() => { hydrate(); }, [isOpen]);
+
+  const loadSection = useEffectEvent(() => {
+    if (!isOpen) return;
+    const once = (key: string, load: () => void): void => {
+      if (loadedSections.current.has(key)) return;
+      loadedSections.current.add(key);
+      load();
+    };
+    // Shared editable documents above still hydrate together for safe autosave.
+    // Auxiliary data belongs to the section that actually displays it.
+    if (activeTab === 'ai' || activeTab === 'reader') {
+      once('models', () => { void loadAiRegistry(); });
+    }
+    if (activeTab === 'calendar' || activeTab === 'graph') {
+      once('tables', () => { void loadTablesAndDatabases(); });
+    }
+    if (['calendar', 'contacts', 'mail'].includes(activeTab)) {
+      once('google-auth', () => { void checkGoogleAuth(); });
+    }
+    if (activeTab === 'reader') {
+      once('reader', () => {
+        void loadNewsletterSources();
+        void loadNewsletterAccount();
+      });
+    }
+    if (activeTab === 'social') {
+      once('social', () => { void loadSocialSettings(); });
+    }
+  });
+  useEffect(() => { loadSection(); }, [isOpen, activeTab]);
 
   useEffect(() => {
     if (!isOpen) return;

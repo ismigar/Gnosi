@@ -4,7 +4,7 @@ import {useApi} from '../../../shared/api/use-api';
 import {usePlugins} from '../../../shared/plugins/usePlugins';
 import {useConfigChanged} from '../../../shared/platform/configEvents';
 import toast from '../../../shared/notifications/toast';
-import {fetchConfiguration} from '../../../shared/api/configuration';
+import {fetchEditorConfiguration} from '../../../shared/api/configuration';
 import type {WorkspaceCatalogEntry} from '../../../shared/api/workspaces';
 import type {ScheduledTask} from '../../../shared/api/scheduler';
 import {WORKSPACE_ID_STORAGE_KEY, USER_ROLE_STORAGE_KEY} from '../../../shared/api/request-context';
@@ -51,7 +51,7 @@ export function useDashboard() {
     };
     const fetchConfig = useCallback(async () => {
         try {
-            const config = await fetchConfiguration();
+            const config = await fetchEditorConfiguration();
             const settings = config.settings;
             if (settings && typeof settings === 'object' && 'gnosi_mode' in settings && typeof settings.gnosi_mode === 'string' && settings.gnosi_mode) {
                 setGnosiMode(settings.gnosi_mode);
@@ -71,7 +71,6 @@ export function useDashboard() {
             } catch { /* Preserve the current role after a background failure. */ }
         };
         void fetchWorkspaceData();
-        void fetchAnalytics();
         void Promise.resolve().then(() => { void fetchDirectives(0); void fetchTraps(0); });
 
         void Promise.resolve().then(() => { void fetchConfig(); });

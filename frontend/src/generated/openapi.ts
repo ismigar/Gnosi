@@ -1843,6 +1843,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config/editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Editor Configuration */
+        get: operations["get_editor_configuration_api_config_editor_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Graph Configuration */
+        get: operations["get_graph_configuration_api_config_graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/interface": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Interface Settings */
+        get: operations["get_interface_settings_api_config_interface_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/contacts": {
         parameters: {
             query?: never;
@@ -4117,7 +4168,8 @@ export interface paths {
          * @description List articles. Filters: unread only, one or more source IDs.
          *
          *     `source_id` can be repeated (`?source_id=1&source_id=2`) or omitted to
-         *     return articles from all sources.
+         *     return articles from all sources. Set `include_content=false` for a list
+         *     without article bodies; the article detail endpoint retains complete text.
          */
         get: operations["get_articles_api_reader_articles_get"];
         put?: never;
@@ -7711,6 +7763,26 @@ export interface paths {
          *     call after an edit would rebuild the index for ALL tables just to throw it away.
          */
         get: operations["list_pages_by_table_api_vault_pages_by_table__table_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/pages/by-table/{table_id}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Page References By Table
+         * @description Return every selectable page without transferring unused metadata.
+         */
+        get: operations["list_page_references_by_table_api_vault_pages_by_table__table_id__references_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14574,6 +14646,32 @@ export interface components {
              */
             status: "success";
         };
+        /**
+         * InterfaceSettings
+         * @description Display preferences needed before rendering, without credential checks.
+         */
+        InterfaceSettings: {
+            /**
+             * Currency
+             * @default EUR
+             */
+            currency: string;
+            /**
+             * Date Format
+             * @default locale
+             */
+            date_format: string;
+            /**
+             * Decimal Symbol
+             * @default ,
+             */
+            decimal_symbol: string;
+            /**
+             * Language
+             * @default en
+             */
+            language: string;
+        };
         /** InternalContextSourceResponse */
         InternalContextSourceResponse: {
             /** Description */
@@ -18821,6 +18919,16 @@ export interface components {
             images?: string[] | null;
             /** Title */
             title: unknown;
+        };
+        /**
+         * PageReference
+         * @description Complete identity and display title for a page selector.
+         */
+        PageReference: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
         };
         /** PageRestoreResponse */
         PageRestoreResponse: {
@@ -26457,6 +26565,114 @@ export interface operations {
             };
         };
     };
+    get_editor_configuration_api_config_editor_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationDocument"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_graph_configuration_api_config_graph_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationDocument"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_interface_settings_api_config_interface_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterfaceSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_contacts_api_contacts_get: {
         parameters: {
             query?: {
@@ -31847,6 +32063,7 @@ export interface operations {
     get_articles_api_reader_articles_get: {
         parameters: {
             query?: {
+                include_content?: boolean;
                 limit?: number;
                 source_id?: number[] | null;
                 unread_only?: boolean;
@@ -39334,6 +39551,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_page_references_by_table_api_vault_pages_by_table__table_id__references_get: {
+        parameters: {
+            query?: {
+                include_templates?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                table_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageReference"][];
                 };
             };
             /** @description Validation Error */

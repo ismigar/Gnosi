@@ -1,4 +1,4 @@
-"""Frozen HTTP contract for the PR4 workspace/configuration extraction."""
+"""Workspace/configuration contract, including display and graph preferences."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from backend.domains.workspace.api import routes as workspace
 
 
 EXPECTED_OPENAPI_SHA256 = (
-    "4f9f8df57c863d738060afbb2d707c86b9498da9e54c7485c9e3406fdf389b8a"
+    "11b0c2c5e0f3f2ddb2ab85c6adc277344908d086b64ffe2470eecf0da057aa3f"
 )
 
 

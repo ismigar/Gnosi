@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from backend.domains.media.types import (
+    MediaEntries,
     MediaEntry,
     MediaInfo,
     MediaPage,
@@ -49,11 +50,11 @@ class QueryService(Protocol):
         self,
         target_dir: Path,
         skip_dirs: set[str] | None = None,
-    ) -> list[MediaEntry]: ...
+    ) -> MediaEntries: ...
 
     def _apply_filters_and_sort(
         self,
-        entries: list[MediaEntry],
+        entries: MediaEntries,
         root: str,
         *,
         kinds: set[str] | None,
@@ -240,7 +241,7 @@ def _sort_entries(
 
 def apply_filters_and_sort(
     service: QueryService,
-    entries: list[MediaEntry],
+    entries: MediaEntries,
     root: str,
     *,
     kinds: set[str] | None,
@@ -354,6 +355,7 @@ def get_all_media(
         ]
     )
     custom_sort = sort != "mtime" or dir_ != "desc"
+    entries: MediaEntries
     if any_filter_active or custom_sort:
         entries = service._apply_filters_and_sort(
             all_entries,
@@ -377,7 +379,15 @@ def get_all_media(
 
     total = len(entries)
     paged = entries[offset : offset + limit]
-    items = [service._get_file_info(path, fast=True, root=root) for path, _mtime in paged]
+    items: list[MediaInfo] = []
+    for path, _mtime in paged:
+        try:
+            items.append(service._get_file_info(path, fast=True, root=root))
+        except (FileNotFoundError, NotADirectoryError):
+            # A complete index is a snapshot: files may disappear afterwards.
+            # Keep its slot offsets/total stable; the HTTP cursor advances past
+            # these absent entries without claiming that they are available.
+            continue
     return {
         "items": items,
         "total": total,

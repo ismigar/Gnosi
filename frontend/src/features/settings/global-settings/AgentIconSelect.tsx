@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { IconRenderer } from '../../../shared/ui/previews/IconRenderer';
-import * as LucideIcons from 'lucide-react';
+import { DeferredLucideIcon } from '../../../shared/ui/previews/DeferredLucideIcon';
 import { Search } from 'lucide-react';
 import { useCallback } from 'react';
 import { useEffect } from 'react';
@@ -26,31 +26,23 @@ const AGENT_ICON_FAVORITES = [
   'Settings2', 'ShoppingBag', 'Star', 'Sun', 'Target', 'Telescope', 'Timer',
   'UserRound', 'UsersRound', 'WandSparkles', 'Wrench', 'Zap',
 ];
-const AGENT_ICON_REGISTRY: Record<string, LucideIcons.LucideIcon | undefined> = LucideIcons.icons;
-const AVAILABLE_AGENT_ICONS = Object.keys(AGENT_ICON_REGISTRY)
-  .filter(name => /^[A-Z]/.test(name))
-  .sort();
-const AVAILABLE_AGENT_ICON_SET = new Set(AVAILABLE_AGENT_ICONS);
-const AGENT_ICON_BROWSE_OPTIONS = AGENT_ICON_FAVORITES
-  .filter(name => AVAILABLE_AGENT_ICON_SET.has(name));
-
 const getAgentIconValue = (name: string, color = 'blue') => `lucide:${name}:${color}`;
 
 export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noResultsLabel }: { value?: string; onChange: (value: string) => void; label: string; searchPlaceholder: string; noResultsLabel: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [availableIcons, setAvailableIcons] = useState<readonly string[]>(AGENT_ICON_FAVORITES);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const visibleIcons = useMemo(
     () => normalizedSearch
-      ? AVAILABLE_AGENT_ICONS.filter(name => name.toLowerCase().includes(normalizedSearch))
-      : AGENT_ICON_BROWSE_OPTIONS,
-    [normalizedSearch]
+      ? availableIcons.filter(name => name.toLowerCase().includes(normalizedSearch))
+      : AGENT_ICON_FAVORITES,
+    [availableIcons, normalizedSearch]
   );
   const currentIconName = typeof value === 'string' && value.startsWith('lucide:')
     ? (value.split(':')[1] ?? '')
     : '';
-  const CurrentIcon = AGENT_ICON_REGISTRY[currentIconName];
   const closePicker = useCallback(() => {
     setIsOpen(false);
     setSearchTerm('');
@@ -64,11 +56,20 @@ export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noR
   useEffect(() => {
     if (!isOpen) return undefined;
 
+    // The names are metadata. Importing Lucide's component registry here made
+    // opening any settings tab download every icon, even with this picker closed.
+    let active = true;
+    void import('lucide-react/dynamic').then(({ iconNames }) => {
+      if (active) setAvailableIcons(iconNames.map(name => name.split('-')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')).sort());
+    }).catch(() => { /* Keep the built-in favorites usable if loading fails. */ });
+
     const handlePointerDown = (event: MouseEvent) => {
       if (!(event.target instanceof Node && rootRef.current?.contains(event.target))) closePicker();
     };
 
-    return subscribeDocumentEvent('mousedown', handlePointerDown);
+    const unsubscribe = subscribeDocumentEvent('mousedown', handlePointerDown);
+    return () => { active = false; unsubscribe(); };
   }, [closePicker, isOpen]);
 
   const toggleOpen = () => {
@@ -94,8 +95,8 @@ export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noR
           background: 'var(--gnosi-blue)', color: '#fff', cursor: 'pointer'
         }}
       >
-        {CurrentIcon
-          ? <CurrentIcon size={24} strokeWidth={2.35} />
+        {currentIconName
+          ? <DeferredLucideIcon name={currentIconName} size={24} strokeWidth={2.35} />
           : <IconRenderer icon={value || getAgentIconValue('Brain')} size={24} color="#fff" />}
         <ChevronDown
           size={15}
@@ -142,7 +143,6 @@ export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noR
             }}
           >
             {visibleIcons.map(name => {
-              const IconComponent = AGENT_ICON_REGISTRY[name];
               const optionValue = getAgentIconValue(name);
               const selected = value === optionValue;
               return (
@@ -168,7 +168,7 @@ export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noR
                     cursor: 'pointer'
                   }}
                 >
-                  {IconComponent && <IconComponent size={20} strokeWidth={2.35} />}
+                  <DeferredLucideIcon name={name} size={20} strokeWidth={2.35} />
                 </button>
               );
             })}

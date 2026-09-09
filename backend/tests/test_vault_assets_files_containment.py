@@ -108,6 +108,7 @@ def test_online_only_image_schedules_warmup_and_fails_fast_with_retry(
     assert exc_info.value.headers == {
         "Cache-Control": "no-store, must-revalidate",
         "Retry-After": "3",
+        "X-Gnosi-File-Availability": "pending",
     }
     assert provider.scheduled == [image]
 

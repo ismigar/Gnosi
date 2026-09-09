@@ -37,7 +37,6 @@ import {
 import { useGraphServerData } from './useGraphServerData';
 
 
-const MINIMUM_LOADING_DURATION_MS = 900;
 const EMPTY_GRAPH: GraphData = {
   edges: [],
   legend: { clusters: [], kinds: [] },
@@ -123,7 +122,7 @@ export function useGraphPageController() {
   const [isPathfindingMode, setPathfindingModeState] = useState(false);
   const [pathSource, setPathSource] = useState<string | null>(null);
   const [pathTarget, setPathTarget] = useState<string | null>(null);
-  const [minimumLoadingElapsed, setMinimumLoadingElapsed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [timelineDate, setTimelineDate] = useState<number | null>(null);
   const [timelineRange, setTimelineRange] = useState<readonly [number, number] | null>(null);
 
@@ -148,31 +147,15 @@ export function useGraphPageController() {
   const config = configurationQuery.data ?? null;
   const availableTables = tablesQuery.data ?? EMPTY_TABLES;
   const idTitleMap = globalIndexQuery.data ?? EMPTY_GLOBAL_INDEX;
-  const loading = graphQuery.isPending || !minimumLoadingElapsed;
+  const loading = graphQuery.isPending || refreshing;
   const loadingProgress = graphQuery.isPending ? 15 : 100;
 
-  useEffect(() => {
-    const timer = setTimeout(() => { setMinimumLoadingElapsed(true); },
-      MINIMUM_LOADING_DURATION_MS);
-    return () => { clearTimeout(timer); };
-  }, []);
-
   const fetchGraphData = useCallback(async (isBackground = false): Promise<void> => {
-    const startedAt = Date.now();
-    if (!isBackground) setMinimumLoadingElapsed(false);
+    if (!isBackground) setRefreshing(true);
     try {
       await refetchGraph();
     } finally {
-      if (!isBackground) {
-        const delay = Math.max(
-          0,
-          MINIMUM_LOADING_DURATION_MS - (Date.now() - startedAt),
-        );
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, delay);
-        });
-        setMinimumLoadingElapsed(true);
-      }
+      if (!isBackground) setRefreshing(false);
     }
   }, [refetchGraph]);
 
@@ -321,6 +304,9 @@ export function useGraphPageController() {
   }), [hasClusterData]);
 
   const incomingTimelineRange = useMemo(() => deriveTimelineRange(graphData), [graphData]);
+  // Use the eventual initial cutoff immediately. Committing it below must not
+  // change filters and restart a simulation that just began with the same data.
+  const effectiveTimelineDate = timelineDate ?? incomingTimelineRange?.[1] ?? null;
   useEffect(() => {
     if (!incomingTimelineRange) return;
     const maximum = incomingTimelineRange[1];
@@ -351,13 +337,13 @@ export function useGraphPageController() {
     selectedNode,
     showSemanticSuggestions,
     sourcesInitialized,
-    timelineDate,
+    timelineDate: effectiveTimelineDate,
     visibleDatabases,
     visibleTables,
   }), [activeClusters, activeKinds, activeMediaTags, activeProjects,
     activeTableFilters, depth, fieldFilters, graphTableFiltersSettings,
     hideIsolated, onlyIsolated, pathResult, searchTerm, selectedNode,
-    showSemanticSuggestions, sourcesInitialized, timelineDate,
+    showSemanticSuggestions, sourcesInitialized, effectiveTimelineDate,
     visibleDatabases, visibleTables]);
   const graphCounts = useMemo(() => {
     if (!memoizedGraph) return { edges: 0, nodes: 0, types: {} };
@@ -378,8 +364,8 @@ export function useGraphPageController() {
   }, [filters, graphData?.edges, memoizedGraph, showSemanticSuggestions]);
 
   const fieldValuesByKey = useMemo(
-    () => deriveFieldValues(graphData, visibleFields),
-    [graphData, visibleFields],
+    () => deriveFieldValues(memoizedGraph, visibleFields),
+    [memoizedGraph, visibleFields],
   );
   const idLabelResolver = useMemo(
     () => deriveIdLabels(graphData, idTitleMap),
@@ -450,7 +436,7 @@ export function useGraphPageController() {
       setRendererInstance, setRepulsionUI, setSearchTerm, setSelectedNode,
       setShowArrows, setShowSemanticSuggestions, setStrongGravityMode,
       setTimelineDate, showArrows, showSemanticSuggestions, sourcesInitialized,
-      strongGravityMode, tableId, tableName, timelineDate, timelineRange,
+      strongGravityMode, tableId, tableName, timelineDate: effectiveTimelineDate, timelineRange,
       toggleSetValue, visibleDatabases, visibleFields, visibleTables,
       selectPathNode,
     },

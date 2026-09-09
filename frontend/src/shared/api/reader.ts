@@ -37,6 +37,7 @@ export type ReaderPodcastInfo =
 
 
 export interface ReaderArticlesQuery {
+  readonly includeContent?: boolean;
   readonly limit?: number;
   readonly sourceIds?: number[];
   readonly unreadOnly?: boolean;
@@ -224,6 +225,7 @@ export async function fetchReaderArticles(
     await apiClient.GET('/api/reader/articles', {
       params: {
         query: {
+          include_content: query.includeContent,
           limit: query.limit,
           source_id: query.sourceIds,
           unread_only: query.unreadOnly,
@@ -234,10 +236,11 @@ export async function fetchReaderArticles(
 }
 
 
-export async function fetchReaderArticle(articleId: number): Promise<ReaderArticle> {
+export async function fetchReaderArticle(articleId: number, signal?: AbortSignal): Promise<ReaderArticle> {
   return unwrapApiResult<ReaderArticle, unknown>(
     await apiClient.GET('/api/reader/articles/{article_id}', {
       params: { path: { article_id: articleId } },
+      signal,
     }),
   );
 }

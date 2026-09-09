@@ -89,6 +89,10 @@ export function currentBrowserOrigin(): string {
     return window.location.origin;
 }
 
+export function reloadBrowserPage(): void {
+    window.location.reload();
+}
+
 export function browserHasTouchPoints(): boolean {
     return navigator.maxTouchPoints > 0;
 }

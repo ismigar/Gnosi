@@ -21,6 +21,25 @@ afterEach(() => {
 
 
 describe('media browser API', () => {
+  it.each(['fresh', 'refreshing', 'failed'] as const)('reads %s index metadata without changing the page body', async state => {
+    const page = { items: [], limit: 50, offset: 0, root: 'images', total: 0 };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json(page, {
+      headers: { 'X-Gnosi-Media-Index': state, 'X-Gnosi-Media-Index-Revision': 'synthetic-revision', 'X-Gnosi-Media-Next-Offset': '0', 'Retry-After': '30' },
+    })));
+    await expect(fetchMediaPage({ root: 'images' })).resolves.toEqual({
+      ...page, indexState: state, indexRevision: 'synthetic-revision', nextOffset: 0,
+      ...(state === 'failed' ? { indexRetryAfter: 30 } : {}),
+    });
+  });
+
+  it('ignores unknown index states and invalid retry delays', async () => {
+    const page = { items: [], limit: 50, offset: 0, root: 'images', total: 0 };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json(page, {
+      headers: { 'X-Gnosi-Media-Index': 'unknown', 'X-Gnosi-Media-Next-Offset': '-1', 'Retry-After': 'NaN' },
+    })));
+    await expect(fetchMediaPage({ root: 'images' })).resolves.toEqual(page);
+  });
+
   it('loads roots, a lazy tree, and a filtered media page', async () => {
     const roots = [
       {

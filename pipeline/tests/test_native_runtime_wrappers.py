@@ -18,8 +18,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-import pytest
-
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = "run_native_dev.sh"
 FRONTEND = "run_native_frontend.sh"
@@ -32,6 +30,7 @@ CONFIG_KEYS = (
     "TZ", "ONEDRIVE_WARMUP_MODE", "PYTHONPATH", "PYTHONUNBUFFERED",
     "VITE_BACKEND_HOST", "VITE_BACKEND_PORT", "VITE_FRONTEND_PORT",
     "VITE_GNOSI_CHECKOUT_LABEL", "VITE_GNOSI_STALE_CHECKOUT", "COREPACK_ENABLE_NETWORK",
+    "GNOSI_NATIVE_FRONTEND_MODE", "pnpm_config_verify_deps_before_run",
     "OPENAI_API_KEY", "JWT_SECRET_KEY", "FIXTURE_SHARED_ONLY", "FIXTURE_QUOTED",
     "FIXTURE_MULTILINE", "FIXTURE_EXPANDED", "FIXTURE_LITERAL", "FIXTURE_BACKTICK",
 )
@@ -124,10 +123,22 @@ def _fake_main() -> int:
         assert "backend.server" not in sys.modules
         return int(os.environ.get("FIXTURE_CHILD_EXIT", "0"))
     if name == "corepack":
-        assert args[:4] == ["pnpm", "--filter", "@gnosi/frontend", "dev"]
+        assert args[:3] == ["pnpm", "--filter", "@gnosi/frontend"]
+        mode = os.environ.get("GNOSI_NATIVE_FRONTEND_MODE", "dev")
+        assert mode in {"dev", "preview"}
+        command = ["dev"] if mode == "dev" else ["exec", "node", "scripts/native-preview.ts"]
+        assert args[3:3 + len(command)] == command
         assert os.environ["COREPACK_ENABLE_NETWORK"] == "0"
         return int(os.environ.get("FIXTURE_CHILD_EXIT", "0"))
     raise AssertionError("Forbidden operational executable")
+
+
+# Executable doubles need only the code above. Avoid importing pytest and
+# registering this full test module for every Git/corepack/uvicorn invocation.
+if __name__ == "__main__":
+    raise SystemExit(_fake_main())
+
+import pytest
 
 
 @dataclass(frozen=True)
@@ -405,9 +416,88 @@ def test_frontend_root_arguments_and_checkout_label(harness: Harness) -> None:
     assert child.env == {
         "VITE_BACKEND_HOST": "127.0.0.1", "VITE_BACKEND_PORT": "5002",
         "COREPACK_ENABLE_NETWORK": "0",
+        "pnpm_config_verify_deps_before_run": "warn",
         "VITE_GNOSI_CHECKOUT_LABEL": "codex/native-fixture@abc1234",
         "VITE_GNOSI_STALE_CHECKOUT": "0",
     }
+
+
+@pytest.mark.parametrize("mode", ["dev", "preview"])
+def test_frontend_explicit_mode_preserves_arguments_and_uses_only_pinned_corepack(
+    harness: Harness, mode: str,
+) -> None:
+    arguments = ["--host", "127.0.0.1", "--port=6200", "--base", "/fixture with spaces/"]
+    result = harness.run(FRONTEND, *arguments, GNOSI_NATIVE_FRONTEND_MODE=mode)
+    assert result.returncode == 0, result.stderr
+    command = ["dev"] if mode == "dev" else ["exec", "node", "scripts/native-preview.ts"]
+    child = harness.child("corepack")
+    assert child.args == ["pnpm", "--filter", "@gnosi/frontend", *command, *arguments]
+    assert child.env["GNOSI_NATIVE_FRONTEND_MODE"] == mode
+    assert child.env["COREPACK_ENABLE_NETWORK"] == "0"
+    assert child.env["pnpm_config_verify_deps_before_run"] == "warn"
+    assert child.env["VITE_BACKEND_HOST"] == "127.0.0.1"
+    assert child.env["VITE_BACKEND_PORT"] == "5002"
+    assert "VITE_FRONTEND_PORT" not in child.env
+    assert all(call.name in {"git", "corepack"} for call in harness.calls())
+
+
+@pytest.mark.parametrize("mode", ["", "PREVIEW", "production", " dev", "preview ", "$(exit 88)"])
+def test_frontend_invalid_mode_fails_without_starting_or_evaluating_it(
+    harness: Harness, mode: str,
+) -> None:
+    result = harness.run(FRONTEND, GNOSI_NATIVE_FRONTEND_MODE=mode)
+    assert result.returncode == 2
+    assert "GNOSI_NATIVE_FRONTEND_MODE must be dev or preview" in result.stderr
+    # Checkout metadata is read before mode dispatch; no operational child runs.
+    assert all(call.name == "git" for call in harness.calls())
+
+
+@pytest.mark.parametrize("code", [0, 1, 37, 130, 143])
+def test_frontend_preview_preserves_the_child_exit_status(harness: Harness, code: int) -> None:
+    result = harness.run(FRONTEND, GNOSI_NATIVE_FRONTEND_MODE="preview", FIXTURE_CHILD_EXIT=str(code))
+    assert result.returncode == code, result.stderr
+    assert harness.child("corepack").args[3:] == ["exec", "node", "scripts/native-preview.ts"]
+
+
+def test_frontend_preview_preserves_explicit_environment_and_does_not_source_dotenv(
+    harness: Harness,
+) -> None:
+    (harness.repo / ".env").write_text(
+        'GNOSI_NATIVE_FRONTEND_MODE="$(exit 88)"\nVITE_BACKEND_PORT=0\n', encoding="utf-8",
+    )
+    result = harness.run(
+        FRONTEND, GNOSI_NATIVE_FRONTEND_MODE="preview", VITE_BACKEND_HOST="fixture.invalid",
+        VITE_BACKEND_PORT="6400", VITE_FRONTEND_PORT="6200",
+        VITE_GNOSI_CHECKOUT_LABEL="explicit-fixture-label", VITE_GNOSI_STALE_CHECKOUT="0",
+        pnpm_config_verify_deps_before_run="false",
+    )
+    assert result.returncode == 0, result.stderr
+    env = harness.child("corepack").env
+    assert env["GNOSI_NATIVE_FRONTEND_MODE"] == "preview"
+    assert env["VITE_BACKEND_HOST"] == "fixture.invalid"
+    assert env["VITE_BACKEND_PORT"] == "6400"
+    assert env["VITE_FRONTEND_PORT"] == "6200"
+    assert env["VITE_GNOSI_CHECKOUT_LABEL"] == "explicit-fixture-label"
+    assert env["VITE_GNOSI_STALE_CHECKOUT"] == "0"
+    assert env["pnpm_config_verify_deps_before_run"] == "false"
+    assert "explicit-fixture-label" not in result.stdout + result.stderr
+
+
+def test_frontend_preview_still_validates_ports_before_any_tools(harness: Harness) -> None:
+    result = harness.run(FRONTEND, "--port=0", GNOSI_NATIVE_FRONTEND_MODE="preview")
+    assert result.returncode == 2
+    assert "integer between 1 and 65535" in result.stderr
+    assert harness.calls() == []
+
+
+def test_frontend_preview_does_not_install_or_fall_back_when_corepack_is_missing(
+    harness: Harness,
+) -> None:
+    (harness.bin_dir / "corepack").unlink()
+    result = harness.run(FRONTEND, GNOSI_NATIVE_FRONTEND_MODE="preview")
+    assert result.returncode == 127
+    assert "not found" in result.stderr
+    assert all(call.name == "git" for call in harness.calls())
 
 
 @pytest.mark.parametrize("mode", ["current", "stale", "detached", "unpublished", "unavailable"])
@@ -513,7 +603,3 @@ def test_missing_tool_does_not_install_or_fall_back(
     assert result.returncode == 127
     assert "not found" in result.stderr
     assert all(call.name == "git" for call in harness.calls())
-
-
-if __name__ == "__main__":
-    raise SystemExit(_fake_main())
