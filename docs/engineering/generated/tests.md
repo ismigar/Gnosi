@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
 | Vitest | 529 | 2217 |
-| pytest | 522 | 3677 |
+| pytest | 522 | 3676 |
 
 ## Files
 
@@ -570,7 +570,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/tests/web-clipper.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/web-clipper.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/word-addin.test.ts) | 13 | call-pattern estimate |
 | pytest | [`backend/domains/calendar/tests/test_api_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/tests/test_api_contracts.py) | 11 | Python AST |
-| pytest | [`backend/domains/calendar/tests/test_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/tests/test_timing.py) | 6 | Python AST |
+| pytest | [`backend/domains/calendar/tests/test_timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/tests/test_timing.py) | 5 | Python AST |
 | pytest | [`backend/tests/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/__init__.py) | 0 | Python AST |
 | pytest | [`backend/tests/conftest.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/conftest.py) | 0 | Python AST |
 | pytest | [`backend/tests/live_e2e_cleanup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/live_e2e_cleanup.py) | 0 | Python AST |

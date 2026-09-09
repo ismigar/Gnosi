@@ -1,4 +1,4 @@
-"""Synthetic timing checks; route imports require the isolated runtime launcher."""
+"""Synthetic timing checks with route imports isolated from the invoking process."""
 
 from __future__ import annotations
 
@@ -6,6 +6,9 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 import os
+from pathlib import Path
+import subprocess
+import sys
 from threading import Barrier, local
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
@@ -116,13 +119,50 @@ def test_errors_are_unchanged_and_context_is_reset_after_failure(monkeypatch: py
         pass
 
 
-@pytest.fixture
+def test_route_checks_run_in_an_isolated_process(tmp_path: Path) -> None:
+    root = tmp_path / "runtime"
+    for name in ("data", "vault", "host"):
+        (root / name).mkdir(parents=True)
+    environment = {
+        "PATH": os.defpath,
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "GNOSI_VALIDATION_ROOT": str(root),
+        "GNOSI_DATA_DIR": str(root / "data"),
+        "DIGITAL_BRAIN_VAULT_PATH": str(root / "vault"),
+        "VAULT_HOST_PATH": str(root / "vault"),
+        "HOME_HOST_PATH": str(root / "host"),
+        "GNOSI_RUN_LIVE_E2E": "0",
+        "GNOSI_DISABLE_SCHEDULER": "1",
+        "GNOSI_FILES_PROVIDER": "local",
+        "GNOSI_REQUIRE_AUTH": "1",
+        "GNOSI_JWT_SECRET": "synthetic-calendar-timing-fixture-not-an-account-key",
+    }
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "pytest", "-q", "--tb=short",
+            "-o", "python_functions=check_*", "-p", "no:cacheprovider",
+            "--basetemp", str(root / "tests"),
+            str(Path(__file__).resolve()),
+        ],
+        cwd=Path(__file__).resolve().parents[4],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "5 passed" in result.stdout
+    sys.stdout.write(result.stdout)
+
+
+@pytest.fixture(scope="module")
 def calendar_modules() -> CalendarModules:
-    # The parent validation launcher calls
-    # scripts.generate_openapi._configure_isolated_runtime(Path(tempdir))
-    # BEFORE collecting any tests that import routes. Refuse live data otherwise.
-    if not os.environ.get("GNOSI_VALIDATION_ROOT"):
-        pytest.fail("Calendar route checks require the isolated validation runtime launcher")
+    from backend.config.validation_runtime import validation_runtime_enabled
+
+    assert validation_runtime_enabled()
+    assert "backend.api.calendar_routes" not in sys.modules
     from backend.api import calendar_routes
     from backend.services import calendar_event_aggregation
     from backend.services.integration_manager import integration_manager
@@ -132,7 +172,7 @@ def calendar_modules() -> CalendarModules:
 
 @pytest.mark.parametrize("enabled", [False, True])
 @pytest.mark.parametrize("endpoint", ["calendars", "events"])
-def test_route_timing_is_opt_in_and_keeps_payload_and_provider_phases(
+def check_route_timing_is_opt_in_and_keeps_payload_and_provider_phases(
     monkeypatch: pytest.MonkeyPatch, calendar_modules: CalendarModules,
     enabled: bool, endpoint: str,
 ) -> None:
@@ -195,7 +235,7 @@ def test_route_timing_is_opt_in_and_keeps_payload_and_provider_phases(
     assert "@" not in header
 
 
-def test_diagnostic_request_and_response_are_injectable_not_public_parameters(calendar_modules: CalendarModules) -> None:
+def check_diagnostic_request_and_response_are_injectable_not_public_parameters(calendar_modules: CalendarModules) -> None:
     from fastapi.routing import APIRoute
 
     routes, _, _ = calendar_modules
