@@ -91,7 +91,10 @@ def child_launcher(monkeypatch):
 
 
 @pytest.mark.parametrize('mode', ['healthy', 'noisy'])
-def test_real_http_child_passes_and_is_reaped(child_launcher, mode):
+def test_real_http_child_passes_and_is_reaped(child_launcher, mode, monkeypatch):
+    # Cold Python imports and noisy output can exceed the rejection-fixture budget.
+    # Keep a bounded startup allowance for successful children on a busy runner.
+    monkeypatch.setattr(smoke, 'STARTUP_TIMEOUT_SECONDS', 5.0)
     child_launcher(mode)
     smoke.verify_backend(Path(sys.executable))
 
