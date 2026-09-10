@@ -21,6 +21,7 @@ _2026-09-02 · Release candidate_
 - Windows packaging now allows a bounded cold resource verification to finish without weakening the fail-closed package policy.
 - The macOS Intel package pins the NumPy ABI compatible with its Torch runtime.
 - Knowledge restores missing favorites and dashboard icons when their files are stored only in the cloud.
+- Duplicate vault registrations can be removed without deleting shared files or deactivating the selected vault.
 
 ## Gnosi 3.0.0-rc.2
 

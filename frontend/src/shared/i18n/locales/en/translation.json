@@ -5817,7 +5817,8 @@
           "release_safety": "Release gates validate source identity, generated clients, documentation, migrations and architecture-separated installers before publication.",
           "windows_cold_scan": "Windows packaging now allows a bounded cold resource verification to finish without weakening the fail-closed package policy.",
           "intel_numpy_abi": "The macOS Intel package pins the NumPy ABI compatible with its Torch runtime.",
-          "sidebar_cloud_metadata": "Knowledge restores missing favorites and dashboard icons when their files are stored only in the cloud."
+          "sidebar_cloud_metadata": "Knowledge restores missing favorites and dashboard icons when their files are stored only in the cloud.",
+          "duplicate_vault_registration": "Duplicate vault registrations can be removed without deleting shared files or deactivating the selected vault."
         }
       },
       "v3_0_0_rc_2": {

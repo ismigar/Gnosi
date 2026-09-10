@@ -17,7 +17,8 @@
         "release_notes.entries.v3_0_0.fixes.release_safety",
         "release_notes.entries.v3_0_0.fixes.windows_cold_scan",
         "release_notes.entries.v3_0_0.fixes.intel_numpy_abi",
-        "release_notes.entries.v3_0_0.fixes.sidebar_cloud_metadata"
+        "release_notes.entries.v3_0_0.fixes.sidebar_cloud_metadata",
+        "release_notes.entries.v3_0_0.fixes.duplicate_vault_registration"
       ]
     }
   },
