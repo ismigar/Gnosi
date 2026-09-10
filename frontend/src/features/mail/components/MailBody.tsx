@@ -181,7 +181,7 @@ export function MailBody({
           failureDetail,
           openOriginalLabel: remoteImageOpenOriginalLabel,
           onStateChange: () => {
-            setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
+            setHeight(Math.max(200, document.body.scrollHeight + 32));
           },
           recoveryActionLabel: remoteImageRecoveryLabel,
           recoveryPromptLabel: remoteImageBlockedLabel,
@@ -191,7 +191,9 @@ export function MailBody({
           releaseRecoveredSource,
           retryLabel: remoteImageRetryLabel,
         }));
-        setHeight(Math.max(200, document.documentElement.scrollHeight + 20));
+        // Measure content plus the HTML padding, not the iframe's current viewport.
+        // Adding space to the viewport on every poll makes the message keep growing.
+        setHeight(Math.max(200, document.body.scrollHeight + 32));
       } catch {
         // A cross-origin iframe body cannot be inspected.
       }

@@ -402,6 +402,7 @@ async def send_mail(
         success = send_new_message(smtp_email, to, subject, body, cc, bcc)
 
     if success:
+        _invalidate_mail_cache()
         return {"status": "success"}
     raise HTTPException(status_code=500, detail="Error sending email")
 
@@ -691,6 +692,7 @@ async def reply_message(
             inline_images=inline_images or None,
         )
     if success:
+        _invalidate_mail_cache()
         return {"status": "success"}
     raise HTTPException(status_code=500, detail="Error sending email")
 

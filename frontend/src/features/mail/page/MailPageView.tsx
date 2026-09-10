@@ -178,7 +178,11 @@ export function MailPageView({ controller }: MailPageViewProps) {
                   account={controller.selectedAccount}
                   accounts={controller.identities}
                   onClose={controller.closeComposer}
-                  onSent={controller.closeComposer}
+                  onSent={() => {
+                    controller.closeComposer();
+                    controller.setListRefreshToken((current) => current + 1);
+                    controller.refreshCounts();
+                  }}
                   onDraftSaved={() => {
                     controller.setListRefreshToken((current) => current + 1);
                   }}

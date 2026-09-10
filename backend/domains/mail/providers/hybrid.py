@@ -262,20 +262,26 @@ def _imap_search_criteria(folder: str, search: str | None) -> str:
     return f'TEXT "{search}"' if search else "ALL"
 
 
-def _imap_list_item(
-    fetch_data: list[Any], index: int, folder: str, account_email: str, folder_name: str
-) -> dict[str, Any] | None:
+def _imap_fetch_metadata(fetch_data: list[Any], index: int) -> str:
+    """Read attributes on both sides of an IMAP body literal."""
     part = fetch_data[index]
-    if not isinstance(part, tuple):
-        return None
-    info_head = part[0].decode("utf-8", errors="replace")
+    info_head = bytes(part[0]).decode("utf-8", errors="replace")
     next_part = fetch_data[index + 1] if index + 1 < len(fetch_data) else None
     tail = (
         bytes(next_part).decode("utf-8", errors="replace")
         if isinstance(next_part, (bytes, bytearray))
         else ""
     )
-    info = info_head + " " + tail
+    return info_head + " " + tail
+
+
+def _imap_list_item(
+    fetch_data: list[Any], index: int, folder: str, account_email: str, folder_name: str
+) -> dict[str, Any] | None:
+    part = fetch_data[index]
+    if not isinstance(part, tuple):
+        return None
+    info = _imap_fetch_metadata(fetch_data, index)
     uid_match = re.search(r"UID (\d+)", info, re.IGNORECASE)
     if not uid_match:
         return None
@@ -284,6 +290,8 @@ def _imap_list_item(
     flags = (flags_match.group(1) if flags_match else "").lower()
     thread_match = re.search(r"X-GM-THRID (\d+)", info)
     gmail_thread_id = thread_match.group(1) if thread_match else None
+    labels_match = re.search(r"X-GM-LABELS \(([^)]*)\)", info, re.IGNORECASE)
+    labels = labels_match.group(1).lower() if labels_match else ""
     msg = email_lib.message_from_bytes(part[1])
     date_str = msg.get("Date", "")
     message_id = sanitize_filename_component(msg.get("Message-ID", ""))
@@ -304,7 +312,7 @@ def _imap_list_item(
         "is_starred": "\\flagged" in flags,
         "has_attachments": False,
         "category": "Main",
-        "type": _FOLDER_TO_TYPE.get(folder.upper(), "Received"),
+        "type": "Sent" if "\\sent" in labels else _FOLDER_TO_TYPE.get(folder.upper(), "Received"),
         "account": account_email,
         "source": "imap",
         "imap_folder": folder_name,
@@ -392,10 +400,10 @@ def imap_list_messages(
 
 
 def _imap_fetch_payload(data: list[Any]) -> tuple[bytes | None, str, str | None]:
-    for part in data:
+    for index, part in enumerate(data):
         if not isinstance(part, tuple):
             continue
-        info = part[0].decode("utf-8", errors="replace")
+        info = _imap_fetch_metadata(data, index)
         flags_match = re.search(r"FLAGS \(([^)]*)\)", info, re.IGNORECASE)
         thread_match = re.search(r"X-GM-THRID (\d+)", info)
         raw = part[1]

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-10
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,10 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_thread_completeness.py
+  - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
+  - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
+  - tests/e2e/tests/disposable/mail-message-preview.spec.ts
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
@@ -83,6 +87,25 @@ présence de pièces jointes conservent leur représentation Markdown/frontmatte
 historique. Un vault absent provoque un refus sans création de fichiers ailleurs.
 Chaque note synchronisée conserve `database_table_id: mail`, et le frontmatter
 est sérialisé par `yaml.dump` plutôt que par un échappement manuel de chaînes.
+
+## Lecture des conversations et aperçu des messages
+
+Les conversations Gmail utilisent la boîte `\All` du fournisseur, découverte
+à partir des indicateurs IMAP même lorsque son nom est traduit. Les métadonnées
+d'en-tête précédant et suivant le littéral du corps IMAP sont conservées,
+y compris l'identité du fil, les dates et les libellés d'envoi. Les lectures
+conservent le compte et le dossier car les UID IMAP sont propres à une boîte.
+Le lecteur résout le fil depuis le message chargé, puis développe et charge
+son élément le plus récent, y compris les réponses envoyées.
+
+Les envois réussis invalident les listes et les compteurs en cache ; la page
+actualise les deux après la fermeture du compositeur. L'aperçu différé au
+survol charge tout le texte ou HTML assaini sans marquer le message comme lu.
+Il reste dans la fenêtre et ouvert tant que le pointeur le survole, et permet
+le défilement vertical, les touches de navigation et Échap. Le chargement
+commence uniquement au survol, avec annulation et nouvelle tentative. Les
+cadres HTML calculent leur hauteur à partir du corps et non de leur propre
+zone visible, ce qui évite une croissance répétée de la hauteur.
 
 ## MIME et sécurité du contenu
 

@@ -20,6 +20,7 @@ import {
 } from './mailListModel';
 import type { MailListMessage } from './mailListTypes';
 import type { MailListController } from './useMailListController';
+import type { MailMessagePreviewController } from './useMailMessagePreview';
 
 
 interface MailMessageRowProps {
@@ -28,6 +29,7 @@ interface MailMessageRowProps {
   readonly index: number;
   readonly isComposing: boolean;
   readonly message: MailListMessage;
+  readonly messagePreview: MailMessagePreviewController;
   readonly selectedMailIdentity?: string;
 }
 
@@ -38,6 +40,7 @@ export function MailMessageRow({
   index,
   isComposing,
   message,
+  messagePreview,
   selectedMailIdentity,
 }: MailMessageRowProps) {
   const { t } = useTranslation();
@@ -50,15 +53,14 @@ export function MailMessageRow({
     <div
       data-mail-index={index}
       onClick={() => {
+        messagePreview.close();
         controller.setFocusedIndex(index);
         controller.onSelectMail(message);
       }}
-      onMouseEnter={() => {
-        controller.setHoveredMailId(messageIdentity);
+      onMouseEnter={(event) => {
+        messagePreview.openHover(message, event.currentTarget.getBoundingClientRect());
       }}
-      onMouseLeave={() => {
-        controller.setHoveredMailId(null);
-      }}
+      onMouseLeave={messagePreview.scheduleClose}
       onContextMenu={(event) => {
         event.preventDefault();
         controller.setContextMenu({
@@ -111,25 +113,6 @@ export function MailMessageRow({
             <span className="text-[13px] text-[var(--text-secondary)] truncate opacity-70">
               {message.snippet}
             </span>
-          )}
-          {controller.hoveredMailId === messageIdentity && (
-            <div className="absolute left-1/3 top-full mt-2 z-[var(--z-modal-dropdown)] w-96 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-5 animate-in fade-in zoom-in-95 duration-200 pointer-events-none origin-top-left">
-              <div className="flex items-center gap-3 mb-3">
-                <ContactAvatar name={cleanMailSender(message.sender)} email={message.sender} />
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-bold text-[var(--text-primary)] leading-tight">
-                    {cleanMailSender(message.sender)}
-                  </span>
-                  <span className="text-[11px] text-[var(--text-secondary)]">{message.date}</span>
-                </div>
-              </div>
-              <h4 className="text-[14px] font-extrabold text-[var(--text-primary)] mb-2 leading-snug">
-                {message.subject}
-              </h4>
-              <p className="text-[12.5px] text-[var(--text-secondary)] leading-relaxed line-clamp-6">
-                {message.snippet}
-              </p>
-            </div>
           )}
         </div>
 

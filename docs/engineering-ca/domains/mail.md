@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-10
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,10 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_thread_completeness.py
+  - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
+  - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
+  - tests/e2e/tests/disposable/mail-message-preview.spec.ts
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
@@ -90,6 +94,25 @@ representació històrica en Markdown i frontmatter; si falta el vault, l'operac
 es rebutja sense crear fitxers en altres ubicacions. Cada nota sincronitzada
 conserva `database_table_id: mail`, i el frontmatter se serialitza amb
 `yaml.dump` en lloc d'escapar cadenes manualment.
+
+## Lectura de converses i previsualització de missatges
+
+Les converses de Gmail utilitzen la bústia `\All` del proveïdor, descoberta a
+partir dels indicadors IMAP encara que el nom estigui traduït. Es conserven les
+metadades de capçalera anteriors i posteriors al literal del cos IMAP, incloent
+la identitat del fil, les dates i les etiquetes d'enviament. Les lectures
+conserven el compte i la carpeta perquè els UID IMAP pertanyen a una bústia.
+El visor resol el fil des del missatge carregat i desplega i carrega l'element
+més recent, incloses les respostes enviades.
+
+Els enviaments correctes invaliden les llistes i els recomptes en memòria cau;
+la pàgina els actualitza quan el compositor acaba. La previsualització diferida
+en passar el cursor carrega tot el text o HTML sanejat sense marcar el missatge
+com a llegit. Es manté dins la pantalla i oberta mentre el cursor hi és, i
+permet desplaçament vertical, tecles de navegació i Escape. La càrrega només
+comença en passar el cursor, amb cancel·lació i reintent. Els marcs HTML
+calculen l'alçada a partir del cos i no de la seva pròpia àrea visible, cosa
+que evita un creixement repetit de l'alçada.
 
 ## Seguretat del MIME i del contingut
 

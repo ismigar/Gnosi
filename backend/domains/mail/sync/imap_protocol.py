@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from email.header import decode_header
 from typing import Any
 
@@ -103,6 +104,21 @@ def _detect_category(msg: Any) -> str:
 def _imap_name(folder_name: str) -> str:
     """Quote folder names that contain spaces for IMAP protocol."""
     return f'"{folder_name}"' if " " in folder_name else folder_name
+
+
+def _find_all_mail_folder(imap: Any) -> str | None:
+    r"""Find Gmail's localized \All mailbox, independently of archive folders."""
+    status, entries = imap.list()
+    if status != "OK":
+        return None
+    for entry in entries or []:
+        line = entry.decode() if isinstance(entry, bytes) else entry
+        if not isinstance(line, str):
+            continue
+        match = re.match(r'^\(([^)]*)\)\s+(?:"[^"]*"|NIL)\s+(.+)$', line)
+        if match and "\\all" in match.group(1).lower().split():
+            return match.group(2).strip().strip('"')
+    return None
 
 
 def _discover_folders(imap: Any) -> list[tuple[str, str]]:

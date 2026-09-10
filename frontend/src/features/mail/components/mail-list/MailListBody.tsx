@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { MailMessageRow } from './MailMessageRow';
 import { mailListMessageIdentity } from './mailListModel';
 import type { MailListController } from './useMailListController';
+import type { MailMessagePreviewController } from './useMailMessagePreview';
 
 
 interface MailListBodyProps {
   readonly accountEmail?: string | null;
   readonly controller: MailListController;
   readonly listElementRef: (element: HTMLDivElement | null) => void;
+  readonly messagePreview: MailMessagePreviewController;
   readonly selectedMailIdentity?: string;
   readonly sentinelElementRef: (element: HTMLDivElement | null) => void;
 }
@@ -18,6 +20,7 @@ export function MailListBody({
   accountEmail,
   controller,
   listElementRef,
+  messagePreview,
   selectedMailIdentity,
   sentinelElementRef,
 }: MailListBodyProps) {
@@ -49,6 +52,7 @@ export function MailListBody({
       )}
       <div
         ref={listElementRef}
+        onScroll={messagePreview.close}
         className="flex-1 overflow-y-auto"
         tabIndex={0}
         style={{ outline: 'none' }}
@@ -88,6 +92,7 @@ export function MailListBody({
                   )}
                   isComposing={controller.isComposing}
                   message={message}
+                  messagePreview={messagePreview}
                   selectedMailIdentity={selectedMailIdentity}
                 />
               ))}

@@ -4,6 +4,7 @@ import { MailListHeader } from './mail-list/MailListHeader';
 import { MailListMenus } from './mail-list/MailListMenus';
 import type { MailListProps } from './mail-list/mailListTypes';
 import { useMailListController } from './mail-list/useMailListController';
+import { useMailMessagePreview } from './mail-list/useMailMessagePreview';
 
 
 export type { MailListProps } from './mail-list/mailListTypes';
@@ -11,6 +12,7 @@ export type { MailListProps } from './mail-list/mailListTypes';
 
 export default function MailList(props: MailListProps) {
   const { setListElement, setSentinelElement, view: controller } = useMailListController(props);
+  const messagePreview = useMailMessagePreview(props.account?.email);
   return (
     <>
       <div className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] overflow-hidden">
@@ -26,11 +28,13 @@ export default function MailList(props: MailListProps) {
           accountEmail={props.account?.email}
           controller={controller}
           listElementRef={setListElement}
+          messagePreview={messagePreview}
           selectedMailIdentity={props.selectedMailIdentity}
           sentinelElementRef={setSentinelElement}
         />
         <MailListMenus controller={controller} />
       </div>
+      {messagePreview.preview}
       <ConfirmModal
         isOpen={controller.confirmConfig.isOpen}
         message={controller.confirmConfig.message}
