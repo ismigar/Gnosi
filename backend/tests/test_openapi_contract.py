@@ -36,12 +36,13 @@ def test_runtime_openapi_matches_the_committed_document_byte_for_byte() -> None:
 
 
 def test_vault_delete_description_keeps_file_removal_explicitly_optional() -> None:
-    # Reviewed description-only change in 369a57a8c: the wire contract stays
-    # unchanged, particularly the opt-in default for deleting files.
+    # Unregistering an inactive alias changes registration protection, while
+    # file deletion keeps its existing explicit opt-in default.
     operation = app.openapi()["paths"]["/api/vaults/{vault_id}"]["delete"]
     assert operation["description"] == (
         "Delete a vault registration and optionally its files with `delete_files=true`.\n\n"
-        "The active vault and the main vault cannot be deleted."
+        "Protect the selected identity and the last primary registration. An inactive\n"
+        "alias can be unregistered without touching its shared folder or artifacts."
     )
     assert operation["operationId"] == "delete_vault_api_vaults__vault_id__delete"
     deletion_parameters = [
