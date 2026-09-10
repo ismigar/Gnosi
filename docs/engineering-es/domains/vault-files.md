@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_page_index_object_contract.py
   - backend/tests/test_vault_sidebar_summary_projection.py
+  - backend/tests/test_vault_delete_aliases.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -87,6 +88,8 @@ tests:
 # Vault y archivos
 
 El autoguardado serializa las escrituras de página dentro del cliente web. Una versión obsoleta devuelve un conflicto (409), no un error de página inexistente (404), aunque la lectura condicional omita el cuerpo. Las páginas inexistentes siguen devolviendo 404; los conflictos no sobrescriben silenciosamente contenido más reciente.
+
+Se puede retirar del registro un alias inactivo si otra entrada del mismo espacio de trabajo conserva la carpeta. La eliminación utiliza la misma identidad seleccionada que el catálogo y sigue protegiendo la entrada activa y la última entrada del vault principal. Retirar una entrada compartida conserva la carpeta, las bases de datos locales, las cachés y el índice de archivos; no se permite borrar los archivos mientras otro vault registrado utilice la misma ruta, aunque pertenezca a otro espacio de trabajo.
 
 ## Contratos de comentarios y traducciones
 

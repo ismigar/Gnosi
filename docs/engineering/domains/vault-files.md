@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_page_index_object_contract.py
   - backend/tests/test_vault_sidebar_summary_projection.py
+  - backend/tests/test_vault_delete_aliases.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -87,6 +88,8 @@ tests:
 # Vault and files
 
 Autosave serializes page writes within the web client. A stale page version returns a conflict (409), not a missing-page error (404), even when the conditional read omits the body. Missing pages still return 404; conflicts never silently overwrite newer content.
+
+An inactive alias can be removed from the registry while another registration in the same workspace retains its folder. Deletion uses the same selected identity as the catalog and still protects the active entry and the last primary registration. Removing a shared registration preserves the folder, local databases, caches and file index; requesting file deletion is rejected while any other registered vault uses the same path, including another workspace.
 
 ## Comment and translation contracts
 
