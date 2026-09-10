@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -63,6 +63,7 @@ tests:
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
+  - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -255,6 +256,12 @@ Python resources before signing. Its complete cold scan remains fail-closed and
 has a ten-minute process deadline so newly copied Windows bundles are not killed
 during first-access inspection. Assets belong under `desktop/assets/`;
 generated bundles belong under `desktop/dist/` and `desktop/dist-python/`.
+
+Genogram schemas load `backend/domains/genograms/option_labels.json` during
+startup. The explicit resource plan includes this reviewed JSON beside its
+module. A relocated-plan regression creates people and relationship schemas
+in all four locales without access to the source checkout; the real frozen
+executable must still pass its startup smoke on every target.
 
 The root project declares uv `required-environments` for macOS arm64 and x64,
 Linux arm64 and Windows x64. Regenerate `uv.lock` with uv so its resolution
