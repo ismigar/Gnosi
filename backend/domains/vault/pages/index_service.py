@@ -190,13 +190,18 @@ def refresh_table_pages_metadata(pages: list[PageInfo]) -> None:
         metadata = raw_metadata if is_record(raw_metadata) else {}
         if dependencies.is_metadata_stub(metadata):
             continue
+        page.id = str(entry.get("id") or page.id)
         page.metadata = metadata
+        parent_id = entry.get("parent_id")
+        page.parent_id = str(parent_id) if parent_id is not None else None
+        page.is_database = bool(entry.get("is_database", False))
         if entry.get("title"):
             page.title = str(entry["title"])
         with dependencies.index_lock:
             cached = dependencies.index_entries.setdefault(vault_key, {}).get(str(file_path))
             if cached is not None:
                 cached.update(entry)
+                dependencies.id_to_path.setdefault(vault_key, {})[page.id] = str(file_path)
                 bump_page_index_version(vault_key)
 
 

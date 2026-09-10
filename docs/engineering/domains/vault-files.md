@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-10
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -47,6 +47,8 @@ tests:
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
+  - backend/tests/test_vault_page_index_object_contract.py
+  - backend/tests/test_vault_sidebar_summary_projection.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -614,3 +616,7 @@ Run ETag concurrency, path containment, safe I/O, registry race, rename,
 trash/purge, attachment numbering, relation, index refresh, and representative
 Playwright Vault flows. Cloud-provider incidents also require a real placeholder
 read because local fixture tests cannot reproduce File Provider behavior.
+
+## Sidebar metadata recovery
+
+The sidebar summary and sparse tree recover incomplete entries in the root, Wiki and dashboard folders through the active files provider before rereading their metadata. This also applies to cached snapshots. Successful hydration restores canonical page IDs, parent IDs, database flags, favorites and icons, updates ID lookup, and rebuilds the versioned snapshot for deduplication. Complete entries and table catalogs do not trigger this recovery. Partial frontmatter reads retry both transient cloud error codes (11 and 35), starting with an empty buffer and delimiter state on every reopened file. Failed reads keep the existing cached metadata.

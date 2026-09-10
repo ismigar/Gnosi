@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 48 |
 | `config` | 12 | 1329 |
 | `data` | 2 | 214 |
-| `domains` | 452 | 97826 |
+| `domains` | 452 | 97862 |
 | `mcp` | 3 | 429 |
 | `migrations` | 37 | 2249 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **799 modules** and **166516 source lines**.
+Total: **799 modules** and **166552 source lines**.
 
 ## agent
 
@@ -431,7 +431,7 @@ Total: **799 modules** and **166516 source lines**.
 | [`backend/domains/vault/api/history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/history.py) | 200 | 1 | 8 | 4 | 7 | HTTP adapter for vault page history. |
 | [`backend/domains/vault/api/pages_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_commands.py) | 171 | 4 | 2 | 0 | 5 | HTTP registration for vault page mutation services. |
 | [`backend/domains/vault/api/pages_duplicate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_duplicate.py) | 127 | 1 | 4 | 1 | 1 | HTTP adapter for duplicating a vault page. |
-| [`backend/domains/vault/api/pages_queries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 566 | 3 | 18 | 10 | 13 | Read-only HTTP adapters for vault pages and previews. |
+| [`backend/domains/vault/api/pages_queries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 594 | 3 | 19 | 11 | 14 | Read-only HTTP adapters for vault pages and previews. |
 | [`backend/domains/vault/api/trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/trash.py) | 346 | 1 | 10 | 5 | 9 | HTTP adapter and retention job for soft-deleted vault pages. |
 | [`backend/domains/vault/assets/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault asset uploads, icon storage, and image-serving HTTP adapters. |
 | [`backend/domains/vault/assets/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/api.py) | 284 | 1 | 21 | 8 | 14 | HTTP adapters and route registration for vault assets. |
@@ -537,11 +537,11 @@ Total: **799 modules** and **166516 source lines**.
 | [`backend/domains/vault/pages/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/cache.py) | 142 | 0 | 9 | 1 | 9 | Concurrency and short-lived caches for vault page operations. |
 | [`backend/domains/vault/pages/create_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/create_service.py) | 207 | 1 | 4 | 2 | 2 | Application service for creating one vault page. |
 | [`backend/domains/vault/pages/disk_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/disk_cache.py) | 40 | 0 | 3 | 0 | 1 | Validate derived page-index data before it is published to shared state. |
-| [`backend/domains/vault/pages/foundation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 720 | 0 | 43 | 0 | 27 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/pages/foundation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 721 | 0 | 43 | 0 | 27 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/foundation_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation_values.py) | 32 | 0 | 2 | 0 | 2 | Native page-document operations on values without a declared schema. |
 | [`backend/domains/vault/pages/identifiers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/identifiers.py) | 32 | 0 | 2 | 0 | 2 | Validation for page and history identifiers used in filesystem paths. |
-| [`backend/domains/vault/pages/index_entries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_entries.py) | 338 | 2 | 12 | 0 | 9 | Typed page-index entry construction. |
-| [`backend/domains/vault/pages/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 691 | 1 | 31 | 0 | 11 | Vault page-index discovery, refresh and snapshot services. |
+| [`backend/domains/vault/pages/index_entries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_entries.py) | 340 | 2 | 12 | 0 | 9 | Typed page-index entry construction. |
+| [`backend/domains/vault/pages/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 696 | 1 | 31 | 0 | 11 | Vault page-index discovery, refresh and snapshot services. |
 | [`backend/domains/vault/pages/markdown_writer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/markdown_writer.py) | 201 | 1 | 7 | 0 | 2 | Canonical Markdown writer with identity and sidecar loss guards. |
 | [`backend/domains/vault/pages/metadata_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/metadata_mutations.py) | 488 | 2 | 18 | 3 | 5 | Bulk metadata mutations for Vault pages and table templates. |
 | [`backend/domains/vault/pages/patch_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_helpers.py) | 304 | 1 | 10 | 0 | 6 | Filesystem, metadata and cache helpers for partial page updates. |

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-10
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -47,6 +47,8 @@ tests:
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
+  - backend/tests/test_vault_page_index_object_contract.py
+  - backend/tests/test_vault_sidebar_summary_projection.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -723,3 +725,7 @@ numeració d'adjunts, relacions, actualització de l'índex i fluxos representat
 de Vault amb Playwright. Els incidents dels proveïdors del núvol també
 requereixen llegir un marcador de posició real, perquè les proves amb dades
 locals de prova no poden reproduir el comportament de File Provider.
+
+## Recuperació de metadades de la barra lateral
+
+El resum i l’arbre compacte de la barra lateral recuperen les entrades incompletes de l’arrel, Wiki i els taulells mitjançant el proveïdor de fitxers actiu abans de rellegir-ne les metadades. Això també s’aplica a les instantànies en memòria cau. La recuperació restaura els identificadors canònics i dels pares, les marques de base de dades, els favorits i les icones, actualitza la cerca per identificador i reconstrueix la instantània versionada per eliminar duplicats. Les entrades completes i els catàlegs de taules no activen aquesta recuperació. Les lectures parcials de la capçalera reintenten els dos codis d’error transitori del núvol (11 i 35), començant amb el buffer i els delimitadors buits cada vegada que es reobre el fitxer. Les lectures fallides conserven les metadades existents en memòria cau.

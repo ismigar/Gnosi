@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -193,3 +194,53 @@ def test_sparse_sidebar_tree_reduces_repeated_structural_bytes() -> None:
     sparse_bytes = len(json.dumps(sparse, separators=(",", ":")).encode())
 
     assert sparse_bytes < full_bytes * 0.6
+
+
+@pytest.mark.parametrize("compact", [None, False, True])
+def test_sidebar_recovers_cloud_stubs_even_from_cached_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, compact: bool | None
+) -> None:
+    stub = PageInfo(
+        id="Dashboard", title="Dashboard", folder=".Dashboards",
+        path=str(tmp_path / "Dashboard.md"), metadata={"description": None},
+        last_modified="2026-09-10", size=64,
+    )
+    complete = stub.model_copy(update={
+        "id": "canonical-id", "metadata": {"favorite": True, "icon": "🗃️"},
+    })
+    table_stub = stub.model_copy(update={"id": "record", "folder": "BD/Records"})
+    events: list[str] = []
+    hydrated = False
+
+    def snapshot() -> list[PageInfo]:
+        events.append("snapshot")
+        return [complete if hydrated else stub, table_stub]
+
+    async def materialize(path: Path, label: str) -> None:
+        assert str(path) == stub.path
+        assert label == "Dashboard"
+        events.append("materialize")
+
+    def refresh(pages: list[PageInfo]) -> None:
+        nonlocal hydrated
+        assert pages == [stub]
+        assert events[-1] == "materialize"
+        events.append("refresh")
+        hydrated = True
+
+    monkeypatch.setattr(pages_queries, "_dependencies", SimpleNamespace(
+        get_pages_snapshot=snapshot, materialize_page=materialize, refresh_pages_metadata=refresh,
+    ))
+
+    async def request() -> list[SidebarPageInfo] | list[pages_queries.SidebarTreePageInfo]:
+        if compact is None:
+            return await pages_queries.list_sidebar_tree()
+        return await pages_queries.list_sidebar_summary(compact=compact)
+
+    response = asyncio.run(request())
+    assert response[0].id == "canonical-id"
+    assert response[0].metadata == {"favorite": True, "icon": "🗃️"}
+    assert events == ["snapshot", "materialize", "refresh", "snapshot"]
+    events.clear()
+    asyncio.run(request())
+    assert events == ["snapshot"]

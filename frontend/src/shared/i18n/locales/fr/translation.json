@@ -5864,7 +5864,8 @@
           "reproducible_toolchain": "Node 22.22.2 et les verrous pnpm et uv éliminent les graphes de dépendances dupliqués et rendent les releases locales reproductibles.",
           "release_safety": "Les barrières de release valident l'identité du code, les clients générés, la documentation, les migrations et les installateurs séparés par architecture avant publication.",
           "windows_cold_scan": "L'empaquetage Windows permet désormais à une vérification à froid bornée de se terminer sans affaiblir la politique de paquet fermée par défaut.",
-          "intel_numpy_abi": "Le paquet macOS Intel verrouille l'ABI NumPy compatible avec son runtime Torch."
+          "intel_numpy_abi": "Le paquet macOS Intel verrouille l'ABI NumPy compatible avec son runtime Torch.",
+          "sidebar_cloud_metadata": "Connaissance restaure les favoris et les icônes des tableaux de bord manquants lorsque leurs fichiers sont uniquement dans le cloud."
         }
       },
       "v3_0_0_rc_2": {
