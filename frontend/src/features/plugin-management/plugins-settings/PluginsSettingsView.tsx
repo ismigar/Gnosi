@@ -6,13 +6,14 @@ import {
     Share2, Store, Users,
     type LucideIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState, useTransition } from 'react';
+import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { notifyError } from '../../../shared/notifications/notifyError';
 import { BUILTIN_PLUGINS } from '../../../shared/plugins/registry';
 import { usePlugins } from '../../../shared/plugins/usePlugins';
 import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
+import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
 import {
     isPluginSection,
@@ -33,7 +34,7 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
     NotebookTabs, Scissors, Share2, Users,
 };
 
-const INLINE_CONFIG_LOADERS: Readonly<Record<string, () => Promise<{ default: PluginConfigComponent }>>> = {
+const CONFIG_LOADERS: Readonly<Record<string, () => Promise<{ default: PluginConfigComponent }>>> = {
     genograms: loadGenogramsConfig,
     'daily-notes': () => import('./DailyNotesConfig').then(module => ({ default: module.DailyNotesConfig })),
     'llm-wiki': () => import('./LlmWikiConfig').then(module => ({ default: module.LlmWikiConfig })),
@@ -41,22 +42,24 @@ const INLINE_CONFIG_LOADERS: Readonly<Record<string, () => Promise<{ default: Pl
     resources: () => import('../../literature/settings/ResourcesPluginConfig'),
     'web-clipper': () => import('./WebClipperConfig').then(module => ({ default: module.WebClipperConfig })),
 };
-const INLINE_CONFIGS: Readonly<Record<string, PluginConfigComponent>> = Object.fromEntries(
-    Object.entries(INLINE_CONFIG_LOADERS).map(([id, loader]) => [id, lazy(loader)]),
+const CONFIGS: Readonly<Record<string, PluginConfigComponent>> = Object.fromEntries(
+    Object.entries(CONFIG_LOADERS).map(([id, loader]) => [id, lazy(loader)]),
 );
 
 function preloadPluginConfiguration(pluginId: string): void {
     // Do not mount an editor or read/write its settings until it is opened.
-    void INLINE_CONFIG_LOADERS[pluginId]?.().catch(() => {});
+    void CONFIG_LOADERS[pluginId]?.().catch(() => {});
 }
 
 export interface PluginsSettingsProps {
+    readonly configurationPluginId?: string | null;
     readonly initialPluginId?: string | null;
-    readonly onOpenSettingsTab?: (tab: string, pluginId: string) => void;
+    readonly onOpenSettingsTab: (tab: string, pluginId: string) => void;
 }
 
 export function PluginsSettingsView({
     onOpenSettingsTab,
+    configurationPluginId = null,
     initialPluginId = null,
 }: PluginsSettingsProps) {
     const { t, i18n } = useTranslation();
@@ -70,19 +73,27 @@ export function PluginsSettingsView({
     const [installedFilter, setInstalledFilter] = useState<InstalledFilter>('all');
     const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null);
     const [busyPluginIds, setBusyPluginIds] = useState<ReadonlySet<string>>(() => new Set());
-    const [configuredPluginId, setConfiguredPluginId] = useState<string | null>(null);
-    const [isConfigPending, startConfigTransition] = useTransition();
+    const pendingPluginRequest = useRef<string | null>(null);
     const tp = (key: string, values: Readonly<Record<string, unknown>> = {}): string => (
         t(`settings.plugins.${key}`, values)
     );
 
+    const openPendingConfiguration = useEffectEvent((pluginId: string) => {
+        const plugin = catalog.find(candidate => candidate.id === pluginId);
+        if (plugin?.settingsTab && isEnabled(pluginId)) onOpenSettingsTab(plugin.settingsTab, pluginId);
+    });
+
     useEffect(() => {
-        const targetPluginId = initialPluginId ?? readPendingPluginId();
+        if (!loaded || configurationPluginId) return undefined;
+        const pendingPluginId = pendingPluginRequest.current ?? readPendingPluginId();
+        pendingPluginRequest.current = pendingPluginId;
+        const targetPluginId = initialPluginId ?? pendingPluginId;
         if (!targetPluginId) return undefined;
         const stateTimer = setTimeout(() => {
             setSection('installed');
             setInstalledFilter('all');
-            setConfiguredPluginId(targetPluginId);
+            pendingPluginRequest.current = null;
+            if (pendingPluginId) openPendingConfiguration(pendingPluginId);
         }, 0);
         const scrollTimer = setTimeout(() => {
             document.getElementById(`settings-plugin-${targetPluginId}`)?.scrollIntoView({
@@ -94,17 +105,7 @@ export function PluginsSettingsView({
             clearTimeout(stateTimer);
             clearTimeout(scrollTimer);
         };
-    }, [initialPluginId]);
-
-    const openPluginConfiguration = (pluginId: string, settingsTab?: string): void => {
-        if (INLINE_CONFIGS[pluginId]) {
-            startConfigTransition(() => {
-                setConfiguredPluginId((current) => current === pluginId ? null : pluginId);
-            });
-        } else if (settingsTab) {
-            onOpenSettingsTab?.(settingsTab, pluginId);
-        }
-    };
+    }, [configurationPluginId, initialPluginId, loaded]);
 
     const markBusy = (pluginId: string, busy: boolean): void => {
         setBusyPluginIds((current) => {
@@ -157,8 +158,18 @@ export function PluginsSettingsView({
         </div>
     );
 
+    const configuredPlugin = catalog.find(plugin => plugin.id === configurationPluginId && isEnabled(plugin.id));
+    const Configuration = CONFIGS[configurationPluginId ?? ''];
+    if (configuredPlugin && Configuration) return (
+        <Section title={pluginName(configuredPlugin)} icon={ICONS[configuredPlugin.icon] ?? Puzzle}>
+            <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
+                <Configuration key={configuredPlugin.id} />
+            </Suspense>
+        </Section>
+    );
+
     return (
-        <div aria-busy={isConfigPending}>
+        <div>
             <div style={{ alignItems: 'center', display: 'flex', gap: 8, marginBottom: 6 }}>
                 <Puzzle size={18} /><h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tp('title')}</h3>
             </div>
@@ -186,8 +197,6 @@ export function PluginsSettingsView({
                         {catalog.filter((plugin) => installedFilter === 'all' || (installedFilter === 'enabled' ? isEnabled(plugin.id) : !isEnabled(plugin.id))).map((plugin) => {
                             const Icon = ICONS[plugin.icon] ?? Puzzle;
                             const enabled = isEnabled(plugin.id);
-                            const InlineConfig = INLINE_CONFIGS[plugin.id];
-                            const isConfigOpen = configuredPluginId === plugin.id;
                             return (
                                 <div key={plugin.id} id={`settings-plugin-${plugin.id}`} className="settings-plugin-item" style={{ background: 'var(--bg-secondary, #f8fafc)', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 0, padding: '12px 14px' }}>
                                     <div style={{ alignItems: 'center', display: 'flex', gap: 12 }}>
@@ -197,15 +206,12 @@ export function PluginsSettingsView({
                                             <div style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{tp(`catalog.${plugin.id}.description`)}</div>
                                         </div>
                                         {plugin.settingsTab && enabled && (
-                                            <button type="button" onPointerEnter={() => { preloadPluginConfiguration(plugin.id); }} onFocus={() => { preloadPluginConfiguration(plugin.id); }} onTouchStart={() => { preloadPluginConfiguration(plugin.id); }} onClick={() => { openPluginConfiguration(plugin.id, plugin.settingsTab); }} aria-label={tp('configure')} aria-expanded={InlineConfig ? isConfigOpen : undefined} title={tp('configure')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-tertiary, #94a3b8)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Settings size={16} /></button>
+                                            <button type="button" onPointerEnter={() => { preloadPluginConfiguration(plugin.id); }} onFocus={() => { preloadPluginConfiguration(plugin.id); }} onTouchStart={() => { preloadPluginConfiguration(plugin.id); }} onClick={() => { if (plugin.settingsTab) onOpenSettingsTab(plugin.settingsTab, plugin.id); }} aria-label={tp('configure')} title={tp('configure')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-tertiary, #94a3b8)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Settings size={16} /></button>
                                         )}
                                         <button type="button" role="switch" aria-checked={enabled} onClick={() => { void togglePlugin(plugin.id, !enabled); }} disabled={busyPluginIds.has(plugin.id)} style={{ background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)', border: 'none', borderRadius: 999, cursor: 'pointer', flexShrink: 0, height: 24, opacity: busyPluginIds.has(plugin.id) ? 0.65 : 1, position: 'relative', transition: 'background 0.15s', width: 42 }} title={enabled ? tp('disable') : tp('enable')}>
                                             <span style={{ background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', height: 20, left: enabled ? 20 : 2, position: 'absolute', top: 2, transition: 'left 0.15s', width: 20 }} />
                                         </button>
                                     </div>
-                                    <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
-                                        {InlineConfig && isConfigOpen && <InlineConfig />}
-                                    </Suspense>
                                 </div>
                             );
                         })}

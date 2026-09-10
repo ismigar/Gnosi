@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { AppearancePanel } from './AppearancePanel';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 import { Database } from 'lucide-react';
@@ -6,8 +6,8 @@ import { FileText } from 'lucide-react';
 import { GeneralPanel } from './GeneralPanel';
 import { LanguagePanel } from './LanguagePanel';
 import { Mail } from 'lucide-react';
-import { ArrowLeft } from 'lucide-react';
-import { pluginForSettingsTab } from './pluginSettingsNavigation';
+import { SettingsBackButton } from '../../../shared/ui/settings/SettingsBackButton';
+import { pluginConfigurationForSettingsTab, pluginForSettingsTab } from './pluginSettingsNavigation';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
 import { SettingsSidebar } from './SettingsSidebar';
@@ -36,6 +36,10 @@ const WorkspacePanel = lazy(settingsPanelLoaders.workspace);
 
 export function GlobalSettingsView({ context }: { context: SettingsController }) {
   const { activeTab, aiRegistry, confirmConfig, draft, googleCalAuthError, handleClose, initialPluginId, isModelComparisonOpen, isOpen, isUsageHistoryOpen, mailSection, panelRef, pickerField, pickerOpen, setActiveTab, setAddAccountType, setAiSection, setConfirmConfig, setDraft, setIsModelComparisonOpen, setIsUsageHistoryOpen, setMailSection, setPickerOpen, sidebarNavigation, t, tn } = context;
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [activeTab]);
   return (
     <>
       <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
@@ -57,12 +61,10 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
           <SettingsSidebar context={context} />
 
           {/* CONTENT AREA */}
-          <main className="settings-main gnosi-modal-scroll">
+          <main ref={mainRef} className="settings-main gnosi-modal-scroll">
             <div className="settings-content-wrap">
-              {activeTab !== 'references' && pluginForSettingsTab(activeTab) && (
-                <button type="button" className="btn-gnosi-secondary" onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                  <ArrowLeft size={16} /> {t('settings.tabs.plugins', 'Plugins')}
-                </button>
+              {pluginForSettingsTab(activeTab) && (
+                <SettingsBackButton onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
               )}
               <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
 
@@ -172,9 +174,10 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                 )}
 
                 {/* PLUGINS */}
-                {(activeTab === 'plugins' || activeTab === 'references') && (
+                {(activeTab === 'plugins' || pluginConfigurationForSettingsTab(activeTab)) && (
                   <PluginsSettings
-                    initialPluginId={activeTab === 'references' ? 'resources' : initialPluginId}
+                    configurationPluginId={pluginConfigurationForSettingsTab(activeTab)}
+                    initialPluginId={initialPluginId}
                     onOpenSettingsTab={(tab) => {
                       if (tab === 'automations') {
                         setAiSection('automations');

@@ -180,10 +180,9 @@ describe('settings controller persistence contracts', () => {
     expect(automationActions.remove).not.toHaveBeenCalled();
   });
 
-  it('opens the legacy references entry in the lazy Resources editor without writing or mounting it early', async () => {
+  it.each(['references', 'plugins'])('opens the %s references entry as a dedicated screen with the common return action', async entryTab => {
     const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
-    const scrollIntoView = vi.fn<HTMLElement['scrollIntoView']>();
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
     try {
       await act(async () => {
         root.render(<Harness isOpen onClose={vi.fn()} initialTab="plugins" showView />);
@@ -192,16 +191,22 @@ describe('settings controller persistence contracts', () => {
       await advance();
       expect(container.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
       await act(async () => {
-        root.render(<Harness isOpen onClose={vi.fn()} initialTab="references" showView />);
+        root.render(<Harness isOpen onClose={vi.fn()} initialTab={entryTab} initialPluginId={entryTab === 'plugins' ? 'resources' : null} showView />);
         await Promise.resolve();
       });
       await advance();
       await act(async () => { await vi.dynamicImportSettled(); });
-      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-      expect(snapshot().activeTab).toBe('references');
+      expect(snapshot().activeTab).toBe(entryTab === 'plugins' ? 'resources' : 'references');
       expect(container.querySelector('.settings-sidebar__item.active')?.textContent).toContain('settings.tabs.plugins');
-      expect(container.querySelector('#settings-plugin-resources [data-testid="resources-plugin-editor"]')).not.toBeNull();
+      expect(container.querySelector('#settings-plugin-resources')).toBeNull();
       expect(container.querySelectorAll('[data-testid="resources-plugin-editor"]')).toHaveLength(1);
+      const back = container.querySelector<HTMLButtonElement>('.settings-content-wrap > button');
+      expect(back?.textContent).toContain('settings.tabs.plugins');
+      await act(async () => { back?.click(); await vi.dynamicImportSettled(); });
+      await advance();
+      expect(snapshot().activeTab).toBe('plugins');
+      expect(container.querySelector('[data-testid="resources-plugin-editor"]')).toBeNull();
+      expect(container.querySelector('#settings-plugin-resources')).not.toBeNull();
       expect(writes()).toEqual([]);
       expect(automationActions.enablePlugin).not.toHaveBeenCalled();
     } finally {
