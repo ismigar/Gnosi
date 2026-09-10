@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-10
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,10 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_thread_completeness.py
+  - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
+  - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
+  - tests/e2e/tests/disposable/mail-message-preview.spec.ts
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
@@ -83,6 +87,23 @@ labels and attachment presence retain their historical Markdown/frontmatter
 representation; a missing Vault fails closed without creating files elsewhere.
 Every synchronized note retains `database_table_id: mail`, and frontmatter is
 serialized through `yaml.dump` rather than hand-built string escaping.
+
+## Conversation reading and message previews
+
+Gmail conversations use the provider's `\All` mailbox, discovered from IMAP
+flags even when its name is localized. Header metadata before and after an IMAP
+body literal is preserved, including thread identity, dates and sent labels.
+Message reads retain both account and folder because IMAP UIDs are scoped to a
+mailbox. The viewer resolves the thread from the loaded message and expands
+and loads its newest item, including sent replies.
+
+Successful sends invalidate cached mail lists and counts; the page refreshes
+both after the composer completes. The list's delayed hover preview loads the
+complete plain-text or sanitized HTML body without marking it read. Its portal
+stays inside the viewport, remains open while the pointer is over it, and
+supports vertical scrolling, navigation keys and Escape. Loading is deferred
+until hover, with cancellation and retry. HTML frames size from body content
+rather than their own viewport, avoiding recurring height growth.
 
 ## MIME and content safety
 

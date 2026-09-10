@@ -15,6 +15,7 @@ from backend.domains.mail.sync.imap_protocol import (
     _TYPE_FOLDER_PREFERENCE,
     _decode_str,
     _discover_folders,
+    _find_all_mail_folder,
     _imap_name,
 )
 
@@ -554,8 +555,8 @@ class ImapMailMutationService(ImapMailSyncCore):
 
             # "[Gmail]/All Mail" contains all messages (INBOX + SENT + archive).
             # The localized name varies: we try the \All flag first.
-            all_mail = self._find_server_folder(imap, "Archived") or "[Gmail]/All Mail"
             try:
+                all_mail = _find_all_mail_folder(imap) or "[Gmail]/All Mail"
                 status, _ = imap.select(_imap_name(all_mail), readonly=True)
                 if status != "OK":
                     log.warning(f"[IMAP] Could not select {all_mail}")
@@ -574,60 +575,21 @@ class ImapMailMutationService(ImapMailSyncCore):
                 status, fetch_data = imap.uid(
                     "fetch",
                     uid_str,
-                    "(FLAGS X-GM-THRID X-GM-LABELS BODY.PEEK[HEADER])",
+                    "(UID FLAGS X-GM-THRID X-GM-LABELS BODY.PEEK[HEADER])",
                 )
                 if status != "OK":
                     return []
 
-                messages = []
-                for part in fetch_data:
-                    if not isinstance(part, tuple):
-                        continue
-                    info = part[0].decode("utf-8", errors="replace")
-                    uid_m = re.search(r"UID (\d+)", info)
-                    if not uid_m:
-                        continue
-                    uid = uid_m.group(1)
-                    flags_m = re.search(r"FLAGS \(([^)]*)\)", info)
-                    flags = (flags_m.group(1) if flags_m else "").lower()
+                from backend.domains.mail.providers.hybrid import _imap_list_item
 
-                    msg_obj = email.message_from_bytes(part[1])
-                    raw_subject = msg_obj.get("Subject", "")
-                    raw_from = msg_obj.get("From", "")
-                    raw_to = msg_obj.get("To", "")
-                    raw_date = msg_obj.get("Date", "")
-
-                    # Decode MIME headers
-                    def _dec(v: Any) -> Any:
-                        return _decode_str(v) if v else ""
-
-                    messages.append(
-                        {
-                            "id": f"imap_{uid}",
-                            "imap_uid": uid,
-                            "subject": _dec(raw_subject) or "(sense assumpte)",
-                            "sender": _dec(raw_from),
-                            "recipient": _dec(raw_to),
-                            "date": raw_date,
-                            "is_read": "\\seen" in flags,
-                            "is_starred": "\\flagged" in flags,
-                            "imap_folder": all_mail,
-                            "source": "imap",
-                            "account": email_account,
-                            "gm_thrid": gm_thrid,
-                        }
-                    )
-
-                # Chronological order: mail APIs usually show oldest first in the thread
-                from email.utils import parsedate_to_datetime
-
-                def _ts(m: Any) -> Any:
-                    try:
-                        return parsedate_to_datetime(m.get("date", "")).timestamp()
-                    except Exception:
-                        return 0
-
-                messages.sort(key=_ts)
+                messages = [
+                    message
+                    for index in range(len(fetch_data))
+                    if (message := _imap_list_item(
+                        fetch_data, index, all_mail, email_account, all_mail
+                    )) is not None
+                ]
+                messages.sort(key=lambda message: message["timestamp"])
                 return messages
             except Exception as e:
                 log.error(f"[IMAP] Error retrieving thread {gm_thrid} for {email_account}: {e}")

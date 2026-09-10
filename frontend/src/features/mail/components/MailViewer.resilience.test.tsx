@@ -99,6 +99,40 @@ afterEach(() => {
 
 
 describe('MailViewer preview resilience', () => {
+  it.each(['imap_102', 'imap_42'])('opens the latest sent message across folders with id %s', async (sentId) => {
+    const account = { email: 'reader@example.test' };
+    const selected = message('imap_42', { source: 'imap', thread_id: 'imap_42' });
+    const received = message('imap_101', {
+      source: 'imap', imap_folder: '[Gmail]/All Mail', imap_uid: '101',
+      thread_id: '123', timestamp: 1, body_text: null,
+    });
+    const sent = message(sentId, {
+      source: 'imap', imap_folder: '[Gmail]/All Mail', imap_uid: sentId.slice(5),
+      thread_id: '123', timestamp: 2, body_text: null,
+      sender: account.email, type: 'Sent',
+    });
+    mocks.fetchMessage.mockImplementation((id, query) => Promise.resolve(query?.folder === 'INBOX'
+      ? { ...selected, thread_id: '123' }
+      : id === sent.id ? { ...sent, body_text: 'My latest sent reply' }
+        : { ...received, body_text: 'Earlier received message' }));
+    mocks.fetchThread.mockResolvedValue({ messages: [received, sent] });
+    await act(async () => {
+      root.render(<MailViewer account={account} mail={selected} />);
+      await Promise.resolve();
+    });
+    expect(mocks.fetchThread).toHaveBeenCalledWith('123', account.email, expect.any(AbortSignal));
+    expect(container.textContent).toContain('My latest sent reply');
+    expect(container.textContent).toContain('sent');
+    expect(mocks.fetchMessage).toHaveBeenCalledWith(sent.id, {
+      email: account.email, folder: '[Gmail]/All Mail',
+    }, expect.any(AbortSignal));
+    const earlier = [...container.querySelectorAll('button')]
+      .find(button => button.textContent.includes('Fixture'));
+    expect(earlier).toBeDefined();
+    await act(async () => { earlier?.click(); await Promise.resolve(); });
+    expect(container.textContent).toContain('Earlier received message');
+  });
+
   it('keeps the preview usable when explicit analysis is unavailable', async () => {
     let rejectAnalysis: (error: Error) => void = () => undefined;
     mocks.fetchMessage.mockResolvedValue(message('analysis-unavailable'));

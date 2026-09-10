@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-10
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -18,6 +18,10 @@ source_paths:
   - frontend/src/shared/api/mail.ts
   - frontend/src/shared/api/mail-specialized.ts
 tests:
+  - backend/tests/test_mail_thread_completeness.py
+  - frontend/src/features/mail/components/MailViewer.resilience.test.tsx
+  - tests/e2e/tests/disposable/mail-thread-completeness.spec.ts
+  - tests/e2e/tests/disposable/mail-message-preview.spec.ts
   - backend/tests/test_mail_decoding.py
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
@@ -74,6 +78,25 @@ conservan su representación histórica en Markdown y frontmatter; si falta el v
 la operación se rechaza sin crear archivos en otro lugar. Cada nota sincronizada
 conserva `database_table_id: mail`, y el frontmatter se serializa mediante `yaml.dump`
 en lugar de construir manualmente cadenas con escapes.
+
+## Lectura de conversaciones y vista previa de mensajes
+
+Las conversaciones de Gmail utilizan el buzón `\All` del proveedor, descubierto
+mediante los indicadores IMAP aunque su nombre esté traducido. Se conservan los
+metadatos de cabecera anteriores y posteriores al literal del cuerpo IMAP,
+incluidos la identidad del hilo, las fechas y las etiquetas de envío. Las
+lecturas conservan la cuenta y la carpeta porque los UID IMAP pertenecen a un
+buzón. El visor resuelve el hilo desde el mensaje cargado y despliega y carga
+su elemento más reciente, incluidas las respuestas enviadas.
+
+Los envíos correctos invalidan las listas y los recuentos en caché; la página
+actualiza ambos cuando termina el compositor. La vista previa diferida al
+pasar el cursor carga todo el texto o HTML saneado sin marcar el mensaje como
+leído. Permanece dentro de la pantalla y abierta mientras el cursor está sobre
+ella, y permite desplazamiento vertical, teclas de navegación y Escape. La
+carga solo comienza al pasar el cursor, con cancelación y reintento. Los marcos
+HTML calculan su altura a partir del cuerpo y no de su propia área visible,
+evitando el crecimiento repetido de la altura.
 
 ## MIME y seguridad de contenidos
 

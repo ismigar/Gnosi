@@ -37,7 +37,6 @@ export function useMailListController(props: MailListProps) {
   const isComposing = props.isComposing ?? false;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const [hoveredMailId, setHoveredMailId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [inlineTagPicker, setInlineTagPicker] = useState<InlineTagPickerState | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -319,7 +318,6 @@ export function useMailListController(props: MailListProps) {
       focusedIndex,
       folderTitleKey: mailFolderTitleKey(props.folder, props.category),
       groupedMessages,
-      hoveredMailId,
       inlineTagPicker,
       isComposing,
       loading: data.loading,
@@ -334,7 +332,6 @@ export function useMailListController(props: MailListProps) {
       selectedIds,
       setContextMenu,
       setFocusedIndex,
-      setHoveredMailId,
       setInlineTagPicker,
       setMessageTags,
       setSelectedIds,

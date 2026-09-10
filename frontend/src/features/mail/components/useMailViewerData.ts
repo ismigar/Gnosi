@@ -16,6 +16,7 @@ import {
   hydrateMailMessageIdentity,
   isSameMailMessage,
   mailMessageIdentity,
+  selectMailDisplayMessage,
 } from '../mailIdentity';
 import type {
   MailAnalysisStatus,
@@ -57,18 +58,22 @@ export function useMailViewerData({
   const selectedMailIdentity = selectedMail
     ? mailMessageIdentity(selectedMail, account?.email)
     : null;
-  const mailDataIdentity = mailData
-    ? mailMessageIdentity(mailData, account?.email)
-    : null;
-  const firstThreadMessageIdentity = selectedMail?.thread_messages?.[0]
-    ? mailMessageIdentity(selectedMail.thread_messages[0], account?.email)
-    : selectedMailIdentity;
   const localThreadMessages = selectedMail?.thread_messages ?? [];
   const allThreadMessages = fullThreadMessages.length > 0
     ? fullThreadMessages
     : localThreadMessages.length > 0
       ? localThreadMessages
       : selectedMail ? [selectedMail] : [];
+  const firstThreadMessage = allThreadMessages[0];
+  const firstThreadMessageIdentity = firstThreadMessage
+    ? mailMessageIdentity(firstThreadMessage, account?.email)
+    : null;
+  const loadedSelection = mailData && selectMailDisplayMessage(
+    mailData, selectedMail, account?.email,
+  ) === mailData ? mailData : null;
+  const threadId = loadedSelection?.thread_id || selectedMail?.thread_id;
+  const threadEmail = loadedSelection?.account || loadedSelection?.account_email
+    || selectedMail?.account || account?.email || '';
 
   const markAsRead = useCallback((
     message: MailViewerMessage,
@@ -145,19 +150,17 @@ export function useMailViewerData({
       setThreadMessageData({});
     });
     const id = selectedMail?.id;
-    const threadId = selectedMail?.thread_id;
-    const email = selectedMail?.account || account?.email || '';
-    if (!id || mailDataIdentity !== selectedMailIdentity
+    if (!id || !loadedSelection
       || !threadId || threadId === id
-      || !email || selectedMail.source === 'vault') {
+      || !threadEmail || selectedMail.source === 'vault') {
       return () => { cancelled = true; };
     }
     const abortController = new AbortController();
-    void fetchMailThread(threadId, email, abortController.signal)
+    void fetchMailThread(threadId, threadEmail, abortController.signal)
       .then((data) => {
         if (cancelled) return;
         const messages = [...data.messages].reverse();
-        if (messages.length > 1) setFullThreadMessages(messages);
+        if (messages.length > 0) setFullThreadMessages(messages);
       })
       .catch((error: unknown) => {
         if (!abortController.signal.aborted) logError('mail-viewer.thread', error);
@@ -166,7 +169,7 @@ export function useMailViewerData({
       cancelled = true;
       abortController.abort();
     };
-  }, [account?.email, mailDataIdentity, selectedMail, selectedMailIdentity]);
+  }, [loadedSelection, selectedMail, threadEmail, threadId]);
 
   useEffect(() => {
     if (!firstThreadMessageIdentity) return undefined;
@@ -176,6 +179,28 @@ export function useMailViewerData({
     });
     return () => { active = false; };
   }, [firstThreadMessageIdentity, selectedMailIdentity]);
+
+  useEffect(() => {
+    if (!firstThreadMessage || !firstThreadMessageIdentity
+      || firstThreadMessageIdentity === selectedMailIdentity
+      || isSameMailMessage(firstThreadMessage, mailData, account?.email)) return;
+    const abortController = new AbortController();
+    const identity = firstThreadMessageIdentity;
+    void fetchMailMessage(firstThreadMessage.id, {
+      email: firstThreadMessage.account || firstThreadMessage.account_email
+        || account?.email || undefined,
+      folder: firstThreadMessage.imap_folder || undefined,
+    }, abortController.signal).then((data) => {
+      if (abortController.signal.aborted) return;
+      setThreadMessageData(current => ({
+        ...current,
+        [identity]: hydrateMailMessageIdentity(data, firstThreadMessage, account?.email),
+      }));
+    }).catch((error: unknown) => {
+      if (!abortController.signal.aborted) logError('mail-viewer.thread-message', error);
+    });
+    return () => { abortController.abort(); };
+  }, [account?.email, firstThreadMessage, firstThreadMessageIdentity, mailData, selectedMailIdentity]);
 
   useEffect(() => {
     const id = selectedMail?.id;
