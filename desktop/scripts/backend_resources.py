@@ -137,6 +137,7 @@ MIGRATIONS = (
 # script.py.mako is Alembic's legitimate runtime template, not local settings.
 DATA_FILES = (
     "backend/data/model_catalog.json",
+    "backend/domains/genograms/option_labels.json",
     "backend/config/stopwords.json",
     "config/stopwords.json",
     "backend/migrations/schema_fingerprints.json",

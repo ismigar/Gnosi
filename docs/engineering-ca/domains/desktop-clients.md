@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -63,6 +63,7 @@ tests:
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
+  - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -281,6 +282,13 @@ complet en fred continua sent fail-closed i té un límit de procés de deu minu
 perquè els paquets Windows acabats de copiar no morin durant la primera inspecció.
 Els recursos gràfics pertanyen a `desktop/assets/`; els paquets generats
 pertanyen a `desktop/dist/` i `desktop/dist-python/`.
+
+Els esquemes de genogrames carreguen
+`backend/domains/genograms/option_labels.json` durant l’arrencada. El pla explícit
+de recursos inclou aquest JSON revisat al costat del seu mòdul. Una prova amb el
+pla traslladat crea els esquemes de persones i relacions en els quatre idiomes
+sense accés al codi original; l’executable empaquetat real ha de superar també
+la prova d’arrencada en cada plataforma.
 
 El projecte arrel declara els `required-environments` d’uv per a macOS arm64 i
 x64, Linux arm64 i Windows x64. Regenera `uv.lock` amb uv perquè els marcadors
