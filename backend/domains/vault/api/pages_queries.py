@@ -13,6 +13,8 @@ from typing import Protocol
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.params import Depends as DependsParameter
 
+from backend.domains.vault.pages.index_entries import is_metadata_stub
+from backend.domains.vault.pages.index_service import SIDEBAR_FOLDER_PREFIXES
 from backend.domains.vault.pages.state import PreviewDocument, PreviewPayload
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import (
@@ -100,6 +102,7 @@ class PageQueryDependencies:
     """Narrow read operations required by page query endpoints."""
 
     get_pages_snapshot: SnapshotReader
+    refresh_pages_metadata: Callable[[list[PageInfo]], None]
     page_index_cache_path: Callable[[], Path | None]
     get_pages_for_table: Callable[[str], list[PageInfo]]
     enrich_table_pages: Callable[[str, list[PageInfo]], None]
@@ -268,6 +271,31 @@ async def get_indexer_status_endpoint() -> PageIndexerStatusResponse:
     return PageIndexerStatusResponse.model_validate(status)
 
 
+async def _sidebar_pages() -> list[PageInfo]:
+    """Recover incomplete navigation entries through the active files provider."""
+    dependencies = _deps()
+    pages = await asyncio.to_thread(dependencies.get_pages_snapshot)
+    targets = [
+        page for page in pages
+        if page.path and is_metadata_stub(page.metadata)
+        and (not page.folder or page.folder.startswith(SIDEBAR_FOLDER_PREFIXES))
+    ]
+    if not targets:
+        return pages
+
+    async def materialize(page: PageInfo) -> None:
+        try:
+            await dependencies.materialize_page(Path(str(page.path)), page.id)
+        except Exception as error:
+            log.debug("Sidebar materialization failed for %s: %s", page.id, error)
+
+    await asyncio.gather(*(materialize(page) for page in targets))
+    await asyncio.to_thread(dependencies.refresh_pages_metadata, targets)
+    # Hydration can replace filename fallbacks with real IDs. Rebuild from the
+    # updated index so deduplication and the versioned snapshot stay canonical.
+    return await asyncio.to_thread(dependencies.get_pages_snapshot)
+
+
 async def list_sidebar_summary(
     compact: bool = Query(False),
 ) -> list[SidebarPageInfo]:
@@ -277,7 +305,7 @@ async def list_sidebar_summary(
     complete metadata mapping. Knowledge only needs navigation, classification,
     favorites, tags, and icon fields until it requests a page or table.
     """
-    pages = await asyncio.to_thread(_deps().get_pages_snapshot)
+    pages = await _sidebar_pages()
     return [
         SidebarPageInfo.model_validate({
             "id": page.id,
@@ -299,7 +327,7 @@ async def list_sidebar_summary(
 
 async def list_sidebar_tree() -> list[SidebarTreePageInfo]:
     """Return the sparse initial Knowledge tree without changing legacy APIs."""
-    pages = await asyncio.to_thread(_deps().get_pages_snapshot)
+    pages = await _sidebar_pages()
     return [
         SidebarTreePageInfo(
             id=page.id,

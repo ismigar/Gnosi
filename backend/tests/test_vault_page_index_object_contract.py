@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import errno
+import io
 import logging
 import os
 import sys
@@ -314,6 +315,70 @@ def test_refresh_updates_existing_cache_object_without_losing_extension_keys(
     assert old["metadata"] is metadata
     assert old["cache-extension"] is extension
     assert dependencies.index_version[str(tmp_path)] == 1
+
+
+def test_refresh_restores_sidebar_identity_hierarchy_and_lookup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "Dashboard.md"
+    path.write_text("Synthetic", encoding="utf-8")
+    metadata: Metadata = {"id": "canonical-id", "icon": "🗃️", "favorite": True}
+    rebuilt = {**_entry(metadata), "id": "canonical-id", "parent_id": "parent-id"}
+    cached = {**_entry({"description": None}), "id": "Dashboard"}
+    dependencies = replace(_index_dependencies(tmp_path), build_entry=lambda path, stat: rebuilt)
+    dependencies.index_entries[str(tmp_path)] = {str(path): cached}
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    page = _page({"description": None}, "Dashboard")
+    page.path = str(path)
+
+    index_service.refresh_table_pages_metadata([page])
+
+    assert page.id == "canonical-id"
+    assert page.parent_id == "parent-id"
+    assert page.metadata == metadata
+    assert dependencies.id_to_path[str(tmp_path)]["canonical-id"] == str(path)
+    assert cached["id"] == "canonical-id"
+
+
+@pytest.mark.parametrize("error_number", [11, 35])
+def test_partial_read_retries_cloud_errors_without_reusing_partial_frontmatter(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, error_number: int
+) -> None:
+    content = "---\nid: canonical-id\nicon: 🗃️\nfavorite: true\n---\nBody\n"
+    reads = 0
+    delays: list[float] = []
+
+    class InterruptedRead(io.StringIO):
+        def __next__(self) -> str:
+            if self.tell() > 4:
+                raise OSError(error_number, "Synthetic provider contention")
+            return super().__next__()
+
+    def open_file(*args: object, **kwargs: object) -> io.StringIO:
+        nonlocal reads
+        reads += 1
+        return InterruptedRead(content) if reads == 1 else io.StringIO(content)
+
+    metadata: Metadata = {"id": "canonical-id", "icon": "🗃️", "favorite": True}
+
+    def parse(raw: str, path: Path) -> tuple[Metadata, str]:
+        assert raw == content
+        return metadata, "Body"
+
+    monkeypatch.setattr(Path, "open", open_file)
+    monkeypatch.setattr(index_entries.time, "sleep", delays.append)
+    monkeypatch.setattr(index_entries, "_dependencies", index_entries.PageIndexEntryDependencies(
+        parse_frontmatter=parse,
+        is_dashboard_file=lambda path: False,
+        read_dashboard_file=lambda path: ({}, ""),
+        process_metadata_paths=lambda value: value,
+        vault_root=lambda: tmp_path,
+        logger=logging.getLogger(__name__),
+    ))
+
+    assert index_entries.read_frontmatter_partial(tmp_path / "Dashboard.md") == (metadata, "Body")
+    assert reads == 2
+    assert delays == [0.05]
 
 
 def test_failed_parse_preserves_good_cached_entry(

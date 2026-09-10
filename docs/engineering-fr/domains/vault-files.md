@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-10
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -47,6 +47,8 @@ tests:
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
+  - backend/tests/test_vault_page_index_object_contract.py
+  - backend/tests/test_vault_sidebar_summary_projection.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -741,3 +743,7 @@ d'actualisation des index, ainsi que des parcours Vault représentatifs avec
 Playwright. Les incidents liés aux fournisseurs cloud exigent également la
 lecture réelle d'un fichier de substitution, car les tests locaux sur jeux
 de données ne peuvent pas reproduire le comportement de File Provider.
+
+## Récupération des métadonnées de la barre latérale
+
+Le résumé et l’arbre compact de la barre latérale récupèrent les entrées incomplètes de la racine, du Wiki et des tableaux de bord via le fournisseur de fichiers actif avant de relire leurs métadonnées. Cela s’applique aussi aux instantanés en cache. La récupération restaure les identifiants canoniques et parents, les indicateurs de base de données, les favoris et les icônes, actualise la recherche par identifiant et reconstruit l’instantané versionné pour supprimer les doublons. Les entrées complètes et les catalogues de tables ne déclenchent pas cette récupération. Les lectures partielles de l’en-tête réessaient les deux codes d’erreur transitoire du cloud (11 et 35), avec un tampon et un état des délimiteurs vides à chaque réouverture du fichier. Les lectures échouées conservent les métadonnées existantes en cache.

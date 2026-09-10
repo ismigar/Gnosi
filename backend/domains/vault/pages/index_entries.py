@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import logging
 import os
 import re
@@ -23,7 +24,7 @@ ParseFrontmatter = Callable[[str, Path], tuple[Metadata, str]]
 
 @dataclass
 class PartialReadState:
-    """Mutable bounded-reader state preserved across cloud I/O retries."""
+    """Mutable bounded-reader state for one file-open attempt."""
 
     lines: list[str]
     frontmatter_started: bool = False
@@ -106,12 +107,13 @@ def read_frontmatter_partial(file_path: Path) -> tuple[Metadata, str]:
     retries = 7
     delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.5]
     last_error: OSError | None = None
-    state = PartialReadState(lines=[])
     for attempt in range(retries + 1):
         try:
-            return _read_partial_once(file_path, state)
+            # Every retry reopens the file at offset zero. Reusing lines or
+            # delimiter counts from a failed read corrupts its frontmatter.
+            return _read_partial_once(file_path, PartialReadState(lines=[]))
         except OSError as error:
-            if error.errno == 35:  # Resource deadlock
+            if error.errno in {11, 35, errno.EAGAIN, errno.EDEADLK}:
                 last_error = error
                 if attempt < retries:
                     time.sleep(delays[attempt])

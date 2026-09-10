@@ -688,6 +688,7 @@ def initialize_foundation(legacy: ModuleType) -> None:
     _legacy.page_queries_api.configure(
         _legacy.page_queries_api.PageQueryDependencies(
             get_pages_snapshot=_legacy._get_pages_snapshot,
+            refresh_pages_metadata=_legacy._refresh_table_pages_metadata,
             page_index_cache_path=lambda: _legacy.get_page_index_cache_path(),
             get_pages_for_table=lambda table_id: _legacy._get_pages_for_table(table_id),
             enrich_table_pages=_enrich_table_query_pages,

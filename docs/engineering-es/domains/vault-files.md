@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-10
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -47,6 +47,8 @@ tests:
   - backend/tests/test_translation_provider_contracts.py
   - backend/tests/test_table_workspace_security_contract.py
   - backend/tests/test_vault_page_foundation_typed_composition.py
+  - backend/tests/test_vault_page_index_object_contract.py
+  - backend/tests/test_vault_sidebar_summary_projection.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -727,3 +729,7 @@ y flujos representativos del Vault con Playwright. Los incidentes de proveedores
 en la nube también requieren leer un marcador de posición real, porque las
 pruebas con datos locales de prueba no pueden reproducir el comportamiento de
 File Provider.
+
+## Recuperación de metadatos de la barra lateral
+
+El resumen y el árbol compacto de la barra lateral recuperan las entradas incompletas de la raíz, Wiki y los tableros mediante el proveedor de archivos activo antes de releer sus metadatos. Esto también se aplica a las instantáneas en caché. La recuperación restaura los identificadores canónicos y de los padres, las marcas de base de datos, los favoritos y los iconos, actualiza la búsqueda por identificador y reconstruye la instantánea versionada para eliminar duplicados. Las entradas completas y los catálogos de tablas no activan esta recuperación. Las lecturas parciales de la cabecera reintentan ambos códigos de error transitorio de la nube (11 y 35), empezando con el búfer y los delimitadores vacíos cada vez que se reabre el archivo. Las lecturas fallidas conservan los metadatos existentes en caché.
