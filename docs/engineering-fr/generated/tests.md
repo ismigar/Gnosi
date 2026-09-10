@@ -11,8 +11,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 536 | 2235 |
-| pytest | 524 | 3702 |
+| Vitest | 536 | 2234 |
+| pytest | 525 | 3703 |
 
 ## Fichiers
 
@@ -228,7 +228,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 17 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsGraphModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/identity/IdentityProfile.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.test.tsx) | 1 | call-pattern estimate |
@@ -1063,6 +1063,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_zotero_to_recursos_mapper.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_zotero_to_recursos_mapper.py) | 15 | Python AST |
 | pytest | [`backend/tests/translation_open_fixtures.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/translation_open_fixtures.py) | 0 | Python AST |
 | pytest | [`desktop/tests/test_backend_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_backend_resources.py) | 33 | Python AST |
+| pytest | [`desktop/tests/test_genogram_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_genogram_resources.py) | 1 | Python AST |
 | pytest | [`extensions/examples/test_build_index.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/examples/test_build_index.py) | 3 | Python AST |
 | pytest | [`extensions/marketplace/test_signing_policy.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_signing_policy.py) | 5 | Python AST |
 | pytest | [`extensions/marketplace/test_verify_release_candidate.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_verify_release_candidate.py) | 3 | Python AST |

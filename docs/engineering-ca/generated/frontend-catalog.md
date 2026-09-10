@@ -48,9 +48,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 20 | 2559 | 0 |
-| `features` | 1073 | 124232 | 33 |
+| `features` | 1073 | 124256 | 33 |
 | `generated` | 2 | 44320 | 453 |
-| `shared` | 244 | 30442 | 394 |
+| `shared` | 245 | 30458 | 394 |
 
 ## app
 
@@ -460,7 +460,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/PluginCatalogGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginCatalogGallery.tsx) | 68 | `PluginCatalogGallery` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PluginRegistryTrust.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginRegistryTrust.tsx) | 46 | `PluginRegistryTrust` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PluginUpdates.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginUpdates.tsx) | 48 | `PluginUpdates` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/PluginsSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginsSettingsView.tsx) | 229 | `PluginsSettingsView` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/PluginsSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginsSettingsView.tsx) | 235 | `PluginsSettingsView` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/ProjectPlanningBasics.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/ProjectPlanningBasics.tsx) | 180 | `ProjectPlanningBasics` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/ProjectPlanningConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/ProjectPlanningConfig.tsx) | 21 | `ProjectPlanningConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/ThirdPartyCatalog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/ThirdPartyCatalog.tsx) | 44 | `ThirdPartyCatalog` | — |
@@ -535,7 +535,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 88 | `DavAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 77 | `GeneralPanel` | — |
-| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 242 | `GlobalSettingsView` | `/api/auth/google/login?type=calendar` |
+| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 245 | `GlobalSettingsView` | `/api/auth/google/login?type=calendar` |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
 | [`frontend/src/features/settings/global-settings/GraphPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphPanel.tsx) | 82 | `GraphPanel` | — |
@@ -555,7 +555,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/WorkspacePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/WorkspacePanel.tsx) | 27 | `WorkspacePanel` | — |
 | [`frontend/src/features/settings/global-settings/aiOperationsBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.ts) | 56 | `automationResources`, `operationResources` | — |
 | [`frontend/src/features/settings/global-settings/formatting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/formatting.ts) | 17 | `CURRENCIES`, `DATE_FORMATS`, `DECIMAL_SYMBOLS`, `formatCost` | — |
-| [`frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts) | 7 | `pluginForSettingsTab` | — |
+| [`frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts) | 14 | `pluginConfigurationForSettingsTab`, `pluginForSettingsTab` | — |
 | [`frontend/src/features/settings/global-settings/settingsDocuments.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsDocuments.ts) | 82 | `errorDetail`, `hydrateDraft`, `integrationAccount`, `settingsAgents`, `settingsIntegrations`, `settingsRegistry` | — |
 | [`frontend/src/features/settings/global-settings/settingsGraphModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.ts) | 22 | `settingsGraphNode` | — |
 | [`frontend/src/features/settings/global-settings/settingsPanelLoaders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPanelLoaders.ts) | 23 | `preloadSettingsPanel`, `settingsPanelLoaders` | — |
@@ -567,7 +567,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/useSettingsAccounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsAccounts.ts) | 148 | `useSettingsAccounts` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsCollections.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsCollections.ts) | 111 | `useSettingsCollections` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsGraph.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsGraph.tsx) | 176 | `useSettingsGraph` | — |
-| [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 166 | `useSettingsLifecycle` | — |
+| [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 174 | `useSettingsLifecycle` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsLoaders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLoaders.ts) | 92 | `useSettingsLoaders` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsMailEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsMailEffects.ts) | 139 | `useSettingsMailEffects` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.ts) | 140 | `useSettingsModels` | — |
@@ -1406,6 +1406,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/ui/previews/hoverPreviewLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/hoverPreviewLayout.ts) | 136 | `HOVER_PREVIEW_ARROW_STEP`, `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `isHoverPreviewScrollable`, `positionHoverPreview`, `scrollHoverPreviewByKey` | — |
 | [`frontend/src/shared/ui/previews/viewPopoverLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/viewPopoverLayout.ts) | 75 | `getViewPopoverLayout` | — |
 | [`frontend/src/shared/ui/sections/CollapsibleSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/sections/CollapsibleSection.tsx) | 70 | `CollapsibleSection` | — |
+| [`frontend/src/shared/ui/settings/SettingsBackButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsBackButton.tsx) | 16 | `SettingsBackButton` | — |
 | [`frontend/src/shared/ui/settings/SettingsPrimitives.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsPrimitives.tsx) | 85 | `FormGroup`, `GnosiToggle`, `InlineEditorPlacement`, `Section` | — |
 | [`frontend/src/shared/ui/settings/SettingsSectionTabs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsSectionTabs.tsx) | 43 | `SettingsSectionTabs` | — |
 | [`frontend/src/shared/ui/settings/settings-primitives.types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/settings-primitives.types.ts) | 24 | — | — |

@@ -5,22 +5,30 @@ import type { useSettingsLoaders } from './useSettingsLoaders';
 import type { useSettingsModels } from './useSettingsModels';
 import type { useSettingsReader } from './useSettingsReader';
 import type { useSettingsSocial } from './useSettingsSocial';
+import { BUILTIN_PLUGIN_BY_ID } from '../../../shared/plugins/registry';
+import { usePlugins } from '../../../shared/plugins/usePlugins';
 
 type Input = SettingsState & ReturnType<typeof useSettingsLoaders> & ReturnType<typeof useSettingsModels> & ReturnType<typeof useSettingsReader> & ReturnType<typeof useSettingsSocial>;
 
 export function useSettingsLifecycle(state: Input) {
   const loadedSections = useRef(new Set<string>());
   const hydratedOpen = useRef(false);
-  const { activeTab, checkGoogleAuth, configLoadedRef, hydrationGenerationRef, identityLoadedRef, initialPluginId, initialTab, integrationsLoadedRef, isOpen, lastSavedDataRef, loadAiRegistry, loadConfig, loadIdentity, loadIntegrations, loadNewsletterAccount, loadNewsletterSources, loadSocialSettings, loadTablesAndDatabases, setAccountEditorTarget, setActiveTab, setAddAccountType, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setIsAdvancedOpen, setReaderSection, setSnippetEditorTarget, setTableColorEditorTarget } = state;
+  const { loaded: pluginsLoaded, isEnabled } = usePlugins();
+  const { activeTab, checkGoogleAuth, configLoadedRef, hydrationGenerationRef, identityLoadedRef, initialPluginId, initialTab, integrationsLoadedRef, isOpen, lastSavedDataRef, loadAiRegistry, loadConfig, loadIdentity, loadIntegrations, loadNewsletterAccount, loadNewsletterSources, loadSocialSettings, loadTablesAndDatabases, setAccountEditorTarget, setActiveTab, setAddAccountType, setAiSection, setAgentEditorTarget, setEditingAccountId, setEditingAgent, setEditingSnippetId, setEditingTableColor, setIsAddingTable, setIsAdvancedOpen, setReaderSection, setSnippetEditorTarget, setTableColorEditorTarget } = state;
+  const requestedPluginTab = useEffectEvent(() => (
+    initialPluginId && isEnabled(initialPluginId) ? BUILTIN_PLUGIN_BY_ID[initialPluginId]?.settingsTab : undefined
+  ));
   useEffect(() => {
     if (!isOpen) return;
-    const requestedTab = initialTab === 'newsletters' ? 'reader' : (initialTab ?? 'general');
-    setActiveTab(requestedTab);
+    const pluginTab = requestedPluginTab();
+    const requestedTab = pluginTab ?? (initialTab === 'newsletters' ? 'reader' : (initialTab ?? 'general'));
+    setActiveTab(requestedTab === 'automations' ? 'ai' : requestedTab);
+    if (requestedTab === 'automations') setAiSection('automations');
     if (initialTab === 'newsletters') setReaderSection('subscriptions');
     if (['api', 'plugins'].includes(requestedTab) || initialPluginId) {
       setIsAdvancedOpen(true);
     }
-  }, [initialPluginId, initialTab, isOpen, setActiveTab, setIsAdvancedOpen, setReaderSection]);
+  }, [initialPluginId, initialTab, isOpen, pluginsLoaded, setActiveTab, setAiSection, setIsAdvancedOpen, setReaderSection]);
 
   useEffect(() => {
     setEditingAgent(null);

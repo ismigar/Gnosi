@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -63,6 +63,7 @@ tests:
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
+  - desktop/tests/test_genogram_resources.py
   - desktop/release-artifacts.test.js
   - desktop/release-workflow-collection.test.js
   - backend/tests/test_packaged_backend_smoke.py
@@ -287,6 +288,13 @@ y tiene un límite de proceso de diez minutos para que los paquetes Windows reci
 copiados no terminen durante la primera inspección. Los recursos gráficos pertenecen a
 `desktop/assets/`; los paquetes generados, a `desktop/dist/` y
 `desktop/dist-python/`.
+
+Los esquemas de genogramas cargan
+`backend/domains/genograms/option_labels.json` durante el arranque. El plan explícito
+de recursos incluye este JSON revisado junto a su módulo. Una prueba con el plan
+trasladado crea los esquemas de personas y relaciones en los cuatro idiomas sin
+acceso al código original; el ejecutable empaquetado real también debe superar
+la prueba de arranque en cada plataforma.
 
 El proyecto raíz declara los `required-environments` de uv para macOS arm64 y
 x64, Linux arm64 y Windows x64. Regenera `uv.lock` con uv para que los marcadores
