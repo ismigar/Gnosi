@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 22 | 79 |
-| Vitest | 536 | 2234 |
+| Vitest | 536 | 2233 |
 | pytest | 524 | 3695 |
 
 ## Files
@@ -228,7 +228,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 17 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsGraphModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/identity/IdentityProfile.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.test.tsx) | 1 | call-pattern estimate |
