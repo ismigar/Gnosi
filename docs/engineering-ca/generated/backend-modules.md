@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 48 |
 | `config` | 12 | 1329 |
 | `data` | 2 | 214 |
-| `domains` | 452 | 97862 |
+| `domains` | 452 | 97850 |
 | `mcp` | 3 | 429 |
 | `migrations` | 37 | 2249 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **799 modules** and **166552 source lines**.
+Total: **799 modules** and **166540 source lines**.
 
 ## agent
 
@@ -337,13 +337,13 @@ Total: **799 modules** and **166552 source lines**.
 | [`backend/domains/mail/providers/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail-provider adapters. |
 | [`backend/domains/mail/providers/common.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/common.py) | 43 | 0 | 2 | 0 | 0 | Shared mail-provider normalization helpers. |
 | [`backend/domains/mail/providers/gmail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/gmail.py) | 320 | 0 | 7 | 0 | 1 | Gmail API adapter for the mail domain. |
-| [`backend/domains/mail/providers/hybrid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/hybrid.py) | 606 | 0 | 15 | 0 | 5 | Hybrid Mail Service — queries the Gmail API and IMAP directly without a vault. |
+| [`backend/domains/mail/providers/hybrid.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/providers/hybrid.py) | 614 | 0 | 16 | 0 | 6 | Hybrid Mail Service — queries the Gmail API and IMAP directly without a vault. |
 | [`backend/domains/mail/repositories/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/repositories/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail persistence repositories. |
 | [`backend/domains/mail/repositories/vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/repositories/vault.py) | 198 | 0 | 10 | 0 | 8 | Vault-backed mail persistence helpers. |
 | [`backend/domains/mail/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail HTTP route handlers. |
 | [`backend/domains/mail/routes/actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/actions.py) | 259 | 0 | 9 | 5 | 2 | Canonical mail actions. |
 | [`backend/domains/mail/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/attachments.py) | 144 | 0 | 3 | 3 | 2 | Canonical mail attachment routes. |
-| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 726 | 0 | 19 | 12 | 6 | Canonical mail compose. |
+| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 728 | 0 | 19 | 12 | 6 | Canonical mail compose. |
 | [`backend/domains/mail/routes/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/messages.py) | 533 | 0 | 9 | 9 | 7 | Canonical mail messages. |
 | [`backend/domains/mail/routes/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/remote_images.py) | 39 | 1 | 1 | 1 | 1 | Mail-only route for bounded recovery of blocked remote raster images. |
 | [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 354 | 0 | 16 | 0 | 0 | Canonical mail tags. |
@@ -361,8 +361,8 @@ Total: **799 modules** and **166552 source lines**.
 | [`backend/domains/mail/sync/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail synchronization services. |
 | [`backend/domains/mail/sync/idle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/idle.py) | 322 | 2 | 0 | 0 | 2 | IMAP IDLE service: push notifications when new messages arrive. |
 | [`backend/domains/mail/sync/imap_core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_core.py) | 543 | 1 | 3 | 0 | 0 | IMAP pull synchronization and vault persistence. |
-| [`backend/domains/mail/sync/imap_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_mutations.py) | 634 | 1 | 3 | 0 | 0 | IMAP server mutation operations. |
-| [`backend/domains/mail/sync/imap_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 169 | 0 | 4 | 0 | 2 | IMAP protocol normalization and folder discovery. |
+| [`backend/domains/mail/sync/imap_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_mutations.py) | 596 | 1 | 3 | 0 | 0 | IMAP server mutation operations. |
+| [`backend/domains/mail/sync/imap_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_protocol.py) | 185 | 0 | 5 | 0 | 3 | IMAP protocol normalization and folder discovery. |
 | [`backend/domains/mail/sync/imap_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/imap_service.py) | 49 | 1 | 0 | 0 | 1 | IMAP mail sync service. |
 | [`backend/domains/mail/sync/smtp.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/sync/smtp.py) | 115 | 0 | 1 | 0 | 1 | SMTP delivery for configured IMAP-compatible accounts. |
 | [`backend/domains/mail/tag_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/tag_identity.py) | 69 | 1 | 3 | 0 | 3 | Stable persistence identities for mail-tag associations. |
