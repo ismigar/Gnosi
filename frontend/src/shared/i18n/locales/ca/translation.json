@@ -5575,6 +5575,9 @@
     "unavailable_title": "(no disponible)"
   },
   "vault_switcher": {
+    "delete_active_error": "No pots retirar el vault actiu. Canvia primer a un altre vault.",
+    "delete_primary_error": "No pots retirar l’última entrada del vault principal.",
+    "delete_shared_files_error": "No es poden esborrar aquests fitxers perquè un altre vault registrat encara els fa servir.",
     "active_vault": "Vault actiu",
     "delete_tooltip": "Esborra aquest vault del registre",
     "new_vault": "Nou vault",
@@ -5865,7 +5868,8 @@
           "release_safety": "Les barreres de release validen la identitat del codi, els clients generats, la documentació, les migracions i els instal·ladors separats per arquitectura abans de publicar.",
           "windows_cold_scan": "L'empaquetat de Windows permet ara completar una verificació en fred amb temps limitat sense debilitar la política de paquet tancada per defecte.",
           "intel_numpy_abi": "El paquet macOS Intel fixa l'ABI de NumPy compatible amb el seu runtime de Torch.",
-          "sidebar_cloud_metadata": "Coneixement recupera els favorits i les icones dels taulells que faltaven quan els fitxers són només al núvol."
+          "sidebar_cloud_metadata": "Coneixement recupera els favorits i les icones dels taulells que faltaven quan els fitxers són només al núvol.",
+          "duplicate_vault_registration": "Es poden retirar les entrades duplicades d’un vault sense esborrar els fitxers compartits ni desactivar el vault seleccionat."
         }
       },
       "v3_0_0_rc_2": {

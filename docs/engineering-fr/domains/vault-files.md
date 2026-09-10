@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_page_index_object_contract.py
   - backend/tests/test_vault_sidebar_summary_projection.py
+  - backend/tests/test_vault_delete_aliases.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -87,6 +88,8 @@ tests:
 # Vault et fichiers
 
 L’enregistrement automatique sérialise les écritures de page dans le client web. Une version obsolète renvoie un conflit (409), et non une erreur de page introuvable (404), même lorsque la lecture conditionnelle omet le corps. Les pages inexistantes renvoient toujours 404 ; les conflits ne remplacent jamais silencieusement un contenu plus récent.
+
+Un alias inactif peut être retiré du registre si une autre entrée du même espace de travail conserve le dossier. La suppression utilise la même identité sélectionnée que le catalogue et protège toujours l’entrée active et la dernière entrée du vault principal. Le retrait d’une entrée partagée préserve le dossier, les bases de données locales, les caches et l’index des fichiers ; la suppression des fichiers est refusée tant qu’un autre vault enregistré utilise le même chemin, y compris dans un autre espace de travail.
 
 ## Contrats des commentaires et des traductions
 

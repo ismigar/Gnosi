@@ -49,6 +49,7 @@ tests:
   - backend/tests/test_vault_page_foundation_typed_composition.py
   - backend/tests/test_vault_page_index_object_contract.py
   - backend/tests/test_vault_sidebar_summary_projection.py
+  - backend/tests/test_vault_delete_aliases.py
   - backend/tests/test_vault_core_typed_composition.py
   - backend/tests/test_vault_media_typed_composition.py
   - backend/tests/test_vault_citation_export_typed_composition.py
@@ -87,6 +88,8 @@ tests:
 # Vault i fitxers
 
 L’autoguardat serialitza les escriptures de pàgina dins del client web. Una versió obsoleta retorna un conflicte (409), no un error de pàgina inexistent (404), encara que la lectura condicional ometi el cos. Les pàgines inexistents continuen retornant 404; els conflictes no sobreescriuen silenciosament contingut més recent.
+
+Es pot retirar del registre un àlies inactiu si una altra entrada del mateix espai de treball conserva la carpeta. L’eliminació fa servir la mateixa identitat seleccionada que el catàleg i continua protegint l’entrada activa i l’última entrada del vault principal. Retirar una entrada compartida conserva la carpeta, les bases de dades locals, les memòries cau i l’índex de fitxers; no es permet esborrar els fitxers mentre un altre vault registrat faci servir la mateixa ruta, encara que pertanyi a un altre espai de treball.
 
 ## Contractes de comentaris i traduccions
 
