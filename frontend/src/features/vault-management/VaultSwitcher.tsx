@@ -53,6 +53,20 @@ export default function VaultSwitcher() {
     const [confirmTarget, setConfirmTarget] = useState<VaultSummary | null>(null);
     const [marketplaceSection, setMarketplaceSection] = useState<MarketplaceSection | null>(null);
 
+    const deletionError = (error: unknown): string => {
+        const message = errorMessage(error);
+        switch (message) {
+            case 'You cannot delete the active vault; switch to another vault first':
+                return t('vault_switcher.delete_active_error');
+            case 'You cannot delete the primary vault':
+                return t('vault_switcher.delete_primary_error');
+            case 'vault_switcher.delete_shared_files_error':
+                return t('vault_switcher.delete_shared_files_error');
+            default:
+                return message;
+        }
+    };
+
     const load = useCallback(async (signal?: AbortSignal): Promise<void> => {
         try {
             const data = await fetchVaultCatalog(signal);
@@ -105,7 +119,7 @@ export default function VaultSwitcher() {
         try {
             await deleteVault(v.id);
             await load();
-        } catch (error) { setError(errorMessage(error)); }
+        } catch (error) { setError(deletionError(error)); }
         finally { setBusy(''); setConfirmTarget(null); }
     };
 

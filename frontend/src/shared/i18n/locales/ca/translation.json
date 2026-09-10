@@ -5575,6 +5575,9 @@
     "unavailable_title": "(no disponible)"
   },
   "vault_switcher": {
+    "delete_active_error": "No pots retirar el vault actiu. Canvia primer a un altre vault.",
+    "delete_primary_error": "No pots retirar l’última entrada del vault principal.",
+    "delete_shared_files_error": "No es poden esborrar aquests fitxers perquè un altre vault registrat encara els fa servir.",
     "active_vault": "Vault actiu",
     "delete_tooltip": "Esborra aquest vault del registre",
     "new_vault": "Nou vault",

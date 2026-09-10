@@ -7,6 +7,7 @@ import VaultSwitcher from './VaultSwitcher';
 
 const mocks = vi.hoisted(() => ({
     activateVault: vi.fn(() => true),
+    deleteVault: vi.fn(),
     fetchCatalog: vi.fn(),
     navigate: vi.fn(),
     persistCatalog: vi.fn(),
@@ -54,12 +55,16 @@ vi.mock('../../shared/platform/browser-storage', () => ({
 
 vi.mock('../../shared/api/vaults', () => ({
     createVault: vi.fn(),
-    deleteVault: vi.fn(),
+    deleteVault: mocks.deleteVault,
     fetchVaultCatalog: mocks.fetchCatalog,
 }));
 
 
-vi.mock('../../shared/ui/dialogs/ConfirmModal', () => ({ default: () => null }));
+vi.mock('../../shared/ui/dialogs/ConfirmModal', () => ({
+    default: ({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: () => Promise<void> }) => (
+        isOpen ? <button data-testid="confirm-delete" onClick={() => { void onConfirm(); }}>Confirm</button> : null
+    ),
+}));
 
 
 vi.mock('./VaultTemplateMarketplace', () => ({
@@ -111,6 +116,50 @@ afterEach(() => {
 
 
 describe('VaultSwitcher', () => {
+    const principal = { active: true, id: 'principal', name: 'Principal', path: '/vaults/main', slug: 'principal' };
+    const alias = { ...principal, active: false, id: 'alias', name: 'Main Vault', slug: 'main' };
+
+    async function confirmAliasRemoval() {
+        await act(async () => {
+            root.render(<VaultSwitcher />);
+            await Promise.resolve();
+        });
+        const remove = container.querySelector<HTMLButtonElement>('button[title="Remove this vault from the registry"]');
+        if (!remove) throw new Error('Alias removal action was not rendered');
+        act(() => { remove.click(); });
+        const confirm = container.querySelector<HTMLButtonElement>('[data-testid="confirm-delete"]');
+        if (!confirm) throw new Error('Removal confirmation was not rendered');
+        await act(async () => {
+            confirm.click();
+            await Promise.resolve();
+        });
+    }
+
+    it('removes a confirmed alias and keeps the principal selected after reloading the catalog', async () => {
+        mocks.fetchCatalog
+            .mockResolvedValueOnce({ active_path: '/vaults/main', vaults: [principal, alias] })
+            .mockResolvedValueOnce({ active_path: '/vaults/main', vaults: [principal] });
+        mocks.deleteVault.mockResolvedValue({ status: 'success', deleted: 'alias' });
+        await confirmAliasRemoval();
+        expect(mocks.deleteVault).toHaveBeenCalledWith('alias');
+        expect(container.textContent).not.toContain('Main Vault');
+        expect(container.querySelector('button[aria-pressed="true"]')?.textContent).toBe('Principal');
+        expect(mocks.navigate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['You cannot delete the active vault; switch to another vault first', 'delete_active_error'],
+        ['You cannot delete the primary vault', 'delete_primary_error'],
+        ['vault_switcher.delete_shared_files_error', 'delete_shared_files_error'],
+    ])('localizes the deletion rejection: %s', async (message, key) => {
+        mocks.fetchCatalog.mockResolvedValue({ active_path: '/vaults/main', vaults: [principal, alias] });
+        mocks.deleteVault.mockRejectedValue(new Error(message));
+        await confirmAliasRemoval();
+        expect(container.textContent).toContain(`vault_switcher.${key}`);
+        expect(container.textContent).toContain('Main Vault');
+        expect(container.querySelector('[data-testid="confirm-delete"]')).toBeNull();
+    });
+
     it('loads, persists, and switches through canonical vault routing', async () => {
         await act(async () => {
             root.render(<VaultSwitcher />);

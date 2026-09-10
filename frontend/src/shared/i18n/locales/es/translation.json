@@ -5575,6 +5575,9 @@
     "unavailable_title": "(no disponible)"
   },
   "vault_switcher": {
+    "delete_active_error": "No puedes retirar el vault activo. Cambia primero a otro vault.",
+    "delete_primary_error": "No puedes retirar la última entrada del vault principal.",
+    "delete_shared_files_error": "No se pueden borrar estos archivos porque otro vault registrado todavía los utiliza.",
     "active_vault": "Vault activo",
     "delete_tooltip": "Elimina este vault del registro",
     "new_vault": "Nuevo vault",

@@ -98393,7 +98393,7 @@
     },
     "/api/vaults/{vault_id}": {
       "delete": {
-        "description": "Delete a vault registration and optionally its files with `delete_files=true`.\n\nThe active vault and the main vault cannot be deleted.",
+        "description": "Delete a vault registration and optionally its files with `delete_files=true`.\n\nProtect the selected identity and the last primary registration. An inactive\nalias can be unregistered without touching its shared folder or artifacts.",
         "operationId": "delete_vault_api_vaults__vault_id__delete",
         "parameters": [
           {

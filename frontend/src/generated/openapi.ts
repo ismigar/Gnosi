@@ -9512,7 +9512,8 @@ export interface paths {
          * Delete Vault
          * @description Delete a vault registration and optionally its files with `delete_files=true`.
          *
-         *     The active vault and the main vault cannot be deleted.
+         *     Protect the selected identity and the last primary registration. An inactive
+         *     alias can be unregistered without touching its shared folder or artifacts.
          */
         delete: operations["delete_vault_api_vaults__vault_id__delete"];
         options?: never;

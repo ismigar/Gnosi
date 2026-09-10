@@ -5367,6 +5367,9 @@
     "unavailable_title": "(not available)"
   },
   "vault_switcher": {
+    "delete_active_error": "You cannot remove the active vault. Switch to another vault first.",
+    "delete_primary_error": "You cannot remove the last registration of the primary vault.",
+    "delete_shared_files_error": "These files cannot be deleted because another registered vault still uses them.",
     "active_vault": "Active vault",
     "delete_tooltip": "Remove this vault from the registry",
     "new_vault": "New vault",

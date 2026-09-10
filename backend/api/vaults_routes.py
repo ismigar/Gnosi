@@ -166,6 +166,20 @@ def _ensure_main_vault(db: Session, ws_id: str, default_path: Path) -> Vault | N
     return v
 
 
+def _selected_vault(request: Request, rows: list[Vault], active_path: str) -> Vault | None:
+    """Use the same registry identity for selection and deletion protection."""
+    requested_id = (
+        request.headers.get("x-vault-id")
+        or request.query_params.get("vault")
+        or request.cookies.get("gnosi_active_vault")
+    )
+    candidates = [v for v in rows if (v.path_override or "") == active_path]
+    return next(
+        (v for v in candidates if v.id == requested_id),
+        candidates[0] if candidates else None,
+    )
+
+
 @router.get("", response_model=VaultListResponse)
 def list_vaults(
     request: Request,
@@ -184,15 +198,7 @@ def list_vaults(
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
     # Legacy registry aliases can share a folder. Only the requested identity
     # should be checked, with one deterministic fallback when no ID is supplied.
-    requested_id = (
-        request.headers.get("x-vault-id")
-        or request.query_params.get("vault")
-        or request.cookies.get("gnosi_active_vault")
-    )
-    candidates = [v for v in rows if (v.path_override or "") == active]
-    selected = next((v for v in candidates if v.id == requested_id), None)
-    if selected is None and candidates:
-        selected = candidates[0]
+    selected = _selected_vault(request, rows, active)
     vaults = [
         VaultSummaryResponse(
             id=v.id,
@@ -307,25 +313,42 @@ def rename_vault(
 )
 def delete_vault(
     vault_id: str,
+    request: Request,
     delete_files: bool = Query(default=False),
     ctx: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
 ) -> dict[str, str]:
     """Delete a vault registration and optionally its files with `delete_files=true`.
 
-    The active vault and the main vault cannot be deleted.
+    Protect the selected identity and the last primary registration. An inactive
+    alias can be unregistered without touching its shared folder or artifacts.
     """
     v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
     if not v:
         raise HTTPException(status_code=404, detail="Vault no trobat")
     default = str(_default_vault_path())
-    if (v.path_override or "") == str(ctx.vault_path):
+    rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
+    selected = _selected_vault(request, rows, str(ctx.vault_path))
+    aliases = (
+        db.query(Vault)
+        .filter(Vault.id != v.id, Vault.path_override == v.path_override)
+        .all()
+        if v.path_override else []
+    )
+    removable_alias = not delete_files and any(
+        alias.workspace_id == ctx.workspace_id for alias in aliases
+    )
+    if (v.path_override or "") == str(ctx.vault_path) and (
+        not removable_alias or selected is None or selected.id == v.id
+    ):
         raise HTTPException(
             status_code=400,
             detail="You cannot delete the active vault; switch to another vault first",
         )
-    if (v.path_override or "") == default:
+    if (v.path_override or "") == default and not removable_alias:
         raise HTTPException(status_code=400, detail="You cannot delete the primary vault")
+    if delete_files and aliases:
+        raise HTTPException(status_code=409, detail="vault_switcher.delete_shared_files_error")
     vpath = Path(v.path_override) if v.path_override else None
     db.delete(v)
     try:
@@ -345,7 +368,8 @@ def delete_vault(
                 shutil.rmtree(p)
         except Exception:  # noqa: BLE001
             pass
-    _purge_vault_artifacts(vpath, delete_files=delete_files)
+    if not aliases:
+        _purge_vault_artifacts(vpath, delete_files=delete_files)
     try:
         from backend.services.active_vault_middleware import reset_vault_path_cache
 
