@@ -537,3 +537,5 @@ signature locale gratuite reste utilisée et ne vaut pas notarisation Apple.
 Les instructions d’installation figurent dans `desktop/README.md`.
 
 La release `3.0.1` prépare la correction intégrée de l’installation de bureau pour de nouveaux paquets natifs sur les quatre plateformes. La préparation garde le catalogue non publié, conserve les deux fichiers de dépendances verrouillées et ne remplace aucun fichier de `3.0.0`. La distribution gratuite avec signature locale macOS est maintenue.
+
+La version du backend et le contrat OpenAPI généré doivent correspondre aux manifestes préparés ; la validation de la release vérifie leur égalité avant de générer les paquets.

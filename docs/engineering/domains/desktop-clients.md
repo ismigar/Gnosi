@@ -455,3 +455,5 @@ default and does not imply Apple notarization. See the installation steps in
 `desktop/README.md`.
 
 Release `3.0.1` prepares the integrated desktop installation repair for fresh native builds on all four targets. Version preparation keeps the catalog unpublished, preserves both frozen locks, and does not replace any `3.0.0` artifact. Free ad-hoc macOS signing remains the distribution policy.
+
+The backend application version and generated OpenAPI contract must match the prepared manifests; the release gate checks their equality before packaging.

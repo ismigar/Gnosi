@@ -142,6 +142,8 @@ test('private desktop port coexists with an occupied native listener', async t =
   }).listen(Number(process.env.BACKEND_PORT), '127.0.0.1');`;
   const handle = await launchBackend(childOptions(t, script, port, {
     environment: { BACKEND_PORT: String(port) },
+    // Real socket scheduling under native build load needs a realistic budget.
+    startupTimeoutMs: 5000, requestTimeoutMs: 1000,
   }));
   assert.equal(await handle.isRunning(), true);
   await handle.stop();

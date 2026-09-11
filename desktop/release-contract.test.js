@@ -130,14 +130,19 @@ function ownedSnapshot(root) {
   ].map((relative) => fs.readFileSync(path.join(root, relative), 'utf8'));
 }
 
-test('checked-in 3.0.0 metadata remains unpublished until explicit promotion', () => {
+test('checked-in release metadata matches the prepared application version', () => {
   const releases = JSON.parse(fs.readFileSync(path.join(sourceRoot,
     'frontend/src/features/control-center/releases/releases.json'), 'utf8'));
-  assert.equal(releases[0].version, '3.0.0');
-  assert.equal(releases[0].channel, 'prerelease');
-  assert.equal(Object.hasOwn(releases[0], 'downloadUrl'), false);
-  assert.match(fs.readFileSync(path.join(sourceRoot, 'CHANGELOG.md'), 'utf8'),
-    /## Gnosi 3\.0\.0\n\n_2026-09-02 · Release candidate_/);
+  const version = JSON.parse(fs.readFileSync(path.join(sourceRoot, 'package.json'), 'utf8')).version;
+  assert.equal(releases[0].version, version);
+  const result = run(process.execPath, [path.join(sourceRoot, 'frontend/scripts/release-notes.mjs'), '--check']);
+  assert.equal(result.status, 0, result.stderr);
+  if (releases[0].channel === 'prerelease') {
+    assert.equal(Object.hasOwn(releases[0], 'downloadUrl'), false);
+  } else {
+    assert.equal(releases[0].channel, 'stable');
+    assert.equal(releases[0].downloadUrl, `https://github.com/ismigar/Gnosi/releases/tag/v${version}`);
+  }
 });
 
 test('prepare is transactional, leaves locks untouched and never invokes dependency tools', (t) => {
