@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'docs/learn/**'
+      - 'docs/learn-overrides/**'
+      - 'desktop/help-links.json'
+      - 'scripts/check_learn.py'
       - 'docs/engineering/**'
       - 'docs/engineering-ca/**'
       - 'docs/engineering-es/**'
@@ -52,6 +56,14 @@ jobs:
           uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-ca.yml
           uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-es.yml
           uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-fr.yml
+      - name: Validate user help
+        run: uv run --frozen --only-group docs python scripts/check_learn.py
+      - name: Build localized help portals
+        run: |
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-learn.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-learn-ca.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-learn-es.yml
+          uv run --frozen --only-group docs mkdocs build --strict --config-file mkdocs-learn-fr.yml
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -10,9 +10,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
-| Playwright | 24 | 82 |
-| Vitest | 536 | 2234 |
-| pytest | 527 | 3711 |
+| Playwright | 25 | 83 |
+| Vitest | 538 | 2239 |
+| pytest | 527 | 3712 |
 
 ## Archivos
 
@@ -25,6 +25,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Playwright | [`tests/e2e/tests/accessibility/accessibility.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/accessibility/accessibility.spec.ts) | 5 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/anon/page-outline.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/page-outline.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/anon/smoke.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/anon/smoke.spec.ts) | 5 | call-pattern estimate |
+| Playwright | [`tests/e2e/tests/disposable/help-menu.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/help-menu.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/knowledge-progressive-load.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/knowledge-progressive-load.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/mail-message-preview.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/mail-message-preview.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`tests/e2e/tests/disposable/mail-thread-completeness.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/tests/e2e/tests/disposable/mail-thread-completeness.spec.ts) | 2 | call-pattern estimate |
@@ -52,6 +53,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/app/integration/useFileLinkInterceptor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/integration/useFileLinkInterceptor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/app/navigation/AppSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/AppSidebar.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/app/navigation/CommandPalette.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/CommandPalette.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/app/navigation/sidebar/HelpMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/HelpMenu.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/app/outline/pageOutlineModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/pageOutlineModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/app/routePreload.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routePreload.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/app/shellPages.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/shellPages.test.tsx) | 2 | call-pattern estimate |
@@ -515,6 +517,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/graph/viewer/GraphViewer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/GraphViewer.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/graph/viewer/graphViewerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/graphViewerModel.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/graph/viewer/graphViewerPhysics.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/graphViewerPhysics.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/help/helpLinks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/help/helpLinks.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/hooks/useActiveVaultName.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultName.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/hooks/useFocusModality.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useFocusModality.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/hooks/useModalKeyboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useModalKeyboard.test.tsx) | 4 | call-pattern estimate |
@@ -1083,7 +1086,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generator_compatibility.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_generator_compatibility.py) | 1 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_localize.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_localize.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_pre_pr.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_pre_pr.py) | 4 | Python AST |
-| pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 19 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_publication.py) | 20 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_reviewed_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_reviewed_contracts.py) | 14 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_validate.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/translate_page/scripts/test_markdown_segmenter.py`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 44 | Python AST |

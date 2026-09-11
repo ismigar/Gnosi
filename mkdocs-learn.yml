@@ -1,0 +1,65 @@
+site_name: Gnosi Help Center
+site_description: Choose a guide for the task you want to complete. Search by a feature
+  name or a question.
+site_url: https://gnosi.temenosismael.org/Gnosi/learn/
+docs_dir: docs/learn/en
+site_dir: site/learn/
+strict: true
+theme:
+  name: material
+  custom_dir: docs/learn-overrides
+  language: en
+  font: false
+  features:
+  - navigation.indexes
+  - navigation.sections
+  - navigation.top
+  - navigation.footer
+  - search.highlight
+  - search.suggest
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: indigo
+    accent: teal
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: indigo
+    accent: teal
+plugins:
+- search:
+    lang: en
+markdown_extensions:
+- attr_list
+- md_in_html
+- toc:
+    permalink: true
+nav:
+- Gnosi Help Center: index.md
+- Start here:
+  - Install Gnosi and take your first steps: getting-started.md
+  - Workspaces, Vaults and sharing: workspaces.md
+- Research and knowledge:
+  - Create pages, links and attachments: pages-files.md
+  - Organize records and plan work: databases-planning.md
+  - Explore links and create a genogram: graph-genograms.md
+  - Capture sources, read and cite: reading-references.md
+  - Ask questions about selected sources: notebooks.md
+  - Configure an agent and a model: agents-models.md
+- Connected work:
+  - Use mail, calendar and contacts: mail-calendar-contacts.md
+  - Prepare media and publish content: publishing-media.md
+  - Enable plugins, connect services and automate: integrations-automations.md
+- Questions and recovery:
+  - Frequently asked questions and recovery: troubleshooting.md
+extra:
+  learn_root: /Gnosi/learn/
+  locale: en
+  language_label: Language
+  website_label: Gnosi website
+  website_path: /
+  languages:
+    en: English
+    ca: Català
+    es: Español
+    fr: Français

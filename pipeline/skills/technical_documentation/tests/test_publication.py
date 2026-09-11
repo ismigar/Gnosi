@@ -1,5 +1,6 @@
 """Publication contracts for the canonical Gnosi repository."""
 
+import json
 from pathlib import Path
 import shlex
 from typing import TypeAlias
@@ -12,7 +13,7 @@ APP_ROOT = Path(__file__).resolve().parents[4]
 CI_WORKFLOW = APP_ROOT / ".github/workflows/ci.yml"
 PAGES_WORKFLOW = APP_ROOT / ".github/workflows/documentation-pages.yml"
 RELEASE_WORKFLOW = APP_ROOT / ".github/workflows/build-release.yml"
-SIDEBAR_SOURCE = APP_ROOT / "frontend/src/app/navigation/sidebar/appSidebarModel.ts"
+HELP_CATALOG = APP_ROOT / "desktop/help-links.json"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
 WorkflowMapping: TypeAlias = dict[str | bool, object]
 TRUSTED_PR_IF = (
@@ -554,10 +555,13 @@ def test_pages_localization_check_is_fatal_read_only_and_precedes_builds() -> No
 def test_sidebar_uses_the_canonical_public_url() -> None:
     """The in-app entry and MkDocs canonical URL remain aligned."""
     mkdocs_config = (APP_ROOT / "mkdocs.yml").read_text(encoding="utf-8")
-    sidebar_source = SIDEBAR_SOURCE.read_text(encoding="utf-8")
+    catalog = json.loads(HELP_CATALOG.read_text(encoding="utf-8"))
 
     assert f"site_url: {CANONICAL_URL}" in mkdocs_config
-    assert CANONICAL_URL in sidebar_source
+    assert catalog['origin'] + '/engineering/' == CANONICAL_URL
+    assert catalog['engineeringPath'] == '/Gnosi/engineering/'
+    assert catalog['learnPath'] == '/Gnosi/learn/'
+    assert catalog['locales'] == ['en', 'ca', 'es', 'fr']
 
 
 def test_release_uses_frozen_toolchains_and_desktop_paths() -> None:
@@ -579,3 +583,16 @@ def test_release_uses_frozen_toolchains_and_desktop_paths() -> None:
     if not isinstance(windows_needs, (str, list)):
         raise TypeError("Expected a job name or list of job names")
     assert "build-macos" in windows_needs
+
+
+def test_help_quality_uses_trusted_self_hosted_runner() -> None:
+    workflow = workflow_mapping(yaml.safe_load(
+        (APP_ROOT / '.github/workflows/learn-quality.yml').read_text()
+    ))
+    job = workflow_job(workflow, 'help')
+    assert job['runs-on'] == ['self-hosted', 'Linux', 'ARM64']
+    assert job['if'] == 'github.event.pull_request.head.repo.full_name == github.repository'
+    source = (APP_ROOT / '.github/workflows/learn-quality.yml').read_text()
+    assert 'uv sync --frozen --only-group docs' in source
+    assert 'uv run --frozen --only-group docs' in source
+    assert 'deploy-pages' not in source

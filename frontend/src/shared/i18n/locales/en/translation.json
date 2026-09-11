@@ -40,7 +40,9 @@
     "zoom": "Zoom",
     "bringAllToFront": "Bring All to Front",
     "help": "Help",
-    "documentation": "Gnosi Documentation"
+    "documentation": "Engineering documentation",
+    "helpCenter": "Help center",
+    "gettingStarted": "Getting started"
   },
   "search_placeholder": "Search nodes...",
   "filter_by_kind": "Filter by Kind",
@@ -6549,5 +6551,12 @@
       "stillborn": "Stillborn"
     },
     "conflict": "The data has changed. Close the form and refresh the view before editing again."
+  },
+  "help": {
+    "menu": "Help",
+    "center": "Help center",
+    "getting_started": "Getting started",
+    "this_section": "Help with this section",
+    "engineering": "Engineering documentation"
   }
 }

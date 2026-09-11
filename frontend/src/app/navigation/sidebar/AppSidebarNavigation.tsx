@@ -1,7 +1,6 @@
 import type { RefObject } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-    CircleHelp,
     Gauge,
     LogOut,
     PanelTopOpen,
@@ -11,9 +10,9 @@ import { useTranslation } from 'react-i18next';
 
 import { legacyBrowserPathToCanonical } from '../../../shared/routing/vaultRouting';
 import { preloadApplicationRoute } from '../../routePreload';
+import { HelpMenu } from './HelpMenu';
 import VaultMenu from '../../../features/vault-management/VaultMenu';
 import {
-    ENGINEERING_DOCUMENTATION_URL,
     type SidebarNavItem,
 } from './appSidebarModel';
 
@@ -104,19 +103,7 @@ export function SidebarFooter({
     const { t } = useTranslation();
     return <div className="app-sidebar__footer">
         {isPersonal ? <VaultMenu /> : null}
-        <a
-            href={ENGINEERING_DOCUMENTATION_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={t('sidebar.nav_documentation', 'Engineering documentation')}
-            aria-label={t('sidebar.nav_documentation', 'Engineering documentation')}
-            className="app-sidebar__item"
-        >
-            <CircleHelp size={16} strokeWidth={1.5} />
-            <span className="app-sidebar__tooltip">
-                <span>{t('sidebar.nav_documentation', 'Engineering documentation')}</span>
-            </span>
-        </a>
+        <HelpMenu onSelect={onSelect} />
         <NavLink
             to="/dashboard"
             title={t('sidebar.nav_dashboard')}

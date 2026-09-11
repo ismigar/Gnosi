@@ -1,0 +1,31 @@
+name: User help quality
+on:
+  pull_request:
+    paths:
+      - 'docs/learn/**'
+      - 'docs/learn-overrides/**'
+      - 'mkdocs-learn*.yml'
+      - 'desktop/help-links.json'
+      - 'scripts/check_learn.py'
+      - '.github/workflows/learn-quality.yml'
+jobs:
+  help:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.15'
+      - run: uv sync --frozen --only-group docs
+      - run: uv run --frozen --only-group docs python scripts/check_learn.py
+      - name: Build all help languages
+        run: |
+          for config in mkdocs-learn.yml mkdocs-learn-ca.yml mkdocs-learn-es.yml mkdocs-learn-fr.yml; do
+            uv run --frozen --only-group docs mkdocs build --strict --config-file "$config"
+          done

@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AppSidebar, ENGINEERING_DOCUMENTATION_URL } from './AppSidebar';
+import { AppSidebar } from './AppSidebar';
 import { normalizeSidebarPreferences, orderSidebarItems } from './appSidebarNavigation';
 import { storageSet } from '../../shared/api/vault-context';
 import { emitAppEvent } from '../../shared/platform/app-events';
@@ -22,6 +22,7 @@ const systemApi = vi.hoisted(() => ({ fetchSystemHealth: vi.fn() }));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string, fallback?: string) => fallback || key,
+        i18n: { language: 'en' },
     }),
 }));
 
@@ -130,7 +131,9 @@ describe('AppSidebar documentation access', () => {
 
         await renderSidebar(root);
 
-        const link = container.querySelector(`a[href="${ENGINEERING_DOCUMENTATION_URL}"]`);
+        const help = container.querySelector<HTMLButtonElement>('[aria-label="Help"]');
+        await act(async () => { help?.click(); });
+        const link = container.querySelector('a[href="https://gnosi.temenosismael.org/Gnosi/engineering/"]');
         expect(link).not.toBeNull();
         expect(link?.getAttribute('target')).toBe('_blank');
         expect(link?.getAttribute('rel')).toContain('noopener');

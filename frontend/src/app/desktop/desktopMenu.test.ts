@@ -21,18 +21,18 @@ describe('desktop application menu integration', () => {
         expect(labels.settings).toBe('translated:desktop_menu.settings');
         expect(labels.newWindow).toBe('translated:desktop_menu.newWindow');
         expect(labels.documentation).toBe('translated:desktop_menu.documentation');
-        expect(Object.keys(labels)).toHaveLength(34);
+        expect(Object.keys(labels)).toHaveLength(36);
     });
 
     it('sends translated labels only when the Electron bridge exists', async () => {
-        const i18n = { t: (key: string) => key };
+        const i18n = { t: (key: string) => key, language: 'ca' };
         expect(await syncDesktopApplicationMenu(i18n)).toBe(false);
 
         const setApplicationMenu = vi.fn().mockResolvedValue(true);
         window.electronAPI = { setApplicationMenu };
         expect(await syncDesktopApplicationMenu(i18n)).toBe(true);
         expect(setApplicationMenu).toHaveBeenCalledWith(
-            expect.objectContaining({ settings: 'desktop_menu.settings' }),
+            expect.objectContaining({ settings: 'desktop_menu.settings' }), 'ca',
         );
     });
 

@@ -1,0 +1,66 @@
+site_name: Centre d’ajuda de Gnosi
+site_description: Tria una guia per a la tasca que vols fer. Cerca pel nom d’una funció
+  o amb una pregunta.
+site_url: https://gnosi.temenosismael.org/Gnosi/learn/ca/
+docs_dir: docs/learn/ca
+site_dir: site/learn/ca/
+strict: true
+theme:
+  name: material
+  custom_dir: docs/learn-overrides
+  language: ca
+  font: false
+  features:
+  - navigation.indexes
+  - navigation.sections
+  - navigation.top
+  - navigation.footer
+  - search.highlight
+  - search.suggest
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: indigo
+    accent: teal
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: indigo
+    accent: teal
+plugins:
+- search:
+    # Lunr has no Catalan stemmer; the Catalan index uses its default tokenizer.
+    lang: en
+markdown_extensions:
+- attr_list
+- md_in_html
+- toc:
+    permalink: true
+nav:
+- Centre d’ajuda de Gnosi: index.md
+- Comença aquí:
+  - Instal·la Gnosi i fes els primers passos: getting-started.md
+  - Espais de treball, Vaults i compartició: workspaces.md
+- Recerca i coneixement:
+  - Crea pàgines, enllaços i adjunts: pages-files.md
+  - Organitza registres i planifica la feina: databases-planning.md
+  - Explora enllaços i crea un genograma: graph-genograms.md
+  - Captura fonts, llegeix i cita: reading-references.md
+  - Pregunta sobre les fonts seleccionades: notebooks.md
+  - Configura un agent i un model: agents-models.md
+- Treball connectat:
+  - Utilitza correu, calendari i contactes: mail-calendar-contacts.md
+  - Prepara multimèdia i publica contingut: publishing-media.md
+  - Activa complements, connecta serveis i automatitza: integrations-automations.md
+- Dubtes i recuperació:
+  - Preguntes freqüents i recuperació: troubleshooting.md
+extra:
+  learn_root: /Gnosi/learn/
+  locale: ca
+  language_label: Idioma
+  website_label: Web de Gnosi
+  website_path: /index.ca.html
+  languages:
+    en: English
+    ca: Català
+    es: Español
+    fr: Français

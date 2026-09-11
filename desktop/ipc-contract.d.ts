@@ -35,7 +35,7 @@ export interface DesktopRequestMap {
   'download-update': { args: []; result: DesktopUpdateState };
   'install-update': { args: []; result: DesktopUpdateState };
   'set-application-menu': {
-    args: [payload?: { readonly labels?: ApplicationMenuLabels }];
+    args: [payload?: { readonly labels?: ApplicationMenuLabels; readonly locale?: string }];
     result: boolean;
   };
   'open-form-filler': {
@@ -86,7 +86,7 @@ export interface DesktopIpcDependencies extends FormFillerDependencies {
   readonly getBackendStatus: () => Promise<BackendStatus>;
   readonly getUpdateState: () => DesktopUpdateState;
   readonly publishUpdateState: (patch: Partial<DesktopUpdateState>) => void;
-  readonly installApplicationMenu: (labels?: ApplicationMenuLabels) => void;
+  readonly installApplicationMenu: (labels?: ApplicationMenuLabels, locale?: string) => void;
   readonly buildMacInstallerUrl: (version: string | undefined) => string;
   readonly openExternal: (url: string) => Promise<void>;
   readonly downloadUpdate: () => Promise<unknown>;
@@ -100,7 +100,7 @@ export interface GnosiElectronApi {
   readonly getUpdateStatus: DesktopInvoke<'get-update-status'>;
   readonly downloadUpdate: DesktopInvoke<'download-update'>;
   readonly installUpdate: DesktopInvoke<'install-update'>;
-  readonly setApplicationMenu: (labels: ApplicationMenuLabels) => Promise<DesktopRequestResult<'set-application-menu'>>;
+  readonly setApplicationMenu: (labels: ApplicationMenuLabels, locale?: string) => Promise<DesktopRequestResult<'set-application-menu'>>;
   readonly openFormFiller: (url: string, profile: unknown) => Promise<DesktopRequestResult<'open-form-filler'>>;
   readonly onUpdateStatus: (callback: (state: DesktopUpdateState) => void) => DesktopSubscription;
   readonly removeUpdateListener: () => void;

@@ -92,7 +92,7 @@ const electronAPI = {
   getUpdateStatus: () => invoke('get-update-status', readUpdateState),
   downloadUpdate: () => invoke('download-update', readUpdateState),
   installUpdate: () => invoke('install-update', readUpdateState),
-  setApplicationMenu: (labels) => invoke('set-application-menu', readBoolean, { labels }),
+  setApplicationMenu: (labels, locale) => invoke('set-application-menu', readBoolean, { labels, ...(locale === undefined ? {} : { locale }) }),
   openFormFiller: (url, profile) => invoke('open-form-filler', readVoid, { url, profile }),
   
   onUpdateStatus: (callback) => {
