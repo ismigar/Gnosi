@@ -1,5 +1,15 @@
 # Gnosi changelog
 
+## Gnosi 3.0.1
+
+_2026-09-11 · Release candidate_
+
+### Fixes
+
+- The desktop app now starts when another local service uses its usual port, and consistently opens its initial window.
+- Opening Gnosi again restores a main window after the previous window has been closed.
+- Corrected the application logo and made the macOS installer compact, with a plain background and no oversized central logo.
+
 ## Gnosi 3.0.0
 
 _2026-09-02 · Release candidate_

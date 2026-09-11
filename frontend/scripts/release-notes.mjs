@@ -109,7 +109,7 @@ function renderPublicRelease(release, translation) {
     '- **Windows** → `*-Setup.exe`',
     '- **Linux (ARM64)** → `*-arm64.AppImage` or `*-arm64.deb`',
     '',
-    '> The binaries are unsigned. On macOS: right-click the app → **Open**. On Windows: **More info → Run anyway**.',
+    '> macOS uses free ad-hoc signing and is not notarized by Apple. If macOS cannot verify Gnosi, follow [Apple’s first-launch instructions](https://support.apple.com/en-us/102445) for the specific app. Windows installers may show SmartScreen warnings.',
     '',
   ].join('\n');
 }

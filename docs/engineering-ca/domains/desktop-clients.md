@@ -510,3 +510,7 @@ Els traçats del favicon, independents de les fonts, generen les icones a
 disc a l’escriptori desapareix en expulsar-lo; no és un accés directe. Es manté
 la signatura local gratuïta, que no equival a la notarització d’Apple. Les
 instruccions d’instal·lació són a `desktop/README.md`.
+
+La release `3.0.1` prepara la correcció integrada de la instal·lació d’escriptori per generar nous paquets natius a les quatre plataformes. La preparació manté el catàleg sense publicar, conserva els dos fitxers de dependències fixades i no substitueix cap fitxer de `3.0.0`. Es manté la distribució gratuïta amb signatura local de macOS.
+
+La versió del backend i el contracte OpenAPI generat han de coincidir amb els manifests preparats; la validació de la release en comprova la igualtat abans de generar els paquets.

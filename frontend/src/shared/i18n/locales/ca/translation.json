@@ -6055,6 +6055,13 @@
           "updates": "Inclou les bases de detecció i instal·lació d'actualitzacions d'escriptori.",
           "plugins": "Les versions inclouen els paquets oficials de plugins i el seu índex de distribució."
         }
+      },
+      "v3_0_1": {
+        "fixes": {
+          "desktop_startup": "L’aplicació d’escriptori ara arrenca quan un altre servei local ocupa el port habitual i obre correctament la finestra inicial.",
+          "window_reopening": "Tornar a obrir Gnosi recupera una finestra principal després de tancar l’anterior.",
+          "installer_artwork": "S’ha corregit el logo de l’aplicació i s’ha fet compacte l’instal·lador de macOS, amb un fons llis i sense el logo central sobredimensionat."
+        }
       }
     }
   },

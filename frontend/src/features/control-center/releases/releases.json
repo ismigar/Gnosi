@@ -1,5 +1,19 @@
 [
   {
+    "version": "3.0.1",
+    "date": "2026-09-11",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v3_0_1.fixes.desktop_startup",
+        "release_notes.entries.v3_0_1.fixes.window_reopening",
+        "release_notes.entries.v3_0_1.fixes.installer_artwork"
+      ]
+    }
+  },
+  {
     "version": "3.0.0",
     "date": "2026-09-02",
     "channel": "prerelease",

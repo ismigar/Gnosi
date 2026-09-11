@@ -6055,6 +6055,13 @@
           "updates": "Les bases de la détection et de l'installation des mises à jour de bureau sont incluses.",
           "plugins": "Les versions incluent les paquets officiels des plugins et leur index de distribution."
         }
+      },
+      "v3_0_1": {
+        "fixes": {
+          "desktop_startup": "L’application de bureau démarre désormais lorsqu’un autre service local occupe son port habituel et ouvre correctement sa fenêtre initiale.",
+          "window_reopening": "Relancer Gnosi rétablit une fenêtre principale après la fermeture de la précédente.",
+          "installer_artwork": "Le logo de l’application a été corrigé et l’installeur macOS est désormais compact, avec un fond uni sans grand logo central."
+        }
       }
     }
   },
