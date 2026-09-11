@@ -521,3 +521,5 @@ Los trazados del favicon, independientes de las fuentes, generan los iconos en
 del escritorio desaparece al expulsarlo; no es un acceso directo. Se mantiene
 la firma local gratuita, que no equivale a la notarización de Apple. Las
 instrucciones de instalación están en `desktop/README.md`.
+
+La release `3.0.1` prepara la corrección integrada de la instalación de escritorio para generar nuevos paquetes nativos en las cuatro plataformas. La preparación mantiene el catálogo sin publicar, conserva los dos archivos de dependencias fijadas y no sustituye ningún archivo de `3.0.0`. Se mantiene la distribución gratuita con firma local de macOS.
