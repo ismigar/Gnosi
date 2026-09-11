@@ -40,7 +40,9 @@
     "zoom": "Zoom",
     "bringAllToFront": "Porta-ho tot al davant",
     "help": "Ajuda",
-    "documentation": "Documentació de Gnosi"
+    "documentation": "Documentació tècnica",
+    "helpCenter": "Centre d’ajuda",
+    "gettingStarted": "Primers passos"
   },
   "search_placeholder": "Cerca nodes...",
   "filter_by_kind": "Filtrar per tipus",
@@ -6602,5 +6604,12 @@
       "stillborn": "Nascut sense vida"
     },
     "conflict": "Les dades han canviat. Tanca el formulari i actualitza la vista abans de tornar a editar."
+  },
+  "help": {
+    "menu": "Ajuda",
+    "center": "Centre d’ajuda",
+    "getting_started": "Primers passos",
+    "this_section": "Ajuda d’aquesta secció",
+    "engineering": "Documentació tècnica"
   }
 }

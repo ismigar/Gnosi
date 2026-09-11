@@ -35,9 +35,13 @@ const MENU_LABEL_KEYS = Object.freeze([
     'bringAllToFront',
     'help',
     'documentation',
+    'helpCenter',
+    'gettingStarted',
 ]);
 
 interface DesktopMenuTranslator {
+    readonly language?: string;
+    readonly resolvedLanguage?: string;
     t(key: string): string;
 }
 
@@ -53,7 +57,7 @@ export function getDesktopMenuLabels(i18n: DesktopMenuTranslator): Record<string
 
 export async function syncDesktopApplicationMenu(i18n: DesktopMenuTranslator): Promise<boolean> {
     if (!window.electronAPI?.setApplicationMenu) return false;
-    await window.electronAPI.setApplicationMenu(getDesktopMenuLabels(i18n));
+    await window.electronAPI.setApplicationMenu(getDesktopMenuLabels(i18n), i18n.resolvedLanguage || i18n.language);
     return true;
 }
 

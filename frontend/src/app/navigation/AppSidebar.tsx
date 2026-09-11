@@ -66,7 +66,6 @@ interface GlobalSettingsModalProps {
     };
 }
 
-export { ENGINEERING_DOCUMENTATION_URL } from './sidebar/appSidebarModel';
 
 const SIDEBAR_SETTINGS_ID = 'app-sidebar';
 

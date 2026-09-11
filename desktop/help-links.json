@@ -1,0 +1,50 @@
+{
+  "origin": "https://gnosi.temenosismael.org",
+  "learnPath": "/Gnosi/learn/",
+  "engineeringPath": "/Gnosi/engineering/",
+  "locales": [
+    "en",
+    "ca",
+    "es",
+    "fr"
+  ],
+  "topics": [
+    "getting-started",
+    "workspaces",
+    "pages-files",
+    "databases-planning",
+    "graph-genograms",
+    "reading-references",
+    "notebooks",
+    "agents-models",
+    "mail-calendar-contacts",
+    "publishing-media",
+    "integrations-automations",
+    "troubleshooting"
+  ],
+  "sections": {
+    "knowledge": "pages-files",
+    "graph": "graph-genograms",
+    "genograms": "graph-genograms",
+    "planning": "databases-planning",
+    "reader": "reading-references",
+    "resources": "reading-references",
+    "notebooks": "notebooks",
+    "agents": "agents-models",
+    "agent": "agents-models",
+    "mail": "mail-calendar-contacts",
+    "calendar": "mail-calendar-contacts",
+    "contacts": "mail-calendar-contacts",
+    "social": "publishing-media",
+    "media": "publishing-media",
+    "automations": "integrations-automations",
+    "integrations": "integrations-automations",
+    "workspaces": "workspaces",
+    "settings": "getting-started"
+  },
+  "knowledgeSections": {
+    "table": "databases-planning",
+    "document": "reading-references",
+    "pdf": "reading-references"
+  }
+}

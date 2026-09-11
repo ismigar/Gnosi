@@ -1,0 +1,65 @@
+site_name: Centre d’aide de Gnosi
+site_description: Choisissez un guide pour votre tâche. Recherchez le nom d’une fonction
+  ou posez une question.
+site_url: https://gnosi.temenosismael.org/Gnosi/learn/fr/
+docs_dir: docs/learn/fr
+site_dir: site/learn/fr/
+strict: true
+theme:
+  name: material
+  custom_dir: docs/learn-overrides
+  language: fr
+  font: false
+  features:
+  - navigation.indexes
+  - navigation.sections
+  - navigation.top
+  - navigation.footer
+  - search.highlight
+  - search.suggest
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: indigo
+    accent: teal
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: indigo
+    accent: teal
+plugins:
+- search:
+    lang: fr
+markdown_extensions:
+- attr_list
+- md_in_html
+- toc:
+    permalink: true
+nav:
+- Centre d’aide de Gnosi: index.md
+- Commencer ici:
+  - Installer Gnosi et faire ses premiers pas: getting-started.md
+  - Espaces de travail, Vaults et partage: workspaces.md
+- Recherche et connaissances:
+  - Créer des pages, des liens et des pièces jointes: pages-files.md
+  - Organiser les fiches et planifier le travail: databases-planning.md
+  - Explorer les liens et créer un génogramme: graph-genograms.md
+  - Collecter des sources, lire et citer: reading-references.md
+  - Interroger les sources sélectionnées: notebooks.md
+  - Configurer un agent et un modèle: agents-models.md
+- Travail connecté:
+  - Utiliser courrier, calendrier et contacts: mail-calendar-contacts.md
+  - Préparer les médias et publier: publishing-media.md
+  - Activer les extensions, connecter et automatiser: integrations-automations.md
+- Questions et récupération:
+  - Questions fréquentes et récupération: troubleshooting.md
+extra:
+  learn_root: /Gnosi/learn/
+  locale: fr
+  language_label: Langue
+  website_label: Site de Gnosi
+  website_path: /
+  languages:
+    en: English
+    ca: Català
+    es: Español
+    fr: Français

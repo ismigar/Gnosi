@@ -1,3 +1,5 @@
+const HELP_LINKS = require('./help-links.json');
+
 const DEFAULT_LABELS = Object.freeze({
   about: 'About Gnosi',
   checkForUpdates: 'Check for Updates…',
@@ -32,7 +34,9 @@ const DEFAULT_LABELS = Object.freeze({
   zoom: 'Zoom',
   bringAllToFront: 'Bring All to Front',
   help: 'Help',
-  documentation: 'Gnosi Documentation',
+  helpCenter: 'Help center',
+  gettingStarted: 'Getting started',
+  documentation: 'Engineering documentation',
 });
 
 function normalizeMenuLabels(labels) {
@@ -54,6 +58,8 @@ function createApplicationMenuTemplate({
   onCheckForUpdates = () => {},
   onNewWindow = () => {},
   onOpenDocumentation = () => {},
+  onOpenHelp = () => {},
+  onOpenGettingStarted = () => {},
   onOpenSettings = () => {},
 } = {}) {
   const text = normalizeMenuLabels(labels);
@@ -157,6 +163,8 @@ function createApplicationMenuTemplate({
     label: text.help,
     role: 'help',
     submenu: [
+      { label: text.helpCenter, click: onOpenHelp },
+      { label: text.gettingStarted, click: onOpenGettingStarted },
       { label: text.documentation, click: onOpenDocumentation },
       ...(!isMac && !isDev
         ? [
@@ -170,7 +178,16 @@ function createApplicationMenuTemplate({
   return template;
 }
 
+function documentationUrl(locale, topic = '', engineering = false) {
+  const base = typeof locale === 'string' ? locale.trim().toLowerCase().replaceAll('_', '-').split('-')[0] : 'en';
+  const language = HELP_LINKS.locales.includes(base) ? base : 'en';
+  const prefix = language === 'en' ? '' : `${language}/`;
+  const article = !engineering && HELP_LINKS.topics.includes(topic) ? `${topic}/` : '';
+  return `${HELP_LINKS.origin}${engineering ? HELP_LINKS.engineeringPath : HELP_LINKS.learnPath}${prefix}${article}`;
+}
+
 module.exports = {
+  documentationUrl,
   DEFAULT_LABELS,
   createApplicationMenuTemplate,
   normalizeMenuLabels,

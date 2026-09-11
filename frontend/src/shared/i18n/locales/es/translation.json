@@ -40,7 +40,9 @@
     "zoom": "Zoom",
     "bringAllToFront": "Traer todo al frente",
     "help": "Ayuda",
-    "documentation": "Documentación de Gnosi"
+    "documentation": "Documentación técnica",
+    "helpCenter": "Centro de ayuda",
+    "gettingStarted": "Primeros pasos"
   },
   "search_placeholder": "Buscar nodos...",
   "filter_by_kind": "Filtrar por tipo",
@@ -6602,5 +6604,12 @@
       "stillborn": "Nacido sin vida"
     },
     "conflict": "Los datos han cambiado. Cierra el formulario y actualiza la vista antes de volver a editar."
+  },
+  "help": {
+    "menu": "Ayuda",
+    "center": "Centro de ayuda",
+    "getting_started": "Primeros pasos",
+    "this_section": "Ayuda de esta sección",
+    "engineering": "Documentación técnica"
   }
 }

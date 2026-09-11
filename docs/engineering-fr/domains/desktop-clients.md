@@ -28,6 +28,9 @@ source_paths:
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
+  - desktop/help-links.json
+  - frontend/src/shared/help/helpLinks.ts
+  - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
   - desktop/preload.js
@@ -539,3 +542,20 @@ Les instructions d’installation figurent dans `desktop/README.md`.
 La release `3.0.1` prépare la correction intégrée de l’installation de bureau pour de nouveaux paquets natifs sur les quatre plateformes. La préparation garde le catalogue non publié, conserve les deux fichiers de dépendances verrouillées et ne remplace aucun fichier de `3.0.0`. La distribution gratuite avec signature locale macOS est maintenue.
 
 La version du backend et le contrat OpenAPI généré doivent correspondre aux manifestes préparés ; la validation de la release vérifie leur égalité avant de générer les paquets.
+
+## Aide aux utilisateurs
+
+Le menu Aide latéral ouvre le centre, les premiers pas, la section actuelle et
+la documentation technique dans le navigateur externe. Le menu natif propose le
+centre, les premiers pas et la documentation technique. La langue facultative de
+`set-application-menu` préserve la compatibilité ; le processus principal valide
+son type et normalise les variantes régionales et les langues indisponibles. Les
+deux clients utilisent `desktop/help-links.json` pour les destinations fixes et
+les sujets disponibles. Les URL ne contiennent ni identifiants de fiches, ni noms
+de Vaults, ni contenu privé. Les sections inconnues ouvrent l’accueil. Catalan,
+espagnol et français ont leurs chemins ; l’anglais sert de repli. Le menu participe
+à la pile de clavier modale pour qu’Échap ferme l’aide avant la barre latérale mobile.
+
+Les guides sont maintenus dans `docs/learn/` et construits séparément de la
+documentation technique. Publier et vérifier le portail avant de distribuer une
+version avec les nouveaux liens. Le site redirige `/learn/` vers `/Gnosi/learn/`.

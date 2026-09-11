@@ -28,6 +28,9 @@ source_paths:
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
+  - desktop/help-links.json
+  - frontend/src/shared/help/helpLinks.ts
+  - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
   - desktop/preload.js
@@ -525,3 +528,20 @@ instrucciones de instalación están en `desktop/README.md`.
 La release `3.0.1` prepara la corrección integrada de la instalación de escritorio para generar nuevos paquetes nativos en las cuatro plataformas. La preparación mantiene el catálogo sin publicar, conserva los dos archivos de dependencias fijadas y no sustituye ningún archivo de `3.0.0`. Se mantiene la distribución gratuita con firma local de macOS.
 
 La versión del backend y el contrato OpenAPI generado deben coincidir con los manifiestos preparados; la validación de la release comprueba su igualdad antes de generar los paquetes.
+
+## Ayuda al usuario
+
+El menú Ayuda lateral abre el centro, los primeros pasos, la sección actual y la
+documentación técnica en el navegador externo. El menú nativo ofrece el centro,
+los primeros pasos y la documentación técnica. El idioma opcional de
+`set-application-menu` conserva la compatibilidad; el proceso principal valida su
+tipo y normaliza variantes regionales e idiomas no disponibles. Ambos clientes
+usan `desktop/help-links.json` para destinos fijos y temas admitidos. Las URL no
+incluyen identificadores de registros, nombres de Vaults ni contenido privado.
+Las secciones desconocidas abren la portada. Catalán, castellano y francés tienen
+rutas propias; el inglés es la alternativa. El menú participa en la pila de
+teclado modal para que Escape cierre la ayuda antes que la barra lateral móvil.
+
+Las guías se mantienen en `docs/learn/` y se construyen por separado de la
+documentación técnica. Hay que publicar y verificar el portal antes de distribuir
+una versión con enlaces nuevos. El sitio redirige `/learn/` a `/Gnosi/learn/`.

@@ -148,6 +148,8 @@ environment precedence, mount selection and deployment validation.
 
 ## Architecture and documentation
 
+- User help: [Getting started and guides](https://gnosi.temenosismael.org/learn/)
+
 - Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - Contribution guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - Public engineering portal: [gnosi.temenosismael.org/engineering](https://gnosi.temenosismael.org/engineering/)

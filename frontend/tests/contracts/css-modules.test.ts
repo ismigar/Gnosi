@@ -84,12 +84,62 @@ function removeVerifiedMobileQuickAccessRule(root: Root): void {
   actual.remove();
 }
 
+function removeVerifiedHelpMenuRules(root: Root): void {
+  // Check the intentional help menu addition without changing the original
+  // extraction baseline or allowing unrelated sidebar styles to drift.
+  const addedRules = postcss.parse(`
+.app-help { position: relative; }
+.app-help__menu {
+  position: absolute;
+  inset-inline-start: calc(100% + 0.75rem);
+  bottom: 0;
+  z-index: calc(var(--z-overlay) + 3);
+  width: min(17rem, calc(100vw - 88px));
+  max-height: 70dvh;
+  overflow-y: auto;
+  padding: 0.375rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-raised);
+}
+.app-help__menu a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+.app-help__menu a svg { flex-shrink: 0; }
+.app-help__menu a:hover, .app-help__menu a:focus-visible {
+  background: var(--bg-secondary);
+  outline: 2px solid var(--accent-primary, #2563eb);
+  outline-offset: -2px;
+}`);
+  for (const expected of addedRules.nodes) {
+    if (expected.type !== 'rule') throw new Error('Expected help menu rule');
+    const matches = root.nodes.filter(node => node.type === 'rule' && node.selector === expected.selector);
+    expect(matches).toHaveLength(1);
+    const actual = matches[0];
+    if (!actual) throw new Error('Missing help menu rule');
+    expect(semantic(actual)).toEqual(semantic(expected));
+    actual.remove();
+  }
+}
+
 function extractionTree(entry: string): Root {
   const root = expand(resolve(frontend, entry));
   if (entry === 'src/app/styles/index.css') {
     // Verify the mobile control's exact scope, declarations and cascade position
     // before removing this reviewed addition from the immutable baseline check.
     removeVerifiedMobileQuickAccessRule(root);
+    removeVerifiedHelpMenuRules(root);
     // Assert the reviewed keyboard-focus changes before restoring only those
     // rules for comparison with the immutable extraction baseline.
     const addedRules = postcss.parse(`

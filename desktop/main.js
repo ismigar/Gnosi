@@ -19,7 +19,7 @@ try {
 
 let { autoUpdater } = require('electron-updater');
 const { SparkleUpdater } = require('./sparkle-updater');
-const { createApplicationMenuTemplate, normalizeMenuLabels } = require('./application-menu');
+const { createApplicationMenuTemplate, normalizeMenuLabels, documentationUrl } = require('./application-menu');
 const {
   getPackagedBackendEnvironment,
   getPackagedBackendExecutable,
@@ -63,7 +63,6 @@ let updateState = { status: 'idle', installMode: updateInstallMode };
 
 let backendPort = 5002;
 const FRONTEND_PORT = 5173;
-const DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
 function log(...args) {
   console.log(`[Main]`, new Date().toISOString(), ...args);
@@ -279,17 +278,20 @@ function checkForUpdatesFromMenu() {
   });
 }
 
-function installApplicationMenu(labels) {
+function installApplicationMenu(labels, locale = app.getLocale()) {
+  const openHelp = (topic = '', engineering = false) => {
+    void shell.openExternal(documentationUrl(locale, topic, engineering)).catch((err) => {
+      log('Failed to open help:', err.message);
+    });
+  };
   const template = createApplicationMenuTemplate({
     labels: normalizeMenuLabels(labels),
     isDev,
     onCheckForUpdates: checkForUpdatesFromMenu,
     onNewWindow: openMainWindow,
-    onOpenDocumentation: () => {
-      void shell.openExternal(DOCUMENTATION_URL).catch((err) => {
-        log('Failed to open documentation:', err.message);
-      });
-    },
+    onOpenHelp: () => openHelp(),
+    onOpenGettingStarted: () => openHelp('getting-started'),
+    onOpenDocumentation: () => openHelp('', true),
     onOpenSettings: () => sendToMainWindow('open-settings'),
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));

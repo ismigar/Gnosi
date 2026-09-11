@@ -23,7 +23,6 @@ export interface SidebarNavItem {
 }
 
 
-export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
 
 export const APP_SIDEBAR_ITEMS: readonly SidebarNavItem[] = [

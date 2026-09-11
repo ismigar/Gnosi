@@ -28,6 +28,9 @@ source_paths:
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
+  - desktop/help-links.json
+  - frontend/src/shared/help/helpLinks.ts
+  - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
   - desktop/preload.js
@@ -457,3 +460,20 @@ default and does not imply Apple notarization. See the installation steps in
 Release `3.0.1` prepares the integrated desktop installation repair for fresh native builds on all four targets. Version preparation keeps the catalog unpublished, preserves both frozen locks, and does not replace any `3.0.0` artifact. Free ad-hoc macOS signing remains the distribution policy.
 
 The backend application version and generated OpenAPI contract must match the prepared manifests; the release gate checks their equality before packaging.
+
+## User help
+
+The sidebar Help menu opens the help center, getting started, the current section
+and engineering documentation in an external browser. The native Help menu exposes
+the center, getting started and engineering documentation. The optional locale in
+`set-application-menu` preserves earlier callers; the main process validates its
+type and normalizes regional or unsupported languages. Both clients use
+`desktop/help-links.json` for fixed destinations and supported topics. Record IDs,
+Vault names and private content are never added to help URLs. Unknown sections
+open the help root. Catalan, Spanish and French use localized paths; English is
+the fallback. The popup participates in the modal keyboard stack so Escape closes
+help before the mobile sidebar.
+
+User guides are maintained under `docs/learn/` and built separately from
+engineering. Publish and verify the help portal before distributing a build with
+new help links. The website provides `/learn/` entry redirects to `/Gnosi/learn/`.

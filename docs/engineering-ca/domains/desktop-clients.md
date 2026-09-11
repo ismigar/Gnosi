@@ -28,6 +28,9 @@ source_paths:
   - backend/config/env_config.py
   - backend/server.py
   - desktop/application-menu.js
+  - desktop/help-links.json
+  - frontend/src/shared/help/helpLinks.ts
+  - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
   - desktop/preload.js
@@ -514,3 +517,20 @@ instruccions d’instal·lació són a `desktop/README.md`.
 La release `3.0.1` prepara la correcció integrada de la instal·lació d’escriptori per generar nous paquets natius a les quatre plataformes. La preparació manté el catàleg sense publicar, conserva els dos fitxers de dependències fixades i no substitueix cap fitxer de `3.0.0`. Es manté la distribució gratuïta amb signatura local de macOS.
 
 La versió del backend i el contracte OpenAPI generat han de coincidir amb els manifests preparats; la validació de la release en comprova la igualtat abans de generar els paquets.
+
+## Ajuda a l’usuari
+
+El menú Ajuda de la barra lateral obre el centre, els primers passos, la secció
+actual i la documentació tècnica al navegador extern. El menú natiu ofereix el
+centre, els primers passos i la documentació tècnica. L’idioma opcional de
+`set-application-menu` manté la compatibilitat; el procés principal en valida el
+tipus i normalitza les variants regionals i els idiomes no disponibles. Els dos
+clients utilitzen `desktop/help-links.json` per a destinacions fixes i temes
+admesos. Els URL d’ajuda no inclouen identificadors de registres, noms de Vaults
+ni contingut privat. Les seccions desconegudes obren la portada. Català, castellà
+i francès tenen rutes pròpies; l’anglès és l’alternativa. El menú participa en la
+pila de teclat modal perquè Escape tanqui l’ajuda abans que la barra lateral mòbil.
+
+Les guies es mantenen a `docs/learn/` i es construeixen separadament de la
+documentació tècnica. Cal publicar i verificar el portal abans de distribuir una
+versió amb els enllaços nous. El web redirigeix `/learn/` cap a `/Gnosi/learn/`.

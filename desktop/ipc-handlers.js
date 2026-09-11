@@ -25,8 +25,11 @@ function readMenuArgs(...args) {
   const payload = args[0];
   if (payload === undefined) return [];
   if (!isRecord(payload)) throw new TypeError('Invalid menu payload');
+  const locale = payload.locale;
+  if (locale !== undefined && typeof locale !== 'string') throw new TypeError('Invalid menu locale');
+  const localization = locale === undefined ? {} : { locale };
   const labels = payload.labels;
-  if (labels === undefined) return [{}];
+  if (labels === undefined) return [localization];
   if (!isRecord(labels)) throw new TypeError('Invalid menu labels');
   /** @type {Record<string, string>} */
   const decoded = {};
@@ -34,7 +37,7 @@ function readMenuArgs(...args) {
     if (typeof value !== 'string') throw new TypeError('Invalid menu label');
     Object.defineProperty(decoded, key, { value, enumerable: true });
   }
-  return [{ labels: decoded }];
+  return [{ labels: decoded, ...localization }];
 }
 
 /** @param {unknown} error @returns {string} */
@@ -180,7 +183,7 @@ function registerIpcHandlers(dependencies) {
   const handlers = {
     'get-app-version': () => dependencies.getAppVersion(),
     'set-application-menu': (payload = {}) => {
-      dependencies.installApplicationMenu(payload.labels);
+      dependencies.installApplicationMenu(payload.labels, payload.locale);
       return true;
     },
     'get-update-status': () => dependencies.getUpdateState(),
