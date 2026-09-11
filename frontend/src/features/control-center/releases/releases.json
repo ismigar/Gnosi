@@ -2,7 +2,7 @@
   {
     "version": "3.0.1",
     "date": "2026-09-11",
-    "channel": "prerelease",
+    "channel": "stable",
     "sections": {
       "highlights": [],
       "improvements": [],
@@ -11,7 +11,8 @@
         "release_notes.entries.v3_0_1.fixes.window_reopening",
         "release_notes.entries.v3_0_1.fixes.installer_artwork"
       ]
-    }
+    },
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v3.0.1"
   },
   {
     "version": "3.0.0",
