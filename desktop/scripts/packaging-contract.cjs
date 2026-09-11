@@ -25,6 +25,7 @@ const REQUIRED_RUNTIME_FILES = Object.freeze([
   'profile-preservation.js',
   'exclusive-rename.js',
   'application-menu.js',
+  'help-links.json',
   'backend-launch.js',
   'release-version.js',
   'update-policy.js',
