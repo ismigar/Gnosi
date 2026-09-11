@@ -33,7 +33,7 @@ test('a supervisor startup rejection prevents the renderer, updater and activati
   await runtime.readyCallbacks[0]();
   assert.equal(runtime.windows.length, 0);
   assert.ok(runtime.calls.includes('quit'));
-  assert.ok(runtime.calls.some(call => call.errorBox?.message.includes('port 5002')));
+  assert.ok(runtime.calls.some(call => call.errorBox?.message.includes('Quit and reopen')));
   runtime.lifecycle.get('activate')();
   assert.equal(runtime.windows.length, 0);
   assert.equal(runtime.calls.includes('check-updates'), false);
@@ -55,6 +55,7 @@ for (const isDev of [false, true]) {
       },
     });
     const startup = runtime.readyCallbacks[0]();
+    await new Promise(resolve => setImmediate(resolve));
     assert.equal(runtime.windows.length, 0);
     runtime.clickMenu('New Window');
     runtime.clickMenu('Settings…');
@@ -63,14 +64,14 @@ for (const isDev of [false, true]) {
     assert.equal(runtime.calls.includes('check-updates'), false);
     runtime.lifecycle.get('activate')();
     assert.equal(runtime.windows.length, 0);
-    assert.equal(launchOptions.healthUrl, 'http://localhost:5002/api/health');
+    assert.equal(launchOptions.healthUrl, `http://localhost:${isDev ? 5002 : 43123}/api/health`);
     if (isDev) {
       assert.equal(launchOptions.executable, 'python3');
       assert.deepEqual(Array.from(launchOptions.args), ['-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1', '--port', '5002']);
     } else {
       assert.equal(launchOptions.executable, '/fixture/resources/python/cervell_backend');
       assert.equal(launchOptions.environment.GNOSI_DATA_DIR, '/fixture/user-data');
-      assert.equal(launchOptions.environment.BACKEND_PORT, '5002');
+      assert.equal(launchOptions.environment.BACKEND_PORT, '43123');
     }
     acknowledge();
     await startup;
@@ -103,6 +104,7 @@ test('quit waits for owned child cleanup and cannot create a window after shutdo
     stopBackend: async actual => { assert.equal(actual, child); stopCount++; await stopped; },
   });
   const startup = runtime.readyCallbacks[0]();
+  await new Promise(resolve => setImmediate(resolve));
   let prevented = false;
   runtime.lifecycle.get('before-quit')({ preventDefault: () => { prevented = true; } });
   assert.ok(prevented);
@@ -164,7 +166,7 @@ for (const [locale, title, recovery] of [
     assert.ok(dialog.message.includes(recovery));
     const generic = backendStartupMessage(locale, new Error('Synthetic private diagnostic'));
     assert.ok(generic.title.includes(title));
-    assert.match(generic.message, /5002/);
+    assert.doesNotMatch(generic.message, /5002/);
     assert.doesNotMatch(generic.message, /Synthetic private diagnostic/);
   });
 }
@@ -172,4 +174,29 @@ for (const [locale, title, recovery] of [
 test('unknown native locale uses English recovery text', () => {
   assert.deepEqual(backendStartupMessage('de-DE', null), backendStartupMessage('en', null));
   assert.deepEqual(backendStartupMessage('CA_es', null), backendStartupMessage('ca', null));
+});
+
+
+test('second launch reopens a closed main window after successful startup', async () => {
+  const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+    launchBackend: async () => ({ isRunning: async () => true }),
+  });
+  await runtime.readyCallbacks[0]();
+  runtime.windows[0].emit('closed');
+  runtime.lifecycle.get('second-instance')();
+  assert.equal(runtime.windows.length, 2);
+});
+
+test('quit during port selection cannot spawn a backend afterwards', async () => {
+  let releasePort;
+  const pendingPort = new Promise(resolve => { releasePort = resolve; });
+  const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+    selectBackendPort: () => pendingPort,
+    launchBackend: () => assert.fail('Quit must prevent a new child'),
+  });
+  const startup = runtime.readyCallbacks[0]();
+  runtime.lifecycle.get('before-quit')({ preventDefault: () => assert.fail('No owned child') });
+  releasePort(43123);
+  await startup;
+  assert.equal(runtime.windows.length, 0);
 });

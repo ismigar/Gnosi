@@ -8,16 +8,22 @@ directories:
 
 afterPack: scripts/after-pack.cjs
 
-# Branded DMG installer: clean light background with the centered Gnosi logo,
-# so the mounted volume matches the app identity instead of the generic
-# electron-builder artwork. The retina PNG is downscaled to @1x automatically.
+# A solid background keeps Finder's window at the configured logical size.
 dmg:
-  background: assets/dmg-background.png
+  backgroundColor: '#f8fafc'
   title: ${productName}
-  iconSize: 128
+  iconSize: 96
   window:
     width: 540
-    height: 380
+    height: 320
+  contents:
+    - x: 140
+      y: 150
+      type: file
+    - x: 400
+      y: 150
+      type: link
+      path: /Applications
 
 files:
   - main.js
@@ -60,12 +66,11 @@ extraResources:
     to: assets/
     filter:
       - "**/*"
-      # Icon and DMG-background assets are build-time inputs consumed by
+      # Icon assets are build-time inputs consumed by
       # electron-builder itself; they are not needed inside the packaged app.
       - "!icon.icns"
       - "!icon.ico"
       - "!icon.png"
-      - "!dmg-background.png"
   - from: dist-python/
     to: python
     filter:

@@ -130,3 +130,20 @@ for (const missing of [false, true]) {
     assert.ok(child.pid === undefined || child.exitCode !== null || child.signalCode !== null);
   });
 }
+
+test('private desktop port coexists with an occupied native listener', async t => {
+  const occupied = await serverFixture(t, (_request, response) => response.end(body));
+  const { selectBackendPort } = require('./backend-launch');
+  const port = await selectBackendPort(Number(new URL(occupied).port));
+  assert.notEqual(port, Number(new URL(occupied).port));
+  const script = `require('http').createServer((req,res) => {
+    res.setHeader('x-gnosi-desktop-instance', process.env.GNOSI_DESKTOP_INSTANCE);
+    res.end(${JSON.stringify(body)});
+  }).listen(Number(process.env.BACKEND_PORT), '127.0.0.1');`;
+  const handle = await launchBackend(childOptions(t, script, port, {
+    environment: { BACKEND_PORT: String(port) },
+  }));
+  assert.equal(await handle.isRunning(), true);
+  await handle.stop();
+  assert.equal((await fetch(occupied)).status, 200);
+});

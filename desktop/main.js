@@ -23,6 +23,7 @@ const { createApplicationMenuTemplate, normalizeMenuLabels } = require('./applic
 const {
   getPackagedBackendEnvironment,
   getPackagedBackendExecutable,
+  selectBackendPort,
 } = require('./backend-launch');
 const { buildMacInstallerUrl, getUpdateInstallMode, readMacSignature } = require('./update-policy');
 const { isTrustedRendererUrl } = require('./ipc-security');
@@ -60,7 +61,7 @@ let quitting = false;
 let backendStoppedForUpdate = false;
 let updateState = { status: 'idle', installMode: updateInstallMode };
 
-const BACKEND_PORT = 5002;
+let backendPort = 5002;
 const FRONTEND_PORT = 5173;
 const DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
@@ -78,7 +79,7 @@ function publishUpdateState(nextState) {
 }
 
 function getBackendURL() {
-  return `http://localhost:${BACKEND_PORT}`;
+  return `http://localhost:${backendPort}`;
 }
 
 // MIME types for the static asset handler. Covers everything Vite emits under
@@ -208,13 +209,15 @@ async function startBackend() {
   if (!isDev && (!fs.existsSync(bundled) || !fs.statSync(bundled).isFile())) {
     throw Object.assign(new Error('The packaged backend is missing'), { code: 'GNOSI_BACKEND_MISSING' });
   }
+  if (!isDev) backendPort = await selectBackendPort(backendPort);
+  if (quitting) return;
   const environment = isDev
     ? { ...process.env, LOGGING_LEVEL: 'info' }
-    : getPackagedBackendEnvironment(process.env, app.getPath('userData'), BACKEND_PORT);
+    : getPackagedBackendEnvironment(process.env, app.getPath('userData'), backendPort);
   backendHandle = await launchBackend({
     executable: isDev ? (process.platform === 'win32' ? 'python' : 'python3') : bundled,
     args: isDev ? ['-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1',
-      '--port', String(BACKEND_PORT)] : [],
+      '--port', String(backendPort)] : [],
     cwd: path.join(__dirname, '..'),
     environment,
     healthUrl: `${getBackendURL()}/api/health`,
@@ -523,6 +526,8 @@ app.on('second-instance', () => {
   if (window) {
     if (window.isMinimized()) window.restore();
     window.focus();
+  } else {
+    openMainWindow();
   }
 });
 

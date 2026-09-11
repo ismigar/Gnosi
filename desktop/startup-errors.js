@@ -7,25 +7,25 @@ const messages = Object.freeze({
     title: 'Gnosi — backend startup',
     missing: 'The packaged backend is missing. Reinstall Gnosi before opening it.',
     failed: 'Gnosi could not start its backend.',
-    recovery: 'Check that port 5002 is available, then reopen Gnosi. Diagnostic details are in the application log.',
+    recovery: 'Quit and reopen Gnosi. If the problem persists, reinstall the application.',
   },
   ca: {
     title: 'Gnosi — arrencada del backend',
     missing: 'Falta el backend del paquet. Torna a instal·lar Gnosi abans d’obrir-lo.',
     failed: 'Gnosi no ha pogut iniciar el backend.',
-    recovery: 'Comprova que el port 5002 estigui disponible i torna a obrir Gnosi. Els detalls del diagnòstic són al registre de l’aplicació.',
+    recovery: 'Tanca Gnosi i torna’l a obrir. Si el problema continua, torna a instal·lar l’aplicació.',
   },
   es: {
     title: 'Gnosi — inicio del backend',
     missing: 'Falta el backend del paquete. Vuelve a instalar Gnosi antes de abrirlo.',
     failed: 'Gnosi no ha podido iniciar el backend.',
-    recovery: 'Comprueba que el puerto 5002 esté disponible y vuelve a abrir Gnosi. Los detalles del diagnóstico están en el registro de la aplicación.',
+    recovery: 'Cierra Gnosi y vuelve a abrirlo. Si el problema persiste, vuelve a instalar la aplicación.',
   },
   fr: {
     title: 'Gnosi — démarrage du backend',
     missing: 'Le backend du paquet est manquant. Réinstallez Gnosi avant de l’ouvrir.',
     failed: 'Gnosi n’a pas pu démarrer son backend.',
-    recovery: 'Vérifiez que le port 5002 est disponible, puis rouvrez Gnosi. Les détails du diagnostic se trouvent dans le journal de l’application.',
+    recovery: 'Quittez puis rouvrez Gnosi. Si le problème persiste, réinstallez l’application.',
   },
 });
 

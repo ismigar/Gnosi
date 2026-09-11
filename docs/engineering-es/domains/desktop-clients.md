@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -506,3 +506,18 @@ estricta de IPC, la validación documental y los comandos pertinentes de pruebas
 básicas aisladas. Inspecciona la salida y los registros del navegador y del
 escritorio, no solo los códigos de salida. Mantén separadas las evidencias
 de las plataformas de destino y las pruebas sintéticas.
+
+## Corrección de la instalación después de 3.0.0
+
+Electron empaquetado selecciona un puerto local libre. Python acepta
+`BACKEND_PORT` con una `GNOSI_DESKTOP_INSTANCE` válida, escucha en `127.0.0.1` y
+desactiva la recarga. Los servicios nativos conservan sus puertos. La prueba de
+arranque aporta una configuración contradictoria para verificar que prevalece
+el puerto del proceso padre y sigue exigiendo la identidad del proceso propio.
+Una segunda apertura recrea la ventana principal si se había cerrado.
+
+Los trazados del favicon, independientes de las fuentes, generan los iconos en
+`desktop/assets`. El DMG tiene un fondo liso y un tamaño de 540 × 320. El disco
+del escritorio desaparece al expulsarlo; no es un acceso directo. Se mantiene
+la firma local gratuita, que no equivale a la notarización de Apple. Las
+instrucciones de instalación están en `desktop/README.md`.

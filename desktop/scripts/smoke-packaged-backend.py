@@ -38,8 +38,9 @@ def probe_environment(root: Path, port: int, identity: str,
         (root / child).mkdir()
     config = root / "vault" / ".gnosi"
     config.mkdir()
+    # Deliberately conflict with Electron: the real parent environment must win.
     (config / "params.yaml").write_text(json.dumps({
-        "server": {"host": "127.0.0.1", "backend_port": port},
+        "server": {"host": "127.0.0.1", "backend_port": 1},
         "ai": {"providers": {}},
     }), encoding="utf-8")
     (config / "plugins.json").write_text(json.dumps({
@@ -53,6 +54,7 @@ def probe_environment(root: Path, port: int, identity: str,
         "GNOSI_DISABLE_SCHEDULER": "1", "GNOSI_FILES_PROVIDER": "local",
         "GNOSI_REQUIRE_AUTH": "false", "GNOSI_JWT_SECRET": secrets.token_hex(32),
         "GNOSI_MODE": identity, "PYTHONUNBUFFERED": "1",
+        "GNOSI_DESKTOP_INSTANCE": secrets.token_hex(32), "BACKEND_PORT": str(port),
     })
     return environment
 

@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
     <linearGradient id="gnosiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0066ff"/>
-      <stop offset="100%" style="stop-color:#00d4ff"/>
+      <stop offset="0%" stop-color="#0066ff"/>
+      <stop offset="100%" stop-color="#00d4ff"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#gnosiGradient)"/>
-  <text x="32" y="43" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="800" fill="white">G</text>
+  <path fill="white" transform="translate(21.11780455 42.52878179) scale(0.02945114 -0.02945114)" d="M585 81 601 0H701V386H401V269H559Q552 194 509.5 154.5Q467 115 389 115Q336 115 299.0 135.5Q262 156 239.0 190.0Q216 224 205.5 266.5Q195 309 195 354Q195 401 205.5 445.0Q216 489 239.0 523.5Q262 558 299.0 578.5Q336 599 389 599Q446 599 486.0 569.0Q526 539 540 479H690Q684 540 657.0 587.0Q630 634 588.5 666.0Q547 698 495.5 714.5Q444 731 389 731Q307 731 241.5 702.0Q176 673 131.0 622.0Q86 571 62.0 502.5Q38 434 38 354Q38 276 62.0 208.5Q86 141 131.0 91.0Q176 41 241.5 12.5Q307 -16 389 -16Q441 -16 492.0 5.5Q543 27 585 81Z"/>
 </svg>
