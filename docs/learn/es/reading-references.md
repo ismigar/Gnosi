@@ -8,7 +8,7 @@ Activa Recursos para referencias y Lector de canales para suscripciones. Consult
 
 ## Pasos {#steps}
 
-1. Abre Recursos y comprueba la tabla de referencias configurada. Importa DOI, ISBN, arXiv o PMID, un archivo BibTeX/RIS o una URL compatible.
+1. Abre **Búsqueda bibliográfica** (la función Recursos) y comprueba la tabla de referencias configurada. Importa DOI, ISBN, arXiv o PMID, un archivo BibTeX/RIS o una URL compatible.
 
 2. Revisa título, autoría, fecha e identificador antes de utilizar el registro. Resuelve los posibles duplicados en vez de repetir la importación.
 

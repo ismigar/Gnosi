@@ -8,7 +8,7 @@ Enable Resources for reference management and Feeds Reader for feeds. Identifier
 
 ## Steps {#steps}
 
-1. Open Resources and check the configured References table in its settings. Import a DOI, ISBN, arXiv or PMID identifier, a BibTeX/RIS file, or a supported web URL.
+1. Open **Literature search** (the Resources feature) and check the configured References table in its settings. Import a DOI, ISBN, arXiv or PMID identifier, a BibTeX/RIS file, or a supported web URL.
 
 2. Review the imported title, authors, date and identifier before using the record. Resolve duplicate candidates rather than importing the same source repeatedly.
 

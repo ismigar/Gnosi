@@ -8,7 +8,7 @@ Activez Ressources pour les références et Lecteur de flux pour les abonnements
 
 ## Étapes {#steps}
 
-1. Ouvrez Ressources et vérifiez la table de références configurée. Importez un DOI, ISBN, arXiv ou PMID, un fichier BibTeX/RIS ou une URL compatible.
+1. Ouvrez **Recherche bibliographique** (la fonction Ressources) et vérifiez la table de références configurée. Importez un DOI, ISBN, arXiv ou PMID, un fichier BibTeX/RIS ou une URL compatible.
 
 2. Vérifiez titre, auteurs, date et identifiant avant d’utiliser la fiche. Résolvez les doublons éventuels au lieu de répéter l’importation.
 

@@ -8,7 +8,7 @@ Activa Recursos per gestionar referències i Lector de canals per seguir canals.
 
 ## Passos {#steps}
 
-1. Obre Recursos i comprova la taula de referències configurada. Importa un DOI, ISBN, arXiv o PMID, un fitxer BibTeX/RIS o una URL compatible.
+1. Obre **Cerca bibliogràfica** (la funció Recursos) i comprova la taula de referències configurada. Importa un DOI, ISBN, arXiv o PMID, un fitxer BibTeX/RIS o una URL compatible.
 
 2. Revisa títol, autoria, data i identificador abans d’utilitzar el registre. Resol els possibles duplicats en lloc de repetir la importació.
 
