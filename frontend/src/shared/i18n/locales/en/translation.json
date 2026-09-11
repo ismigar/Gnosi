@@ -6004,6 +6004,13 @@
           "updates": "Desktop update detection and installation foundations are included.",
           "plugins": "Official plugin packages and their distribution index are included with releases."
         }
+      },
+      "v3_0_1": {
+        "fixes": {
+          "desktop_startup": "The desktop app now starts when another local service uses its usual port, and consistently opens its initial window.",
+          "window_reopening": "Opening Gnosi again restores a main window after the previous window has been closed.",
+          "installer_artwork": "Corrected the application logo and made the macOS installer compact, with a plain background and no oversized central logo."
+        }
       }
     }
   },

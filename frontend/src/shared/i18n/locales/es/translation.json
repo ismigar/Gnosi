@@ -6055,6 +6055,13 @@
           "updates": "Incluye las bases de detección e instalación de actualizaciones de escritorio.",
           "plugins": "Las versiones incluyen los paquetes oficiales de plugins y su índice de distribución."
         }
+      },
+      "v3_0_1": {
+        "fixes": {
+          "desktop_startup": "La aplicación de escritorio ahora arranca cuando otro servicio local ocupa el puerto habitual y abre correctamente la ventana inicial.",
+          "window_reopening": "Volver a abrir Gnosi recupera una ventana principal después de cerrar la anterior.",
+          "installer_artwork": "Se ha corregido el logo de la aplicación y se ha hecho compacto el instalador de macOS, con un fondo liso y sin el logo central sobredimensionado."
+        }
       }
     }
   },
