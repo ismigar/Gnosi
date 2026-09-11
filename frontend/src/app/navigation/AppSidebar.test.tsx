@@ -132,7 +132,10 @@ describe('AppSidebar documentation access', () => {
         await renderSidebar(root);
 
         const help = container.querySelector<HTMLButtonElement>('[aria-label="Help"]');
-        await act(async () => { help?.click(); });
+        await act(async () => {
+            help?.click();
+            await Promise.resolve();
+        });
         const link = container.querySelector('a[href="https://gnosi.temenosismael.org/Gnosi/engineering/"]');
         expect(link).not.toBeNull();
         expect(link?.getAttribute('target')).toBe('_blank');
