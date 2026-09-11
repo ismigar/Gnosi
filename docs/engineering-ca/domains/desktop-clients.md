@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -495,3 +495,18 @@ estricta d’IPC, el control de documentació i les comandes pertinents de prove
 bàsiques aïllades. Inspecciona el resultat al navegador i a l’escriptori i els
 registres, no només els codis de sortida. Mantén separades les evidències de
 cada plataforma de destinació i les proves sintètiques.
+
+## Correcció de la instal·lació després de 3.0.0
+
+L’Electron empaquetat selecciona un port local lliure. Python accepta
+`BACKEND_PORT` amb una `GNOSI_DESKTOP_INSTANCE` vàlida, escolta a `127.0.0.1` i
+desactiva la recàrrega. Els serveis natius conserven els seus ports. La prova
+d’arrencada aporta una configuració contradictòria per comprovar que preval el
+port del procés pare i continua exigint la identitat del procés propi. Una
+segona obertura recrea la finestra principal si s’havia tancat.
+
+Els traçats del favicon, independents de les fonts, generen les icones a
+`desktop/assets`. El DMG té un fons llis i una mida de 540 × 320. La icona del
+disc a l’escriptori desapareix en expulsar-lo; no és un accés directe. Es manté
+la signatura local gratuïta, que no equival a la notarització d’Apple. Les
+instruccions d’instal·lació són a `desktop/README.md`.

@@ -1,6 +1,7 @@
 // @ts-check
 
 const path = require('node:path');
+const net = require('node:net');
 
 /**
  * Locate the bundled backend executable without accessing the filesystem.
@@ -38,4 +39,29 @@ function getPackagedBackendEnvironment(baseEnvironment, userDataPath, backendPor
   };
 }
 
-module.exports = { getPackagedBackendEnvironment, getPackagedBackendExecutable };
+/** Select a private loopback port without disturbing any existing service.
+ * The child still has to prove readiness with its own identity after binding;
+ * a process winning the bind race must never be accepted as our backend.
+ * @param {number} [preferredPort]
+ * @returns {Promise<number>}
+ */
+function selectBackendPort(preferredPort = 5002) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', error => {
+      if ('code' in error && error.code === 'EADDRINUSE' && preferredPort !== 0) {
+        selectBackendPort(0).then(resolve, reject);
+      } else reject(error);
+    });
+    server.listen(preferredPort, '127.0.0.1', () => {
+      const address = server.address();
+      server.close(error => {
+        if (error) reject(error);
+        else if (address && typeof address !== 'string') resolve(address.port);
+        else reject(new Error('Could not allocate a local backend port'));
+      });
+    });
+  });
+}
+
+module.exports = { getPackagedBackendEnvironment, getPackagedBackendExecutable, selectBackendPort };

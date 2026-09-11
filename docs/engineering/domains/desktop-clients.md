@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -437,3 +437,19 @@ and Docker startup/persistence. Local macOS success cannot certify another targe
 Run the repository's desktop contracts, strict IPC check, documentation gate
 and relevant isolated smoke commands. Inspect browser/desktop output and logs,
 not just exit codes. Keep target-platform evidence separate from synthetic tests.
+
+## Installation repair after 3.0.0
+
+Packaged Electron selects an available loopback port. The Python entrypoint uses
+`BACKEND_PORT` only with a valid `GNOSI_DESKTOP_INSTANCE`, binds to `127.0.0.1`,
+and disables reload. Native services keep their configured ports. The startup
+probe supplies a conflicting configuration to verify that the parent wins;
+readiness still requires the owned process. A second launch recreates the main
+window when the previous one was closed.
+
+The font-independent favicon paths own desktop and PWA artwork. The generator
+writes to `desktop/assets`, the actual packaging input. The DMG uses a plain
+background and explicit 540 × 320 layout. Its desktop disk is a mounted volume,
+not a shortcut; ejecting it removes the icon. Free ad-hoc signing remains the
+default and does not imply Apple notarization. See the installation steps in
+`desktop/README.md`.

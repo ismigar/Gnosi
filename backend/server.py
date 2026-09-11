@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from backend.app.factory import create_app
 from backend.app.lifespan import lifespan as lifespan
 from backend.config.app_config import load_params
 from backend.config.env_config import is_frozen_runtime
+from backend.config.desktop_server import desktop_server_address
 
 
 app = create_app(lifespan)
@@ -38,11 +40,13 @@ app = create_app(lifespan)
 if __name__ == "__main__":
     cfg = load_params(strict_env=False)
     server_cfg = getattr(cfg, "server", {}) or cfg.get("server", {}) or {}
-    HOST = server_cfg.get("host", "0.0.0.0")
-    PORT = int(server_cfg.get("backend_port", 5002))
+    desktop_address = desktop_server_address(os.environ)
+    HOST, PORT = desktop_address or (
+        server_cfg.get("host", "0.0.0.0"), int(server_cfg.get("backend_port", 5002))
+    )
     uvicorn.run(
         "backend.server:app",
         host=HOST,
         port=PORT,
-        reload=not is_frozen_runtime(),
+        reload=not is_frozen_runtime() and desktop_address is None,
     )

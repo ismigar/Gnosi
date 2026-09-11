@@ -461,3 +461,31 @@ documents runtime boundaries, companion clients and the acceptance matrix.
 Every supported platform still requires actual installation, first launch,
 profile/data preservation, update and recovery evidence. Docker runtime and
 authenticated browser acceptance are separate requirements.
+
+
+## macOS installation and first launch (free distribution)
+
+Open the DMG, drag Gnosi to Applications, then eject the Gnosi disk in Finder.
+The Gnosi disk icon on the desktop is the mounted installer volume and disappears
+when ejected; the macOS installer does not create a desktop shortcut. Start the
+installed app from Applications. The installer has a 540 × 320 window with the
+app and Applications icons on a plain background.
+
+The free build is ad-hoc signed and is not notarized by Apple. Sparkle signatures
+verify updates but do not establish Gatekeeper trust. macOS can therefore require
+explicit approval on first launch. For the specific unidentified-developer or
+unverified-app warning, use System Settings → Privacy & Security → Open Anyway
+for the downloaded Gnosi app after attempting to open it. Do not apply this to a
+warning identifying malware or a damaged bundle; report the exact warning instead.
+No global security setting or quarantine removal is required by these instructions.
+See [Apple's guidance](https://support.apple.com/en-us/102445).
+
+The installed app chooses a private loopback port and passes it to its owned
+Python child. An existing native backend on 5002 remains untouched. Readiness
+still requires the child's identity, and HTTP proxying and WebSocket discovery
+use the selected port. The acceptance smoke deliberately supplies a conflicting
+configured port to test this same parent-to-child contract.
+
+Icons are rasterized from the font-independent paths in
+`frontend/public/favicon.svg` directly into `desktop/assets/`; the generator
+never reconstructs the glyph using a platform font.

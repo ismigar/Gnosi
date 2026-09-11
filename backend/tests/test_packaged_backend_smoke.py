@@ -62,7 +62,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
     def log_message(self, *args): pass
-http.server.HTTPServer(('127.0.0.1', config['server']['backend_port']), Handler).serve_forever()
+http.server.HTTPServer(('127.0.0.1', int(os.environ['BACKEND_PORT'])), Handler).serve_forever()
 '''
 
 
@@ -145,7 +145,9 @@ def test_child_environment_is_allowlisted_and_data_is_private(tmp_path):
     assert environment['GNOSI_DATA_DIR'] == str(tmp_path / 'data')
     assert environment['GNOSI_MODE'] == 'fixture-nonce'
     params = json.loads((tmp_path / 'vault/.gnosi/params.yaml').read_text())
-    assert params['server'] == {'host': '127.0.0.1', 'backend_port': 43123}
+    assert params['server'] == {'host': '127.0.0.1', 'backend_port': 1}
+    assert environment['BACKEND_PORT'] == '43123'
+    assert len(environment['GNOSI_DESKTOP_INSTANCE']) == 64
 
 
 def test_cli_reports_failure_without_child_output(monkeypatch, capsys):

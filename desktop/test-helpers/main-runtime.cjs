@@ -9,6 +9,7 @@ function loadMainRuntime({
   isDev = false, prepareProfile = () => true, initialize = true, bundleExists = false,
   launchBackend = () => assert.fail('Backend must not start in this fixture'),
   stopBackend = async () => {},
+  selectBackendPort = async () => 43123,
   locale = 'en', resourcesPath = '/fixture/resources',
   platform = 'darwin', isPackaged = false, sparkleUpdater,
   onWindowCreated = () => {},
@@ -102,6 +103,7 @@ function loadMainRuntime({
     require: (name) => {
       if (name === 'electron') return electron;
       if (name === './profile-startup') return { prepareDesktopProfile: prepareProfile };
+      if (name === './backend-launch') return { ...require(path.join(desktopRoot, name)), selectBackendPort };
       if (name === './backend-process') return { launchBackend, stopBackend };
       if (name === 'electron-updater') return { autoUpdater: updater };
       if (name === './sparkle-updater' && sparkleUpdater) return { SparkleUpdater: function () { return sparkleUpdater; } };
