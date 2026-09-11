@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 24 | 82 |
 | Vitest | 536 | 2234 |
-| pytest | 526 | 3706 |
+| pytest | 527 | 3711 |
 
 ## Archivos
 
@@ -687,6 +687,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_data_dir_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_data_dir_migration.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_database_rules_views_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_database_rules_views_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_desktop_instance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_desktop_instance.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_desktop_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_desktop_server.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_directory_preparation_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_directory_preparation_cache.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_drawing_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_response_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_drawing_soft_delete.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_soft_delete.py) | 6 | Python AST |

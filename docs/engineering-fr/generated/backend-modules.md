@@ -13,8 +13,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `agent` | 47 | 8851 |
 | `api` | 38 | 13025 |
 | `app` | 8 | 791 |
-| `application root` | 2 | 48 |
-| `config` | 12 | 1329 |
+| `application root` | 2 | 52 |
+| `config` | 13 | 1347 |
 | `data` | 2 | 214 |
 | `domains` | 452 | 97850 |
 | `mcp` | 3 | 429 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **799 modules** and **166564 source lines**.
+Total: **800 modules** and **166586 source lines**.
 
 ## agent
 
@@ -143,7 +143,7 @@ Total: **799 modules** and **166564 source lines**.
 | Module | Lignes | Classes | Fonctions | Asynchrones | Déclarations documentées | Indice de fonction |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 48 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
+| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 52 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
 
 ## config
 
@@ -152,6 +152,7 @@ Total: **799 modules** and **166564 source lines**.
 | [`backend/config/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/config/app_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/app_config.py) | 245 | 1 | 9 | 0 | 9 | No module docstring |
 | [`backend/config/data_dir.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/data_dir.py) | 104 | 0 | 4 | 0 | 4 | Canonical per-device data directory resolution for Gnosi 3.x. |
+| [`backend/config/desktop_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/desktop_server.py) | 18 | 0 | 1 | 0 | 1 | Keep Electron's private listener separate from configured native services. |
 | [`backend/config/directory_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/directory_preparation.py) | 65 | 1 | 0 | 0 | 1 | Briefly reuse successful directory preparation, never content or access checks. |
 | [`backend/config/env_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py) | 271 | 0 | 16 | 0 | 12 | Environment loading with explicit Gnosi 3.x precedence and boundaries. |
 | [`backend/config/logger_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/config/logger_config.py) | 42 | 0 | 2 | 0 | 1 | No module docstring |
