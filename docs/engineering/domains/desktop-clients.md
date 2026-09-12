@@ -479,3 +479,5 @@ engineering. Publish and verify the help portal before distributing a build with
 new help links. The website provides `/learn/` entry redirects to `/Gnosi/learn/`.
 
 Help opened from the sidebar carries the Gnosi appearance preference. The help portal honors light, dark and system settings and keeps that preference between articles and languages. Links from the public website open a separate browser context.
+
+Release 3.0.2 includes the multilingual help center, contextual help menus and appearance-aware article links. Its desktop, frontend and backend version metadata remain synchronized; the release catalog stays pending until verified installers are published.
