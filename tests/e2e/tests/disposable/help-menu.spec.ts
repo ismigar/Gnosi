@@ -8,6 +8,11 @@ for (const width of [1280, 390]) {
     const audit = await installDisposableNetwork(context);
     await seedDisposableBrowser(context);
     await page.goto('/@synthetic/knowledge');
+    const theme = width < 768 ? 'dark' : 'light';
+    await page.evaluate(preference => {
+      localStorage.setItem('db-theme', preference);
+      window.dispatchEvent(new Event('db-theme-changed'));
+    }, theme);
     const release = page.getByRole('button', { name: /close release notes|tanca les notes|cerrar las notas|fermer les notes/i });
     await release.waitFor({ state: 'visible', timeout: 1000 }).then(() => release.click()).catch(() => {});
     if (width < 768) await page.locator('.app-sidebar-mobile-toggle').click();
@@ -23,7 +28,8 @@ for (const width of [1280, 390]) {
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(width);
     expect(box!.y).toBeGreaterThanOrEqual(0);
-    await expect(menu.getByRole('menuitem').nth(2)).toHaveAttribute('href', /\/learn\/(?:ca\/)?pages-files\/$/);
+    await expect(menu.getByRole('menuitem').nth(2)).toHaveAttribute('href', new RegExp(`/learn/(?:ca/)?pages-files/\\?theme=${theme}$`));
+    await expect(menu.getByRole('menuitem').first()).toHaveAttribute('target', '_blank');
     const results = await new AxeBuilder({ page }).include('.app-help').analyze();
     expect(results.violations).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`help-${width}.png`) });

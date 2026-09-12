@@ -18,12 +18,7 @@ theme:
   - search.highlight
   - search.suggest
   palette:
-  - media: '(prefers-color-scheme: light)'
     scheme: default
-    primary: indigo
-    accent: teal
-  - media: '(prefers-color-scheme: dark)'
-    scheme: slate
     primary: indigo
     accent: teal
 plugins:

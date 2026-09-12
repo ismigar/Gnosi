@@ -559,3 +559,5 @@ espagnol et français ont leurs chemins ; l’anglais sert de repli. Le menu par
 Les guides sont maintenus dans `docs/learn/` et construits séparément de la
 documentation technique. Publier et vérifier le portail avant de distribuer une
 version avec les nouveaux liens. Le site redirige `/learn/` vers `/Gnosi/learn/`.
+
+L’aide ouverte depuis la barre latérale reçoit la préférence d’apparence de Gnosi. Le portail respecte les modes clair, sombre et système et conserve la préférence entre articles et langues. Les liens du site public s’ouvrent dans un contexte de navigateur séparé.

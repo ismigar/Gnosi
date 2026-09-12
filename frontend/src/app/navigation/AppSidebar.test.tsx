@@ -8,6 +8,8 @@ import { normalizeSidebarPreferences, orderSidebarItems } from './appSidebarNavi
 import { storageSet } from '../../shared/api/vault-context';
 import { emitAppEvent } from '../../shared/platform/app-events';
 
+vi.mock('../../shared/hooks/useTheme', () => ({ useTheme: () => ({ themePreference: 'system' }) }));
+
 interface PluginTestState {
     enabled: Set<string>;
     settings: { pinnedRoutes?: string[] };
