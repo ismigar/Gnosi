@@ -1,5 +1,20 @@
 [
   {
+    "version": "3.0.2",
+    "date": "2026-09-12",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v3_0_2.highlights.user_help"
+      ],
+      "improvements": [
+        "release_notes.entries.v3_0_2.improvements.help_access",
+        "release_notes.entries.v3_0_2.improvements.help_appearance"
+      ],
+      "fixes": []
+    }
+  },
+  {
     "version": "3.0.1",
     "date": "2026-09-11",
     "channel": "stable",
