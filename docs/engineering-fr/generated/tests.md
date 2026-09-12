@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 539 | 2244 |
+| Vitest | 539 | 2246 |
 | pytest | 528 | 3716 |
 
 ## Fichiers
@@ -302,7 +302,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/editor/block-editor/domSizing.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/domSizing.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/caret.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/caret.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/embedNavigation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/embedNavigation.test.ts) | 9 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/toggleTree.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/toggleTree.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/transfers.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/transfers.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.test.tsx) | 4 | call-pattern estimate |

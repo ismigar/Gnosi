@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -26,6 +26,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -732,3 +733,5 @@ locals de prova no poden reproduir el comportament de File Provider.
 ## Recuperació de metadades de la barra lateral
 
 El resum i l’arbre compacte de la barra lateral recuperen les entrades incompletes de l’arrel, Wiki i els taulells mitjançant el proveïdor de fitxers actiu abans de rellegir-ne les metadades. Això també s’aplica a les instantànies en memòria cau. La recuperació restaura els identificadors canònics i dels pares, les marques de base de dades, els favorits i les icones, actualitza la cerca per identificador i reconstrueix la instantània versionada per eliminar duplicats. Les entrades completes i els catàlegs de taules no activen aquesta recuperació. Les lectures parcials de la capçalera reintenten els dos codis d’error transitori del núvol (11 i 35), començant amb el buffer i els delimitadors buits cada vegada que es reobre el fitxer. Les lectures fallides conserven les metadades existents en memòria cau.
+
+Canviar de biblioteca amb una nota oberta tanca el seu editor. BlockNote pot destruir la vista ProseMirror abans que React executi la neteja de navegació dels elements incrustats. Aquesta neteja restaura els gestors de teclat anteriors només si la vista continua viva i conserva els gestors instal·lats; mai crida `setProps` sobre una vista destruïda. Les proves de regressió utilitzen una vista ProseMirror real i cobreixen els dos ordres de tancament per evitar que una excepció elimini tota la interfície.

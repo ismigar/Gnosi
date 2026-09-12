@@ -27,6 +27,25 @@ function setup(blocks = [paragraph('first')]) {
 }
 
 describe('effect lifecycle', () => {
+    it('can leave an open note after BlockNote has already destroyed its ProseMirror view', () => {
+        const { view, unmount } = setup();
+        view.destroy();
+        expect(view.isDestroyed).toBe(true);
+        expect(unmount).not.toThrow();
+    });
+
+    it('restores navigation handlers when the view is still alive', () => {
+        const { view, inputs, rerender, unmount } = setup();
+        rerender({ ...inputs, editorReady: false });
+        const previous = { keydown: () => false };
+        view.setProps({ handleDOMEvents: previous });
+        rerender(inputs);
+        expect(view.props.handleDOMEvents).not.toBe(previous);
+        unmount();
+        expect(view.props.handleDOMEvents).toBe(previous);
+        expect(view.isDestroyed).toBe(false);
+    });
+
     it('persists toggles after their click, debounces restoration and cleans subscriptions/timers', async () => {
         const { wrapper, changed, editor, unmount, inputs, listeners } = setup();
         expect(inputs.toggleDropHandlerRef.current).toBeTypeOf('function');

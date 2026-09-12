@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -26,6 +26,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -736,3 +737,5 @@ File Provider.
 ## Recuperación de metadatos de la barra lateral
 
 El resumen y el árbol compacto de la barra lateral recuperan las entradas incompletas de la raíz, Wiki y los tableros mediante el proveedor de archivos activo antes de releer sus metadatos. Esto también se aplica a las instantáneas en caché. La recuperación restaura los identificadores canónicos y de los padres, las marcas de base de datos, los favoritos y los iconos, actualiza la búsqueda por identificador y reconstruye la instantánea versionada para eliminar duplicados. Las entradas completas y los catálogos de tablas no activan esta recuperación. Las lecturas parciales de la cabecera reintentan ambos códigos de error transitorio de la nube (11 y 35), empezando con el búfer y los delimitadores vacíos cada vez que se reabre el archivo. Las lecturas fallidas conservan los metadatos existentes en caché.
+
+Cambiar de biblioteca con una nota abierta cierra su editor. BlockNote puede destruir la vista ProseMirror antes de que React ejecute la limpieza de navegación de los elementos incrustados. Esta limpieza restaura los controladores de teclado anteriores solo si la vista sigue viva y conserva los controladores instalados; nunca llama a `setProps` sobre una vista destruida. Las pruebas de regresión utilizan una vista ProseMirror real y cubren ambos órdenes de cierre para evitar que una excepción elimine toda la interfaz.

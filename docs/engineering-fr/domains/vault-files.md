@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -26,6 +26,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -750,3 +751,5 @@ de données ne peuvent pas reproduire le comportement de File Provider.
 ## Récupération des métadonnées de la barre latérale
 
 Le résumé et l’arbre compact de la barre latérale récupèrent les entrées incomplètes de la racine, du Wiki et des tableaux de bord via le fournisseur de fichiers actif avant de relire leurs métadonnées. Cela s’applique aussi aux instantanés en cache. La récupération restaure les identifiants canoniques et parents, les indicateurs de base de données, les favoris et les icônes, actualise la recherche par identifiant et reconstruit l’instantané versionné pour supprimer les doublons. Les entrées complètes et les catalogues de tables ne déclenchent pas cette récupération. Les lectures partielles de l’en-tête réessaient les deux codes d’erreur transitoire du cloud (11 et 35), avec un tampon et un état des délimiteurs vides à chaque réouverture du fichier. Les lectures échouées conservent les métadonnées existantes en cache.
+
+Changer de bibliothèque avec une note ouverte ferme son éditeur. BlockNote peut détruire la vue ProseMirror avant que React exécute le nettoyage de navigation des éléments intégrés. Ce nettoyage restaure les gestionnaires de clavier précédents uniquement si la vue est encore active et conserve les gestionnaires installés ; il ne rappelle jamais `setProps` sur une vue détruite. Les tests de régression utilisent une vraie vue ProseMirror et couvrent les deux ordres de fermeture afin qu’une exception ne supprime pas toute l’interface.
