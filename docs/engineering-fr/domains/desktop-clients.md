@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -16,6 +16,7 @@ source_paths:
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
+  - desktop/vault-startup.js
   - desktop/ipc-handlers.js
   - desktop/startup-errors.js
   - desktop/build-python.sh
@@ -62,6 +63,7 @@ tests:
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
+  - desktop/vault-startup.test.js
   - desktop/main-startup.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
@@ -547,7 +549,7 @@ La version du backend et le contrat OpenAPI généré doivent correspondre aux m
 
 Le menu Aide latéral ouvre le centre, les premiers pas, la section actuelle et
 la documentation technique dans le navigateur externe. Le menu natif propose le
-centre, les premiers pas et la documentation technique. La langue facultative de
+centre, les premiers pas et la documentation utilisateur. La langue facultative de
 `set-application-menu` préserve la compatibilité ; le processus principal valide
 son type et normalise les variantes régionales et les langues indisponibles. Les
 deux clients utilisent `desktop/help-links.json` pour les destinations fixes et
@@ -563,3 +565,22 @@ version avec les nouveaux liens. Le site redirige `/learn/` vers `/Gnosi/learn/`
 L’aide ouverte depuis la barre latérale reçoit la préférence d’apparence de Gnosi. Le portail respecte les modes clair, sombre et système et conserve la préférence entre articles et langues. Les liens du site public s’ouvrent dans un contexte de navigateur séparé.
 
 La version 3.0.2 inclut le centre d’aide multilingue, les menus d’aide contextuelle et les liens qui conservent l’apparence. Les versions du bureau, de l’interface et du backend restent synchronisées ; le catalogue reste en attente jusqu’à la publication des installateurs vérifiés.
+
+## Premier démarrage sans bibliothèque
+
+Le processus principal empaqueté lit `vault_configured` dans la réponse de
+santé validée de son service. Si cette valeur est fausse, `vault-startup.js`
+arrête ce processus et ouvre le sélecteur natif de dossiers avant de démarrer
+l’interface ou les mises à jour. L’utilisateur peut choisir une bibliothèque
+existante ou créer un dossier. Annuler ferme l’application ; la rouvrir propose
+à nouveau la configuration. Après un redémarrage réussi avec
+`DIGITAL_BRAIN_VAULT_PATH`, seul le choix est enregistré dans
+`GNOSI_DATA_DIR/desktop-vault.json`. Les variables explicites de bibliothèque
+restent prioritaires ; un dossier enregistré absent n’est jamais recréé seul.
+
+Les tests ciblés couvrent le choix, l’annulation, l’arrêt des processus, le
+redémarrage, les traductions et la persistance. L’acceptation de la version doit
+aussi installer le DMG candidat avec un profil vide et sans bibliothèque
+injectée, parcourir le sélecteur visible puis un second démarrage, et tester la
+mise à jour depuis 3.0.1 avec des données synthétiques. Préparer la bibliothèque
+avant le lancement ne valide pas le premier démarrage.

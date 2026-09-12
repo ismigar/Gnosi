@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -16,6 +16,7 @@ source_paths:
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
+  - desktop/vault-startup.js
   - desktop/ipc-handlers.js
   - desktop/startup-errors.js
   - desktop/build-python.sh
@@ -62,6 +63,7 @@ tests:
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
+  - desktop/vault-startup.test.js
   - desktop/main-startup.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
@@ -522,7 +524,7 @@ La versió del backend i el contracte OpenAPI generat han de coincidir amb els m
 
 El menú Ajuda de la barra lateral obre el centre, els primers passos, la secció
 actual i la documentació tècnica al navegador extern. El menú natiu ofereix el
-centre, els primers passos i la documentació tècnica. L’idioma opcional de
+centre, els primers passos i la documentació d’usuari. L’idioma opcional de
 `set-application-menu` manté la compatibilitat; el procés principal en valida el
 tipus i normalitza les variants regionals i els idiomes no disponibles. Els dos
 clients utilitzen `desktop/help-links.json` per a destinacions fixes i temes
@@ -538,3 +540,21 @@ versió amb els enllaços nous. El web redirigeix `/learn/` cap a `/Gnosi/learn/
 L’ajuda oberta des de la barra lateral rep la preferència d’aparença de Gnosi. El portal respecta els modes clar, fosc i sistema i conserva la preferència entre articles i idiomes. Els enllaços del web públic s’obren en un context de navegador separat.
 
 La versió 3.0.2 inclou el centre d’ajuda multilingüe, els menús d’ajuda contextual i els enllaços que conserven l’aparença. Les versions de l’escriptori, la interfície i el backend es mantenen sincronitzades; el catàleg continua pendent fins a publicar els instal·ladors verificats.
+
+## Primer inici sense biblioteca
+
+El procés principal empaquetat llegeix `vault_configured` de la resposta de
+salut validada del seu servei. Si és fals, `vault-startup.js` atura aquest procés
+i obre el selector natiu de carpetes abans d’iniciar la interfície o les
+actualitzacions. L’usuari pot triar una biblioteca existent o crear una carpeta.
+Cancel·lar tanca l’aplicació; tornar-la a obrir ofereix de nou la configuració.
+Després de reiniciar correctament amb `DIGITAL_BRAIN_VAULT_PATH`, desa només la
+tria a `GNOSI_DATA_DIR/desktop-vault.json`. Les variables explícites de biblioteca
+tenen prioritat; una carpeta desada que falta no es recrea automàticament.
+
+Les proves focalitzades cobreixen la tria, la cancel·lació, l’aturada dels
+processos, el reinici, les traduccions i la persistència. L’acceptació de la
+versió també ha d’instal·lar el DMG candidat amb un perfil buit i sense una
+biblioteca injectada, recórrer el selector visible i un segon inici, i provar
+l’actualització des de 3.0.1 amb dades sintètiques. Preparar la biblioteca abans
+d’arrencar no acredita l’acceptació del primer inici.
