@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-07
+last_verified: 2026-09-12
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -30,20 +30,15 @@ tests:
 
 Heavy CI jobs run in order: backend, frontend, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
 
-Public, same-repository pull requests run `backend` on a fresh GitHub-hosted
-`ubuntu-24.04-arm` VM, adding Linux ARM64 capacity without sharing the native
-host's CPU, memory, service ports or Docker engine. `native-smoke` and `docker`
-retain the existing self-hosted Linux ARM64 runner. Pushes, release validation,
-private repositories and missing public-visibility metadata use the self-hosted
-backend runner; documentation and packaging runner assignments are unchanged.
-
-The same public, same-repository PR condition also routes `frontend` to a fresh
-GitHub-hosted `macos-15` ARM64 runner, avoiding the native host's slow package
-downloads. Private repositories, missing visibility metadata, pushes and release
-validation keep the self-hosted macOS ARM64 runner. The 4 GiB Node heap, single
-test worker, complete checks and backend-to-frontend ordering are preserved.
-Both hosted labels are standard runners, free for public repositories; no paid
-larger runner, native application data or host service access is introduced.
+PR #86 has an explicit local-only exception for its requested validation.
+Backend, native smoke and Docker use the existing Linux ARM64 runner; frontend
+uses macOS ARM64; documentation uses macOS X64. If a matching local runner is
+unavailable, this PR's check stays queued rather than using hosted capacity.
+Other public pull requests retain the existing GitHub-hosted backend/native
+smoke (`ubuntu-24.04-arm`) and frontend (`macos-15`) routing. Pushes, private
+repositories and release validation keep their existing local assignments.
+All checks, job dependencies, read-only permissions and same-repository guards
+remain unchanged; forks cannot execute on the owner's machines.
 
 Workflow-level `concurrency` groups use a CI-specific prefix, the workflow name
 and the PR number. A newer commit cancels the earlier running and queued work

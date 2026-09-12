@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-07
+last_verified: 2026-09-12
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -30,24 +30,16 @@ tests:
 
 Les tâches lourdes de CI suivent cet ordre : backend, frontend puis Docker. Le Mac et la VM Linux partagent les ressources physiques ; le frontend utilise un seul processus de test. Un échec précédent ne supprime pas les vérifications suivantes, mais les restrictions des forks et l’annulation restent applicables. Les suites isolées de dessins et de citations disposent de cinq minutes par processus, importations initiales et assertions comprises. Les tests intégrés des outils générés utilisent le délai de production inchangé ; une régression distincte vérifie le délai explicite.
 
-Les pull requests publiques issues du même dépôt exécutent `backend` dans une
-nouvelle VM `ubuntu-24.04-arm` hébergée par GitHub, ajoutant de la capacité Linux
-ARM64 sans partager le processeur, la mémoire, les ports des services ni le moteur
-Docker de l’hôte natif. `native-smoke` et `docker` conservent l’exécuteur Linux
-ARM64 auto-hébergé existant. Les envois de commits, la validation des versions,
-les dépôts privés et l’absence de métadonnées de visibilité publique utilisent
-l’exécuteur auto-hébergé du backend ; les affectations des exécuteurs de
-documentation et de création des paquets restent inchangées.
-
-La même condition de PR publique issue du même dépôt affecte aussi `frontend`
-à un nouvel exécuteur ARM64 `macos-15` hébergé par GitHub, évitant les
-téléchargements lents de l’hôte natif. Les dépôts privés, l’absence de métadonnées
-de visibilité, les envois et la validation des versions conservent l’exécuteur
-macOS ARM64 auto-hébergé. Le heap Node de 4 Gio, un seul processus de test,
-toutes les vérifications et l’ordre backend-frontend sont préservés. Les deux
-étiquettes hébergées désignent des exécuteurs standard, gratuits pour les dépôts
-publics ; aucun exécuteur étendu payant ni accès aux données de l’application
-native ou aux services de l’hôte n’est ajouté.
+La PR #86 dispose d’une exception explicite pour exécuter la validation
+demandée uniquement en local. Backend, native smoke et Docker utilisent
+l’exécuteur Linux ARM64 existant ; frontend, macOS ARM64 ; documentation,
+macOS X64. Si un exécuteur local compatible est indisponible, la vérification
+de cette PR reste en attente. Les autres PR publiques conservent les exécuteurs
+GitHub existants pour backend/native smoke (`ubuntu-24.04-arm`) et frontend
+(`macos-15`). Les envois, dépôts privés et validations de versions gardent leurs
+affectations locales. Toutes les vérifications, dépendances, permissions de
+lecture seule et restrictions au même dépôt sont préservées ; les forks ne
+peuvent pas s’exécuter sur les machines du propriétaire.
 
 Les groupes de `concurrency` du workflow utilisent un préfixe propre à la CI,
 le nom du workflow et le numéro de PR. Un nouveau commit annule les tâches
