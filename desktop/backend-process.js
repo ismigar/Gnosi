@@ -27,6 +27,7 @@ const MAX_HEALTH_BYTES = 4096;
  * @property {BackendChild} process
  * @property {() => Promise<boolean>} isRunning
  * @property {() => Promise<void>} stop
+ * @property {boolean | undefined} vaultConfigured
  */
 
 /** @param {import('node:child_process').ChildProcess} child */
@@ -41,9 +42,10 @@ function hasExited(child) {
  * @param {string} identity
  * @param {number} timeoutMs
  * @param {AbortSignal} [signal]
+ * @param {(configured: boolean) => void} [onVaultConfiguration]
  * @returns {Promise<boolean>}
  */
-function probeBackend(healthUrl, identity, timeoutMs, signal) {
+function probeBackend(healthUrl, identity, timeoutMs, signal, onVaultConfiguration) {
   const url = new URL(healthUrl);
   if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
       || url.username || url.password || url.pathname !== '/api/health') {
@@ -93,9 +95,13 @@ function probeBackend(healthUrl, identity, timeoutMs, signal) {
         try {
           /** @type {unknown} */
           const payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-          finish(typeof payload === 'object' && payload !== null
+          const valid = typeof payload === 'object' && payload !== null
             && 'status' in payload && payload.status === 'ok'
-            && 'mode' in payload && payload.mode === 'FastAPI');
+            && 'mode' in payload && payload.mode === 'FastAPI';
+          if (valid && 'vault_configured' in payload && typeof payload.vault_configured === 'boolean') {
+            onVaultConfiguration?.(payload.vault_configured);
+          }
+          finish(valid);
         } catch { finish(false); }
       });
     });
@@ -109,8 +115,9 @@ function probeBackend(healthUrl, identity, timeoutMs, signal) {
  * @param {string} healthUrl
  * @param {string} identity
  * @param {{startupTimeoutMs: number, requestTimeoutMs: number, pollIntervalMs: number}} timings
+ * @param {(configured: boolean) => void} [onVaultConfiguration]
  */
-async function waitForBackend(child, healthUrl, identity, timings) {
+async function waitForBackend(child, healthUrl, identity, timings, onVaultConfiguration) {
   const controller = new AbortController();
   /** @type {Error | undefined} */
   let failure;
@@ -128,7 +135,7 @@ async function waitForBackend(child, healthUrl, identity, timings) {
       const remaining = deadline - performance.now();
       if (remaining <= 0) throw new Error('Backend startup timed out; check the local port and installation');
       const ready = await probeBackend(healthUrl, identity,
-        Math.min(remaining, timings.requestTimeoutMs), controller.signal);
+        Math.min(remaining, timings.requestTimeoutMs), controller.signal, onVaultConfiguration);
       if (failure) throw failure;
       if (hasExited(child)) break;
       if (ready) return;
@@ -203,19 +210,23 @@ async function launchBackend(options) {
   // callback failure before the readiness waiter can attach its own listeners.
   /** @type {Error | undefined} */
   let processFailure;
+  /** @type {boolean | undefined} */
+  let vaultConfigured;
   child.on('error', error => { processFailure = error; });
   // Drain both pipes, even when callers do not retain diagnostic output.
   child.stdout.on('data', value => options.onOutput?.(String(value)));
   child.stderr.on('data', value => options.onOutput?.(String(value)));
   try {
     options.onSpawn?.(child);
-    await waitForBackend(child, options.healthUrl, identity, timings);
+    await waitForBackend(child, options.healthUrl, identity, timings,
+      configured => { vaultConfigured = configured; });
   } catch (error) {
     await stopBackend(child);
     throw error;
   }
   return {
     process: child,
+    vaultConfigured,
     isRunning: async () => !processFailure && !hasExited(child)
       && await probeBackend(options.healthUrl, identity, timings.requestTimeoutMs)
       && !processFailure && !hasExited(child),

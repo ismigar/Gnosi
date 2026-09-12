@@ -4,6 +4,22 @@ Electron wraps the React frontend and a bundled FastAPI backend. The canonical
 source is this repository; commands below run from its root, not from
 `desktop/`. Native browser development remains available without Electron.
 
+## First launch
+
+The packaged application checks the owned backend's `vault_configured` health
+field before opening its window. If no Vault is configured, a native folder
+dialog lets the user select an existing Vault or create a folder. Canceling
+exits cleanly. The unconfigured backend is stopped before restarting it with
+the selected `DIGITAL_BRAIN_VAULT_PATH`.
+
+After successful startup, the desktop saves only that folder path in
+`GNOSI_DATA_DIR/desktop-vault.json`, outside the application bundle. Subsequent
+launches reuse it unless an explicit Vault environment override is supplied.
+An unavailable saved folder is never recreated automatically. The selection
+does not rewrite the Vault's existing configuration or documents.
+
+The native Help menu's documentation command opens the localized user guide.
+
 ## Toolchain
 
 Use Node **22.22.2**, pnpm **11.19.0**, Python **3.11** and uv. The desktop pins

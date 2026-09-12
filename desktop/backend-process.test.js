@@ -149,3 +149,27 @@ test('private desktop port coexists with an occupied native listener', async t =
   await handle.stop();
   assert.equal((await fetch(occupied)).status, 200);
 });
+
+for (const configured of [false, true]) {
+  test(`owned child readiness carries vault_configured=${configured} to native setup`, async t => {
+    const port = await reservedPort();
+    const payload = JSON.stringify({ status: 'ok', mode: 'FastAPI', vault_configured: configured });
+    const script = `require('http').createServer((req,res) => {
+      res.setHeader('x-gnosi-desktop-instance', process.env.GNOSI_DESKTOP_INSTANCE);
+      res.end(${JSON.stringify(payload)});
+    }).listen(${port},'127.0.0.1');`;
+    const handle = await launchBackend(childOptions(t, script, port));
+    assert.equal(handle.vaultConfigured, configured);
+    await handle.stop();
+  });
+}
+
+test('a foreign process cannot supply the Vault setup state', async t => {
+  const url = await serverFixture(t, (_request, response) => {
+    response.setHeader('x-gnosi-desktop-instance', 'a'.repeat(64));
+    response.end(JSON.stringify({ status: 'ok', mode: 'FastAPI', vault_configured: false }));
+  });
+  let called = false;
+  assert.equal(await probeBackend(url, identity, 500, undefined, () => { called = true; }), false);
+  assert.equal(called, false);
+});

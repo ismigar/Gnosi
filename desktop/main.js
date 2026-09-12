@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, protocol, net, shell, dialog } = requ
 const path = require('path');
 const fs = require('fs');
 const { launchBackend, stopBackend } = require('./backend-process');
+const { launchConfiguredBackend } = require('./vault-startup');
 const { prepareDesktopProfile } = require('./profile-startup');
 
 // Protect the 2.x profile before the updater or any Chromium session can open it.
@@ -213,7 +214,7 @@ async function startBackend() {
   const environment = isDev
     ? { ...process.env, LOGGING_LEVEL: 'info' }
     : getPackagedBackendEnvironment(process.env, app.getPath('userData'), backendPort);
-  backendHandle = await launchBackend({
+  const launch = environment => launchBackend({
     executable: isDev ? (process.platform === 'win32' ? 'python' : 'python3') : bundled,
     args: isDev ? ['-m', 'uvicorn', 'backend.server:app', '--host', '127.0.0.1',
       '--port', String(backendPort)] : [],
@@ -226,6 +227,20 @@ async function startBackend() {
     },
     onOutput: output => log('Backend:', output.trim()),
   });
+  backendHandle = isDev ? await launch(environment) : await launchConfiguredBackend({
+    environment,
+    launch,
+    chooseDirectory: options => dialog.showOpenDialog(options),
+    backendCwd: path.join(__dirname, '..'),
+    locale: app.getLocale(),
+    isQuitting: () => quitting,
+  });
+  if (!backendHandle) {
+    backendProcess = null;
+    startupAllowed = false;
+    app.quit();
+    return;
+  }
   backendReady = true;
 }
 
@@ -291,7 +306,7 @@ function installApplicationMenu(labels, locale = app.getLocale()) {
     onNewWindow: openMainWindow,
     onOpenHelp: () => openHelp(),
     onOpenGettingStarted: () => openHelp('getting-started'),
-    onOpenDocumentation: () => openHelp('', true),
+    onOpenDocumentation: () => openHelp(),
     onOpenSettings: () => sendToMainWindow('open-settings'),
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -494,7 +509,7 @@ if (startupAllowed) app.whenReady().then(async () => {
 
   try {
     await startBackend();
-    if (quitting) return;
+    if (quitting || !startupAllowed) return;
     log('Backend started');
   } catch (err) {
     if (quitting) return;

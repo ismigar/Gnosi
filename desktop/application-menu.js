@@ -36,7 +36,7 @@ const DEFAULT_LABELS = Object.freeze({
   help: 'Help',
   helpCenter: 'Help center',
   gettingStarted: 'Getting started',
-  documentation: 'Engineering documentation',
+  documentation: 'User documentation',
 });
 
 function normalizeMenuLabels(labels) {
