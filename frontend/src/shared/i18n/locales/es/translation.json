@@ -6064,6 +6064,15 @@
           "window_reopening": "Volver a abrir Gnosi recupera una ventana principal después de cerrar la anterior.",
           "installer_artwork": "Se ha corregido el logo de la aplicación y se ha hecho compacto el instalador de macOS, con un fondo liso y sin el logo central sobredimensionado."
         }
+      },
+      "v3_0_2": {
+        "highlights": {
+          "user_help": "Nuevo centro de ayuda con búsqueda y guías de primeros pasos en español, catalán, inglés y francés."
+        },
+        "improvements": {
+          "help_access": "Abre la ayuda pertinente desde la barra lateral y el menú Ayuda de la aplicación de escritorio.",
+          "help_appearance": "La ayuda respeta el tema claro, oscuro o del sistema elegido en Gnosi y lo conserva entre artículos e idiomas."
+        }
       }
     }
   },

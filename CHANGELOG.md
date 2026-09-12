@@ -1,5 +1,18 @@
 # Gnosi changelog
 
+## Gnosi 3.0.2
+
+_2026-09-12 · Release candidate_
+
+### Highlights
+
+- New searchable help center with getting-started guides in English, Catalan, Spanish and French.
+
+### Improvements
+
+- Open relevant help directly from the app sidebar and desktop Help menu.
+- Help follows the light, dark or system appearance selected in Gnosi and preserves it across articles and languages.
+
 ## Gnosi 3.0.1
 
 _2026-09-11 · Stable_

@@ -21,7 +21,7 @@ from backend.services.auth_service import require_auth_enabled
 
 
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
-GNOSI_VERSION = "3.0.1"
+GNOSI_VERSION = "3.0.2"
 
 
 def refresh_health_snapshot(app: FastAPI) -> None:

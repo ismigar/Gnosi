@@ -547,3 +547,5 @@ documentación técnica. Hay que publicar y verificar el portal antes de distrib
 una versión con enlaces nuevos. El sitio redirige `/learn/` a `/Gnosi/learn/`.
 
 La ayuda abierta desde la barra lateral recibe la preferencia de apariencia de Gnosi. El portal respeta los modos claro, oscuro y sistema y conserva la preferencia entre artículos e idiomas. Los enlaces del sitio público se abren en un contexto de navegador separado.
+
+La versión 3.0.2 incluye el centro de ayuda multilingüe, los menús de ayuda contextual y los enlaces que conservan la apariencia. Las versiones de escritorio, interfaz y backend se mantienen sincronizadas; el catálogo sigue pendiente hasta publicar los instaladores verificados.
