@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const { randomUUID } = require('node:crypto');
 const { resolveDataPath } = require('./profile-startup');
 
 /** @type {Record<string, {title: string, message: string, buttonLabel: string}>} */
@@ -30,6 +31,8 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
   const dataDirectory = resolveDataPath(environment.GNOSI_DATA_DIR, backendCwd, os.homedir());
   const selectionFile = path.join(dataDirectory, 'desktop-vault.json');
   let selectedEnvironment = { ...environment };
+  /** @type {string | undefined} */
+  let vaultSelectionId;
   if (!environment.DIGITAL_BRAIN_VAULT_PATH && !environment.VAULT_HOST_PATH) {
     try {
       /** @type {unknown} */
@@ -37,6 +40,10 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
       if (typeof stored === 'object' && stored !== null && 'path' in stored
           && typeof stored.path === 'string' && path.isAbsolute(stored.path) && fs.statSync(stored.path).isDirectory()) {
         selectedEnvironment.DIGITAL_BRAIN_VAULT_PATH = stored.path;
+        if ('selectionId' in stored && typeof stored.selectionId === 'string'
+            && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(stored.selectionId)) {
+          vaultSelectionId = stored.selectionId;
+        }
       }
     } catch (error) {
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
@@ -44,7 +51,7 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
     }
   }
   let handle = await launch(selectedEnvironment);
-  if (handle.vaultConfigured !== false) return handle;
+  if (handle.vaultConfigured !== false) return Object.assign(handle, { vaultSelectionId });
 
   // Configuration-dependent APIs cannot initialize a Vault. Complete native
   // setup before exposing the renderer, and reap the old child before relaunch.
@@ -69,8 +76,9 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
   try {
     fs.mkdirSync(path.dirname(selectionFile), { recursive: true });
     const temporary = `${selectionFile}.${process.pid}.tmp`;
+    vaultSelectionId = randomUUID();
     try {
-      fs.writeFileSync(temporary, JSON.stringify({ path: vaultPath }) + '\n', { mode: 0o600 });
+      fs.writeFileSync(temporary, JSON.stringify({ path: vaultPath, selectionId: vaultSelectionId }) + '\n', { mode: 0o600 });
       fs.renameSync(temporary, selectionFile);
     } finally {
       fs.rmSync(temporary, { force: true });
@@ -79,7 +87,7 @@ async function launchConfiguredBackend({ environment, launch, chooseDirectory, l
     await handle.stop();
     throw error;
   }
-  return handle;
+  return Object.assign(handle, { vaultSelectionId });
 }
 
 module.exports = { launchConfiguredBackend, vaultDialogOptions };

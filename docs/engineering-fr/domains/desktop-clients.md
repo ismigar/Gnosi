@@ -64,6 +64,8 @@ tests:
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
+  - desktop/vault-recovery.test.js
+  - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
@@ -584,3 +586,13 @@ aussi installer le DMG candidat avec un profil vide et sans bibliothèque
 injectée, parcourir le sélecteur visible puis un second démarrage, et tester la
 mise à jour depuis 3.0.1 avec des données synthétiques. Préparer la bibliothèque
 avant le lancement ne valide pas le premier démarrage.
+
+Un choix natif réussi enregistre aussi un `selectionId` opaque. Le preload isolé
+l’applique avant les requêtes de l’interface : il efface uniquement l’ID, le slug,
+le nom, le catalogue et le cookie de l’ancienne bibliothèque active. Les autres
+préférences et cookies sont conservés. Le marqueur est appliqué une seule fois
+par profil ; les changements normaux de bibliothèque survivent aux nouvelles
+fenêtres et aux redémarrages. Les anciens fichiers sans marqueur restent valides.
+Annuler la récupération conserve le choix précédent. Choisir un autre dossier
+ne réécrit pas les identités enregistrées. Répéter l’acceptation du DMG pour le
+déplacement et la mise à jour au même emplacement, et reconstruire le backend figé.

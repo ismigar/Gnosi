@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-12
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -28,6 +28,7 @@ tests:
   - backend/tests/test_workspace_bootstrap_race.py
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_vault_canonical_routing.py
+  - backend/tests/test_vault_recovery_identity.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
@@ -209,3 +210,5 @@ superfície pública, respostes tipades directes, concurrència d'espais de treb
 pertinences i compartició. La QA al navegador comprova l'accés i la sortida,
 les actualitzacions de compte, el canvi d'espai de treball i l'accés anònim
 als enllaços compartits en una sessió neta.
+
+Resoldre una biblioteca registrada és una operació de lectura. Si la carpeta falta, la identitat no està disponible i les rutes canòniques retornen 404; les peticions no recreen el camí antic. La creació explícita de carpetes continua al flux de creació de biblioteques. Triar una altra carpeta existent conserva les dues identitats i les seves rutes.

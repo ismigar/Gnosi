@@ -231,6 +231,12 @@ test('unconfigured packaged startup completes native folder selection before ope
   await runtime.readyCallbacks[0]();
   assert.equal(launches, 2);
   assert.equal(runtime.windows.length, 1);
+  const saved = JSON.parse(fs.readFileSync(path.join(root, 'data/desktop-vault.json'), 'utf8'));
+  assert.deepEqual(Array.from(runtime.windows[0].options.webPreferences.additionalArguments),
+    [`--gnosi-vault-selection=${saved.selectionId}`]);
+  runtime.clickMenu('New Window');
+  assert.deepEqual(Array.from(runtime.windows[1].options.webPreferences.additionalArguments),
+    [`--gnosi-vault-selection=${saved.selectionId}`]);
   assert.equal(runtime.calls.includes('quit'), false);
 });
 

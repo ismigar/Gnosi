@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-12
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -28,6 +28,7 @@ tests:
   - backend/tests/test_workspace_bootstrap_race.py
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_vault_canonical_routing.py
+  - backend/tests/test_vault_recovery_identity.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
@@ -187,3 +188,5 @@ d'interfaces publiques, de réponses typées directes, de concurrence à
 l'amorçage des workspaces, d'appartenance et de partage. La QA dans le navigateur
 vérifie connexion et déconnexion, mises à jour du compte, changement de workspace
 et accès anonyme aux partages dans une session vierge.
+
+Résoudre une bibliothèque enregistrée est une opération de lecture. Si son dossier est absent, l’identité est indisponible et les routes canoniques renvoient 404 ; les requêtes ne recréent jamais l’ancien emplacement. La création explicite des dossiers reste dans le flux de création de bibliothèque. Choisir un autre dossier existant conserve les deux identités et leurs chemins.

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-12
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -28,6 +28,7 @@ tests:
   - backend/tests/test_workspace_bootstrap_race.py
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_vault_canonical_routing.py
+  - backend/tests/test_vault_recovery_identity.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
@@ -194,3 +195,5 @@ Run central-gate, enforcement-flag, account, placeholder, email-case, password,
 PAT, public-surface, direct typed-response, workspace-race, membership, and
 sharing tests. Browser QA checks login/logout, account updates, workspace
 switching, and anonymous share access in a clean session.
+
+Resolving a registered Vault is read-only. If its folder is absent, the identity is unavailable and canonical routes return 404; requests never recreate the old location. Explicit folder creation remains owned by the create-library flow. Selecting another existing folder preserves both registry identities and their paths.

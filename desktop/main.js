@@ -323,6 +323,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      additionalArguments: !isDev && backendHandle?.vaultSelectionId
+        ? [`--gnosi-vault-selection=${backendHandle.vaultSelectionId}`] : [],
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: true
     },

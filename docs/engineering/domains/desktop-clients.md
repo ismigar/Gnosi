@@ -64,6 +64,8 @@ tests:
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
+  - desktop/vault-recovery.test.js
+  - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
@@ -501,3 +503,13 @@ the candidate DMG with an empty profile and no injected Vault configuration,
 exercise the visible chooser and a second launch, then test an upgrade from
 3.0.1 with synthetic data. A harness that configures the Vault before launching
 does not establish first-launch acceptance.
+
+A successful native folder choice also saves an opaque `selectionId`. The
+sandboxed preload applies that marker before frontend requests: it clears only
+the prior active Vault ID, slug, name, catalog and active-Vault cookie. Unrelated
+preferences and cookies remain intact. The marker is applied once per profile,
+so normal library switches survive new windows and later launches. Old selection
+files without a marker remain valid. Canceling recovery preserves the previous
+selection. Registry identities are never rewritten merely because another
+folder was chosen. Repeat installed-DMG acceptance for relocation as well as
+same-path upgrade; this change also requires a newly built frozen backend.

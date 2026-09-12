@@ -40,7 +40,10 @@ test('missing configuration selects a folder, reaps the first child, and persist
   });
   assert.equal(result, configured);
   assert.deepEqual(calls, ['launch', 'stop:first', 'choose', 'launch']);
-  assert.deepEqual(JSON.parse(fs.readFileSync(selectionFile, 'utf8')), { path: vault });
+  const saved = JSON.parse(fs.readFileSync(selectionFile, 'utf8'));
+  assert.equal(saved.path, vault);
+  assert.match(saved.selectionId, /^[0-9a-f-]{36}$/);
+  assert.equal(result.vaultSelectionId, saved.selectionId);
   assert.equal(fs.readFileSync(path.join(vault, 'note.md'), 'utf8'), 'Existing knowledge');
   assert.equal(environment.DIGITAL_BRAIN_VAULT_PATH, undefined);
 
@@ -49,6 +52,7 @@ test('missing configuration selects a folder, reaps the first child, and persist
     chooseDirectory: async () => assert.fail('A saved available Vault must not prompt again'),
   });
   assert.equal(reopened, configured);
+  assert.equal(reopened.vaultSelectionId, saved.selectionId);
 });
 
 test('existing configuration and explicit environment remain authoritative', async t => {
@@ -138,4 +142,44 @@ test('relative data overrides resolve from the backend directory, not the launch
     },
     chooseDirectory: async () => assert.fail('The backend-relative selection must be reused'),
   });
+});
+
+test('recovering a moved library replaces the selection marker once and never recreates its old path', async t => {
+  const { root, vault, environment } = fixture(t);
+  const launch = async env => handle(Boolean(env.DIGITAL_BRAIN_VAULT_PATH), [], 'backend');
+  const initial = await launchConfiguredBackend({ environment, locale: 'en', launch,
+    chooseDirectory: async () => ({ canceled: false, filePaths: [vault] }),
+  });
+  const relocated = path.join(root, 'relocated-vault');
+  fs.renameSync(vault, relocated);
+  const recovered = await launchConfiguredBackend({ environment, locale: 'en', launch,
+    chooseDirectory: async () => ({ canceled: false, filePaths: [relocated] }),
+  });
+  assert.notEqual(recovered.vaultSelectionId, initial.vaultSelectionId);
+  assert.equal(fs.existsSync(vault), false);
+  assert.equal(fs.readFileSync(path.join(relocated, 'note.md'), 'utf8'), 'Existing knowledge');
+  const reopened = await launchConfiguredBackend({ environment, locale: 'en', launch,
+    chooseDirectory: async () => assert.fail('The recovered selection must survive reopening'),
+  });
+  assert.equal(reopened.vaultSelectionId, recovered.vaultSelectionId);
+  assert.equal(fs.existsSync(vault), false);
+});
+
+test('canceling recovery preserves the prior selection marker and does not create a directory', async t => {
+  const { root, vault, environment } = fixture(t);
+  const initial = await launchConfiguredBackend({ environment, locale: 'en',
+    launch: async env => handle(Boolean(env.DIGITAL_BRAIN_VAULT_PATH), [], 'backend'),
+    chooseDirectory: async () => ({ canceled: false, filePaths: [vault] }),
+  });
+  const selectionFile = path.join(environment.GNOSI_DATA_DIR, 'desktop-vault.json');
+  const before = fs.readFileSync(selectionFile, 'utf8');
+  fs.renameSync(vault, path.join(root, 'relocated'));
+  const canceled = await launchConfiguredBackend({ environment, locale: 'en',
+    launch: async () => handle(false, [], 'backend'),
+    chooseDirectory: async () => ({ canceled: true, filePaths: [] }),
+  });
+  assert.equal(canceled, null);
+  assert.ok(initial.vaultSelectionId);
+  assert.equal(fs.readFileSync(selectionFile, 'utf8'), before);
+  assert.equal(fs.existsSync(vault), false);
 });

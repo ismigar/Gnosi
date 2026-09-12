@@ -64,6 +64,8 @@ tests:
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
   - desktop/vault-startup.test.js
+  - desktop/vault-recovery.test.js
+  - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
@@ -558,3 +560,13 @@ versió també ha d’instal·lar el DMG candidat amb un perfil buit i sense una
 biblioteca injectada, recórrer el selector visible i un segon inici, i provar
 l’actualització des de 3.0.1 amb dades sintètiques. Preparar la biblioteca abans
 d’arrencar no acredita l’acceptació del primer inici.
+
+Una tria nativa correcta desa també un `selectionId` opac. El preload aïllat
+l’aplica abans de les peticions de la interfície: esborra només l’ID, el slug,
+el nom i el catàleg de la biblioteca activa anterior i la seva galeta. Les
+altres preferències i galetes es conserven. El marcador s’aplica una sola vegada
+per perfil, de manera que els canvis normals de biblioteca sobreviuen a noves
+finestres i reinicis. Els fitxers antics sense marcador continuen sent vàlids.
+Cancel·lar la recuperació conserva la tria anterior. Triar una altra carpeta
+no reescriu les identitats registrades. Cal repetir l’acceptació del DMG per
+canvi de ruta i actualització amb la mateixa ruta, i reconstruir el backend congelat.
