@@ -10,11 +10,13 @@
 {% endblock %}
 {% block content %}
 <nav class="learn-navigation" aria-label="{{ config.extra.language_label }}">
-  <a class="learn-home" href="{{ config.extra.website_path }}">← {{ config.extra.website_label }}</a>
+  <a class="learn-home" href="https://gnosi.temenosismael.org/" aria-label="{{ config.extra.website_label }}">
+    {% include "partials/logo.html" %}<span class="learn-wordmark">Gnosi</span>
+  </a>
   {% for code, name in config.extra.languages.items() %}
     <a href="{{ config.extra.learn_root }}{% if code != 'en' %}{{ code }}/{% endif %}{{ page.url if page else '' }}"
-       lang="{{ code }}" hreflang="{{ code }}" data-learn-language
-       {% if code == config.extra.locale %}aria-current="true"{% endif %}>{{ name }}</a>
+       lang="{{ code }}" hreflang="{{ code }}" aria-label="{{ name }}" title="{{ name }}" data-learn-language
+       {% if code == config.extra.locale %}aria-current="true"{% endif %}>{{ code | upper }}</a>
   {% endfor %}
 </nav>
 {{ super() }}
