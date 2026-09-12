@@ -1,0 +1,147 @@
+/* Share the public website's identity without its landing-page layout. */
+:root {
+  --md-text-font: var(--gnosi-shell-font, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", serif);
+  --md-code-font: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+[data-md-color-scheme="default"] {
+  --learn-bg: var(--gnosi-shell-bg, #f6f3ec);
+  --learn-accent: var(--gnosi-shell-accent, #e7dcc8);
+  --learn-card: var(--gnosi-shell-card, #fffdf8);
+  --learn-ink: var(--gnosi-shell-ink, #1e293b);
+  --learn-muted: #505e70;
+  --learn-line: var(--gnosi-shell-line, #d6c9b3);
+  --learn-link: #2563eb;
+  --learn-glow: rgb(231 220 200 / 45%);
+  --learn-shadow: 0 12px 30px rgb(34 32 28 / 9%);
+}
+
+[data-md-color-scheme="slate"] {
+  --learn-bg: #181c23;
+  --learn-accent: #29313c;
+  --learn-card: #222831;
+  --learn-ink: #f1eee7;
+  --learn-muted: #b2bac6;
+  --learn-line: #444c59;
+  --learn-link: #91bdff;
+  --learn-glow: rgb(74 91 117 / 22%);
+  --learn-shadow: 0 12px 30px rgb(0 0 0 / 16%);
+}
+
+body[data-md-color-scheme][data-md-color-primary] {
+  --md-default-bg-color: var(--learn-bg);
+  --md-default-fg-color: var(--learn-ink);
+  --md-default-fg-color--light: var(--learn-muted);
+  --md-default-fg-color--lighter: var(--learn-muted);
+  --md-default-fg-color--lightest: var(--learn-line);
+  --md-primary-fg-color: var(--learn-link);
+  --md-primary-bg-color: var(--learn-card);
+  --md-accent-fg-color: var(--learn-link);
+  --md-typeset-a-color: var(--learn-link);
+  --md-code-bg-color: var(--learn-card);
+  --md-code-fg-color: var(--learn-ink);
+  --md-footer-bg-color: var(--learn-accent);
+  --md-footer-bg-color--dark: var(--learn-accent);
+  --md-footer-fg-color: var(--learn-ink);
+  --md-footer-fg-color--light: var(--learn-muted);
+  --md-footer-fg-color--lighter: var(--learn-muted);
+  font-family: var(--md-text-font);
+  overflow-wrap: anywhere;
+}
+
+.md-grid { max-width: var(--gnosi-shell-width, 1100px); }
+.md-container {
+  background: radial-gradient(circle at 85% 8%, var(--learn-glow), transparent 34rem), var(--learn-bg);
+}
+.md-header {
+  background: var(--learn-bg);
+  border-bottom: 1px solid var(--learn-line);
+  color: var(--learn-ink);
+  box-shadow: none;
+}
+.md-header__inner { min-height: 66px; }
+.md-header__title { font-weight: 700; }
+.learn-brand-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0066ff, #00d4ff);
+  box-shadow: 0 4px 12px rgb(0 102 255 / 30%);
+  color: #fff;
+  font: 800 20px system-ui, sans-serif;
+}
+.md-search__form { background: var(--learn-accent); border-radius: 8px; }
+.md-search__input, .md-search__form .md-search__icon { color: var(--learn-ink); }
+.md-search__input::placeholder { color: var(--learn-muted); }
+.md-search-result__meta { background: var(--learn-accent); color: var(--learn-muted); }
+.md-search-result__article:focus, .md-search-result__article:hover { background: var(--learn-accent); }
+.md-nav__title { background: transparent; box-shadow: none; }
+.md-nav__link:focus, .md-nav__link:hover { color: var(--learn-link); }
+
+.learn-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  margin-bottom: 1.8rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--learn-line);
+  font-size: .7rem;
+}
+.learn-navigation a { display: inline-flex; align-items: center; min-height: 44px; padding: .35rem .55rem; border-radius: 6px; }
+.learn-navigation [aria-current] { background: var(--learn-link); color: var(--learn-bg); font-weight: 700; }
+.learn-navigation .learn-home { margin-inline-end: auto; padding-inline-start: 0; }
+.md-content, .md-content__inner, .md-typeset { min-width: 0; }
+.md-typeset { line-height: 1.65; }
+.md-typeset h1, .md-typeset h2, .md-typeset h3, .md-typeset h4 {
+  color: var(--learn-ink);
+  font-family: var(--md-text-font);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+.md-typeset h1 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); margin-bottom: .8em; }
+.md-typeset h2 { margin-top: 1.8em; }
+.md-typeset .grid.cards > ul > li {
+  background: var(--learn-card);
+  border: 1px solid var(--learn-line);
+  border-radius: 14px;
+  box-shadow: var(--learn-shadow);
+  padding: 1rem;
+}
+.md-typeset .grid.cards > ul > li:hover { border-color: var(--learn-link); box-shadow: var(--learn-shadow); }
+.md-typeset .grid.cards > ul > li > :first-child { font-size: .95rem; }
+.md-typeset .grid.cards > ul > li p:last-child { color: var(--learn-muted); }
+.md-typeset li + li { margin-top: .6em; }
+.md-typeset .grid.cards > ul > li { margin-top: 0; }
+.md-typeset .md-button { border-radius: 14px; padding: .7rem 1.4rem; font-weight: 600; }
+.md-typeset .md-button--primary { background: #2563eb; border-color: #2563eb; color: #fff; box-shadow: 0 4px 12px rgb(59 130 246 / 25%); }
+.md-typeset .md-button:is(:hover, :focus) { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.md-typeset table:not([class]), .md-typeset .admonition, .md-typeset details {
+  background: var(--learn-card);
+  border-color: var(--learn-line);
+  border-radius: 8px;
+  box-shadow: var(--learn-shadow);
+}
+.md-typeset table:not([class]) th { background: var(--learn-accent); color: var(--learn-ink); }
+.md-typeset code, .md-typeset pre, .md-typeset kbd { font-family: var(--md-code-font); }
+.md-footer { border-top: 1px solid var(--learn-line); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--learn-link); outline-offset: 3px; }
+
+@media (max-width: 59.984375em) {
+  .md-nav--primary .md-nav__title { background: var(--learn-accent); color: var(--learn-ink); }
+}
+@media (max-width: 44.984375em) {
+  .md-search__form { border-radius: 0; }
+  .md-search__input { background: var(--learn-card); }
+}
+@media (max-width: 480px) {
+  .learn-navigation { gap: .2rem; }
+  .learn-navigation .learn-home { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}

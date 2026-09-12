@@ -5,16 +5,8 @@
 {% endblock %}
 {% block styles %}
 {{ super() }}
-<style>
-  .learn-navigation { display:flex; flex-wrap:wrap; align-items:center; gap:.45rem 1rem; margin-bottom:1.5rem; font-size:.75rem; }
-  .learn-navigation a { padding:.45rem .15rem; }
-  .learn-navigation [aria-current] { font-weight:700; border-bottom:2px solid currentColor; }
-  .learn-navigation .learn-home { margin-inline-end:auto; }
-  .md-typeset h1 { font-weight:700; letter-spacing:-.025em; color:var(--md-default-fg-color); }
-  .md-typeset .grid.cards > ul > li { border-radius:.6rem; }
-  .md-typeset li + li { margin-top:.6em; }
-  a:focus-visible { outline:2px solid var(--md-accent-fg-color); outline-offset:3px; }
-</style>
+<link rel="stylesheet" href="/shell.css">
+<style>{% include "help-styles.css" %}</style>
 {% endblock %}
 {% block content %}
 <nav class="learn-navigation" aria-label="{{ config.extra.language_label }}">
