@@ -47,10 +47,10 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
-| `app` | 21 | 2633 | 0 |
+| `app` | 21 | 2635 | 0 |
 | `features` | 1076 | 124489 | 33 |
 | `generated` | 2 | 44320 | 453 |
-| `shared` | 246 | 30481 | 394 |
+| `shared` | 246 | 30483 | 394 |
 
 ## app
 
@@ -69,7 +69,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/app/navigation/CommandPalette.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/CommandPalette.tsx) | 302 | `CommandPalette`, `function` | — |
 | [`frontend/src/app/navigation/appSidebarNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/appSidebarNavigation.ts) | 36 | `normalizeSidebarPreferences`, `orderSidebarItems` | — |
 | [`frontend/src/app/navigation/sidebar/AppSidebarNavigation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/AppSidebarNavigation.tsx) | 190 | `QuickAccessMenu`, `SidebarFooter`, `SidebarRail` | — |
-| [`frontend/src/app/navigation/sidebar/HelpMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/HelpMenu.tsx) | 85 | `HelpMenu` | — |
+| [`frontend/src/app/navigation/sidebar/HelpMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/HelpMenu.tsx) | 87 | `HelpMenu` | — |
 | [`frontend/src/app/navigation/sidebar/appSidebarModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/appSidebarModel.ts) | 40 | `APP_SIDEBAR_ITEMS` | — |
 | [`frontend/src/app/outline/PageOutline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/PageOutline.tsx) | 269 | `PageOutline`, `function` | — |
 | [`frontend/src/app/outline/pageOutlineModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/pageOutlineModel.ts) | 84 | `collectOutlineHeadings`, `hasScrollableAncestor`, `isOutlineRoute`, `outlineHeadingId`, `outlineHeadingText` | — |
@@ -1327,7 +1327,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/graph/viewer/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/types.ts) | 86 | — | — |
 | [`frontend/src/shared/graph/viewer/useGraphViewerData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/useGraphViewerData.ts) | 92 | `useGraphViewerData`, `useGraphViewerPhysics` | — |
 | [`frontend/src/shared/graph/viewer/useGraphViewerRenderer.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/useGraphViewerRenderer.ts) | 93 | `useGraphViewerRenderer` | — |
-| [`frontend/src/shared/help/helpLinks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/help/helpLinks.ts) | 23 | `contextualHelpTopic`, `helpLocale`, `helpUrl` | — |
+| [`frontend/src/shared/help/helpLinks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/help/helpLinks.ts) | 25 | `contextualHelpTopic`, `helpLocale`, `helpUrl` | — |
 | [`frontend/src/shared/hooks/useActiveVaultId.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultId.ts) | 12 | `useActiveVaultId` | — |
 | [`frontend/src/shared/hooks/useActiveVaultName.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultName.ts) | 43 | `useActiveVaultName` | — |
 | [`frontend/src/shared/hooks/useExclusiveFloatingPanel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useExclusiveFloatingPanel.ts) | 35 | `announceFloatingPanelOpen`, `useExclusiveFloatingPanel` | — |

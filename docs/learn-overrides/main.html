@@ -1,4 +1,8 @@
 {% extends "base.html" %}
+{% block header %}
+<script>{% include "help-theme.js" %}</script>
+{{ super() }}
+{% endblock %}
 {% block styles %}
 {{ super() }}
 <style>

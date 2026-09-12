@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { contextualHelpTopic, helpLocale, helpUrl } from './helpLinks';
 
 describe('help destinations', () => {
+    it.each(['light', 'dark', 'system'] as const)('carries the %s preference to localized help', theme => {
+        expect(helpUrl('ca', 'getting-started', false, theme)).toBe(`https://gnosi.temenosismael.org/Gnosi/learn/ca/getting-started/?theme=${theme}`);
+    });
     it.each([['ca-ES', 'ca'], [' ES_es ', 'es'], ['fr-CA', 'fr'], ['de', 'en'], ['', 'en']])(
         'resolves %s to %s', (language, expected) => { expect(helpLocale(language)).toBe(expected); },
     );

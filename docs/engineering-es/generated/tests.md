@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 538 | 2239 |
+| Vitest | 539 | 2244 |
 | pytest | 527 | 3712 |
 
 ## Archivos
@@ -53,7 +53,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/app/integration/useFileLinkInterceptor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/integration/useFileLinkInterceptor.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/app/navigation/AppSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/AppSidebar.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/app/navigation/CommandPalette.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/CommandPalette.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/app/navigation/sidebar/HelpMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/HelpMenu.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/app/navigation/sidebar/HelpMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/navigation/sidebar/HelpMenu.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/app/outline/pageOutlineModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/outline/pageOutlineModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/app/routePreload.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/routePreload.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/app/shellPages.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/shellPages.test.tsx) | 2 | call-pattern estimate |
@@ -572,6 +572,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/tests/contracts/lint-generated-artifacts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/contracts/lint-generated-artifacts.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/tests/feature-public-entry-rule.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/feature-public-entry-rule.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/frontend-ownership.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/frontend-ownership.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/tests/help-theme.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/help-theme.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/tests/helpers/contracts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/helpers/contracts.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/tests/interface-language.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/interface-language.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/tests/native-preview.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/native-preview.test.ts) | 7 | call-pattern estimate |

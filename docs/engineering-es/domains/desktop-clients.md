@@ -545,3 +545,5 @@ teclado modal para que Escape cierre la ayuda antes que la barra lateral móvil.
 Las guías se mantienen en `docs/learn/` y se construyen por separado de la
 documentación técnica. Hay que publicar y verificar el portal antes de distribuir
 una versión con enlaces nuevos. El sitio redirige `/learn/` a `/Gnosi/learn/`.
+
+La ayuda abierta desde la barra lateral recibe la preferencia de apariencia de Gnosi. El portal respeta los modos claro, oscuro y sistema y conserva la preferencia entre artículos e idiomas. Los enlaces del sitio público se abren en un contexto de navegador separado.

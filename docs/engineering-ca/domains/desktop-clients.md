@@ -534,3 +534,5 @@ pila de teclat modal perquè Escape tanqui l’ajuda abans que la barra lateral 
 Les guies es mantenen a `docs/learn/` i es construeixen separadament de la
 documentació tècnica. Cal publicar i verificar el portal abans de distribuir una
 versió amb els enllaços nous. El web redirigeix `/learn/` cap a `/Gnosi/learn/`.
+
+L’ajuda oberta des de la barra lateral rep la preferència d’aparença de Gnosi. El portal respecta els modes clar, fosc i sistema i conserva la preferència entre articles i idiomes. Els enllaços del web públic s’obren en un context de navegador separat.

@@ -477,3 +477,5 @@ help before the mobile sidebar.
 User guides are maintained under `docs/learn/` and built separately from
 engineering. Publish and verify the help portal before distributing a build with
 new help links. The website provides `/learn/` entry redirects to `/Gnosi/learn/`.
+
+Help opened from the sidebar carries the Gnosi appearance preference. The help portal honors light, dark and system settings and keeps that preference between articles and languages. Links from the public website open a separate browser context.

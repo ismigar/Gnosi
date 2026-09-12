@@ -38,3 +38,5 @@ No app release is produced by the documentation workflow. If publication fails,
 leave the currently published app release in place and rerun the documentation
 workflow after resolving the failure. The help site needs no new backend, login,
 AI provider or analytics service.
+
+Help links from the sidebar carry the Gnosi appearance preference in the `theme` query parameter (light, dark or system). The portal preserves it in article and language navigation. Direct visits use the same-origin Gnosi `db-theme` setting when available, otherwise the system preference. The help template owns the palette so Material does not override an explicit Gnosi theme.

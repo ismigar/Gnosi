@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { contextualHelpTopic, helpUrl } from '../../../shared/help/helpLinks';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { useTheme } from '../../../shared/hooks/useTheme';
 import { subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 
 export function HelpMenu({ onSelect }: { readonly onSelect: () => void }) {
     const { t, i18n } = useTranslation();
     const { pathname } = useLocation();
+    const { themePreference } = useTheme();
     const [open, setOpen] = useState(false);
     const root = useRef<HTMLDivElement>(null);
     const trigger = useRef<HTMLButtonElement>(null);
@@ -21,9 +23,9 @@ export function HelpMenu({ onSelect }: { readonly onSelect: () => void }) {
     } });
     const language = i18n.resolvedLanguage || i18n.language;
     const items = [
-        { label: t('help.center', 'Help center'), url: helpUrl(language) },
-        { label: t('help.getting_started', 'Getting started'), url: helpUrl(language, 'getting-started') },
-        { label: t('help.this_section', 'Help with this section'), url: helpUrl(language, contextualHelpTopic(pathname)) },
+        { label: t('help.center', 'Help center'), url: helpUrl(language, '', false, themePreference) },
+        { label: t('help.getting_started', 'Getting started'), url: helpUrl(language, 'getting-started', false, themePreference) },
+        { label: t('help.this_section', 'Help with this section'), url: helpUrl(language, contextualHelpTopic(pathname), false, themePreference) },
         { label: t('help.engineering', 'Engineering documentation'), url: helpUrl(language, '', true) },
     ];
 

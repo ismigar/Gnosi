@@ -5,6 +5,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpMenu } from './HelpMenu';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import type { ThemePreference } from '../../../shared/hooks/useTheme';
+
+const theme = vi.hoisted<{ preference: ThemePreference }>(() => ({ preference: 'dark' }));
+vi.mock('../../../shared/hooks/useTheme', () => ({ useTheme: () => ({ themePreference: theme.preference }) }));
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
     t: (_key: string, fallback: string) => fallback,
@@ -24,6 +28,7 @@ function MobileSidebar() {
 beforeEach(async () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.clearAllMocks();
+    theme.preference = 'dark';
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -51,11 +56,17 @@ describe('help menu', () => {
         expect(button().getAttribute('aria-expanded')).toBe('true');
         expect(links()).toHaveLength(4);
         expect(document.activeElement).toBe(links()[0]);
-        expect(links()[2]?.href).toBe('https://gnosi.temenosismael.org/Gnosi/learn/ca/reading-references/');
+        expect(links()[2]?.href).toBe('https://gnosi.temenosismael.org/Gnosi/learn/ca/reading-references/?theme=dark');
         for (const link of links()) {
             expect(link.target).toBe('_blank');
             expect(link.rel).toBe('noopener noreferrer');
         }
+    });
+    it('reads the current Gnosi preference when opening help', async () => {
+        theme.preference = 'light';
+        await interact(() => { button().click(); });
+        expect(links()[0]?.search).toBe('?theme=light');
+        expect(links()[3]?.search).toBe('');
     });
     it('supports arrow keys, Home/End and nested Escape without closing the mobile sidebar', async () => {
         button().focus();
