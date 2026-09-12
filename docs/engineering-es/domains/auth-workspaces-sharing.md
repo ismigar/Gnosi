@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-12
 source_paths:
   - backend/api/auth_routes.py
   - backend/api/workspace_routes.py
@@ -28,6 +28,7 @@ tests:
   - backend/tests/test_workspace_bootstrap_race.py
   - backend/tests/test_workspace_invite_email_case.py
   - backend/tests/test_vault_canonical_routing.py
+  - backend/tests/test_vault_recovery_identity.py
   - backend/tests/test_vault_templates.py
   - backend/tests/test_inline_comments_permissions.py
   - backend/tests/test_auth_public_surface.py
@@ -181,3 +182,5 @@ coordinada del contrato OpenAPI/cliente.
 ## Enfoque de verificación
 
 Ejecute las pruebas del control central, del indicador que exige autenticación, de cuentas, cuentas provisionales, mayúsculas y minúsculas del correo electrónico, contraseñas, PAT, interfaces públicas, respuestas tipadas directas, condiciones de carrera del workspace, membresías y contenido compartido. La QA en el navegador comprueba el inicio y cierre de sesión, las actualizaciones de cuenta, el cambio de workspace y el acceso anónimo a enlaces compartidos en una sesión limpia.
+
+Resolver una biblioteca registrada es una operación de lectura. Si falta la carpeta, la identidad no está disponible y las rutas canónicas devuelven 404; las peticiones no recrean la ubicación antigua. La creación explícita de carpetas sigue en el flujo de creación de bibliotecas. Elegir otra carpeta existente conserva ambas identidades y sus rutas.

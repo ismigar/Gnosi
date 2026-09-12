@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2635 | 0 |
-| `features` | 1076 | 124489 | 33 |
+| `features` | 1076 | 124493 | 33 |
 | `generated` | 2 | 44320 | 453 |
 | `shared` | 246 | 30483 | 394 |
 
@@ -747,7 +747,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useCiteShortcut.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useCiteShortcut.ts) | 21 | `citeShortcutAllowed`, `useCiteShortcut` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useEditorDrop.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEditorDrop.ts) | 54 | `useEditorDrop` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useEditorEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEditorEffects.ts) | 16 | `useEditorEffects` | — |
-| [`frontend/src/features/vault/editor/block-editor/editor-effects/useEmbedNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEmbedNavigation.ts) | 52 | `useEditorEmbedNavigation` | — |
+| [`frontend/src/features/vault/editor/block-editor/editor-effects/useEmbedNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useEmbedNavigation.ts) | 56 | `useEditorEmbedNavigation` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-effects/useTogglePersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/useTogglePersistence.ts) | 48 | `useTogglePersistence` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.tsx) | 41 | `EditorModals` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorSuggestions.tsx) | 15 | `EditorSuggestions` | — |

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-07
+last_verified: 2026-09-12
 source_paths:
   - package.json
   - .github/workflows/ci.yml
@@ -30,24 +30,16 @@ tests:
 
 Los trabajos pesados de CI siguen este orden: backend, frontend y Docker. El Mac y la MV Linux comparten recursos físicos; el frontend utiliza un solo proceso de pruebas. Un fallo anterior no omite las comprobaciones siguientes, pero se mantienen la cancelación y las restricciones de los forks. Las suites aisladas de dibujos y citas disponen de cinco minutos por proceso, incluidas las importaciones iniciales y todas las aserciones. Las pruebas integradas de herramientas generadas utilizan el límite de producción sin modificarlo; una regresión separada verifica el límite explícito.
 
-Las pull requests públicas del mismo repositorio ejecutan `backend` en una MV
-nueva `ubuntu-24.04-arm` alojada en GitHub, añadiendo capacidad Linux ARM64 sin
-compartir la CPU, la memoria, los puertos de servicios ni el motor Docker del
-anfitrión nativo. `native-smoke` y `docker` conservan el ejecutor Linux ARM64
-autoalojado existente. Las subidas de commits, la validación de versiones, los
-repositorios privados y la ausencia de metadatos de visibilidad pública utilizan
-el ejecutor autoalojado del backend; las asignaciones de ejecutores de
-documentación y empaquetado no cambian.
-
-La misma condición de PR pública del mismo repositorio también asigna `frontend`
-a un nuevo ejecutor ARM64 `macos-15` alojado en GitHub, evitando las descargas
-lentas del anfitrión nativo. Los repositorios privados, la ausencia de metadatos
-de visibilidad, las subidas y la validación de versiones conservan el ejecutor
-macOS ARM64 autoalojado. Se mantienen el heap de Node de 4 GiB, un solo proceso
-de pruebas, todas las comprobaciones y el orden backend-frontend. Ambas
-etiquetas alojadas son ejecutores estándar, gratuitos para repositorios públicos;
-no se introducen ejecutores ampliados de pago ni acceso a datos de la aplicación
-nativa o servicios del anfitrión.
+La PR #86 tiene una excepción explícita para ejecutar la validación solicitada
+solo en local. Backend, native smoke y Docker utilizan el ejecutor Linux ARM64
+existente; frontend, macOS ARM64; documentación, macOS X64. Si un ejecutor local
+compatible no está disponible, el check de esta PR queda en cola. Las otras
+PR públicas conservan los ejecutores de GitHub existentes para backend/native
+smoke (`ubuntu-24.04-arm`) y frontend (`macos-15`). Las subidas, los repositorios
+privados y la validación de versiones mantienen sus asignaciones locales.
+Todos los checks, las dependencias, los permisos de solo lectura y las
+restricciones al mismo repositorio se mantienen; los forks no pueden
+ejecutarse en las máquinas del propietario.
 
 Los grupos de `concurrency` del flujo de trabajo utilizan un prefijo específico
 de CI, el nombre del flujo y el número de PR. Un commit nuevo cancela los trabajos

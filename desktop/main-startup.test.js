@@ -200,3 +200,60 @@ test('quit during port selection cannot spawn a backend afterwards', async () =>
   await startup;
   assert.equal(runtime.windows.length, 0);
 });
+
+test('unconfigured packaged startup completes native folder selection before opening any renderer', async t => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gnosi-main-setup-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const vault = path.join(root, 'vault');
+  fs.mkdirSync(vault);
+  let launches = 0;
+  let stops = 0;
+  const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+    userDataPath: path.join(root, 'data'), locale: 'ca-ES',
+    showOpenDialog: async options => {
+      assert.equal(stops, 1);
+      assert.equal(runtime.windows.length, 0);
+      assert.equal(options.title, 'Tria la biblioteca de Gnosi');
+      return { canceled: false, filePaths: [vault] };
+    },
+    launchBackend: async options => {
+      launches++;
+      const child = new EventEmitter();
+      options.onSpawn(child);
+      if (launches === 2) assert.equal(options.environment.DIGITAL_BRAIN_VAULT_PATH, vault);
+      return { process: child, vaultConfigured: launches === 2, isRunning: async () => true,
+        stop: async () => { stops++; child.emit('exit', 0); } };
+    },
+  });
+  await runtime.readyCallbacks[0]();
+  assert.equal(launches, 2);
+  assert.equal(runtime.windows.length, 1);
+  const saved = JSON.parse(fs.readFileSync(path.join(root, 'data/desktop-vault.json'), 'utf8'));
+  assert.deepEqual(Array.from(runtime.windows[0].options.webPreferences.additionalArguments),
+    [`--gnosi-vault-selection=${saved.selectionId}`]);
+  runtime.clickMenu('New Window');
+  assert.deepEqual(Array.from(runtime.windows[1].options.webPreferences.additionalArguments),
+    [`--gnosi-vault-selection=${saved.selectionId}`]);
+  assert.equal(runtime.calls.includes('quit'), false);
+});
+
+test('canceling initial folder selection quits without opening a window or starting updates', async () => {
+  let stops = 0;
+  const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+    launchBackend: async options => {
+      const child = new EventEmitter();
+      options.onSpawn(child);
+      return { process: child, vaultConfigured: false, stop: async () => { stops++; child.emit('exit', 0); } };
+    },
+  });
+  await runtime.readyCallbacks[0]();
+  assert.equal(stops, 1);
+  assert.equal(runtime.windows.length, 0);
+  assert.equal(runtime.calls.includes('quit'), true);
+  assert.equal(runtime.calls.includes('check-updates'), false);
+  runtime.lifecycle.get('activate')();
+  assert.equal(runtime.windows.length, 0);
+});

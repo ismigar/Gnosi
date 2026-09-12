@@ -178,12 +178,15 @@ function assertReviewedCIRunners(workflow) {
   const expectedRunners = {
     documentation: ['self-hosted', 'macOS', 'X64'],
     frontend: "${{ fromJSON(github.event_name == 'pull_request' && "
+      + "github.event.pull_request.number != 86 && "
       + "github.event.repository.visibility == 'public' && "
       + "'[\"macos-15\"]' || '[\"self-hosted\", \"macOS\", \"ARM64\"]') }}",
     backend: "${{ fromJSON(github.event_name == 'pull_request' && "
+      + "github.event.pull_request.number != 86 && "
       + "github.event.repository.visibility == 'public' && "
       + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
     'native-smoke': "${{ fromJSON(github.event_name == 'pull_request' && "
+      + "github.event.pull_request.number != 86 && "
       + "github.event.repository.visibility == 'public' && "
       + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
     docker: ['self-hosted', 'Linux', 'ARM64'],
@@ -274,6 +277,7 @@ test('shared CI rejects unguarded hosted capacity and changed release fallbacks'
     const runner = ci.jobs[name]['runs-on'];
     for (const replacement of [
       runner.replace("github.event_name == 'pull_request' && ", ''),
+      runner.replace("github.event.pull_request.number != 86 && ", ''),
       runner.replace("github.event.repository.visibility == 'public' && ", ''),
       runner.replace("'pull_request'", "'push'"),
       runner.replace('"self-hosted"', '"unreviewed-fallback"'),

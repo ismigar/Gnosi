@@ -30,7 +30,11 @@ export function useEditorEmbedNavigation({ editor, editorWrapperRef, editorReady
         };
         view.setProps({ handleDOMEvents: handlers });
         return () => {
-            if (view.props.handleDOMEvents === handlers) view.setProps({ handleDOMEvents: previous });
+            // BlockNote can destroy the view before React disposes this effect
+            // when leaving a note. setProps on that view crashes the app shell.
+            if (!view.isDestroyed && view.props.handleDOMEvents === handlers) {
+                view.setProps({ handleDOMEvents: previous });
+            }
         };
     }, [editor, editorReady]);
 

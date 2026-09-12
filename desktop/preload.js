@@ -1,5 +1,25 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Run before application scripts issue their first request. A successful native
+// folder selection supersedes the previous renderer identity, not its preferences.
+// The persisted selection ID makes reloads and new windows preserve later normal
+// switches between libraries until the user explicitly chooses another folder.
+function applyNativeVaultSelection() {
+  if (typeof process === 'undefined' || typeof window === 'undefined'
+      || window.location.protocol !== 'app:' || window.location.hostname !== 'gnosi') return;
+  const selectionId = process.argv.find(arg => arg.startsWith('--gnosi-vault-selection='))?.split('=')[1];
+  if (!selectionId || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(selectionId)) return;
+  const storage = window.localStorage;
+  const appliedKey = 'gnosi_desktop_vault_selection';
+  if (storage.getItem(appliedKey) === selectionId) return;
+  for (const key of ['gnosi_active_vault', 'gnosi_active_vault_slug',
+    'gnosi_active_vault_name', 'gnosi_vault_catalog']) storage.removeItem(key);
+  document.cookie = 'gnosi_active_vault=; path=/; SameSite=Lax; max-age=0';
+  storage.setItem(appliedKey, selectionId);
+}
+
+applyNativeVaultSelection();
+
 /** @typedef {import('./ipc-contract').DesktopUpdateState} DesktopUpdateState */
 /** @typedef {import('./ipc-contract').DesktopRequestChannel} DesktopRequestChannel */
 

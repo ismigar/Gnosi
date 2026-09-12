@@ -35,20 +35,25 @@ def test_existing_vault_resolves_when_its_provider_rejects_directory_mutations(s
     session.close.assert_called_once()
 
 
-def test_missing_vault_directory_is_still_prepared(stored_vault):
+def test_missing_vault_directory_is_unavailable_and_never_prepared(stored_vault, monkeypatch):
     vault, _ = stored_vault
-    assert routing._read_vault_identity(vault.id) == (vault.id, vault.path_override)
-    assert Path(vault.path_override).is_dir()
+
+    def unexpected_write(*args, **kwargs):
+        raise AssertionError("A saved identity lookup must not create directories")
+
+    monkeypatch.setattr(Path, "mkdir", unexpected_write)
+    assert routing._read_vault_identity(vault.id) is None
+    assert not Path(vault.path_override).exists()
 
 
-def test_failed_directory_preparation_is_not_an_available_vault(stored_vault, monkeypatch):
+def test_failed_directory_probe_is_not_an_available_vault(stored_vault, monkeypatch):
     vault, _ = stored_vault
-    mkdir = Path.mkdir
+    is_dir = Path.is_dir
 
-    def unavailable(path, *args, **kwargs):
+    def unavailable(path):
         if str(path) == vault.path_override:
             raise PermissionError("Synthetic unavailable vault")
-        return mkdir(path, *args, **kwargs)
+        return is_dir(path)
 
-    monkeypatch.setattr(Path, "mkdir", unavailable)
+    monkeypatch.setattr(Path, "is_dir", unavailable)
     assert routing._read_vault_identity(vault.id) is None

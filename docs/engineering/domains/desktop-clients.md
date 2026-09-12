@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 source_paths:
   - pyproject.toml
   - uv.lock
@@ -16,6 +16,7 @@ source_paths:
   - scripts/generate_openapi.py
   - backend/app/desktop_instance.py
   - desktop/backend-process.js
+  - desktop/vault-startup.js
   - desktop/ipc-handlers.js
   - desktop/startup-errors.js
   - desktop/build-python.sh
@@ -62,6 +63,9 @@ tests:
   - backend/tests/test_openapi_generation.py
   - backend/tests/test_desktop_instance.py
   - desktop/backend-process.test.js
+  - desktop/vault-startup.test.js
+  - desktop/vault-recovery.test.js
+  - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
@@ -465,7 +469,7 @@ The backend application version and generated OpenAPI contract must match the pr
 
 The sidebar Help menu opens the help center, getting started, the current section
 and engineering documentation in an external browser. The native Help menu exposes
-the center, getting started and engineering documentation. The optional locale in
+the center, getting started and user documentation. The optional locale in
 `set-application-menu` preserves earlier callers; the main process validates its
 type and normalizes regional or unsupported languages. Both clients use
 `desktop/help-links.json` for fixed destinations and supported topics. Record IDs,
@@ -481,3 +485,31 @@ new help links. The website provides `/learn/` entry redirects to `/Gnosi/learn/
 Help opened from the sidebar carries the Gnosi appearance preference. The help portal honors light, dark and system settings and keeps that preference between articles and languages. Links from the public website open a separate browser context.
 
 Release 3.0.2 includes the multilingual help center, contextual help menus and appearance-aware article links. Its desktop, frontend and backend version metadata remain synchronized; the release catalog stays pending until verified installers are published.
+
+## First launch without a Vault
+
+The packaged main process reads `vault_configured` from the owned backend's
+validated health response. When it is false, `vault-startup.js` stops that child
+and opens a native folder chooser before any renderer or updater starts. The
+user can select an existing Vault or create a folder. Canceling exits cleanly;
+reopening offers setup again. A successful restart with the chosen
+`DIGITAL_BRAIN_VAULT_PATH` saves only the selection in
+`GNOSI_DATA_DIR/desktop-vault.json`. Explicit Vault environment overrides win;
+a missing saved folder is never recreated automatically.
+
+The focused tests cover selection, cancellation, process cleanup, restart,
+localized labels and persistence. Release acceptance must additionally install
+the candidate DMG with an empty profile and no injected Vault configuration,
+exercise the visible chooser and a second launch, then test an upgrade from
+3.0.1 with synthetic data. A harness that configures the Vault before launching
+does not establish first-launch acceptance.
+
+A successful native folder choice also saves an opaque `selectionId`. The
+sandboxed preload applies that marker before frontend requests: it clears only
+the prior active Vault ID, slug, name, catalog and active-Vault cookie. Unrelated
+preferences and cookies remain intact. The marker is applied once per profile,
+so normal library switches survive new windows and later launches. Old selection
+files without a marker remain valid. Canceling recovery preserves the previous
+selection. Registry identities are never rewritten merely because another
+folder was chosen. Repeat installed-DMG acceptance for relocation as well as
+same-path upgrade; this change also requires a newly built frozen backend.

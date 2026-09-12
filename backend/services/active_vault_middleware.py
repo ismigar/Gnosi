@@ -115,10 +115,10 @@ def _read_vault_identity(identifier: str) -> VaultIdentity | None:
     if identity:
         try:
             directory = Path(identity[1])
-            # Resolving a saved vault is a read. File Providers can make even
-            # mkdir(exist_ok=True) an expensive mutation of an existing folder.
+            # A request may retain an identity for an unmounted or moved library.
+            # Resolving it must never recreate the old location as an empty vault.
             if not directory.is_dir():
-                directory.mkdir(parents=True, exist_ok=True)
+                identity = None
         except Exception:
             identity = None
     return identity

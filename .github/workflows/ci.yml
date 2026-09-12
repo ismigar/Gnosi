@@ -73,8 +73,8 @@ jobs:
     if: >-
       !cancelled() && (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
-    # Public PRs avoid the native host's slow package downloads; keep other events local.
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["macos-15"]' || '["self-hosted", "macOS", "ARM64"]') }}
+    # PR #86 is explicitly validated on local runners; preserve routing for other PRs.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.number != 86 && github.event.repository.visibility == 'public' && '["macos-15"]' || '["self-hosted", "macOS", "ARM64"]') }}
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       GNOSI_VITEST_MAX_WORKERS: '1'
@@ -133,9 +133,8 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    # Public PRs get a separate, ephemeral Linux ARM64 VM. Keep private, push
-    # and release validation on the existing self-hosted runner.
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
+    # PR #86 uses the existing local runner; other public PRs retain hosted capacity.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.number != 86 && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -181,9 +180,8 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    # Native startup and Vite optimization need independent capacity too.
-    # Public PRs use a fresh Linux ARM64 VM, matching the backend policy.
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
+    # Keep the PR #86 local-only exception identical across all three checks.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.number != 86 && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
     steps:
       - uses: actions/checkout@v7
         with:

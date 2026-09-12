@@ -46,4 +46,4 @@ function prepareDesktopProfile(app, environment, options = {}) {
   return true;
 }
 
-module.exports = { prepareDesktopProfile };
+module.exports = { prepareDesktopProfile, resolveDataPath };

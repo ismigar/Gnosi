@@ -97,6 +97,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\ipc-security.js',
     '\\ipc-handlers.js',
     '\\backend-process.js',
+    '\\vault-startup.js',
     '\\startup-errors.js',
     '\\profile-startup.js',
     '\\cookie-schema-guard.js',

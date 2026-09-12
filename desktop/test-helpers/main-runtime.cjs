@@ -13,6 +13,8 @@ function loadMainRuntime({
   locale = 'en', resourcesPath = '/fixture/resources',
   platform = 'darwin', isPackaged = false, sparkleUpdater,
   onWindowCreated = () => {},
+  userDataPath = '/fixture/user-data',
+  showOpenDialog = async () => ({ canceled: true, filePaths: [] }),
 } = {}) {
   const desktopRoot = path.dirname(__dirname);
   const calls = [];
@@ -60,12 +62,12 @@ function loadMainRuntime({
       on: (event, callback) => lifecycle.set(event, callback),
       exit: code => exits.push(code),
       quit: () => calls.push('quit'),
-      getPath: () => '/fixture/user-data',
+      getPath: () => userDataPath,
       getLocale: () => locale,
       getVersion: () => { calls.push('version'); return '3.0.0-rc.1'; },
     },
     BrowserWindow,
-    dialog: { showErrorBox: (title, message) => calls.push({ errorBox: { title, message } }) },
+    dialog: { showOpenDialog, showErrorBox: (title, message) => calls.push({ errorBox: { title, message } }) },
     ipcMain: {
       handle: (channel, handler) => {
         assert.ok(!handlers.has(channel), `Duplicate handler: ${channel}`);
@@ -117,7 +119,7 @@ function loadMainRuntime({
         statSync: file => file.startsWith('/fixture/resources/python/')
           ? { isFile: () => bundleExists } : fs.statSync(file),
       };
-      if (['./application-menu', './backend-launch', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
+      if (['./application-menu', './backend-launch', './vault-startup', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
         return require(path.join(desktopRoot, name));
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);

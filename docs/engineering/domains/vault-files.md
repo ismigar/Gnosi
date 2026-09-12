@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -26,6 +26,7 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
   - backend/tests/test_drupal_connector_native_contract.py
@@ -623,3 +624,5 @@ read because local fixture tests cannot reproduce File Provider behavior.
 ## Sidebar metadata recovery
 
 The sidebar summary and sparse tree recover incomplete entries in the root, Wiki and dashboard folders through the active files provider before rereading their metadata. This also applies to cached snapshots. Successful hydration restores canonical page IDs, parent IDs, database flags, favorites and icons, updates ID lookup, and rebuilds the versioned snapshot for deduplication. Complete entries and table catalogs do not trigger this recovery. Partial frontmatter reads retry both transient cloud error codes (11 and 35), starting with an empty buffer and delimiter state on every reopened file. Failed reads keep the existing cached metadata.
+
+Switching libraries while a note is open disposes the note editor. BlockNote may destroy its ProseMirror view before React runs the embedded-navigation cleanup. That cleanup restores the previous keyboard handlers only while the view is alive and still owns those handlers; it never calls `setProps` on a destroyed view. Lifecycle regression tests use a real ProseMirror view and cover both disposal orders, preventing a teardown exception from removing the entire application shell.

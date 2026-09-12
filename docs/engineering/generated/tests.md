@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 539 | 2244 |
-| pytest | 527 | 3712 |
+| Vitest | 539 | 2246 |
+| pytest | 528 | 3716 |
 
 ## Files
 
@@ -302,7 +302,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/vault/editor/block-editor/domSizing.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/domSizing.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/caret.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/caret.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/embedNavigation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/embedNavigation.test.ts) | 9 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/toggleTree.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/toggleTree.test.ts) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-effects/transfers.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-effects/transfers.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/EditorModals.test.tsx) | 4 | call-pattern estimate |
@@ -1026,6 +1026,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_page_state_singleton.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_state_singleton.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_page_write_helpers_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_write_helpers_domain_contract.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_vault_pages_history_trash_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_pages_history_trash_route_contract.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_vault_recovery_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_recovery_identity.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_reference_capture_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_reference_capture_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_brain_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_registry_brain_response_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_registry_race.py) | 4 | Python AST |

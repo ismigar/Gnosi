@@ -14,14 +14,14 @@ test('native help commands use the renderer locale and preserve existing IPC cal
   runtime.createWindow();
   const event = senderEvent(runtime.windows[0]);
   await runtime.handlers.get('set-application-menu')(event, { labels: {}, locale: 'es' });
-  for (const label of ['Help center', 'Getting started', 'Engineering documentation']) {
+  for (const label of ['Help center', 'Getting started', 'User documentation']) {
     runtime.clickMenu(label);
   }
   const urls = runtime.calls.filter(call => call && call.external).map(call => call.external);
   assert.deepEqual(urls, [
     'https://gnosi.temenosismael.org/Gnosi/learn/es/',
     'https://gnosi.temenosismael.org/Gnosi/learn/es/getting-started/',
-    'https://gnosi.temenosismael.org/Gnosi/engineering/es/',
+    'https://gnosi.temenosismael.org/Gnosi/learn/es/',
   ]);
   await assert.rejects(async () => runtime.handlers.get('set-application-menu')(event, { locale: {} }), /Invalid menu locale/);
   await runtime.handlers.get('set-application-menu')(event, { labels: {} });
