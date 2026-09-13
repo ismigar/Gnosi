@@ -208,6 +208,13 @@ contenu imbriqué mal formé reste délibérément ignoré. Ces contrats ne
 convertissent pas les valeurs de l'utilisateur et ne modifient pas les
 protections existantes pour les fichiers cloud.
 
+La lecture des fichiers auxiliaires accepte les plateformes comme Windows,
+où les statistiques des fichiers ne fournissent pas `st_blocks`. Si le nombre
+de blocs est indisponible, le JSON local est lu normalement ; un zéro explicite
+évite toujours la lecture d’un fichier uniquement dans le cloud pour ne pas
+bloquer pendant son téléchargement. Les pages enregistrées et leurs indicateurs
+internes doivent rester lisibles après le redémarrage de l’application.
+
 `pages/markdown_writer.py` est la frontière canonique de sérialisation : il
 récupère ou crée un identifiant stable manquant, associe les clés du schéma aux
 noms utilisés pour le stockage, retire les champs virtuels, écrit l'état interne

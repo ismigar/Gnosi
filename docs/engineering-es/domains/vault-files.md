@@ -204,6 +204,13 @@ tipados cuando es necesario recuperar YAML; el contenido anidado mal formado se
 sigue ignorando deliberadamente. Estos contratos no fuerzan la conversión de los
 valores del usuario ni cambian las protecciones existentes para archivos en la nube.
 
+La lectura de archivos auxiliares admite plataformas como Windows, donde las
+estadísticas de archivos no incluyen `st_blocks`. Si el número de bloques no
+está disponible, se lee el JSON local normalmente; un cero explícito sigue
+evitando la lectura de un archivo solo en la nube para no bloquearse durante
+su descarga. Las páginas guardadas y sus indicadores internos deben seguir
+siendo legibles después de reiniciar la aplicación.
+
 `pages/markdown_writer.py` es la capa canónica de serialización: recupera o crea
 un ID estable cuando falta, asigna las claves del esquema a los nombres de
 almacenamiento, elimina los campos virtuales, escribe el estado interno en el

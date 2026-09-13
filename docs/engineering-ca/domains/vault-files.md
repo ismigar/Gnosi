@@ -201,6 +201,13 @@ tipats quan cal recuperar YAML; el contingut niat mal format s'ignora
 deliberadament. Aquests contractes no forcen conversions dels valors de
 l'usuari ni canvien les proteccions existents dels fitxers del núvol.
 
+La lectura dels fitxers auxiliars admet plataformes com Windows, on les
+estadístiques dels fitxers no inclouen `st_blocks`. Si el recompte de blocs no
+està disponible, es llegeix el JSON local normalment; un zero explícit continua
+evitant la lectura d’un fitxer només al núvol per no bloquejar-se durant la
+descàrrega. Les pàgines desades i els seus indicadors interns han de continuar
+essent llegibles després de reiniciar l’aplicació.
+
 `pages/markdown_writer.py` és el límit canònic de serialització: recupera o crea
 l'identificador estable si falta, transforma les claus de l'esquema en noms
 d'emmagatzematge, elimina els camps virtuals, escriu l'estat intern al fitxer
