@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1367 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 151 | 36183 |
+| `services` | 151 | 36185 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **800 modules** and **166586 source lines**.
+Total: **800 modules** and **166588 source lines**.
 
 ## agent
 
@@ -854,7 +854,7 @@ Total: **800 modules** and **166586 source lines**.
 | [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/oauth2_helpers.py) | 184 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
 | [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/option_catalogs.py) | 77 | 0 | 0 | 0 | 0 | Compatibility facade for table option catalogs and semantic roles. |
 | [`backend/services/optional_module_capabilities.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/optional_module_capabilities.py) | 13 | 0 | 1 | 0 | 1 | Side-effect-free availability checks for optional Python modules. |
-| [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 228 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
+| [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/page_sidecar.py) | 230 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
 | [`backend/services/path_resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/path_resolver.py) | 93 | 1 | 0 | 0 | 1 | No module docstring |
 | [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_engine.py) | 487 | 2 | 14 | 0 | 14 | Deterministic, rebuildable scheduling for Gnosi project planning. |
 | [`backend/services/planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/planning_scheduler.py) | 195 | 2 | 8 | 0 | 5 | Coalesced, ETag-safe project schedule refreshes triggered by page changes. |

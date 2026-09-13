@@ -189,6 +189,12 @@ fallback returns top-level scalar values as typed objects when YAML recovery is
 needed; nested malformed content remains deliberately ignored. These contracts
 do not coerce user values or change the existing cloud-file safeguards.
 
+Sidecar reads tolerate platforms such as Windows where file statistics omit
+`st_blocks`. An unavailable block count allows the normal local JSON read; an
+explicit zero still skips an online-only sidecar to avoid blocking on cloud
+hydration. Saved pages and their internal flags must remain readable after
+restarting the application.
+
 `pages/markdown_writer.py` is the canonical serialization boundary: it recovers
 or creates a missing stable ID, maps schema keys to storage names, strips
 virtual fields, writes internal state to the sidecar, decorates portable

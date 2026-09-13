@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 539 | 2246 |
-| pytest | 528 | 3716 |
+| pytest | 528 | 3718 |
 
 ## Files
 
@@ -859,7 +859,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_page_metadata_open_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_metadata_open_contract.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_page_preview_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_preview_contract.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_page_section_upsert.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_section_upsert.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_sidecar.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_sidecar.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_page_version_force.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_version_force.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_page_write_citation_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_citation_contract.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_page_write_inventory_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_page_write_inventory_contract.py) | 3 | Python AST |
