@@ -6,7 +6,9 @@ See `docs/dev_memory/directives/sidecar_internal_metadata.md`.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -71,6 +73,45 @@ def test_write_read_round_trip(vault: Path):
     assert sidecar_path_for(vault, "page-1").exists()
     data = read_sidecar(vault, "page-1")
     assert data == {"is_template": True, "title_manual": True}
+
+
+def test_saved_page_reopens_without_unix_block_count(
+    vault: Path, monkeypatch: pytest.MonkeyPatch, isolated_validation_runtime: Path,
+) -> None:
+    from backend.api.vault_routes import parse_frontmatter, save_page_md
+    from backend.services import page_sidecar
+
+    page = vault / "Win302.md"
+    save_page_md(page, {"id": "win302", "title": "Win302", "title_manual": True}, "w302")
+    page_sidecar.clear_vault_root_cache()
+    # Windows stat results have no st_blocks. Scope the double to this module
+    # so pathlib and pytest retain their real filesystem operations.
+    monkeypatch.setattr(page_sidecar, "os", SimpleNamespace(
+        environ=os.environ, stat=lambda _path: SimpleNamespace(st_size=32),
+    ))
+
+    metadata, body = parse_frontmatter(page.read_text(), page)
+
+    assert metadata["title"] == "Win302"
+    assert metadata["title_manual"] is True
+    assert body.strip() == "w302"
+
+
+def test_online_only_sidecar_is_not_opened(
+    vault: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.services import page_sidecar
+
+    write_sidecar(vault, "online", {"title_manual": True})
+    monkeypatch.setattr(page_sidecar, "os", SimpleNamespace(
+        stat=lambda _path: SimpleNamespace(st_blocks=0),
+    ))
+
+    def unexpected_open(*_args, **_kwargs):
+        pytest.fail("Reading an online-only sidecar could block on hydration")
+
+    monkeypatch.setattr(Path, "open", unexpected_open)
+    assert read_sidecar(vault, "online") == {}
 
 
 def test_write_empty_dict_removes_file(vault: Path):

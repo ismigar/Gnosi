@@ -126,8 +126,10 @@ def read_sidecar(vault_root: Path, page_id: str) -> Metadata:
     # blocks: st_blocks == 0 means the content isn't materialized locally, so we
     # skip it and fall back to defaults (generic icon) instead of hanging. Once
     # OneDrive materializes the file (st_blocks > 0) it gets read normally again.
+    # Windows does not expose st_blocks; an unknown block count must not
+    # prevent ordinary local metadata reads.
     try:
-        if os.stat(path).st_blocks == 0:
+        if getattr(os.stat(path), "st_blocks", None) == 0:
             log.warning(f"Sidecar {path} has no data (online-only or corrupted); ignoring it")
             return {}
     except OSError as e:
