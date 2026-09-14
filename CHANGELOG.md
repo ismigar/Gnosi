@@ -2,7 +2,7 @@
 
 ## Gnosi 3.0.2
 
-_2026-09-12 · Release candidate_
+_2026-09-12 · Stable_
 
 ### Highlights
 
