@@ -1,3 +1,4 @@
+import { GalleryOpenButton } from './GalleryCardPreview';
 import {
   ChevronDown,
   ChevronUp,
@@ -112,6 +113,7 @@ export function VaultFeedCard({
       data-feed-note-id={note.id}
       className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} ${density === 'adaptive' ? 'vault-feed-card--adaptive' : ''} ${isRead ? 'is-read' : ''} group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--bg-primary)] shadow-sm transition-all hover:shadow-md ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
     >
+      <GalleryOpenButton pageId={note.id} onOpen={onOpen} />
       <label
         className={`absolute left-3 top-3 z-20 cursor-pointer ${isSelected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         onClick={(event) => { event.stopPropagation(); }}
@@ -168,9 +170,8 @@ export function VaultFeedCard({
             <h2 className="min-w-0">
               <button
                 type="button"
-                onClick={selectionActive ? undefined : openNote}
                 disabled={selectionActive}
-                aria-label={`${t('feed.open_page', 'Open page')}: ${displayTitle}`}
+                aria-label={displayTitle}
                 {...titlePreviewProps}
                 className={`vault-feed-card__title flex min-w-0 items-center gap-2 text-left text-xl font-bold leading-tight text-[var(--text-primary)] transition-colors ${selectionActive ? 'cursor-default' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'}`}
                 title={title}

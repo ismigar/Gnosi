@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, X, SlidersHorizontal, Rows3, LayoutTemplate, Plus } from 'lucide-react';
 import { ViewTools } from './ViewTools';
@@ -6,8 +7,19 @@ import type { ViewActionsProps } from './types';
 export function ViewActionsBar(props: ViewActionsProps) {
     const { onAddView, onOpenConfig, searchTerm, setSearchTerm, showSearch, setShowSearch, density, onToggleDensity, activeFilterCount = 0, resultCount = 0, totalCount = 0, presets = [], onSavePreset, onApplyPreset } = props;
     const { t } = useTranslation();
+    const ref = useRef<HTMLDivElement>(null);
+    const [compact, setCompact] = useState(true);
+    useEffect(() => {
+        const container = ref.current?.closest('.vault-view-toolbar');
+        if (!container || typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(([entry]) => {
+            if (entry) setCompact(entry.contentRect.width < 720);
+        });
+        observer.observe(container);
+        return () => { observer.disconnect(); };
+    }, []);
     return (
-        <div className="vault-view-actions flex items-center gap-1">
+        <div ref={ref} className="vault-view-actions flex items-center gap-1">
             {(activeFilterCount > 0 || searchTerm) && (
                 <div className="vault-view-filter-status" role="status">
                     {activeFilterCount > 0 && (
@@ -75,6 +87,9 @@ export function ViewActionsBar(props: ViewActionsProps) {
                 </button>
             )}
 
+            <details className="vault-view-secondary" open={compact ? undefined : true}>
+                <summary hidden={!compact}>{t('shell.view_more', 'More')} …</summary>
+                <div className="vault-view-secondary-items">
             {onToggleDensity && (
                 <button
                     type="button"
@@ -130,6 +145,8 @@ export function ViewActionsBar(props: ViewActionsProps) {
                     <Plus size={14} />
                 </button>
             )}
+                </div>
+            </details>
             <NewRecordMenu {...props} />
         </div>);
 }

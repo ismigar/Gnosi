@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { apiErrorDetail } from '../../../shared/api/errors';
 import { logError } from '../../../shared/notifications/notifyError';
 import { toast } from '../../../shared/notifications/toast';
 import { fetchIntegrations } from '../../../shared/api/integrations';
@@ -161,12 +162,13 @@ export function useMailComposerController({
   }, [fromAccount, onDraftSaved, t]);
 
   const handleCloseRequest = useCallback((): void => {
-    if (hasComposerContent(bodyRef.current, subjectRef.current, toRef.current)) {
+    if (hasComposerContent(bodyRef.current.replace(/&nbsp;|&#160;/gi, ' '), subjectRef.current, toRef.current)
+      || cc.trim() || bcc.trim() || attachments.length > 0) {
       setShowCloseConfirm(true);
       return;
     }
     onClose();
-  }, [onClose]);
+  }, [onClose, cc, bcc, attachments.length]);
 
   const handleSaveAndClose = useCallback(async (): Promise<void> => {
     await saveDraft();
@@ -313,7 +315,8 @@ export function useMailComposerController({
   };
 
   const handleAIAssist = async (): Promise<void> => {
-    if (!subject && !body) {
+    if (aiGenerating) return;
+    if (!hasComposerContent(body.replace(/&nbsp;|&#160;/gi, ' '), subject, '')) {
       toast.error(t('mail.ai_needs_context'));
       return;
     }
@@ -323,17 +326,22 @@ export function useMailComposerController({
         body,
         `Create a professional draft about: ${subject}`,
       );
+      const editor = editorRef.current;
+      if (editor) {
+        editor.replaceBlocks(editor.document, result.draft.split(/\r?\n/).map(text => ({ type: 'paragraph' as const, content: text })));
+      }
       setBody(result.draft);
       toast.success(t('mail.ai_draft_ok'));
     } catch (error) {
       logError('mail-composer.ai-draft', error);
-      toast.error(t('mail.ai_draft_error'));
+      toast.error(apiErrorDetail(error, t('mail.ai_draft_error')));
     } finally {
       setAiGenerating(false);
     }
   };
 
   const handleRootKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (showCloseConfirm) return;
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault();
       void handleSend();

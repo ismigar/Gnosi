@@ -1,5 +1,5 @@
 import type { ChangeEvent, MouseEvent } from 'react';
-import { Calendar, FileText, Plus } from 'lucide-react';
+import { Calendar, ExternalLink, FileText, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -47,9 +47,11 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
             className={`sticky left-0 z-10 flex w-64 shrink-0 cursor-pointer items-center gap-2 overflow-hidden border-r border-[var(--border-primary)] pr-4 ${selected
                 ? 'bg-[var(--gnosi-primary)]/10'
                 : 'bg-[var(--bg-primary)]'}`}
-            onClick={() => { onNoteSelect?.(note.id); }}
             style={{ paddingLeft: `${String(16 + note.depth * 16)}px` }}
         >
+            <button type="button" aria-label={t('common.open')} onClick={(event) => { event.stopPropagation(); onNoteSelect?.(note.id); }} className="shrink-0 p-1">
+                <ExternalLink size={14} />
+            </button>
             {note.depth > 0 ? <span
                 aria-hidden="true"
                 className="shrink-0 select-none font-mono text-[10px] text-[var(--text-tertiary)]"
@@ -117,7 +119,6 @@ function TimelineRow({ controller, note, onNoteSelect }: TimelineRowProps) {
             })}
             {note.isParent ? <div
                 className="group/bar absolute h-2 cursor-pointer rounded-[2px]"
-                onClick={() => { onNoteSelect?.(note.id); }}
                 style={{
                     left: percent(startPosition),
                     width: percent(width),

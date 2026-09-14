@@ -2652,6 +2652,12 @@
     "no_matching_applications": "Aucune application correspondante."
   },
   "shell": {
+    "view_more": "Plus",
+    "go_home": "Aller à l’accueil du vault",
+    "set_home": "Définir comme accueil du vault",
+    "remove_home": "Retirer comme accueil du vault",
+    "home_load_error": "Impossible de charger l’accueil du vault",
+    "home_save_error": "Impossible d’enregistrer l’accueil du vault",
     "translate_record": "Traduire l'enregistrement",
     "translate_page": "Traduire la page",
     "view_comments": "Commentaires",

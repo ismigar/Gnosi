@@ -498,6 +498,12 @@
     "no_matching_applications": "No hay aplicaciones coincidentes."
   },
   "shell": {
+    "view_more": "Más",
+    "go_home": "Ir al inicio del vault",
+    "set_home": "Establecer como inicio del vault",
+    "remove_home": "Quitar como inicio del vault",
+    "home_load_error": "No se pudo cargar el inicio del vault",
+    "home_save_error": "No se pudo guardar el inicio del vault",
     "go_back": "Atrás",
     "go_forward": "Adelante",
     "quick_search": "Búsqueda rápida",

@@ -546,6 +546,12 @@
     "no_matching_applications": "No matching applications."
   },
   "shell": {
+    "view_more": "More",
+    "go_home": "Go to vault home",
+    "set_home": "Set as vault home",
+    "remove_home": "Remove as vault home",
+    "home_load_error": "Could not load vault home",
+    "home_save_error": "Could not save vault home",
     "go_back": "Go back",
     "go_forward": "Go forward",
     "quick_search": "Quick Search",

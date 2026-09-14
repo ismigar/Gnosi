@@ -498,6 +498,12 @@
     "no_matching_applications": "No hi ha aplicacions coincidents."
   },
   "shell": {
+    "view_more": "Més",
+    "go_home": "Ves a l’inici del vault",
+    "set_home": "Estableix com a inici del vault",
+    "remove_home": "Treu com a inici del vault",
+    "home_load_error": "No s’ha pogut carregar l’inici del vault",
+    "home_save_error": "No s’ha pogut desar l’inici del vault",
     "go_back": "Enrere",
     "go_forward": "Endavant",
     "quick_search": "Cerca ràpida",
