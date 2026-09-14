@@ -3,7 +3,7 @@ const test = require('node:test');
 const { loadMainRuntime, senderEvent } = require('./test-helpers/main-runtime.cjs');
 
 const CHANNELS = [
-  'get-app-version', 'set-application-menu', 'get-update-status', 'get-backend-url',
+  'get-app-version', 'choose-vault-container', 'set-application-menu', 'get-update-status', 'get-backend-url',
   'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
 ];
 const FORM = { url: 'https://example.invalid/form', profile: { email: 'fixture@example.invalid' } };
@@ -15,7 +15,7 @@ function argumentsFor(channel) {
 }
 
 for (const isDev of [false, true]) {
-  test(`all eight handlers accept the registered top-level ${isDev ? 'development' : 'packaged'} renderer`, async () => {
+  test(`all handlers accept the registered top-level ${isDev ? 'development' : 'packaged'} renderer`, async () => {
     const runtime = loadMainRuntime({ isDev });
     const window = runtime.createWindow();
     assert.deepEqual([...runtime.handlers.keys()], CHANNELS);

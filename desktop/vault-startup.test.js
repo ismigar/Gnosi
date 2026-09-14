@@ -34,7 +34,7 @@ test('missing configuration selects a folder, reaps the first child, and persist
     },
     chooseDirectory: async options => {
       calls.push('choose');
-      assert.equal(options.title, 'Tria la biblioteca de Gnosi');
+      assert.equal(options.title, 'Tria la carpeta de Gnosi');
       return { canceled: false, filePaths: [vault] };
     },
   });

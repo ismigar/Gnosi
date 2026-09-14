@@ -62,6 +62,7 @@ function loadMainRuntime({
       on: (event, callback) => lifecycle.set(event, callback),
       exit: code => exits.push(code),
       quit: () => calls.push('quit'),
+      relaunch: () => calls.push('relaunch'),
       getPath: () => userDataPath,
       getLocale: () => locale,
       getVersion: () => { calls.push('version'); return '3.0.0-rc.1'; },
@@ -104,9 +105,11 @@ function loadMainRuntime({
   const api = vm.runInNewContext(`${source}\n;({setupIPC, createWindow, registerAppProtocol, mainWindows, startBackend, getBackendStatus, setUpdateState(value) { updateState = value; }})`, {
     require: (name) => {
       if (name === 'electron') return electron;
-      if (name === './profile-startup') return { prepareDesktopProfile: prepareProfile };
+      if (name === './profile-startup') return { ...require(path.join(desktopRoot, name)), prepareDesktopProfile: prepareProfile };
+      if (['node:os', 'node:crypto'].includes(name)) return require(name);
       if (name === './backend-launch') return { ...require(path.join(desktopRoot, name)), selectBackendPort };
       if (name === './backend-process') return { launchBackend, stopBackend };
+      if (name === './installer-cleanup') return require(path.join(desktopRoot, name));
       if (name === 'electron-updater') return { autoUpdater: updater };
       if (name === './sparkle-updater' && sparkleUpdater) return { SparkleUpdater: function () { return sparkleUpdater; } };
       if (name === 'electron-log') return { transports: { file: { level: 'info' } } };
@@ -119,7 +122,7 @@ function loadMainRuntime({
         statSync: file => file.startsWith('/fixture/resources/python/')
           ? { isFile: () => bundleExists } : fs.statSync(file),
       };
-      if (['./application-menu', './backend-launch', './vault-startup', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
+      if (['./application-menu', './backend-launch', './vault-startup', './vault-folders', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
         return require(path.join(desktopRoot, name));
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);

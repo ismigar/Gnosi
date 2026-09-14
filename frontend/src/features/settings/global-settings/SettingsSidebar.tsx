@@ -36,10 +36,6 @@ export function SettingsSidebar({ context }: Props) {
         <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
         <SidebarItem id="account" icon={UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
         <SidebarItem id="workspace" icon={Users} label={t('settings.tabs.workspace') || 'Workspace'} active={activeTab === 'workspace'} onClick={() => { setActiveTab('workspace'); setAddAccountType(null); }} />
-      </SettingsNavGroup>
-
-      <SettingsNavGroup label={t('settings.navigation.knowledge')}>
-        <SidebarItem id="plugins" icon={Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins' || Boolean(pluginForSettingsTab(activeTab))} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
         <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
       </SettingsNavGroup>
 
@@ -55,6 +51,7 @@ export function SettingsSidebar({ context }: Props) {
         </button>
         {isAdvancedOpen && (
           <div className="settings-sidebar-group__content">
+            <SidebarItem id="plugins" icon={Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins' || Boolean(pluginForSettingsTab(activeTab))} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
             <SidebarItem id="api" icon={KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
           </div>
         )}

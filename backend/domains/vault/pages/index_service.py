@@ -9,9 +9,10 @@ import time
 from _thread import LockType
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, tzinfo
 from pathlib import Path
+from threading import Lock
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import BackgroundTasks
@@ -96,6 +97,7 @@ class PageIndexDependencies:
     vault_sync_cooldown_seconds: float
     stale_check_ttl: float
     logger: logging.Logger
+    refresh_locks: dict[str, LockType] = field(default_factory=dict)
 
 
 _dependencies: PageIndexDependencies | None = None
@@ -201,6 +203,7 @@ def refresh_table_pages_metadata(pages: list[PageInfo]) -> None:
             cached = dependencies.index_entries.setdefault(vault_key, {}).get(str(file_path))
             if cached is not None:
                 cached.update(entry)
+                cached.pop("_cloud_pending", None)
                 dependencies.id_to_path.setdefault(vault_key, {})[page.id] = str(file_path)
                 bump_page_index_version(vault_key)
 
@@ -249,10 +252,16 @@ def _discover_candidate_files(
     dependencies = _deps()
     dashboard_path = dependencies.get_path("DASHBOARDS")
     candidates: list[Path] = []
+
+    def unavailable(error: OSError) -> None:
+        # An unreadable cloud directory is not an empty directory. Abort this
+        # refresh without replacing the last known index with a partial tree.
+        raise error
+
     for root in search_paths or [vault_path]:
         if not root.exists():
             continue
-        for directory, directory_names, file_names in os.walk(root):
+        for directory, directory_names, file_names in os.walk(root, onerror=unavailable):
             relative_directory = Path(directory).relative_to(vault_path)
             directory_names[:] = [
                 name
@@ -294,6 +303,7 @@ def _unchanged_entry(
 ) -> bool:
     return bool(
         cached
+        and not cached.get("_cloud_pending")
         and cached.get("mtime_ns") == stat_result.st_mtime_ns
         and cached.get("size") == stat_result.st_size
     )
@@ -312,7 +322,11 @@ def _updated_entries(
         path_key = str(file_path)
         try:
             stat_result = file_path.stat()
-        except (FileNotFoundError, PermissionError):
+        except OSError:
+            # Provider errors are not evidence of deletion. Retain a previous
+            # entry and let a later refresh retry the inaccessible file.
+            if path_key in cached_snapshot:
+                updated[path_key] = cached_snapshot[path_key]
             continue
         cached = cached_snapshot.get(path_key)
         if _unchanged_entry(cached, stat_result):
@@ -393,11 +407,30 @@ def get_cached_page_entries(
     if not vault_path or not vault_path.exists():
         return []
     vault_key = str(vault_path)
+    with dependencies.index_lock:
+        refresh_lock = dependencies.refresh_locks.setdefault(vault_key, Lock())
+    if not refresh_lock.acquire(blocking=False):
+        # Other requests may use the last snapshot immediately, without a
+        # second walk or a request thread waiting for a cloud filesystem.
+        with dependencies.index_lock:
+            return _filter_by_search_paths(
+                dependencies.index_entries.get(vault_key, {}).values(), search_paths,
+            )
+    try:
+        return _refresh_cached_page_entries(vault_path, search_paths, force_refresh)
+    finally:
+        refresh_lock.release()
+
+
+def _refresh_cached_page_entries(
+    vault_path: Path, search_paths: list[Path] | None, force_refresh: bool,
+) -> list[PageCacheEntry]:
+    dependencies = _deps()
+    vault_key = str(vault_path)
     if not dependencies.index_initialized.get(vault_key):
         if not dependencies.load_from_disk(vault_key):
             with dependencies.index_lock:
                 dependencies.index_entries.setdefault(vault_key, {})
-            dependencies.index_initialized[vault_key] = True
             force_refresh = True
     if not force_refresh:
         with dependencies.index_lock:

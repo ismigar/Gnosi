@@ -181,6 +181,7 @@ function buildFormFillerScript(profile) {
 function registerIpcHandlers(dependencies) {
   /** @type {import('./ipc-contract').DesktopRequestHandlers} */
   const handlers = {
+    'choose-vault-container': () => dependencies.chooseVaultContainer?.() ?? false,
     'get-app-version': () => dependencies.getAppVersion(),
     'set-application-menu': (payload = {}) => {
       dependencies.installApplicationMenu(payload.labels, payload.locale);
@@ -255,6 +256,7 @@ function registerIpcHandlers(dependencies) {
   }
 
   handle('get-app-version', readEmptyArgs);
+  handle('choose-vault-container', readEmptyArgs);
   handle('set-application-menu', readMenuArgs);
   handle('get-update-status', readEmptyArgs);
   handle('get-backend-url', readEmptyArgs);

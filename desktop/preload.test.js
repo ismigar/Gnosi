@@ -42,7 +42,7 @@ function loadBridge(responses = {}) {
 test('exposes only the named application methods, never generic IPC primitives', () => {
   const { api } = loadBridge();
   assert.deepEqual(Object.keys(api).sort(), [
-    'downloadUpdate', 'getAppVersion', 'getBackendStatus', 'getBackendURL',
+    'chooseVaultContainer', 'downloadUpdate', 'getAppVersion', 'getBackendStatus', 'getBackendURL',
     'getUpdateStatus', 'installUpdate', 'onOpenSettings', 'onUpdateStatus',
     'openFormFiller', 'removeOpenSettingsListener', 'removeUpdateListener',
     'setApplicationMenu',

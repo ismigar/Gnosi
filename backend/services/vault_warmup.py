@@ -45,9 +45,9 @@ _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 def _critical_warmup_enabled(provider: FilesProvider) -> bool:
     """Return whether bulk hydration is safe for the current runtime.
 
-    Native File Provider hydration uses GUI applications. Hydrating an entire
-    critical tree that way can starve the API and restart the service, so
-    ``open`` mode is lazy by default. Daemon-backed runtimes preserve the
+    Native File Provider access remains on demand. Hydrating an entire critical
+    tree can starve selected-file reads, so both coordinated and legacy GUI
+    modes are lazy by default. Daemon-backed runtimes preserve the
     existing proactive behavior. An explicit override always wins.
     """
     configured = os.environ.get("GNOSI_CRITICAL_WARMUP")
@@ -62,7 +62,7 @@ def _critical_warmup_enabled(provider: FilesProvider) -> bool:
             configured,
         )
         return False
-    return getattr(provider, "warmup_mode", None) != "open"
+    return getattr(provider, "warmup_mode", None) not in {"open", "coordinated"}
 
 
 def _scan_online_only(root: Path) -> List[Path]:
