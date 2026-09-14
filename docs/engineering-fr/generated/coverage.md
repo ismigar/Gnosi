@@ -8,14 +8,14 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 641 | 220 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 991 | 260 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 438 | 108 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 643 | 221 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 994 | 262 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 441 | 110 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 128 | 51 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 201 | 74 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
-| `mail` | **covered** | [`Mail`](../domains/mail.md) | 95 | 46 | 0 |
+| `mail` | **covered** | [`Mail`](../domains/mail.md) | 95 | 47 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 82 | 32 | 0 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 24 | 8 | 0 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 73 | 21 | 0 |

@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 452 | 97912 |
+| `domains` | 452 | 97920 |
 | `mcp` | 3 | 429 |
 | `migrations` | 37 | 2253 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **802 modules** and **166824 source lines**.
+Total: **802 modules** and **166832 source lines**.
 
 ## agent
 
@@ -344,7 +344,7 @@ Total: **802 modules** and **166824 source lines**.
 | [`backend/domains/mail/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail HTTP route handlers. |
 | [`backend/domains/mail/routes/actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/actions.py) | 259 | 0 | 9 | 5 | 2 | Canonical mail actions. |
 | [`backend/domains/mail/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/attachments.py) | 144 | 0 | 3 | 3 | 2 | Canonical mail attachment routes. |
-| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 728 | 0 | 19 | 12 | 6 | Canonical mail compose. |
+| [`backend/domains/mail/routes/compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/compose.py) | 736 | 0 | 19 | 12 | 6 | Canonical mail compose. |
 | [`backend/domains/mail/routes/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/messages.py) | 533 | 0 | 9 | 9 | 7 | Canonical mail messages. |
 | [`backend/domains/mail/routes/remote_images.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/remote_images.py) | 39 | 1 | 1 | 1 | 1 | Mail-only route for bounded recovery of blocked remote raster images. |
 | [`backend/domains/mail/routes/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/routes/tags.py) | 354 | 0 | 16 | 0 | 0 | Canonical mail tags. |
