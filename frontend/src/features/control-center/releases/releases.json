@@ -2,7 +2,7 @@
   {
     "version": "3.0.2",
     "date": "2026-09-12",
-    "channel": "prerelease",
+    "channel": "stable",
     "sections": {
       "highlights": [
         "release_notes.entries.v3_0_2.highlights.user_help"
@@ -12,7 +12,8 @@
         "release_notes.entries.v3_0_2.improvements.help_appearance"
       ],
       "fixes": []
-    }
+    },
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v3.0.2"
   },
   {
     "version": "3.0.1",
