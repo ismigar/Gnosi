@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2635 | 0 |
-| `features` | 1076 | 124493 | 33 |
+| `features` | 1076 | 124502 | 33 |
 | `generated` | 2 | 44320 | 453 |
 | `shared` | 246 | 30483 | 394 |
 
@@ -538,7 +538,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 88 | `DavAccountForm` | — |
-| [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 77 | `GeneralPanel` | — |
+| [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 87 | `GeneralPanel` | — |
 | [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 245 | `GlobalSettingsView` | `/api/auth/google/login?type=calendar` |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
@@ -551,7 +551,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/ReaderPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ReaderPanel.tsx) | 263 | `ReaderPanel` | — |
 | [`frontend/src/features/settings/global-settings/ReferencesPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ReferencesPanel.tsx) | 34 | `ReferencesPanel` | — |
 | [`frontend/src/features/settings/global-settings/SettingsNavigation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsNavigation.tsx) | 30 | `SettingsNavGroup`, `SidebarItem` | — |
-| [`frontend/src/features/settings/global-settings/SettingsSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.tsx) | 65 | `SettingsSidebar` | — |
+| [`frontend/src/features/settings/global-settings/SettingsSidebar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.tsx) | 62 | `SettingsSidebar` | — |
 | [`frontend/src/features/settings/global-settings/SnippetsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SnippetsPanel.tsx) | 117 | `SnippetsPanel` | — |
 | [`frontend/src/features/settings/global-settings/SocialPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SocialPanel.tsx) | 127 | `SocialPanel` | — |
 | [`frontend/src/features/settings/global-settings/TranslateSaveIndicator.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslateSaveIndicator.tsx) | 22 | `TranslateSaveIndicator` | — |
@@ -571,7 +571,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/useSettingsAccounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsAccounts.ts) | 148 | `useSettingsAccounts` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsCollections.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsCollections.ts) | 111 | `useSettingsCollections` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsGraph.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsGraph.tsx) | 176 | `useSettingsGraph` | — |
-| [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 174 | `useSettingsLifecycle` | — |
+| [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 175 | `useSettingsLifecycle` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsLoaders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLoaders.ts) | 92 | `useSettingsLoaders` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsMailEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsMailEffects.ts) | 139 | `useSettingsMailEffects` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.ts) | 140 | `useSettingsModels` | — |
@@ -579,7 +579,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/useSettingsReader.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsReader.ts) | 218 | `useSettingsReader` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsSnippets.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsSnippets.ts) | 35 | `useSettingsSnippets` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsSocial.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsSocial.ts) | 59 | `useSettingsSocial` | — |
-| [`frontend/src/features/settings/global-settings/useSettingsState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsState.ts) | 113 | `useSettingsState` | — |
+| [`frontend/src/features/settings/global-settings/useSettingsState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsState.ts) | 114 | `useSettingsState` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsTranslation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsTranslation.ts) | 101 | `useSettingsTranslation` | — |
 | [`frontend/src/features/settings/identity/IdentityProfile.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.tsx) | 233 | `IdentityProfile`, `function` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts) | 157 | `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
