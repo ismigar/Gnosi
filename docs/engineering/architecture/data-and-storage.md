@@ -88,8 +88,10 @@ Before workers start, the schema coordinator resolves the management database,
 every dynamic vault and each durable first-party auxiliary store. Independent
 Alembic revision lines recognize exact reviewed 2.x structural fingerprints,
 create verified backups and apply forward-only upgrades. Unknown or drifted
-schemas abort without mutation. Derived caches and externally owned databases
+schemas abort without an application schema migration. Derived caches and externally owned databases
 remain outside Gnosi's migration heads.
+
+Startup opens an existing owned database for read/write access under its migration lock so SQLite can roll back an interrupted transaction before inspecting the committed schema. This native crash recovery preserves committed data and does not authorize unknown schema upgrades. Read-only audits keep read-only connections and leave any hot rollback journal untouched.
 
 The scoped `academic_index.sqlite3` files belong to the `literature_index`
 family. OAI records and `oai_sync_state` are durable; the FTS virtual table is

@@ -110,7 +110,8 @@ def _run_alembic(path: Path, operation: str, revision: str) -> None:
 
 
 def _current_revision(path: Path) -> str | None:
-    engine = create_engine(f"sqlite:///{path}")
+    uri = f"{path.resolve().as_uri()}?mode=ro"
+    engine = create_engine("sqlite://", creator=lambda: sqlite3.connect(uri, uri=True, timeout=30))
     try:
         with engine.connect() as connection:
             return MigrationContext.configure(connection).get_current_revision()
@@ -118,10 +119,13 @@ def _current_revision(path: Path) -> str | None:
         engine.dispose()
 
 
-def _user_tables(path: Path) -> list[str]:
+def _user_tables(path: Path, *, recover: bool = False) -> list[str]:
     if not path.exists() or path.stat().st_size == 0:
         return []
-    uri = f"{path.resolve().as_uri()}?mode=ro"
+    # Startup owns the migration lock and permits SQLite to roll back a hot
+    # journal before inspecting committed schema. Read-only audits stay read-only.
+    mode = "rw" if recover else "ro"
+    uri = f"{path.resolve().as_uri()}?mode={mode}"
     with sqlite3.connect(uri, uri=True, timeout=30) as connection:
         return [
             str(row[0])
@@ -230,7 +234,7 @@ def _require_full_backup_capacity(source: Path, backup_dir: Path) -> None:
         raise SchemaMigrationError(
             f"Not enough free space for a verified backup of {source.name}: "
             f"need at least {required_bytes} bytes, found {free_bytes}. "
-            "The database was not modified."
+            "No schema migration was applied."
         )
 
 
@@ -282,7 +286,7 @@ def ensure_database_schema(path: Path, family_name: str, data_dir: Path) -> dict
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with _database_lock(path):
-        tables = _user_tables(path)
+        tables = _user_tables(path, recover=True)
         current_revision = _current_revision(path) if path.exists() else None
         fingerprint_before = database_fingerprint(path) if tables else None
         recognized_revision = (
@@ -292,7 +296,7 @@ def ensure_database_schema(path: Path, family_name: str, data_dir: Path) -> dict
         if tables and current_revision is None and recognized_revision is None:
             raise UnknownSchemaError(
                 f"Unknown {family.name} schema {fingerprint_before} in "
-                f"{_database_label(path, data_dir)}. The database was not modified."
+                f"{_database_label(path, data_dir)}. No schema migration was applied."
             )
         if current_revision is not None:
             expected = _expected_fingerprints(family, current_revision)
@@ -303,7 +307,7 @@ def ensure_database_schema(path: Path, family_name: str, data_dir: Path) -> dict
             if fingerprint_before not in expected:
                 raise UnknownSchemaError(
                     f"Schema drift for {family.name} at {current_revision}: "
-                    f"{fingerprint_before}. The database was not modified."
+                    f"{fingerprint_before}. No schema migration was applied."
                 )
 
         if current_revision == family.head:
