@@ -18,7 +18,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `data` | 2 | 214 |
 | `domains` | 452 | 97850 |
 | `mcp` | 3 | 429 |
-| `migrations` | 37 | 2249 |
+| `migrations` | 37 | 2253 |
 | `models` | 12 | 1219 |
 | `platform` | 12 | 1293 |
 | `scheduler` | 8 | 1367 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **800 modules** and **166588 source lines**.
+Total: **800 modules** and **166592 source lines**.
 
 ## agent
 
@@ -674,7 +674,7 @@ Total: **800 modules** and **166588 source lines**.
 | [`backend/migrations/alembic/versions/vault_0006.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/alembic/versions/vault_0006.py) | 23 | 0 | 2 | 0 | 0 | Cover Reader inventory aggregation without opening article bodies. |
 | [`backend/migrations/coordinator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/coordinator.py) | 89 | 1 | 4 | 0 | 5 | Explicit ownership map and startup coordinator for Gnosi SQLite stores. |
 | [`backend/migrations/families.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/families.py) | 104 | 1 | 1 | 0 | 2 | Stable identities for each Gnosi-owned Alembic revision line. |
-| [`backend/migrations/runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/runner.py) | 413 | 2 | 21 | 0 | 7 | Guarded Alembic runner for Gnosi-owned SQLite databases. |
+| [`backend/migrations/runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/runner.py) | 417 | 2 | 21 | 0 | 7 | Guarded Alembic runner for Gnosi-owned SQLite databases. |
 | [`backend/migrations/schema_audit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrations/schema_audit.py) | 352 | 0 | 16 | 0 | 6 | Inventory SQLite schemas without reading application row values. |
 
 ## models

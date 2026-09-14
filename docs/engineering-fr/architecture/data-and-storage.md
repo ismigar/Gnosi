@@ -92,7 +92,9 @@ gestion, chaque vault dynamique et les stockages auxiliaires persistants de Gnos
 Des lignes de révisions Alembic indépendantes reconnaissent des empreintes
 structurelles 2.x révisées, créent des sauvegardes vérifiées et appliquent des
 migrations vers l'avant. Les schémas inconnus ou divergents provoquent un arrêt
-sans modification. Les caches dérivés et les bases externes restent hors de ces migrations.
+sans migration de schéma applicative. Les caches dérivés et les bases externes restent hors de ces migrations.
+
+Au démarrage, les bases existantes appartenant à Gnosi sont ouvertes en lecture et écriture sous leur verrou de migration afin que SQLite puisse annuler une transaction interrompue avant d’inspecter le schéma validé. Cette récupération native préserve les données validées et n’autorise pas les migrations de schémas inconnus. Les audits conservent des connexions en lecture seule et laissent intact tout journal de restauration en attente.
 
 Les fichiers `academic_index.sqlite3` concernés appartiennent à la famille
 `literature_index`. Les enregistrements OAI et `oai_sync_state` sont durables ;

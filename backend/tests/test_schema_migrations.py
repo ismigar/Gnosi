@@ -276,7 +276,7 @@ def test_unknown_literature_schema_aborts_without_backup_or_stamp(tmp_path: Path
     checksum_before = _sha256(database)
     fingerprint_before = database_fingerprint(database)
 
-    with pytest.raises(UnknownSchemaError, match="database was not modified"):
+    with pytest.raises(UnknownSchemaError, match="No schema migration was applied"):
         ensure_database_schema(database, "literature_index", tmp_path)
 
     assert _sha256(database) == checksum_before
@@ -328,7 +328,7 @@ def test_unknown_schema_aborts_before_mutation(tmp_path: Path) -> None:
     checksum_before = _sha256(database)
     fingerprint_before = database_fingerprint(database)
 
-    with pytest.raises(UnknownSchemaError, match="database was not modified"):
+    with pytest.raises(UnknownSchemaError, match="No schema migration was applied"):
         ensure_database_schema(database, "management", tmp_path)
 
     assert _sha256(database) == checksum_before

@@ -90,8 +90,10 @@ Abans d'iniciar els processos de treball, el coordinador d'esquemes localitza la
 base de gestió, cada vault dinàmic i els magatzems auxiliars persistents de Gnosi.
 Línies de revisions Alembic independents reconeixen empremtes estructurals 2.x
 revisades, creen còpies verificades i apliquen migracions cap endavant. Els esquemes
-desconeguts o divergents provoquen una aturada sense modificacions. Les memòries
+desconeguts o divergents provoquen una aturada sense aplicar una migració d’esquema. Les memòries
 cau derivades i les bases de dades externes no formen part d'aquestes migracions.
+
+Durant l’arrencada, les bases de dades pròpies existents s’obren amb accés de lectura i escriptura sota el bloqueig de migració perquè SQLite pugui revertir una transacció interrompuda abans d’inspeccionar l’esquema confirmat. Aquesta recuperació nativa preserva les dades confirmades i no autoritza migracions d’esquemes desconeguts. Les auditories mantenen connexions de només lectura i deixen intacte qualsevol diari de reversió pendent.
 
 Els fitxers `academic_index.sqlite3` acotats pertanyen a la família
 `literature_index`. Els registres OAI i `oai_sync_state` són duradors; la taula

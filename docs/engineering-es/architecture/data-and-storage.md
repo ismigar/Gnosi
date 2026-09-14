@@ -90,8 +90,10 @@ Antes de iniciar trabajadores, el coordinador de esquemas localiza la base de
 gestión, cada vault dinámico y los almacenes auxiliares persistentes de Gnosi.
 Líneas de revisiones Alembic independientes reconocen huellas estructurales 2.x
 revisadas, crean copias verificadas y aplican migraciones hacia delante. Los esquemas
-desconocidos o divergentes provocan una parada sin modificaciones. Las cachés
+desconocidos o divergentes provocan una parada sin aplicar una migración de esquema. Las cachés
 derivadas y las bases de datos externas quedan fuera de estas migraciones.
+
+Durante el arranque, las bases de datos propias existentes se abren con acceso de lectura y escritura bajo el bloqueo de migración para que SQLite pueda revertir una transacción interrumpida antes de inspeccionar el esquema confirmado. Esta recuperación nativa conserva los datos confirmados y no autoriza migraciones de esquemas desconocidos. Las auditorías mantienen conexiones de solo lectura y dejan intacto cualquier diario de reversión pendiente.
 
 Los archivos `academic_index.sqlite3` delimitados pertenecen a la familia
 `literature_index`. Los registros OAI y `oai_sync_state` son duraderos; la tabla
