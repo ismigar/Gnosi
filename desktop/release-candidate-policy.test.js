@@ -177,24 +177,15 @@ function assertSharedPythonDownloadBudget(workflow) {
 function assertReviewedCIRunners(workflow) {
   const expectedRunners = {
     documentation: ['self-hosted', 'macOS', 'X64'],
-    frontend: "${{ fromJSON(github.event_name == 'pull_request' && "
-      + "github.event.pull_request.number != 86 && "
-      + "github.event.repository.visibility == 'public' && "
-      + "'[\"macos-15\"]' || '[\"self-hosted\", \"macOS\", \"ARM64\"]') }}",
-    backend: "${{ fromJSON(github.event_name == 'pull_request' && "
-      + "github.event.pull_request.number != 86 && "
-      + "github.event.repository.visibility == 'public' && "
-      + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
-    'native-smoke': "${{ fromJSON(github.event_name == 'pull_request' && "
-      + "github.event.pull_request.number != 86 && "
-      + "github.event.repository.visibility == 'public' && "
-      + "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}",
+    frontend: ['self-hosted', 'macOS', 'ARM64'],
+    backend: ['self-hosted', 'Linux', 'ARM64'],
+    'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
     docker: ['self-hosted', 'Linux', 'ARM64'],
   };
   assert.deepEqual(Object.keys(workflow.jobs).sort(), Object.keys(expectedRunners).sort());
   for (const [name, runner] of Object.entries(expectedRunners)) {
     assert.deepEqual(workflow.jobs[name]['runs-on'], runner,
-      `${name} must retain its reviewed public-PR capacity and local release fallback`);
+      `${name} must run only on the reviewed local machine`);
   }
 }
 
@@ -267,20 +258,18 @@ test('candidate and reused CI have read-only authority and no release publisher'
   assertReadOnly(ci);
 });
 
-test('shared CI uses reviewed public-PR runners and local release fallbacks', () => {
+test('shared CI uses only reviewed local runners', () => {
   assertReviewedCIRunners(ci);
 });
 
-test('shared CI rejects unguarded hosted capacity and changed release fallbacks', () => {
+test('shared CI rejects hosted capacity and changed local assignments', () => {
   assertReviewedCIRunners(ci);
-  for (const name of ['frontend', 'backend', 'native-smoke']) {
+  for (const name of Object.keys(ci.jobs)) {
     const runner = ci.jobs[name]['runs-on'];
     for (const replacement of [
-      runner.replace("github.event_name == 'pull_request' && ", ''),
-      runner.replace("github.event.pull_request.number != 86 && ", ''),
-      runner.replace("github.event.repository.visibility == 'public' && ", ''),
-      runner.replace("'pull_request'", "'push'"),
-      runner.replace('"self-hosted"', '"unreviewed-fallback"'),
+      runner.filter(label => label !== 'self-hosted'),
+      ['self-hosted', 'unreviewed-runner'],
+      '${{ github.event_name == "pull_request" && "ubuntu-latest" || "self-hosted" }}',
       ['macos-15'],
       ['ubuntu-24.04-arm'],
     ]) {

@@ -30,16 +30,7 @@ tests:
 
 Els treballs pesants de CI segueixen aquest ordre: backend, frontend i Docker. El Mac i la MV Linux comparteixen recursos físics; el frontend utilitza un sol procés de proves. La fallada anterior no omet les comprovacions següents, però es mantenen la cancel·lació i les restriccions dels forks. Les suites aïllades de dibuixos i citacions disposen de cinc minuts per procés, incloses les importacions inicials i totes les assercions. Les proves integrades d’eines generades utilitzen el límit de producció sense modificar-lo; una regressió separada verifica el límit explícit.
 
-La PR #86 té una excepció explícita per executar la validació demanada
-només en local. Backend, native smoke i Docker utilitzen l’executor Linux
-ARM64 existent; frontend, macOS ARM64; documentació, macOS X64. Si un executor
-local compatible no està disponible, el check d’aquesta PR queda en cua.
-Les altres PR públiques conserven els executors de GitHub existents per a
-backend/native smoke (`ubuntu-24.04-arm`) i frontend (`macos-15`). Les pujades,
-els repositoris privats i la validació de versions mantenen les assignacions
-locals existents. Tots els checks, les dependències, els permisos de només
-lectura i les restriccions al mateix repositori es mantenen; els forks no
-poden executar-se a les màquines del propietari.
+Totes les execucions de CI utilitzen màquines locals: Linux ARM64 per a backend, native smoke i Docker; macOS ARM64 per a frontend; macOS X64 per a documentació. Si falta un executor compatible, els treballs queden en cua. Cap PR, pujada ni validació de versions recorre a executors de GitHub. Es mantenen els permisos de només lectura, les dependències i les restriccions al mateix repositori; els forks no poden executar-se a les màquines del propietari.
 
 Els grups de `concurrency` del flux de treball utilitzen un prefix específic de
 CI, el nom del flux i el número de PR. Un commit nou cancel·la els treballs
@@ -339,12 +330,7 @@ Es mantenen el límit exterior de deu minuts i la comprovació final de 12 GiB.
 El job de frontend aplica el pressupost revisat de 4 GiB de heap de
 Node a tot el job perquè lint, comprovació de tipus, proves i build de producció
 comparteixin el mateix contracte de memòria previsible.
-Les proves de política de versions d’escriptori han de validar les condicions
-exactes dels executors allotjats per a PR públiques, les alternatives locals per
-a versions i tot l’entorn de recursos Node/Python. Les proves de mutació rebutgen
-la manca de controls de visibilitat o esdeveniment, alternatives modificades,
-pressupostos absents i sobreescriptures per pas. Un canvi de CI també requereix
-tota la suite d’escriptori, no només els contractes de planificació Python.
+Les proves de política de versions d’escriptori verifiquen les assignacions locals exactes i tot l’entorn de recursos Node/Python. Les proves de mutació rebutgen executors de GitHub, assignacions locals modificades, pressupostos absents i sobreescriptures per pas. Els canvis de CI requereixen tota la suite d’escriptori i els contractes de planificació Python.
 
 La CI d'Electron configura paquets per a macOS arm64/x64, Linux arm64 i Windows
 x64. Configurar aquesta matriu, passar proves unitàries desktop o comprovar una
