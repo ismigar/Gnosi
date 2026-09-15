@@ -46,29 +46,19 @@ def test_concurrency_is_unique_by_workflow_and_pr_or_non_pr_run(
 
 
 @pytest.mark.parametrize("job_name", ["backend", "native-smoke"])
-def test_linux_keeps_pr86_local_and_other_public_prs_hosted(
+def test_linux_uses_only_local_runners_for_every_pr(
     workflow: dict[str, object], job_name: str,
 ) -> None:
     backend = _mapping(_mapping(workflow["jobs"])[job_name])
-    assert backend["runs-on"] == (
-        "${{ fromJSON(github.event_name == 'pull_request' && "
-        "github.event.pull_request.number != 86 && "
-        "github.event.repository.visibility == 'public' && "
-        "'[\"ubuntu-24.04-arm\"]' || '[\"self-hosted\", \"Linux\", \"ARM64\"]') }}"
-    )
+    assert backend["runs-on"] == ["self-hosted", "Linux", "ARM64"]
     assert "needs" not in backend
 
 
-def test_frontend_keeps_pr86_local_and_other_public_prs_hosted(
+def test_frontend_uses_only_local_runners_for_every_pr(
     workflow: dict[str, object],
 ) -> None:
     frontend = _mapping(_mapping(workflow["jobs"])["frontend"])
-    assert frontend["runs-on"] == (
-        "${{ fromJSON(github.event_name == 'pull_request' && "
-        "github.event.pull_request.number != 86 && "
-        "github.event.repository.visibility == 'public' && "
-        "'[\"macos-15\"]' || '[\"self-hosted\", \"macOS\", \"ARM64\"]') }}"
-    )
+    assert frontend["runs-on"] == ["self-hosted", "macOS", "ARM64"]
     assert frontend["needs"] == "backend"
 
 
@@ -102,6 +92,11 @@ def test_all_gates_and_bounded_native_order_are_preserved(
 ) -> None:
     jobs = _mapping(workflow["jobs"])
     assert set(jobs) == {"backend", "frontend", "native-smoke", "docker", "documentation"}
+    for job in jobs.values():
+        labels = _mapping(job)["runs-on"]
+        assert isinstance(labels, list)
+        assert "self-hosted" in labels
+        assert "github.event.pull_request.head.repo.full_name == github.repository" in str(_mapping(job)["if"])
     assert _mapping(jobs["frontend"])["needs"] == "backend"
     assert _mapping(jobs["docker"])["needs"] == "frontend"
     assert "needs" not in _mapping(jobs["native-smoke"])

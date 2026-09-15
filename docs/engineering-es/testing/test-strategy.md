@@ -30,16 +30,7 @@ tests:
 
 Los trabajos pesados de CI siguen este orden: backend, frontend y Docker. El Mac y la MV Linux comparten recursos físicos; el frontend utiliza un solo proceso de pruebas. Un fallo anterior no omite las comprobaciones siguientes, pero se mantienen la cancelación y las restricciones de los forks. Las suites aisladas de dibujos y citas disponen de cinco minutos por proceso, incluidas las importaciones iniciales y todas las aserciones. Las pruebas integradas de herramientas generadas utilizan el límite de producción sin modificarlo; una regresión separada verifica el límite explícito.
 
-La PR #86 tiene una excepción explícita para ejecutar la validación solicitada
-solo en local. Backend, native smoke y Docker utilizan el ejecutor Linux ARM64
-existente; frontend, macOS ARM64; documentación, macOS X64. Si un ejecutor local
-compatible no está disponible, el check de esta PR queda en cola. Las otras
-PR públicas conservan los ejecutores de GitHub existentes para backend/native
-smoke (`ubuntu-24.04-arm`) y frontend (`macos-15`). Las subidas, los repositorios
-privados y la validación de versiones mantienen sus asignaciones locales.
-Todos los checks, las dependencias, los permisos de solo lectura y las
-restricciones al mismo repositorio se mantienen; los forks no pueden
-ejecutarse en las máquinas del propietario.
+Todas las ejecuciones de CI utilizan máquinas locales: Linux ARM64 para backend, native smoke y Docker; macOS ARM64 para frontend; macOS X64 para documentación. Si falta un ejecutor compatible, los trabajos quedan en cola. Ninguna PR, subida ni validación de versiones recurre a ejecutores de GitHub. Se mantienen los permisos de solo lectura, las dependencias y las restricciones al mismo repositorio; los forks no pueden ejecutarse en las máquinas del propietario.
 
 Los grupos de `concurrency` del flujo de trabajo utilizan un prefijo específico
 de CI, el nombre del flujo y el número de PR. Un commit nuevo cancela los trabajos
@@ -329,12 +320,7 @@ comprobación final de 12 GiB.
 El trabajo de frontend aplica el presupuesto revisado de 4 GiB de
 heap de Node a todo el trabajo para que lint, comprobación de tipos, pruebas y
 build de producción compartan el mismo contrato de memoria previsible.
-Las pruebas de política de versiones de escritorio deben validar las condiciones
-exactas de los ejecutores alojados para PR públicas, las alternativas locales
-para versiones y todo el entorno de recursos Node/Python. Las pruebas de mutación
-rechazan la ausencia de controles de visibilidad o evento, alternativas cambiadas,
-presupuestos ausentes y sobrescrituras por paso. Un cambio de CI también requiere
-toda la suite de escritorio, no solo los contratos de planificación Python.
+Las pruebas de política de versiones de escritorio verifican las asignaciones locales exactas y todo el entorno de recursos Node/Python. Las pruebas de mutación rechazan ejecutores de GitHub, asignaciones locales modificadas, presupuestos ausentes y sobrescrituras por paso. Los cambios de CI requieren toda la suite de escritorio y los contratos de planificación Python.
 
 La CI de Electron configura paquetes para macOS arm64/x64, Linux arm64 y
 Windows x64. Configurar esa matriz, pasar pruebas unitarias desktop o comprobar
