@@ -5,7 +5,7 @@ from html import escape
 from typing import Annotated, Any, NotRequired, TypedDict, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 from google_auth_oauthlib.flow import Flow  # type: ignore[import-untyped]
@@ -203,7 +203,7 @@ async def login(
     return RedirectResponse(url=authorization_url)
 
 
-def _auth_result(auth_info: PendingAuth, success: bool) -> Response:
+def _auth_result(auth_info: PendingAuth, success: bool) -> HTMLResponse | RedirectResponse:
     if not auth_info.get("desktop"):
         base = get_env("FRONTEND_URL", "http://localhost:5173")
         result = "success" if success else "error"
@@ -242,8 +242,8 @@ def _auth_result(auth_info: PendingAuth, success: bool) -> Response:
     )
 
 
-@router.get("/callback")
-async def callback(request: Request) -> Response:
+@router.get("/callback", response_model=None)
+async def callback(request: Request) -> HTMLResponse | RedirectResponse:
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 

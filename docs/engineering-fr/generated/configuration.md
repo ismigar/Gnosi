@@ -102,7 +102,7 @@ Discovered **122 variables** across **238 source references**.
 | `NEWSLETTERS_MAIL_SSL` | Python | 'starttls' | [`backend/domains/mail/ingestion/newsletters.py:41`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/newsletters.py#L41)<br>[`backend/domains/reader/routes.py:191`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routes.py#L191) |
 | `NEWSLETTERS_PASSWORD` | Python | redacted | [`backend/domains/mail/ingestion/newsletters.py:43`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/ingestion/newsletters.py#L43)<br>[`backend/domains/reader/routes.py:193`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routes.py#L193) |
 | `NEXTCLOUD_PLACEHOLDER_EXT` | Python | '.nc-virt' | [`backend/platform/files/nextcloud.py:72`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/nextcloud.py#L72) |
-| `OAUTHLIB_RELAX_TOKEN_SCOPE` | Python | redacted | [`backend/api/google_auth_routes.py:9`](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py#L9) |
+| `OAUTHLIB_RELAX_TOKEN_SCOPE` | Python | redacted | [`backend/api/google_auth_routes.py:10`](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py#L10) |
 | `OLLAMA_BASE_URL` | Python | unset | [`backend/config/env_config.py:162`](https://github.com/ismigar/Gnosi/blob/main/backend/config/env_config.py#L162) |
 | `ONEDRIVE_AUTO_RESTART` | Python | '1' | [`backend/platform/files/onedrive.py:50`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py#L50) |
 | `ONEDRIVE_RESTART_COOLDOWN` | Python | '300' | [`backend/platform/files/onedrive.py:54`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py#L54) |

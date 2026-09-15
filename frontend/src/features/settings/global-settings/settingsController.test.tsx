@@ -10,6 +10,7 @@ import { readStorage, themeKey, snippetsKey } from './settingsStorage';
 import { queryClient } from '../../../shared/api/query-client';
 import { settingsPanelLoaders } from './settingsPanelLoaders';
 import { BUILTIN_PLUGINS } from '../../../shared/plugins/registry';
+import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 
 const translations = vi.hoisted(() => ({ t: (key: string) => key, i18n: { language: 'en', changeLanguage: vi.fn() } }));
 const automationActions = vi.hoisted(() => ({ save: vi.fn(), remove: vi.fn(), run: vi.fn(), enablePlugin: vi.fn() }));
@@ -159,7 +160,7 @@ describe('settings controller persistence contracts', () => {
       calendars: [{ id: 'google_fixture', provider: 'google', email: 'user+calendar@example.test' }],
     };
     await act(async () => {
-      window.dispatchEvent(new Event('focus'));
+      dispatchWindowEvent(new Event('focus'));
       await Promise.resolve();
     });
     expect(snapshot().integrations.calendars).toEqual(integrationPayload.calendars);
