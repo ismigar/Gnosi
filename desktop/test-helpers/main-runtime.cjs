@@ -13,6 +13,7 @@ function loadMainRuntime({
   locale = 'en', resourcesPath = '/fixture/resources',
   platform = 'darwin', isPackaged = false, sparkleUpdater,
   onWindowCreated = () => {},
+  fetchResponse,
   userDataPath = '/fixture/user-data',
   showOpenDialog = async () => ({ canceled: true, filePaths: [] }),
 } = {}) {
@@ -83,8 +84,24 @@ function loadMainRuntime({
       registerSchemesAsPrivileged: () => {},
       handle: (scheme, handler) => protocols.set(scheme, handler),
     },
-    net: { fetch: async (url, init) => {
+    net: { request: options => {
+      const request = new EventEmitter();
+      request.abort = () => { request.emit('close'); };
+      request.end = () => {
+        calls.push({ backendUrl: options.url, method: options.method });
+        Promise.resolve().then(async () => {
+          const response = fetchResponse ? await fetchResponse(options.url, options) : new Response('', { status: 401 });
+          const location = response.headers.get('location');
+          if (location) {
+            request.emit('redirect', response.status, 'GET', location, {});
+            request.emit('error', new Error('Redirect was cancelled'));
+          } else request.emit('response', { statusCode: response.status });
+        }).catch(error => { request.emit('error', error); });
+      };
+      return request;
+    }, fetch: async (url, init) => {
       calls.push({ backendUrl: url, method: init.method });
+      if (fetchResponse) return fetchResponse(url, init);
       return new Response('{"status":"ok"}', { headers: { 'content-type': 'application/json' } });
     } },
     shell: { openExternal: async (url) => { calls.push({ external: url }); } },
@@ -122,7 +139,7 @@ function loadMainRuntime({
         statSync: file => file.startsWith('/fixture/resources/python/')
           ? { isFile: () => bundleExists } : fs.statSync(file),
       };
-      if (['./application-menu', './backend-launch', './vault-startup', './vault-folders', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors'].includes(name)) {
+      if (['./application-menu', './backend-launch', './vault-startup', './vault-folders', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors', './google-sign-in'].includes(name)) {
         return require(path.join(desktopRoot, name));
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);

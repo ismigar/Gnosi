@@ -1,9 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-15
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
+  - backend/services/auth_public_surface.py
+  - desktop/google-sign-in.js
+  - desktop/main.js
+  - frontend/src/shared/api/google-auth.ts
   - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
@@ -41,6 +45,9 @@ source_paths:
 tests:
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
+  - desktop/google-sign-in.test.js
+  - frontend/src/shared/api/google-auth.test.ts
+  - frontend/src/features/settings/global-settings/settingsController.test.tsx
   - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
   - backend/tests/test_keychain_manager.py
@@ -84,13 +91,24 @@ Le gestionnaire d'intégrations stocke la configuration non secrète des comptes
 Les callbacks Google et Microsoft OAuth créent ou mettent à jour des enregistrements de fournisseurs. IMAP, SMTP, CalDAV, Drupal, Notion et adaptateurs similaires normalisent leurs propres paramètres dans le registre d'intégration commun si possible.
 
 Google OAuth conserve les vérificateurs PKCE en attente dans une table d'états
-bornée avec expiration et rejette les callbacks sans état valide avant l'échange
-de jetons. Les payloads de configuration et de compte sont typés à la frontière
-de l'adaptateur. Les dictionnaires d'état et de santé sont validés par Pydantic
-avant de retrouver leur mapping historique ; les redirections ont des types
-de réponse explicites. `response_model=None` conserve les schémas OpenAPI
-octet par octet, et les exceptions de typage restent limitées aux appels non
-typés du SDK Google.
+valables dix minutes. L'état du callback est consommé une seule fois, avant
+l'échange de jetons ou l'annulation ; les états absents, expirés ou réutilisés
+sont rejetés. Seul `GET /api/auth/google/callback` est exempté de la session de
+l'application, car le navigateur système ne partage pas le cookie du bureau.
+PKCE et la validation de l'état en attente restent obligatoires ; la connexion,
+l'état et la santé restent protégés.
+
+Le bureau intercepte la navigation de confiance vers Google sans remplacer les
+paramètres. Electron résout la redirection locale authentifiée via
+`ClientRequest`, valide la destination d'autorisation Google, puis ouvre le
+navigateur système. L'adresse déjà saisie dans les paramètres est transmise comme
+`login_hint` ; les paramètres facultatifs `desktop=true` et `ui_locales`
+sélectionnent une page de résultat localisée avec `no-store` et `no-referrer`.
+Les clients web conservent leur redirection vers le frontend. Le retour aux
+paramètres actualise les comptes sans effacer les champs en cours. Configuration
+et comptes restent typés à la frontière de l'adaptateur ; Pydantic valide les
+réponses d'état et de santé, avec des exceptions de typage limitées aux appels
+non typés du SDK Google.
 
 L'adaptateur Google People convertit les réponses de découverte en contacts
 Gnosi typés, rafraîchit et persiste les jetons via le gestionnaire d'intégrations,

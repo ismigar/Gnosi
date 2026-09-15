@@ -1,10 +1,11 @@
 import logging
 import os
 import time
-from typing import Any, TypedDict, cast
+from html import escape
+from typing import Annotated, Any, NotRequired, TypedDict, cast
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 from google_auth_oauthlib.flow import Flow  # type: ignore[import-untyped]
@@ -38,6 +39,8 @@ class PendingAuth(TypedDict):
     code_verifier: Any
     type: str
     created_at: float
+    desktop: NotRequired[bool]
+    locale: NotRequired[str]
 
 
 # Temporary in-memory storage for the Code Verifier (PKCE).
@@ -52,7 +55,7 @@ def _prune_pending_auths() -> None:
     for st in [
         s
         for s, v in pending_auths.items()
-        if now - (v.get("created_at") or 0) > _PENDING_AUTH_TTL_SECONDS
+        if now - (v.get("created_at") or 0) >= _PENDING_AUTH_TTL_SECONDS
     ]:
         pending_auths.pop(st, None)
 
@@ -162,7 +165,12 @@ async def health() -> dict[str, object]:
 
 
 @router.get("/login")
-async def login(type: str = cast(str, None)) -> RedirectResponse:
+async def login(
+    type: str = cast(str, None),
+    login_hint: Annotated[str | None, Query(max_length=254)] = None,
+    desktop: bool = False,
+    ui_locales: Annotated[str | None, Query(max_length=32)] = None,
+) -> RedirectResponse:
     config = get_google_config()
     if not config:
         raise HTTPException(
@@ -174,9 +182,10 @@ async def login(type: str = cast(str, None)) -> RedirectResponse:
         config, scopes=SCOPES, redirect_uri=config["web"]["redirect_uris"][0]
     )
 
-    authorization_url_raw, state_raw = flow.authorization_url(
-        access_type="offline", include_granted_scopes="true", prompt="consent"
-    )
+    options = {"access_type": "offline", "include_granted_scopes": "true", "prompt": "consent"}
+    if login_hint and login_hint.strip():
+        options["login_hint"] = login_hint.strip()
+    authorization_url_raw, state_raw = flow.authorization_url(**options)
 
     # Save the generated code_verifier and context associated with the state
     authorization_url = str(authorization_url_raw)
@@ -187,30 +196,75 @@ async def login(type: str = cast(str, None)) -> RedirectResponse:
             "code_verifier": flow.code_verifier,
             "type": type or "calendar",
             "created_at": time.monotonic(),
+            "desktop": desktop,
+            "locale": (ui_locales or "en").split("-")[0],
         }
 
     return RedirectResponse(url=authorization_url)
 
 
-@router.get("/callback")
-async def callback(request: Request) -> RedirectResponse:
+def _auth_result(auth_info: PendingAuth, success: bool) -> HTMLResponse | RedirectResponse:
+    if not auth_info.get("desktop"):
+        base = get_env("FRONTEND_URL", "http://localhost:5173")
+        result = "success" if success else "error"
+        context = f"&tab={auth_info.get('type', 'calendar')}" if success else ""
+        return RedirectResponse(url=f"{base}/calendar?auth={result}{context}")
+
+    messages = {
+        "ca": ("Compte de Google connectat", "No s'ha connectat el compte",
+               "Ja pots tancar aquesta pestanya i tornar a Gnosi.",
+               "Torna a Gnosi i prova de connectar el compte de nou."),
+        "es": ("Cuenta de Google conectada", "No se ha conectado la cuenta",
+               "Ya puedes cerrar esta pestaña y volver a Gnosi.",
+               "Vuelve a Gnosi e intenta conectar la cuenta de nuevo."),
+        "fr": ("Compte Google connecté", "Le compte n'a pas été connecté",
+               "Vous pouvez fermer cet onglet et revenir à Gnosi.",
+               "Revenez à Gnosi et réessayez de connecter le compte."),
+        "en": ("Google account connected", "Account not connected",
+               "You can close this tab and return to Gnosi.",
+               "Return to Gnosi and try connecting the account again."),
+    }
+    locale = auth_info.get("locale", "en")
+    locale = locale if locale in messages else "en"
+    title_ok, title_error, body_ok, body_error = messages[locale]
+    title = escape(title_ok if success else title_error)
+    body = escape(body_ok if success else body_error)
+    return HTMLResponse(
+        f'<!doctype html><html lang="{locale}"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>Gnosi — {title}</title>"
+        "<style>html{color-scheme:light dark}body{margin:0;min-height:100vh;"
+        "display:grid;place-items:center;font:17px/1.6 system-ui,sans-serif}"
+        "main{max-width:32rem;padding:3rem;text-align:center}"
+        "h1{font-size:1.6rem;line-height:1.3}p{opacity:.8}</style></head>"
+        f'<body><main><p>Gnosi</p><h1>{title}</h1><p>{body}</p></main></body></html>',
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )
+
+
+@router.get("/callback", response_model=None)
+async def callback(request: Request) -> HTMLResponse | RedirectResponse:
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-
-    if not code:
-        raise HTTPException(status_code=400, detail="Authorization code not found")
 
     # Validate `state` against the pending ones — CSRF prevention. Without this
     # validation, an attacker could craft a callback URL with their own code
     # and get the victim to link their account to the attacker's. PKCE
     # mitigates part of the risk, but only if we have the code_verifier — and
     # that only exists if `state` matches.
-    if not state or state not in pending_auths:
-        log.warning("OAuth callback amb state invàlid o expirat: %r", state)
+    _prune_pending_auths()
+    auth_info = pending_auths.pop(state, None) if state else None
+    if auth_info is None:
+        log.warning("OAuth callback with invalid or expired state")
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired OAuth state. Please retry the login.",
         )
+
+    if request.query_params.get("error"):
+        return _auth_result(auth_info, False)
+    if not code:
+        raise HTTPException(status_code=400, detail="Authorization code not found")
 
     config = get_google_config()
     if config is None:
@@ -223,9 +277,7 @@ async def callback(request: Request) -> RedirectResponse:
     )
 
     # Retrieve the code_verifier (state already validated above)
-    auth_info = pending_auths.pop(state)
     flow.code_verifier = auth_info.get("code_verifier")
-    auth_type = auth_info.get("type", "calendar")
 
     try:
         flow.fetch_token(code=code)
@@ -283,13 +335,8 @@ async def callback(request: Request) -> RedirectResponse:
 
         # Hybrid architecture: no need to sync to the vault, the API is queried directly
 
-        # Redirect back to the frontend with context
-        # Tab management: activeTab in frontend should react to this
-        base = get_env("FRONTEND_URL", "http://localhost:5173")
-        frontend_url = f"{base}/calendar?auth=success&tab={auth_type}"
-        return RedirectResponse(url=frontend_url)
+        return _auth_result(auth_info, True)
 
     except Exception as exc:
         log.error("Error in Google OAuth callback: %s", exc)
-        base = get_env("FRONTEND_URL", "http://localhost:5173")
-        return RedirectResponse(url=f"{base}/calendar?auth=error")
+        return _auth_result(auth_info, False)
