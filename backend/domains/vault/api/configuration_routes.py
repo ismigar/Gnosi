@@ -212,24 +212,25 @@ def _find_page_path_for_write(page_id: str) -> _legacy.Path | None:
 
 
 async def _materialize_if_online_only(file_path: _legacy.Path, label: str = "") -> None:
-    """Materializes the file if OneDrive has it as online-only (`dataless`)
-    BEFORE reading it, avoiding the `OSError [Errno 35]` (EDEADLK) that
-    occurs when reading it from inside the container.
-
-    Silent no-op if it fails (warmup daemon down, out of scope, etc.): the
-    caller keeps its retry loop as a safety net. It's the same
-    pattern already followed by `_compute_preview` for previews.
-
-    """
+    """Request a cloud file before reading it; unavailability is not emptiness."""
     try:
         provider = _legacy.get_files_provider()
         st = file_path.stat()
-        if provider.is_online_only(file_path, st):
-            await provider.materialize(file_path)
     except OSError:
-        pass
-    except Exception as e:
-        _legacy.log.debug(f"Proactive warmup failed for {label or file_path}: {e}")
+        return  # The caller still owns missing-file and permission errors.
+    if not provider.is_online_only(file_path, st):
+        return
+    try:
+        available = await provider.materialize(file_path)
+    except Exception as error:
+        _legacy.log.debug("Cloud download failed for %s: %s", label, error)
+        available = False
+    if not available:
+        raise _legacy.HTTPException(
+            status_code=503,
+            detail="Cloud file is not available yet. Check the connection and cloud app, then retry.",
+            headers={"Retry-After": "2"},
+        )
 
 
 async def _ensure_materialized_or_503(p: _legacy.Path, label: str = "") -> None:

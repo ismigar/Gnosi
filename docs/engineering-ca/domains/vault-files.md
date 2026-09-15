@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -71,6 +71,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
@@ -559,13 +560,48 @@ l'adaptador hi afegeix detecció de marcadors de posició, hidratació,
 disponibilitat i mapatge de rutes. Establiu `GNOSI_FILES_PROVIDER`
 explícitament quan la detecció automàtica de rutes sigui ambigua.
 
-El sistema d'execució de fitxers a demanda és independent del proveïdor.
-Google Drive, iCloud i Nextcloud no hereten el comportament de recuperació de
-OneDrive; només `OneDriveProvider` pot reiniciar el client OneDrive després
-d'una fallada d'hidratació amb intents acotats. Els proveïdors natius de macOS
-utilitzen per defecte una acció `open` en una sessió gràfica. Els desplegaments
-Docker poden utilitzar un auxiliar configurat a l'amfitrió perquè les lectures
-del contenidor travessen un altre límit.
+El sistema d'execució de fitxers a demanda és independent del proveïdor. A macOS
+s'utilitza per defecte un auxiliar de només lectura basat en `NSFileCoordinator`,
+compilat i signat a `Contents/Resources/native/gnosi-file-access`. Cada invocació
+demana un fitxer, llegeix com a màxim 64 KiB i no retorna contingut del document.
+El límit de dues descàrregues simultànies i la unificació de peticions per camí
+acoten la càrrega; el temps límit o la cancel·lació finalitzen el procés auxiliar.
+Aquest camí no obre aplicacions gràfiques, fixa fitxers al disc, descarrega
+recursivament ni reinicia clients de núvol. Docker conserva l'auxiliar configurat
+a l'amfitrió. Els modes antics `open` i `direct` requereixen una selecció explícita;
+només l'adaptador antic de OneDrive pot activar una recuperació específica.
+
+La detecció de l'índex utilitza els indicadors de fitxer sense dades per conservar
+marcadors accessibles sense obrir tots els documents del núvol. Les entrades
+existents més completes es conserven si un fitxer no es pot llegir; la descàrrega
+no necessita canviar el mtime per actualitzar un marcador. Una exploració inicial
+fallida no es marca com a inicialitzada. La navegació lateral i la taula demanada
+obtenen les metadades necessàries, mentre que les lectures de pàgines i adjunts
+materialitzen el fitxer seleccionat. Els fitxers no disponibles retornen 503 amb
+Retry-After en lloc d'una lectura buida correcta. L'escalfament massiu de l'arbre
+crític està desactivat per defecte amb l'accés coordinat natiu.
+
+La validació del codi del 14 de setembre inclou proves sintètiques de fallada,
+cancel·lació, deduplicació i absència de lectures massives, més una lectura real
+d'un marcador de OneDrive. Aquesta descàrrega va trigar 2,2 segons; les lectures
+directes posteriors del mateix fitxer de 3,9 KiB van trigar 0,24–1,03 ms, no pas
+el temps total de renderització de la pàgina.
+
+El canvi està empaquetat al DMG local amb signatura ad hoc
+`Gnosi-3.0.2-on-demand-arm64.dmg`, i instal·lat des d'aquesta imatge. El backend
+empaquetat ha superat una prova aïllada de vaults, pàgines i favorits. Un PDF real
+de OneDrive de 428.327 bytes ha passat de no tenir dades ni blocs locals a estar
+disponible mitjançant l'endpoint Library de l'aplicació instal·lada. Una petició
+HTTP Range de 16 bytes va trigar 3,5959 segons el primer cop i 14,8 ms en repetir-la;
+totes dues van retornar 206 i una capçalera PDF. No són mesures de renderització
+del document complet. L'aplicació instal·lada llista els tres vaults existents;
+la barra lateral retorna 2.672 pàgines i 19 favorits, i la interfície obre un
+favorit amb el contingut de la pàgina. També s'ha provat correctament l'opció
+d'expulsar només la imatge. No és una release publicada ni notaritzada per Apple;
+altres proveïdors de núvol i Windows no s'han provat en viu. Mostrar tots els
+favorits immediatament en un dispositiu nou encara requereix metadades portables
+de navegació: els noms dels fitxers no permeten deduir favorits que només consten
+dins d'un document no descarregat.
 
 Les rutes de Dropbox File Provider es detecten explícitament. Un servei
 desconegut sota `~/Library/CloudStorage` de macOS utilitza l'adaptador

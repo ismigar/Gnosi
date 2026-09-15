@@ -82,15 +82,17 @@ function renderCard(overrides: Partial<VaultFeedCardProps> = {}) {
 
 
 describe('VaultFeedCard', () => {
-  it('highlights search terms and opens the record only from the title', () => {
+  it('highlights search terms and opens the record only from the arrow', () => {
     const onOpen = vi.fn();
     const { container } = renderCard({ onOpen });
     expect(container.querySelector('mark')?.textContent).toBe('Alpha');
     const title = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Open page: Project Alpha"]',
+      'button[aria-label="Project Alpha"]',
     );
     if (!title) throw new Error('Feed title button is missing.');
     act(() => { title.click(); });
+    expect(onOpen).not.toHaveBeenCalled();
+    act(() => { container.querySelector<HTMLAnchorElement>('a[target="_blank"]')?.click(); });
     expect(onOpen).toHaveBeenCalledWith('page-1');
   });
 

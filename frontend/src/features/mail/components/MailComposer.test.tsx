@@ -267,6 +267,51 @@ describe('MailComposer shared Mail API migration', () => {
         expect(onClose).toHaveBeenCalledOnce();
     });
 
+    it.each(['trash', 'close'])('requires confirmation before %s closes a non-empty draft', async source => {
+        const onClose = vi.fn();
+        const { container } = renderComposer({ initialSubject: 'Unsaved work', onClose });
+        const trigger = container.querySelector<HTMLButtonElement>(source === 'trash'
+            ? '[title="mail.discard_draft"]' : '[aria-label="common.close"]');
+        if (!trigger) throw new Error('Missing close control');
+        await act(async () => { trigger.click(); await Promise.resolve(); });
+        expect(onClose).not.toHaveBeenCalled();
+        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+        await act(async () => { buttonContaining(container, 'mail.close_cancel').click(); await Promise.resolve(); });
+        expect(onClose).not.toHaveBeenCalled();
+        expect(container.querySelector('[role="dialog"]')).toBeNull();
+        await act(async () => { trigger.click(); await Promise.resolve(); });
+        await act(async () => { buttonContaining(container, 'mail.close_discard').click(); await Promise.resolve(); });
+        expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it.each(['', 'copy@example.test'])('checks CC-only drafts before discarding (%s)', async initialCc => {
+        const onClose = vi.fn();
+        const { container } = renderComposer({ initialCc, onClose });
+        await act(async () => {
+            container.querySelector<HTMLButtonElement>('[title="mail.discard_draft"]')?.click();
+            await Promise.resolve();
+        });
+        if (initialCc) {
+            expect(onClose).not.toHaveBeenCalled();
+            expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+        } else {
+            expect(onClose).toHaveBeenCalledOnce();
+        }
+    });
+
+    it('does not send visually empty editor HTML to AI', async () => {
+        const { container } = renderComposer({});
+        const body = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="mail-body"]');
+        if (!body) throw new Error('Missing body');
+        await act(async () => { changeValue(body, '<p>&nbsp;</p>'); await Promise.resolve(); });
+        await act(async () => {
+            buttonContaining(container, 'mail.ai_draft').click();
+            await Promise.resolve();
+        });
+        expect(mocks.generateMailDraft).not.toHaveBeenCalled();
+        expect(mocks.toast.error).toHaveBeenCalledWith('mail.ai_needs_context');
+    });
+
     it('generates the body through the typed API and replies through multipart', async () => {
         const { container } = renderComposer({
             initialSubject: 'Meeting',

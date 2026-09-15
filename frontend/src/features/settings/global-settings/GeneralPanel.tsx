@@ -1,4 +1,5 @@
 import { FolderOpen } from 'lucide-react';
+import { useState } from 'react';
 import { FormGroup } from '../../../shared/ui/settings/SettingsPrimitives';
 import { PasswordInput } from './PasswordInput';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
@@ -7,10 +8,20 @@ import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSection
 import VaultSwitcher from '../../vault-management/VaultSwitcher';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { context: Pick<SettingsController, 'activeTab' | 'draft' | 'generalSection' | 'setDraft' | 'setGeneralSection' | 'setPickerField' | 'setPickerOpen' | 'tn'> };
+type Props = { context: Pick<SettingsController, 'activeTab' | 'draft' | 'generalSection' | 'setDraft' | 'setGeneralSection' | 'handleClose' | 'tn'> };
 
 export function GeneralPanel({ context }: Props) {
-  const { activeTab, draft, generalSection, setDraft, setGeneralSection, setPickerField, setPickerOpen, tn } = context;
+  const { activeTab, draft, generalSection, setDraft, setGeneralSection, handleClose, tn } = context;
+  const [folderError, setFolderError] = useState('');
+  const chooseContainer = async () => {
+    setFolderError('');
+    try {
+      await handleClose();
+      await window.electronAPI?.chooseVaultContainer?.();
+    } catch (error) {
+      setFolderError(error instanceof Error ? error.message : String(error));
+    }
+  };
   return (activeTab === 'general' && (
     <>
       <SettingsSectionTabs
@@ -58,12 +69,11 @@ export function GeneralPanel({ context }: Props) {
         <Section title={tn('general.files_structure')} icon={FolderOpen}>
           <FormGroup label={tn('general.root_folder')} description={tn('general.root_folder_desc')}>
             <div style={{ display: 'flex', gap: '14px' }}>
-              {/* Show the CONTAINER folder (parent of the active vault), not the vault: vaults live inside this root. */}
-              <input type="text" className="gnosi-input" value={(draft.paths.vault || '').replace(/[/\\][^/\\]+[/\\]?$/, '') || draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
-              <button onClick={() => { setPickerField('vault'); setPickerOpen(true); }} className="btn-gnosi-secondary" style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}>
-                <FolderOpen size={18} />
-              </button>
+              <textarea rows={2} className="gnosi-input" aria-label={tn('general.root_folder')} value={draft.paths.vaults_root || ''} readOnly style={{ flex: 1, minWidth: 0, resize: 'none', overflowWrap: 'anywhere', fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
+              {window.electronAPI?.chooseVaultContainer && <button type="button" className="btn-gnosi-secondary" aria-label={tn('general.select_folder')} title={tn('general.container_restart')} onClick={() => { void chooseContainer(); }}><FolderOpen size={18} /></button>}
             </div>
+            {window.electronAPI?.chooseVaultContainer && <p>{tn('general.container_restart')}</p>}
+            {folderError && <p role="alert">{folderError}</p>}
           </FormGroup>
           {draft.settings.gnosi_mode === 'personal' && (
             <FormGroup label={tn('general.vaults_label')} description={tn('general.vaults_desc')}>

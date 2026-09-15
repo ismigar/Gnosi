@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -71,6 +71,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
@@ -482,11 +483,44 @@ code still works with `Path`; the adapter adds placeholder detection,
 hydration, availability, and path mapping. Set `GNOSI_FILES_PROVIDER`
 explicitly when automatic path detection is ambiguous.
 
-The files-on-demand runtime is provider-neutral. Google Drive, iCloud and
-Nextcloud do not inherit OneDrive recovery behavior; only `OneDriveProvider`
-may restart the OneDrive client after a bounded hydration failure. Native macOS
-providers use a GUI-session `open` action by default. Docker deployments may
-use a configured host helper because container reads cross another boundary.
+The files-on-demand runtime is provider-neutral. Native macOS defaults to a
+read-only `NSFileCoordinator` helper, built and signed into
+`Contents/Resources/native/gnosi-file-access`. Each invocation requests one
+file, reads at most 64 KiB, and returns no document content. Two concurrent
+downloads and per-path coalescing bound load; timeout/cancellation terminates
+the owned helper process. There is no GUI launch, pinning, recursive download,
+or cloud-client restart on this default path. Docker deployments retain their
+configured host helper. Legacy `open` and `direct` modes are explicit overrides;
+only the legacy OneDrive adapter can opt into vendor-specific recovery.
+
+Index discovery uses dataless flags to retain addressable placeholders without
+opening every cloud document. Existing richer cache entries survive unreadable
+files; materialization does not have to change mtime to refresh a placeholder.
+An unsuccessful initial scan is not marked initialized. Sidebar navigation and
+the table requested by the user fetch the metadata they need, while page/asset
+reads materialize the selected file. Unavailable selected files return 503 with
+Retry-After rather than an empty successful read. Critical-tree bulk warmup is
+disabled by default for native coordinated access.
+
+The September 14 source validation includes synthetic failure, cancellation,
+deduplication and no-bulk-read tests plus one real OneDrive placeholder read.
+That single download took 2.2 seconds; subsequent direct reads of the same
+3.9 KiB file took 0.24–1.03 ms (not end-to-end page-render timings).
+
+The change is now packaged in the local, ad-hoc-signed
+`Gnosi-3.0.2-on-demand-arm64.dmg` and installed from that image. The packaged
+backend passed an isolated vault/page/favorite smoke test. A real 428,327-byte
+OneDrive PDF changed from dataless/zero blocks to locally available through the
+installed application's Library endpoint. A 16-byte HTTP Range request took
+3.5959 seconds on first access and 14.8 ms on the repeat; both returned 206 and
+a PDF header. These request timings are not full-document render benchmarks.
+The installed app lists the three existing vaults; its sidebar reports 2,672
+pages and 19 favorites, and the UI opens a favorite with its page content.
+The image's eject-only prompt was also exercised successfully. This is not a
+published or Apple-notarized release; other cloud providers and Windows were
+not live-tested. Instant complete favorites on a brand-new device still need
+portable navigation metadata; filename discovery cannot infer favorites that
+exist only in an undownloaded document.
 
 Dropbox File Provider paths are detected explicitly. An unknown service under
 macOS `~/Library/CloudStorage` uses the side-effect-free `fileprovider` adapter;

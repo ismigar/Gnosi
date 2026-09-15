@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 from threading import Lock
+from types import SimpleNamespace
 
 import pytest
 from fastapi import BackgroundTasks
@@ -71,6 +72,54 @@ def _entry(metadata: object) -> PageCacheEntry:
         "folder": "BD/Synthetic",
         "path": None,
     }
+
+
+def test_cloud_discovery_builds_a_placeholder_without_reading_contents(monkeypatch, tmp_path):
+    path = tmp_path / "Cloud.md"
+    path.write_text("not read")
+    actual = path.stat()
+    stat_result = SimpleNamespace(
+        st_flags=0x40000000, st_size=actual.st_size, st_blocks=0,
+        st_mtime=actual.st_mtime, st_mtime_ns=actual.st_mtime_ns,
+        st_ctime=actual.st_ctime,
+    )
+    monkeypatch.setattr(index_entries, "_dependencies", index_entries.PageIndexEntryDependencies(
+        parse_frontmatter=lambda *args: pytest.fail("must not read every cloud document"),
+        is_dashboard_file=lambda path: False,
+        read_dashboard_file=lambda path: pytest.fail("must not read cloud dashboards during discovery"),
+        process_metadata_paths=lambda metadata: metadata,
+        vault_root=lambda: tmp_path,
+        logger=logging.getLogger(__name__),
+    ))
+    entry = index_entries.build_page_cache_entry(path, stat_result)
+    assert entry["title"] == "Cloud"
+    assert entry["path"] == str(path)
+    assert entry["_cloud_pending"] is True
+    assert entry["_parse_failed"] is True
+    # Materialization leaves mtime/size unchanged. Do not freeze a placeholder
+    # forever when a future refresh finds the real document on disk.
+    assert not index_service._unchanged_entry(entry, actual)
+
+
+def test_failed_initial_scan_does_not_poison_the_empty_index(monkeypatch, tmp_path):
+    path = tmp_path / "Cloud.md"
+    path.write_text("fixture")
+    attempts = 0
+
+    def build(file_path, stat):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError(11, "provider unavailable")
+        return {**_entry({"id": "recovered"}), "path": str(file_path)}
+
+    dependencies = replace(_index_dependencies(tmp_path), build_entry=build)
+    monkeypatch.setattr(index_service, "_dependencies", dependencies)
+    with pytest.raises(OSError):
+        index_service.get_cached_page_entries()
+    assert not dependencies.index_initialized.get(str(tmp_path))
+    assert len(index_service.get_cached_page_entries()) == 1
+    assert dependencies.index_initialized[str(tmp_path)]
 
 
 def test_calendar_snapshot_does_not_schedule_obsolete_remote_mirror(

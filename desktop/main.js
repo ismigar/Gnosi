@@ -2,8 +2,10 @@ const { app, BrowserWindow, ipcMain, Menu, protocol, net, shell, dialog } = requ
 const path = require('path');
 const fs = require('fs');
 const { launchBackend, stopBackend } = require('./backend-process');
-const { launchConfiguredBackend } = require('./vault-startup');
-const { prepareDesktopProfile } = require('./profile-startup');
+const { launchConfiguredBackend, vaultDialogOptions, persistSelection } = require('./vault-startup');
+const { resolveVaultFolder } = require('./vault-folders');
+const { offerInstallerCleanup } = require('./installer-cleanup');
+const { prepareDesktopProfile, resolveDataPath } = require('./profile-startup');
 
 // Protect the 2.x profile before the updater or any Chromium session can open it.
 let startupAllowed = false;
@@ -485,8 +487,31 @@ function setupAutoUpdater() {
 }
 
 function setupIPC() {
+  let choosingContainer = false;
   registerIpcHandlers({
     ipcMain, mainWindows, isDev,
+    chooseVaultContainer: async () => {
+      if (choosingContainer) return false;
+      choosingContainer = true;
+      try {
+        const selection = await dialog.showOpenDialog(vaultDialogOptions(app.getLocale()));
+        if (selection.canceled || !selection.filePaths[0] || quitting) return false;
+        const folder = resolveVaultFolder(selection.filePaths[0]);
+        const environment = getPackagedBackendEnvironment(process.env, app.getPath('userData'), backendPort);
+        if (isDev || environment.DIGITAL_BRAIN_VAULT_PATH || environment.VAULT_HOST_PATH) {
+          throw new Error('The vault location is controlled by the launch environment.');
+        }
+        const dataDirectory = resolveDataPath(environment.GNOSI_DATA_DIR, path.join(__dirname, '..'), require('node:os').homedir());
+        persistSelection(path.join(dataDirectory, 'desktop-vault.json'), folder,
+          require('node:crypto').randomUUID());
+        app.relaunch();
+        app.quit();
+        return true;
+      } catch (error) {
+        dialog.showErrorBox('Gnosi', String(error?.message || error));
+        return false;
+      } finally { choosingContainer = false; }
+    },
     getAppVersion: () => app.getVersion(),
     getBackendURL, getBackendStatus,
     getUpdateState: () => updateState,
@@ -544,6 +569,11 @@ if (startupAllowed) app.whenReady().then(async () => {
 
   openMainWindow();
   setupAutoUpdater();
+  if (!isDev) void offerInstallerCleanup({ platform: process.platform,
+    isInstalled: app.isInApplicationsFolder?.() === true,
+    installedApp: path.resolve(path.dirname(process.execPath), '../..'),
+    locale: app.getLocale(), dialog, shell,
+  }).catch(error => log('Installer cleanup unavailable:', error.message));
 });
 
 app.on('window-all-closed', () => {

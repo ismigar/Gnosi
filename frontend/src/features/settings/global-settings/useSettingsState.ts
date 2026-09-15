@@ -6,6 +6,7 @@ import { useRef } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GlobalSettingsModalProps } from './types';
+import { pluginForSettingsTab } from './pluginSettingsNavigation';
 
 export function useSettingsState(props: GlobalSettingsModalProps) {
   const { initialTab = "general", initialPluginId = null } = props;
@@ -44,7 +45,7 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
   const [graphSection, setGraphSection] = useState('engine');
   const [socialSection, setSocialSection] = useState('networks');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(
-    () => ['api', 'plugins'].includes(initialTab) || Boolean(initialPluginId)
+    () => ['api', 'plugins'].includes(initialTab) || Boolean(pluginForSettingsTab(initialTab)) || Boolean(initialPluginId)
   );
   const [integrations, setIntegrations] = useState<SettingsIntegrations>({ calendars: [], contacts: [], mail_accounts: [] });
   const configLoadedRef = useRef(false);

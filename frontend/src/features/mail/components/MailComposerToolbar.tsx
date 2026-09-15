@@ -26,7 +26,7 @@ export function MailComposerToolbar({ controller }: MailComposerToolbarProps) {
     handleInsertSnippet,
     handleSend,
     fileInputRef,
-    onClose,
+    handleCloseRequest,
     sending,
     setShowSnippets,
     showSnippets,
@@ -126,7 +126,7 @@ export function MailComposerToolbar({ controller }: MailComposerToolbarProps) {
         </button>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleCloseRequest}
           className="rounded-xl border border-transparent p-2.5 text-[var(--text-secondary)] transition-all hover:border-[var(--border-primary)] hover:bg-[var(--bg-primary)] hover:text-[var(--status-error)]"
           title={t('mail.discard_draft')}
         >

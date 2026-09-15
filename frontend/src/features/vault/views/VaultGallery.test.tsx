@@ -58,7 +58,7 @@ vi.mock('./GalleryCardPreview', () => ({
         mocks.contentPreview(props);
         return <div data-content-preview={props.note?.id} />;
     },
-    GalleryOpenButton: () => null,
+    GalleryOpenButton: ({ pageId, onOpen }: { pageId: string; onOpen?: (id: string) => void }) => <button aria-label="Open record" onClick={(event) => { event.stopPropagation(); onOpen?.(pageId); }}>↗</button>,
 }));
 
 
@@ -82,7 +82,7 @@ describe('VaultGallery', () => {
         vi.clearAllMocks();
     });
 
-    it('renders a card and opens the selected note', () => {
+    it('opens only through the arrow, not the card or title', () => {
         act(() => {
             root.render(<VaultGallery
                 activeView={{ galleryPreview: 'none' }}
@@ -98,7 +98,10 @@ describe('VaultGallery', () => {
         act(() => {
             card.click();
         });
-        expect(mocks.onNoteSelect).toHaveBeenCalledWith('page-1');
+        act(() => { container.querySelector('h3')?.click(); });
+        expect(mocks.onNoteSelect).not.toHaveBeenCalled();
+        act(() => { container.querySelector<HTMLButtonElement>('[aria-label="Open record"]')?.click(); });
+        expect(mocks.onNoteSelect).toHaveBeenCalledExactlyOnceWith('page-1');
     });
 
     it('keeps record creation separate from view settings', () => {
@@ -257,6 +260,6 @@ describe('VaultGallery', () => {
         expect(onFocusShell).toHaveBeenCalledOnce();
         expect(onOpenParallel).toHaveBeenCalledWith('parallel');
         expect(notes[0]?.title).toBe(4n);
-        expect(container.querySelector('button')).toBeNull();
+        expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Delete selection')).toBe(false);
     });
 });

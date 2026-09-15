@@ -7,6 +7,7 @@ import type { useSettingsReader } from './useSettingsReader';
 import type { useSettingsSocial } from './useSettingsSocial';
 import { BUILTIN_PLUGIN_BY_ID } from '../../../shared/plugins/registry';
 import { usePlugins } from '../../../shared/plugins/usePlugins';
+import { pluginForSettingsTab } from './pluginSettingsNavigation';
 
 type Input = SettingsState & ReturnType<typeof useSettingsLoaders> & ReturnType<typeof useSettingsModels> & ReturnType<typeof useSettingsReader> & ReturnType<typeof useSettingsSocial>;
 
@@ -25,7 +26,7 @@ export function useSettingsLifecycle(state: Input) {
     setActiveTab(requestedTab === 'automations' ? 'ai' : requestedTab);
     if (requestedTab === 'automations') setAiSection('automations');
     if (initialTab === 'newsletters') setReaderSection('subscriptions');
-    if (['api', 'plugins'].includes(requestedTab) || initialPluginId) {
+    if (['api', 'plugins'].includes(requestedTab) || pluginForSettingsTab(requestedTab) || initialPluginId) {
       setIsAdvancedOpen(true);
     }
   }, [initialPluginId, initialTab, isOpen, pluginsLoaded, setActiveTab, setAiSection, setIsAdvancedOpen, setReaderSection]);

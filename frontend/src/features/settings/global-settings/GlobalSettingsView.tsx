@@ -214,7 +214,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
             }));
             setPickerOpen(false);
           }}
-          preferNative={false}
+          preferNative={true}
         />}
       </Suspense>
 

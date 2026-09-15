@@ -134,6 +134,8 @@ describe('VaultKanban', () => {
         const card = title?.closest<HTMLDivElement>('div[draggable]');
         if (!card) throw new Error('Kanban card not rendered');
         act(() => { card.click(); });
+        expect(onNoteSelect).not.toHaveBeenCalled();
+        act(() => { card.querySelector<HTMLAnchorElement>('a[target="_blank"]')?.click(); });
         expect(onNoteSelect).toHaveBeenCalledWith('page-1');
     });
 

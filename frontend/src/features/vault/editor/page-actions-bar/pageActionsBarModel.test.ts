@@ -14,6 +14,17 @@ const t = ((key: string, fallback?: string) => fallback ?? key) as TFunction;
 
 
 describe('pageActionsBarModel', () => {
+    it('exposes home navigation and reversible home assignment', () => {
+        const toggle = vi.fn();
+        const go = vi.fn();
+        const items = buildPageActionItems({ canSetHome: true, isHome: true, canGoHome: true, onToggleHome: toggle, onGoHome: go }, t);
+        expect(items.map(item => item.key)).toEqual(['go-home', 'set-home']);
+        expect(items[1]?.label).toBe('Remove as vault home');
+        items[0]?.onClick?.();
+        items[1]?.onClick?.();
+        expect(toggle).toHaveBeenCalledOnce();
+        expect(go).toHaveBeenCalledOnce();
+    });
     it('applies the established width budgets', () => {
         expect(inlinePageActionBudget()).toBe(Number.POSITIVE_INFINITY);
         expect(inlinePageActionBudget(1024)).toBe(Number.POSITIVE_INFINITY);

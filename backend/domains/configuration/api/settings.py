@@ -59,6 +59,9 @@ def _read_ui_parameters() -> dict[str, Any]:
     )
     if vault_ui_path:
         safe_params["paths"]["vault"] = vault_ui_path
+        safe_params["paths"]["vaults_root"] = (
+            os.environ.get("GNOSI_VAULTS_ROOT") or str(Path(vault_ui_path).parent)
+        )
     return safe_params
 
 

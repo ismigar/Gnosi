@@ -16,6 +16,8 @@ const REQUIRED_RUNTIME_FILES = Object.freeze([
   'ipc-handlers.js',
   'backend-process.js',
   'vault-startup.js',
+  'vault-folders.js',
+  'installer-cleanup.js',
   'startup-errors.js',
   'profile-startup.js',
   'cookie-schema-guard.js',

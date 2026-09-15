@@ -137,6 +137,8 @@ describe('VaultTimeline', () => {
         act(() => {
             childRowLabel?.click();
         });
+        expect(onNoteSelect).not.toHaveBeenCalled();
+        act(() => { childRowLabel?.querySelector<HTMLButtonElement>('button')?.click(); });
         expect(onNoteSelect).toHaveBeenCalledWith('child');
     });
 
