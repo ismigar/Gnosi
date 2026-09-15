@@ -175,6 +175,7 @@ PUBLIC_RULES: tuple[PublicRule, ...] = (
     # `pipeline/scripts/set_user_password.py`.
     _rule("POST", r"/api/auth/logout", "clearing a cookie must work even with a stale session"),
     _rule("GET", r"/api/auth/me", "returns 401 by design — the frontend uses it to decide login vs app"),
+    _rule("GET", r"/api/auth/google/callback", "Google returns in the system browser; one-use expiring state and PKCE authenticate the callback"),
     # 3. Endpoints carrying their own credential.
     _rule("GET", r"/api/share/[^/]+", "the token in the URL is the credential"),
     # Enumerated rather than a `/api/public/*` wildcard: token MANAGEMENT

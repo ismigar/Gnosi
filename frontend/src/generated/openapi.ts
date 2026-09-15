@@ -24877,7 +24877,10 @@ export interface operations {
     login_api_auth_google_login_get: {
         parameters: {
             query?: {
+                desktop?: boolean;
+                login_hint?: string | null;
                 type?: string;
+                ui_locales?: string | null;
             };
             header?: never;
             path?: never;

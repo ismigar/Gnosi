@@ -28,6 +28,7 @@ const {
 } = require('./backend-launch');
 const { buildMacInstallerUrl, getUpdateInstallMode, readMacSignature } = require('./update-policy');
 const { isTrustedRendererUrl } = require('./ipc-security');
+const { isGoogleSignInNavigation, openGoogleSignIn, googleSignInErrorMessage, fetchGoogleSignInRedirect } = require('./google-sign-in');
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { backendStartupMessage } = require('./startup-errors');
 
@@ -355,8 +356,26 @@ function createWindow() {
     mainWindows.delete(window);
   });
 
-  // A trusted window must not retain its preload bridge after remote navigation.
+  let openingGoogleSignIn = false;
+  // Keep Settings alive while the system browser owns the Google login.
   const preventUntrustedNavigation = (event, url) => {
+    if (isGoogleSignInNavigation(url, isDev)) {
+      event.preventDefault();
+      if (openingGoogleSignIn) return;
+      openingGoogleSignIn = true;
+      void openGoogleSignIn(url, {
+        backendURL: getBackendURL(),
+        fetch: (address, options) => fetchGoogleSignInRedirect(
+          requestOptions => net.request(requestOptions), address, options),
+        openExternal: address => shell.openExternal(address),
+        locale: app.getLocale(),
+      }).catch((error) => {
+        log('Could not start Google sign-in:', error.message);
+        dialog.showErrorBox('Gnosi — Google', googleSignInErrorMessage(app.getLocale()));
+      }).finally(() => { openingGoogleSignIn = false; });
+      return;
+    }
+    // A trusted window must not retain its preload bridge after remote navigation.
     if (!isTrustedRendererUrl(url, isDev)) event.preventDefault();
   };
   window.webContents.on('will-navigate', preventUntrustedNavigation);

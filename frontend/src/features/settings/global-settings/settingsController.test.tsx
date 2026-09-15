@@ -55,6 +55,7 @@ let rejectWrites: boolean;
 let configResponse: (() => Promise<Response>) | undefined;
 let tableResponse: (() => Promise<Response>) | undefined;
 let databaseRows: { id: string; name: string }[];
+let integrationPayload: Record<string, unknown>;
 
 function snapshot(): SettingsController {
   if (!current) throw new Error('Controller not mounted');
@@ -97,6 +98,7 @@ beforeEach(() => {
   configResponse = undefined;
   tableResponse = undefined;
   databaseRows = [];
+  integrationPayload = { mail_accounts: [], contacts: [], calendars: [], extension: { keep: true } };
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -111,7 +113,7 @@ beforeEach(() => {
     if (path === '/api/vault/tables' && tableResponse) return tableResponse();
     const payloads: Record<string, unknown> = {
       '/api/config/editor': configuration,
-      '/api/integrations': { mail_accounts: [], contacts: [], calendars: [], extension: { keep: true } },
+      '/api/integrations': integrationPayload,
       '/api/identity': { full_name: 'Fixture identity', email: 'fixture@example.invalid', address: null },
       '/api/ai/catalog': { config: { providers: { fixture: { enabled: true } } }, catalog: { providers: [] } },
       '/api/ai/models': { configured_models: [model], models: [model], budget, currency: usage.currency },
@@ -145,6 +147,28 @@ afterEach(() => {
 });
 
 describe('settings controller persistence contracts', () => {
+  it('refreshes the connected account on return from Google while preserving the open form', async () => {
+    await mount({ initialTab: 'calendar' });
+    act(() => {
+      snapshot().setAddAccountEmail('user+calendar@example.test');
+      snapshot().setAddAccountType('calendar');
+    });
+    const draftBefore = snapshot().draft;
+    integrationPayload = {
+      ...integrationPayload,
+      calendars: [{ id: 'google_fixture', provider: 'google', email: 'user+calendar@example.test' }],
+    };
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+    expect(snapshot().integrations.calendars).toEqual(integrationPayload.calendars);
+    expect(snapshot().activeTab).toBe('calendar');
+    expect(snapshot().addAccountEmail).toBe('user+calendar@example.test');
+    expect(snapshot().addAccountType).toBe('calendar');
+    expect(snapshot().draft).toEqual(draftBefore);
+  });
+
   it('opens the populated automation editor through the real plugin configure action without writing', async () => {
     await act(async () => {
       root.render(<Harness isOpen onClose={vi.fn()} initialTab="plugins" showView />);

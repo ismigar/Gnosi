@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { googleSignInPath } from '../../../shared/api/google-auth';
 
 interface MailServerPreset { host: string; port: string; enc: string }
 
@@ -34,7 +35,7 @@ export function AccountProviderChoices({ context }: Props) {
     const iconBox = (r?: string): CSSProperties => ({ background: 'white', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: r || '10px' });
 
     const GoogleBtn = () => (
-      <button onClick={() => window.location.href = `/api/auth/google/login?type=${activeTab}`} style={btnStyle('#4285f4', '0 8px 16px rgba(66,133,244,0.25)')}>
+      <button onClick={() => { window.location.href = googleSignInPath(activeTab, addAccountEmail); }} style={btnStyle('#4285f4', '0 8px 16px rgba(66,133,244,0.25)')}>
         <div style={iconBox()}><img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" style={{ width: '18px', height: '18px' }} alt="" /></div>
         {tn('accounts.continue_with', { provider: 'Google' })}
       </button>

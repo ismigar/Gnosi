@@ -40859,6 +40859,50 @@
               "title": "Type",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "login_hint",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 254,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Login Hint"
+            }
+          },
+          {
+            "in": "query",
+            "name": "desktop",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Desktop",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ui_locales",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ui Locales"
+            }
           }
         ],
         "responses": {

@@ -14,6 +14,7 @@ import { SettingsSidebar } from './SettingsSidebar';
 import { X } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
 import { settingsPanelLoaders } from './settingsPanelLoaders';
+import { googleSignInPath } from '../../../shared/api/google-auth';
 
 // Load editors only when their section or dialog is opened.
 const AIModelComparisonModal = lazy(() => import('../AIModelComparisonModal'));
@@ -115,7 +116,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                       {t('settings.calendar.google_token_expired') || "El token de Google ha caducat o s'ha revocat. Reconnecta el compte per tornar a carregar els calendaris."}
                     </div>
                     <button
-                      onClick={() => { window.location.href = '/api/auth/google/login?type=calendar'; }}
+                      onClick={() => { window.location.href = googleSignInPath('calendar'); }}
                       style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: '10px', border: 'none', background: '#4285f4', color: 'white', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                       {t('settings.calendar.reconnect_google') || 'Reconnecta Google'}

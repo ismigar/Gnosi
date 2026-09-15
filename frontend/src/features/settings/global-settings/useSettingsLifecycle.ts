@@ -92,6 +92,14 @@ export function useSettingsLifecycle(state: Input) {
   });
   useEffect(() => { loadSection(); }, [isOpen, activeTab]);
 
+  const refreshAccounts = useEffectEvent(() => { void loadIntegrations(); });
+  useEffect(() => {
+    if (!isOpen || !['calendar', 'contacts', 'mail'].includes(activeTab)) return;
+    // Google finishes in the system browser; returning must reveal the account
+    // without reopening Settings or replacing the user's unsaved fields.
+    return subscribeWindowEvent('focus', () => { refreshAccounts(); });
+  }, [isOpen, activeTab]);
+
   useEffect(() => {
     if (!isOpen) return;
 
