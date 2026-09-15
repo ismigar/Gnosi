@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
+import { useVaultHome } from './useVaultHome';
 import { fetchResourceProcessingStatus } from '../../../shared/api/resource-processing';
 import type { DashboardActions } from './useDashboardActions';
 export function usePageToolbar(context: DashboardActions) {
+    const home = useVaultHome(context);
     const { activeTabId, codeViewByTabId, editLockedByPageId, handleDeletePage, handleToggleFavorite, isPluginEnabled, llmWikiConfig, llmWikiJobs, pages, registry, resolvePageTableId, setCodeViewByTabId, setCommentsOpen, setEditLockedByPageId, setHistoryOpenSignal, setLlmWikiJobs, setResourceToProcess, setShareOpen, setTranslatePageModalId, setTranslatePageMode, t, tabs, viewMode } = context;
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
     const currentOpenPageId = currentOpenPage?.id;
@@ -70,6 +72,11 @@ export function usePageToolbar(context: DashboardActions) {
     // wired through BlockEditor). The gating/handlers are unchanged — the set is
     // active-page-scoped and only the active pane's title shows the toolbar.
     const pageActions = {
+        canSetHome: home.homeReady && Boolean(currentOpenPage) && canToggleCodeView,
+        isHome: home.homeId === currentActiveTab?.id,
+        onToggleHome: () => { void home.toggleHome(); },
+        canGoHome: Boolean(home.homeId),
+        onGoHome: home.goHome,
         canFavorite: Boolean(currentActiveTab?.id),
         isFavorite: currentActiveTab?.metadata?.favorite === true || currentActiveTab?.metadata?.favorite === 'true',
         onToggleFavorite: () => {

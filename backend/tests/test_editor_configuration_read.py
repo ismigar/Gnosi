@@ -37,6 +37,7 @@ def test_editor_preserves_values_and_extensions_without_reading_credentials(monk
     }
     original = copy.deepcopy(params)
     monkeypatch.setenv("VAULT_HOST_PATH", "displayed-path")
+    monkeypatch.setenv("GNOSI_VAULTS_ROOT", "/host/Gnosi")
     monkeypatch.setattr(settings, "load_params", lambda **_: SimpleNamespace(params=params, paths={"VAULT": Path("resolved-path")}))
 
     def unexpected(*_args, **_kwargs):
@@ -47,7 +48,7 @@ def test_editor_preserves_values_and_extensions_without_reading_credentials(monk
     monkeypatch.setattr(keychain_manager, "get_keychain", unexpected)
     result = asyncio.run(settings.get_editor_configuration())
     assert result["settings"] == {"gnosi_mode": "org", "custom": [1]}
-    assert result["paths"] == {"vault": "displayed-path", "custom": "kept"}
+    assert result["paths"] == {"vault": "displayed-path", "custom": "kept", "vaults_root": "/host/Gnosi"}
     assert result["ai"]["providers"] == {
         "openai": {"enabled": False, "custom": [2], "credential_ref": "__keychain__:openai_api_key"},
         "custom": {"credential_ref": "__keychain__:custom-secret", "enabled": True},

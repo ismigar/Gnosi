@@ -6,8 +6,11 @@ import asyncio
 import os
 from pathlib import Path
 from threading import Lock, get_ident
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from backend.api import vault_routes
@@ -24,6 +27,22 @@ from backend.domains.vault.trash import purge
 from backend.platform.files.base import FilesProvider
 from backend.platform.files.local import LocalProvider
 from backend.services import context_vars
+
+
+def test_local_file_skips_cloud_download_and_unavailable_placeholder_returns_503(monkeypatch, tmp_path):
+    file_path = tmp_path / "cloud.md"
+    file_path.write_text("unchanged", encoding="utf-8")
+    download = AsyncMock(return_value=False)
+    provider = SimpleNamespace(is_online_only=lambda path, stat: False, materialize=download)
+    monkeypatch.setattr(vault_routes, "get_files_provider", lambda: provider)
+    asyncio.run(vault_routes._materialize_if_online_only(file_path, "test"))
+    download.assert_not_awaited()
+    provider.is_online_only = lambda path, stat: True
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(vault_routes._materialize_if_online_only(file_path, "test"))
+    assert error.value.status_code == 503
+    assert error.value.headers == {"Retry-After": "2"}
+    assert file_path.read_text() == "unchanged"
 
 
 def test_captured_callbacks_and_state_keep_original_owner(

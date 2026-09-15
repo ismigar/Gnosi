@@ -1,4 +1,6 @@
 .vault-view-toolbar {
+  flex-wrap: wrap;
+  min-width: 0;
   position: sticky;
   top: 0;
   z-index: 25;
@@ -7,6 +9,26 @@
   background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
   border-bottom: 1px solid transparent;
   backdrop-filter: blur(10px);
+}
+
+.vault-view-toolbar > div,
+.vault-view-actions,
+.vault-view-filter-status,
+.vault-view-secondary-items {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.vault-view-actions { justify-content: flex-end; }
+.vault-view-secondary-items { display: flex; align-items: center; gap: 0.25rem; }
+.vault-view-secondary summary { cursor: pointer; padding: 0.375rem; font-size: 0.75rem; }
+.vault-view-secondary summary[hidden] { display: none; }
+.vault-view-secondary:has(summary:not([hidden]))[open] {
+  flex-basis: 100%;
+  padding: 0.25rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
 }
 
 .gnosi-view-embed-container:focus-within .vault-view-toolbar {

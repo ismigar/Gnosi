@@ -3,6 +3,7 @@ import {
     BrainCircuit,
     Code2,
     History,
+    House,
     Languages,
     Lock,
     MessageSquare,
@@ -15,6 +16,11 @@ import {
 
 
 export interface PageActionsConfig {
+    readonly canSetHome?: boolean;
+    readonly isHome?: boolean;
+    readonly onToggleHome?: () => void;
+    readonly canGoHome?: boolean;
+    readonly onGoHome?: () => void;
     readonly canDeleteCurrentPage?: boolean;
     readonly canFavorite?: boolean;
     readonly canOpenComments?: boolean;
@@ -83,6 +89,21 @@ export function buildPageActionItems(
 ): PageActionItem[] {
     if (!pageActions) return [];
     const items: Array<PageActionItem | false | undefined> = [
+        pageActions.canGoHome && {
+            Icon: House,
+            key: 'go-home',
+            label: t('shell.go_home', 'Go to vault home'),
+            onClick: pageActions.onGoHome,
+        },
+        pageActions.canSetHome && {
+            Icon: House,
+            active: pageActions.isHome,
+            key: 'set-home',
+            label: pageActions.isHome
+                ? t('shell.remove_home', 'Remove as vault home')
+                : t('shell.set_home', 'Set as vault home'),
+            onClick: pageActions.onToggleHome,
+        },
         pageActions.canFavorite && {
             Icon: Star,
             active: pageActions.isFavorite,
@@ -174,7 +195,7 @@ export function partitionPageActions({
         };
     }
 
-    const primaryKeys = ['favorite', 'comments'];
+    const primaryKeys = ['go-home', 'favorite', 'comments'];
     const preferred = [
         ...primaryKeys
             .map((key) => items.find((item) => item.key === key))

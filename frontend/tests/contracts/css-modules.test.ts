@@ -133,6 +133,50 @@ function removeVerifiedHelpMenuRules(root: Root): void {
   }
 }
 
+function removeVerifiedResponsiveToolbarRules(root: Root): void {
+  const toolbar = root.nodes.filter(node => node.type === 'rule' && node.selector === '.vault-view-toolbar');
+  expect(toolbar).toHaveLength(1);
+  const rule = toolbar[0];
+  if (rule?.type !== 'rule') throw new Error('Missing toolbar rule');
+  for (const [prop, value] of [['flex-wrap', 'wrap'], ['min-width', '0']] as const) {
+    const declarations = rule.nodes.filter(node => node.type === 'decl' && node.prop === prop);
+    expect(declarations).toHaveLength(1);
+    const declaration = declarations[0];
+    if (!declaration) throw new Error(`Missing toolbar declaration: ${prop}`);
+    expect(semantic(declaration)).toEqual(['decl', prop, value, false]);
+    declaration.remove();
+  }
+  const additions = postcss.parse(`
+.vault-view-toolbar > div,
+.vault-view-actions,
+.vault-view-filter-status,
+.vault-view-secondary-items {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.vault-view-actions { justify-content: flex-end; }
+.vault-view-secondary-items { display: flex; align-items: center; gap: 0.25rem; }
+.vault-view-secondary summary { cursor: pointer; padding: 0.375rem; font-size: 0.75rem; }
+.vault-view-secondary summary[hidden] { display: none; }
+.vault-view-secondary:has(summary:not([hidden]))[open] {
+  flex-basis: 100%;
+  padding: 0.25rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+}`);
+  for (const expected of additions.nodes) {
+    if (expected.type !== 'rule') throw new Error('Expected responsive toolbar rule');
+    const matches = root.nodes.filter(node => node.type === 'rule' && node.selector === expected.selector);
+    expect(matches).toHaveLength(1);
+    const actual = matches[0];
+    if (!actual) throw new Error('Missing responsive toolbar rule');
+    expect(semantic(actual)).toEqual(semantic(expected));
+    expect(actual.prev()).toBe(rule);
+    actual.remove();
+  }
+}
+
 function extractionTree(entry: string): Root {
   const root = expand(resolve(frontend, entry));
   if (entry === 'src/app/styles/index.css') {
@@ -140,6 +184,7 @@ function extractionTree(entry: string): Root {
     // before removing this reviewed addition from the immutable baseline check.
     removeVerifiedMobileQuickAccessRule(root);
     removeVerifiedHelpMenuRules(root);
+    removeVerifiedResponsiveToolbarRules(root);
     // Assert the reviewed keyboard-focus changes before restoring only those
     // rules for comparison with the immutable extraction baseline.
     const addedRules = postcss.parse(`

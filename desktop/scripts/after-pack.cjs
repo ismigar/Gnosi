@@ -96,6 +96,10 @@ exports.default = async function afterPack(context) {
 
   const appPath = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
 
+  // Compile into Resources before signing. Frozen Python resolves this sibling
+  // helper without PATH lookups or a system compiler at runtime.
+  require('./file-access-build.cjs').build(path.join(appPath, 'Contents/Resources/native'));
+
   const { files, directories } = collectCode(appPath);
   files.sort((left, right) => depth(right) - depth(left)).forEach(signAdHoc);
 

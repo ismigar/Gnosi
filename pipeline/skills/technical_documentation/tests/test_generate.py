@@ -11,7 +11,9 @@ import pytest
 from pipeline.skills.technical_documentation.scripts.generate import (
     RouterRegistration,
     build_api_catalog,
+    build_coverage_catalog,
     build_data_model_catalog,
+    build_repository_inventory,
     collect_environment_references,
     declares_router,
     format_environment_default,
@@ -254,6 +256,41 @@ def test_owned_source_discovery_excludes_suffixed_runtime_artifacts(
     assert not is_owned_inventory_file(retained_python)
     assert not is_owned_inventory_file(packaged_frontend)
     assert not is_owned_inventory_file(relocated_frontend)
+
+
+def test_native_build_artifacts_do_not_change_catalogs(tmp_path: Path) -> None:
+    """Local native SDKs and binaries must produce the same catalogs as clean CI."""
+    owned = tmp_path / "desktop" / "main.js"
+    owned.parent.mkdir()
+    owned.write_text("export const owned = true;\n", encoding="utf-8")
+    server = tmp_path / "backend" / "server.py"
+    server.parent.mkdir()
+    server.write_text("# Synthetic route composition\n", encoding="utf-8")
+    domains = tmp_path / "domains.json"
+    domains.write_text(json.dumps([{
+        "id": "desktop", "name": "Desktop", "guide": "desktop/main.js",
+        "source_globs": ["desktop/**/*"], "test_globs": ["desktop/**/*test*"],
+        "directives": [],
+    }]), encoding="utf-8")
+    inventory = build_repository_inventory(tmp_path, tmp_path)
+    coverage = build_coverage_catalog(tmp_path, tmp_path, domains)
+    for relative in (
+        "native-build/Sparkle Test App.app/Contents/MacOS/test-helper",
+        "native-build/Sparkle.framework/Resources/Info.plist",
+        "native-build/gnosi-file-access",
+        "native-build/test_probe.py",
+        ".sparkle-sdk/Sparkle-2.9.4.tar.xz",
+        ".sparkle-sdk/probe.js",
+    ):
+        artifact = tmp_path / "desktop" / relative
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text("local artifact\n", encoding="utf-8")
+
+    assert matches_for_globs(tmp_path, ["desktop/**/*"]) == [owned]
+    assert python_files(tmp_path) == [server]
+    assert frontend_files(tmp_path) == [owned]
+    assert build_repository_inventory(tmp_path, tmp_path) == inventory
+    assert build_coverage_catalog(tmp_path, tmp_path, domains) == coverage
 
 
 def test_inventory_excludes_local_state_and_packaging_outputs(tmp_path: Path) -> None:
