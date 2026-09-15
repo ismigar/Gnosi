@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -32,6 +32,8 @@ tests:
   - frontend/src/features/mail/MailPage.test.tsx
   - frontend/src/features/mail/components/MailComposer.test.tsx
   - frontend/src/features/mail/components/MailViewer.test.tsx
+  - frontend/src/features/mail/components/MailList.navigation.test.tsx
+  - frontend/src/features/mail/components/MailList.actions.test.tsx
   - frontend/src/features/mail/public-entry.test.ts
   - frontend/src/app/composition.contract.test.ts
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -106,6 +108,26 @@ le défilement vertical, les touches de navigation et Échap. Le chargement
 commence uniquement au survol, avec annulation et nouvelle tentative. Les
 cadres HTML calculent leur hauteur à partir du corps et non de leur propre
 zone visible, ce qui évite une croissance répétée de la hauteur.
+
+## Lecture au clavier
+
+Les flèches haut et bas parcourent les groupes de messages dans l'ordre affiché,
+même lorsqu'un message est ouvert. La ligne ciblée s'ouvre après 500 ms sans
+nouveau déplacement ; les lignes intermédiaires ne sont ni ouvertes ni marquées
+comme lues. Un clic ou la touche Entrée ouvre immédiatement le message. Le
+lecteur existant marque le courrier non lu après son chargement réussi, en
+conservant l'identité du compte et du dossier. Les messages lus restent visibles
+dans la liste par défaut ; les filtres explicites des non lus et les vues
+enregistrées conservent le comportement demandé.
+
+Le focus suit l'identité du message plutôt qu'un indice de ligne variable. Les
+mises à jour de lecture en arrière-plan ne redirigent pas la navigation en attente
+vers le message précédemment ouvert. Changer de compte, dossier, vue, étiquettes
+ou recherche annule l'ouverture en attente, tout comme rédiger, ouvrir un menu,
+cibler un champ, quitter la fenêtre ou supprimer le message cible. La sélection
+et la suppression par lot au clavier restent disponibles. L'aperçu distinct au
+survol conserve ses propres touches de défilement et ne marque pas les messages
+comme lus.
 
 ## MIME et sécurité du contenu
 

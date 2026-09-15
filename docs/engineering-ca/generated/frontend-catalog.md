@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2635 | 0 |
-| `features` | 1077 | 124575 | 33 |
+| `features` | 1078 | 124640 | 33 |
 | `generated` | 2 | 44320 | 453 |
 | `shared` | 246 | 30483 | 394 |
 
@@ -349,13 +349,14 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/mail/components/mail-list/MailListHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListHeader.tsx) | 235 | `MailListHeader` | — |
 | [`frontend/src/features/mail/components/mail-list/MailListMenus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListMenus.tsx) | 179 | `MailListMenus` | — |
 | [`frontend/src/features/mail/components/mail-list/MailMessagePreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessagePreview.tsx) | 153 | `MailMessagePreview`, `function` | — |
-| [`frontend/src/features/mail/components/mail-list/MailMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessageRow.tsx) | 250 | `MailMessageRow` | — |
+| [`frontend/src/features/mail/components/mail-list/MailMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessageRow.tsx) | 251 | `MailMessageRow` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListCache.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListCache.ts) | 115 | `purgeMailListCacheMessages`, `readMailListCache`, `writeMailListCache` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListModel.ts) | 408 | `DEFAULT_MAIL_LIST_CONFIG`, `accountEmails`, `buildMailListQuery`, `cleanMailSender`, `deduplicateMailListMessages`, `effectiveMailListConfig`, `enabledMailAccounts`, `filterOutMailThread`, `formatMailListTimestamp`, `groupMailListMessages`, `mailFolderTitleKey`, `mailListCacheKey`, `mailListMessageIdentity`, `mailListThreadIdentity`, `mapMailTagsByIdentity`, `processMailListMessages`, `setMailTagsByIdentity`, `threadMailListMessages` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListTypes.ts) | 115 | — | — |
 | [`frontend/src/features/mail/components/mail-list/useMailListActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListActions.ts) | 476 | `useMailListActions` | — |
-| [`frontend/src/features/mail/components/mail-list/useMailListController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListController.ts) | 350 | `useMailListController` | — |
+| [`frontend/src/features/mail/components/mail-list/useMailListController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListController.ts) | 275 | `useMailListController` | — |
 | [`frontend/src/features/mail/components/mail-list/useMailListData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListData.ts) | 396 | `markMailReadInList`, `useMailListData` | — |
+| [`frontend/src/features/mail/components/mail-list/useMailListNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListNavigation.ts) | 139 | `useMailListNavigation` | — |
 | [`frontend/src/features/mail/components/mail-list/useMailMessagePreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailMessagePreview.tsx) | 57 | `useMailMessagePreview` | — |
 | [`frontend/src/features/mail/components/mailComposerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerModel.ts) | 152 | `accountAddress`, `appendUniqueFiles`, `buildMailFormData`, `composerInitialHtml`, `hasComposerContent`, `mailSnippets` | — |
 | [`frontend/src/features/mail/components/mailComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerTypes.ts) | 75 | — | — |

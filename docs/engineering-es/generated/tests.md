@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 540 | 2254 |
+| Vitest | 541 | 2262 |
 | pytest | 529 | 3722 |
 
 ## Archivos
@@ -160,6 +160,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/mail/components/MailBody.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailBody.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailComposer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailComposer.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.actions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.actions.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/mail/components/MailList.navigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.navigation.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailList.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/mail/components/MailTagPicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/MailTagPicker.test.tsx) | 1 | call-pattern estimate |

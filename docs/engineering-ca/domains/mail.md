@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -32,6 +32,8 @@ tests:
   - frontend/src/features/mail/MailPage.test.tsx
   - frontend/src/features/mail/components/MailComposer.test.tsx
   - frontend/src/features/mail/components/MailViewer.test.tsx
+  - frontend/src/features/mail/components/MailList.navigation.test.tsx
+  - frontend/src/features/mail/components/MailList.actions.test.tsx
   - frontend/src/features/mail/public-entry.test.ts
   - frontend/src/app/composition.contract.test.ts
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -113,6 +115,26 @@ permet desplaçament vertical, tecles de navegació i Escape. La càrrega només
 comença en passar el cursor, amb cancel·lació i reintent. Els marcs HTML
 calculen l'alçada a partir del cos i no de la seva pròpia àrea visible, cosa
 que evita un creixement repetit de l'alçada.
+
+## Lectura amb el teclat
+
+Les fletxes amunt i avall recorren els grups de missatges en l'ordre visible,
+també quan hi ha un correu obert. La fila amb focus s'obre al cap de 500 ms sense
+cap altre pas de navegació; les files intermèdies no s'obren ni es marquen com a
+llegides. Un clic o la tecla Retorn obren immediatament. El visor existent marca
+el correu no llegit després de carregar-lo correctament, conservant la identitat
+del compte i la carpeta. Els llegits continuen visibles a la llista per defecte;
+els filtres explícits de no llegits i les vistes desades mantenen el comportament
+sol·licitat.
+
+El focus segueix la identitat del missatge, no un índex de fila variable. Les
+actualitzacions d'estat de lectura en segon pla no redirigeixen la navegació
+pendent al correu obert anteriorment. Canviar de compte, carpeta, vista, etiquetes
+o cerca cancel·la l'obertura pendent, igual que redactar, obrir un menú, enfocar
+un camp, sortir de la finestra o eliminar el missatge de destinació. La selecció
+i eliminació en lot amb el teclat continuen disponibles. La previsualització
+separada en passar el cursor conserva les seves tecles de desplaçament i no
+marca els missatges com a llegits.
 
 ## Seguretat del MIME i del contingut
 
