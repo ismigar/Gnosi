@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-15
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
@@ -45,6 +45,8 @@ tests:
   - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/page/ReaderArticleContent.test.tsx
+  - frontend/src/features/reader/page/ReaderResourceButton.test.tsx
   - frontend/src/features/reader/public-entry.test.ts
   - frontend/src/features/literature/LiteraturePage.test.tsx
   - frontend/src/features/literature/public-entry.test.ts
@@ -189,6 +191,35 @@ Los endpoints de archivos validan el confinamiento de rutas y gestionan la hidra
 ## Fuentes y boletines informativos
 
 Los modelos del Reader almacenan fuentes, artículos, estado de lectura, contenido completo extraído y una cuenta de boletines. La ingesta de feeds utiliza savepoints de transacción para que una entrada malformada no revierta todo el lote. Los extractos y la extracción del texto completo son procesos separados; truncar durante la ingesta no debe descartar permanentemente contenido recuperable de la fuente.
+
+## Navegación del lector y guardado en Recursos
+
+La lista mantiene visibles los artículos leídos y no leídos. Las flechas arriba
+y abajo mueven el foco entre artículos y desplazan la lista para mostrar la fila
+seleccionada. Cuando el foco permanece en una fila durante 500 ms, el lector
+abre el artículo y lo marca como leído. Mover el foco, cambiar de fuente o salir
+de la lista cancela la apertura pendiente; un clic abre el artículo de inmediato.
+Los cambios del estado de lectura conservan el artículo seleccionado y la
+posición de la lista. El cuerpo se carga bajo demanda, y una respuesta tardía
+de una selección anterior no puede sustituir el cuerpo actual.
+
+La acción manual de marcar como leído se sustituye por Añadir a Recursos cuando
+el complemento Recursos está activado. La acción espera el cuerpo completo del
+artículo y comprueba `/api/vault/reference-table`; si no hay destino configurado,
+muestra un error que indica cómo resolverlo sin crear ningún registro. El
+guardado llama a `/api/vault/literature/imports` con el título, la fecha de
+publicación, el nombre de la fuente, la URL original y el texto del cuerpo. El
+importador existente resuelve la tabla designada y gestiona la persistencia;
+el lector no introduce una segunda configuración de tabla ni una vía separada
+de escritura de registros.
+
+Las noticias utilizan `newspaper-article`, mapeado a `newspaperArticle` de Zotero.
+Si no hay un identificador bibliográfico más fuerte, la deduplicación de noticias
+utiliza la URL HTTP(S) original sin el fragmento antes de considerar título, año
+y autor. La clave guardada permite reutilizar el recurso existente en
+importaciones repetidas aunque el artículo tenga otro identificador local en el
+lector. El botón impide guardados simultáneos, informa del éxito y permite
+reintentar después de un error.
 
 ## Invariantes
 

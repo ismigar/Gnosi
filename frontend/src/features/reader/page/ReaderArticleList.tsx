@@ -1,5 +1,4 @@
-import { History } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ReaderArticle, ReaderSource } from '../../../shared/api/reader';
@@ -13,10 +12,8 @@ interface ReaderArticleListProps {
     readonly groups: readonly ReaderArticleGroup[];
     readonly locale: string;
     readonly onSelectArticle: (article: ReaderArticle) => void;
-    readonly onToggleUnreadOnly: () => void;
     readonly selectedArticle: ReaderArticle | null;
     readonly selectedSource: ReaderSource | null;
-    readonly showUnreadOnly: boolean;
     readonly totalArticles: number;
 }
 
@@ -25,10 +22,8 @@ export function ReaderArticleList({
     groups,
     locale,
     onSelectArticle,
-    onToggleUnreadOnly,
     selectedArticle,
     selectedSource,
-    showUnreadOnly,
     totalArticles,
 }: ReaderArticleListProps) {
     const { t } = useTranslation();
@@ -36,18 +31,43 @@ export function ReaderArticleList({
         () => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }),
         [locale],
     );
-    const countLabel = showUnreadOnly
-        ? totalArticles === 1
-            ? t('reader_articles_pending_one')
-            : t('reader_articles_pending_other', { count: totalArticles })
-        : t(
-            totalArticles === 1 ? 'reader_articles_count_one' : 'reader_articles_count_other',
-            {
-                count: totalArticles,
-                defaultValue: totalArticles === 1 ? '{{count}} article' : '{{count}} articles',
-            },
-        );
-    return <div className={`w-full md:w-[360px] lg:w-[400px] border-r border-[var(--border-primary)] bg-[var(--bg-primary)] flex flex-col flex-shrink-0 ${selectedArticle ? 'hidden md:flex' : 'flex'}`}>
+    const [focusedId, setFocusedId] = useState<number | null>(null);
+    const listRef = useRef<HTMLDivElement>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onSelectRef = useRef(onSelectArticle);
+    useEffect(() => { listRef.current?.focus({ preventScroll: true }); }, []);
+    useEffect(() => { onSelectRef.current = onSelectArticle; }, [onSelectArticle]);
+    const cancelOpen = (): void => {
+        if (timerRef.current !== null) clearTimeout(timerRef.current);
+        timerRef.current = null;
+    };
+    useEffect(() => cancelOpen, [selectedSource?.id]);
+    const focusArticle = (article: ReaderArticle): void => {
+        cancelOpen();
+        setFocusedId(article.id);
+        timerRef.current = setTimeout(() => { onSelectRef.current(article); }, 500);
+    };
+    const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        const buttons = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('[data-article-id]') ?? []);
+        if (!buttons.length) return;
+        event.preventDefault();
+        const current = buttons.findIndex((button) => button === document.activeElement);
+        const next = current < 0 ? (event.key === 'ArrowDown' ? 0 : buttons.length - 1)
+            : Math.max(0, Math.min(buttons.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)));
+        const button = buttons[next];
+        button?.focus({ preventScroll: true });
+        button?.scrollIntoView({ block: 'nearest' });
+    };
+    const countLabel = t(
+        totalArticles === 1 ? 'reader_articles_count_one' : 'reader_articles_count_other',
+        {
+            count: totalArticles,
+            defaultValue: totalArticles === 1 ? '{{count}} article' : '{{count}} articles',
+        },
+    );
+    return <div ref={listRef} onKeyDown={handleKeyDown} tabIndex={0} aria-label={t('reader_all_articles')} className={`w-full md:w-[360px] lg:w-[400px] border-r border-[var(--border-primary)] bg-[var(--bg-primary)] flex flex-col flex-shrink-0 ${selectedArticle ? 'hidden md:flex' : 'flex'}`}>
         <div className="px-6 py-5">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -58,9 +78,6 @@ export function ReaderArticleList({
                         {articlesLoading && totalArticles === 0 ? t('reader_loading') : countLabel}
                     </p>
                 </div>
-                <button onClick={onToggleUnreadOnly} title={showUnreadOnly ? t('reader_show_history') : t('reader_show_pending')} className={`flex-shrink-0 p-1.5 rounded-md text-xs transition-colors ${showUnreadOnly ? 'text-slate-400 dark:text-slate-500 hover:text-[var(--text-primary)] hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-[var(--gnosi-blue)] bg-[var(--gnosi-blue)]/10'}`} type="button">
-                    <History size={14} />
-                </button>
             </div>
         </div>
         <div className="overflow-y-auto flex-1">
@@ -71,16 +88,19 @@ export function ReaderArticleList({
             </div> : groups.map((group) => <section key={group.key}>
                 <h3 className="px-6 pt-6 pb-2 text-[10px] uppercase tracking-[0.1em] font-semibold text-[var(--text-tertiary)]">{group.label}</h3>
                 {group.items.map((article) => {
-                    const selected = selectedArticle?.id === article.id;
+                    const selected = (focusedId ?? selectedArticle?.id) === article.id;
                     const read = article.is_read;
                     return <button
                         key={article.id}
-                        onClick={() => { onSelectArticle(article); }}
+                        data-article-id={article.id}
+                        onFocus={() => { focusArticle(article); }}
+                        onBlur={cancelOpen}
+                        onClick={() => { cancelOpen(); onSelectArticle(article); }}
                         className={`relative block w-full px-6 py-4 border-t border-slate-100 dark:border-slate-800/60 cursor-pointer text-left transition-colors ${selected ? 'bg-slate-50/40 dark:bg-slate-800/30' : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'}`}
                         type="button"
                     >
                         {selected ? <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[var(--gnosi-blue)]" aria-hidden="true" /> : null}
-                        {!read && !selected ? <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)]" aria-hidden="true" /> : null}
+                        {!read ? <span className="absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)]" aria-hidden="true" /> : null}
                         <span className={`block text-[11px] mb-1.5 truncate ${read ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400'}`}>
                             {readerArticleMeta(article, dateFormatter)}
                         </span>

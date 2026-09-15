@@ -94,9 +94,6 @@ vi.mock('./page/ReaderChannels', () => ({
         type="button"
     >channels</button>,
 }));
-vi.mock('./page/ReaderArticleList', () => ({
-    ReaderArticleList: ({ totalArticles }: { readonly totalArticles: number }) => <div data-testid="article-list" data-total={totalArticles} />,
-}));
 vi.mock('./page/ReaderArticleContent', () => ({
     ReaderArticleContent: ({ article: selected }: { readonly article: ReaderArticle }) => <div data-testid="article-content">{selected.title}</div>,
 }));
@@ -111,6 +108,7 @@ describe('ReaderDashboard', () => {
 
     beforeEach(() => {
         reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
         window.history.replaceState({}, '', '/reader');
         mocks.fetchArticle.mockResolvedValue(article);
         mocks.useArticles.mockImplementation(() => ({
@@ -128,26 +126,32 @@ describe('ReaderDashboard', () => {
         container.remove();
         delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
         vi.clearAllMocks();
+        vi.useRealTimers();
     });
+
+    const button = (selector: string): HTMLButtonElement => {
+        const element = container.querySelector<HTMLButtonElement>(selector);
+        if (!element) throw new Error(`Button missing: ${selector}`);
+        return element;
+    };
 
     const renderDashboard = (): void => {
         act(() => { root.render(<ReaderDashboard />); });
     };
 
-    it('publishes Reader context and starts with the unread all-sources query', () => {
+    it('publishes Reader context and keeps read articles in the all-sources query', () => {
         renderDashboard();
 
         expect(mocks.useArticles).toHaveBeenCalledWith({
             sourceIds: undefined,
-            unreadOnly: true,
+            unreadOnly: false,
             includeContent: false,
         });
         expect(mocks.emitEvent).toHaveBeenCalledWith(
             'gnosi:module-context',
             expect.arrayContaining([expect.objectContaining({ ref: 'reader' })]),
         );
-        expect(container.querySelector('[data-testid="article-list"]')?.getAttribute('data-total'))
-            .toBe('1');
+        expect(container.querySelector('[data-article-id="11"]')).not.toBeNull();
     });
 
     it('switches the query to the selected source', () => {
@@ -159,11 +163,58 @@ describe('ReaderDashboard', () => {
 
         expect(mocks.useArticles).toHaveBeenLastCalledWith({
             sourceIds: [7],
-            unreadOnly: true,
+            unreadOnly: false,
             includeContent: false,
         });
         expect(container.querySelector('[data-testid="select-source"]')?.getAttribute('data-selected-source'))
             .toBe('7');
+    });
+
+    it('opens only the article where keyboard navigation pauses for 500ms', async () => {
+        vi.useFakeTimers();
+        mocks.useArticles.mockReturnValue({
+            data: [article, { ...article, id: 12, title: 'Article Twelve' }, { ...article, id: 13, title: 'Article Thirteen', is_read: true }],
+            isPending: false,
+            refetch: mocks.articleRefetch,
+        });
+        renderDashboard();
+        const first = button('[data-article-id="11"]');
+        act(() => { first.focus(); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        act(() => { first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        expect(document.activeElement?.getAttribute('data-article-id')).toBe('12');
+        await act(async () => { await vi.advanceTimersByTimeAsync(499); });
+        expect(mocks.markRead).not.toHaveBeenCalled();
+        expect(container.querySelector('[data-testid="article-content"]')).toBeNull();
+        await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+        expect(mocks.markRead).toHaveBeenCalledExactlyOnceWith({ articleId: 12, sourceId: 7 });
+        expect(container.querySelector('[data-testid="article-content"]')?.textContent).toBe('Article Twelve');
+        expect(container.querySelectorAll('[data-article-id]')).toHaveLength(3);
+        act(() => { document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+        expect(container.querySelector('[data-testid="article-content"]')?.textContent).toBe('Article Thirteen');
+        expect(mocks.markRead).toHaveBeenCalledTimes(1);
+        act(() => { document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); });
+        expect(document.activeElement?.getAttribute('data-article-id')).toBe('12');
+    });
+
+    it('cancels a pending keyboard opening when switching sources', async () => {
+        vi.useFakeTimers();
+        renderDashboard();
+        act(() => { button('[data-article-id="11"]').focus(); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+        act(() => { button('[data-testid="select-source"]').click(); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+        expect(mocks.markRead).not.toHaveBeenCalled();
+        expect(container.querySelector('[data-testid="article-content"]')).toBeNull();
+    });
+
+    it('opens clicked articles immediately and keeps them visible after marking read', async () => {
+        renderDashboard();
+        await act(async () => { button('[data-article-id="11"]').click(); await Promise.resolve(); });
+        expect(mocks.markRead).toHaveBeenCalledExactlyOnceWith({ articleId: 11, sourceId: 7 });
+        expect(container.querySelector('[data-testid="article-content"]')?.textContent).toBe(article.title);
+        expect(container.querySelector('[data-article-id="11"]')).not.toBeNull();
     });
 
     it('runs both sync tasks and refetches every Reader query', async () => {

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-15
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
@@ -45,6 +45,8 @@ tests:
   - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/page/ReaderArticleContent.test.tsx
+  - frontend/src/features/reader/page/ReaderResourceButton.test.tsx
   - frontend/src/features/reader/public-entry.test.ts
   - frontend/src/features/literature/LiteraturePage.test.tsx
   - frontend/src/features/literature/public-entry.test.ts
@@ -225,6 +227,31 @@ newsletter account. Feed ingestion uses transaction savepoints so one malformed
 entry cannot roll back the whole batch. Excerpts and full-text extraction are
 separate; truncation at ingest must not permanently discard recoverable source
 content.
+
+## Reader navigation and Resources capture
+
+The article list keeps read and unread articles visible. Arrow Up and Arrow
+Down move focus between articles and scroll the focused row into view. After
+focus remains on a row for 500 ms, Reader opens that article and marks it read.
+Moving focus, switching sources or leaving the list cancels the pending opening;
+clicking opens immediately. Read-state updates preserve the selected article and
+list position. Article bodies load on demand, and a late response for a previous
+selection cannot replace the current body.
+
+The manual mark-read action is replaced by Add to Resources when the Resources
+plugin is enabled. The action waits for the complete article body and checks
+`/api/vault/reference-table`; an unconfigured destination produces an actionable
+error without creating a record. Saving calls `/api/vault/literature/imports`
+with the title, publication date, source name, original URL and body text. The
+existing importer resolves the designated table and handles persistence; Reader
+does not introduce a second table setting or a separate record-writing path.
+
+News uses `newspaper-article`, mapped to Zotero's `newspaperArticle`. When no
+stronger bibliographic identifier is available, news deduplication uses the
+original HTTP(S) URL without its fragment before considering title, year and
+author. The stored work key lets repeated imports reuse the existing resource
+even if the article appears under a different local Reader ID. The save button
+blocks overlapping submissions, reports success and permits retry after failure.
 
 ## Invariants
 

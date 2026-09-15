@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 
 import { useMailTags } from '../../hooks/useMailTags';
 import { useModalKeyboard } from '../../../../shared/hooks/useModalKeyboard';
-import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
 import {
   effectiveMailListConfig,
   groupMailListMessages,
@@ -28,6 +27,7 @@ import type {
 } from './mailListTypes';
 import { useMailListActions } from './useMailListActions';
 import { useMailListData } from './useMailListData';
+import { useMailListNavigation } from './useMailListNavigation';
 
 
 export function useMailListController(props: MailListProps) {
@@ -39,12 +39,9 @@ export function useMailListController(props: MailListProps) {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [inlineTagPicker, setInlineTagPicker] = useState<InlineTagPickerState | null>(null);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
   const [messageTags, setMessageTags] = useState<Record<string, string[]>>({});
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const flatMessagesRef = useRef<ReturnType<typeof threadMailListMessages>>([]);
-  const isComposingRef = useRef(isComposing);
 
   const data = useMailListData({
     account: props.account,
@@ -119,13 +116,6 @@ export function useMailListController(props: MailListProps) {
   );
 
   useEffect(() => {
-    flatMessagesRef.current = threadedMessages;
-  }, [threadedMessages]);
-  useEffect(() => {
-    isComposingRef.current = isComposing;
-  }, [isComposing]);
-
-  useEffect(() => {
     let active = true;
     if (data.messages.length > 0) {
       void getBatchMessageTags(data.messages)
@@ -143,7 +133,6 @@ export function useMailListController(props: MailListProps) {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setFocusedIndex(-1);
       setSelectedIds(new Set());
       setUnreadOnly(false);
     });
@@ -151,25 +140,6 @@ export function useMailListController(props: MailListProps) {
       active = false;
     };
   }, [accounts, props.account, props.category, props.folder]);
-
-  useEffect(() => {
-    if (!props.selectedMailIdentity) return;
-    const index = flatMessagesRef.current.findIndex(
-      (message) => mailListMessageIdentity(message) === props.selectedMailIdentity,
-    );
-    if (index >= 0) {
-      queueMicrotask(() => {
-        setFocusedIndex(index);
-      });
-    }
-  }, [data.messages, props.selectedMailIdentity]);
-
-  useEffect(() => {
-    if (focusedIndex < 0) return;
-    listRef.current
-      ?.querySelector(`[data-mail-index="${String(focusedIndex)}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [focusedIndex]);
 
   const toggleSelect = useCallback((
     event: Pick<ReactMouseEvent<HTMLElement>, 'stopPropagation'>,
@@ -193,69 +163,25 @@ export function useMailListController(props: MailListProps) {
     ));
   }, [data.messages]);
 
-  const {
-    handleBatchActionWithConfirm,
-    handleInlineAction,
-  } = actions;
-  const { onSelectMail } = props;
-  useEffect(() => subscribeWindowEvent('keydown', (event) => {
-    if (isComposingRef.current) return;
-    const active = document.activeElement;
-    const isInteractive = active instanceof HTMLElement && (
-      ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(active.tagName)
-      || active.isContentEditable
-    );
-    const isDeleteKey = event.key === 'Delete' || event.key === 'Backspace';
-    if (isInteractive && !(isDeleteKey && selectedIds.size > 0)) return;
-    const flat = flatMessagesRef.current;
-    const viewer = document.querySelector('[data-role="mail-viewer-scroll"]');
-    if (viewer instanceof HTMLElement && event.key === 'ArrowDown') {
-      event.preventDefault();
-      viewer.scrollBy({ behavior: 'smooth', top: 120 });
-      return;
-    }
-    if (viewer instanceof HTMLElement && event.key === 'ArrowUp') {
-      event.preventDefault();
-      viewer.scrollBy({ behavior: 'smooth', top: -120 });
-      return;
-    }
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setFocusedIndex((index) => Math.min(index + 1, flat.length - 1));
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setFocusedIndex((index) => Math.max(index - 1, 0));
-    } else if (event.key === ' ') {
-      event.preventDefault();
-      const message = flat[focusedIndex];
-      if (focusedIndex >= 0 && focusedIndex < flat.length && message) {
-        setSelectedIds((current) => {
-          const next = new Set(current);
-          const identity = mailListMessageIdentity(message);
-          if (next.has(identity)) next.delete(identity);
-          else next.add(identity);
-          return next;
-        });
-      }
-    } else if (event.key === 'Enter' && focusedIndex >= 0) {
-      const message = flat[focusedIndex];
-      if (message) onSelectMail(message);
-    } else if (isDeleteKey && selectedIds.size > 0) {
-      handleBatchActionWithConfirm('trash');
-    } else if (isDeleteKey && focusedIndex >= 0) {
-      const message = flat[focusedIndex];
-      if (message) {
-        void handleInlineAction({ stopPropagation: () => undefined }, 'trash', message);
-        setFocusedIndex((index) => Math.min(index, flat.length - 2));
-      }
-    }
-  }), [
-    handleBatchActionWithConfirm,
-    handleInlineAction,
-    focusedIndex,
-    onSelectMail,
+  const navigationMessages = useMemo(() => Object.values(groupedMessages).flat(), [groupedMessages]);
+  const navigation = useMailListNavigation({
+    blocked: isComposing || contextMenu !== null || inlineTagPicker !== null
+      || actions.moveMenu !== null || actions.batchMoveMenu !== null || actions.confirmConfig.isOpen,
+    listRef,
+    messages: navigationMessages,
+    onSelectMail: props.onSelectMail,
+    onTrashMessage: message => {
+      void actions.handleInlineAction({ stopPropagation: () => undefined }, 'trash', message);
+    },
+    onTrashSelected: () => { actions.handleBatchActionWithConfirm('trash'); },
+    scope: JSON.stringify([
+      accounts.map(account => account.email), props.account?.email, props.category,
+      props.folder, props.activeTagId, props.activeView, searchQuery, unreadOnly,
+    ]),
     selectedIds,
-  ]);
+    selectedMailIdentity: props.selectedMailIdentity,
+    setSelectedIds,
+  });
 
   const hasMoreRef = useRef(data.hasMore);
   const loadingMoreRef = useRef(data.loadingMore);
@@ -315,7 +241,7 @@ export function useMailListController(props: MailListProps) {
       deleteTag,
       effectiveConfig,
       fetchMessages: data.fetchMessages,
-      focusedIndex,
+      focusedIndex: navigation.focusedIndex,
       folderTitleKey: mailFolderTitleKey(props.folder, props.category),
       groupedMessages,
       inlineTagPicker,
@@ -324,21 +250,20 @@ export function useMailListController(props: MailListProps) {
       loadingMore: data.loadingMore,
       messageTags,
       messages: data.messages,
-      onSelectMail,
+      onSelectMail: navigation.selectMail,
       processedMessages,
       retryUnavailable: data.retryUnavailable,
       saveMessageTags,
       selectAll,
       selectedIds,
       setContextMenu,
-      setFocusedIndex,
       setInlineTagPicker,
       setMessageTags,
       setSelectedIds,
       setUnreadOnly,
       syncing: data.syncing,
       tags,
-      threadedMessages,
+      threadedMessages: navigationMessages,
       toggleSelect,
       unavailableAccountCount: data.unavailableAccountCount,
       unreadOnly,
