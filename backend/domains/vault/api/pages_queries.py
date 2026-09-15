@@ -196,6 +196,28 @@ async def list_pages(
     return pages
 
 
+async def _materialize_metadata_pages(pages: list[PageInfo]) -> None:
+    """Request metadata only for this visible scope, with a bounded worker set."""
+    dependencies = _deps()
+    targets = iter(page for page in pages if page.path and is_metadata_stub(page.metadata))
+
+    async def worker() -> None:
+        for page in targets:
+            await dependencies.materialize_page(Path(str(page.path)), page.id)
+            # Publish each completed entry immediately; later attempts do not
+            # need to download or parse earlier entries again.
+            await asyncio.to_thread(dependencies.refresh_pages_metadata, [page])
+
+    workers = [asyncio.create_task(worker()) for _ in range(min(2, len(pages)))]
+    try:
+        await asyncio.gather(*workers)
+    finally:
+        for task in workers:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*workers, return_exceptions=True)
+
+
 async def list_pages_by_table(
     table_id: str,
     include_templates: bool = Query(True),
@@ -212,6 +234,7 @@ async def list_pages_by_table(
     """
     dependencies = _deps()
     pages = await asyncio.to_thread(dependencies.get_pages_for_table, table_id)
+    await _materialize_metadata_pages(pages)
     if not include_templates:
         pages = [page for page in pages if not page.metadata.get("is_template")]
     await asyncio.to_thread(dependencies.enrich_table_pages, table_id, pages)
@@ -237,6 +260,7 @@ async def list_pages_by_table_snapshot(table_id: str) -> TablePagesSnapshot:
     """
     dependencies = _deps()
     raw_pages = await asyncio.to_thread(dependencies.get_pages_for_table, table_id)
+    await _materialize_metadata_pages(raw_pages)
     visible_pages = dependencies.visible_table_pages(table_id, raw_pages)
     await asyncio.to_thread(
         dependencies.enrich_table_pages,
@@ -283,14 +307,7 @@ async def _sidebar_pages() -> list[PageInfo]:
     if not targets:
         return pages
 
-    async def materialize(page: PageInfo) -> None:
-        try:
-            await dependencies.materialize_page(Path(str(page.path)), page.id)
-        except Exception as error:
-            log.debug("Sidebar materialization failed for %s: %s", page.id, error)
-
-    await asyncio.gather(*(materialize(page) for page in targets))
-    await asyncio.to_thread(dependencies.refresh_pages_metadata, targets)
+    await _materialize_metadata_pages(targets)
     # Hydration can replace filename fallbacks with real IDs. Rebuild from the
     # updated index so deduplication and the versioned snapshot stay canonical.
     return await asyncio.to_thread(dependencies.get_pages_snapshot)

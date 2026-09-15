@@ -1,5 +1,9 @@
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { fetchVaultHome } from '../shared/api/vault-home';
+import { fetchVaultPage } from '../shared/api/vaults';
+import { knowledgeDocumentPath } from '../shared/routing/vaultRouting';
 import { useTranslation } from 'react-i18next';
 import {
     BookOpen,
@@ -145,6 +149,20 @@ function HomePage() {
     const { t } = useTranslation();
     const { isEnabled } = usePlugins();
     const activeVaultName = useActiveVaultName();
+    const navigate = useNavigate();
+    useEffect(() => {
+        const controller = new AbortController();
+        void fetchVaultHome(controller.signal).then(async id => {
+            if (!id || controller.signal.aborted) return;
+            const page = await fetchVaultPage(id, controller.signal);
+            controller.signal.throwIfAborted();
+            void navigate(knowledgeDocumentPath(id, page), { replace: true });
+        }).catch(() => {
+            // A deleted or temporarily unavailable home must not trap the user.
+            // Keep the module launcher available, without erasing the preference.
+        });
+        return () => { controller.abort(); };
+    }, [activeVaultName, navigate]);
     const handleSettingsClick = (
         event: ReactMouseEvent<HTMLButtonElement>,
     ) => {

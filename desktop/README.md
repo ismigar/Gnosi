@@ -8,11 +8,16 @@ source is this repository; commands below run from its root, not from
 
 The packaged application checks the owned backend's `vault_configured` health
 field before opening its window. If no Vault is configured, a native folder
-dialog lets the user select an existing Vault or create a folder. Canceling
+dialog lets the user select a container of existing Vaults, an existing single
+Vault or a new empty container. Existing immediate child Vaults take precedence
+over stray legacy scaffolding at the container root; `Principal` is selected when
+present. An empty container selects its future `Principal` child without writing
+anything during discovery. Canceling
 exits cleanly. The unconfigured backend is stopped before restarting it with
 the selected `DIGITAL_BRAIN_VAULT_PATH`.
 
-After successful startup, the desktop saves the folder path and an opaque selection ID in
+After successful startup, the desktop saves the active folder path, its container
+root and an opaque selection ID in
 `GNOSI_DATA_DIR/desktop-vault.json`, outside the application bundle. Subsequent
 launches reuse it unless an explicit Vault environment override is supplied.
 An unavailable saved folder is never recreated automatically. The selection
@@ -22,7 +27,16 @@ old active-library identity, catalog and cookie. Preferences and subsequent
 normal switches between libraries survive reopening. Request-time Vault
 resolution never recreates unavailable registered directories.
 
-The native Help menu's documentation command opens the localized user guide.
+Settings displays the full container path and reuses the native folder dialog.
+Existing sibling Vaults are registered without reading their document contents;
+removing a registration while retaining its files is remembered locally so it is
+not silently re-added at the next launch. The native Help menu's documentation
+command opens the localized user guide.
+
+An installed macOS copy can recognize its matching mounted installer and offer
+to eject it, optionally moving the DMG to the Trash after successful ejection.
+Running directly from the mounted image never triggers that cleanup. The prompt
+does not delete Vault data, unrelated images or the installed application.
 
 ## Toolchain
 

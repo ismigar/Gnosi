@@ -19,6 +19,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
         onSearchChange: setSearchTerm,
         feedGroupMode,
         onNoteSelect: (id) => { ctx.onOpenPage?.(id); },
+        onOpenParallel: ctx.onOpenParallel ?? undefined,
         onCreateRecord: onCreateRecordAdapter,
         onDeletePage: onDeletePageAdapter,
         onDeleteSelected: onDeleteSelectedAdapter,

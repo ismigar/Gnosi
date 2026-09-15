@@ -1,4 +1,5 @@
 import type { MailComposerController } from './useMailComposerController';
+import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
 
 
 interface MailComposerDialogsProps {
@@ -14,12 +15,13 @@ export function MailComposerDialogs({ controller }: MailComposerDialogsProps) {
     showCloseConfirm,
     t,
   } = controller;
+  useModalKeyboard({ isOpen: showCloseConfirm, onClose: () => { setShowCloseConfirm(false); } });
   if (!showCloseConfirm) return null;
 
   return (
     <div className="fixed inset-0 z-[var(--z-modal)] flex animate-in items-center justify-center bg-black/30 backdrop-blur-sm fade-in duration-150">
-      <div className="w-[340px] animate-in rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-6 shadow-2xl zoom-in-95 duration-150">
-        <h3 className="mb-1 text-[16px] font-bold text-[var(--text-primary)]">
+      <div role="dialog" aria-modal="true" aria-labelledby="mail-discard-title" className="w-[340px] animate-in rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-6 shadow-2xl zoom-in-95 duration-150">
+        <h3 id="mail-discard-title" className="mb-1 text-[16px] font-bold text-[var(--text-primary)]">
           {t('mail.close_confirm_title')}
         </h3>
         <p className="mb-5 text-[13px] text-[var(--text-secondary)]">
@@ -46,6 +48,7 @@ export function MailComposerDialogs({ controller }: MailComposerDialogsProps) {
           <button
             type="button"
             onClick={() => { setShowCloseConfirm(false); }}
+            autoFocus
             className="w-full rounded-xl px-4 py-2.5 text-[14px] font-semibold text-[var(--text-secondary)] transition-all hover:bg-[var(--bg-secondary)]"
           >
             {t('mail.close_cancel')}

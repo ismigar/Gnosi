@@ -244,3 +244,28 @@ def test_sidebar_recovers_cloud_stubs_even_from_cached_snapshot(
     events.clear()
     asyncio.run(request())
     assert events == ["snapshot"]
+
+
+def test_requested_table_hydrates_stubs_before_filtering_templates(monkeypatch, tmp_path):
+    page = PageInfo(
+        id="stub", title="Stub", folder="BD/Selected", path=str(tmp_path / "stub.md"),
+        metadata={}, last_modified="2026-09-14", size=64,
+    )
+    events = []
+
+    async def materialize(path, label):
+        assert path == Path(page.path)
+        events.append("download")
+
+    def refresh(pages):
+        assert pages == [page]
+        page.metadata = {"id": "real-id", "is_template": True}
+        events.append("refresh")
+
+    monkeypatch.setattr(pages_queries, "_dependencies", SimpleNamespace(
+        get_pages_for_table=lambda table: [page] if table == "selected" else pytest.fail("wrong scope"),
+        materialize_page=materialize, refresh_pages_metadata=refresh,
+        enrich_table_pages=lambda table, pages: None,
+    ))
+    assert asyncio.run(pages_queries.list_pages_by_table("selected", include_templates=False)) == []
+    assert events == ["download", "refresh"]

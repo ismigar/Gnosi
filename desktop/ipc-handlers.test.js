@@ -9,7 +9,7 @@ const { normalizeMenuLabels, createApplicationMenuTemplate } = require('./applic
 const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
 
 const CHANNELS = [
-  'get-app-version', 'set-application-menu', 'get-update-status', 'get-backend-url',
+  'get-app-version', 'choose-vault-container', 'set-application-menu', 'get-update-status', 'get-backend-url',
   'download-update', 'get-backend-status', 'install-update', 'open-form-filler',
 ];
 
@@ -71,6 +71,15 @@ function fixture({ isDev = false, platform = 'darwin', arch = 'arm64', overrides
     setState: next => { state = next; },
   };
 }
+
+test('native container selection forwards success and cancellation', async () => {
+  for (const result of [true, false]) {
+    let calls = 0;
+    const f = fixture({ overrides: { chooseVaultContainer: async () => { calls++; return result; } } });
+    assert.equal(await f.invoke('choose-vault-container'), result);
+    assert.equal(calls, 1);
+  }
+});
 
 for (const isDev of [false, true]) {
   test(`real registration accepts the trusted ${isDev ? 'development' : 'packaged'} renderer`, async () => {

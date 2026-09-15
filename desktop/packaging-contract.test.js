@@ -67,6 +67,18 @@ test('the native no-replace adapter uses pinned prebuilt modules outside ASAR', 
   assert.match(workspace, /koffi: false/);
 });
 
+test('macOS builds the coordinated file reader into Resources before signing', () => {
+  const hook = fs.readFileSync(path.join(electronRoot, 'scripts/after-pack.cjs'), 'utf8');
+  const compile = hook.indexOf("require('./file-access-build.cjs').build(");
+  const sign = hook.indexOf('const { files, directories } = collectCode(appPath)');
+  assert.ok(compile > 0 && compile < sign);
+  assert.match(hook, /Contents\/Resources\/native/);
+  const helper = fs.readFileSync(path.join(electronRoot, 'native/file-access.m'), 'utf8');
+  assert.match(helper, /coordinateReadingItemAtURL/);
+  assert.match(helper, /O_RDONLY \| O_NOFOLLOW/);
+  assert.doesNotMatch(helper, /NSWorkspace|NSAppleScript|O_WRONLY|O_RDWR/);
+});
+
 test('Electron43 tooling stays pinned and binary installation is explicit', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(electronRoot, 'package.json'), 'utf8'));
   const workspace = fs.readFileSync(path.join(gnosiRoot, 'pnpm-workspace.yaml'), 'utf8');
@@ -97,6 +109,8 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\ipc-security.js',
     '\\ipc-handlers.js',
     '\\backend-process.js',
+    '\\vault-folders.js',
+    '\\installer-cleanup.js',
     '\\vault-startup.js',
     '\\startup-errors.js',
     '\\profile-startup.js',

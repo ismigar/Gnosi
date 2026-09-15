@@ -53,6 +53,7 @@ export function MailComposerView({ controller }: MailComposerViewProps) {
         <button
           type="button"
           onClick={controller.handleCloseRequest}
+          aria-label={controller.t('common.close')}
           className="rounded-xl p-2 text-[var(--text-secondary)] transition-all hover:bg-[var(--bg-secondary)]"
         >
           <X size={20} />

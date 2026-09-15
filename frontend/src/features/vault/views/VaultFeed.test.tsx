@@ -55,10 +55,14 @@ describe('VaultFeed direct renderer contract', () => {
     const { container } = mountTestComponent(<VaultFeed {...props} />);
     expect(container.querySelectorAll('article').length).toBe(4);
     for (const title of ['42', '9', 'true', 'Untitled']) {
-      expect(container.querySelector(`button[aria-label="Open page: ${title}"]`)).not.toBeNull();
+      expect(container.querySelector(`button[aria-label="${title}"]`)).not.toBeNull();
     }
-    const open = container.querySelector<HTMLButtonElement>('button[aria-label="Open page: 42"]');
-    if (!open) throw new Error('Missing title button');
+    const title = container.querySelector<HTMLButtonElement>('button[aria-label="42"]');
+    if (!title) throw new Error('Missing title button');
+    act(() => { title.click(); });
+    expect(container.querySelector('[data-feed-note-id="number"]')?.classList.contains('is-read')).toBe(false);
+    const open = container.querySelector<HTMLAnchorElement>('[data-feed-note-id="number"] a[aria-label="Open in a new tab"]');
+    if (!open) throw new Error('Missing open arrow');
     act(() => { open.click(); });
     expect(container.querySelector('[data-feed-note-id="number"]')?.classList.contains('is-read')).toBe(true);
     const preview = container.querySelector<HTMLButtonElement>('[data-feed-note-id="bigint"] button[aria-label="Open reading pane"]');

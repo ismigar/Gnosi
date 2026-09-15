@@ -1405,7 +1405,8 @@
       "org_admin_password": "Mot de passe admin",
       "files_structure": "Structure des fichiers",
       "root_folder": "Dossier racine",
-      "root_folder_desc": "Dossier principal où sont stockés tous les coffres et les données du système.",
+      "root_folder_desc": "Dossier contenant vos coffres.",
+      "container_restart": "Changer ce dossier redémarre Gnosi. Les coffres existants du dossier choisi apparaîtront dans la liste.",
       "vaults_label": "Coffres",
       "vaults_desc": "Plusieurs coffres dans le dossier racine : créez-en, changez l'actif ou supprimez-les. L'actif est celui utilisé par Connaissance, Graphe, etc.",
       "title": "Configuration Générale",
@@ -2651,6 +2652,12 @@
     "no_matching_applications": "Aucune application correspondante."
   },
   "shell": {
+    "view_more": "Plus",
+    "go_home": "Aller à l’accueil du vault",
+    "set_home": "Définir comme accueil du vault",
+    "remove_home": "Retirer comme accueil du vault",
+    "home_load_error": "Impossible de charger l’accueil du vault",
+    "home_save_error": "Impossible d’enregistrer l’accueil du vault",
     "translate_record": "Traduire l'enregistrement",
     "translate_page": "Traduire la page",
     "view_comments": "Commentaires",
@@ -6063,6 +6070,20 @@
           "desktop_startup": "L’application de bureau démarre désormais lorsqu’un autre service local occupe son port habituel et ouvre correctement sa fenêtre initiale.",
           "window_reopening": "Relancer Gnosi rétablit une fenêtre principale après la fermeture de la précédente.",
           "installer_artwork": "Le logo de l’application a été corrigé et l’installeur macOS est désormais compact, avec un fond uni sans grand logo central."
+        }
+      },
+      "v3_0_3": {
+        "highlights": {
+          "cloud_file_access": "Sur macOS, Gnosi demande au système les fichiers disponibles uniquement dans le cloud lorsque leur contenu ou leurs métadonnées de navigation sont nécessaires, sans ouvrir une autre application ni télécharger tout le vault."
+        },
+        "improvements": {
+          "settings_navigation": "La configuration du graphe passe dans Essentiel, les plugins dans Avancé, et le groupe vide Connaissance et IA est supprimé.",
+          "native_folder_picker": "L'application de bureau utilise le sélecteur de dossiers du système pour choisir le dossier contenant les vaults.",
+          "dmg_cleanup": "Après l'installation sur macOS, Gnosi propose d'éjecter l'image de l'installateur et, en option, de placer le DMG dans la corbeille."
+        },
+        "fixes": {
+          "vault_container": "La sélection d'un dossier conteneur détecte les vaults existants, les affiche dans l'interface et indique le chemin complet du conteneur dans les paramètres.",
+          "cloud_index": "La découverte des fichiers cloud préserve les métadonnées de pages et de favoris en cache lorsque les fichiers sont temporairement indisponibles ; un téléchargement échoué renvoie une erreur permettant de réessayer plutôt qu'un contenu vide."
         }
       },
       "v3_0_2": {

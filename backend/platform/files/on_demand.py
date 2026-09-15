@@ -1,6 +1,6 @@
 """Provider-neutral support for vaults with files on demand.
 
-Encapsulates detection of online-only files, LaunchServices hydration and
+Encapsulates detection of online-only files, coordinated native hydration and
 delegation to an optional host helper. Vendor adapters add only their own
 configuration and recovery policy.
 
@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from .base import FilesProvider
+from .coordinated import is_placeholder, materialize_coordinated
 
 log = logging.getLogger(__name__)
 
@@ -46,8 +47,8 @@ def _default_warmup_mode() -> str:
 
     - Docker → "daemon": the backend can't reach the macOS File Provider, so it
       delegates to the host's HTTP warmup daemon (`host.docker.internal:5009`).
-    - Native macOS → "open": materialize via LaunchServices (`open -g -j -a`),
-      the only mode that works from a launchd process (see the class docstring).
+    - Native macOS → "coordinated": request one file through NSFileCoordinator
+      in a bounded helper process, without opening an external GUI application.
     - Other native (Linux self-host, etc.) → "daemon": no LaunchServices; a
       File-Provider vault there is unusual (it'd normally resolve to LocalProvider).
 
@@ -55,7 +56,7 @@ def _default_warmup_mode() -> str:
     environment variable.
     """
     if not _is_docker() and sys.platform == "darwin":
-        return "open"
+        return "coordinated"
     return "daemon"
 
 
@@ -86,17 +87,14 @@ class OnDemandFilesProvider(FilesProvider):
             _default_warmup_url(),
         )
         # Materialization mode (default auto-detected by _default_warmup_mode():
-        # "open" on native macOS, "daemon" in Docker; the provider's mode
+        # "coordinated" on native macOS, "daemon" in Docker; the provider's mode
         # variable overrides runtime detection):
         #   "daemon"           → calls the host's HTTP daemon (Docker case, where
         #                        the backend does NOT have direct access to the File Provider).
-        #   "direct"           → reads the file directly IN-PROCESS. On macOS
-        #                        this does NOT work from the NATIVE backend: uvicorn
-        #                        runs under launchd and a File Provider extension
-        #                        returns EDEADLK (errno 11) instantly for any
-        #                        a launchd process. Kept for compatibility/
-        #                        diagnostics, but in native use "open".
-        #   "open"             → materialitza via LaunchServices (`open -g -j -a
+        #   "coordinated"      → signed macOS helper; bounded, read-only,
+        #                        provider-neutral and safe to cancel.
+        #   "direct"           → in-process read; explicit diagnostics only.
+        #   "open"             → legacy opt-in via LaunchServices (`open -g -j -a
         #                        <app>`), which launches a GUI app in the Aqua session
         #                        of the user; the app reads the file in the context
         #                        correct one, and the provider downloads it.
@@ -166,16 +164,13 @@ class OnDemandFilesProvider(FilesProvider):
         container_path: Path,
         stat_result: Optional[os.stat_result] = None,
     ) -> bool:
-        """True if the file exists but `st_blocks == 0` (placeholder
-        from the macOS File Provider not yet materialized)."""
+        """Detect native dataless flags, including placeholders with blocks."""
         if stat_result is None:
             try:
                 stat_result = container_path.stat()
             except OSError:
                 return False
-        # `getattr` with default 1 because on systems that don't expose
-        # st_blocks (e.g. some FUSE) we don't want to trigger warmup.
-        return getattr(stat_result, "st_blocks", 1) == 0
+        return is_placeholder(stat_result)
 
     async def _materialize_direct(self, container_path: Path) -> bool:
         """Materializes by reading the file directly: on macOS, accessing a
@@ -363,11 +358,27 @@ class OnDemandFilesProvider(FilesProvider):
                 fut.set_result(False)
             self._inflight.pop(key, None)
 
+    async def _materialize_coordinated(self, container_path: Path) -> bool:
+        key = str(container_path)
+        inflight = self._inflight.get(key)
+        if inflight is not None:
+            return await asyncio.shield(inflight)
+        result: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        self._inflight[key] = result
+        try:
+            async with self._get_semaphore():
+                ok = await materialize_coordinated(container_path, self.warmup_timeout_s)
+            result.set_result(ok)
+            return ok
+        finally:
+            if not result.done():
+                result.set_result(False)
+            self._inflight.pop(key, None)
+
     async def materialize(self, container_path: Path) -> bool:
-        """Materializes an online-only file. In "open" mode (native) it
-        delegates to LaunchServices; in "direct" it reads it in-process (doesn't work
-        under launchd); in "daemon" (Docker) it calls the host daemon
-        through the configured host helper. Returns True if it was materialized."""
+        """Materialize one file using the runtime's configured provider adapter."""
+        if self.warmup_mode == "coordinated":
+            return await self._materialize_coordinated(container_path)
         if self.warmup_mode == "open":
             return await self._materialize_via_open(container_path)
         if self.warmup_mode == "direct":

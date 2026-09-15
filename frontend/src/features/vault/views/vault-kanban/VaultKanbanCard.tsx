@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
+import { GalleryOpenButton } from '../GalleryCardPreview';
 import { Calendar, CheckSquare, Clock, FileText, Link as LinkIcon } from 'lucide-react';
 
 import type { LocaleFormatSettings } from '../../../../shared/i18n/useLocaleSettings';
@@ -178,7 +179,6 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
         draggable={canDrag}
         onClick={() => {
             if (selectedCount > 0) onToggleSelect(note.id, false);
-            else onNoteSelect?.(note.id);
         }}
         onDragEnd={canDrag ? onDragEnd : undefined}
         onDragStart={canDrag ? (event) => {
@@ -200,7 +200,8 @@ export function VaultKanbanCard(props: VaultKanbanCardProps) {
                 type="checkbox"
             />
         </label>
-        <h4 className="mb-2 flex items-start gap-2 text-sm font-semibold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)]">
+        <GalleryOpenButton pageId={note.id} onOpen={onNoteSelect} />
+        <h4 className="mb-2 flex items-start gap-2 pr-8 text-sm font-semibold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)]">
             <FileText className="mt-0.5 shrink-0 text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]/70" size={16} />
             <span {...titlePreviewProps}>{note.title || untitledLabel}</span>
         </h4>

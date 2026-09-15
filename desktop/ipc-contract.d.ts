@@ -28,6 +28,7 @@ export type ApplicationMenuLabels = Readonly<Record<string, string>>;
 
 /** Exact wire arguments, including the existing preload envelopes. */
 export interface DesktopRequestMap {
+  'choose-vault-container': { args: []; result: boolean };
   'get-app-version': { args: []; result: string };
   'get-backend-status': { args: []; result: BackendStatus };
   'get-backend-url': { args: []; result: string };
@@ -78,6 +79,7 @@ export interface FormFillerDependencies {
 
 /** Main owns mutable state, menu construction, backend IO and native actions. */
 export interface DesktopIpcDependencies extends FormFillerDependencies {
+  readonly chooseVaultContainer?: () => Promise<boolean>;
   readonly ipcMain: Pick<Electron.IpcMain, 'handle'>;
   readonly mainWindows: ReadonlySet<Pick<Electron.BrowserWindow, 'isDestroyed' | 'webContents'>>;
   readonly isDev: boolean;
@@ -94,6 +96,7 @@ export interface DesktopIpcDependencies extends FormFillerDependencies {
 }
 
 export interface GnosiElectronApi {
+  readonly chooseVaultContainer: DesktopInvoke<'choose-vault-container'>;
   readonly getAppVersion: DesktopInvoke<'get-app-version'>;
   readonly getBackendStatus: DesktopInvoke<'get-backend-status'>;
   readonly getBackendURL: DesktopInvoke<'get-backend-url'>;
