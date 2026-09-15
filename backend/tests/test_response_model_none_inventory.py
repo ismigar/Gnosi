@@ -77,6 +77,14 @@ EXPECTED_EXEMPTIONS: Counter[Exemption] = Counter(
             "FileResponse",
         ): 1,
         ("backend/api/calendar_routes.py", "GET", "/feed.ics", "get_ics_feed", "Response"): 1,
+        # Desktop OAuth returns HTML; web clients retain their redirect response.
+        (
+            "backend/api/google_auth_routes.py",
+            "GET",
+            "/callback",
+            "callback",
+            "HTMLResponse | RedirectResponse",
+        ): 1,
         (
             "backend/api/literature_routes.py",
             "GET",
