@@ -100,6 +100,7 @@ def work_to_zotero(work: dict[str, Any]) -> dict[str, Any]:
         "book-chapter": "bookSection", "chapter": "bookSection", "conference-paper": "conferencePaper",
         "proceedings-article": "conferencePaper", "thesis": "thesis", "dissertation": "thesis",
         "report": "report", "dataset": "dataset", "preprint": "preprint",
+        "newspaper-article": "newspaperArticle",
     }
     creators = []
     for author in work.get("authors") or []:

@@ -52,9 +52,10 @@ export function MailMessageRow({
   return (
     <div
       data-mail-index={index}
-      onClick={() => {
+      tabIndex={-1}
+      onClick={(event) => {
+        event.currentTarget.focus({ preventScroll: true });
         messagePreview.close();
-        controller.setFocusedIndex(index);
         controller.onSelectMail(message);
       }}
       onMouseEnter={(event) => {
