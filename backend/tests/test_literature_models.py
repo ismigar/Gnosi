@@ -68,3 +68,28 @@ def test_fuzzy_matches_are_only_warnings_and_are_not_merged():
 
     assert len(results) == 2
     assert results[0]["possible_duplicates"][0]["result_id"] == results[1]["id"]
+
+
+def test_reader_news_deduplicates_by_original_url_without_author_or_year():
+    work = {
+        "type": "newspaper-article", "title": "News",
+        "locations": [{"landing_page_url": "https://example.test/news#section"}],
+    }
+    assert deterministic_key(work) == "url:https://example.test/news"
+    assert deterministic_key({**work, "id": "reader:99"}) == deterministic_key(work)
+
+
+def test_reader_news_maps_to_newspaper_resource_with_source_and_url():
+    from backend.services.literature_import_service import work_to_zotero
+
+    result = work_to_zotero({
+        "type": "newspaper-article", "title": "News", "abstract": "Body",
+        "dates": {"issued": "2026-09-15"},
+        "publication": {"container_title": "Daily News"},
+        "locations": [{"landing_page_url": "https://example.test/news"}],
+    })
+    assert result == {
+        "itemType": "newspaperArticle", "title": "News", "abstractNote": "Body",
+        "date": "2026-09-15", "publicationTitle": "Daily News",
+        "url": "https://example.test/news",
+    }

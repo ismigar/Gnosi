@@ -1,8 +1,9 @@
 import type { SyntheticEvent } from 'react';
-import { ArrowLeft, Check, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { ReaderArticle } from '../../../shared/api/reader';
+import { ReaderResourceButton } from './ReaderResourceButton';
 import { readerArticleMeta } from './readerDashboardModel';
 import { useReaderArticleBody } from './useReaderArticleBody';
 
@@ -126,7 +127,6 @@ interface ReaderArticleContentProps {
     readonly loadFullContent?: boolean;
     readonly locale: string;
     readonly onBack: () => void;
-    readonly onMarkRead: (articleId: number) => void;
 }
 
 export function ReaderArticleContent({
@@ -134,7 +134,6 @@ export function ReaderArticleContent({
     loadFullContent = false,
     locale,
     onBack,
-    onMarkRead,
 }: ReaderArticleContentProps) {
     const { t } = useTranslation();
     const { body, loading, failed, retry } = useReaderArticleBody(article, loadFullContent);
@@ -149,9 +148,7 @@ export function ReaderArticleContent({
         </div>
         <h1 className="text-3xl md:text-4xl font-semibold text-[var(--text-primary)] leading-tight tracking-tight mb-6">{article.title}</h1>
         <div className="flex items-center gap-5 mb-10 text-sm">
-            <button onClick={() => { onMarkRead(article.id); }} className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-[var(--text-primary)] transition-colors" type="button">
-                <Check size={15} /><span>{t('reader_mark_read')}</span>
-            </button>
+            <ReaderResourceButton key={article.id} article={article} body={body} disabled={loading || failed} />
             <a href={article.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-[var(--text-primary)] transition-colors">
                 <span>{t('reader_original_source')}</span><ExternalLink size={13} />
             </a>

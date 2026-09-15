@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -32,6 +32,8 @@ tests:
   - frontend/src/features/mail/MailPage.test.tsx
   - frontend/src/features/mail/components/MailComposer.test.tsx
   - frontend/src/features/mail/components/MailViewer.test.tsx
+  - frontend/src/features/mail/components/MailList.navigation.test.tsx
+  - frontend/src/features/mail/components/MailList.actions.test.tsx
   - frontend/src/features/mail/public-entry.test.ts
   - frontend/src/app/composition.contract.test.ts
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -104,6 +106,24 @@ stays inside the viewport, remains open while the pointer is over it, and
 supports vertical scrolling, navigation keys and Escape. Loading is deferred
 until hover, with cancellation and retry. HTML frames size from body content
 rather than their own viewport, avoiding recurring height growth.
+
+## Keyboard reading
+
+Arrow Up and Arrow Down move through the displayed message groups, including
+when a message viewer is open. A focused row opens after 500 ms without another
+navigation step; intermediate rows are neither opened nor marked read. Clicking
+or pressing Enter opens immediately. The existing viewer marks unread mail read
+after the message loads successfully, preserving its account and folder identity.
+Read messages remain visible in the default list; explicit unread filters and
+saved-view filters retain their requested behavior.
+
+Focus follows the message identity rather than a mutable row index. Background
+read-state updates do not redirect pending navigation to the previously opened
+message. Changing account, folder, view, tags or search cancels the pending
+opening, as do composing, opening a menu, focusing an input, leaving the window
+or removing the target message. Keyboard batch selection and deletion remain
+available. The separate hover preview keeps its own scrolling keys and does not
+mark messages read.
 
 ## MIME and content safety
 

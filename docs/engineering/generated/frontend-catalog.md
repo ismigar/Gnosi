@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1078 | 124642 | 33 |
+| `features` | 1080 | 124789 | 33 |
 | `generated` | 2 | 44320 | 453 |
 | `shared` | 247 | 30508 | 394 |
 
@@ -349,13 +349,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/mail/components/mail-list/MailListHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListHeader.tsx) | 235 | `MailListHeader` | — |
 | [`frontend/src/features/mail/components/mail-list/MailListMenus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailListMenus.tsx) | 179 | `MailListMenus` | — |
 | [`frontend/src/features/mail/components/mail-list/MailMessagePreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessagePreview.tsx) | 153 | `MailMessagePreview`, `function` | — |
-| [`frontend/src/features/mail/components/mail-list/MailMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessageRow.tsx) | 250 | `MailMessageRow` | — |
+| [`frontend/src/features/mail/components/mail-list/MailMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/MailMessageRow.tsx) | 251 | `MailMessageRow` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListCache.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListCache.ts) | 115 | `purgeMailListCacheMessages`, `readMailListCache`, `writeMailListCache` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListModel.ts) | 408 | `DEFAULT_MAIL_LIST_CONFIG`, `accountEmails`, `buildMailListQuery`, `cleanMailSender`, `deduplicateMailListMessages`, `effectiveMailListConfig`, `enabledMailAccounts`, `filterOutMailThread`, `formatMailListTimestamp`, `groupMailListMessages`, `mailFolderTitleKey`, `mailListCacheKey`, `mailListMessageIdentity`, `mailListThreadIdentity`, `mapMailTagsByIdentity`, `processMailListMessages`, `setMailTagsByIdentity`, `threadMailListMessages` | — |
 | [`frontend/src/features/mail/components/mail-list/mailListTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/mailListTypes.ts) | 115 | — | — |
 | [`frontend/src/features/mail/components/mail-list/useMailListActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListActions.ts) | 476 | `useMailListActions` | — |
-| [`frontend/src/features/mail/components/mail-list/useMailListController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListController.ts) | 350 | `useMailListController` | — |
+| [`frontend/src/features/mail/components/mail-list/useMailListController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListController.ts) | 275 | `useMailListController` | — |
 | [`frontend/src/features/mail/components/mail-list/useMailListData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListData.ts) | 396 | `markMailReadInList`, `useMailListData` | — |
+| [`frontend/src/features/mail/components/mail-list/useMailListNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailListNavigation.ts) | 139 | `useMailListNavigation` | — |
 | [`frontend/src/features/mail/components/mail-list/useMailMessagePreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mail-list/useMailMessagePreview.tsx) | 57 | `useMailMessagePreview` | — |
 | [`frontend/src/features/mail/components/mailComposerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerModel.ts) | 152 | `accountAddress`, `appendUniqueFiles`, `buildMailFormData`, `composerInitialHtml`, `hasComposerContent`, `mailSnippets` | — |
 | [`frontend/src/features/mail/components/mailComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/mail/components/mailComposerTypes.ts) | 75 | — | — |
@@ -479,15 +480,16 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts) | 183 | `useLlmWikiController` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.ts) | 408 | `useProjectPlanningController` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useThirdPartyPlugins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useThirdPartyPlugins.ts) | 260 | `useThirdPartyPlugins` | — |
-| [`frontend/src/features/reader/ReaderDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.tsx) | 277 | `ReaderDashboard`, `function` | — |
+| [`frontend/src/features/reader/ReaderDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.tsx) | 273 | `ReaderDashboard`, `function` | — |
 | [`frontend/src/features/reader/feed-manager/FeedManagerModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/FeedManagerModal.tsx) | 153 | `FeedManagerModal` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/FeedManagerViews.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/FeedManagerViews.tsx) | 388 | `FeedAddView`, `FeedSchedulerView`, `FeedSourcesView` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.ts) | 41 | `groupFeedSources`, `readerSchedulerTasks`, `taskInterval` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/useFeedManagerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/useFeedManagerController.ts) | 235 | `useFeedManagerController` | — |
 | [`frontend/src/features/reader/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/index.ts) | 3 | `ReaderDashboard` | — |
-| [`frontend/src/features/reader/page/ReaderArticleContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.tsx) | 175 | `ReaderArticleContent` | — |
-| [`frontend/src/features/reader/page/ReaderArticleList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleList.tsx) | 95 | `ReaderArticleList` | — |
+| [`frontend/src/features/reader/page/ReaderArticleContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.tsx) | 172 | `ReaderArticleContent` | — |
+| [`frontend/src/features/reader/page/ReaderArticleList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleList.tsx) | 115 | `ReaderArticleList` | — |
 | [`frontend/src/features/reader/page/ReaderChannels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderChannels.tsx) | 137 | `ReaderChannels` | — |
+| [`frontend/src/features/reader/page/ReaderResourceButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderResourceButton.tsx) | 69 | `ReaderResourceButton` | — |
 | [`frontend/src/features/reader/page/readerDashboardModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/readerDashboardModel.ts) | 116 | `groupReaderArticles`, `groupReaderSources`, `readerArticleMeta`, `readerCountsBySource`, `readerFaviconUrl` | — |
 | [`frontend/src/features/reader/page/useReaderArticleBody.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/useReaderArticleBody.ts) | 37 | `useReaderArticleBody` | — |
 | [`frontend/src/features/reader/zotero/ZoteroReaderTab.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderTab.ts) | 6 | — | — |
