@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 source_paths:
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
@@ -71,6 +71,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_graph_frontmatter_fallback.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_coordinated_files.py
   - backend/tests/test_media_upload.py
   - backend/tests/test_media_service_domain_contract.py
   - backend/tests/test_vault_assets_files_containment.py
@@ -559,13 +560,49 @@ adaptador añade detección de marcadores de posición, hidratación, disponibil
 y correspondencia de rutas. Configurar `GNOSI_FILES_PROVIDER` explícitamente
 cuando la detección automática de rutas sea ambigua.
 
-El entorno de ejecución de archivos bajo demanda es independiente del proveedor.
-Google Drive, iCloud y Nextcloud no heredan el comportamiento de recuperación de
-OneDrive; solo `OneDriveProvider` puede reiniciar el cliente de OneDrive tras un
-fallo de hidratación con límites definidos. Los proveedores nativos de macOS
-utilizan por defecto una acción `open` en la sesión gráfica. Los despliegues
-Docker pueden utilizar un auxiliar configurado en el host porque las lecturas
-desde el contenedor cruzan una capa adicional.
+El entorno de archivos bajo demanda es independiente del proveedor. En macOS se
+utiliza por defecto un auxiliar de solo lectura basado en `NSFileCoordinator`,
+compilado y firmado en `Contents/Resources/native/gnosi-file-access`. Cada llamada
+solicita un archivo, lee como máximo 64 KiB y no devuelve contenido del documento.
+El límite de dos descargas simultáneas y la unificación de peticiones por ruta
+acotan la carga; el tiempo límite o la cancelación terminan el proceso auxiliar.
+Este modo no abre aplicaciones gráficas, fija archivos al disco, descarga
+recursivamente ni reinicia clientes de nube. Docker conserva el auxiliar
+configurado en el host. Los modos antiguos `open` y `direct` requieren una
+selección explícita; solo el adaptador antiguo de OneDrive puede activar una
+recuperación específica del proveedor.
+
+La detección del índice utiliza indicadores de archivos sin datos para conservar
+marcadores accesibles sin abrir todos los documentos de la nube. Las entradas
+existentes más completas se conservan si un archivo no se puede leer; la descarga
+no necesita cambiar el mtime para actualizar un marcador. Una exploración inicial
+fallida no se marca como inicializada. La navegación lateral y la tabla solicitada
+obtienen los metadatos necesarios, mientras que las lecturas de páginas y adjuntos
+materializan el archivo seleccionado. Los archivos no disponibles devuelven 503
+con Retry-After en lugar de una lectura vacía correcta. El precalentamiento masivo
+del árbol crítico está desactivado por defecto con el acceso coordinado nativo.
+
+La validación del código del 14 de septiembre incluye pruebas sintéticas de fallo,
+cancelación, deduplicación y ausencia de lecturas masivas, además de una lectura
+real de un marcador de OneDrive. Esa descarga tardó 2,2 segundos; las lecturas
+directas posteriores del mismo archivo de 3,9 KiB tardaron 0,24–1,03 ms, no el
+tiempo total de renderización de la página.
+
+El cambio está empaquetado en el DMG local con firma ad hoc
+`Gnosi-3.0.2-on-demand-arm64.dmg`, e instalado desde esa imagen. El backend
+empaquetado ha superado una prueba aislada de vaults, páginas y favoritos. Un PDF
+real de OneDrive de 428.327 bytes ha pasado de no tener datos ni bloques locales a
+estar disponible mediante el endpoint Library de la aplicación instalada. Una
+petición HTTP Range de 16 bytes tardó 3,5959 segundos la primera vez y 14,8 ms al
+repetirla; ambas devolvieron 206 y una cabecera PDF. No son medidas de renderización
+del documento completo. La aplicación instalada enumera los tres vaults existentes;
+su barra lateral devuelve 2.672 páginas y 19 favoritos, y la interfaz abre un
+favorito con el contenido de la página. También se ha probado correctamente la
+opción de expulsar solo la imagen. No es una release publicada ni notarizada por
+Apple; otros proveedores de nube y Windows no se han probado en vivo. Mostrar
+todos los favoritos inmediatamente en un dispositivo nuevo aún requiere metadatos
+portables de navegación: los nombres de archivo no permiten deducir favoritos que
+solo constan dentro de un documento no descargado.
 
 Las rutas de Dropbox File Provider se detectan explícitamente. Un servicio
 desconocido en `~/Library/CloudStorage` de macOS utiliza el adaptador

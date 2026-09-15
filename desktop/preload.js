@@ -104,6 +104,7 @@ function subscribe(channel, listener) {
 
 /** @type {import('./ipc-contract').GnosiElectronApi} */
 const electronAPI = {
+  chooseVaultContainer: () => invoke('choose-vault-container', readBoolean),
   getAppVersion: () => invoke('get-app-version', readString),
   getBackendStatus: () => invoke('get-backend-status', readBackendStatus),
   // Backend base URL for the collaboration WebSocket (see main.js IPC). HTTP

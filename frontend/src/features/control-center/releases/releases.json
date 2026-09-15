@@ -1,5 +1,24 @@
 [
   {
+    "version": "3.0.3",
+    "date": "2026-09-14",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v3_0_3.highlights.cloud_file_access"
+      ],
+      "improvements": [
+        "release_notes.entries.v3_0_3.improvements.settings_navigation",
+        "release_notes.entries.v3_0_3.improvements.native_folder_picker",
+        "release_notes.entries.v3_0_3.improvements.dmg_cleanup"
+      ],
+      "fixes": [
+        "release_notes.entries.v3_0_3.fixes.vault_container",
+        "release_notes.entries.v3_0_3.fixes.cloud_index"
+      ]
+    }
+  },
+  {
     "version": "3.0.2",
     "date": "2026-09-12",
     "channel": "stable",

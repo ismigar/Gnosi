@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const test = require('node:test');
-const { loadMainRuntime } = require('./test-helpers/main-runtime.cjs');
+const { loadMainRuntime, senderEvent } = require('./test-helpers/main-runtime.cjs');
 const { backendStartupMessage } = require('./startup-errors');
 
 function assertMenusCannotStart(runtime) {
@@ -13,6 +13,30 @@ function assertMenusCannotStart(runtime) {
   assert.equal(runtime.windows.length, windowsBefore);
   assert.equal(runtime.calls.length, callsBefore);
 }
+
+test('Settings native selection persists the container and child before restarting', async t => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gnosi-container-settings-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const container = path.join(root, 'Gnosi');
+  fs.mkdirSync(path.join(container, 'Principal', '.gnosi'), { recursive: true });
+  const runtime = loadMainRuntime({ userDataPath: path.join(root, 'data'),
+    showOpenDialog: async options => {
+      assert.ok(options.properties.includes('openDirectory'));
+      return { canceled: false, filePaths: [container] };
+    },
+  });
+  runtime.createWindow();
+  const result = await runtime.handlers.get('choose-vault-container')(senderEvent(runtime.windows[0]));
+  assert.equal(result, true);
+  const saved = JSON.parse(fs.readFileSync(path.join(root, 'data', 'desktop-vault.json'), 'utf8'));
+  assert.equal(saved.root, container);
+  assert.equal(saved.path, path.join(container, 'Principal'));
+  assert.ok(runtime.calls.includes('relaunch'));
+  assert.ok(runtime.calls.includes('quit'));
+});
 
 test('missing packaged executable does not fall back to system Python or open a window', async () => {
   const runtime = loadMainRuntime({ initialize: false, bundleExists: false });
@@ -216,14 +240,14 @@ test('unconfigured packaged startup completes native folder selection before ope
     showOpenDialog: async options => {
       assert.equal(stops, 1);
       assert.equal(runtime.windows.length, 0);
-      assert.equal(options.title, 'Tria la biblioteca de Gnosi');
+      assert.equal(options.title, 'Tria la carpeta de Gnosi');
       return { canceled: false, filePaths: [vault] };
     },
     launchBackend: async options => {
       launches++;
       const child = new EventEmitter();
       options.onSpawn(child);
-      if (launches === 2) assert.equal(options.environment.DIGITAL_BRAIN_VAULT_PATH, vault);
+      if (launches === 2) assert.equal(options.environment.DIGITAL_BRAIN_VAULT_PATH, path.join(vault, 'Principal'));
       return { process: child, vaultConfigured: launches === 2, isRunning: async () => true,
         stop: async () => { stops++; child.emit('exit', 0); } };
     },

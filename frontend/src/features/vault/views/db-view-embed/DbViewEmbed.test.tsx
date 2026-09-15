@@ -78,6 +78,15 @@ async function render(value: EmbedBlock = block): Promise<void> {
     await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} /></VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
+it('forwards parallel opening from an embedded view to its editor', async () => {
+    const parallel = vi.fn();
+    context = { ...context, onOpenParallel: parallel };
+    await render();
+    expect(fixture.body?.onOpenParallel).toBeDefined();
+    fixture.body?.onOpenParallel?.('b');
+    expect(parallel).toHaveBeenCalledExactlyOnceWith('b');
+    expect(openPage).not.toHaveBeenCalled();
+});
 async function click(element: Element | null | undefined): Promise<void> {
     if (!element) throw new Error('Missing clickable element');
     await act(async () => { await Promise.resolve(); element.dispatchEvent(new MouseEvent('click', { bubbles: true })); });

@@ -22,7 +22,6 @@ export function createRowRenderer(model: TableController, renderCellContent: Ret
     rowVirtualizer,
     isListView,
     isSelected,
-    onNoteSelect,
     schema,
     i18n,
     columnWidths,
@@ -46,7 +45,6 @@ export function createRowRenderer(model: TableController, renderCellContent: Ret
                     ${isChild ? 'bg-[var(--bg-secondary)]/30' : ''}
                 `}
         onClick={() => { /* Row: selection via checkbox */ }}
-        onDoubleClick={() => { onNoteSelect(note.id, { returnFocusId: note.id }); }}
         draggable
         onDragStart={(e) => {
           if (editingCell || (e.target instanceof Element && e.target.closest('input, textarea, button, a, label, select, [contenteditable="true"]'))) {

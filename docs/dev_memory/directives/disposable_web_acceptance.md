@@ -68,6 +68,11 @@ proveïdors externs.
   el filtre del workspace (`pnpm --filter @gnosi/frontend typecheck`).
 - Els callbacks Playwright que només executen una operació `void` han d'usar un
   bloc explícit; la forma abreujada incompleix `no-confusing-void-expression`.
+- La configuració regional de l'editor es consulta a `GET /api/config/interface`.
+  Cal declarar-ne una resposta sintètica tipada amb el contracte OpenAPI; no
+  retornar un 200 genèric ni ignorar els 501 d'endpoints no declarats. La prova
+  de Knowledge en producció ha de continuar exigint zero peticions desconegudes
+  i zero errors de consola després d'obrir la nota.
 
 ## Criteris d'acceptació
 

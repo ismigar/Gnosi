@@ -498,6 +498,12 @@
     "no_matching_applications": "No hi ha aplicacions coincidents."
   },
   "shell": {
+    "view_more": "Més",
+    "go_home": "Ves a l’inici del vault",
+    "set_home": "Estableix com a inici del vault",
+    "remove_home": "Treu com a inici del vault",
+    "home_load_error": "No s’ha pogut carregar l’inici del vault",
+    "home_save_error": "No s’ha pogut desar l’inici del vault",
     "go_back": "Enrere",
     "go_forward": "Endavant",
     "quick_search": "Cerca ràpida",
@@ -1871,7 +1877,8 @@
       "org_admin_password": "Password Admin",
       "files_structure": "Estructura de fitxers",
       "root_folder": "Carpeta arrel",
-      "root_folder_desc": "Carpeta principal on s'emmagatzemen tots els vaults i les dades del sistema.",
+      "root_folder_desc": "Carpeta que conté els vaults.",
+      "container_restart": "Canviar aquesta carpeta reinicia Gnosi. Els vaults existents a la carpeta triada apareixeran a la llista.",
       "vaults_label": "Vaults",
       "vaults_desc": "Diversos vaults dins la carpeta arrel: crea'n, canvia l'actiu o esborra'ls. L'actiu és el que fan servir Coneixement, Graf, etc.",
       "title": "Configuració General",
@@ -6068,6 +6075,20 @@
           "desktop_startup": "L’aplicació d’escriptori ara arrenca quan un altre servei local ocupa el port habitual i obre correctament la finestra inicial.",
           "window_reopening": "Tornar a obrir Gnosi recupera una finestra principal després de tancar l’anterior.",
           "installer_artwork": "S’ha corregit el logo de l’aplicació i s’ha fet compacte l’instal·lador de macOS, amb un fons llis i sense el logo central sobredimensionat."
+        }
+      },
+      "v3_0_3": {
+        "highlights": {
+          "cloud_file_access": "A macOS, Gnosi demana al sistema operatiu els fitxers que només són al núvol quan en necessita el contingut o les metadades de navegació, sense obrir altres aplicacions ni descarregar tot el vault."
+        },
+        "improvements": {
+          "settings_navigation": "La configuració del graf passa a Bàsics, els connectors passen a Avançat i s'elimina el grup buit Coneixement i IA.",
+          "native_folder_picker": "L'aplicació d'escriptori utilitza el selector de carpetes del sistema operatiu per triar la carpeta contenidora dels vaults.",
+          "dmg_cleanup": "Després d'instal·lar-se a macOS, Gnosi ofereix expulsar la imatge de l'instal·lador i, opcionalment, enviar el DMG a la paperera."
+        },
+        "fixes": {
+          "vault_container": "En seleccionar una carpeta contenidora, es detecten els vaults existents, es mostren a la interfície i Configuració indica el camí complet del contenidor.",
+          "cloud_index": "La detecció de fitxers al núvol conserva les metadades de pàgines i favorits de la memòria cau si els fitxers no estan disponibles temporalment; una descàrrega fallida mostra un error que permet reintentar-la en lloc de contingut buit."
         }
       },
       "v3_0_2": {
