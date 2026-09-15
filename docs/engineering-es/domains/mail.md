@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-10
+last_verified: 2026-09-15
 source_paths:
   - backend/api/mail_routes.py
   - backend/domains/mail
@@ -32,6 +32,8 @@ tests:
   - frontend/src/features/mail/MailPage.test.tsx
   - frontend/src/features/mail/components/MailComposer.test.tsx
   - frontend/src/features/mail/components/MailViewer.test.tsx
+  - frontend/src/features/mail/components/MailList.navigation.test.tsx
+  - frontend/src/features/mail/components/MailList.actions.test.tsx
   - frontend/src/features/mail/public-entry.test.ts
   - frontend/src/app/composition.contract.test.ts
   - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
@@ -97,6 +99,26 @@ ella, y permite desplazamiento vertical, teclas de navegación y Escape. La
 carga solo comienza al pasar el cursor, con cancelación y reintento. Los marcos
 HTML calculan su altura a partir del cuerpo y no de su propia área visible,
 evitando el crecimiento repetido de la altura.
+
+## Lectura con el teclado
+
+Las flechas arriba y abajo recorren los grupos de mensajes en el orden visible,
+también cuando hay un correo abierto. La fila con foco se abre tras 500 ms sin
+otro paso de navegación; las filas intermedias no se abren ni se marcan como
+leídas. Un clic o la tecla Intro abren de inmediato. El visor existente marca
+el correo no leído después de cargarlo correctamente, conservando la identidad
+de la cuenta y la carpeta. Los leídos siguen visibles en la lista predeterminada;
+los filtros explícitos de no leídos y las vistas guardadas mantienen el
+comportamiento solicitado.
+
+El foco sigue la identidad del mensaje, no un índice de fila variable. Las
+actualizaciones del estado de lectura en segundo plano no redirigen la navegación
+pendiente al correo abierto anteriormente. Cambiar de cuenta, carpeta, vista,
+etiquetas o búsqueda cancela la apertura pendiente, al igual que redactar, abrir
+un menú, enfocar un campo, salir de la ventana o eliminar el mensaje de destino.
+La selección y eliminación en lote con el teclado siguen disponibles. La vista
+previa separada al pasar el cursor conserva sus teclas de desplazamiento y no
+marca los mensajes como leídos.
 
 ## MIME y seguridad de contenidos
 

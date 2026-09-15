@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchReaderArticle, type ReaderArticle } from '../../../shared/api/reader';
 import { ReaderArticleContent } from './ReaderArticleContent';
 
+vi.mock('../../../shared/plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => false }) }));
 vi.mock('../../../shared/api/reader', () => ({ fetchReaderArticle: vi.fn() }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
@@ -38,7 +39,7 @@ describe('ReaderArticleContent loading', () => {
 
     async function render(article = summary, loadFullContent = true) {
         await act(async () => {
-            root.render(<ReaderArticleContent article={article} loadFullContent={loadFullContent} locale="en" onBack={() => {}} onMarkRead={() => {}} />);
+            root.render(<ReaderArticleContent article={article} loadFullContent={loadFullContent} locale="en" onBack={() => {}} />);
             await Promise.resolve();
         });
     }

@@ -267,6 +267,15 @@ def deterministic_key(work: dict[str, Any]) -> str:
         normalized = normalize_isbn13(isbn)
         if normalized:
             return f"isbn13:{normalized}"
+    # Reader news often has no DOI, author or year. The original URL stays
+    # stable across feeds and repeated imports, unlike a local Reader ID.
+    if work.get("type") == "newspaper-article":
+        for location in work.get("locations") or []:
+            if not isinstance(location, dict):
+                continue
+            url = str(location.get("landing_page_url") or location.get("url") or "").strip()
+            if url.startswith(("https://", "http://")):
+                return f"url:{url.split('#', 1)[0]}"
     title = normalize_title(work.get("title") or work.get("normalized_title"))
     year = _year(work.get("year"))
     family = first_author_family(work)

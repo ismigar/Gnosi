@@ -47,7 +47,7 @@ export default function ReaderDashboard() {
     const [generatingPodcast, setGeneratingPodcast] = useState(false);
     const [generatedPodcastUrl, setGeneratedPodcastUrl] = useState<string | null>(null);
     const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
-    const [showUnreadOnly, setShowUnreadOnly] = useState(true);
+    const readingIds = useRef(new Set<number>());
     const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<string>>(
         () => new Set(),
     );
@@ -57,7 +57,7 @@ export default function ReaderDashboard() {
     const sourcesQuery = useReaderSources();
     const articlesQuery = useReaderArticles({
         includeContent: false,
-        unreadOnly: showUnreadOnly,
+        unreadOnly: false,
         sourceIds: selectedSourceId === null ? undefined : [selectedSourceId],
     });
     const inventoryQuery = useReaderInventory({ unreadOnly: true });
@@ -120,17 +120,18 @@ export default function ReaderDashboard() {
         if (pollingRef.current) clearInterval(pollingRef.current);
     }, []);
 
-    const handleMarkRead = async (articleId: number): Promise<void> => {
-        const sourceId = articles.find((article) => article.id === articleId)?.source_id
-            ?? (selectedArticle?.id === articleId ? selectedArticle.source_id : null);
-        try {
-            await markArticleRead.mutateAsync({ articleId, sourceId });
-            if (selectedArticle?.id === articleId) {
-                setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, is_read: true });
-            }
-        } catch (error: unknown) {
-            logError('reader-mark-read', error);
-        }
+    const handleOpenArticle = (article: ReaderArticle): void => {
+        setSelectedArticle(article);
+        setSelectedArticleIsSummary(true);
+        if (article.is_read || readingIds.current.has(article.id)) return;
+        readingIds.current.add(article.id);
+        void markArticleRead.mutateAsync({ articleId: article.id, sourceId: article.source_id })
+            .then(() => {
+                setSelectedArticle((current) => current?.id === article.id
+                    ? { ...current, is_read: true } : current);
+            })
+            .catch((error: unknown) => { logError('reader-mark-read', error); })
+            .finally(() => { readingIds.current.delete(article.id); });
     };
 
     const stopPodcastGeneration = (): void => {
@@ -250,26 +251,21 @@ export default function ReaderDashboard() {
                 unreadCount={inventory?.count ?? 0}
             />
             <ReaderArticleList
+                key={selectedSourceId ?? 'all'}
                 articlesLoading={articlesQuery.isPending}
                 groups={articleGroups}
                 locale={locale}
-                onSelectArticle={(article) => {
-                    setSelectedArticle(article);
-                    setSelectedArticleIsSummary(true);
-                }}
-                onToggleUnreadOnly={() => { setShowUnreadOnly((current) => !current); }}
+                onSelectArticle={handleOpenArticle}
                 selectedArticle={selectedArticle}
                 selectedSource={selectedSource}
-                showUnreadOnly={showUnreadOnly}
                 totalArticles={articles.length}
             />
-            <div className={`flex-1 bg-[var(--bg-primary)] h-full overflow-y-auto ${selectedArticle ? 'block' : 'hidden md:block'}`}>
+            <div key={selectedArticle?.id} className={`flex-1 bg-[var(--bg-primary)] h-full overflow-y-auto ${selectedArticle ? 'block' : 'hidden md:block'}`}>
                 {selectedArticle ? <ReaderArticleContent
                     article={selectedArticle}
                     loadFullContent={selectedArticleIsSummary}
                     locale={locale}
                     onBack={() => { setSelectedArticle(null); }}
-                    onMarkRead={(articleId) => { void handleMarkRead(articleId); }}
                 /> : <div className="h-full flex items-center justify-center"><p className="text-sm text-[var(--text-tertiary)]">{t('reader_select_article')}</p></div>}
             </div>
         </div>

@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1367 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 152 | 36263 |
+| `services` | 152 | 36273 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **802 modules** and **166832 source lines**.
+Total: **802 modules** and **166842 source lines**.
 
 ## agent
 
@@ -817,8 +817,8 @@ Total: **802 modules** and **166832 source lines**.
 | [`backend/services/integration_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 510 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/library_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/library_paths.py) | 29 | 0 | 2 | 0 | 2 | SINGLE resolution of the attachments folder: ALWAYS `<vault>/Library`. |
 | [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_service.py) | 186 | 0 | 8 | 0 | 2 | Explicit, audited AI assistance for literature workflows. |
-| [`backend/services/literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_import_service.py) | 266 | 0 | 8 | 1 | 6 | Atomic AcademicWork import into the designated Resources table. |
-| [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 428 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
+| [`backend/services/literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_import_service.py) | 267 | 0 | 8 | 1 | 6 | Atomic AcademicWork import into the designated Resources table. |
+| [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 437 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
 | [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 787 | 0 | 24 | 10 | 3 | Vault-native systematic-review records, blind decisions, and exports. |
 | [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_service.py) | 144 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical literature domain. |
 | [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 689 | 1 | 29 | 0 | 12 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
