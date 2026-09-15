@@ -37,14 +37,21 @@ function fixture(options: Partial<Omit<EditorPersistenceOptions, 'setSaveStatus'
     let listener: (() => void) | undefined;
     const unsubscribe = vi.fn(() => { listener = undefined; });
     const editor = {
-        document: [{ type: 'paragraph', content: [{ type: 'text', text: 'Body', styles: {} }] }],
+        document: [{ id: 'original-block', type: 'paragraph', content: [{ type: 'text', text: 'Original', styles: {} }] }],
         onChange: (next: () => void) => { listener = next; return removable ? { remove: unsubscribe } : unsubscribe; },
     };
     const metadataRef: RefObject<CodeEditorMetadata> = { current: { title: 'Document', status: 'draft' } };
     const onUpdate = vi.fn(); const onOutgoingLinksChange = vi.fn();
     const view = mountTestComponent(<Harness editor={editor} noteFilename="page" metadataRef={metadataRef} isParsing={false} editorReady onUpdate={onUpdate} onOutgoingLinksChange={onOutgoingLinksChange} {...options} />);
     cleanups.push(view.unmount);
-    return { ...view, editor, metadataRef, onUpdate, onOutgoingLinksChange, unsubscribe, change: () => { act(() => { listener?.(); }); } };
+    const change = () => { act(() => { listener?.(); }); };
+    const edit = (value = 'Body') => {
+        const text = editor.document[0]?.content[0];
+        if (!text) throw new Error('Missing fixture paragraph');
+        text.text = value;
+        change();
+    };
+    return { ...view, editor, metadataRef, onUpdate, onOutgoingLinksChange, unsubscribe, change, edit };
 }
 async function advance(milliseconds: number) { await act(async () => { await vi.advanceTimersByTimeAsync(milliseconds); }); }
 async function flush() { await act(async () => { await Promise.resolve(); }); }
@@ -54,8 +61,57 @@ describe('rich editor persistence', () => {
         const view = fixture({}, true); await advance(800); view.unmount();
         expect(patch).not.toHaveBeenCalled(); expect(view.unsubscribe).toHaveBeenCalledOnce();
     });
+    it('ignores idle editor events and regenerated block ids, including on close', async () => {
+        const view = fixture();
+        for (let update = 0; update < 3; update += 1) {
+            const block = view.editor.document[0];
+            if (block) block.id = `render-${String(update)}`;
+            view.change();
+            await advance(1000);
+        }
+        expect(view.container.textContent).toBe('idle');
+        view.unmount(); await flush();
+        expect(patch).not.toHaveBeenCalled();
+        expect(view.onUpdate).not.toHaveBeenCalled();
+    });
+    it('cancels autosave when edits return to the saved content before the debounce', async () => {
+        const view = fixture();
+        view.edit(); await advance(300);
+        view.edit('Original'); await advance(1000);
+        view.unmount(); await flush();
+        expect(patch).not.toHaveBeenCalled();
+    });
+    it('does not postpone a real edit or repeat a completed save for unchanged events', async () => {
+        const view = fixture();
+        view.edit(); await advance(500);
+        view.change(); await advance(200);
+        expect(patch).toHaveBeenCalledOnce();
+        view.change(); await advance(5000);
+        expect(patch).toHaveBeenCalledOnce();
+    });
+    it('still honors an explicit save with updated metadata and unchanged content', async () => {
+        const view = fixture();
+        view.metadataRef.current = { title: 'Renamed' };
+        const button = view.container.querySelector('button');
+        if (!button) throw new Error('Missing save action');
+        await act(async () => { button.click(); await Promise.resolve(); });
+        expect(patch).toHaveBeenCalledExactlyOnceWith('page', {
+            title: 'Renamed', content: 'Original', metadata: view.metadataRef.current,
+        });
+    });
+    it('keeps a newer edit scheduled while a save completes', async () => {
+        let resolve: (value: typeof response) => void = () => { throw new Error('Missing save'); };
+        patch.mockReturnValueOnce(new Promise(done => { resolve = done; }));
+        const view = fixture();
+        view.edit(); await advance(700);
+        view.edit('Latest');
+        await act(async () => { resolve(response); await Promise.resolve(); });
+        await advance(700);
+        expect(patch).toHaveBeenCalledTimes(2);
+        expect(patch).toHaveBeenLastCalledWith('page', expect.objectContaining({ content: 'Latest' }));
+    });
     it('debounces changes for 700ms and keeps callback content a string', async () => {
-        const view = fixture(); view.change(); await advance(500); view.change();
+        const view = fixture(); view.edit('Draft'); await advance(500); view.edit();
         await advance(699); expect(patch).not.toHaveBeenCalled();
         await advance(1);
         expect(patch).toHaveBeenCalledExactlyOnceWith('page', { title: 'Document', content: 'Body', metadata: view.metadataRef.current });
@@ -64,7 +120,7 @@ describe('rich editor persistence', () => {
         await advance(3000); expect(view.container.textContent).toBe('idle');
     });
     it('flushes latest metadata on close and retains cache for the one-second handoff', async () => {
-        const view = fixture(); view.change();
+        const view = fixture(); view.edit();
         view.metadataRef.current = { title: 'Revised', status: 'complete' };
         view.unmount(); await flush();
         expect(patch).toHaveBeenCalledExactlyOnceWith('page', { title: 'Revised', content: 'Body', metadata: view.metadataRef.current });
@@ -74,7 +130,7 @@ describe('rich editor persistence', () => {
     it('never clears a newer in-flight promise when an older save completes', async () => {
         let resolve: (value: typeof response) => void = () => { throw new Error('Missing save'); };
         patch.mockReturnValueOnce(new Promise(done => { resolve = done; }));
-        const view = fixture(); view.change(); await advance(700);
+        const view = fixture(); view.edit(); await advance(700);
         const newer = Promise.resolve(response);
         inFlightSaves.set('page', { promise: newer, content: 'Newer', metadata: {}, timestamp: 42 });
         await act(async () => { resolve(response); await Promise.resolve(); });
@@ -101,9 +157,9 @@ describe('rich editor persistence', () => {
     });
     it('reports an autosave failure and logs an unmount flush failure without rejection leaks', async () => {
         patch.mockRejectedValue(new Error('offline'));
-        const view = fixture(); view.change(); await advance(700);
+        const view = fixture(); view.edit(); await advance(700);
         expect(view.container.textContent).toBe('error'); expect(notifyError).toHaveBeenCalledOnce();
-        view.change(); view.unmount(); await flush();
+        view.edit('Revised'); view.unmount(); await flush();
         expect(logError).toHaveBeenCalledWith('unmount-save', expect.any(Error));
     });
     it('retries a transient cloud conflict with the latest metadata and no error toast', async () => {
@@ -114,14 +170,16 @@ describe('rich editor persistence', () => {
             ))
             .mockResolvedValueOnce(response);
         const view = fixture();
-        view.change();
+        view.edit();
         await advance(700);
         expect(patch).toHaveBeenCalledTimes(1);
         expect(view.container.textContent).toBe('saving');
         expect(notifyError).not.toHaveBeenCalled();
 
         view.metadataRef.current = { title: 'Latest', status: 'complete' };
-        await advance(2000);
+        await advance(1000);
+        view.change();
+        await advance(1000);
         expect(patch).toHaveBeenCalledTimes(2);
         expect(patch).toHaveBeenLastCalledWith('page', {
             title: 'Latest',
