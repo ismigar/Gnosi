@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 990 | 260 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 438 | 108 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 128 | 51 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 130 | 52 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 201 | 74 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 95 | 46 | 0 |

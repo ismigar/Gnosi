@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 539 | 2246 |
-| pytest | 529 | 3720 |
+| Vitest | 540 | 2254 |
+| pytest | 529 | 3722 |
 
 ## Fitxers
 
@@ -211,10 +211,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsOrder.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsOrder.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/reader/ReaderDashboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/reader/ReaderDashboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/feed-manager/FeedManagerModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/FeedManagerModal.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/page/ReaderArticleContent.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/reader/page/ReaderResourceButton.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderResourceButton.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/page/readerDashboardModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/readerDashboardModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/zotero/ZoteroReaderTab.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderTab.test.tsx) | 3 | call-pattern estimate |
@@ -771,7 +772,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_ai_service.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_import_service.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_literature_live_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_live_smoke.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_models.py) | 6 | Python AST |
+| pytest | [`backend/tests/test_literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_models.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_literature_resource_open_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_resource_open_metadata.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_literature_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_response_contract.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_review_service.py) | 6 | Python AST |

@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2635 | 0 |
-| `features` | 1076 | 124493 | 33 |
+| `features` | 1077 | 124575 | 33 |
 | `generated` | 2 | 44320 | 453 |
 | `shared` | 246 | 30483 | 394 |
 
@@ -479,15 +479,16 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts) | 183 | `useLlmWikiController` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.ts) | 408 | `useProjectPlanningController` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useThirdPartyPlugins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useThirdPartyPlugins.ts) | 260 | `useThirdPartyPlugins` | — |
-| [`frontend/src/features/reader/ReaderDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.tsx) | 277 | `ReaderDashboard`, `function` | — |
+| [`frontend/src/features/reader/ReaderDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.tsx) | 273 | `ReaderDashboard`, `function` | — |
 | [`frontend/src/features/reader/feed-manager/FeedManagerModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/FeedManagerModal.tsx) | 153 | `FeedManagerModal` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/FeedManagerViews.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/FeedManagerViews.tsx) | 388 | `FeedAddView`, `FeedSchedulerView`, `FeedSourcesView` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/feedManagerModel.ts) | 41 | `groupFeedSources`, `readerSchedulerTasks`, `taskInterval` | — |
 | [`frontend/src/features/reader/feed-manager/feed-manager/useFeedManagerController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/feed-manager/feed-manager/useFeedManagerController.ts) | 235 | `useFeedManagerController` | — |
 | [`frontend/src/features/reader/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/index.ts) | 3 | `ReaderDashboard` | — |
-| [`frontend/src/features/reader/page/ReaderArticleContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.tsx) | 175 | `ReaderArticleContent` | — |
-| [`frontend/src/features/reader/page/ReaderArticleList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleList.tsx) | 95 | `ReaderArticleList` | — |
+| [`frontend/src/features/reader/page/ReaderArticleContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleContent.tsx) | 172 | `ReaderArticleContent` | — |
+| [`frontend/src/features/reader/page/ReaderArticleList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderArticleList.tsx) | 115 | `ReaderArticleList` | — |
 | [`frontend/src/features/reader/page/ReaderChannels.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderChannels.tsx) | 137 | `ReaderChannels` | — |
+| [`frontend/src/features/reader/page/ReaderResourceButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/ReaderResourceButton.tsx) | 69 | `ReaderResourceButton` | — |
 | [`frontend/src/features/reader/page/readerDashboardModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/readerDashboardModel.ts) | 116 | `groupReaderArticles`, `groupReaderSources`, `readerArticleMeta`, `readerCountsBySource`, `readerFaviconUrl` | — |
 | [`frontend/src/features/reader/page/useReaderArticleBody.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/useReaderArticleBody.ts) | 37 | `useReaderArticleBody` | — |
 | [`frontend/src/features/reader/zotero/ZoteroReaderTab.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderTab.ts) | 6 | — | — |

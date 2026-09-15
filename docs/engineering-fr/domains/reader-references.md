@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-15
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
@@ -45,6 +45,8 @@ tests:
   - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/page/ReaderArticleContent.test.tsx
+  - frontend/src/features/reader/page/ReaderResourceButton.test.tsx
   - frontend/src/features/reader/public-entry.test.ts
   - frontend/src/features/literature/LiteraturePage.test.tsx
   - frontend/src/features/literature/public-entry.test.ts
@@ -220,6 +222,34 @@ intégraux extraits et un compte de newsletter. L'ingestion utilise des points d
 sauvegarde transactionnels pour qu'une entrée malformée n'annule pas tout le lot.
 Les extraits et l'extraction du texte intégral sont distincts ; une troncature à
 l'ingestion ne doit pas supprimer définitivement un contenu source récupérable.
+
+## Navigation du lecteur et enregistrement dans les Ressources
+
+La liste conserve les articles lus et non lus. Les flèches haut et bas déplacent
+le focus entre les articles et font défiler la liste pour afficher la ligne
+sélectionnée. Quand le focus reste sur une ligne pendant 500 ms, le lecteur ouvre
+l'article et le marque comme lu. Déplacer le focus, changer de source ou quitter
+la liste annule l'ouverture en attente ; un clic ouvre immédiatement l'article.
+Les changements d'état de lecture préservent l'article sélectionné et la
+position dans la liste. Le corps est chargé à la demande, et une réponse tardive
+concernant une sélection précédente ne peut pas remplacer le corps actuel.
+
+L'action manuelle de marquage comme lu est remplacée par Ajouter aux Ressources
+lorsque le module Ressources est activé. L'action attend le corps complet de
+l'article et vérifie `/api/vault/reference-table` ; une destination non configurée
+produit une erreur indiquant comment y remédier sans créer d'enregistrement.
+L'enregistrement appelle `/api/vault/literature/imports` avec le titre, la date
+de publication, le nom de la source, l'URL originale et le texte du corps.
+L'importateur existant résout la table désignée et gère la persistance ; le
+lecteur n'introduit ni second paramètre de table ni chemin séparé d'écriture.
+
+Les actualités utilisent `newspaper-article`, converti en `newspaperArticle` de
+Zotero. En l'absence d'identifiant bibliographique plus fort, la déduplication
+utilise l'URL HTTP(S) originale sans son fragment avant de considérer le titre,
+l'année et l'auteur. La clé enregistrée permet de réutiliser la ressource lors
+d'importations répétées, même si l'article porte un autre identifiant local dans
+le lecteur. Le bouton empêche les enregistrements simultanés, signale la réussite
+et permet de réessayer après un échec.
 
 ## Invariants
 

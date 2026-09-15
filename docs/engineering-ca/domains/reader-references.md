@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-15
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
@@ -45,6 +45,8 @@ tests:
   - backend/tests/test_literature_import_service.py
   - backend/tests/test_literature_review_service.py
   - frontend/src/features/reader/ReaderDashboard.test.tsx
+  - frontend/src/features/reader/page/ReaderArticleContent.test.tsx
+  - frontend/src/features/reader/page/ReaderResourceButton.test.tsx
   - frontend/src/features/reader/public-entry.test.ts
   - frontend/src/features/literature/LiteraturePage.test.tsx
   - frontend/src/features/literature/public-entry.test.ts
@@ -239,6 +241,34 @@ complet extret i un compte de butlletins. La ingestió de canals utilitza
 savepoints de transacció perquè una entrada malformada no reverteixi tot el
 lot. Els extractes i l'extracció de text complet són separats; truncar durant
 la ingestió no ha de descartar permanentment contingut d'origen recuperable.
+
+## Navegació del lector i desament a Recursos
+
+La llista manté visibles els articles llegits i no llegits. Les fletxes amunt i
+avall mouen el focus entre articles i desplacen la llista per mostrar la fila
+seleccionada. Quan el focus es manté en una fila durant 500 ms, el lector obre
+l'article i el marca com a llegit. Moure el focus, canviar de font o sortir de la
+llista cancel·la l'obertura pendent; un clic obre l'article immediatament. Els
+canvis d'estat de lectura conserven l'article seleccionat i la posició de la
+llista. El cos es carrega sota demanda, i una resposta tardana d'una selecció
+anterior no pot substituir el cos actual.
+
+L'acció manual de marcar com a llegit se substitueix per Afegir a Recursos quan
+el connector Recursos està activat. L'acció espera el cos complet de l'article i
+comprova `/api/vault/reference-table`; si no hi ha destinació configurada, mostra
+un error que indica com resoldre-ho sense crear cap registre. El desament crida
+`/api/vault/literature/imports` amb el títol, la data de publicació, el nom de la
+font, l'URL original i el text del cos. L'importador existent resol la taula
+designada i gestiona la persistència; el lector no introdueix una segona
+configuració de taula ni una via separada d'escriptura de registres.
+
+Les notícies utilitzen `newspaper-article`, mapat a `newspaperArticle` de Zotero.
+Si no hi ha un identificador bibliogràfic més fort, la deduplicació de notícies
+utilitza l'URL HTTP(S) original sense el fragment abans de considerar títol, any
+i autor. La clau desada permet reutilitzar el recurs existent en importacions
+repetides encara que l'article tingui un altre identificador local al lector.
+El botó impedeix desaments simultanis, informa de l'èxit i permet reintentar
+després d'un error.
 
 ## Invariants
 
