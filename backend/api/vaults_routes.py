@@ -192,10 +192,18 @@ def list_vaults(
     if personal:
         default_path = _default_vault_path(config)
         _ensure_main_vault(db, ctx.workspace_id, default_path)
+        from backend.services.desktop_vault_discovery import register_desktop_vaults
+
+        register_desktop_vaults(db, ctx.workspace_id, default_path)
         _prune_container_rows(db, ctx.workspace_id, default_path)
     ensure_vault_slugs(db)
     active = str((get_active_vault_path() or "") if personal else ctx.vault_path)
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
+    if personal and os.environ.get("GNOSI_DESKTOP_VAULT_DISCOVERY") == "1":
+        # Switching containers must not mix libraries from the previous one.
+        # Keep their registrations so switching back restores their identities.
+        root = _vaults_root()
+        rows = [v for v in rows if v.path_override and Path(v.path_override).parent == root]
     # Legacy registry aliases can share a folder. Only the requested identity
     # should be checked, with one deterministic fallback when no ID is supplied.
     selected = _selected_vault(request, rows, active)

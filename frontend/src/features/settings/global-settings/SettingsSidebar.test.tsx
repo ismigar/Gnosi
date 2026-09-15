@@ -33,9 +33,13 @@ function context(activeTab: string): ComponentProps<typeof SettingsSidebar>['con
   };
 }
 
-it('keeps Plugins visible and removes duplicate plugin entries from Settings', () => {
+it('places Plugins in Advanced, Graph in Basics and removes Knowledge & AI', () => {
   const state = context('general');
   act(() => { root.render(<SettingsSidebar context={state} />); });
+  expect(view.textContent).not.toContain('settings.tabs.plugins');
+  expect(view.textContent).not.toContain('Knowledge & AI');
+  expect(view.textContent).toContain('settings.tabs.graph');
+  act(() => { root.render(<SettingsSidebar context={{ ...state, isAdvancedOpen: true }} />); });
   const labels = [...view.querySelectorAll('.settings-sidebar__item')].map(node => node.textContent);
   expect(labels).toContain('settings.tabs.plugins');
   expect(labels).toContain('settings.tabs.graph');
@@ -48,7 +52,7 @@ it('keeps Plugins visible and removes duplicate plugin entries from Settings', (
 });
 
 it.each(['ai', 'mail', 'reader', 'references'])('keeps plugin settings reachable and selected for %s', activeTab => {
-  act(() => { root.render(<SettingsSidebar context={context(activeTab)} />); });
+  act(() => { root.render(<SettingsSidebar context={{ ...context(activeTab), isAdvancedOpen: true }} />); });
   expect(view.querySelector('.settings-sidebar__item.active')?.textContent).toBe('settings.tabs.plugins');
   expect(pluginForSettingsTab(activeTab)).not.toBeNull();
   expect(pluginForSettingsTab('references')).toBe('resources');

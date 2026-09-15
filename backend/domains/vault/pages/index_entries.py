@@ -14,6 +14,7 @@ from typing import TextIO
 
 from backend.domains.vault.registry.records import is_object_list
 from backend.domains.vault.registry.state import RegistryData
+from backend.platform.files.coordinated import is_cloud_placeholder
 
 
 Metadata = RegistryData
@@ -226,6 +227,13 @@ def build_page_cache_entry(
     stat_result: os.stat_result,
 ) -> PageCacheEntry:
     dependencies = _deps()
+    if is_cloud_placeholder(file_path, stat_result):
+        # Discovery needs names, not every document body. Keep an addressable
+        # placeholder until a page/table/sidebar read requests its metadata.
+        placeholder_entry = build_cache_entry_from_memory(file_path, stat_result, {}, "")
+        placeholder_entry["_cloud_pending"] = True
+        placeholder_entry["_parse_failed"] = True  # preserve an existing richer cache entry
+        return placeholder_entry
     try:
         metadata, body, parse_failed = _load_page_metadata(file_path)
     except Exception as error:

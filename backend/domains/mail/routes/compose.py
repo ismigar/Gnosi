@@ -710,7 +710,15 @@ async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
         f"Context: {context}\nInstruction: {instruction}\n"
         "Respond only with the email body in English."
     )
-    content, provider = call_ai_with_fallback(ai_prompt)
+    try:
+        content, provider = await asyncio.to_thread(call_ai_with_fallback, ai_prompt)
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail="AI drafting is unavailable. Check the configured AI provider and try again.",
+        ) from error
+    if not content or not content.strip():
+        raise HTTPException(status_code=502, detail="The AI provider returned an empty draft.")
     return {"draft": content, "provider": provider}
 
 

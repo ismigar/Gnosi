@@ -8,6 +8,7 @@ import { VaultMarkdown } from '../../../shared/editor/VaultMarkdown';
 
 interface GalleryOpenButtonProps {
     readonly pageId?: string | null;
+    readonly onOpen?: (pageId: string) => void;
 }
 
 interface GalleryContentPreviewProps {
@@ -37,7 +38,7 @@ function isCanceledRequest(error: unknown): boolean {
     return code === 'ERR_CANCELED' || name === 'CanceledError';
 }
 
-export function GalleryOpenButton({ pageId }: GalleryOpenButtonProps) {
+export function GalleryOpenButton({ pageId, onOpen }: GalleryOpenButtonProps) {
     const { t } = useTranslation();
     const label = t('editor.open_in_new_tab', { defaultValue: 'Open in a new tab' });
 
@@ -50,6 +51,10 @@ export function GalleryOpenButton({ pageId }: GalleryOpenButtonProps) {
             title={label}
             onClick={(event) => {
                 event.stopPropagation();
+                if (onOpen && pageId) {
+                    event.preventDefault();
+                    onOpen(pageId);
+                }
             }}
             className="absolute right-2 top-2 z-20 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)]/90 text-[var(--text-tertiary)] opacity-80 shadow-sm backdrop-blur-sm transition hover:text-[var(--gnosi-primary)] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)]"
         >

@@ -1,5 +1,7 @@
 import type { BrowserContext, Route } from '@playwright/test';
 
+import type { components } from '../../../frontend/src/generated/openapi';
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 export interface DisposableNetworkAudit {
@@ -35,6 +37,13 @@ const SYNTHETIC_PAGE = {
   is_database: false,
 };
 
+const SYNTHETIC_INTERFACE_SETTINGS = {
+  currency: 'EUR',
+  date_format: 'locale',
+  decimal_symbol: ',',
+  language: 'ca',
+} satisfies components['schemas']['InterfaceSettings'];
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
@@ -69,6 +78,9 @@ async function syntheticApi(
       theme: 'system',
       language: 'ca',
     });
+  }
+  if (pathname === '/api/config/interface' && request.method() === 'GET') {
+    return json(route, SYNTHETIC_INTERFACE_SETTINGS);
   }
   if (pathname === '/api/vault/plugins') {
     return json(route, {

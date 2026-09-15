@@ -310,7 +310,7 @@ def test_onedrive_default_warmup_native_macos(monkeypatch):
     monkeypatch.setattr("backend.platform.files.on_demand.sys.platform", "darwin")
     monkeypatch.delenv("ONEDRIVE_WARMUP_MODE", raising=False)
     p = OneDriveProvider()
-    assert p.warmup_mode == "open"
+    assert p.warmup_mode == "coordinated"
     assert p.warmup_url == "http://127.0.0.1:5009/warmup"
 
 

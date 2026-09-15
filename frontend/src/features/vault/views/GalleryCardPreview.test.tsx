@@ -155,6 +155,15 @@ describe('GalleryCardPreview', () => {
         expect(parentClick).not.toHaveBeenCalled();
     });
 
+    it('opens internally and cancels the external window when an opener exists', async () => {
+        const onOpen = vi.fn();
+        const container = await render(<GalleryOpenButton pageId="record" onOpen={onOpen} />);
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+        act(() => { container.querySelector('a')?.dispatchEvent(event); });
+        expect(onOpen).toHaveBeenCalledExactlyOnceWith('record');
+        expect(event.defaultPrevented).toBe(true);
+    });
+
     it('uses a native new-tab link without opening the card', async () => {
         const parentClick = vi.fn<() => void>();
         const container = await render(

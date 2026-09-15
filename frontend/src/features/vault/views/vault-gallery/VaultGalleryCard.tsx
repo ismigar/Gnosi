@@ -98,7 +98,6 @@ export function VaultGalleryCard({
             className={`group relative flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-primary)] shadow-sm outline-none transition-all hover:shadow-md focus:border-[var(--gnosi-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)] ${embeddedPreview ? galleryCardHeightClass(cardSize) : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             onClick={() => {
                 if (selectedCount > 0) toggleSelect(note.id);
-                else onNoteSelect?.(note.id);
             }}
             onKeyDown={(event) => {
                 onKeyDown(event, flatIndex, note.id);
@@ -106,7 +105,7 @@ export function VaultGalleryCard({
             ref={registerCard}
             tabIndex={-1}
         >
-            {embeddedPreview ? <GalleryOpenButton pageId={note.id} /> : null}
+            <GalleryOpenButton pageId={note.id} onOpen={onNoteSelect} />
             <label
                 className={`absolute left-2 top-2 z-20 cursor-pointer ${isSelected || selectedCount > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                 onClick={(event) => {
