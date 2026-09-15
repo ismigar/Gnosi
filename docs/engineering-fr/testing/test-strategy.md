@@ -30,16 +30,7 @@ tests:
 
 Les tâches lourdes de CI suivent cet ordre : backend, frontend puis Docker. Le Mac et la VM Linux partagent les ressources physiques ; le frontend utilise un seul processus de test. Un échec précédent ne supprime pas les vérifications suivantes, mais les restrictions des forks et l’annulation restent applicables. Les suites isolées de dessins et de citations disposent de cinq minutes par processus, importations initiales et assertions comprises. Les tests intégrés des outils générés utilisent le délai de production inchangé ; une régression distincte vérifie le délai explicite.
 
-La PR #86 dispose d’une exception explicite pour exécuter la validation
-demandée uniquement en local. Backend, native smoke et Docker utilisent
-l’exécuteur Linux ARM64 existant ; frontend, macOS ARM64 ; documentation,
-macOS X64. Si un exécuteur local compatible est indisponible, la vérification
-de cette PR reste en attente. Les autres PR publiques conservent les exécuteurs
-GitHub existants pour backend/native smoke (`ubuntu-24.04-arm`) et frontend
-(`macos-15`). Les envois, dépôts privés et validations de versions gardent leurs
-affectations locales. Toutes les vérifications, dépendances, permissions de
-lecture seule et restrictions au même dépôt sont préservées ; les forks ne
-peuvent pas s’exécuter sur les machines du propriétaire.
+Toutes les exécutions de CI utilisent des machines locales : Linux ARM64 pour backend, native smoke et Docker ; macOS ARM64 pour frontend ; macOS X64 pour la documentation. Si un exécuteur compatible est indisponible, les tâches restent en attente. Aucune PR, aucun envoi ni validation de version ne bascule vers les exécuteurs GitHub. Les permissions de lecture seule, dépendances et restrictions au même dépôt sont conservées ; les forks ne peuvent pas s’exécuter sur les machines du propriétaire.
 
 Les groupes de `concurrency` du workflow utilisent un préfixe propre à la CI,
 le nom du workflow et le numéro de PR. Un nouveau commit annule les tâches
@@ -335,12 +326,7 @@ minutes et le contrôle final de 12 Gio restent applicables.
 Le job frontend applique le budget révisé de 4 Gio de heap Node à
 l'ensemble du job afin que le lint, le contrôle des types, les tests et le build
 de production partagent le même contrat de mémoire prévisible.
-Les tests de politique des versions desktop doivent valider les conditions
-exactes des exécuteurs hébergés pour les PR publiques, les replis locaux pour les
-versions et tout l’environnement de ressources Node/Python. Les tests de mutation
-rejettent les contrôles de visibilité ou d’événement absents, les replis modifiés,
-les budgets manquants et les surcharges par étape. Un changement de CI exige aussi
-toute la suite desktop, pas seulement les contrats de planification Python.
+Les tests de politique de publication desktop vérifient les affectations locales exactes et tout l’environnement de ressources Node/Python. Les tests de mutation rejettent les exécuteurs GitHub, les affectations locales modifiées, les budgets absents et les surcharges par étape. Les changements de CI exigent toute la suite desktop et les contrats de planification Python.
 
 La CI Electron configure les paquets pour macOS arm64/x64, Linux arm64 et
 Windows x64. Configurer cette matrice, réussir les tests unitaires desktop

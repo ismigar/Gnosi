@@ -30,15 +30,7 @@ tests:
 
 Heavy CI jobs run in order: backend, frontend, then Docker. The Mac and Linux VM share physical resources; the frontend uses one test worker. A failed predecessor does not skip the later checks, but cancellation and fork restrictions still apply. Isolated drawing and citation suites have a five-minute process budget including cold imports and all assertions. Generated-tool integration tests use the unchanged production timeout; a separate regression verifies explicit timeout enforcement.
 
-PR #86 has an explicit local-only exception for its requested validation.
-Backend, native smoke and Docker use the existing Linux ARM64 runner; frontend
-uses macOS ARM64; documentation uses macOS X64. If a matching local runner is
-unavailable, this PR's check stays queued rather than using hosted capacity.
-Other public pull requests retain the existing GitHub-hosted backend/native
-smoke (`ubuntu-24.04-arm`) and frontend (`macos-15`) routing. Pushes, private
-repositories and release validation keep their existing local assignments.
-All checks, job dependencies, read-only permissions and same-repository guards
-remain unchanged; forks cannot execute on the owner's machines.
+All CI runs use local machines: Linux ARM64 for backend, native smoke and Docker; macOS ARM64 for frontend; macOS X64 for documentation. If a matching runner is unavailable, jobs stay queued. No PR, push or release validation falls back to GitHub-hosted executors. Read-only permissions, job dependencies and same-repository guards remain in force; forks cannot execute on the owner's machines.
 
 Workflow-level `concurrency` groups use a CI-specific prefix, the workflow name
 and the PR number. A newer commit cancels the earlier running and queued work
@@ -311,11 +303,7 @@ The ten-minute outer cleanup limit and final 12 GiB capacity check still apply.
 The frontend job applies its reviewed 4 GiB Node heap budget at job
 scope so lint, type checking, tests and production build run under the same
 predictable memory contract.
-Desktop release-policy tests must validate the exact public-PR hosted runner
-conditions, local release fallbacks and complete Node/Python resource environment.
-Mutation checks reject missing visibility or event guards, changed fallbacks,
-missing budgets and step-level overrides; changing CI also requires the complete
-desktop test suite, not only the Python scheduling contracts.
+Desktop release-policy tests verify exact local runner assignments and the complete Node/Python resource environment. Mutation tests reject hosted runners, changed local assignments, missing budgets and step-level overrides. CI changes require the full desktop test suite as well as Python scheduling contracts.
 
 Electron release CI configures packaging for macOS arm64/x64, Linux arm64 and
 Windows x64. Configuring that matrix, running desktop unit tests or checking a

@@ -73,8 +73,8 @@ jobs:
     if: >-
       !cancelled() && (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
-    # PR #86 is explicitly validated on local runners; preserve routing for other PRs.
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.number != 86 && github.event.repository.visibility == 'public' && '["macos-15"]' || '["self-hosted", "macOS", "ARM64"]') }}
+    # All CI runs use owner-managed machines, without hosted-runner fallback.
+    runs-on: [self-hosted, macOS, ARM64]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       GNOSI_VITEST_MAX_WORKERS: '1'
@@ -133,8 +133,8 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    # PR #86 uses the existing local runner; other public PRs retain hosted capacity.
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.number != 86 && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
+    # All CI runs use owner-managed machines, without hosted-runner fallback.
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -180,8 +180,8 @@ jobs:
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    # Keep the PR #86 local-only exception identical across all three checks.
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.number != 86 && github.event.repository.visibility == 'public' && '["ubuntu-24.04-arm"]' || '["self-hosted", "Linux", "ARM64"]') }}
+    # Native smoke checks also stay on the owner-managed Linux machine.
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v7
         with:
