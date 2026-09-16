@@ -25,6 +25,8 @@ from backend.services.auth_public_surface import (
         ("POST", "/api/auth/logout"),
         ("GET", "/api/auth/me"),
         ("GET", "/api/auth/google/callback"),
+        ("GET", "/api/auth/microsoft/callback"),
+        ("GET", "/api/auth/microsoft/desktop/callback"),
         ("GET", "/api/share/abc123"),    # token in the URL is the credential
         ("POST", "/api/public/clip"),    # PAT-authenticated
         ("GET", "/api/public/clip/config"),  # the extension reads its form schema
@@ -60,6 +62,12 @@ def test_method_is_case_insensitive():
         ("GET", "/api/auth/google/health"),
         ("POST", "/api/auth/google/callback"),
         ("GET", "/api/auth/google/callback/other"),
+        ("GET", "/api/auth/microsoft/login"),
+        ("GET", "/api/auth/microsoft/status"),
+        ("POST", "/api/auth/microsoft/callback"),
+        ("GET", "/api/auth/microsoft/callback/other"),
+        ("POST", "/api/auth/microsoft/desktop/callback"),
+        ("GET", "/api/auth/microsoft/desktop/callback/other"),
     ],
 )
 def test_is_not_public(method: str, path: str):

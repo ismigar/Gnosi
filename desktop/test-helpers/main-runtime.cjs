@@ -139,7 +139,7 @@ function loadMainRuntime({
         statSync: file => file.startsWith('/fixture/resources/python/')
           ? { isFile: () => bundleExists } : fs.statSync(file),
       };
-      if (['./application-menu', './backend-launch', './vault-startup', './vault-folders', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors', './google-sign-in'].includes(name)) {
+      if (['./application-menu', './backend-launch', './vault-startup', './vault-folders', './update-policy', './sparkle-updater', './ipc-security', './ipc-handlers', './startup-errors', './google-sign-in', './microsoft-sign-in'].includes(name)) {
         return require(path.join(desktopRoot, name));
       }
       throw new Error(`Unexpected main-process dependency: ${name}`);

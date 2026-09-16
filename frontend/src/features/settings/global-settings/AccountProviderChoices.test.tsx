@@ -47,7 +47,7 @@ function providerButtons() {
 describe('account provider detection and choices', () => {
   it.each([
     ['gmail.com', 'Google'], ['googlemail.com', 'Google'],
-    ['outlook.com', 'Microsoft'], ['hotmail.com', 'Microsoft'], ['live.com', 'Microsoft'], ['msn.com', 'Microsoft'],
+    ['uned.es', 'Microsoft'], ['alumno.uned.es', 'Microsoft'], ['outlook.com', 'Microsoft'], ['hotmail.com', 'Microsoft'], ['live.com', 'Microsoft'], ['msn.com', 'Microsoft'],
     ['icloud.com', 'iCloud'], ['me.com', 'iCloud'], ['mac.com', 'iCloud'],
     ['yahoo.com', 'Yahoo'], ['ymail.com', 'Yahoo'], ['yahoo.es', 'Yahoo'], ['aol.com', 'AOL'],
   ])('recognizes %s before blur without asking the provider again', (domain, provider) => {
@@ -99,6 +99,20 @@ describe('account provider detection and choices', () => {
     context.isManualGoogle = false;
     render();
     expect(providerButtons()).toHaveLength(0);
+  });
+
+  it('starts Microsoft sign-in with the institutional email and keeps manual configuration untouched', () => {
+    const location = { href: '' };
+    vi.stubGlobal('location', location);
+    context.activeTab = 'mail';
+    context.addAccountEmail = ' user+mail@alumno.uned.es ';
+    render();
+    act(() => { providerButtons()[0]?.click(); });
+    const destination = new URL(location.href, 'https://gnosi.test');
+    expect(destination.pathname).toBe('/api/auth/microsoft/login');
+    expect(destination.searchParams.get('login_hint')).toBe('user+mail@alumno.uned.es');
+    expect(context.setMailImapHost).not.toHaveBeenCalled();
+    expect(context.setMailSmtpHost).not.toHaveBeenCalled();
   });
 
   it('centers each icon and label together as one group', () => {

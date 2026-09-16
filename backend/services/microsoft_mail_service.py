@@ -63,16 +63,18 @@ def _refresh_token(account: dict[str, Any]) -> str | None:
     """Refreshes the access token using the refresh_token.  Returns new token or None."""
     from backend.services.integration_manager import integration_manager
 
+    data = {
+        "client_id": account.get("client_id"),
+        "refresh_token": account.get("refresh_token"),
+        "grant_type": "refresh_token",
+        "scope": "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access User.Read",
+    }
+    if account.get("client_secret"):
+        data["client_secret"] = account["client_secret"]
     try:
         resp = http.post(
             TOKEN_URL,
-            data={
-                "client_id": account.get("client_id"),
-                "client_secret": account.get("client_secret"),
-                "refresh_token": account.get("refresh_token"),
-                "grant_type": "refresh_token",
-                "scope": "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access User.Read",
-            },
+            data=data,
             timeout=15,
         )
         resp.raise_for_status()

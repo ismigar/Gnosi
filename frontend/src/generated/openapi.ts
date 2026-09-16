@@ -1186,6 +1186,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/microsoft/desktop/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Callback */
+        get: operations["callback_api_auth_microsoft_desktop_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/microsoft/login": {
         parameters: {
             query?: never;
@@ -25052,6 +25069,26 @@ export interface operations {
         };
     };
     callback_api_auth_microsoft_callback_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    callback_api_auth_microsoft_desktop_callback_get: {
         parameters: {
             query?: never;
             header?: never;
