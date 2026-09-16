@@ -6084,11 +6084,15 @@
         "improvements": {
           "settings_navigation": "La configuración del grafo pasa a Básicos, los plugins pasan a Avanzado y se elimina el grupo vacío Conocimiento e IA.",
           "native_folder_picker": "La aplicación de escritorio utiliza el selector de carpetas del sistema operativo para elegir la carpeta contenedora de los vaults.",
-          "dmg_cleanup": "Después de instalarse en macOS, Gnosi ofrece expulsar la imagen del instalador y, opcionalmente, enviar el DMG a la papelera."
+          "dmg_cleanup": "Después de instalarse en macOS, Gnosi ofrece expulsar la imagen del instalador y, opcionalmente, enviar el DMG a la papelera.",
+          "reader_resources": "Guarda los artículos del lector directamente en Recursos, conservando su fuente y evitando duplicados con la misma URL original."
         },
         "fixes": {
           "vault_container": "Al seleccionar una carpeta contenedora, se detectan los vaults existentes, se muestran en la interfaz y Ajustes indica la ruta completa del contenedor.",
-          "cloud_index": "La detección de archivos en la nube conserva los metadatos de páginas y favoritos de la caché si los archivos no están disponibles temporalmente; una descarga fallida muestra un error que permite reintentarla en lugar de contenido vacío."
+          "cloud_index": "La detección de archivos en la nube conserva los metadatos de páginas y favoritos de la caché si los archivos no están disponibles temporalmente; una descarga fallida muestra un error que permite reintentarla en lugar de contenido vacío.",
+          "google_sign_in": "El acceso a Google abre el navegador del sistema, reutiliza la dirección introducida y conserva la ventana de configuración.",
+          "microsoft_sign_in": "El acceso de Microsoft en escritorio admite registros de aplicaciones nativas y direcciones de la UNED. Las cuentas institucionales pueden seguir requiriendo la aprobación del administrador.",
+          "embedded_autosave": "Las vistas incrustadas dejan de parpadear al guardar, y el contenido del editor que no ha cambiado ya no provoca guardados automáticos innecesarios."
         }
       },
       "v3_0_2": {

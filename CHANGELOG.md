@@ -2,7 +2,7 @@
 
 ## Gnosi 3.0.3
 
-_2026-09-14 · Release candidate_
+_2026-09-16 · Release candidate_
 
 ### Highlights
 
@@ -13,11 +13,15 @@ _2026-09-14 · Release candidate_
 - Graph Config is under Basics, Plugins is under Advanced, and the empty Knowledge & AI group has been removed.
 - The desktop app uses the operating system's folder picker to select the vault container.
 - After installing on macOS, Gnosi offers to eject its installer image and optionally move the DMG to the Trash.
+- Save Reader articles directly as Resources, retaining their source and avoiding duplicates from the same original URL.
 
 ### Fixes
 
 - Selecting a container discovers its existing vaults, lists them in the interface, and shows the complete container path in Settings.
 - Cloud discovery preserves cached page and favorite metadata when files are temporarily unavailable; failed downloads return an explicit retryable error instead of empty content.
+- Google sign-in opens the system browser, reuses the entered email address and preserves the Settings window.
+- Microsoft desktop sign-in supports native application registrations and UNED addresses. Institutional accounts may still require administrator approval.
+- Embedded views no longer flicker when saving, and unchanged editor content no longer triggers unnecessary autosaves.
 
 ## Gnosi 3.0.2
 

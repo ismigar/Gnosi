@@ -6084,11 +6084,15 @@
         "improvements": {
           "settings_navigation": "La configuration du graphe passe dans Essentiel, les plugins dans Avancé, et le groupe vide Connaissance et IA est supprimé.",
           "native_folder_picker": "L'application de bureau utilise le sélecteur de dossiers du système pour choisir le dossier contenant les vaults.",
-          "dmg_cleanup": "Après l'installation sur macOS, Gnosi propose d'éjecter l'image de l'installateur et, en option, de placer le DMG dans la corbeille."
+          "dmg_cleanup": "Après l'installation sur macOS, Gnosi propose d'éjecter l'image de l'installateur et, en option, de placer le DMG dans la corbeille.",
+          "reader_resources": "Enregistrez les articles du lecteur directement dans Ressources, en conservant leur source et en évitant les doublons ayant la même URL d’origine."
         },
         "fixes": {
           "vault_container": "La sélection d'un dossier conteneur détecte les vaults existants, les affiche dans l'interface et indique le chemin complet du conteneur dans les paramètres.",
-          "cloud_index": "La découverte des fichiers cloud préserve les métadonnées de pages et de favoris en cache lorsque les fichiers sont temporairement indisponibles ; un téléchargement échoué renvoie une erreur permettant de réessayer plutôt qu'un contenu vide."
+          "cloud_index": "La découverte des fichiers cloud préserve les métadonnées de pages et de favoris en cache lorsque les fichiers sont temporairement indisponibles ; un téléchargement échoué renvoie une erreur permettant de réessayer plutôt qu'un contenu vide.",
+          "google_sign_in": "La connexion à Google ouvre le navigateur du système, réutilise l’adresse saisie et conserve la fenêtre des paramètres.",
+          "microsoft_sign_in": "La connexion Microsoft sur ordinateur prend en charge les inscriptions d’applications natives et les adresses UNED. Les comptes institutionnels peuvent toujours nécessiter l’approbation d’un administrateur.",
+          "embedded_autosave": "Les vues intégrées ne clignotent plus lors de l’enregistrement et le contenu inchangé de l’éditeur ne déclenche plus d’enregistrements automatiques inutiles."
         }
       },
       "v3_0_2": {

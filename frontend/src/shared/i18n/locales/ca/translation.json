@@ -6084,11 +6084,15 @@
         "improvements": {
           "settings_navigation": "La configuració del graf passa a Bàsics, els connectors passen a Avançat i s'elimina el grup buit Coneixement i IA.",
           "native_folder_picker": "L'aplicació d'escriptori utilitza el selector de carpetes del sistema operatiu per triar la carpeta contenidora dels vaults.",
-          "dmg_cleanup": "Després d'instal·lar-se a macOS, Gnosi ofereix expulsar la imatge de l'instal·lador i, opcionalment, enviar el DMG a la paperera."
+          "dmg_cleanup": "Després d'instal·lar-se a macOS, Gnosi ofereix expulsar la imatge de l'instal·lador i, opcionalment, enviar el DMG a la paperera.",
+          "reader_resources": "Desa els articles del lector directament a Recursos, conservant-ne la font i evitant duplicats amb el mateix URL original."
         },
         "fixes": {
           "vault_container": "En seleccionar una carpeta contenidora, es detecten els vaults existents, es mostren a la interfície i Configuració indica el camí complet del contenidor.",
-          "cloud_index": "La detecció de fitxers al núvol conserva les metadades de pàgines i favorits de la memòria cau si els fitxers no estan disponibles temporalment; una descàrrega fallida mostra un error que permet reintentar-la en lloc de contingut buit."
+          "cloud_index": "La detecció de fitxers al núvol conserva les metadades de pàgines i favorits de la memòria cau si els fitxers no estan disponibles temporalment; una descàrrega fallida mostra un error que permet reintentar-la en lloc de contingut buit.",
+          "google_sign_in": "L’accés a Google obre el navegador del sistema, reutilitza l’adreça introduïda i conserva la finestra de configuració.",
+          "microsoft_sign_in": "L’accés de Microsoft a l’escriptori admet registres d’aplicacions natives i adreces de la UNED. Els comptes institucionals poden continuar requerint l’aprovació de l’administrador.",
+          "embedded_autosave": "Les vistes incrustades deixen de parpellejar en desar, i el contingut de l’editor que no ha canviat ja no provoca desaments automàtics innecessaris."
         }
       },
       "v3_0_2": {
