@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1079 | 124754 | 33 |
+| `features` | 1080 | 124789 | 33 |
 | `generated` | 2 | 44320 | 453 |
 | `shared` | 247 | 30508 | 394 |
 
@@ -767,6 +767,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/editor-view/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/types.ts) | 124 | — | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-view/values.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/values.ts) | 22 | `createReferenceId`, `errorMessage`, `firstBlockChild`, `pastedText` | — |
 | [`frontend/src/features/vault/editor/block-editor/editor-view/wikiSuggestions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/editor-view/wikiSuggestions.tsx) | 140 | `wikiSuggestions` | — |
+| [`frontend/src/features/vault/editor/block-editor/emptyDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/emptyDocument.ts) | 11 | `isEmptyDocument` | — |
 | [`frontend/src/features/vault/editor/block-editor/footnoteDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/footnoteDocument.ts) | 23 | `footnoteDocument` | — |
 | [`frontend/src/features/vault/editor/block-editor/inlineSpecs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/inlineSpecs.tsx) | 93 | `createInlineSpecs` | — |
 | [`frontend/src/features/vault/editor/block-editor/inlineTokens.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/inlineTokens.ts) | 46 | `expandBracketRange`, `inlineText`, `legacyCursorIndex`, `replaceTokenInInlineArray` | — |
@@ -810,10 +811,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/editor/block-editor/property-controls/values.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/values.ts) | 51 | `foldAccents`, `propertyKey`, `readPropertyOptions`, `readPropertyValues` | — |
 | [`frontend/src/features/vault/editor/block-editor/schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.ts) | 42 | `createEditorSchema` | — |
 | [`frontend/src/features/vault/editor/block-editor/useDropBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useDropBridge.ts) | 12 | `useDropBridge` | — |
-| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 122 | `useEditorPersistence` | — |
-| [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 58 | `useEditorRuntime` | — |
+| [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.ts) | 150 | `useEditorPersistence` | — |
+| [`frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorRuntime.ts) | 57 | `useEditorRuntime` | — |
 | [`frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useGeneratedContent.ts) | 32 | `useGeneratedContent` | — |
-| [`frontend/src/features/vault/editor/block-editor/useInitialDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.ts) | 58 | `useInitialDocument` | — |
+| [`frontend/src/features/vault/editor/block-editor/useInitialDocument.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.ts) | 55 | `useInitialDocument` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInlineIcon.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInlineIcon.ts) | 26 | `useInlineIcon` | — |
 | [`frontend/src/features/vault/editor/block-editor/useInsertionRequest.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInsertionRequest.ts) | 20 | `useInsertionRequest` | — |
 | [`frontend/src/features/vault/editor/block-editor/useLinkCommands.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useLinkCommands.ts) | 119 | `normalizePendingLinkTitle`, `useLinkCommands` | — |
