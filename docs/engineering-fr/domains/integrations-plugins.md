@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
@@ -8,6 +8,9 @@ source_paths:
   - desktop/google-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/google-auth.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.tsx
+  - frontend/src/features/settings/global-settings/accountProviders.ts
+  - frontend/src/features/settings/global-settings/DavAccountForm.tsx
   - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
@@ -47,6 +50,7 @@ tests:
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
   - frontend/src/shared/api/google-auth.test.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx
   - frontend/src/features/settings/global-settings/settingsController.test.tsx
   - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
@@ -83,6 +87,18 @@ payloads publics. Les tests de connexion Mail et DAV valident les identifiants
 textuels requis avant d'ouvrir des sockets. Les URL DAV peuvent viser des
 réseaux privés auto-hébergés comme Nextcloud, mais les adresses loopback,
 link-local, multicast, réservées et non spécifiées restent bloquées.
+
+## Choix du fournisseur du compte
+
+Les paramètres reconnaissent les domaines exacts connus de Google, Microsoft,
+iCloud, Yahoo et AOL dès la saisie d'une adresse complète, sans tenir compte des
+espaces extérieurs ni des majuscules du domaine. Les domaines connus affichent
+uniquement le bouton pour continuer avec leur fournisseur, sans demander si le
+compte est Google. Les domaines inconnus conservent le choix explicite et la
+configuration manuelle, y compris les comptes Google Workspace. La détection ne
+lance pas l'authentification et ne modifie pas les serveurs : continuer reste une
+action explicite. L'icône et le libellé de chaque bouton sont centrés ensemble
+comme un seul groupe, même lorsque la traduction occupe plusieurs lignes.
 
 ## Persistance de l'intégration
 

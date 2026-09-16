@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
@@ -8,6 +8,9 @@ source_paths:
   - desktop/google-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/google-auth.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.tsx
+  - frontend/src/features/settings/global-settings/accountProviders.ts
+  - frontend/src/features/settings/global-settings/DavAccountForm.tsx
   - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
@@ -47,6 +50,7 @@ tests:
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
   - frontend/src/shared/api/google-auth.test.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx
   - frontend/src/features/settings/global-settings/settingsController.test.tsx
   - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
@@ -83,6 +87,18 @@ payloads públicos. Las pruebas de conexión Mail y DAV validan las credenciales
 de texto obligatorias antes de abrir sockets. Las URL DAV pueden apuntar a
 redes privadas autoalojadas como Nextcloud, pero se bloquean loopback,
 link-local, multicast, direcciones reservadas y no especificadas.
+
+## Selección del proveedor de la cuenta
+
+La configuración reconoce los dominios exactos conocidos de Google, Microsoft,
+iCloud, Yahoo y AOL en cuanto se introduce una dirección completa, ignorando los
+espacios exteriores y las mayúsculas del dominio. Los dominios conocidos muestran
+solo el botón para continuar con su proveedor y no preguntan si la cuenta es de
+Google. Los dominios desconocidos mantienen la selección explícita y la
+configuración manual, incluidas las cuentas de Google Workspace. La detección no
+inicia la autenticación ni modifica servidores: continuar requiere una acción
+explícita. El icono y el texto de cada botón quedan centrados juntos como un único
+grupo, también en traducciones de varias líneas.
 
 ## Persistencia de las integraciones
 

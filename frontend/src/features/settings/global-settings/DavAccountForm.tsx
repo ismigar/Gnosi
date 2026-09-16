@@ -3,6 +3,7 @@ import { FormGroup } from '../../../shared/ui/settings/SettingsPrimitives';
 import { PasswordInput } from './PasswordInput';
 import { bulkUpdateIntegrations } from '../../../shared/api/integrations';
 import type { SettingsController } from './useGlobalSettingsController';
+import { accountProviderForEmail, isCompleteAccountEmail } from './accountProviders';
 
 type Props = { context: Pick<SettingsController, 'activeTab' | 'addAccountEmail' | 'editingAccountId' | 'integrations' | 'loadIntegrations' | 'manualPassword' | 'manualServer' | 'setAddAccountEmail' | 'setAddAccountType' | 'setEditingAccountId' | 'setIsManualGoogle' | 'setManualPassword' | 'setManualServer' | 'setSavingStatus' | 'tn'> };
 
@@ -74,8 +75,9 @@ export function DavAccountForm({ context }: Props) {
         {editingAccountId ? tn('accounts.update_account') : tn('accounts.connect_account')}
       </button>
 
-      {addAccountEmail.includes('@') && (
+      {isCompleteAccountEmail(addAccountEmail) && !accountProviderForEmail(addAccountEmail) && (
         <button
+          type="button"
           onClick={() => { setIsManualGoogle(true); }}
           className="btn-gnosi-secondary"
           style={{ padding: '14px', borderRadius: '14px', fontSize: '0.8rem' }}
