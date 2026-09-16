@@ -365,3 +365,5 @@ utilitzen comptes de prova dedicats i no han de modificar involuntàriament
 dades de producció.
 
 El [plugin Genogrames](genograms.md), opcional per Vault, afegeix taules familiars enllaçades, vistes SVG i exportació local a SVG/PNG/PDF, sense serveis externs ni IA.
+
+Per al registre del correu de Microsoft a l’escriptori i el consentiment institucional, consulteu la [guia de configuració de Microsoft](../microsoft-mail-setup.md).

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { microsoftSignInPath } from '../../../shared/api/microsoft-auth';
 import { googleSignInPath } from '../../../shared/api/google-auth';
 import { accountProviderForEmail, isCompleteAccountEmail } from './accountProviders';
 
@@ -35,7 +36,7 @@ export function AccountProviderChoices({ context }: Props) {
       </button>
     );
     const MicrosoftBtn = () => (
-      <button type="button" onClick={() => window.location.href = '/api/auth/microsoft/login'} style={btnStyle('#0078d4', '0 8px 16px rgba(0,120,212,0.25)')}>
+      <button type="button" onClick={() => window.location.href = microsoftSignInPath(addAccountEmail)} style={btnStyle('#0078d4', '0 8px 16px rgba(0,120,212,0.25)')}>
         <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022" /><rect x="11" y="1" width="9" height="9" fill="#7fba00" /><rect x="1" y="11" width="9" height="9" fill="#00a4ef" /><rect x="11" y="11" width="9" height="9" fill="#ffb900" /></svg></div>
         <span>{tn('accounts.continue_with', { provider: 'Microsoft' })}</span>
       </button>

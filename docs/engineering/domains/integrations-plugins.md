@@ -344,3 +344,5 @@ account and must not mutate production data unintentionally.
 
 The optional [Genograms plugin](genograms.md) uses the built-in plugin registry and
 per-Vault enablement, with no external integration or AI dependency.
+
+For native Microsoft mail registration and institutional consent, see the [Microsoft desktop mail setup guide](../microsoft-mail-setup.md).

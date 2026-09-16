@@ -6033,11 +6033,15 @@
         "improvements": {
           "settings_navigation": "Graph Config is under Basics, Plugins is under Advanced, and the empty Knowledge & AI group has been removed.",
           "native_folder_picker": "The desktop app uses the operating system's folder picker to select the vault container.",
-          "dmg_cleanup": "After installing on macOS, Gnosi offers to eject its installer image and optionally move the DMG to the Trash."
+          "dmg_cleanup": "After installing on macOS, Gnosi offers to eject its installer image and optionally move the DMG to the Trash.",
+          "reader_resources": "Save Reader articles directly as Resources, retaining their source and avoiding duplicates from the same original URL."
         },
         "fixes": {
           "vault_container": "Selecting a container discovers its existing vaults, lists them in the interface, and shows the complete container path in Settings.",
-          "cloud_index": "Cloud discovery preserves cached page and favorite metadata when files are temporarily unavailable; failed downloads return an explicit retryable error instead of empty content."
+          "cloud_index": "Cloud discovery preserves cached page and favorite metadata when files are temporarily unavailable; failed downloads return an explicit retryable error instead of empty content.",
+          "google_sign_in": "Google sign-in opens the system browser, reuses the entered email address and preserves the Settings window.",
+          "microsoft_sign_in": "Microsoft desktop sign-in supports native application registrations and UNED addresses. Institutional accounts may still require administrator approval.",
+          "embedded_autosave": "Embedded views no longer flicker when saving, and unchanged editor content no longer triggers unnecessary autosaves."
         }
       },
       "v3_0_2": {

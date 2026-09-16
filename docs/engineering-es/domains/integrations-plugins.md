@@ -301,3 +301,5 @@ El repositorio incluye ejemplos de empaquetado de plugins, un proxy MCP para Dru
 Ejecute las pruebas de manifiestos, firmas, sandbox, condiciones de carrera del estado, contribuciones de IA, enrutamiento MCP, reintentos y conectores. Una prueba de integración real utiliza una cuenta de pruebas dedicada y no debe modificar involuntariamente datos de producción.
 
 El [plugin Genogramas](genograms.md), opcional por Vault, añade tablas familiares enlazadas, vistas SVG y exportación local a SVG/PNG/PDF, sin servicios externos ni IA.
+
+Para el registro del correo de Microsoft en escritorio y el consentimiento institucional, consulte la [guía de configuración de Microsoft](../microsoft-mail-setup.md).

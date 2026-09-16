@@ -1,7 +1,7 @@
 [
   {
     "version": "3.0.3",
-    "date": "2026-09-14",
+    "date": "2026-09-16",
     "channel": "prerelease",
     "sections": {
       "highlights": [
@@ -10,11 +10,15 @@
       "improvements": [
         "release_notes.entries.v3_0_3.improvements.settings_navigation",
         "release_notes.entries.v3_0_3.improvements.native_folder_picker",
-        "release_notes.entries.v3_0_3.improvements.dmg_cleanup"
+        "release_notes.entries.v3_0_3.improvements.dmg_cleanup",
+        "release_notes.entries.v3_0_3.improvements.reader_resources"
       ],
       "fixes": [
         "release_notes.entries.v3_0_3.fixes.vault_container",
-        "release_notes.entries.v3_0_3.fixes.cloud_index"
+        "release_notes.entries.v3_0_3.fixes.cloud_index",
+        "release_notes.entries.v3_0_3.fixes.google_sign_in",
+        "release_notes.entries.v3_0_3.fixes.microsoft_sign_in",
+        "release_notes.entries.v3_0_3.fixes.embedded_autosave"
       ]
     }
   },

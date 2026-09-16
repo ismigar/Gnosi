@@ -13,6 +13,7 @@ const REQUIRED_RUNTIME_FILES = Object.freeze([
   'preload.js',
   'ipc-security.js',
   'google-sign-in.js',
+  'microsoft-sign-in.js',
   'ipc-handlers.js',
   'backend-process.js',
   'vault-startup.js',

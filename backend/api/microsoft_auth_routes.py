@@ -7,15 +7,19 @@ automatically.
 """
 
 import asyncio
+import base64
+import hashlib
 import logging
+import re
 import secrets
 import time
+from dataclasses import dataclass
 from typing import Any, TypedDict, cast
 from urllib.parse import urlencode
 
 import requests as http
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from backend.config.env_config import get_env
@@ -36,15 +40,24 @@ class MicrosoftOAuthStatusResponse(BaseModel):
     client_id: str | None
 
 
-# In-memory store for pending OAuth states (state → monotonic creation time).
-_pending: dict[str, float] = {}
+@dataclass(frozen=True)
+class PendingAuth:
+    created_at: float
+    code_verifier: str
+    config: MicrosoftOAuthConfig
+    desktop: bool = False
+    locale: str = "en"
+
+
+# Keep the PKCE verifier server-side, bound to a single short-lived login.
+_pending: dict[str, PendingAuth] = {}
 _PENDING_TTL_SECONDS = 600.0
 
 
 def _prune_pending() -> None:
     now = time.monotonic()
-    for state, created_at in list(_pending.items()):
-        if now - created_at > _PENDING_TTL_SECONDS:
+    for state, pending in list(_pending.items()):
+        if now - pending.created_at >= _PENDING_TTL_SECONDS:
             _pending.pop(state, None)
 
 
@@ -64,12 +77,15 @@ TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
 def _get_config() -> MicrosoftOAuthConfig | None:
     client_id = get_env("MICROSOFT_OAUTH_CLIENT_ID")
-    client_secret = get_env("MICROSOFT_OAUTH_CLIENT_SECRET")
+    client_secret = get_env("MICROSOFT_OAUTH_CLIENT_SECRET", "")
+    callback_path = "callback" if client_secret else "desktop/callback"
     redirect_uri = get_env(
         "MICROSOFT_OAUTH_REDIRECT_URI",
-        "http://localhost:5002/api/auth/microsoft/callback",
+        f"http://localhost:{get_env('BACKEND_PORT', '5002')}/api/auth/microsoft/{callback_path}",
     )
-    if not client_id or not client_secret:
+    # Native desktop registrations are public clients: PKCE replaces a secret.
+    # Retain optional secrets for existing confidential web registrations.
+    if not client_id:
         return None
     return {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri}
 
@@ -84,20 +100,37 @@ async def status() -> dict[str, object]:
 
 
 # OAuth navigation returns a concrete redirect rather than JSON.
-@router.get("/login")
-async def login() -> RedirectResponse:
+@router.get("/login", response_model=None)
+async def login(request: Request) -> HTMLResponse | RedirectResponse:
     cfg = _get_config()
     if not cfg:
-        raise HTTPException(
+        return HTMLResponse(
             status_code=400,
-            detail=(
-                "Microsoft OAuth no configurat. Desa les credencials als ajustos segurs "
-                "o configura-les a l'entorn del procés."
-            ),
+            content="""<!doctype html><html lang="ca"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connectar Microsoft · Gnosi</title>
+<body style="font:18px system-ui;max-width:38rem;margin:12vh auto;padding:24px">
+<h1>Cal configurar la connexió de Gnosi amb Microsoft</h1>
+<p>Falta el registre de l'aplicació Gnosi a Microsoft. Encara no s'ha iniciat
+l'autenticació del teu compte.</p>
+<p>La contrasenya del correu no resol aquesta configuració.
+Un cop configurada, Microsoft et portarà a l'accés de la teva organització.</p>
+<p><a href="/">Tornar a Gnosi</a></p></body></html>""",
+            headers={"Cache-Control": "no-store"},
         )
     state = secrets.token_urlsafe(32)
+    verifier = secrets.token_urlsafe(64)
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    )
     _prune_pending()
-    _pending[state] = time.monotonic()
+    _pending[state] = PendingAuth(
+        time.monotonic(),
+        verifier,
+        cfg.copy(),
+        request.query_params.get("desktop") == "true",
+        request.query_params.get("ui_locales", "en").split("-")[0],
+    )
 
     params = {
         "client_id": cfg["client_id"],
@@ -106,33 +139,81 @@ async def login() -> RedirectResponse:
         "response_mode": "query",
         "scope": SCOPES,
         "state": state,
-        "prompt": "select_account",
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
     }
+    email = request.query_params.get("login_hint", "").strip()
+    if len(email) <= 254 and re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        params["login_hint"] = email
+    else:
+        params["prompt"] = "select_account"
     # urlencode ensures correct encoding of spaces in SCOPES, `://` in
     # redirect_uri, etc. Manual concatenation used to produce invalid URLs
     # depending on the values.
     url = AUTH_URL + "?" + urlencode(params)
-    return RedirectResponse(url=url)
+    return RedirectResponse(url=url, headers={"Cache-Control": "no-store"})
 
 
-# OAuth completion and provider errors return concrete redirects to the UI.
-@router.get("/callback")
-async def callback(request: Request) -> RedirectResponse:
+def _auth_result(pending: PendingAuth, success: bool) -> HTMLResponse | RedirectResponse:
+    if not pending.desktop:
+        params = {"auth": "microsoft_success"} if success else {"error": "microsoft_cancelled"}
+        return RedirectResponse(url="/?" + urlencode(params))
+    messages = {
+        "ca": (
+            "Compte de Microsoft connectat",
+            "No s'ha connectat el compte",
+            "Ja pots tancar aquesta pestanya i tornar a Gnosi.",
+        ),
+        "es": (
+            "Cuenta de Microsoft conectada",
+            "No se ha conectado la cuenta",
+            "Ya puedes cerrar esta pestaña y volver a Gnosi.",
+        ),
+        "fr": (
+            "Compte Microsoft connecté",
+            "Le compte n'a pas été connecté",
+            "Vous pouvez fermer cet onglet et revenir à Gnosi.",
+        ),
+        "en": (
+            "Microsoft account connected",
+            "Account not connected",
+            "You can close this tab and return to Gnosi.",
+        ),
+    }
+    locale = pending.locale if pending.locale in messages else "en"
+    ok, failed, body = messages[locale]
+    title = ok if success else failed
+    return HTMLResponse(
+        f'<!doctype html><html lang="{locale}"><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>Gnosi · {title}</title>"
+        '<body style="font:18px system-ui;max-width:38rem;margin:12vh auto;padding:24px">'
+        f"<h1>{title}</h1><p>{body}</p></body></html>",
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )
+
+
+@router.get("/callback", response_model=None)
+@router.get("/desktop/callback", response_model=None)
+async def callback(request: Request) -> HTMLResponse | RedirectResponse:
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     error = request.query_params.get("error")
 
-    if error:
-        desc = request.query_params.get("error_description", error)
-        log.error("[Microsoft] OAuth error: %s", desc)
-        return RedirectResponse(url=f"/?error={desc}")
+    _prune_pending()
+    pending = _pending.pop(state, None) if state else None
+    if pending is None:
+        raise HTTPException(status_code=400, detail="Paràmetres OAuth invàlids o caducats")
 
-    if not code or state not in _pending:
+    if error:
+        log.warning("[Microsoft] OAuth authorization was not completed")
+        return _auth_result(pending, False)
+
+    if not code:
         raise HTTPException(status_code=400, detail="Paràmetres OAuth invàlids")
 
-    _pending.pop(state, None)
     cfg = _get_config()
-    if cfg is None:
+    if cfg is None or cfg != pending.config:
         raise HTTPException(
             status_code=400,
             detail="Microsoft OAuth configuration is no longer available",
@@ -140,18 +221,21 @@ async def callback(request: Request) -> RedirectResponse:
 
     # Exchange code for tokens — `requests` is blocking; off-thread so
     # not freeze the event loop for up to 15s.
+    token_data = {
+        "client_id": cfg["client_id"],
+        "code": code,
+        "redirect_uri": cfg["redirect_uri"],
+        "grant_type": "authorization_code",
+        "scope": SCOPES,
+        "code_verifier": pending.code_verifier,
+    }
+    if cfg["client_secret"]:
+        token_data["client_secret"] = cfg["client_secret"]
     try:
         resp = await asyncio.to_thread(
             http.post,
             TOKEN_URL,
-            data={
-                "client_id": cfg["client_id"],
-                "client_secret": cfg["client_secret"],
-                "code": code,
-                "redirect_uri": cfg["redirect_uri"],
-                "grant_type": "authorization_code",
-                "scope": SCOPES,
-            },
+            data=token_data,
             timeout=15,
         )
         resp.raise_for_status()
@@ -163,6 +247,8 @@ async def callback(request: Request) -> RedirectResponse:
 
     access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
+    if not isinstance(access_token, str) or not access_token:
+        raise HTTPException(status_code=502, detail="Microsoft no ha retornat un token vàlid")
 
     # Get user info from Graph API (igualment off-thread).
     try:
@@ -172,10 +258,13 @@ async def callback(request: Request) -> RedirectResponse:
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
+        me_resp.raise_for_status()
         profile_payload: Any = me_resp.json()
         me = cast(dict[str, Any], profile_payload) if isinstance(profile_payload, dict) else {}
         email = me.get("mail") or me.get("userPrincipalName", "")
         name = me.get("displayName", email)
+        if not isinstance(email, str) or not email:
+            raise ValueError("Microsoft profile has no email address")
     except Exception as exc:
         log.error("[Microsoft] Error retrieving profile: %s", exc)
         raise HTTPException(status_code=500, detail="Could not retrieve the profile")
@@ -199,4 +288,4 @@ async def callback(request: Request) -> RedirectResponse:
     }
 
     integration_manager.bulk_update({"mail_accounts": [account_data]})
-    return RedirectResponse(url="/?auth=microsoft_success")
+    return _auth_result(pending, True)

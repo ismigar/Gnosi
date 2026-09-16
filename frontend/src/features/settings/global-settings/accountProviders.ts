@@ -1,8 +1,10 @@
+import { MICROSOFT_MAIL_DOMAINS } from '../../../shared/api/microsoft-auth';
+
 export type AccountProvider = 'google' | 'microsoft' | 'icloud' | 'yahoo' | 'aol';
 
 const providerDomains: Record<AccountProvider, readonly string[]> = {
   google: ['gmail.com', 'googlemail.com'],
-  microsoft: ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'],
+  microsoft: MICROSOFT_MAIL_DOMAINS,
   icloud: ['icloud.com', 'me.com', 'mac.com'],
   yahoo: ['yahoo.com', 'ymail.com', 'yahoo.es'],
   aol: ['aol.com'],

@@ -41182,6 +41182,26 @@
         ]
       }
     },
+    "/api/auth/microsoft/desktop/callback": {
+      "get": {
+        "operationId": "callback_api_auth_microsoft_desktop_callback_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Callback",
+        "tags": [
+          "Auth",
+          "auth"
+        ]
+      }
+    },
     "/api/auth/microsoft/login": {
       "get": {
         "operationId": "login_api_auth_microsoft_login_get",

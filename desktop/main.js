@@ -31,6 +31,7 @@ const {
 const { buildMacInstallerUrl, getUpdateInstallMode, readMacSignature } = require('./update-policy');
 const { isTrustedRendererUrl } = require('./ipc-security');
 const { isGoogleSignInNavigation, openGoogleSignIn, googleSignInErrorMessage, fetchGoogleSignInRedirect } = require('./google-sign-in');
+const { isMicrosoftSignInNavigation, openMicrosoftSignIn, microsoftSignInErrorMessage } = require('./microsoft-sign-in');
 const { registerIpcHandlers } = require('./ipc-handlers');
 const { backendStartupMessage } = require('./startup-errors');
 
@@ -358,23 +359,27 @@ function createWindow() {
     mainWindows.delete(window);
   });
 
-  let openingGoogleSignIn = false;
-  // Keep Settings alive while the system browser owns the Google login.
+  let openingProviderSignIn = false;
+  // Keep Settings alive while the system browser owns the provider login.
   const preventUntrustedNavigation = (event, url) => {
-    if (isGoogleSignInNavigation(url, isDev)) {
+    const microsoft = isMicrosoftSignInNavigation(url, isDev);
+    if (microsoft || isGoogleSignInNavigation(url, isDev)) {
       event.preventDefault();
-      if (openingGoogleSignIn) return;
-      openingGoogleSignIn = true;
-      void openGoogleSignIn(url, {
+      if (openingProviderSignIn) return;
+      openingProviderSignIn = true;
+      const provider = microsoft ? 'Microsoft' : 'Google';
+      const openSignIn = microsoft ? openMicrosoftSignIn : openGoogleSignIn;
+      const errorMessage = microsoft ? microsoftSignInErrorMessage : googleSignInErrorMessage;
+      void openSignIn(url, {
         backendURL: getBackendURL(),
         fetch: (address, options) => fetchGoogleSignInRedirect(
           requestOptions => net.request(requestOptions), address, options),
         openExternal: address => shell.openExternal(address),
         locale: app.getLocale(),
       }).catch((error) => {
-        log('Could not start Google sign-in:', error.message);
-        dialog.showErrorBox('Gnosi — Google', googleSignInErrorMessage(app.getLocale()));
-      }).finally(() => { openingGoogleSignIn = false; });
+        log('Could not start ' + provider + ' sign-in:', error.message);
+        dialog.showErrorBox('Gnosi — ' + provider, errorMessage(app.getLocale()));
+      }).finally(() => { openingProviderSignIn = false; });
       return;
     }
     // A trusted window must not retain its preload bridge after remote navigation.

@@ -361,3 +361,5 @@ d'intégration réel utilise un compte dédié et ne doit pas modifier
 involontairement des données de production.
 
 Le [plugin Génogrammes](genograms.md), facultatif par Vault, ajoute des tables familiales liées, des vues SVG et des exports locaux SVG/PNG/PDF, sans service externe ni IA.
+
+Pour l’inscription du courrier Microsoft sur ordinateur et le consentement institutionnel, consultez le [guide de configuration Microsoft](../microsoft-mail-setup.md).

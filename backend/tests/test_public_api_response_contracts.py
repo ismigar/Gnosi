@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, get_type_hints
 
 from fastapi import APIRouter
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.routing import APIRoute
 
 
@@ -89,7 +89,7 @@ def test_selected_json_routes_publish_named_response_models() -> None:
     assert _routes(vault_views_routes.router)["delete_page_view"].response_model_exclude_none
 
 
-def test_only_concrete_redirect_file_and_stream_boundaries_are_unmodelled() -> None:
+def test_only_concrete_navigation_file_and_stream_boundaries_are_unmodelled() -> None:
     from backend.api import (
         ai_routes,
         calendar_routes,
@@ -127,13 +127,30 @@ def test_only_concrete_redirect_file_and_stream_boundaries_are_unmodelled() -> N
         (vault_templates_routes.__name__, "export_vault_template"),
     }
 
-    # Both OAuth modules use these endpoint names; verify every concrete
-    # redirect rather than relying on the de-duplicated inventory above.
-    for router in (notion_oauth_routes.router, microsoft_auth_routes.router):
-        routes = _routes(router)
-        for endpoint_name in ("login", "callback"):
-            assert routes[endpoint_name].response_model is None
-            assert get_type_hints(routes[endpoint_name].endpoint)["return"] is RedirectResponse
+    # Check each path so the two Microsoft callback registrations are both covered.
+    # Microsoft also renders setup errors and desktop completion as HTML.
+    for router, expected_responses in (
+        (
+            notion_oauth_routes.router,
+            {"/login": RedirectResponse, "/callback": RedirectResponse},
+        ),
+        (
+            microsoft_auth_routes.router,
+            {
+                "/login": HTMLResponse | RedirectResponse,
+                "/callback": HTMLResponse | RedirectResponse,
+                "/desktop/callback": HTMLResponse | RedirectResponse,
+            },
+        ),
+    ):
+        routes = {
+            route.path: route
+            for route in router.routes
+            if isinstance(route, APIRoute) and route.response_model is None
+        }
+        assert set(routes) == {router.prefix + path for path in expected_responses}
+        for path, response_type in expected_responses.items():
+            assert get_type_hints(routes[router.prefix + path].endpoint)["return"] == response_type
 
     calendar_feed = _routes(calendar_routes.router)["get_ics_feed"]
     template_export = _routes(vault_templates_routes.router)["export_vault_template"]

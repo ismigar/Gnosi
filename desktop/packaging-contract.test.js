@@ -108,6 +108,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\preload.js',
     '\\ipc-security.js',
     '\\google-sign-in.js',
+    '\\microsoft-sign-in.js',
     '\\ipc-handlers.js',
     '\\backend-process.js',
     '\\vault-folders.js',
