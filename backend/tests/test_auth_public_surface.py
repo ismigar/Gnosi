@@ -24,6 +24,7 @@ from backend.services.auth_public_surface import (
         ("POST", "/api/auth/register"),
         ("POST", "/api/auth/logout"),
         ("GET", "/api/auth/me"),
+        ("GET", "/api/auth/google/callback"),
         ("GET", "/api/share/abc123"),    # token in the URL is the credential
         ("POST", "/api/public/clip"),    # PAT-authenticated
         ("GET", "/api/public/clip/config"),  # the extension reads its form schema
@@ -54,6 +55,11 @@ def test_method_is_case_insensitive():
         ("DELETE", "/api/share/abc123"),             # revoking a share is not anonymous
         ("POST", "/api/share"),
         ("GET", "/api/agent/run"),
+        ("GET", "/api/auth/google/login"),
+        ("GET", "/api/auth/google/status"),
+        ("GET", "/api/auth/google/health"),
+        ("POST", "/api/auth/google/callback"),
+        ("GET", "/api/auth/google/callback/other"),
     ],
 )
 def test_is_not_public(method: str, path: str):

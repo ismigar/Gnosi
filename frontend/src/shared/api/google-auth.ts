@@ -2,6 +2,12 @@ import type { components } from '../../generated/openapi';
 import { apiClient } from './client';
 import { unwrapApiResult } from './errors';
 
+export function googleSignInPath(type: string, email?: string): string {
+  const params = new URLSearchParams({ type });
+  if (email?.trim()) params.set('login_hint', email.trim());
+  return '/api/auth/google/login?' + params.toString();
+}
+
 
 export type GoogleOAuthHealth =
   components['schemas']['GoogleOAuthHealthResponse'];

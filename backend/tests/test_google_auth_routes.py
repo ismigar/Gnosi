@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -107,6 +109,129 @@ def test_google_login_records_pkce_context_and_redirects(
     assert response.headers["location"] == "https://accounts.google.test/authorize"
     assert google_auth_routes.pending_auths["state-1"]["code_verifier"] == "verifier"
     assert google_auth_routes.pending_auths["state-1"]["type"] == "mail"
+
+
+@pytest.mark.parametrize("hint", ["user+calendar@example.test", " user@example.test ", None, " "])
+def test_google_login_passes_the_existing_email_to_google(
+    monkeypatch: pytest.MonkeyPatch, hint: str | None,
+) -> None:
+    options: dict[str, Any] = {}
+
+    class FakeFlow:
+        code_verifier = "verifier"
+
+        @classmethod
+        def from_client_config(cls, *_args: Any, **_kwargs: Any) -> FakeFlow:
+            return cls()
+
+        def authorization_url(self, **kwargs: Any) -> tuple[str, str]:
+            options.update(kwargs)
+            return "https://accounts.google.test/authorize", "hint-state"
+
+    monkeypatch.setattr(google_auth_routes, "Flow", FakeFlow)
+    monkeypatch.setattr(google_auth_routes, "get_google_config", _config)
+    asyncio.run(google_auth_routes.login("calendar", hint, True, "ca-ES"))
+    assert options.get("login_hint") == ((hint or "").strip() or None)
+    assert options["access_type"] == "offline"
+    assert google_auth_routes.pending_auths["hint-state"]["desktop"] is True
+    assert google_auth_routes.pending_auths["hint-state"]["locale"] == "ca"
+
+
+def _pending(*, desktop: bool = True, age: float = 0) -> google_auth_routes.PendingAuth:
+    return {
+        "code_verifier": "fixture-verifier",
+        "type": "calendar",
+        "created_at": time.monotonic() - age,
+        "desktop": desktop,
+        "locale": "ca",
+    }
+
+
+def test_expired_callback_is_rejected_before_loading_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    google_auth_routes.pending_auths["expired"] = _pending(age=601)
+    monkeypatch.setattr(google_auth_routes, "get_google_config", lambda: pytest.fail("Credentials accessed"))
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(google_auth_routes.callback(_request("code=fixture&state=expired")))
+    assert error.value.status_code == 400
+    assert "expired" not in google_auth_routes.pending_auths
+
+
+def test_cancelled_desktop_login_returns_to_gnosi_without_exchanging_a_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    google_auth_routes.pending_auths["cancelled"] = _pending()
+    monkeypatch.setattr(google_auth_routes, "get_google_config", lambda: pytest.fail("Credentials accessed"))
+    response = asyncio.run(google_auth_routes.callback(_request("error=access_denied&state=cancelled")))
+    assert response.status_code == 200
+    assert "location" not in response.headers
+    assert "Torna a Gnosi" in bytes(response.body).decode()
+    assert "cancelled" not in google_auth_routes.pending_auths
+
+
+def test_system_browser_callback_uses_one_time_state_without_an_app_cookie(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+    from backend.server import app
+    from backend.services.auth_service import REQUIRE_AUTH_ENV
+
+    monkeypatch.setenv(REQUIRE_AUTH_ENV, "1")
+    google_auth_routes.pending_auths["browser-state"] = _pending()
+    client = TestClient(app)
+    assert client.get("/api/auth/google/login").status_code == 401
+    response = client.get("/api/auth/google/callback?state=browser-state&error=access_denied")
+    assert response.status_code == 200
+    assert "Torna a Gnosi" in response.text
+    replay = client.get("/api/auth/google/callback?state=browser-state&error=access_denied")
+    assert replay.status_code == 400
+
+
+@pytest.mark.parametrize("desktop", [True, False])
+def test_successful_callback_saves_the_account_once_and_returns_to_the_right_client(
+    monkeypatch: pytest.MonkeyPatch, desktop: bool,
+) -> None:
+    saved: list[dict[str, Any]] = []
+    codes: list[str] = []
+    flow = SimpleNamespace(
+        code_verifier=None,
+        fetch_token=lambda *, code: codes.append(code),
+        credentials=SimpleNamespace(
+            token="fixture-token", refresh_token="fixture-refresh",
+            client_id="fixture-client", client_secret="fixture-secret",
+            token_uri="https://oauth2.googleapis.com/token",
+        ),
+    )
+    service = SimpleNamespace(userinfo=lambda: SimpleNamespace(
+        get=lambda: SimpleNamespace(execute=lambda: {"email": "user@example.test", "name": "Fixture"}),
+    ))
+    monkeypatch.setattr(google_auth_routes, "get_google_config", _config)
+    monkeypatch.setattr(google_auth_routes, "get_env", lambda _key, default=None: default)
+    monkeypatch.setattr(google_auth_routes.Flow, "from_client_config", lambda *_args, **_kwargs: flow)
+    monkeypatch.setattr("googleapiclient.discovery.build", lambda *_args, **_kwargs: service)
+    monkeypatch.setattr(integration_manager, "bulk_update", saved.append)
+    google_auth_routes.pending_auths["success"] = _pending(desktop=desktop)
+
+    response = asyncio.run(google_auth_routes.callback(_request("code=fixture-code&state=success")))
+
+    assert codes == ["fixture-code"]
+    assert flow.code_verifier == "fixture-verifier"
+    assert len(saved) == 1
+    assert saved[0]["calendars"][0]["email"] == "user@example.test"
+    assert saved[0]["calendars"][0]["refresh_token"] == "fixture-refresh"
+    if desktop:
+        assert response.status_code == 200
+        assert "location" not in response.headers
+        assert "Compte de Google connectat" in bytes(response.body).decode()
+        assert response.headers["cache-control"] == "no-store"
+        assert "fixture-token" not in bytes(response.body).decode()
+    else:
+        assert response.headers["location"] == "http://localhost:5173/calendar?auth=success&tab=calendar"
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(google_auth_routes.callback(_request("code=fixture-code&state=success")))
+    assert error.value.status_code == 400
+    assert len(saved) == 1
 
 
 def test_google_login_rejects_missing_configuration(

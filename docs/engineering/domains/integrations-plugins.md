@@ -1,9 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-16
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
+  - backend/services/auth_public_surface.py
+  - desktop/google-sign-in.js
+  - desktop/main.js
+  - frontend/src/shared/api/google-auth.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.tsx
+  - frontend/src/features/settings/global-settings/accountProviders.ts
+  - frontend/src/features/settings/global-settings/DavAccountForm.tsx
   - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
@@ -41,6 +48,10 @@ source_paths:
 tests:
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
+  - desktop/google-sign-in.test.js
+  - frontend/src/shared/api/google-auth.test.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx
+  - frontend/src/features/settings/global-settings/settingsController.test.tsx
   - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
   - backend/tests/test_keychain_manager.py
@@ -79,6 +90,17 @@ before opening sockets. DAV URLs may target private self-hosted networks such
 as Nextcloud, while loopback, link-local, multicast, reserved, and unspecified
 addresses remain blocked.
 
+## Account provider choices
+
+Settings recognizes the exact known email domains for Google, Microsoft, iCloud,
+Yahoo and AOL as soon as a complete address is entered, ignoring outer whitespace
+and domain case. Known domains show only their provider's Continue action and do
+not ask whether the account is Google. Unknown domains retain explicit provider
+selection and manual configuration, including Google Workspace addresses.
+Detection never starts authentication or changes server settings by itself;
+Continue remains an explicit action. Each provider icon and label is centered
+together as one inline group, including wrapped translations.
+
 ## Integration persistence
 
 The integration manager stores non-secret account configuration and references
@@ -91,13 +113,23 @@ Google and Microsoft OAuth callbacks create or update provider records. IMAP,
 SMTP, CalDAV, Drupal, Notion, and similar adapters normalize their own settings
 into the common integration registry where possible.
 
-Google OAuth keeps pending PKCE verifiers in a bounded, expiring state map and
-rejects callbacks whose state is absent or expired before token exchange. The
-configuration and account payloads are typed at the adapter boundary. Status
-and health dictionaries are validated through Pydantic models before returning
-their historical mapping shape; redirect handlers expose explicit response
-types. `response_model=None` retains the byte-stable OpenAPI schemas, and typing
-exceptions remain confined to the untyped Google SDK calls.
+Google OAuth keeps pending PKCE verifiers in a state map with a ten-minute
+lifetime. Callback state is consumed once, before token exchange or cancellation;
+missing, expired and replayed state is rejected. Only
+`GET /api/auth/google/callback` bypasses the app session requirement, because the
+system browser does not share the desktop cookie. PKCE and pending-state
+validation remain mandatory; login, status and health remain protected.
+
+The desktop intercepts the trusted Google login navigation without replacing
+Settings. Electron resolves the authenticated local redirect through
+`ClientRequest`, validates the Google authorization destination, then opens the
+system browser. The email already entered in Settings is forwarded as
+`login_hint`; optional `desktop=true` and `ui_locales` select a localized result
+page with `no-store` and `no-referrer`. Web clients retain their frontend
+redirect. Returning to Settings refreshes accounts without clearing draft fields.
+Configuration and account payloads stay typed at the adapter boundary; status
+and health responses remain Pydantic-validated, with typing exceptions confined
+to the untyped Google SDK calls.
 
 The Google People adapter narrows discovery responses to Gnosi contact records,
 refreshes and persists access tokens through the integration manager, preserves

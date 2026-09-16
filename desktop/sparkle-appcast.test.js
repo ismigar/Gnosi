@@ -53,9 +53,15 @@ test('the official Sparkle signing tool produces a feed accepted by the independ
   await verifyFeed(file, { version: '3.0.1', arch: 'arm64', key });
 });
 
-test('free macOS config retains native resources and disables Apple identity discovery', async () => {
+test('free macOS config retains native resources and disables Apple identity discovery', async t => {
   const {createRequire}=require('node:module');
   const fromBuilder=createRequire(require.resolve('electron-builder/package.json'));
+  const fromAppBuilder=createRequire(fromBuilder.resolve('app-builder-lib/package.json'));
+  const {log}=fromAppBuilder('builder-util');
+  // Keep builder diagnostics off the Node test worker's stdout transport.
+  const originalStream=log.stream;
+  log.stream=process.stderr;
+  t.after(()=>{log.stream=originalStream;});
   const {getConfig,validateConfiguration}=fromBuilder('app-builder-lib/out/util/config/config');
   const config=await getConfig(__dirname,'electron-builder.macos-sparkle.cjs');
   await validateConfiguration(config);

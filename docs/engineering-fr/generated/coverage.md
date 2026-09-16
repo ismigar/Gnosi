@@ -8,7 +8,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 643 | 221 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 645 | 222 | 0 |
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 996 | 263 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 441 | 110 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
@@ -22,7 +22,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 145 | 44 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 41 | 28 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 133 | 42 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 136 | 43 | 0 |
 
 ## Platform foundation and runtime
 

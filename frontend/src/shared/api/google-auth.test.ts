@@ -1,7 +1,7 @@
 import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchGoogleOAuthHealth, fetchGoogleOAuthStatus } from './google-auth';
+import { fetchGoogleOAuthHealth, fetchGoogleOAuthStatus, googleSignInPath } from './google-auth';
 
 
 afterEach(() => {
@@ -11,6 +11,18 @@ afterEach(() => {
 
 
 describe('Google OAuth API', () => {
+  it('forwards the entered email without changing plus aliases or adding query parameters', () => {
+    const url = new URL(googleSignInPath('calendar', ' User+calendar@example.test '), 'http://localhost');
+    expect(url.pathname).toBe('/api/auth/google/login');
+    expect([...url.searchParams.entries()]).toEqual([
+      ['type', 'calendar'], ['login_hint', 'User+calendar@example.test'],
+    ]);
+    const unusual = new URL(googleSignInPath('mail', 'user&other=value@example.test'), 'http://localhost');
+    expect(unusual.searchParams.get('login_hint')).toBe('user&other=value@example.test');
+    expect(unusual.searchParams.has('other')).toBe(false);
+    expect(googleSignInPath('calendar', ' ')).toBe('/api/auth/google/login?type=calendar');
+  });
+
   it('loads the minimal OAuth status through the generated client', async () => {
     const payload = {
       client_id: 'client.apps.googleusercontent.com',

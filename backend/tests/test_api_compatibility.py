@@ -52,6 +52,17 @@ def test_historical_extraction_uses_the_immutable_tag() -> None:
     assert Operation("WEBSOCKET", "/api/vault/collab/{param}", "websocket") in operations
 
 
+def test_desktop_google_result_preserves_web_oauth_redirect_contracts() -> None:
+    operations = current_inventory()
+
+    for path in (
+        "/api/auth/google/callback",
+        "/api/auth/microsoft/callback",
+        "/api/notion-oauth/callback",
+    ):
+        assert Operation("GET", path, "redirect") in operations
+
+
 def test_parameter_names_and_fastapi_converters_share_one_public_identity() -> None:
     assert normalize_path("/files/{old_name:path}") == "/files/{param}"
     assert normalize_path("/files/{new_name}") == "/files/{param}"

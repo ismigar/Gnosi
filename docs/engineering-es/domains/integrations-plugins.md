@@ -1,9 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-28
+last_verified: 2026-09-16
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
+  - backend/services/auth_public_surface.py
+  - desktop/google-sign-in.js
+  - desktop/main.js
+  - frontend/src/shared/api/google-auth.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.tsx
+  - frontend/src/features/settings/global-settings/accountProviders.ts
+  - frontend/src/features/settings/global-settings/DavAccountForm.tsx
   - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
@@ -41,6 +48,10 @@ source_paths:
 tests:
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
+  - desktop/google-sign-in.test.js
+  - frontend/src/shared/api/google-auth.test.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx
+  - frontend/src/features/settings/global-settings/settingsController.test.tsx
   - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
   - backend/tests/test_keychain_manager.py
@@ -77,6 +88,18 @@ de texto obligatorias antes de abrir sockets. Las URL DAV pueden apuntar a
 redes privadas autoalojadas como Nextcloud, pero se bloquean loopback,
 link-local, multicast, direcciones reservadas y no especificadas.
 
+## Selección del proveedor de la cuenta
+
+La configuración reconoce los dominios exactos conocidos de Google, Microsoft,
+iCloud, Yahoo y AOL en cuanto se introduce una dirección completa, ignorando los
+espacios exteriores y las mayúsculas del dominio. Los dominios conocidos muestran
+solo el botón para continuar con su proveedor y no preguntan si la cuenta es de
+Google. Los dominios desconocidos mantienen la selección explícita y la
+configuración manual, incluidas las cuentas de Google Workspace. La detección no
+inicia la autenticación ni modifica servidores: continuar requiere una acción
+explícita. El icono y el texto de cada botón quedan centrados juntos como un único
+grupo, también en traducciones de varias líneas.
+
 ## Persistencia de las integraciones
 
 El gestor de integraciones almacena la configuración no secreta de las cuentas y las referencias a secretos en los datos locales. Cada máquina reconecta las cuentas de forma independiente. Las API de configuración muestran el estado de conexión enmascarado, validan los ajustes, prueban la conectividad, seleccionan valores predeterminados y desconectan proveedores sin exponer tokens en bruto.
@@ -84,13 +107,23 @@ El gestor de integraciones almacena la configuración no secreta de las cuentas 
 Los callbacks de Google y Microsoft OAuth crean o actualizan registros de proveedores. IMAP, SMTP, CalDAV, Drupal, Notion y adaptadores similares normalizan sus propios ajustes en el registro de integración común cuando es posible.
 
 Google OAuth conserva los verificadores PKCE pendientes en un mapa de estados
-acotado y con caducidad, y rechaza los callbacks cuyo estado falta o ha caducado
-antes del intercambio de tokens. Los payloads de configuración y cuenta están
-tipados en la frontera del adaptador. Los diccionarios de estado y salud se
-validan mediante modelos Pydantic antes de devolver su estructura histórica de
-mapeo; los handlers de redirección exponen tipos de respuesta explícitos.
-`response_model=None` conserva los esquemas OpenAPI byte a byte, y las excepciones
-de tipado se limitan a las llamadas sin tipado del SDK de Google.
+con una vigencia de diez minutos. El estado del callback se consume una sola vez,
+antes de intercambiar tokens o cancelar; se rechazan estados ausentes, caducados
+o reutilizados. Solo `GET /api/auth/google/callback` queda exento del requisito
+de sesión de la aplicación, porque el navegador del sistema no comparte la
+cookie del escritorio. PKCE y la validación del estado pendiente siguen siendo
+obligatorios; el inicio de sesión, el estado y la salud permanecen protegidos.
+
+El escritorio intercepta la navegación de confianza hacia Google sin reemplazar
+Configuración. Electron resuelve la redirección local autenticada mediante
+`ClientRequest`, valida el destino de autorización de Google y abre el navegador
+del sistema. El correo ya introducido en Configuración se envía como
+`login_hint`; los parámetros opcionales `desktop=true` y `ui_locales` seleccionan
+una página de resultado localizada con `no-store` y `no-referrer`. Los clientes
+web conservan su redirección al frontend. Volver a Configuración actualiza las
+cuentas sin borrar los campos pendientes. La configuración y las cuentas siguen
+tipadas en la frontera del adaptador; Pydantic valida las respuestas de estado y
+salud, con excepciones de tipado limitadas a las llamadas sin tipado del SDK de Google.
 
 El adaptador Google People restringe las respuestas de descubrimiento a registros
 de contacto de Gnosi, renueva y guarda tokens de acceso mediante el gestor de
