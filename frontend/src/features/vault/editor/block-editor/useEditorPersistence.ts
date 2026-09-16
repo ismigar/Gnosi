@@ -54,19 +54,29 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const transientRetryRef = useRef(0);
     const outgoingSignatureRef = useRef('');
+    const contentRef = useRef<{
+        editor: PersistenceEditor;
+        noteFilename: string;
+        saved: string;
+        observed: string;
+    } | null>(null);
     // This is a data ref, deliberately read at flush time, not a DOM ref.
     const readMetadata = useCallback(() => metadataRef.current, [metadataRef]);
-    const handleSave = useCallback(async function persistCurrentPage() {
+    const handleSave = useCallback(async function persistCurrentPage(force = true) {
         if (!noteFilename || isParsing || !editorReady) return;
         try {
+            const content = blocksToRichMarkdown(editor.document);
+            const tracked = contentRef.current;
+            if (!force && tracked?.editor === editor && tracked.noteFilename === noteFilename
+                && content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
             setSaveStatus('saving');
-            const { data, promise } = savePage(noteFilename, blocksToRichMarkdown(editor.document), readMetadata(), t('editor.untitled'));
+            const { data, promise } = savePage(noteFilename, content, readMetadata(), t('editor.untitled'));
             await promise;
             clearOwnSave(noteFilename, promise);
+            if (tracked?.editor === editor && tracked.noteFilename === noteFilename) tracked.saved = data.content;
             transientRetryRef.current = 0;
             setSaveStatus('saved');
             onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
-            if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
             setTimeout(() => { setSaveStatus(previous => previous === 'saved' ? 'idle' : previous); }, 3000);
         } catch (error) {
             const retryDelay = transientRetryDelay(error, transientRetryRef.current);
@@ -76,7 +86,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
                 if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
                 saveTimerRef.current = setTimeout(() => {
                     saveTimerRef.current = null;
-                    void persistCurrentPage();
+                    void persistCurrentPage(force);
                 }, retryDelay);
                 return;
             }
@@ -87,11 +97,21 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
     }, [editor, editorReady, isParsing, readMetadata, noteFilename, onUpdate, setSaveStatus, t]);
 
     useEffect(() => {
-        if (isParsing) return;
+        if (isParsing || !editorReady || !noteFilename) return;
+        // Compare serialized content, not block ids or editor change events:
+        // rendering/normalization can emit events without changing the page.
+        if (contentRef.current?.editor !== editor || contentRef.current.noteFilename !== noteFilename) {
+            const content = blocksToRichMarkdown(editor.document);
+            contentRef.current = { editor, noteFilename, saved: content, observed: content };
+        }
+        const tracked = contentRef.current;
         const subscription = editor.onChange(() => {
+            const content = blocksToRichMarkdown(editor.document);
+            if (content === tracked.observed) return;
+            tracked.observed = content;
             transientRetryRef.current = 0;
             if (onOutgoingLinksChange) {
-                const links = extractOutgoingPageLinks(blocksToRichMarkdown(editor.document), idToTitle, noteFilename);
+                const links = extractOutgoingPageLinks(content, idToTitle, noteFilename);
                 const signature = links.map(link => `${link.id || ''}\u0000${link.title}`).join('\u0001');
                 if (signature !== outgoingSignatureRef.current) {
                     outgoingSignatureRef.current = signature;
@@ -99,7 +119,12 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
                 }
             }
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-            saveTimerRef.current = setTimeout(() => { void handleSave(); }, 700);
+            saveTimerRef.current = null;
+            if (content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
+            saveTimerRef.current = setTimeout(() => {
+                saveTimerRef.current = null;
+                void handleSave(false);
+            }, 700);
         });
         return () => {
             if (typeof subscription === 'function') subscription();
@@ -107,8 +132,11 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
             if (!saveTimerRef.current) return;
             clearTimeout(saveTimerRef.current);
             saveTimerRef.current = null;
-            const { data, promise } = savePage(noteFilename, blocksToRichMarkdown(editor.document), readMetadata(), t('editor.untitled'));
+            const content = blocksToRichMarkdown(editor.document);
+            if (content === tracked.saved && !inFlightSaves.has(noteFilename)) return;
+            const { data, promise } = savePage(noteFilename, content, readMetadata(), t('editor.untitled'));
             void promise.then(() => {
+                tracked.saved = data.content;
                 onUpdate?.(noteFilename, data.content, { title: data.title, metadata: data.metadata });
             }).finally(() => {
                 if (inFlightSaves.get(noteFilename)?.promise === promise) {
@@ -116,7 +144,7 @@ export function useEditorPersistence({ editor, noteFilename, isParsing, editorRe
                 }
             }).catch((error: unknown) => { logError('unmount-save', error); });
         };
-    }, [editor, handleSave, idToTitle, isParsing, readMetadata, noteFilename, onOutgoingLinksChange, onUpdate, t]);
+    }, [editor, editorReady, handleSave, idToTitle, isParsing, readMetadata, noteFilename, onOutgoingLinksChange, onUpdate, t]);
 
     return handleSave;
 }
