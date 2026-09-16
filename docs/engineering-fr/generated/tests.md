@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 545 | 2275 |
+| Vitest | 546 | 2283 |
 | pytest | 532 | 3745 |
 
 ## Fichiers
@@ -328,7 +328,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/SingleSelectPill.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/SingleSelectPill.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/values.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/values.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/schema.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/schema.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx) | 8 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useEditorPersistence.test.tsx) | 13 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/useInitialDocument.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useInitialDocument.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/useLinkCommands.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/useLinkCommands.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/cite-inline/citationResolver.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/cite-inline/citationResolver.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/contextualLinkPasteUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/contextualLinkPasteUtils.test.ts) | 3 | call-pattern estimate |

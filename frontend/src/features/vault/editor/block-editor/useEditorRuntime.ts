@@ -10,6 +10,7 @@ import { useMediaUpload } from './useMediaUpload';
 import { useInitialDocument } from './useInitialDocument';
 import type { PageEditorBodyProps } from './page-editor/types';
 import { useDropBridge } from './useDropBridge';
+import { isEmptyDocument } from './emptyDocument';
 
 export function useEditorRuntime({ noteFilename, initialContent, contextValue, metadata, metadataRef }: PageEditorBodyProps) {
     const { i18n, t } = useTranslation();
@@ -44,9 +45,7 @@ export function useEditorRuntime({ noteFilename, initialContent, contextValue, m
         const timer = setTimeout(() => {
             try {
                 const meta = document.getMap('meta'); if (meta.get('seeded')) return;
-                const first = editor.document[0]?.content;
-                const empty = editor.document.length <= 1 && (!first || (Array.isArray(first) && first.length === 0));
-                if (empty) {
+                if (isEmptyDocument(editor.document)) {
                     document.transact(() => { meta.set('seeded', true); });
                     editor.replaceBlocks(editor.document, blocks);
                 }
