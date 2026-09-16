@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 source_paths:
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
@@ -8,6 +8,9 @@ source_paths:
   - desktop/google-sign-in.js
   - desktop/main.js
   - frontend/src/shared/api/google-auth.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.tsx
+  - frontend/src/features/settings/global-settings/accountProviders.ts
+  - frontend/src/features/settings/global-settings/DavAccountForm.tsx
   - backend/api/microsoft_auth_routes.py
   - backend/api/notion_routes.py
   - backend/api/notion_oauth_routes.py
@@ -47,6 +50,7 @@ tests:
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
   - frontend/src/shared/api/google-auth.test.ts
+  - frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx
   - frontend/src/features/settings/global-settings/settingsController.test.tsx
   - backend/tests/test_microsoft_auth_routes.py
   - backend/tests/test_google_contacts_service.py
@@ -85,6 +89,18 @@ payloads públics. Les proves de connexió Mail i DAV validen les credencials de
 text obligatòries abans d'obrir sockets. Les URL DAV poden apuntar a xarxes
 privades autoallotjades com Nextcloud, però es bloquegen loopback, link-local,
 multicast, adreces reservades i no especificades.
+
+## Selecció del proveïdor del compte
+
+La configuració reconeix els dominis exactes coneguts de Google, Microsoft, iCloud,
+Yahoo i AOL tan bon punt s'introdueix una adreça completa, ignorant els espais
+exteriors i les majúscules del domini. Els dominis coneguts mostren només el botó
+per continuar amb el seu proveïdor i no pregunten si el compte és de Google.
+Els dominis desconeguts conserven la selecció explícita i la configuració manual,
+inclosos els comptes de Google Workspace. La detecció no inicia l'autenticació
+ni modifica els servidors: continuar requereix una acció explícita. La icona i el
+text de cada botó queden centrats junts com un únic grup, també quan les
+traduccions ocupen més d'una línia.
 
 ## Persistència de les integracions
 

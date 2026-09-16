@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1080 | 124799 | 32 |
+| `features` | 1081 | 124817 | 32 |
 | `generated` | 2 | 44323 | 453 |
 | `shared` | 247 | 30514 | 395 |
 
@@ -531,7 +531,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 194 | `AIAgentForm` | — |
 | [`frontend/src/features/settings/global-settings/AccountEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountEditor.tsx) | 56 | `AccountEditor` | — |
 | [`frontend/src/features/settings/global-settings/AccountList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountList.tsx) | 171 | `AccountList` | — |
-| [`frontend/src/features/settings/global-settings/AccountProviderChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.tsx) | 90 | `AccountProviderChoices` | `/api/auth/microsoft/login` |
+| [`frontend/src/features/settings/global-settings/AccountProviderChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.tsx) | 84 | `AccountProviderChoices` | `/api/auth/microsoft/login` |
 | [`frontend/src/features/settings/global-settings/AccountRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountRow.tsx) | 71 | `AccountRow` | — |
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
@@ -539,7 +539,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 95 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
-| [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 88 | `DavAccountForm` | — |
+| [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 87 | `GeneralPanel` | — |
 | [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 246 | `GlobalSettingsView` | — |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
@@ -559,6 +559,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/TranslateSaveIndicator.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslateSaveIndicator.tsx) | 22 | `TranslateSaveIndicator` | — |
 | [`frontend/src/features/settings/global-settings/TranslationPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslationPanel.tsx) | 100 | `TranslationPanel` | — |
 | [`frontend/src/features/settings/global-settings/WorkspacePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/WorkspacePanel.tsx) | 27 | `WorkspacePanel` | — |
+| [`frontend/src/features/settings/global-settings/accountProviders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/accountProviders.ts) | 22 | `accountProviderForEmail`, `isCompleteAccountEmail` | — |
 | [`frontend/src/features/settings/global-settings/aiOperationsBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.ts) | 56 | `automationResources`, `operationResources` | — |
 | [`frontend/src/features/settings/global-settings/formatting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/formatting.ts) | 17 | `CURRENCIES`, `DATE_FORMATS`, `DECIMAL_SYMBOLS`, `formatCost` | — |
 | [`frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts) | 14 | `pluginConfigurationForSettingsTab`, `pluginForSettingsTab` | — |
