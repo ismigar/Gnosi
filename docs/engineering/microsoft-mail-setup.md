@@ -1,3 +1,21 @@
+---
+status: implemented
+last_verified: 2026-09-16
+source_paths:
+  - backend/api/microsoft_auth_routes.py
+  - backend/services/auth_public_surface.py
+  - backend/services/microsoft_mail_service.py
+  - desktop/microsoft-sign-in.js
+  - desktop/main.js
+  - frontend/src/shared/api/microsoft-auth.ts
+  - frontend/src/features/settings/global-settings/accountProviders.ts
+tests:
+  - backend/tests/test_microsoft_auth_routes.py
+  - backend/tests/test_auth_public_surface.py
+  - desktop/microsoft-sign-in.test.js
+  - frontend/src/shared/api/microsoft-auth.test.ts
+---
+
 # Microsoft mail in Gnosi desktop
 
 Gnosi needs its own Microsoft Entra application registration before starting
