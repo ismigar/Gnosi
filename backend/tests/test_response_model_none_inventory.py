@@ -85,6 +85,28 @@ EXPECTED_EXEMPTIONS: Counter[Exemption] = Counter(
             "callback",
             "HTMLResponse | RedirectResponse",
         ): 1,
+        # Microsoft OAuth likewise returns HTML or redirects, not JSON.
+        (
+            "backend/api/microsoft_auth_routes.py",
+            "GET",
+            "/login",
+            "login",
+            "HTMLResponse | RedirectResponse",
+        ): 1,
+        (
+            "backend/api/microsoft_auth_routes.py",
+            "GET",
+            "/callback",
+            "callback",
+            "HTMLResponse | RedirectResponse",
+        ): 1,
+        (
+            "backend/api/microsoft_auth_routes.py",
+            "GET",
+            "/desktop/callback",
+            "callback",
+            "HTMLResponse | RedirectResponse",
+        ): 1,
         (
             "backend/api/literature_routes.py",
             "GET",

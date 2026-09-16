@@ -9,7 +9,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Summary
 
 - Registered routers: **37**
-- Discovered operations: **288**
+- Discovered operations: **289**
 - Unregistered route modules: **2**
 
 ## Router registrations
@@ -85,9 +85,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `POST` | `/api/auth/logout` | `logout` | Auth, auth | — | Deletes the session cookie. Idempotent. | [`backend/api/auth_routes.py:271`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py#L271) |
 | `GET` | `/api/auth/me` | `me` | Auth, auth | Depends(get_current_user_id), Depends(get_mgmt_db) | Current authenticated user. 401 if there's no session. | [`backend/api/auth_routes.py:278`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py#L278) |
 | `PATCH` | `/api/auth/me` | `update_me` | Auth, auth | Depends(get_current_user_id), Depends(get_mgmt_db) | Updates the authenticated user's name and/or email. | [`backend/api/auth_routes.py:350`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py#L350) |
-| `GET` | `/api/auth/microsoft/callback` | `callback` | Auth, auth | — | Callback | [`backend/api/microsoft_auth_routes.py:120`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L120) |
-| `GET` | `/api/auth/microsoft/login` | `login` | Auth, auth | — | Login | [`backend/api/microsoft_auth_routes.py:88`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L88) |
-| `GET` | `/api/auth/microsoft/status` | `status` | Auth, auth | — | Status | [`backend/api/microsoft_auth_routes.py:78`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L78) |
+| `GET` | `/api/auth/microsoft/callback` | `callback` | Auth, auth | — | Callback | [`backend/api/microsoft_auth_routes.py:198`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L198) |
+| `GET` | `/api/auth/microsoft/desktop/callback` | `callback` | Auth, auth | — | Callback | [`backend/api/microsoft_auth_routes.py:198`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L198) |
+| `GET` | `/api/auth/microsoft/login` | `login` | Auth, auth | — | Login | [`backend/api/microsoft_auth_routes.py:104`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L104) |
+| `GET` | `/api/auth/microsoft/status` | `status` | Auth, auth | — | Status | [`backend/api/microsoft_auth_routes.py:94`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py#L94) |
 | `POST` | `/api/auth/register` | `register` | Auth, auth | Depends(get_mgmt_db) | Creates a new user with email + password. | [`backend/api/auth_routes.py:173`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py#L173) |
 | `GET` | `/api/calendar/attendees/search` | `search_attendees` | Calendar | [Depends(get_workspace_context)] | Search Google contacts for autocomplete in the attendees form. | [`backend/api/calendar_routes.py:513`](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py#L513) |
 | `GET` | `/api/calendar/calendars` | `get_calendars` | Calendar | [Depends(get_workspace_context)] | Returns the list of available calendars for an account or for all of them. | [`backend/api/calendar_routes.py:97`](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py#L97) |

@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 546 | 2283 |
-| pytest | 532 | 3745 |
+| Vitest | 547 | 2286 |
+| pytest | 532 | 3754 |
 
 ## Archivos
 
@@ -231,7 +231,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/AIUsageHistoryModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryModal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AppSidebarSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/aiUsageHistory.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
@@ -452,6 +452,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/api/media-browser.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/media-browser.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/meeting-specialized.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/meeting-specialized.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/meetings.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/meetings.test.ts) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/api/microsoft-auth.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/microsoft-auth.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/ndjson.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ndjson.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/notebooks.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/notebooks.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/notion-import.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/notion-import.test.ts) | 5 | call-pattern estimate |
@@ -834,7 +835,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_meeting_reminder_local_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_reminder_local_reads.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_meeting_reminders_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_reminders_race.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_meeting_routes_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_routes_contract.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_microsoft_auth_routes.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_microsoft_auth_routes.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_migrate_table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_migrate_table_system_dates.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_catalog.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_model_catalog_credential_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_catalog_credential_reads.py) | 6 | Python AST |

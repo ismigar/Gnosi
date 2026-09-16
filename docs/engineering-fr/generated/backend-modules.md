@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Modules | Lignes |
 | --- | ---: | ---: |
 | `agent` | 47 | 8851 |
-| `api` | 38 | 13080 |
+| `api` | 38 | 13169 |
 | `app` | 8 | 791 |
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1367 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 152 | 36274 |
+| `services` | 152 | 36278 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **802 modules** and **166890 source lines**.
+Total: **802 modules** and **166983 source lines**.
 
 ## agent
 
@@ -105,7 +105,7 @@ Total: **802 modules** and **166890 source lines**.
 | [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 740 | 0 | 34 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
 | [`backend/api/mail_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 309 | 0 | 7 | 7 | 6 | Compatibility facade and composition boundary for the mail domain. |
 | [`backend/api/meeting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/meeting_routes.py) | 74 | 2 | 3 | 2 | 2 | Endpoints for the AI meeting notetaker. |
-| [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 202 | 2 | 5 | 3 | 0 | Microsoft OAuth2 authentication routes. |
+| [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 291 | 3 | 6 | 3 | 0 | Microsoft OAuth2 authentication routes. |
 | [`backend/api/notebook_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notebook_routes.py) | 364 | 0 | 16 | 2 | 1 | HTTP contracts for the grounded notebook workspace. |
 | [`backend/api/notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_oauth_routes.py) | 222 | 2 | 13 | 4 | 3 | OAuth 2.1 to Notion's hosted MCP (mcp.notion.com) — for recreating views. |
 | [`backend/api/notion_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_routes.py) | 730 | 23 | 27 | 13 | 12 | Compatibility-preserving FastAPI surface for the typed Notion domain. |
@@ -771,7 +771,7 @@ Total: **802 modules** and **166890 source lines**.
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 714 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 471 | 2 | 13 | 0 | 15 | Generate the daily Reader podcast script and publish its audio atomically. |
-| [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 211 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
+| [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 213 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 263 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
 | [`backend/services/calendar_event_aggregation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/calendar_event_aggregation.py) | 89 | 2 | 2 | 0 | 2 | Bounded, provider-neutral loading of independent calendar accounts. |
@@ -843,7 +843,7 @@ Total: **802 modules** and **166890 source lines**.
 | [`backend/services/media_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 574 | 1 | 1 | 0 | 1 | No module docstring |
 | [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 165 | 0 | 6 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 323 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
-| [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 488 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
+| [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 490 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |
 | [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 198 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |
 | [`backend/services/notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone.py) | 129 | 0 | 2 | 0 | 1 | Compatibility facade for the typed exact-clone domain. |
