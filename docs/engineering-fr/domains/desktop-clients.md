@@ -596,3 +596,5 @@ fenêtres et aux redémarrages. Les anciens fichiers sans marqueur restent valid
 Annuler la récupération conserve le choix précédent. Choisir un autre dossier
 ne réécrit pas les identités enregistrées. Répéter l’acceptation du DMG pour le
 déplacement et la mise à jour au même emplacement, et reconstruire le backend figé.
+
+Le candidat `3.0.4` comprend la correction de préservation de l’enregistrement automatique intégrée dans la PR 96. Il remplace le candidat non publié `3.0.3` sans déplacer son tag ni réutiliser ses validations d’acceptation. Les quatre champs de version sont synchronisés, les fichiers de dépendances verrouillées restent inchangés et le catalogue reste non publié jusqu’à la validation des nouveaux installateurs.
