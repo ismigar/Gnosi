@@ -1,11 +1,9 @@
 import type { Metadata } from './types';
-import { text, readPage } from './readers';
 import { useCallback } from 'react';
 import { bulkApplyVaultTemplate } from '../../../shared/api/vaults';
 import { duplicateVaultPage } from '../../../shared/api/vaults';
-import { fetchVaultPage } from '../../../shared/api/vaults';
 import { patchVaultTableProperty } from '../../../shared/api/vaults';
-import { saveVaultPage } from '../../../shared/api/vaults';
+import { patchVaultPage } from '../../../shared/api/vaults';
 import { toast } from '../../../shared/notifications/toast';
 import { notifyError } from '../../../shared/notifications/notifyError';
 import type { Table } from './types';
@@ -30,17 +28,10 @@ export function usePageMutations(context: Context) {
     }, [fetchPages, loadPage, t]);
     const handleRenamePage = useCallback(async (pageId: string, newTitle: string) => {
         try {
-            const page = readPage(await fetchVaultPage(pageId));
-            const { content, metadata } = page;
-            const updatedMeta: Metadata = { ...metadata, title: newTitle };
-            await saveVaultPage(pageId, {
-                title: newTitle,
-                content: content || '',
-                is_database: Boolean(updatedMeta.is_database),
-                parent_id: text(updatedMeta.parent_id) || null,
-                metadata: updatedMeta
-            });
-            setTabs(prev => prev.map(t => t.id === pageId ? { ...t, title: newTitle, metadata: updatedMeta } : t));
+            await patchVaultPage(pageId, { title: newTitle });
+            setTabs(prev => prev.map(t => t.id === pageId
+                ? { ...t, title: newTitle, metadata: { ...t.metadata, title: newTitle } }
+                : t));
             await fetchPages();
             // Refreshes globalIndex so the new title appears in the lookup
             // title→id (pending `[[Old title]]` wikilinks will remain
@@ -60,7 +51,7 @@ export function usePageMutations(context: Context) {
         // Computes the new value from local state (it resolves faster than
         // a GET, and also serves as the basis for the optimistic patch that makes
         // the Favorites section appear right away in the sidebar without
-        // waiting for the subsequent PUT + fetchPages).
+        // waiting for the subsequent PATCH).
         const currentPage = pagesRef.current.find(p => p.id === pageId)
             || tabs.find(t => t.id === pageId);
         const wasFav = currentPage?.metadata?.favorite === true
@@ -77,20 +68,10 @@ export function usePageMutations(context: Context) {
         setTabs(prevTabs => prevTabs.map(t => t.id === pageId
             ? { ...t, metadata: { ...(t.metadata || {}), favorite: nextFav } }
             : t));
-        // 2) Persistence to the backend. We need the current content for the
-        // PUT (not lose the note body); if the GET or the PUT fail,
-        // we revert the optimistic update so as not to mislead the user.
+        // Patch only the changed field. Reading a page and writing its whole
+        // body back can overwrite an autosave completed after that read.
         try {
-            const page = readPage(await fetchVaultPage(pageId));
-            const { content, metadata, title } = page;
-            const updatedMeta: Metadata = { ...metadata, favorite: nextFav };
-            await saveVaultPage(pageId, {
-                title: title,
-                content: content || '',
-                is_database: Boolean(updatedMeta.is_database),
-                parent_id: text(updatedMeta.parent_id) || null,
-                metadata: updatedMeta,
-            });
+            await patchVaultPage(pageId, { metadata: { favorite: nextFav } });
             // We don't wait for fetchPages (it's slow on saturated networks); the
             // optimistic patch has already refreshed the UI.
         }

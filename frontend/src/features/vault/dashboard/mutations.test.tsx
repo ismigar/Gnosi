@@ -59,16 +59,39 @@ describe('editor and page mutations', () => {
     expect(harness.current.globalIndex[PAGE_ID]).toBe('Renamed');
     expect(vault.saveVaultPage).not.toHaveBeenCalled();
   });
-  it('renames with the exact full-page save payload and leaves etag mediation to the shared API', async () => {
+  it('renames only the title and leaves etag mediation to the shared API', async () => {
     await harness.run(state => state.handleRenamePage(PAGE_ID, 'New title'));
-    expect(vault.saveVaultPage).toHaveBeenCalledWith(PAGE_ID, { title: 'New title', content: 'body', is_database: false, parent_id: null, metadata: { table_id: 'table', title: 'New title' } });
+    expect(vault.patchVaultPage).toHaveBeenCalledWith(PAGE_ID, { title: 'New title' });
   });
   it('updates favorites optimistically without changing content', async () => {
     await harness.run(state => { state.setTabs([{ ...PAGE, content: 'body' }]); });
     await harness.run(state => state.handleToggleFavorite(PAGE_ID));
-    expect(vault.saveVaultPage).toHaveBeenCalledWith(PAGE_ID, { title: 'Page', content: 'body', is_database: false, parent_id: null, metadata: { table_id: 'table', favorite: true } });
+    expect(vault.patchVaultPage).toHaveBeenCalledWith(PAGE_ID, { metadata: { favorite: true } });
     expect(harness.current.pages[0]?.metadata?.favorite).toBe(true);
     expect(harness.current.tabs[0]?.metadata?.favorite).toBe(true);
+  });
+  it.each(['favorite', 'rename'] as const)('preserves newer saved text when %s sees an older page snapshot', async action => {
+    let storedContent = 'newer autosaved text';
+    vi.mocked(vault.fetchVaultPage).mockResolvedValue({ ...DETAIL, content: 'older snapshot' });
+    vi.mocked(vault.saveVaultPage).mockImplementation((_id, input) => {
+      storedContent = input.content;
+      return Promise.resolve({ ...DETAIL, status: 'updated', message: 'updated' });
+    });
+    vi.mocked(vault.patchVaultPage).mockImplementation((_id, input) => {
+      if (typeof input.content === 'string') storedContent = input.content;
+      return Promise.resolve({ ...DETAIL, status: 'updated', message: 'updated' });
+    });
+    await harness.run(state => action === 'favorite'
+      ? state.handleToggleFavorite(PAGE_ID)
+      : state.handleRenamePage(PAGE_ID, 'Renamed'));
+    expect(storedContent).toBe('newer autosaved text');
+  });
+  it('restores the favorite in pages and tabs when the patch fails', async () => {
+    await harness.run(state => { state.setTabs([{ ...PAGE, content: 'keep body' }]); });
+    vi.mocked(vault.patchVaultPage).mockRejectedValueOnce(new Error('synthetic favorite failure'));
+    await harness.run(state => state.handleToggleFavorite(PAGE_ID));
+    expect(harness.current.pages[0]?.metadata?.favorite).toBe(false);
+    expect(harness.current.tabs[0]).toMatchObject({ content: 'keep body', metadata: { favorite: false } });
   });
   it('passes board updates unchanged and rethrows failures for optimistic rollback', async () => {
     const error = new Error('synthetic rejected patch');

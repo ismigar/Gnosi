@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1081 | 124820 | 31 |
+| `features` | 1081 | 124801 | 31 |
 | `generated` | 2 | 44360 | 454 |
 | `shared` | 248 | 30529 | 396 |
 
@@ -672,7 +672,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useNavigationHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useNavigationHistory.ts) | 43 | `useNavigationHistory` | — |
 | [`frontend/src/features/vault/dashboard/usePageDeletion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageDeletion.tsx) | 206 | `usePageDeletion` | — |
 | [`frontend/src/features/vault/dashboard/usePageLoading.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageLoading.ts) | 284 | `usePageLoading` | — |
-| [`frontend/src/features/vault/dashboard/usePageMutations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageMutations.ts) | 159 | `usePageMutations` | — |
+| [`frontend/src/features/vault/dashboard/usePageMutations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageMutations.ts) | 140 | `usePageMutations` | — |
 | [`frontend/src/features/vault/dashboard/usePageToolbar.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageToolbar.ts) | 164 | `usePageToolbar` | — |
 | [`frontend/src/features/vault/dashboard/usePaneLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePaneLayout.ts) | 105 | `usePaneLayout` | — |
 | [`frontend/src/features/vault/dashboard/useRecordCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRecordCatalog.ts) | 144 | `useRecordCatalog` | — |
