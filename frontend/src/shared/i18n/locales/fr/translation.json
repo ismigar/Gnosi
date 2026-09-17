@@ -6103,6 +6103,11 @@
           "help_access": "Ouvrez l’aide pertinente depuis la barre latérale et le menu Aide de l’application de bureau.",
           "help_appearance": "L’aide respecte le thème clair, sombre ou système choisi dans Gnosi et le conserve entre les articles et les langues."
         }
+      },
+      "v3_0_4": {
+        "fixes": {
+          "autosave_metadata": "Modifier le titre ou le favori d’une page n’écrase plus le texte récemment enregistré automatiquement."
+        }
       }
     }
   },

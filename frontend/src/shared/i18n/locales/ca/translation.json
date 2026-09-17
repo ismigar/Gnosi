@@ -6103,6 +6103,11 @@
           "help_access": "Accedeix a l’ajuda pertinent des de la barra lateral i el menú Ajuda de l’aplicació d’escriptori.",
           "help_appearance": "L’ajuda respecta el tema clar, fosc o del sistema escollit a Gnosi i el conserva entre articles i idiomes."
         }
+      },
+      "v3_0_4": {
+        "fixes": {
+          "autosave_metadata": "Canviar el títol o el favorit d’una pàgina ja no sobreescriu el text desat automàticament fa un moment."
+        }
       }
     }
   },

@@ -6103,6 +6103,11 @@
           "help_access": "Abre la ayuda pertinente desde la barra lateral y el menú Ayuda de la aplicación de escritorio.",
           "help_appearance": "La ayuda respeta el tema claro, oscuro o del sistema elegido en Gnosi y lo conserva entre artículos e idiomas."
         }
+      },
+      "v3_0_4": {
+        "fixes": {
+          "autosave_metadata": "Cambiar el título o el favorito de una página ya no sobrescribe el texto guardado automáticamente hace un momento."
+        }
       }
     }
   },
