@@ -6052,6 +6052,11 @@
           "help_access": "Open relevant help directly from the app sidebar and desktop Help menu.",
           "help_appearance": "Help follows the light, dark or system appearance selected in Gnosi and preserves it across articles and languages."
         }
+      },
+      "v3_0_4": {
+        "fixes": {
+          "autosave_metadata": "Changing a page title or favorite no longer overwrites recently autosaved text."
+        }
       }
     }
   },

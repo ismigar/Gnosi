@@ -581,3 +581,9 @@ nuevas y reinicios. Los archivos antiguos sin marcador siguen siendo válidos.
 Cancelar la recuperación conserva la selección anterior. Elegir otra carpeta
 no reescribe las identidades registradas. Hay que repetir la aceptación del DMG
 para cambio de ruta y actualización con la misma ruta, y reconstruir el backend congelado.
+
+El candidato `3.0.4` incluye la corrección de preservación del guardado automático integrada en la PR 96. Sustituye al candidato no publicado `3.0.3` sin mover su etiqueta ni reutilizar sus validaciones de aceptación. Los cuatro campos de versión están sincronizados, los archivos de dependencias fijadas no cambian y el catálogo permanece sin publicar hasta que los nuevos instaladores superen la aceptación.
+
+La constante del backend `GNOSI_VERSION` también indica `3.0.4`; la prueba del contrato de la API de salud la compara con los cuatro manifiestos de versión.
+
+Hay que regenerar el documento OpenAPI guardado y su SHA-256 después de cambiar la versión del backend. En este candidato, la diferencia revisada del esquema se limita a la versión de la aplicación; las rutas y los datos no cambian.
