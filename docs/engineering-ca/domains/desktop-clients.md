@@ -572,3 +572,5 @@ no reescriu les identitats registrades. Cal repetir l’acceptació del DMG per
 canvi de ruta i actualització amb la mateixa ruta, i reconstruir el backend congelat.
 
 El candidat `3.0.4` inclou la correcció de preservació del desament automàtic integrada a la PR 96. Substitueix el candidat no publicat `3.0.3` sense moure’n el tag ni reutilitzar les seves validacions d’acceptació. Els quatre camps de versió estan sincronitzats, els fitxers de dependències fixades no canvien i el catàleg es manté sense publicar fins que els nous instal·ladors superin l’acceptació.
+
+La constant del backend `GNOSI_VERSION` també indica `3.0.4`; la prova del contracte de l’API de salut la compara amb els quatre manifestos de versió.

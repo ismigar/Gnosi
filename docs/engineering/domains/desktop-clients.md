@@ -515,3 +515,5 @@ folder was chosen. Repeat installed-DMG acceptance for relocation as well as
 same-path upgrade; this change also requires a newly built frozen backend.
 
 The `3.0.4` candidate includes the autosave preservation fix merged in PR 96. It supersedes the unpublished `3.0.3` candidate without moving its tag or reusing its acceptance claims. All four version fields are synchronized, dependency locks remain unchanged, and the catalog stays unpublished until newly built installers pass acceptance.
+
+The backend runtime constant `GNOSI_VERSION` also reports `3.0.4`; the health API contract test compares it with all four release manifests.
