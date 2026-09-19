@@ -6,6 +6,8 @@ import type {
 } from '../../shared/api/ai';
 import {
     filteredComparisonModels,
+    formatTokenCountInput,
+    normalizeTokenCountInput,
     formatComparisonContext,
     formatComparisonCost,
     INITIAL_COMPARISON_UI_STATE,
@@ -95,6 +97,87 @@ const feed: AiModelComparison = {
 
 
 describe('model comparison domain', () => {
+    it('groups token counts with dots while preserving integer cost calculations', () => {
+        expect(formatTokenCountInput('5000000')).toBe('5.000.000');
+        expect(formatTokenCountInput('123456789')).toBe('123.456.789');
+        expect(formatTokenCountInput('')).toBe('');
+        expect(normalizeTokenCountInput('1.234.567')).toBe('1234567');
+        expect(normalizeTokenCountInput('2 000 000')).toBe('2000000');
+        expect(normalizeTokenCountInput('-1')).toBeNull();
+        expect(normalizeTokenCountInput('1e6')).toBeNull();
+        const state = modelComparisonUiReducer(INITIAL_COMPARISON_UI_STATE,
+            { type: 'set-input-tokens', value: '2.000.000' });
+        const output = modelComparisonUiReducer(state,
+            { type: 'set-output-tokens', value: '1.000.000' });
+        expect(output.inputTokens).toBe('2000000');
+        expect(modelMonthlyCost(comparisonModel({}), output.inputTokens, output.outputTokens)).toBe(6);
+        expect(modelComparisonUiReducer(output, { type: 'set-input-tokens', value: 'invalid' }).inputTokens).toBe('2000000');
+        expect(modelComparisonUiReducer(output, { type: 'set-input-tokens', value: '' }).inputTokens).toBe('');
+    });
+
+    it('requires every selected mode by default and supports any mode explicitly', () => {
+        const models = [
+            comparisonModel({ id: 'text', modes: ['text'] }),
+            comparisonModel({ id: 'image', modes: ['image'] }),
+            comparisonModel({ id: 'both', modes: ['text', 'image'] }),
+            comparisonModel({ id: 'audio', modes: ['audio'] }),
+        ];
+        const ui = { ...INITIAL_COMPARISON_UI_STATE, modes: ['text', 'image'] as const };
+        expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['both']);
+        expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, modeMatch: 'any' }).map(m => m.id))
+            .toEqual(['text', 'image', 'both']);
+        expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, modes: [] })).toHaveLength(4);
+    });
+
+    it('filters total parameter ranges inclusively and distinguishes missing data', () => {
+        const models = [
+            comparisonModel({ id: 'small', name: 'gpt-oss-20b' }),
+            comparisonModel({ id: 'large', name: 'gpt-oss-120b' }),
+            comparisonModel({ id: 'closed', name: 'GPT-6 Astra' }),
+            comparisonModel({ id: 'pending', name: 'Unknown' }),
+        ];
+        const ids = (patch: Partial<typeof INITIAL_COMPARISON_UI_STATE>) => filteredComparisonModels(
+            { ...feed, models }, [], { ...INITIAL_COMPARISON_UI_STATE, ...patch },
+        ).map(m => m.id);
+        expect(ids({})).toEqual(['small', 'large', 'closed', 'pending']);
+        expect(ids({ minParameters: '21', maxParameters: '117' })).toEqual(['small', 'large']);
+        expect(ids({ maxParameters: '21' })).toEqual(['small']);
+        expect(ids({ minParameters: '21.1' })).toEqual(['large']);
+        expect(ids({ maxParameters: '0' })).toEqual([]);
+        expect(ids({ minParameters: '118', maxParameters: '21' })).toEqual([]);
+        expect(ids({ parameterStatus: 'known' })).toEqual(['small', 'large']);
+        expect(ids({ parameterStatus: 'not_published' })).toEqual(['closed']);
+        expect(ids({ parameterStatus: 'pending' })).toEqual(['pending']);
+        expect(ids({ parameterStatus: 'pending', minParameters: '1' })).toEqual([]);
+    });
+
+    it('sorts disclosed parameter counts numerically, keeping unknown sizes last', () => {
+        const models = [
+            comparisonModel({ id: 'unknown', name: 'Unknown 2B' }),
+            comparisonModel({ id: 'large', name: 'gpt-oss-120b (high)' }),
+            comparisonModel({ id: 'small', name: 'gpt-oss-20b (high)' }),
+        ];
+        for (const direction of ['asc', 'desc'] as const) {
+            const result = filteredComparisonModels({ ...feed, models }, [], {
+                ...INITIAL_COMPARISON_UI_STATE, sort: { key: 'parameters', direction },
+            });
+            expect(result.map((model) => model.id)).toEqual(direction === 'asc'
+                ? ['small', 'large', 'unknown'] : ['large', 'small', 'unknown']);
+        }
+    });
+
+    it('sorts the monthly estimate using the current input and output volumes', () => {
+        const models = [
+            comparisonModel({ id: 'input', input_price: 1, output_price: 20 }),
+            comparisonModel({ id: 'output', input_price: 10, output_price: 2 }),
+        ];
+        const result = filteredComparisonModels({ ...feed, models }, [], {
+            ...INITIAL_COMPARISON_UI_STATE, inputTokens: '0', outputTokens: '1000000',
+            sort: { key: 'monthly_cost', direction: 'asc' },
+        });
+        expect(result.map((model) => model.id)).toEqual(['output', 'input']);
+    });
+
     it('reduces typed filters and sort changes without parallel local state', () => {
         const withMode = modelComparisonUiReducer(
             INITIAL_COMPARISON_UI_STATE,

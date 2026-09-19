@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
+  - backend/services/model_parameters.py
+  - backend/services/model_parameter_seed.py
+  - backend/tests/test_model_parameters.py
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
   - backend/domains/llm_wiki
@@ -1096,3 +1099,13 @@ envoltura real de políticas se prueba con un modelo inerte para verificar la
 identidad de respuestas y excepciones y la ausencia de contenido sintético de
 entradas al modelo o errores en los diagnósticos. Estas comprobaciones no
 requieren llamadas a proveedores ni registros reales del usuario.
+
+## Comparativa de modelos y parámetros verificados
+
+La comparativa prioriza inteligencia, contexto, precios de entrada/salida y coste mensual estimado, seguidos de modos, parámetros, velocidad, latencia, perfil y puntuaciones especializadas. Los títulos compactos conservan unidades y texto completo emergente; los filtros se alinean con sus campos, Modos se cierra al pulsar fuera y los tokens mensuales separan los miles. El pie queda libre de la barra horizontal.
+
+Los parámetros se expresan en miles de millones, distinguiendo totales y activos en modelos MoE. Los filtros admiten estado conocido/no publicado/pendiente y límites de tamaño total. Los modos usan AND explícito por defecto u OR. Los metadatos estáticos revisados siguen disponibles si el servidor no proporciona datos enriquecidos.
+
+`backend/services/model_parameters.py` enriquece las respuestas desde una caché local, sin consultas de red al mostrar la comparativa. La tarea `refresh_model_parameters` aparece una sola vez en el centro de control, activa cada 1440 minutos y condicionada a `ai-platform`. Cada ejecución comprueba como máximo 40 identidades distintas con un presupuesto de 120 segundos comprobado entre modelos; cada consulta tiene un tiempo límite. Un cursor persistente reanuda los lotes siguientes.
+
+Solo se aceptan organizaciones oficiales autorizadas de Hugging Face, identidades inequívocas y campos explícitos de parámetros. Los datos verificados conservan fuente y fecha. Si una fuente falla o no coincide, se preservan los valores anteriores; la ausencia nunca se convierte automáticamente en «No publicados». Los modelos ambiguos o no compatibles quedan pendientes de revisión manual. La sustitución de la caché es atómica. Las pruebas cubren extracción, ambigüedad, conservación de datos, lotes, registro de la tarea, metadatos remotos y filtros.

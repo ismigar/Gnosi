@@ -204,6 +204,16 @@ class ModelComparisonRoute(BaseModel):
     tags: list[str]
 
 
+class ModelParameterMetadata(BaseModel):
+    """Parameter disclosures, in billions, with their official evidence."""
+
+    status: Literal["known", "not_published", "pending"]
+    total: float | None = None
+    active: float | None = None
+    source: str | None = None
+    checked_at: str | None = None
+
+
 class ModelComparisonEntry(BaseModel):
     """Normalized Artificial Analysis row enriched with Gnosi routes."""
 
@@ -225,6 +235,7 @@ class ModelComparisonEntry(BaseModel):
     tags: list[str]
     modes: list[str]
     routes: list[ModelComparisonRoute]
+    parameter_metadata: ModelParameterMetadata | None = None
     metric_sources: dict[str, str] | None = None
     profile: str
 

@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
+  - backend/services/model_parameters.py
+  - backend/services/model_parameter_seed.py
+  - backend/tests/test_model_parameters.py
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
   - backend/domains/llm_wiki
@@ -1026,3 +1029,13 @@ El gestor real de política s’exercita amb un model inert per comprovar la
 identitat de respostes i excepcions i que el contingut fictici de peticions
 i errors no entri als diagnòstics. No cal cridar cap proveïdor ni llegir
 registres reals de l’usuari.
+
+## Comparativa de models i paràmetres verificats
+
+La comparativa prioritza intel·ligència, context, preus d’entrada/sortida i cost mensual estimat, seguits de modes, paràmetres, velocitat, latència, perfil i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
+
+Els paràmetres s’expressen en mil milions, distingint totals i actius en models MoE. Els filtres admeten estat conegut/no publicat/pendent i límits de mida total. Els modes utilitzen AND explícit per defecte o OR. Les metadades estàtiques revisades continuen disponibles si el servidor no proporciona dades enriquides.
+
+`backend/services/model_parameters.py` enriqueix les respostes amb una memòria cau local, sense consultes de xarxa en mostrar la comparativa. El procés `refresh_model_parameters` apareix una sola vegada al Centre de control, actiu cada 1440 minuts i condicionat a `ai-platform`. Cada execució comprova com a màxim 40 identitats diferents amb un pressupost de 120 segons comprovat entre models; cada consulta té un temps límit. Un cursor persistent reprèn els lots següents.
+
+Només s’accepten organitzacions oficials de Hugging Face autoritzades, identitats inequívoques i camps explícits de paràmetres. Les dades verificades conserven font i data. Si una font falla o no coincideix, es preserven els valors anteriors; l’absència mai es converteix automàticament en «No publicats». Els models ambigus o no compatibles queden pendents de revisió manual. La substitució de la memòria cau és atòmica. Les proves cobreixen extracció, ambigüitat, conservació de dades, lots, registre del procés, metadades remotes i filtres.

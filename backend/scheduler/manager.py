@@ -20,11 +20,14 @@ from backend.scheduler.notifications import notify
 from backend.scheduler.startup_policy import wait_before_automatic_dispatch
 from backend.utils.open_values import get_value, iterable_values
 
-
 class SchedulerManager:
     """Manage persisted scheduled background tasks."""
 
     AVAILABLE_TASKS: dict[str, TaskSpec] = {
+        "refresh_model_parameters": {
+            "description": "Refresh verified model parameter counts from official sources",
+            "default_interval": 1440, "default_enabled": True, "quiet": True,
+        },
         "fetch_feeds": {
             "description": "Fetch RSS/YouTube feeds",
             "default_interval": 120,
@@ -108,6 +111,7 @@ class SchedulerManager:
     }
 
     TASK_PLUGIN_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+        "refresh_model_parameters": ("ai-platform",),
         "fetch_feeds": ("feeds-reader",),
         "fetch_newsletters": ("feeds-reader",),
         "generate_podcast": ("feeds-reader", "ai-platform"),
@@ -121,7 +125,6 @@ class SchedulerManager:
         "meeting_reminders": ("calendar", "ai-platform"),
         "run_capability_automations": ("automations", "ai-platform"),
     }
-
     def __init__(self) -> None:
         cfg = load_params(strict_env=False)
         self.config_path = cfg.paths.get("SCHEDULER")
@@ -173,7 +176,6 @@ class SchedulerManager:
             except Exception:
                 _time.sleep(0.5 * (attempt + 1))  # short backoff for dataless
         return None
-
     def _reconcile_available_tasks(self) -> bool:
         """Removes obsolete tasks and adds new ones from AVAILABLE_TASKS.
 
@@ -193,7 +195,6 @@ class SchedulerManager:
                 )
                 updated = True
         return updated
-
     def _load_config(self) -> None:
         """Loads the scheduler config resiliently.
 
@@ -245,7 +246,6 @@ class SchedulerManager:
         else:
             log.info("⏰ Scheduler: no configuration found; creating defaults.")
             self._init_default_tasks(persist=True)
-
     def _init_default_tasks(self, persist: bool = True) -> None:
         """Initialize with default tasks (all disabled).
 

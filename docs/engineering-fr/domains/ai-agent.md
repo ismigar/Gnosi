@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
+  - backend/services/model_parameters.py
+  - backend/services/model_parameter_seed.py
+  - backend/tests/test_model_parameters.py
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
   - backend/domains/llm_wiki
@@ -1115,3 +1118,13 @@ modèle inerte pour vérifier l'identité des réponses et des exceptions ainsi 
 l'absence du contenu synthétique des prompts et des erreurs dans les diagnostics.
 Ces vérifications ne nécessitent aucun appel de fournisseur ni aucun journal
 réel d'utilisateur.
+
+## Comparaison des modèles et paramètres vérifiés
+
+La comparaison donne priorité à l’intelligence, au contexte, aux prix d’entrée/sortie et au coût mensuel estimé, puis aux modes, paramètres, vitesse, latence, profil et scores spécialisés. Les titres compacts conservent unités et infobulles complètes ; les filtres sont alignés, Modes se ferme en cliquant ailleurs et les tokens mensuels regroupent les milliers. Le pied reste dégagé de la barre horizontale.
+
+Les paramètres sont exprimés en milliards, avec distinction entre paramètres totaux et actifs des modèles MoE. Les filtres proposent les états connu/non publié/en attente et des limites de taille totale. Les modes utilisent explicitement AND par défaut ou OR. Les métadonnées statiques vérifiées restent disponibles si le serveur ne fournit pas de données enrichies.
+
+`backend/services/model_parameters.py` enrichit les réponses depuis un cache local, sans requêtes réseau pendant l’affichage. La tâche `refresh_model_parameters` apparaît une seule fois dans le centre de contrôle, activée toutes les 1440 minutes et conditionnée par `ai-platform`. Chaque exécution vérifie au plus 40 identités distinctes avec un budget de 120 secondes contrôlé entre modèles ; chaque requête a un délai maximal. Un curseur persistant reprend les lots suivants.
+
+Seules les organisations officielles autorisées de Hugging Face, les identités sans ambiguïté et les champs explicites de paramètres sont acceptés. Les données vérifiées conservent source et date. Une source indisponible ou sans correspondance préserve les valeurs antérieures ; l’absence ne devient jamais automatiquement « Non publiés ». Les modèles ambigus ou non pris en charge restent en attente de vérification manuelle. Le remplacement du cache est atomique. Les tests couvrent extraction, ambiguïté, conservation des données, lots, inscription de la tâche, métadonnées distantes et filtres.

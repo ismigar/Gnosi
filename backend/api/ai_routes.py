@@ -532,7 +532,9 @@ async def get_model_comparison() -> JsonObject:
 
     try:
         def _load() -> JsonObject:
-            res = fetch_all_models()
+            from backend.services.model_parameters import enrich_comparison
+
+            res = enrich_comparison(fetch_all_models())
             cfg = load_params(strict_env=False)
             currency = rate_info(
                 parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))

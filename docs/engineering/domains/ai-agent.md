@@ -1,7 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
+  - backend/services/model_parameters.py
+  - backend/services/model_parameter_seed.py
+  - backend/tests/test_model_parameters.py
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
   - backend/domains/llm_wiki
@@ -910,3 +913,13 @@ Tests use disposable logs, controlled clocks and owned threads. The real policy
 wrapper is exercised with an inert model to verify response/exception identity
 and absence of synthetic prompt/error content in diagnostics. No provider call
 or real user log is required for these checks.
+
+## Model comparison and verified parameter counts
+
+The comparison prioritizes intelligence, context, input/output prices and estimated monthly cost, followed by modes, parameter counts, speed, latency, task profile and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
+
+Parameter counts are expressed in billions, distinguishing total and active MoE parameters. Filters support verified/undisclosed/pending status and total-size bounds. Selected modes use explicit AND (default) or OR matching. Static reviewed metadata remains available when the server does not provide enriched data.
+
+`backend/services/model_parameters.py` enriches comparison responses from a local cache without network requests during rendering. The `refresh_model_parameters` task appears once in the control-center scheduler, enabled every 1440 minutes and gated by `ai-platform`. Each run checks at most 40 distinct model identities with a 120-second budget checked between models; request timeouts bound individual source calls. A persistent cursor resumes subsequent batches.
+
+Only allowlisted official Hugging Face organizations, unambiguous model identities and explicit parameter fields are accepted. Verified entries retain source and check date. Unmatched or unavailable sources preserve earlier verified values; absence never automatically becomes “not published”. Unsupported and ambiguous models remain pending manual review. Cache replacement is atomic. Tests cover parsing, identity ambiguity, failed-source preservation, resumable batches, scheduler reconciliation, remote metadata and filter interactions.
