@@ -190,7 +190,8 @@ async def _safe_request_bytes(
                     current,
                     params=params if redirect_count == 0 else None,
                     headers=request_headers,
-                    **({"json": json_body, "content": content} if method == "POST" else {}),
+                    json=json_body if method == "POST" else None,
+                    content=content if method == "POST" else None,
                 ) as response:
                     runtime._record_request(response)
                     if response.status_code in {301, 302, 303, 307, 308}:

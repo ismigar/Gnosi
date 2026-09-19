@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 452 | 97968 |
+| `domains` | 452 | 97969 |
 | `mcp` | 3 | 429 |
 | `migrations` | 37 | 2253 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **802 modules** and **167033 source lines**.
+Total: **802 modules** and **167034 source lines**.
 
 ## agent
 
@@ -305,7 +305,7 @@ Total: **802 modules** and **167033 source lines**.
 | [`backend/domains/literature/connectors/normalization.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/normalization.py) | 207 | 0 | 9 | 0 | 3 | Canonical normalization shared by academic provider adapters. |
 | [`backend/domains/literature/connectors/public.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/public.py) | 571 | 0 | 8 | 8 | 0 | Public and open academic repository adapters. |
 | [`backend/domains/literature/connectors/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/runtime.py) | 99 | 6 | 2 | 0 | 2 | Typed late-bound compatibility seam for academic connector adapters. |
-| [`backend/domains/literature/connectors/transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 277 | 1 | 11 | 4 | 7 | Bounded transport, SSRF protection, and request auditing. |
+| [`backend/domains/literature/connectors/transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 278 | 1 | 11 | 4 | 7 | Bounded transport, SSRF protection, and request auditing. |
 | [`backend/domains/literature/connectors/xml.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/xml.py) | 215 | 0 | 6 | 2 | 3 | XML, arXiv, and OAI-PMH provider adapters. |
 | [`backend/domains/literature/repositories.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/repositories.py) | 740 | 0 | 14 | 1 | 4 | Academic repository catalog and configuration. |
 | [`backend/domains/literature/review_logic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/review_logic.py) | 289 | 0 | 10 | 0 | 4 | Pure systematic-review workflow, PRISMA, and export logic. |
