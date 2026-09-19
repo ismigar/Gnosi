@@ -12,6 +12,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -59,6 +62,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -725,6 +730,18 @@ que un manejador sea ejecutable.
 
 ## Configuración de LLM Wiki
 
+El complemento guarda el `agent_id` elegido, con `llm-wiki` como valor
+predeterminado. La activación crea el agente con sus herramientas y habilidades;
+las activaciones posteriores conservan las asignaciones e instrucciones
+personalizadas. Los ajustes enlazan a los editores de agentes y habilidades.
+La ingesta, las propuestas de conexión y la asistencia de escritura usan ese
+perfil y muestran un error si no está disponible, sin cambiar de proveedor.
+
+El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
+incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
+el resumen en la misma vista y propuestas de conexión con IA que actualizan
+y abren la bandeja existente. El mantenimiento ya no aparece en los ajustes.
+
 `backend/domains/configuration/llm_wiki.py` valida la tabla Brain, las tablas de
 origen, las dimensiones categóricas, los campos de archivo o URL, los valores
 fijos y los destinos de relaciones antes de modificar el esquema. Después crea
@@ -770,8 +787,8 @@ evidencia de origen o las entradas de planificación invalidan los fragmentos
 guardados; el procesamiento forzado explícitamente ignora todos los puntos de
 recuperación anteriores. Los trabajos interrumpidos conservan su progreso real y
 las notas de origen solo se escriben cuando se completa la planificación.
-Cada llamada de ingesta selecciona explícitamente el agente configurado
-`llm-wiki`. Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
+Cada llamada de ingesta selecciona explícitamente el agente elegido en
+`agent_id` (`llm-wiki` por defecto). Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
 detiene los reintentos automáticos, porque esperar no puede reponer un límite de
 cero peticiones; la capacidad restante nula con un límite positivo sigue
 recibiendo los reintentos habituales. Tras reiniciar el servidor, la consulta de

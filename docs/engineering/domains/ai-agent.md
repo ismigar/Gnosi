@@ -12,6 +12,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -59,6 +62,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -615,6 +620,17 @@ makes a handler executable.
 
 ## LLM Wiki configuration
 
+The plugin stores the chosen `agent_id`, defaulting to `llm-wiki`. Activation
+creates the default agent with its tools and skills; later activations preserve
+custom assignments and instructions. Settings link to the agent and skill
+editors. Ingestion, connection proposals and writing assistance use that profile
+and fail explicitly if it is unavailable instead of switching providers.
+
+The secondary Brain tools menu lives in the Brain table header, including
+embedded tables. It offers deterministic review with an in-view report and AI
+connection proposals that refresh and open the existing connection inbox.
+Maintenance actions no longer appear in plugin settings.
+
 `backend/domains/configuration/llm_wiki.py` validates the Brain table, source
 tables, categorical dimensions, file/URL fields, fixed values and relation
 targets before any schema mutation. It then provisions the canonical roles and
@@ -650,7 +666,7 @@ plans, copies them into the new job and continues at the remaining fragments.
 Changed source evidence or planning inputs invalidate cached fragments; explicit
 force processing bypasses all previous checkpoints. Interrupted jobs retain
 their actual progress and source notes are written only after planning completes.
-Every ingestion call explicitly selects the configured `llm-wiki` agent. A
+Every ingestion call explicitly selects the agent selected by `agent_id` (default `llm-wiki`). A
 provider response with `x-ratelimit-limit-req-minute: 0` stops automatic retries,
 because waiting cannot replenish a zero request limit; zero remaining capacity
 with a positive limit still receives normal retries. After a backend restart,

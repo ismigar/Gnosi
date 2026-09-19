@@ -12,6 +12,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -59,6 +62,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -734,6 +739,19 @@ gestionnaire exécutable.
 
 ## Configuration de LLM Wiki
 
+Le plugin enregistre l’`agent_id` choisi, avec `llm-wiki` par défaut.
+L’activation crée l’agent avec ses outils et compétences ; les activations
+suivantes préservent les affectations et instructions personnalisées. Les
+paramètres donnent accès aux éditeurs d’agents et de compétences. L’ingestion,
+les propositions de connexion et l’aide à la rédaction utilisent ce profil
+et signalent son indisponibilité sans changer de fournisseur.
+
+Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
+y compris les tables intégrées aux pages. Il propose une vérification
+déterministe avec un rapport dans la même vue et des propositions de connexion
+par IA qui actualisent et ouvrent la boîte existante. La maintenance ne figure
+plus dans les paramètres du plugin.
+
 `backend/domains/configuration/llm_wiki.py` valide la table Brain, les tables
 sources, les dimensions catégorielles, les champs de fichier et d'URL, les valeurs
 fixes et les cibles des relations avant toute mutation du schéma. Il met ensuite
@@ -780,8 +798,8 @@ modifications des preuves sources ou des entrées de planification invalident le
 fragments enregistrés ; un traitement explicitement forcé ignore tous les points
 de reprise précédents. Les tâches interrompues conservent leur progression réelle
 et les notes sources ne sont écrites qu’une fois la planification terminée.
-Chaque appel d’ingestion sélectionne explicitement l’agent configuré
-`llm-wiki`. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
+Chaque appel d’ingestion sélectionne explicitement l’agent choisi dans
+`agent_id` (`llm-wiki` par défaut). Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
 arrête les nouvelles tentatives automatiques, car attendre ne peut pas
 reconstituer une limite de zéro requête ; une capacité restante nulle avec une
 limite positive conserve les tentatives habituelles. Après un redémarrage du

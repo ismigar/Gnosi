@@ -12,6 +12,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -59,6 +62,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -670,6 +675,18 @@ conformitat mai no fan executable un gestor.
 
 ## Configuració de LLM Wiki
 
+El plugin desa l’`agent_id` triat, amb `llm-wiki` com a valor per defecte.
+L’activació crea l’agent amb les seves eines i habilitats; les activacions
+posteriors conserven les assignacions i instruccions personalitzades. Els
+ajustos enllacen als editors d’agents i habilitats. La ingestió, les propostes
+de connexió i l’assistència d’escriptura utilitzen aquest perfil i informen
+d’un error si no està disponible, sense canviar de proveïdor.
+
+El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
+incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
+resum a la mateixa vista i propostes de connexió amb IA que actualitzen i obren
+la bústia existent. Les accions de manteniment ja no apareixen als ajustos.
+
 `backend/domains/configuration/llm_wiki.py` valida la taula Brain, les taules
 d’origen, les dimensions categòriques, els camps de fitxer/URL, els valors fixos
 i els destins de relació abans de mutar l’esquema. Després crea els rols i les
@@ -713,7 +730,7 @@ d’origen o les entrades de planificació invaliden els fragments desats; el
 processament forçat explícitament ignora tots els punts de recuperació anteriors.
 Els treballs interromputs conserven el progrés real i les notes de font només
 s’escriuen quan la planificació s’ha completat.
-Cada crida d’ingestió selecciona explícitament l’agent configurat `llm-wiki`.
+Cada crida d’ingestió selecciona explícitament l’agent triat a `agent_id` (`llm-wiki` per defecte).
 Una resposta del proveïdor amb `x-ratelimit-limit-req-minute: 0` atura els
 reintents automàtics, perquè esperar no pot reposar un límit de zero peticions;
 la capacitat restant nul·la amb un límit positiu continua rebent els reintents
