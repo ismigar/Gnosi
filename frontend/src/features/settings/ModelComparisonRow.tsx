@@ -1,3 +1,4 @@
+import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { Fragment, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -66,7 +67,6 @@ export function ModelComparisonRow({
     configurationLoading,
     feed,
     inputTokens,
-    metricAvailability,
     model,
     onBeginActivation,
     onDeactivate,
@@ -96,96 +96,61 @@ export function ModelComparisonRow({
         return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
     };
 
+    const parameters = modelParameterMetadata(model);
+    const disclosure = modelParameterDisclosure(model);
+    const renderCell = (key: ComparisonColumn['key']): ReactNode => {
+        switch (key) {
+            case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small></>;
+            case 'creator': return model.creator || '—';
+            case 'modes': return <div className="model-mode-list">{model.modes.map((mode) => (
+                <span key={mode}>{t(`model_comparison.modes_list.${mode}`)}</span>
+            ))}</div>;
+            case 'parameters': return parameters ? <>
+                <a href={parameters.source} rel="noreferrer" target="_blank"
+                    title={`${t('model_comparison.parameters_source')} · ${t('model_comparison.parameters_checked', { date: parameters.checkedAt })}`}>
+                    {formatComparisonMetric(parameters.total)} B
+                </a>
+                {parameters.active !== undefined && <small>{t('model_comparison.parameters_active', {
+                    count: parameters.active,
+                    value: formatComparisonMetric(parameters.active),
+                })}</small>}
+            </> : disclosure.status === 'not_published' ? <a href={disclosure.source}
+                target="_blank" rel="noreferrer" title={`${t('model_comparison.parameters_not_published_help')} · ${t('model_comparison.parameters_checked', { date: disclosure.checkedAt })}`}>
+                {t('model_comparison.parameters_not_published')}
+            </a> : <span title={t('model_comparison.parameters_missing_help')}>
+                {t('model_comparison.parameters_missing')}
+            </span>;
+            case 'context_window': return formatComparisonContext(model.context_window);
+            case 'input_price':
+            case 'output_price': return isFiniteMetric(model[key])
+                ? formatComparisonCost(model[key] * currencyRate, currencySymbol) : '—';
+            case 'monthly_cost': return <strong>{cost === null ? '—'
+                : formatComparisonCost(cost * currencyRate, currencySymbol)}</strong>;
+            case 'speed': return isFiniteMetric(model.speed)
+                ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
+            case 'latency': return isFiniteMetric(model.latency)
+                ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
+            case 'profile': return <span className={`model-profile-badge ${model.profile}`}>
+                {PROFILE_ICONS[model.profile as ComparisonProfile] ?? '⚪'}{' '}
+                {t(`model_comparison.profiles.${model.profile}`)}
+            </span>;
+            default: return formatComparisonMetric(model[key]);
+        }
+    };
+
     return (
         <Fragment>
             <tr>
-                <td className="model-comparison-sticky-start">
-                    <strong>{model.name}</strong>
-                    <small>{model.release_date || '—'}</small>
-                </td>
-                <td>{model.creator || '—'}</td>
-                <td>
-                    <div className="model-mode-list">
-                        {model.modes.map((mode) => (
-                            <span key={mode}>
-                                {t(`model_comparison.modes_list.${mode}`)}
-                            </span>
-                        ))}
-                    </div>
-                </td>
-                {metricAvailability.intelligence ? (
-                    <td title={sourceTitle('intelligence')}>
-                        {formatComparisonMetric(model.intelligence)}
-                        <CachedMetricMarker field="intelligence" model={model} />
+                {columns.map((column) => (
+                    <td
+                        className={column.key === 'name' ? 'model-comparison-sticky-start' : undefined}
+                        key={column.key}
+                        title={sourceTitle(column.key)}
+                    >
+                        {renderCell(column.key)}
+                        <CachedMetricMarker field={column.key} model={model} />
                     </td>
-                ) : null}
-                {metricAvailability.coding ? (
-                    <td title={sourceTitle('coding')}>
-                        {formatComparisonMetric(model.coding)}
-                        <CachedMetricMarker field="coding" model={model} />
-                    </td>
-                ) : null}
-                {metricAvailability.agentic ? (
-                    <td title={sourceTitle('agentic')}>
-                        {formatComparisonMetric(model.agentic)}
-                        <CachedMetricMarker field="agentic" model={model} />
-                    </td>
-                ) : null}
-                <td title={sourceTitle('input_price')}>
-                    {model.input_price === null
-                        ? '—'
-                        : formatComparisonCost(
-                            model.input_price * currencyRate,
-                            currencySymbol,
-                        )}
-                    <CachedMetricMarker field="input_price" model={model} />
-                </td>
-                <td title={sourceTitle('output_price')}>
-                    {model.output_price === null
-                        ? '—'
-                        : formatComparisonCost(
-                            model.output_price * currencyRate,
-                            currencySymbol,
-                        )}
-                    <CachedMetricMarker field="output_price" model={model} />
-                </td>
-                <td title={sourceTitle('context_window')}>
-                    {formatComparisonContext(model.context_window)}
-                    <CachedMetricMarker field="context_window" model={model} />
-                </td>
-                {metricAvailability.speed ? (
-                    <td title={sourceTitle('speed')}>
-                        {isFiniteMetric(model.speed)
-                            ? `${formatComparisonMetric(model.speed)} t/s`
-                            : '—'}
-                        <CachedMetricMarker field="speed" model={model} />
-                    </td>
-                ) : null}
-                {metricAvailability.latency ? (
-                    <td title={sourceTitle('latency')}>
-                        {isFiniteMetric(model.latency)
-                            ? `${formatComparisonMetric(model.latency, 2)} s`
-                            : '—'}
-                        <CachedMetricMarker field="latency" model={model} />
-                    </td>
-                ) : null}
-                {metricAvailability.profile ? (
-                    <td>
-                        <span className={`model-profile-badge ${model.profile}`}>
-                            {PROFILE_ICONS[model.profile as ComparisonProfile] ?? '⚪'}
-                            {' '}
-                            {t(`model_comparison.profiles.${model.profile}`)}
-                        </span>
-                    </td>
-                ) : null}
-                <td>
-                    <strong>{cost === null
-                        ? '—'
-                        : formatComparisonCost(
-                            cost * currencyRate,
-                            currencySymbol,
-                        )}</strong>
-                </td>
+                ))}
                 <td className="model-comparison-sticky-end">
                     <div className="model-availability-cell">
                         <button
@@ -223,7 +188,7 @@ export function ModelComparisonRow({
             </tr>
             {setupModelId === model.id ? (
                 <tr className="model-setup-row">
-                    <td className="model-setup-cell" colSpan={columns.length + 2}>
+                    <td className="model-setup-cell" colSpan={columns.length + 1}>
                         {setupPanel}
                     </td>
                 </tr>
