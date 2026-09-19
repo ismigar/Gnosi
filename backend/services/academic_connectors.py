@@ -75,6 +75,7 @@ from backend.domains.literature.connectors.transport import (
     end_request_audit,
     safe_get_bytes,
     safe_get_json,
+    safe_post_json,
     validate_public_https_url,
 )
 from backend.domains.literature.connectors.xml import (
@@ -136,6 +137,7 @@ __all__ = [
     "run",
     "safe_get_bytes",
     "safe_get_json",
+    "safe_post_json",
     "search_arxiv",
     "search_core",
     "search_crossref",

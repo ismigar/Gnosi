@@ -150,6 +150,20 @@ El port tipat resol els col·laboradors de la façana en cada crida perquè les 
 i integracions puguin substituir transport, validació, parsers i dispatch sense
 duplicar estat mutable.
 
+L’adaptador de Dimensions tracta `dimensions_api_key` com una clau API. Cada cerca
+envia primer `{ "key": "..." }` a `https://app.dimensions.ai/api/auth` amb POST,
+valida el token retornat i envia la consulta DSL en UTF-8 a `/api/dsl/v2` amb
+`Authorization: JWT <token>`. El token s’obté per a cada cerca i no es desa.
+Cal disposar d’una subscripció amb accés a l’API de Dimensions habilitat.
+
+El transport POST compartit manté la validació HTTPS, els temps límit, els límits
+de mida i els errors segurs de credencials i quota. Rebutja les redireccions per
+no reenviar la clau ni el token. L’auditoria registra el mètode HTTP real sense
+incloure el cos de la petició ni les capçaleres d’autorització. Els tokens absents
+o invàlids i els errors de consulta es comuniquen com a errors del connector.
+`backend/tests/test_dimensions_connector.py` verifica el flux i els errors amb
+respostes HTTP simulades; la validació real requereix una clau API habilitada.
+
 `AcademicWork` és el contracte canònic dels connectors. Les unions deterministes
 utilitzen, per ordre, DOI normalitzat, PMID o PMCID, identificador arXiv sense
 versió, ISBN-13 i títol normalitzat més any i cognom del primer autor. Una

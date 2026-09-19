@@ -143,6 +143,20 @@ collaborators at call time so existing tests and integrations can still replace
 network, validation, parser, and dispatch seams without duplicating mutable
 state.
 
+The Dimensions adapter treats `dimensions_api_key` as an API key. Each search
+first posts `{ "key": "..." }` to `https://app.dimensions.ai/api/auth`, validates
+the returned token, then posts the UTF-8 DSL query to `/api/dsl/v2` with
+`Authorization: JWT <token>`. Tokens are obtained per search and are not persisted.
+An enabled Dimensions API subscription is still required.
+
+The shared POST transport keeps HTTPS validation, timeouts, response-size limits,
+and safe credential/rate-limit errors. It rejects redirects rather than forwarding
+the key or token. Request audits record the actual HTTP method and never include
+request bodies or authorization headers. Missing or malformed authentication
+tokens and provider query errors are reported as connector failures.
+`backend/tests/test_dimensions_connector.py` verifies this exchange and its failure
+paths with mocked HTTP responses; live access requires an enabled API key.
+
 `AcademicWork` is the canonical connector contract. Deterministic unions use,
 in order, normalized DOI, PMID or PMCID, versionless arXiv identifier, ISBN-13,
 and normalized title plus year plus first-author surname. A fuzzy title match is

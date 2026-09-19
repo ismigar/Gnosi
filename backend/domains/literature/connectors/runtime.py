@@ -53,6 +53,7 @@ class ConnectorRuntime(Protocol):
 
     safe_get_bytes: SafeGetBytes
     safe_get_json: SafeGetJson
+    safe_post_json: SafeGetJson
     search_generic_json: GenericSearcher
     canonical_work: CanonicalWork
     clean_text: Callable[[Any, int], str]

@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 452 | 97920 |
+| `domains` | 452 | 97969 |
 | `mcp` | 3 | 429 |
 | `migrations` | 37 | 2253 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 8 | 1367 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 152 | 36278 |
+| `services` | 152 | 36280 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **802 modules** and **166983 source lines**.
+Total: **802 modules** and **167034 source lines**.
 
 ## agent
 
@@ -297,15 +297,15 @@ Total: **802 modules** and **166983 source lines**.
 | [`backend/domains/integrations/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/integrations/contracts.py) | 71 | 9 | 0 | 0 | 3 | Public contracts for masked, provider-neutral integration settings. |
 | [`backend/domains/literature/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/__init__.py) | 49 | 0 | 0 | 0 | 0 | Canonical academic literature domain. |
 | [`backend/domains/literature/connectors/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed academic connector adapters and orchestration. |
-| [`backend/domains/literature/connectors/commercial.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/commercial.py) | 313 | 0 | 4 | 4 | 0 | Credentialed commercial academic provider adapters. |
+| [`backend/domains/literature/connectors/commercial.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/commercial.py) | 322 | 0 | 4 | 4 | 0 | Credentialed commercial academic provider adapters. |
 | [`backend/domains/literature/connectors/crossref.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/crossref.py) | 216 | 0 | 4 | 3 | 1 | Crossref and DataCite provider adapters. |
 | [`backend/domains/literature/connectors/dispatcher.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/dispatcher.py) | 132 | 0 | 3 | 2 | 3 | Connector dispatch, enrichment, and worker bridging. |
 | [`backend/domains/literature/connectors/generic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/generic.py) | 207 | 1 | 8 | 2 | 1 | Declarative custom JSON repository adapter. |
 | [`backend/domains/literature/connectors/graphs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/graphs.py) | 263 | 0 | 8 | 4 | 2 | OpenAlex and Semantic Scholar graph adapters. |
 | [`backend/domains/literature/connectors/normalization.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/normalization.py) | 207 | 0 | 9 | 0 | 3 | Canonical normalization shared by academic provider adapters. |
 | [`backend/domains/literature/connectors/public.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/public.py) | 571 | 0 | 8 | 8 | 0 | Public and open academic repository adapters. |
-| [`backend/domains/literature/connectors/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/runtime.py) | 98 | 6 | 2 | 0 | 2 | Typed late-bound compatibility seam for academic connector adapters. |
-| [`backend/domains/literature/connectors/transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 239 | 1 | 9 | 2 | 6 | Bounded transport, SSRF protection, and request auditing. |
+| [`backend/domains/literature/connectors/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/runtime.py) | 99 | 6 | 2 | 0 | 2 | Typed late-bound compatibility seam for academic connector adapters. |
+| [`backend/domains/literature/connectors/transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/transport.py) | 278 | 1 | 11 | 4 | 7 | Bounded transport, SSRF protection, and request auditing. |
 | [`backend/domains/literature/connectors/xml.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/connectors/xml.py) | 215 | 0 | 6 | 2 | 3 | XML, arXiv, and OAI-PMH provider adapters. |
 | [`backend/domains/literature/repositories.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/repositories.py) | 740 | 0 | 14 | 1 | 4 | Academic repository catalog and configuration. |
 | [`backend/domains/literature/review_logic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/review_logic.py) | 289 | 0 | 10 | 0 | 4 | Pure systematic-review workflow, PRISMA, and export logic. |
@@ -748,7 +748,7 @@ Total: **802 modules** and **166983 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 170 | 0 | 1 | 0 | 1 | Compatibility facade for typed academic connector adapters. |
+| [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 172 | 0 | 1 | 0 | 1 | Compatibility facade for typed academic connector adapters. |
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/action_rules.py) | 292 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 312 | 1 | 12 | 3 | 8 | Resolve canonical vault API routes and propagate the active vault context. |
 | [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 194 | 1 | 11 | 1 | 10 | Cooperative cancellation for streamed agent turns. |
