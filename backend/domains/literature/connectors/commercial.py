@@ -250,14 +250,23 @@ async def search_web_of_science(
 async def search_dimensions(
     query: str, filters: dict[str, Any], limit: int, api_key: str = ""
 ) -> list[dict[str, Any]]:
-    if not api_key:
-        raise ConnectorError("Dimensions requires an API token.")
-    headers = {"Authorization": f"JWT {api_key}" if not api_key.startswith("JWT ") else api_key}
-    clean_q = query.replace('"', '\\"')
-    dsl = f'search publications for "{clean_q}" return publications[id+title+authors+year+date+abstract+type+journal+doi+times_cited+open_access] limit {min(limit, 50)}'
-    data, _final_url, _response_headers = await current_runtime().safe_get_json(
-        "https://app.dimensions.ai/api/dsl/v2", params={"dsl": dsl}, headers=headers
+    if not api_key.strip():
+        raise ConnectorError("Dimensions requires an API key.")
+    runtime = current_runtime()
+    auth, _auth_url, _auth_headers = await runtime.safe_post_json(
+        "https://app.dimensions.ai/api/auth", json_body={"key": api_key.strip()}
     )
+    token = auth.get("token") if isinstance(auth, dict) else None
+    if not isinstance(token, str) or not token.strip():
+        raise ConnectorError("Dimensions authentication did not return a valid access token.")
+    headers = {"Authorization": f"JWT {token.strip()}"}
+    clean_q = query.replace("\\", "\\\\").replace('"', '\\"')
+    dsl = f'search publications for "{clean_q}" return publications[id+title+authors+year+date+abstract+type+journal+doi+times_cited+open_access] limit {min(limit, 50)}'
+    data, _final_url, _response_headers = await runtime.safe_post_json(
+        "https://app.dimensions.ai/api/dsl/v2", content=dsl.encode("utf-8"), headers=headers
+    )
+    if not isinstance(data, dict) or data.get("errors") or data.get("error"):
+        raise ConnectorError("Dimensions could not execute the search query.")
     pubs = data.get("publications") or []
     works = []
     for item in pubs:
