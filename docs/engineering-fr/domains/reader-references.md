@@ -139,6 +139,20 @@ compatibilité. Le port typé résout ses collaborateurs à chaque appel afin qu
 les tests et intégrations puissent remplacer le transport, la validation, les
 parseurs et le dispatch sans dupliquer l'état mutable.
 
+L’adaptateur Dimensions traite `dimensions_api_key` comme une clé API. Chaque
+recherche envoie d’abord `{ "key": "..." }` à `https://app.dimensions.ai/api/auth`
+par POST, valide le jeton reçu, puis envoie la requête DSL en UTF-8 à `/api/dsl/v2`
+avec `Authorization: JWT <token>`. Le jeton est obtenu pour chaque recherche et
+n’est pas conservé. Un abonnement avec accès à l’API activé reste nécessaire.
+
+Le transport POST partagé conserve la validation HTTPS, les délais, les limites
+de taille et les erreurs sûres d’identifiants et de quota. Il refuse les
+redirections afin de ne pas transmettre la clé ou le jeton. L’audit enregistre la
+méthode HTTP réelle sans corps de requête ni en-têtes d’autorisation. Les jetons
+absents ou invalides et les erreurs de requête sont signalés comme des erreurs du
+connecteur. `backend/tests/test_dimensions_connector.py` vérifie ce flux et ses
+échecs avec des réponses HTTP simulées ; un test réel nécessite une clé API activée.
+
 `AcademicWork` est le contrat canonique des connecteurs. Les unions déterministes
 utilisent, dans l'ordre, le DOI normalisé, le PMID ou PMCID, l'identifiant arXiv
 sans version, l'ISBN-13 puis le titre normalisé avec l'année et le nom du premier

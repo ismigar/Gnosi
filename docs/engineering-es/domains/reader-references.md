@@ -135,6 +135,20 @@ El puerto tipado resuelve los colaboradores de la fachada en cada llamada para
 que pruebas e integraciones puedan sustituir transporte, validación, parsers y
 dispatch sin duplicar estado mutable.
 
+El adaptador de Dimensions trata `dimensions_api_key` como una clave API. Cada
+búsqueda envía primero `{ "key": "..." }` a `https://app.dimensions.ai/api/auth`
+mediante POST, valida el token recibido y envía la consulta DSL en UTF-8 a
+`/api/dsl/v2` con `Authorization: JWT <token>`. El token se obtiene para cada
+búsqueda y no se guarda. Se requiere una suscripción con acceso a la API habilitado.
+
+El transporte POST compartido conserva la validación HTTPS, los tiempos de espera,
+los límites de tamaño y los errores seguros de credenciales y cuota. Rechaza las
+redirecciones para no reenviar la clave ni el token. La auditoría registra el método
+HTTP real sin incluir cuerpos de petición ni cabeceras de autorización. Los tokens
+ausentes o inválidos y los errores de consulta se comunican como fallos del conector.
+`backend/tests/test_dimensions_connector.py` verifica el flujo y sus errores con
+respuestas HTTP simuladas; la validación real requiere una clave API habilitada.
+
 `AcademicWork` es el contrato canónico de los conectores. Las fusiones deterministas utilizan, por orden, DOI normalizado, PMID o PMCID, identificador arXiv sin versión, ISBN-13 y título normalizado junto con el año y el apellido del primer autor. Una coincidencia aproximada de títulos solo genera un aviso. Los trabajos fusionados conservan cada aparición en las fuentes, las ubicaciones de acceso abierto, los recuentos de citas de cada proveedor, la procedencia de campos y las variantes en conflicto.
 
 La vista previa es de solo lectura. Adjuntar el texto completo es una acción manual independiente, ofrecida únicamente para ubicaciones de acceso abierto verificadas. La importación convierte el trabajo fusionado mediante el mapeador compartido de Recursos compatible con Zotero y repite la comprobación de identidad dentro de un bloqueo atómico. Si ya existe un registro de Recursos coincidente, la API lo devuelve en lugar de crear un duplicado.
