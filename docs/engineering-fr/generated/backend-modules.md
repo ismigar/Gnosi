@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 452 | 98028 |
+| `domains` | 452 | 98032 |
 | `mcp` | 3 | 429 |
 | `migrations` | 38 | 2269 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **815 modules** and **168382 source lines**.
+Total: **815 modules** and **168386 source lines**.
 
 ## agent
 
@@ -254,7 +254,7 @@ Total: **815 modules** and **168382 source lines**.
 | [`backend/domains/configuration/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration domain. |
 | [`backend/domains/configuration/agent/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration APIs for governed agent skills and capabilities. |
 | [`backend/domains/configuration/agent/catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_models.py) | 154 | 19 | 0 | 0 | 3 | Typed JSON responses for governed skill catalogs and automations. |
-| [`backend/domains/configuration/agent/catalog_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_routes.py) | 654 | 0 | 26 | 0 | 4 | Catalog, assignment and automation routes for agent skills. |
+| [`backend/domains/configuration/agent/catalog_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_routes.py) | 658 | 0 | 26 | 0 | 4 | Catalog, assignment and automation routes for agent skills. |
 | [`backend/domains/configuration/agent/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/contracts.py) | 91 | 7 | 0 | 0 | 7 | Request contracts for governed agent configuration APIs. |
 | [`backend/domains/configuration/agent/governance_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/governance_models.py) | 244 | 29 | 0 | 0 | 0 | Typed JSON responses for agent governance and quality endpoints. |
 | [`backend/domains/configuration/agent/governance_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/governance_routes.py) | 596 | 0 | 28 | 1 | 17 | Governance and quality routes for agent capabilities. |

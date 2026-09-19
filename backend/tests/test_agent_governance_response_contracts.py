@@ -46,6 +46,7 @@ EXPECTED_MODELS: dict[str, type[object]] = {
 
 EXPECTED_CATALOG_MODELS: dict[str, object] = {
     "assign_agent_skills": catalog_models.AgentSkillAssignmentResponse,
+    "automation_activity_runs": catalog_models.ActivityAutomationRunsResponse,
     "clone_skill": catalog_models.AgentSkillCatalogItemResponse,
     "create_skill": catalog_models.AgentSkillCatalogItemResponse,
     "create_skill_automation": catalog_models.SkillAutomationResponse,
@@ -125,7 +126,7 @@ def test_every_catalog_json_route_has_an_explicit_response_model() -> None:
 
 def test_agent_configuration_domain_has_no_untyped_json_route() -> None:
     routes = [*_governance_routes(), *_catalog_routes()]
-    assert len(routes) == 38
+    assert len(routes) == len(EXPECTED_MODELS) + len(EXPECTED_CATALOG_MODELS)
     assert all(route.response_model is not None for route in routes)
 
 

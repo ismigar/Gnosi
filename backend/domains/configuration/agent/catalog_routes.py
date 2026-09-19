@@ -641,7 +641,11 @@ def run_skill_automation_now(
     return {"status": "queued", "automation_id": automation_id}
 
 
-@router.get("/automation-runs", response_model=ActivityAutomationRunsResponse)
+@router.get(
+    "/automation-runs",
+    response_model=ActivityAutomationRunsResponse,
+    response_model_exclude_unset=True,
+)
 def automation_activity_runs(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
