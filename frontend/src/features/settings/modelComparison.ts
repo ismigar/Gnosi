@@ -1,3 +1,4 @@
+import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { matchingRegistryIndexes } from './model-comparison/modelComparisonRegistry';
 import type {
     AiModelCatalog,
@@ -32,6 +33,8 @@ export type ComparisonSortKey =
     | 'input_price'
     | 'intelligence'
     | 'latency'
+    | 'monthly_cost'
+    | 'parameters'
     | 'modes'
     | 'name'
     | 'output_price'
@@ -45,6 +48,8 @@ export interface ComparisonSort {
 }
 
 
+export type ParameterStatusFilter = 'all' | 'known' | 'not_published' | 'pending';
+
 export interface ModelComparisonUiState {
     readonly availability: ComparisonAvailability;
     readonly inputTokens: string;
@@ -52,6 +57,10 @@ export interface ModelComparisonUiState {
     readonly minContext: string;
     readonly modes: readonly ComparisonMode[];
     readonly modesMenuOpen: boolean;
+    readonly modeMatch: 'all' | 'any';
+    readonly parameterStatus: ParameterStatusFilter;
+    readonly minParameters: string;
+    readonly maxParameters: string;
     readonly outputTokens: string;
     readonly profile: 'all' | ComparisonProfile;
     readonly query: string;
@@ -73,6 +82,11 @@ export type ModelComparisonUiAction =
     | { readonly type: 'set-show-incomplete'; readonly value: boolean }
     | { readonly type: 'set-show-profile-help'; readonly value: boolean }
     | { readonly type: 'toggle-mode'; readonly mode: ComparisonMode }
+    | { readonly type: 'set-mode-match'; readonly value: 'all' | 'any' }
+    | { readonly type: 'set-parameter-status'; readonly value: ParameterStatusFilter }
+    | { readonly type: 'set-min-parameters'; readonly value: string }
+    | { readonly type: 'set-max-parameters'; readonly value: string }
+    | { readonly type: 'close-modes-menu' }
     | { readonly type: 'toggle-modes-menu' };
 
 
@@ -126,6 +140,10 @@ export const INITIAL_COMPARISON_UI_STATE: ModelComparisonUiState = {
     minContext: '',
     modes: [],
     modesMenuOpen: false,
+    modeMatch: 'all',
+    parameterStatus: 'all',
+    minParameters: '',
+    maxParameters: '',
     outputTokens: '1000000',
     profile: 'all',
     query: '',
@@ -164,13 +182,13 @@ export function modelComparisonUiReducer(
         case 'set-availability':
             return { ...state, availability: action.value };
         case 'set-input-tokens':
-            return { ...state, inputTokens: action.value };
+            return { ...state, inputTokens: normalizeTokenCountInput(action.value) ?? state.inputTokens };
         case 'set-max-price':
             return { ...state, maxPrice: action.value };
         case 'set-min-context':
             return { ...state, minContext: action.value };
         case 'set-output-tokens':
-            return { ...state, outputTokens: action.value };
+            return { ...state, outputTokens: normalizeTokenCountInput(action.value) ?? state.outputTokens };
         case 'set-profile':
             return { ...state, profile: action.value };
         case 'set-query':
@@ -186,6 +204,16 @@ export function modelComparisonUiReducer(
                     ? state.modes.filter((mode) => mode !== action.mode)
                     : [...state.modes, action.mode],
             };
+        case 'set-mode-match':
+            return { ...state, modeMatch: action.value };
+        case 'set-parameter-status':
+            return { ...state, parameterStatus: action.value };
+        case 'set-min-parameters':
+            return { ...state, minParameters: action.value };
+        case 'set-max-parameters':
+            return { ...state, maxParameters: action.value };
+        case 'close-modes-menu':
+            return { ...state, modesMenuOpen: false };
         case 'toggle-modes-menu':
             return { ...state, modesMenuOpen: !state.modesMenuOpen };
     }
@@ -276,23 +304,20 @@ export const modelComparisonColumns = (
     available: MetricAvailability,
 ): readonly ComparisonColumn[] => [
     { key: 'name', label: 'model' },
-    { key: 'creator', label: 'creator' },
-    { key: 'modes', label: 'modes' },
     ...(available.intelligence
-        ? [{ key: 'intelligence', label: 'intelligence' } as const]
-        : []),
-    ...(available.coding
-        ? [{ key: 'coding', label: 'coding' } as const]
-        : []),
-    ...(available.agentic
-        ? [{ key: 'agentic', label: 'agentic' } as const]
-        : []),
+        ? [{ key: 'intelligence', label: 'intelligence' } as const] : []),
+    { key: 'context_window', label: 'context' },
     { key: 'input_price', label: 'input_price' },
     { key: 'output_price', label: 'output_price' },
-    { key: 'context_window', label: 'context' },
+    { key: 'monthly_cost', label: 'monthly_cost' },
+    { key: 'modes', label: 'modes' },
+    { key: 'parameters', label: 'parameters' },
     ...(available.speed ? [{ key: 'speed', label: 'speed' } as const] : []),
     ...(available.latency ? [{ key: 'latency', label: 'latency' } as const] : []),
     ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
+    ...(available.coding ? [{ key: 'coding', label: 'coding' } as const] : []),
+    ...(available.agentic ? [{ key: 'agentic', label: 'agentic' } as const] : []),
+    { key: 'creator', label: 'creator' },
 ];
 
 
@@ -300,6 +325,7 @@ const sortableModelValue = (
     model: AiModelComparisonEntry,
     key: ComparisonSortKey,
 ): number | string | null => {
+    if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
     const value = model[key];
     if (Array.isArray(value)) return value.join(',');
     return typeof value === 'number' || typeof value === 'string' ? value : null;
@@ -343,10 +369,15 @@ export const filteredComparisonModels = (
             || normalizedQuery !== ''
             || ui.maxPrice !== ''
             || ui.minContext !== ''
+            || ui.parameterStatus !== 'all'
+            || ui.minParameters !== ''
+            || ui.maxParameters !== ''
         )
         && (
             ui.modes.length === 0
-            || ui.modes.some((mode) => model.modes.includes(mode))
+            || (ui.modeMatch === 'all'
+                ? ui.modes.every((mode) => model.modes.includes(mode))
+                : ui.modes.some((mode) => model.modes.includes(mode)))
         )
         && (
             ui.availability === 'all'
@@ -356,16 +387,21 @@ export const filteredComparisonModels = (
         )
         && (
             ui.maxPrice === ''
-            || (model.input_price !== null && model.input_price <= priceLimit)
+            || (model.input_price !== null && model.input_price * (feed?.currency.usd_rate || 1) <= priceLimit)
         )
         && (
             ui.minContext === ''
             || (model.context_window !== null
                 && model.context_window >= contextFloor)
         )
+        && matchesParameterFilters(model, ui)
     )).sort((left, right) => {
-        const first = sortableModelValue(left, ui.sort.key);
-        const second = sortableModelValue(right, ui.sort.key);
+        const first = ui.sort.key === 'monthly_cost'
+            ? modelMonthlyCost(left, ui.inputTokens, ui.outputTokens)
+            : sortableModelValue(left, ui.sort.key);
+        const second = ui.sort.key === 'monthly_cost'
+            ? modelMonthlyCost(right, ui.inputTokens, ui.outputTokens)
+            : sortableModelValue(right, ui.sort.key);
         if (first === null && second === null) return 0;
         if (first === null) return 1;
         if (second === null) return -1;
@@ -403,3 +439,25 @@ export const modelComparisonErrorCode = (error: unknown): string => {
     }
     return typeof error.code === 'string' ? error.code : 'network_error';
 };
+
+
+function matchesParameterFilters(model: AiModelComparisonEntry, ui: ModelComparisonUiState): boolean {
+    const parameters = modelParameterMetadata(model);
+    const status = parameters ? 'known' : modelParameterDisclosure(model).status;
+    if (ui.parameterStatus !== 'all' && ui.parameterStatus !== status) return false;
+    if (ui.minParameters === '' && ui.maxParameters === '') return true;
+    if (!parameters) return false;
+    return (ui.minParameters === '' || parameters.total >= parseNonNegativeNumber(ui.minParameters))
+        && (ui.maxParameters === '' || parameters.total <= parseNonNegativeNumber(ui.maxParameters));
+}
+
+
+/** Token counts are integers; dots and spaces are display grouping only. */
+export const normalizeTokenCountInput = (value: string): string | null => {
+    const digits = value.replace(/[.\s]/g, '');
+    return /^\d*$/.test(digits) ? digits.replace(/^0+(?=\d)/, '') : null;
+};
+
+export const formatTokenCountInput = (value: string): string => (
+    value.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+);

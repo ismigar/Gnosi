@@ -17476,6 +17476,7 @@ export interface components {
             name: string;
             /** Output Price */
             output_price: number | null;
+            parameter_metadata?: components["schemas"]["ModelParameterMetadata"] | null;
             /** Profile */
             profile: string;
             /** Release Date */
@@ -17586,6 +17587,25 @@ export interface components {
         ModelEvaluationsResponse: {
             /** Evaluations */
             evaluations: components["schemas"]["ModelEvaluationResponse"][];
+        };
+        /**
+         * ModelParameterMetadata
+         * @description Parameter disclosures, in billions, with their official evidence.
+         */
+        ModelParameterMetadata: {
+            /** Active */
+            active?: number | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Source */
+            source?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "known" | "not_published" | "pending";
+            /** Total */
+            total?: number | null;
         };
         /**
          * ModelRegistryEntry

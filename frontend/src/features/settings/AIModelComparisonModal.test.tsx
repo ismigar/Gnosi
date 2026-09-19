@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AiModelComparison } from '../../shared/api/ai';
+import type { useModelComparisonData } from './useModelComparisonData';
 import { AIModelComparisonModal } from './AIModelComparisonModal';
 
 
@@ -156,16 +157,73 @@ afterEach(() => {
 
 
 describe('AIModelComparisonModal', () => {
+    it('exposes parameter filters and explicit mode matching', () => {
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const tokenInputs = container.querySelectorAll<HTMLInputElement>('.model-cost-calculator input');
+        expect([...tokenInputs].map(input => input.value)).toEqual(['5.000.000', '1.000.000']);
+        const group = container.querySelector('.model-parameter-filters');
+        expect(group?.querySelectorAll('input[type="number"]')).toHaveLength(2);
+        const status = group?.querySelector('select');
+        if (!status) throw new Error('Missing parameter status filter');
+        act(() => { status.value = 'known'; status.dispatchEvent(new Event('change', { bubbles: true })); });
+        expect(container.textContent).not.toContain('Model One');
+        act(() => { status.value = 'all'; status.dispatchEvent(new Event('change', { bubbles: true })); });
+        expect(container.textContent).toContain('Model One');
+        const button = container.querySelector<HTMLButtonElement>('.model-modes-filter > button');
+        act(() => { button?.click(); });
+        const match = container.querySelector<HTMLSelectElement>('.model-modes-menu select');
+        expect(match?.value).toBe('all');
+        if (!match) throw new Error('Missing mode matching filter');
+        act(() => { match.value = 'any'; match.dispatchEvent(new Event('change', { bubbles: true })); });
+        expect(match.value).toBe('any');
+        act(() => { match.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
+        expect(container.querySelector('.model-modes-menu')).not.toBeNull();
+        act(() => { container.querySelector('.model-search input')?.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
+        expect(container.querySelector('.model-modes-menu')).toBeNull();
+        expect(button?.getAttribute('aria-expanded')).toBe('false');
+        act(() => { button?.click(); });
+        expect(container.querySelector<HTMLSelectElement>('.model-modes-menu select')?.value).toBe('any');
+    });
+
+    it.each([
+        ['Qwen3 30B A3B (Reasoning)', 'Alibaba', '30.5 B', 'https://huggingface.co/Qwen/Qwen3-30B-A3B'],
+        ['GPT-6 Astra (max)', 'OpenAI', 'model_comparison.parameters_not_published', 'https://developers.openai.com/api/docs/models'],
+    ])('renders parameter evidence for %s', (name, creator, label, source) => {
+        const implementation = mocks.useData.getMockImplementation();
+        if (!implementation) throw new Error('Missing data fixture');
+        const data = implementation() as ReturnType<typeof useModelComparisonData>;
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [{ ...FEED.models[0], name, creator }],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const cell = container.querySelectorAll('tbody tr:first-child > td')[7];
+        expect(cell?.textContent).toContain(label);
+        expect(cell?.querySelector('a')?.getAttribute('href')).toBe(source);
+        expect(cell?.querySelector('a')?.title).toContain('model_comparison.parameters_checked');
+    });
+
     it('renders the typed table and routes active-model deactivation', () => {
         const onClose = vi.fn();
         act(() => {
             root.render(<AIModelComparisonModal isOpen onClose={onClose} />);
         });
 
+        const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
+        expect(headers).toEqual([
+            'model', 'intelligence', 'context', 'input_price', 'output_price', 'monthly_cost',
+            'modes', 'parameters', 'speed', 'latency', 'profile', 'coding', 'agentic', 'creator', 'available',
+        ].map((key) => `model_comparison.columns.${key}`));
+        const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
+        expect(cells).toHaveLength(headers.length);
+        expect(cells[1]?.textContent).toContain('85');
+        expect(cells[2]?.textContent).toBe('128K');
+        expect(cells[5]?.textContent).toContain('9');
+        expect(cells[7]?.textContent).toContain('model_comparison.parameters_missing');
+        expect(cells[13]?.textContent).toBe('OpenAI');
         expect(container.textContent).toContain('Model One');
         expect(container.textContent).toContain('model_comparison.title');
         const toggle = container.querySelector<HTMLButtonElement>(
-            '[role="switch"]',
+            'tbody [role="switch"]',
         );
         if (!toggle) throw new Error('Availability switch was not rendered');
         act(() => {
