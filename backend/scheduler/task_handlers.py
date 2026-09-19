@@ -13,6 +13,7 @@ from typing import Any, Protocol
 from backend.config.data_dir import resolve_data_dir
 from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_session
+from backend.services.model_parameters import refresh_parameters
 
 TaskResult = dict[str, Any]
 
@@ -86,6 +87,7 @@ def execute_task(
                 "message": "Task paused while plugins are disabled: " + ", ".join(missing),
             }
     handlers: dict[str, Callable[[], TaskResult]] = {
+        "refresh_model_parameters": refresh_parameters,
         "fetch_feeds": manager._task_fetch_feeds,
         "fetch_newsletters": manager._task_fetch_newsletters,
         "generate_podcast": manager._task_generate_podcast,

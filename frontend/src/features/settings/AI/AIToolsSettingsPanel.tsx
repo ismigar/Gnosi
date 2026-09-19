@@ -11,6 +11,8 @@ import {
     resourceStatusLabel,
     toolDisplayDescription,
     toolDisplayName,
+    skillDisplayName,
+    resourceExample,
 } from './aiResourceI18n';
 import { originLabel } from './aiResourceLabels';
 import type { ToolResources } from './aiResourceSettingsTypes';
@@ -26,8 +28,10 @@ import {
 
 export function ToolsSettingsPanel({
     resources,
+    onSelectSkill,
 }: {
     readonly resources: ToolResources;
+    readonly onSelectSkill?: (id: string) => void;
 }) {
     const { t } = useTranslation();
     const [search, setSearch] = useState('');
@@ -106,7 +110,7 @@ export function ToolsSettingsPanel({
                                 <span className="ai-resource-card__copy">
                                     <span className="ai-resource-card__heading">
                                         <strong>{toolDisplayName(t, tool)}</strong>
-                                        <code>{tool.id}</code>
+
                                     </span>
                                     <span>{toolDisplayDescription(t, tool)
                                         || t('settings.ai.resources.no_description')}</span>
@@ -137,7 +141,7 @@ export function ToolsSettingsPanel({
                                     <div>
                                         <strong>{t('settings.ai.resources.consuming_skills')}</strong>
                                         <span>{tool.skillIds.length > 0
-                                            ? tool.skillIds.join(', ')
+                                            ? tool.skillIds.map(id => <button type="button" key={id} onClick={() => onSelectSkill?.(id)}>{skillDisplayName(t, resources.skills?.find(skill => skill.id === id) ?? { id })}</button>)
                                             : t('settings.ai.resources.no_skills_using_tool')}</span>
                                     </div>
                                     {tool.approvalStatus ? (
@@ -149,6 +153,9 @@ export function ToolsSettingsPanel({
                                             )}</span>
                                         </div>
                                     ) : null}
+                                    {resourceExample(t, tool) && <p>{t('settings.ai.resources.example')}: {resourceExample(t, tool)}</p>}
+                                    {!tool.available && <p>{t('settings.ai.resources.tool_unavailable_help', { status: resourceStatusLabel(t, tool.status) })}</p>}
+                                    <details><summary>{t('settings.ai.resources.technical_details')}</summary><code>{tool.id}</code>
                                     <JsonSchemaDetails
                                         label={t('settings.ai.resources.input_schema')}
                                         schema={tool.inputSchema}
@@ -156,7 +163,7 @@ export function ToolsSettingsPanel({
                                     <JsonSchemaDetails
                                         label={t('settings.ai.resources.output_schema')}
                                         schema={tool.outputSchema}
-                                    />
+                                    /></details>
                                 </div>
                             ) : null}
                         </article>

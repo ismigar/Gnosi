@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
 
 from backend.domains.configuration.agent.catalog_models import (
+    ActivityAutomationRunsResponse,
     AgentSkillAssignmentResponse,
     AgentSkillCatalogItemResponse,
     AgentSkillCatalogIssueResponse as AgentSkillCatalogIssueResponse,
@@ -240,9 +241,22 @@ def create_skill(
     _refresh_mcp_catalog(request)
     _validate_referenced_tools(payload.tool_ids)
     store = _store_for(context)
+    metadata = _metadata(payload)
+    if payload.source_skill_id:
+        source = get_skill_catalog().get_entry(payload.source_skill_id, Path(context.vault_path))
+        if source is None:
+            raise HTTPException(status_code=404, detail="source skill not found")
+        if payload.source_revision and payload.source_revision != source.revision:
+            raise HTTPException(status_code=409, detail="source skill changed since it was loaded")
+        metadata["metadata"] = {"derived_from": {
+            "id": source.descriptor.id, "name": source.descriptor.name,
+            "version": source.descriptor.version, "revision": source.revision,
+            "instructions": source.descriptor.instructions,
+            "tool_ids": source.descriptor.tool_ids,
+        }}
     try:
         descriptor = store.create(
-            _metadata(payload),
+            metadata,
             payload.instructions,
             requested_id=payload.requested_id,
         )
@@ -625,3 +639,16 @@ def run_skill_automation_now(
 
     background_tasks.add_task(_run)
     return {"status": "queued", "automation_id": automation_id}
+
+
+@router.get("/automation-runs", response_model=ActivityAutomationRunsResponse)
+def automation_activity_runs(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    automation_id: str | None = None,
+    context: WorkspaceContext = Depends(get_workspace_context),
+) -> dict[str, object]:
+    """Read history within the authenticated user, workspace and Vault scope."""
+    from backend.services.automation_history import list_scoped_runs
+
+    return list_scoped_runs(_automation_scope(context), limit=limit, offset=offset, automation_id=automation_id)

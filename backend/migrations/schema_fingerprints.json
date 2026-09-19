@@ -32,10 +32,13 @@
     },
     "capability_automations": {
       "branch": "capability_automations",
-      "head": "automations_0001",
+      "head": "automations_0002",
       "revisions": {
         "automations_0001": [
           "1e9d72ada165cc2287049f277d4ec4c039e31171309ef8f5868a6be6681a6626"
+        ],
+        "automations_0002": [
+          "3a7ba2741b3ad57ea73d2d8549fc5bdd02baf8b58904c92c8fc115bd6c4cc1eb"
         ]
       }
     },

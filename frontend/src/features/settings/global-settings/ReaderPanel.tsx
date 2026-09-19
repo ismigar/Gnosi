@@ -1,3 +1,4 @@
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { FileUp } from 'lucide-react';
 import { FormGroup } from '../../../shared/ui/settings/SettingsPrimitives';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
@@ -86,7 +87,7 @@ export function ReaderPanel({ context }: Props) {
     {readerSection === 'subscriptions' && (
       <Section title={t('subs_section_title')} icon={Rss} extra={
         <div style={{ display: 'inline-flex', gap: '8px' }}>
-          <button onClick={() => { void loadNewsletterSources(); }} disabled={newsletterSourcesLoading} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', opacity: newsletterSourcesLoading ? 0.6 : 1, cursor: newsletterSourcesLoading ? 'wait' : 'pointer' }}>{newsletterSourcesLoading ? t('subs_btn_reload_loading') : t('subs_btn_reload')}</button>
+          <RefreshButton loading={newsletterSourcesLoading} label={t('subs_btn_reload')} onClick={() => { void loadNewsletterSources(); }} />
           <button onClick={() => newsletterOpmlRef.current?.click()} disabled={newsletterOpmlLoading} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', opacity: newsletterOpmlLoading ? 0.6 : 1, cursor: newsletterOpmlLoading ? 'wait' : 'pointer' }}><FileUp size={16} /> {newsletterOpmlLoading ? t('subs_btn_import_opml_loading') : t('subs_btn_import_opml')}</button>
         </div>
       }>

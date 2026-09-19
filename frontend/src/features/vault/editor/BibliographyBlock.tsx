@@ -1,5 +1,6 @@
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import { BookText, RefreshCw } from 'lucide-react';
+import { BookText, } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { logError } from '../../../shared/notifications/notifyError';
@@ -231,14 +232,7 @@ export function BibliographyBlock({ block, editor }: BibliographyBlockProps) {
                         {t('citations.refs', { defaultValue: 'citations' })})
                     </span>
                 </span>
-                <button
-                    onClick={refresh}
-                    title={t('citations.refresh', { defaultValue: 'Refresh' })}
-                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                    contentEditable={false}
-                >
-                    <RefreshCw size={13} />
-                </button>
+                <RefreshButton label={t('citations.refresh', { defaultValue: 'Refresh' })} onClick={refresh} contentEditable={false} />
             </div>
             {loading && (
                 <div className="text-xs text-[var(--text-tertiary)] italic">

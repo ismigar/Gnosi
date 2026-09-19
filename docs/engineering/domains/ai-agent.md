@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
   - backend/domains/configuration/llm_wiki.py
   - backend/domains/configuration/plugin_state.py
@@ -910,3 +910,25 @@ Tests use disposable logs, controlled clocks and owned threads. The real policy
 wrapper is exercised with an inert model to verify response/exception identity
 and absence of synthetic prompt/error content in diagnostics. No provider call
 or real user log is required for these checks.
+
+## Resource catalogue and personalisation
+
+Tool labels are keyed by exact operation identity; different operations no
+longer collapse to a generic verb and domain. Localised descriptions have an
+exact-key fallback to the original catalogue text. Executable instructions
+always show the actual stored content. Technical identifiers and schemas are
+available in expandable details; tool selection includes descriptions, origin,
+effects, availability and search filters.
+
+Bundled skills remain immutable. Personalise opens an editable draft, with no
+write until Save. The server verifies the source revision and stores source
+identity, version, original instructions and tool selection in `derived_from`.
+Subsequent edits preserve this provenance, and catalogue updates are compared
+without overwriting the personal version.
+
+Applying a personal skill to selected agents and automations is explicit.
+Assignments use freshly read revisions and retain required skills. Targets receive
+the new skill before selected automations are updated; successful partial
+changes are preserved and errors are reported. An original still used by an
+unselected automation remains assigned. Cancelling a draft changes neither the
+catalogue nor assignments.

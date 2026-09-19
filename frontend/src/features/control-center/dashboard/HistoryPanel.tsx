@@ -1,4 +1,5 @@
-import {RefreshCw, Activity, Clock, Loader2, Trash2} from 'lucide-react';
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
+import {Activity, Clock, Loader2, Trash2} from 'lucide-react';
 import {DashboardPaginationControls} from './DashboardPaginationControls';
 import type {DashboardState} from './useDashboard';
 
@@ -69,13 +70,7 @@ return <>{automationsEnabled && selectedControlTab === 'history' && (
                                         <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{notifTotal} {t('common.entries', "entries")}</span>
                                     </h3>
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => void refetchNotifications()}
-                                            className="p-1 hover:bg-blue-500/10 text-blue-400 rounded transition-all"
-                                            title={t('dashboard.refresh_logs')}
-                                        >
-                                            <RefreshCw size={14} className={notificationsLoading ? "animate-spin" : ""} />
-                                        </button>
+                                        <RefreshButton loading={notificationsLoading} label={t('dashboard.refresh_logs')} onClick={() => void refetchNotifications()} />
                                         <button
                                             onClick={handlePurgeLogs}
                                             className="text-[10px] flex items-center gap-1 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition-all border border-red-500/10"

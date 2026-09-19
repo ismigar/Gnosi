@@ -21,6 +21,117 @@
         "title": "ActionConfirmationRequest",
         "type": "object"
       },
+      "ActivityAutomationRunResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "ai_calls": {
+            "title": "Ai Calls",
+            "type": "integer"
+          },
+          "automation_id": {
+            "title": "Automation Id",
+            "type": "string"
+          },
+          "automation_name": {
+            "title": "Automation Name",
+            "type": "string"
+          },
+          "confirmation_count": {
+            "title": "Confirmation Count",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "result_text": {
+            "default": "",
+            "title": "Result Text",
+            "type": "string"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "automation_id",
+          "status",
+          "ai_calls",
+          "confirmation_count",
+          "error_code",
+          "started_at",
+          "finished_at",
+          "automation_name",
+          "agent_id",
+          "skill_id"
+        ],
+        "title": "ActivityAutomationRunResponse",
+        "type": "object"
+      },
+      "ActivityAutomationRunsResponse": {
+        "properties": {
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityAutomationRunResponse"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "total",
+          "offset"
+        ],
+        "title": "ActivityAutomationRunsResponse",
+        "type": "object"
+      },
       "ActivityRequest": {
         "properties": {
           "activity_type": {
@@ -2577,6 +2688,42 @@
         "title": "AutomationBudgetsResponse",
         "type": "object"
       },
+      "AutomationSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "default": "interval",
+            "enum": [
+              "interval",
+              "daily",
+              "weekly"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "time": {
+            "default": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Time",
+            "type": "string"
+          },
+          "timezone": {
+            "default": "UTC",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "title": "Weekdays",
+            "type": "array"
+          }
+        },
+        "title": "AutomationSchedule",
+        "type": "object"
+      },
       "AutomationWritePayload": {
         "additionalProperties": false,
         "description": "A recurring invocation of one explicitly assigned agent skill.",
@@ -2642,6 +2789,16 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutomationSchedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "skill_id": {
             "maxLength": 256,
@@ -21070,6 +21227,16 @@
             ],
             "title": "Output Price"
           },
+          "parameter_metadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelParameterMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "profile": {
             "title": "Profile",
             "type": "string"
@@ -21386,6 +21553,69 @@
           "evaluations"
         ],
         "title": "ModelEvaluationsResponse",
+        "type": "object"
+      },
+      "ModelParameterMetadata": {
+        "description": "Parameter disclosures, in billions, with their official evidence.",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "enum": [
+              "known",
+              "not_published",
+              "pending"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ModelParameterMetadata",
         "type": "object"
       },
       "ModelRegistryEntry": {
@@ -29652,6 +29882,9 @@
             "title": "Revision",
             "type": "string"
           },
+          "schedule": {
+            "$ref": "#/components/schemas/AutomationSchedule"
+          },
           "skill_id": {
             "title": "Skill Id",
             "type": "string"
@@ -29721,6 +29954,11 @@
           },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "result_text": {
+            "default": "",
+            "title": "Result Text",
             "type": "string"
           },
           "started_at": {
@@ -32512,6 +32750,30 @@
               }
             ],
             "title": "Requested Id"
+          },
+          "source_revision": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Revision"
+          },
+          "source_skill_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Skill Id"
           },
           "tool_ids": {
             "items": {
@@ -35401,6 +35663,160 @@
           }
         },
         "summary": "List Workspace Approvals",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/automation-runs": {
+      "get": {
+        "description": "Read history within the authenticated user, workspace and Vault scope.",
+        "operationId": "automation_activity_runs_api_ai_automation_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "automation_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Automation Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityAutomationRunsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Automation Activity Runs",
         "tags": [
           "AI Skills",
           "AI Skills"

@@ -445,7 +445,7 @@ def core_gnosi_skill_descriptors(
         SkillDescriptor(
             id=f"core.gnosi-{domain}",
             name=names[domain],
-            description=f"Provider-neutral first-party {names[domain]} operations.",
+            description=instructions[domain],
             origin=ORIGIN,
             kind=SkillKind.AGENT,
             activation=SkillActivation.ALWAYS,

@@ -90,7 +90,7 @@ describe('AI resource settings components', () => {
             />,
         );
 
-        expect(container.textContent).toContain('settings.ai.catalog.tool_name');
+        expect(container.textContent).toContain('Process source');
         expect(container.textContent).toContain('local write');
         expect(container.textContent).toContain('settings.ai.resources.status_available');
 
@@ -136,13 +136,27 @@ describe('AI resource settings components', () => {
             />,
         );
 
-        expect(container.textContent).toContain('settings.ai.catalog.tool_name');
+        expect(container.textContent).toContain('Query Brain');
         expect(container.textContent).toContain('plugin.disabled.missing');
         expect(container.textContent).toContain('settings.ai.resources.required');
         expect(container.textContent).toContain(
             'settings.ai.resources.model_incompatible',
         );
         expect(container.querySelector('input[disabled]')).not.toBeNull();
+    });
+
+    it('opens personalization as a draft and cancel never writes a copy', () => {
+        const skill = normalizeSkill({ id: 'core.example', name: 'Example', instructions: 'Exact runtime instructions', origin: 'core', description: 'Specific original description' });
+        const cloneSkill = vi.fn(); const createSkill = vi.fn();
+        const container = render(<SkillsSettingsPanel agents={[]} onAgentsChanged={vi.fn()} resources={{ skills: [skill], tools: [], cloneSkill, createSkill, updateSkill: vi.fn(), validateSkill: vi.fn(), deleteSkill: vi.fn(), reload: vi.fn(), issues: [], loading: false, error: '' }} />);
+        const customize = [...container.querySelectorAll('button')].find(button => button.textContent.includes('customize'));
+        act(() => { customize?.click(); });
+        expect(container.querySelector('textarea[rows="7"]')?.textContent).toBe(skill.instructions);
+        expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
+        const cancel = [...container.querySelectorAll('button')].find(button => button.textContent.includes('common.cancel'));
+        act(() => { cancel?.click(); });
+        expect(container.querySelector('.ai-resource-editor')).toBeNull();
+        expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
     });
 
     it('surfaces the atomic unassign-and-delete conflict', async () => {

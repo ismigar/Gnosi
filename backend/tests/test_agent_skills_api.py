@@ -224,3 +224,30 @@ def test_provider_neutral_job_status_result_resume_and_cancel_routes(monkeypatch
     incomplete = client.get("/api/ai/jobs/reader:running-job/result")
     assert incomplete.status_code == 409
     assert incomplete.json()["detail"] == "The job is not complete."
+
+
+def test_personalization_records_source_and_rejects_stale_original(monkeypatch, tmp_path):
+    tools = ToolCatalog()
+    catalog = SkillCatalog(tools)
+    context = WorkspaceContext(workspace_id="personal", user_id="owner", role="owner", vault_path=tmp_path)
+    monkeypatch.setattr(agent_skills_routes, "get_skill_catalog", lambda: catalog)
+    monkeypatch.setattr(agent_skills_routes, "get_tool_catalog", lambda: tools)
+    # An instruction-only skill has no tool dependencies.
+    app = FastAPI()
+    app.include_router(agent_skills_routes.router, prefix="/api")
+    app.dependency_overrides[get_workspace_context] = lambda: context
+    client = TestClient(app)
+    original = client.post("/api/ai/skills", json={"name": "Original", "instructions": "Original instructions", "tool_ids": []})
+    assert original.status_code == 201, original.text
+    source = original.json()
+    draft = {"name": "Personal", "instructions": "My instructions", "tool_ids": [], "source_skill_id": source["id"]}
+    stale = client.post("/api/ai/skills", json={**draft, "source_revision": "outdated"})
+    assert stale.status_code == 409
+    copied = client.post("/api/ai/skills", json={**draft, "source_revision": source["revision"]})
+    assert copied.status_code == 201, copied.text
+    saved = copied.json()
+    assert saved["metadata"]["derived_from"]["instructions"] == "Original instructions"
+    updated = client.put(f"/api/ai/skills/{saved['id']}", json={"name": "Personal updated", "instructions": "Edited again", "tool_ids": [], "expected_revision": saved["revision"]})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["metadata"]["derived_from"] == saved["metadata"]["derived_from"]
+    assert client.get(f"/api/ai/skills/{source['id']}").json()["instructions"] == "Original instructions"

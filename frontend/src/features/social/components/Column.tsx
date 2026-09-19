@@ -1,3 +1,4 @@
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal } from 'lucide-react';
@@ -36,7 +37,7 @@ const Column = ({
                     <span className="bg-[var(--bg-tertiary)] text-xs px-2 py-0.5 rounded-full text-[var(--text-secondary)]">{posts.length}</span>
                 </div>
 
-                <div className="relative group">
+                <div className="flex items-center gap-2"><RefreshButton onClick={onRefresh} /><div className="relative group">
                     <button
                         className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] p-1 rounded-lg transition-colors"
                         aria-label={t('social.stream_actions', 'Stream actions')}
@@ -46,12 +47,7 @@ const Column = ({
 
                     {/* Dropdown Menu */}
                     <div className="absolute right-0 top-full mt-1 w-32 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl shadow-xl overflow-hidden hidden group-hover:block animate-in fade-in zoom-in-95 duration-100">
-                        <button
-                            onClick={onRefresh}
-                            className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                        >
-                            {t('common.refresh', 'Refresh')}
-                        </button>
+
                         <button
                             onClick={onDelete}
                             className="w-full text-left px-4 py-2 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors"
@@ -59,7 +55,7 @@ const Column = ({
                             {t('common.delete', 'Delete')}
                         </button>
                     </div>
-                </div>
+                </div></div>
             </div>
 
             {/* Content */}

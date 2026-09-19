@@ -1,0 +1,25 @@
+button.gnosi-refresh-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+    margin-inline-start: auto;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 150ms, background-color 150ms;
+}
+button.gnosi-refresh-button:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    color: var(--gnosi-blue);
+}
+button.gnosi-refresh-button:focus-visible {
+    outline: 2px solid var(--gnosi-blue);
+    outline-offset: 2px;
+}
+button.gnosi-refresh-button:disabled { opacity: 0.5; cursor: default; }

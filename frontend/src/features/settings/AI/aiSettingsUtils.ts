@@ -41,6 +41,8 @@ export interface RawCatalogRecord extends UnknownRecord {
     instructions?: string;
     kind?: string;
     metadata?: {
+        required_source_ids?: string[];
+        derived_from?: { id: string; name: string; version: string; revision: string; instructions: string; tool_ids: string[] };
         required?: boolean;
         required_for_agent?: boolean | string | readonly string[];
     };
@@ -124,6 +126,8 @@ export interface SkillDraft {
     description: string;
     instructions: string;
     name: string;
+    sourceSkillId?: string;
+    sourceRevision?: string | number | null;
     toolIds?: readonly string[];
     [key: string]: unknown;
 }
@@ -252,7 +256,7 @@ export const normalizeTool = (raw: RawCatalogRecord = {}): NormalizedTool => {
         available: (
             raw.available !== false
             && raw.runtime_adapter_available !== false
-            && !['unavailable', 'revoked', 'pending', 'missing', 'disabled'].includes(status)
+            && !['unavailable', 'revoked', 'pending', 'missing', 'disabled', 'suspended', 'rejected'].includes(status)
         ),
         minimumRole: raw.minimum_role || raw.required_role || '',
         confirmation: raw.confirmation || raw.confirmation_policy || 'none',
@@ -406,6 +410,7 @@ export const skillPayload = (draft: SkillDraft, revision: unknown = null) => ({
     kind: 'agent',
     activation: draft.activation,
     tool_ids: asArray(draft.toolIds),
+    ...(draft.sourceSkillId ? { source_skill_id: draft.sourceSkillId, source_revision: draft.sourceRevision } : {}),
     ...(revision !== null ? { expected_revision: revision } : {}),
 });
 

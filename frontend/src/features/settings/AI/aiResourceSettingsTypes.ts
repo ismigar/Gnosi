@@ -25,10 +25,10 @@ export type SkillResources = Pick<
     | 'tools'
     | 'updateSkill'
     | 'validateSkill'
->;
+> & Partial<Pick<AIResourcesController, 'automations' | 'assignAgentSkills' | 'saveAutomation'>>;
 
 
 export type ToolResources = Pick<
     AIResourcesController,
     'error' | 'loading' | 'reload' | 'tools'
->;
+> & Partial<Pick<AIResourcesController, 'skills'>>;

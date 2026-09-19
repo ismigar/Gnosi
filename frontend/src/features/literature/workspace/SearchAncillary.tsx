@@ -1,10 +1,10 @@
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import {
   Eye,
   FilePlus2,
   LoaderCircle,
   Plus,
-  RefreshCw,
-} from 'lucide-react';
+  } from 'lucide-react';
 import type { RefObject } from 'react';
 
 import { authorLine } from './literatureModel';
@@ -33,14 +33,7 @@ export function SearchAncillary({
         <div className="literature-search-history">
           <header>
             <strong>{t('literature.search.history')}</strong>
-            <button
-              aria-label={t('literature.search.refresh_history')}
-              className="literature-icon-button"
-              onClick={() => void actions.loadSearchHistory()}
-              type="button"
-            >
-              <RefreshCw size={14} />
-            </button>
+            <RefreshButton label={t('literature.search.refresh_history')} onClick={() => void actions.loadSearchHistory()} />
           </header>
           {state.searchHistory.length === 0 ? <p>{t('literature.search.no_history')}</p> : (
             state.searchHistory.map((item) => (

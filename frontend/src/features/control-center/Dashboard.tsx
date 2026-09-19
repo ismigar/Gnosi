@@ -1,4 +1,4 @@
-import {Clock3, History, Users, Gauge, Sparkles} from 'lucide-react';
+import {Clock3, History, Users, Gauge, Sparkles, ShieldCheck} from 'lucide-react';
 import {AppHeader} from '../../shared/ui/layout/AppHeader';
 import {SettingsSectionTabs} from '../../shared/ui/settings/SettingsSectionTabs';
 import {releaseNotesUrl} from './releases/releaseNotesUrl';
@@ -6,7 +6,9 @@ import {APP_VERSION} from './releases/version';
 import {useDashboard} from './dashboard/useDashboard';
 import {useDashboardKeyboard} from './dashboard/useDashboardKeyboard';
 import {SchedulerPanel} from './dashboard/SchedulerPanel';
-import {HistoryPanel} from './dashboard/HistoryPanel';
+import { SystemLogsPanel } from './dashboard/SystemLogsPanel';
+import { AIActivityPanel } from '../settings/AIActivity';
+import { DashboardPaginationControls } from './dashboard/DashboardPaginationControls';
 import {MembersPanel} from './dashboard/MembersPanel';
 import {TrapsDialog} from './dashboard/TrapsDialog';
 import {DirectivesDialog} from './dashboard/DirectivesDialog';
@@ -45,15 +47,16 @@ const {t, automationsEnabled, isAdmin, scrollContainerRef, selectedControlTab, s
                 <div className="w-full max-w-7xl mx-auto p-6 md:p-8 animate-in fade-in duration-300">
                     <div className="w-full">
             {/* Control Center Tabs */}
-            {(automationsEnabled || (isAdmin && gnosiMode === 'org')) && <div>
+            {(automationsEnabled || state.aiEnabled || (isAdmin && gnosiMode === 'org')) && <div>
                 <SettingsSectionTabs
                     ariaLabel={t('dashboard.control_center')}
                     activeId={selectedControlTab}
                     onChange={setSelectedControlTab}
                     items={[
-                        ...(automationsEnabled ? [
-                            { id: 'schedulers', icon: Clock3, label: t('dashboard.tab_schedulers') },
-                            { id: 'history', icon: History, label: t('dashboard.tab_history') },
+                        ...((automationsEnabled || state.aiEnabled) ? [
+                            { id: 'schedulers', icon: Clock3, label: t('activity.schedules') },
+                            { id: 'history', icon: History, label: t('activity.runs') },
+                            { id: 'approvals', icon: ShieldCheck, label: t('activity.approvals') },
                         ] : []),
                         ...(isAdmin && gnosiMode === 'org'
                             ? [{ id: 'admin', icon: Users, label: t('dashboard.tab_admin') }]
@@ -61,9 +64,13 @@ const {t, automationsEnabled, isAdmin, scrollContainerRef, selectedControlTab, s
                     ]}
                 />
 
-                <SchedulerPanel state={state} />
-
-                <HistoryPanel state={state} />
+                {selectedControlTab !== 'admin' && <AIActivityPanel
+                    tab={selectedControlTab} aiEnabled={state.aiEnabled} automationsEnabled={automationsEnabled} canEdit={isAdmin}
+                    systemDiagnostics={<SystemLogsPanel state={state} />}
+                    systemHistoryError={state.historyError}
+                    systemPanel={<SchedulerPanel state={state} />} systemHistory={state.taskHistory}
+                    systemHistoryMore={<DashboardPaginationControls total={state.taskHistoryTotal} limit={state.HISTORY_LIMIT} page={state.taskHistoryPage} onPageChange={page => { void state.fetchTaskHistory(page); }} loading={state.taskHistoryLoading} />}
+                />}
 
                 <MembersPanel state={state} />
             </div>}

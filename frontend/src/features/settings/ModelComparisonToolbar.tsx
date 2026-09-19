@@ -1,20 +1,25 @@
-import type { Dispatch, RefObject } from 'react';
+import { useEffect, useRef, type Dispatch, type RefObject } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { GnosiToggle } from '../../shared/ui/settings/SettingsPrimitives';
+import { ComparisonLabel } from './ComparisonLabel';
 
 import {
     COMPARISON_MODE_KEYS,
     COMPARISON_PROFILE_KEYS,
     PROFILE_ICONS,
+    formatTokenCountInput,
     type ComparisonAvailability,
     type ComparisonProfile,
     type MetricAvailability,
+    type ParameterStatusFilter,
     type ModelComparisonUiAction,
     type ModelComparisonUiState,
 } from './modelComparison';
 
 
 interface ModelComparisonToolbarProps {
+    readonly currencySymbol: string;
     readonly dispatch: Dispatch<ModelComparisonUiAction>;
     readonly metricAvailability: MetricAvailability;
     readonly profileHelpRef: RefObject<HTMLElement | null>;
@@ -24,6 +29,7 @@ interface ModelComparisonToolbarProps {
 
 
 export function ModelComparisonToolbar({
+    currencySymbol,
     dispatch,
     metricAvailability,
     profileHelpRef,
@@ -31,6 +37,18 @@ export function ModelComparisonToolbar({
     toolbarRef,
 }: ModelComparisonToolbarProps) {
     const { t } = useTranslation();
+    const modesFilterRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!state.modesMenuOpen) return;
+        const closeOutside = (event: PointerEvent) => {
+            if (event.target instanceof Node && !modesFilterRef.current?.contains(event.target)) {
+                dispatch({ type: 'close-modes-menu' });
+            }
+        };
+        document.addEventListener('pointerdown', closeOutside, true);
+        return () => { document.removeEventListener('pointerdown', closeOutside, true); };
+    }, [dispatch, state.modesMenuOpen]);
 
     return (
         <>
@@ -48,7 +66,7 @@ export function ModelComparisonToolbar({
                 {metricAvailability.profile ? (
                     <label className="model-profile-filter">
                         <span>
-                            {t('model_comparison.profile')}
+                            <ComparisonLabel text={t('model_comparison.compact_filters.profile')} full={t('model_comparison.profile')} />
                             {' '}
                             <button
                                 aria-label={t('model_comparison.profile_help_open')}
@@ -85,7 +103,7 @@ export function ModelComparisonToolbar({
                     </label>
                 ) : null}
                 <label>
-                    <span>{t('model_comparison.availability')}</span>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.availability')} full={t('model_comparison.availability')} />
                     <select
                         onChange={(event) => {
                             dispatch({
@@ -100,11 +118,11 @@ export function ModelComparisonToolbar({
                         <option value="inactive">{t('model_comparison.inactive')}</option>
                     </select>
                 </label>
-                <div className="model-modes-filter">
-                    <span>{t('model_comparison.modes')}</span>
+                <div className="model-modes-filter" ref={modesFilterRef}>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.modes')} full={t('model_comparison.modes')} />
                     <button
                         aria-expanded={state.modesMenuOpen}
-                        aria-haspopup="menu"
+                        aria-haspopup="dialog"
                         onClick={() => {
                             dispatch({ type: 'toggle-modes-menu' });
                         }}
@@ -114,13 +132,20 @@ export function ModelComparisonToolbar({
                             {state.modes.length > 0
                                 ? state.modes.map((mode) => t(
                                     `model_comparison.modes_list.${mode}`,
-                                )).join(', ')
+                                )).join(state.modeMatch === 'all' ? ' + ' : ' / ')
                                 : t('model_comparison.all_modes')}
                         </span>
                         <ChevronDown size={16} />
                     </button>
                     {state.modesMenuOpen ? (
-                        <div className="model-modes-menu" role="menu">
+                        <div className="model-modes-menu" role="dialog" aria-label={t('model_comparison.modes')}>
+                            <select aria-label={t('model_comparison.mode_match')}
+                                value={state.modeMatch} onChange={(event) => {
+                                    dispatch({ type: 'set-mode-match', value: event.target.value as 'all' | 'any' });
+                                }}>
+                                <option value="all">{t('model_comparison.mode_match_all')}</option>
+                                <option value="any">{t('model_comparison.mode_match_any')}</option>
+                            </select>
                             {COMPARISON_MODE_KEYS.map((mode) => (
                                 <label key={mode}>
                                     <input
@@ -137,7 +162,7 @@ export function ModelComparisonToolbar({
                     ) : null}
                 </div>
                 <label>
-                    <span>{t('model_comparison.max_price')}</span>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.max_price', { symbol: currencySymbol })} full={t('model_comparison.max_price', { symbol: currencySymbol })} />
                     <input
                         min="0"
                         onChange={(event) => {
@@ -153,7 +178,7 @@ export function ModelComparisonToolbar({
                     />
                 </label>
                 <label>
-                    <span>{t('model_comparison.min_context')}</span>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.min_context')} full={t('model_comparison.min_context')} />
                     <input
                         min="0"
                         onChange={(event) => {
@@ -167,19 +192,43 @@ export function ModelComparisonToolbar({
                         value={state.minContext}
                     />
                 </label>
-                <label className="model-show-incomplete-toggle">
-                    <input
-                        checked={state.showIncomplete}
-                        onChange={(event) => {
+                <div className="model-show-incomplete-toggle">
+                    <GnosiToggle
+                        active={state.showIncomplete}
+                        label={t('model_comparison.show_incomplete')}
+                        onChange={() => {
                             dispatch({
                                 type: 'set-show-incomplete',
-                                value: event.target.checked,
+                                value: !state.showIncomplete,
                             });
                         }}
-                        type="checkbox"
                     />
-                    <span>{t('model_comparison.show_incomplete')}</span>
-                </label>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.show_incomplete')} full={t('model_comparison.show_incomplete')} />
+                </div>
+                <div className="model-parameter-filters" role="group" aria-label={t('model_comparison.columns.parameters')}>
+                    <label>
+                        <ComparisonLabel text={t('model_comparison.compact_filters.parameter_status')} full={t('model_comparison.parameter_status')} />
+                        <select value={state.parameterStatus} onChange={(event) => {
+                            dispatch({ type: 'set-parameter-status', value: event.target.value as ParameterStatusFilter });
+                        }}>
+                            <option value="all">{t('model_comparison.parameters_all')}</option>
+                            <option value="known">{t('model_comparison.parameters_known')}</option>
+                            <option value="not_published">{t('model_comparison.parameters_not_published')}</option>
+                            <option value="pending">{t('model_comparison.parameters_missing')}</option>
+                        </select>
+                    </label>
+                    <label>
+                        <ComparisonLabel text={t('model_comparison.compact_filters.min_parameters')} full={t('model_comparison.min_parameters')} />
+                        <input min="0" step="any" type="number" value={state.minParameters}
+                            onChange={(event) => { dispatch({ type: 'set-min-parameters', value: event.target.value }); }} />
+                    </label>
+                    <label>
+                        <ComparisonLabel text={t('model_comparison.compact_filters.max_parameters')} full={t('model_comparison.max_parameters')} />
+                        <input min="0" step="any" type="number" value={state.maxParameters}
+                            onChange={(event) => { dispatch({ type: 'set-max-parameters', value: event.target.value }); }} />
+                    </label>
+                    <small>{t('model_comparison.parameters_filter_help')}</small>
+                </div>
             </div>
 
             {state.showProfileHelp ? (
@@ -239,31 +288,31 @@ export function ModelComparisonToolbar({
 
             <div className="model-cost-calculator">
                 <label>
-                    <span>{t('model_comparison.input_tokens')}</span>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.input_tokens')} full={t('model_comparison.input_tokens')} />
                     <input
-                        min="0"
+                        inputMode="numeric"
                         onChange={(event) => {
                             dispatch({
                                 type: 'set-input-tokens',
                                 value: event.target.value,
                             });
                         }}
-                        type="number"
-                        value={state.inputTokens}
+                        type="text"
+                        value={formatTokenCountInput(state.inputTokens)}
                     />
                 </label>
                 <label>
-                    <span>{t('model_comparison.output_tokens')}</span>
+                    <ComparisonLabel text={t('model_comparison.compact_filters.output_tokens')} full={t('model_comparison.output_tokens')} />
                     <input
-                        min="0"
+                        inputMode="numeric"
                         onChange={(event) => {
                             dispatch({
                                 type: 'set-output-tokens',
                                 value: event.target.value,
                             });
                         }}
-                        type="number"
-                        value={state.outputTokens}
+                        type="text"
+                        value={formatTokenCountInput(state.outputTokens)}
                     />
                 </label>
             </div>

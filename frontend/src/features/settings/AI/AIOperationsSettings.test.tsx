@@ -88,7 +88,8 @@ describe('AI governed operations settings', () => {
             newButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
         const selects = container.querySelectorAll('select');
-        const agentSelect = selects.item(0);
+        const agentSelect = [...selects].find(select => [...select.options].some(option => option.value === 'brain'));
+        if (!agentSelect) throw new Error('Agent selection is missing');
         act(() => {
             agentSelect.value = 'brain';
             agentSelect.dispatchEvent(new Event('change', { bubbles: true }));

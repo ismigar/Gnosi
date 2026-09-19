@@ -6,6 +6,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.services.automation_schedule import AutomationSchedule
+
 from backend.models.agent_skills import SkillActivation, SkillKind
 
 
@@ -21,6 +23,8 @@ class UserSkillWritePayload(BaseModel):
     activation: SkillActivation = SkillActivation.AUTOMATIC
     tool_ids: List[str] = Field(default_factory=list, max_length=64)
     instructions: str = Field(default="", max_length=100_000)
+    source_skill_id: Optional[str] = Field(default=None, max_length=256)
+    source_revision: Optional[str] = Field(default=None, max_length=128)
     requested_id: Optional[str] = None
     expected_revision: Optional[str] = None
 
@@ -52,6 +56,7 @@ class AutomationWritePayload(BaseModel):
     skill_id: str = Field(min_length=1, max_length=256)
     instruction: str = Field(min_length=1, max_length=12_000)
     interval_minutes: int = Field(default=1_440, ge=5, le=525_600)
+    schedule: Optional[AutomationSchedule] = None
     enabled: bool = False
     max_runs_per_day: int = Field(default=4, ge=1, le=144)
     max_ai_calls_per_run: int = Field(default=4, ge=1, le=16)

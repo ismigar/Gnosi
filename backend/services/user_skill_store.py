@@ -256,8 +256,11 @@ class UserSkillStore:
                 raise UserSkillConflictError(
                     "skill changed since it was loaded"
                 )
+            # Preserve server-owned lineage across ordinary user edits.
+            merged = dict(metadata)
+            merged["metadata"] = current.metadata
             descriptor = self.validate(
-                metadata, instructions, skill_id=normalized
+                merged, instructions, skill_id=normalized
             )
             self._write(descriptor)
             return descriptor

@@ -19,7 +19,7 @@ interface OperationTool extends Record<string, unknown> {
 interface AutomationApproval {
     agent_id: string;
     confirmation_id: string;
-    details?: { tool?: string | null } | null;
+    details?: { tool?: string | null; tool_id?: string; arguments?: Record<string, unknown> } | null;
     session_id: string;
 }
 
@@ -55,6 +55,8 @@ interface OperationsHistoryResources {
 
 interface OperationsHistoryPanelProps {
     readonly resources: OperationsHistoryResources;
+    readonly agents?: readonly { id: string; name?: string | null }[];
+    readonly section?: 'all' | 'approvals' | 'audit';
 }
 
 
@@ -73,6 +75,8 @@ const findCatalogTool = (
 
 export const OperationsHistoryPanel = ({
     resources,
+    section = 'all',
+    agents = [],
 }: OperationsHistoryPanelProps) => {
     const { t, i18n } = useTranslation();
     const [resolvingId, setResolvingId] = useState('');
@@ -99,12 +103,13 @@ export const OperationsHistoryPanel = ({
 
     return (
         <div className="ai-resources-panel">
-            <h4>{t('settings.ai.operations.approvals_title')}</h4>
+            {section !== 'audit' && <>
+            <h4>{t('activity.approvals')}</h4>
             <div className="ai-resource-list">
                 {resources.approvals.map((approval) => {
                     const catalogTool = findCatalogTool(
                         resources.tools,
-                        approval.details?.tool,
+                        approval.details?.tool_id || approval.details?.tool,
                     );
                     return (
                         <article
@@ -116,7 +121,7 @@ export const OperationsHistoryPanel = ({
                                 <span className="ai-resource-card__copy">
                                     <span className="ai-resource-card__heading">
                                         <strong>{t('settings.ai.operations.approval_requested')}</strong>
-                                        <code>{approval.agent_id}</code>
+                                        <span>{agents.find(agent => agent.id === approval.agent_id)?.name || approval.agent_id}</span>
                                     </span>
                                     <span>
                                         {catalogTool
@@ -124,6 +129,10 @@ export const OperationsHistoryPanel = ({
                                             : t('settings.ai.operations.approval_summary')}
                                     </span>
                                 </span>
+                            </div>
+                            <div className="ai-resource-details"><p>{t('activity.approval_details')}</p>
+                                {approval.details?.arguments && <dl>{Object.entries(approval.details.arguments).map(([key, value]) => <div key={key}><dt>{t(`chat.confirmations.fields.${key}`, { defaultValue: key.replaceAll('_', ' ') })}</dt><dd>{typeof value === 'string' ? value : JSON.stringify(value)}</dd></div>)}</dl>}
+                                <span>{t('settings.ai.operations.agent')}: {agents.find(agent => agent.id === approval.agent_id)?.name || approval.agent_id}</span>
                             </div>
                             <div className="ai-resource-card__actions">
                                 <button
@@ -160,6 +169,8 @@ export const OperationsHistoryPanel = ({
                 )}
             </div>
 
+            </>}
+            {section === 'all' && <>
             <h4>{t('settings.ai.operations.jobs_title')}</h4>
             <div className="ai-resource-list">
                 {resources.jobs.map((job) => (
@@ -183,6 +194,8 @@ export const OperationsHistoryPanel = ({
                 )}
             </div>
 
+            </>}
+            {section !== 'approvals' && <>
             <h4>{t('settings.ai.operations.audit_title')}</h4>
             <div className="ai-resource-list">
                 {events.map((event) => {
@@ -225,6 +238,7 @@ export const OperationsHistoryPanel = ({
                     </span>
                 )}
             </div>
+            </>}
         </div>
     );
 };

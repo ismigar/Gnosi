@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from backend.services.automation_schedule import AutomationSchedule
+
 from backend.models.agent_skills import SkillDescriptor, ToolDescriptor, ToolEffect
 
 
@@ -99,6 +101,7 @@ class SkillAutomationResponse(ForwardCompatibleCatalogResponse):
     skill_id: str
     instruction: str
     interval_minutes: int
+    schedule: AutomationSchedule = Field(default_factory=AutomationSchedule)
     enabled: bool
     budgets: AutomationBudgetsResponse
     next_run_at: float | None
@@ -119,6 +122,7 @@ class SkillAutomationDeleteResponse(BaseModel):
 
 
 class SkillAutomationRunResponse(ForwardCompatibleCatalogResponse):
+    result_text: str = ""
     id: str
     automation_id: str
     status: str
@@ -136,3 +140,15 @@ class SkillAutomationRunsResponse(BaseModel):
 class SkillAutomationQueuedResponse(BaseModel):
     status: str
     automation_id: str
+
+
+class ActivityAutomationRunResponse(SkillAutomationRunResponse):
+    automation_name: str
+    agent_id: str
+    skill_id: str
+
+
+class ActivityAutomationRunsResponse(BaseModel):
+    runs: list[ActivityAutomationRunResponse]
+    total: int
+    offset: int

@@ -1,7 +1,8 @@
+import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CalendarRange, RefreshCw, Route, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarRange, Route, Wallet } from 'lucide-react';
 
 import { VaultTimeline } from '../../shared/record-views/VaultTimeline';
 import { usePlugins } from '../../shared/plugins/usePlugins';
@@ -164,7 +165,7 @@ export default function ProjectPlanningPage() {
                 <select disabled={!projectReady} value={selectedProjectId} onChange={(event) => {
                     setProjectId(event.target.value);
                 }} aria-label={t('planning_page.project', 'Project')} className="gnosi-button gnosi-button--secondary max-w-56 bg-[var(--bg-primary)] text-sm">{visibleProjects.length === 0 ? <option value="default">{t('planning_page.default_project', 'Default project')}</option> : visibleProjects.map((project) => <option key={project.id} value={project.id}>{project.title || project.id}</option>)}</select>
-                <button onClick={() => void load()} className="gnosi-button gnosi-button--primary"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} />{t('planning_page.refresh', 'Refresh')}</button>
+                <RefreshButton loading={loading} label={t('planning_page.refresh', 'Refresh')} onClick={() => void load()} />
             </AppHeader>
         <div className="mx-auto w-full max-w-7xl flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
             {(error || loadError) && <p className="rounded border border-red-400 p-3 text-sm text-red-700 dark:text-red-300" role="alert">{error || t('planning_page.load_error', 'Could not load the project schedule.')}</p>}

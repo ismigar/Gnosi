@@ -19,6 +19,7 @@ import {
     type ComparisonSortKey,
     type MetricAvailability,
 } from './modelComparison';
+import { ComparisonLabel } from './ComparisonLabel';
 import { ModelComparisonRow } from './ModelComparisonRow';
 
 
@@ -85,7 +86,7 @@ export function ModelComparisonTable({
     tableWrapRef,
 }: ModelComparisonTableProps) {
     const { t } = useTranslation();
-    const tableMinWidth = Math.max(1050, 380 + ((columns.length - 1) * 125));
+    const tableMinWidth = Math.max(960, 468 + ((columns.length - 1) * 100));
 
     return (
         <>
@@ -116,22 +117,22 @@ export function ModelComparisonTable({
                                     key={column.key}
                                 >
                                     <button
+                                        aria-label={t(`model_comparison.columns.${column.label}`, { symbol: feed.currency.symbol || '$' })}
+                                        title={t(`model_comparison.columns.${column.label}`, { symbol: feed.currency.symbol || '$' })}
                                         onClick={() => {
                                             onSort(column.key);
                                         }}
                                         type="button"
                                     >
-                                        {t(`model_comparison.columns.${column.label}`, {
-                                            symbol: feed.currency.symbol || '$',
-                                        })}
+                                        <ComparisonLabel
+                                            text={t(`model_comparison.compact_columns.${column.label}`, { symbol: feed.currency.symbol || '$' })}
+                                            full={t(`model_comparison.columns.${column.label}`, { symbol: feed.currency.symbol || '$' })}
+                                        />
                                         {' '}
                                         <SortIcon column={column.key} sort={sort} />
                                     </button>
                                 </th>
                             ))}
-                            <th>{t('model_comparison.columns.monthly_cost', {
-                                symbol: feed.currency.symbol || '$',
-                            })}</th>
                             <th className="model-comparison-sticky-end">
                                 {t('model_comparison.columns.available')}
                             </th>
@@ -177,6 +178,7 @@ export function ModelComparisonTable({
                     width: `${Math.max(tableScrollWidth, 1).toString()}px`,
                 }} />
             </div>
+            <p className="model-comparison-note">{t('model_comparison.selection_help')}</p>
             <p className="model-comparison-note">
                 {t('model_comparison.data_note')}
                 {' '}

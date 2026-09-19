@@ -15,11 +15,12 @@ import type {
     NormalizedSkill,
     SkillDraft,
 } from './aiSettingsUtils';
-import { localizedResourceSearchText } from './aiResourceI18n';
+import { localizedResourceSearchText, skillDisplayName, skillDisplayDescription, skillCategory } from './aiResourceI18n';
 import type {
     AIResourceAgent,
     SkillResources,
 } from './aiResourceSettingsTypes';
+import { SkillUsage } from './AISkillUsage';
 import { SkillCard } from './AISkillCard';
 import { SkillEditor } from './AISkillEditor';
 import {
@@ -37,6 +38,8 @@ interface DeletionConflict {
 
 interface SkillsSettingsPanelProps {
     readonly agents: readonly AIResourceAgent[];
+    readonly canEdit?: boolean;
+    readonly selectedSkillId?: string;
     readonly onAgentsChanged: (agents: AIResourceAgent[]) => void;
     readonly resources: SkillResources;
 }
@@ -57,13 +60,18 @@ const issueText = (issue: JsonRecord): string => (
 
 export function SkillsSettingsPanel({
     agents,
+    canEdit = true,
+    selectedSkillId,
     onAgentsChanged,
     resources,
 }: SkillsSettingsPanelProps) {
     const { t } = useTranslation();
     const [search, setSearch] = useState('');
     const [origin, setOrigin] = useState('all');
-    const [expandedId, setExpandedId] = useState('');
+    const [expandedId, setExpandedId] = useState(selectedSkillId || '');
+    const [usage, setUsage] = useState<{ skill: NormalizedSkill; source: NormalizedSkill | null } | null>(null);
+    const [source, setSource] = useState<NormalizedSkill | null>(null);
+    const [category, setCategory] = useState('all');
     const [editing, setEditing] = useState<NormalizedSkill | null>(null);
     const [creating, setCreating] = useState(false);
     const [deletionConflict, setDeletionConflict] =
@@ -84,6 +92,7 @@ export function SkillsSettingsPanel({
     })), [agents, resources.skills]);
     const filtered = skillsWithConsumers.filter((skill) => (
         (origin === 'all' || skill.origin.type === origin)
+        && (category === 'all' ? skillCategory(skill) !== 'legacy' : skillCategory(skill) === category)
         && (
             !normalizedSearch
             || localizedResourceSearchText(t, skill, 'skill').includes(normalizedSearch)
@@ -92,7 +101,9 @@ export function SkillsSettingsPanel({
 
     const handleCreate = async (draft: SkillDraft): Promise<void> => {
         try {
-            const skill = await resources.createSkill(draft);
+            const skill = await resources.createSkill({ ...draft, ...(source ? { sourceSkillId: source.id, sourceRevision: source.revision } : {}) });
+            setUsage({ skill, source });
+            setSource(null);
             setCreating(false);
             setExpandedId(skill.id);
             toast.success(t('settings.ai.resources.skill_created'));
@@ -113,19 +124,10 @@ export function SkillsSettingsPanel({
             toast.error(t('settings.ai.resources.save_error'));
         }
     };
-    const handleClone = async (skill: NormalizedSkill): Promise<void> => {
-        try {
-            const created = await resources.cloneSkill(
-                skill,
-                t('settings.ai.resources.clone_name', { name: skill.name }),
-            );
-            setExpandedId(created.id);
-            setEditing(created);
-            toast.success(t('settings.ai.resources.skill_cloned'));
-        } catch (error: unknown) {
-            logError('ai-skill-clone', error);
-            toast.error(t('settings.ai.resources.save_error'));
-        }
+    const handleClone = (skill: NormalizedSkill): void => {
+        setSource(skill);
+        setCreating(true);
+        setEditing(null);
     };
     const handleDelete = async (skill: NormalizedSkill): Promise<void> => {
         try {
@@ -192,7 +194,9 @@ export function SkillsSettingsPanel({
                 </select>
                 <button
                     className="btn-gnosi btn-gnosi-primary"
+                    disabled={!canEdit}
                     onClick={() => {
+                        setSource(null);
                         setCreating((current) => !current);
                         setEditing(null);
                     }}
@@ -203,6 +207,10 @@ export function SkillsSettingsPanel({
                 </button>
             </div>
 
+            <select className="gnosi-select" aria-label={t('settings.ai.resources.category_filter')} value={category} onChange={event => { setCategory(event.target.value); }}>
+                {['all', 'workflow', 'bundle', 'legacy'].map(value => <option key={value} value={value}>{t(`settings.ai.resources.category_${value}`)}</option>)}
+            </select>
+            {!canEdit && <p>{t('settings.ai.resources.edit_permission')}</p>}
             <CatalogError error={resources.error} onRetry={resources.reload} />
             {resources.issues.length > 0 ? (
                 <div className="ai-resource-alert is-warning">
@@ -261,10 +269,20 @@ export function SkillsSettingsPanel({
                 </div>
             ) : null}
 
+            {usage && resources.assignAgentSkills && resources.saveAutomation && <SkillUsage
+                key={usage.skill.id} skill={usage.skill} source={usage.source} agents={agents} onAgentsChanged={onAgentsChanged}
+                resources={{ automations: resources.automations || [], assignAgentSkills: resources.assignAgentSkills, saveAutomation: resources.saveAutomation }}
+            />}
+            {source && <div className="ai-resource-alert">{t('settings.ai.resources.customize_help')}
+                <details><summary>{t('settings.ai.resources.compare_original')}</summary><pre>{source.instructions}</pre></details>
+            </div>}
             {creating ? (
                 <SkillEditor
+                    key={source?.id || 'new'}
+                    skill={source ? { ...source, id: '', name: t('settings.ai.resources.clone_name', { name: skillDisplayName(t, source) }), description: skillDisplayDescription(t, source) } : null}
                     onCancel={() => {
                         setCreating(false);
+                        setSource(null);
                     }}
                     onSave={handleCreate}
                     tools={resources.tools}
@@ -294,9 +312,14 @@ export function SkillsSettingsPanel({
                     {filtered.map((skill) => (
                         <SkillCard
                             expanded={expandedId === skill.id}
+                            baseSkill={resources.skills.find(base => base.id === skill.metadata?.derived_from?.id)}
+                            automationNames={(resources.automations || []).filter(item => item.skill_id === skill.id).map(item => String(item.name))}
+                            agentNames={new Map(agents.map(agent => [agent.id, agent.name || agent.id]))}
+                            onUse={() => { setUsage({ skill, source: resources.skills.find(base => base.id === skill.metadata?.derived_from?.id) || null }); }}
+                            canEdit={canEdit}
                             key={skill.id}
                             onClone={() => {
-                                void handleClone(skill);
+                                handleClone(skill);
                             }}
                             onDelete={() => {
                                 void handleDelete(skill);
@@ -314,7 +337,7 @@ export function SkillsSettingsPanel({
                             toolsById={toolsById}
                         />
                     ))}
-                    {filtered.length === 0 ? (
+                    {!resources.error && filtered.length === 0 ? (
                         <EmptyState>{t('settings.ai.resources.no_skills')}</EmptyState>
                     ) : null}
                 </div>

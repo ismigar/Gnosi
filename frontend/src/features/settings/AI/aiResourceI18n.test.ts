@@ -51,10 +51,10 @@ const createCalendarTool = {
 
 describe('AI resource presentation localization', () => {
     it.each([
-        ['ca', 'Gnosi · Calendaris', 'Crea · Calendaris', 'editor', 'Completada'],
-        ['en', 'Gnosi · Calendar', 'Create · Calendar', 'editor', 'Completed'],
-        ['es', 'Gnosi · Calendario', 'Crear · Calendario', 'editor', 'Completada'],
-        ['fr', 'Gnosi · Calendrier', 'Créer · Calendrier', 'éditeur', 'Terminée'],
+        ['ca', 'Gnosi · Calendaris', 'Crea un esdeveniment del calendari', 'editor', 'Completada'],
+        ['en', 'Gnosi · Calendar', 'Create a calendar event', 'editor', 'Completed'],
+        ['es', 'Gnosi · Calendario', 'Crea un evento del calendario', 'editor', 'Completada'],
+        ['fr', 'Gnosi · Calendrier', 'Créer un événement du calendrier', 'éditeur', 'Terminée'],
     ])('localizes bundled resources and enums in %s', async (
         language,
         expectedSkill,
@@ -65,14 +65,23 @@ describe('AI resource presentation localization', () => {
         const t = await translator(language);
         expect(skillDisplayName(t, calendarSkill)).toBe(expectedSkill);
         expect(skillDisplayDescription(t, calendarSkill)).not.toContain('Provider-neutral');
-        expect(skillDisplayInstructions(t, calendarSkill)).not.toContain('personal-workspace');
+        expect(skillDisplayInstructions(t, calendarSkill)).toBe(calendarSkill.instructions);
         expect(toolDisplayName(t, createCalendarTool)).toBe(expectedTool);
-        expect(toolDisplayDescription(t, createCalendarTool)).not.toContain('external calendar');
+        expect(toolDisplayDescription(t, createCalendarTool)).toBe(t('settings.ai.catalog.tool_descriptions.create_calendar_event'));
         expect(resourceRoleLabel(t, 'editor')).toBe(expectedRole);
         expect(operationStatusLabel(t, 'completed')).toBe(expectedStatus);
     });
 
-    it('preserves user-authored skill content', async () => {
+    it.each(['ca', 'en', 'es', 'fr'])('distinguishes operations with the same verb in %s', async language => {
+        const t = await translator(language);
+        const names = ['add-page-comment', 'add-tags', 'create-page', 'create-table-row', 'read-mail-message', 'read-mail-thread'].map(id => toolDisplayName(t, { id: `core.gnosi.${id}`, origin: { type: 'core' } }));
+        expect(new Set(names).size).toBe(names.length);
+        expect(names.every(name => !name.startsWith('core.'))).toBe(true);
+        const external = { name: 'Specific connector action', description: 'Reads the selected connector record.', origin: { type: 'plugin', id: 'custom' } };
+        expect(toolDisplayDescription(t, external)).toBe(external.description);
+    });
+
+    it('preserves user-authored skill content' , async () => {
         const t = await translator('ca');
         const personal = {
             id: 'user.custom',

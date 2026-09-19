@@ -1,12 +1,11 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import { AgentsPanel } from './AgentsPanel';
-import { AutomationsSettingsPanel } from '../AI/AIOperationsSettings';
 import { Bot } from 'lucide-react';
 import { Clock3 } from 'lucide-react';
-import { History } from 'lucide-react';
 import { ModelBudget } from './ModelBudget';
 import { ModelConsumption } from './ModelConsumption';
-import { OperationsHistoryPanel } from '../AI/AIOperationsSettings';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
 import { SkillsSettingsPanel } from '../AI/AIResourcesSettings';
@@ -14,12 +13,19 @@ import { Sliders } from 'lucide-react';
 import { ToolsSettingsPanel } from '../AI/AIResourcesSettings';
 import { Zap } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
-import { automationResources, operationResources } from './aiOperationsBridge';
 
 type Props = { context: SettingsController };
 
 export function AiPanel({ context }: Props) {
-  const { aiResources, aiSection, draft, setAiSection, setDraft, setEditingAgent, setIsModelComparisonOpen, t } = context;
+  const { aiResources, aiSection, draft, setAiSection, setDraft, setEditingAgent, setIsModelComparisonOpen, handleClose, t } = context;
+  const navigate = useNavigate();
+  const [selectedSkill, setSelectedSkill] = useState('');
+  const openActivity = (tab = 'schedulers') => { void handleClose().then(() => navigate(`/dashboard?tab=${tab}&kind=personal`)); };
+  useEffect(() => {
+    if (aiSection === 'automations' || aiSection === 'operations') {
+      void handleClose().then(() => navigate(`/dashboard?tab=${aiSection === 'operations' ? 'history' : 'schedulers'}&kind=personal`, { replace: true }));
+    }
+  }, [aiSection, handleClose, navigate]);
   return (<>
     <SettingsSectionTabs
       ariaLabel={t('settings.ai.resources.sections_label')}
@@ -29,8 +35,6 @@ export function AiPanel({ context }: Props) {
         { id: 'agents', icon: Bot, label: t('settings.ai.resources.agents_tab') },
         { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
         { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
-        { id: 'automations', icon: Clock3, label: t('settings.ai.operations.automations_tab') },
-        { id: 'operations', icon: History, label: t('settings.ai.operations.history_tab') },
       ]}
       onChange={sectionId => {
         setAiSection(sectionId);
@@ -63,6 +67,9 @@ export function AiPanel({ context }: Props) {
       <Section title={t('settings.ai.resources.skills_title')} icon={Zap}>
         <SkillsSettingsPanel
           resources={aiResources}
+          key={selectedSkill}
+          selectedSkillId={selectedSkill}
+          canEdit={['admin', 'owner'].includes(context.role)}
           agents={draft.ai.agents}
           onAgentsChanged={agents => {
             setDraft(prev => ({
@@ -76,20 +83,10 @@ export function AiPanel({ context }: Props) {
 
     {aiSection === 'tools' && (
       <Section title={t('settings.ai.resources.tools_title')} icon={Sliders}>
-        <ToolsSettingsPanel resources={aiResources} />
+        <ToolsSettingsPanel resources={aiResources} onSelectSkill={id => { setSelectedSkill(id); setAiSection('skills'); }} />
       </Section>
     )}
 
-    {aiSection === 'automations' && (
-      <Section title={t('settings.ai.operations.automations_title')} icon={Clock3}>
-        <AutomationsSettingsPanel resources={automationResources(aiResources)} agents={draft.ai.agents} />
-      </Section>
-    )}
-
-    {aiSection === 'operations' && (
-      <Section title={t('settings.ai.operations.history_title')} icon={History}>
-        <OperationsHistoryPanel resources={operationResources(aiResources)} />
-      </Section>
-    )}
+    <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { openActivity(); }}><Clock3 size={16} />{t('activity.open_activity')}</button>
   </>);
 }

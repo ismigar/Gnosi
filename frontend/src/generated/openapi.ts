@@ -121,6 +121,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/automation-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Automation Activity Runs
+         * @description Read history within the authenticated user, workspace and Vault scope.
+         */
+        get: operations["automation_activity_runs_api_ai_automation_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/automations": {
         parameters: {
             query?: never;
@@ -9838,6 +9858,47 @@ export interface components {
             /** Session Id */
             session_id: string;
         };
+        /** ActivityAutomationRunResponse */
+        ActivityAutomationRunResponse: {
+            /** Agent Id */
+            agent_id: string;
+            /** Ai Calls */
+            ai_calls: number;
+            /** Automation Id */
+            automation_id: string;
+            /** Automation Name */
+            automation_name: string;
+            /** Confirmation Count */
+            confirmation_count: number;
+            /** Error Code */
+            error_code: string | null;
+            /** Finished At */
+            finished_at: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Result Text
+             * @default
+             */
+            result_text: string;
+            /** Skill Id */
+            skill_id: string;
+            /** Started At */
+            started_at: number;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: components["schemas"]["JsonValue"];
+        };
+        /** ActivityAutomationRunsResponse */
+        ActivityAutomationRunsResponse: {
+            /** Offset */
+            offset: number;
+            /** Runs */
+            runs: components["schemas"]["ActivityAutomationRunResponse"][];
+            /** Total */
+            total: number;
+        };
         /** ActivityRequest */
         ActivityRequest: {
             /** Activity Type */
@@ -10797,6 +10858,27 @@ export interface components {
             /** Max Runtime Seconds */
             max_runtime_seconds: number;
         };
+        /** AutomationSchedule */
+        AutomationSchedule: {
+            /**
+             * Kind
+             * @default interval
+             * @enum {string}
+             */
+            kind: "interval" | "daily" | "weekly";
+            /**
+             * Time
+             * @default 08:00
+             */
+            time: string;
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone: string;
+            /** Weekdays */
+            weekdays?: number[];
+        };
         /**
          * AutomationWritePayload
          * @description A recurring invocation of one explicitly assigned agent skill.
@@ -10835,6 +10917,7 @@ export interface components {
             max_runtime_seconds: number;
             /** Name */
             name: string;
+            schedule?: components["schemas"]["AutomationSchedule"] | null;
             /** Skill Id */
             skill_id: string;
         };
@@ -17476,6 +17559,7 @@ export interface components {
             name: string;
             /** Output Price */
             output_price: number | null;
+            parameter_metadata?: components["schemas"]["ModelParameterMetadata"] | null;
             /** Profile */
             profile: string;
             /** Release Date */
@@ -17586,6 +17670,25 @@ export interface components {
         ModelEvaluationsResponse: {
             /** Evaluations */
             evaluations: components["schemas"]["ModelEvaluationResponse"][];
+        };
+        /**
+         * ModelParameterMetadata
+         * @description Parameter disclosures, in billions, with their official evidence.
+         */
+        ModelParameterMetadata: {
+            /** Active */
+            active?: number | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Source */
+            source?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "known" | "not_published" | "pending";
+            /** Total */
+            total?: number | null;
         };
         /**
          * ModelRegistryEntry
@@ -20994,6 +21097,7 @@ export interface components {
             next_run_at: number | null;
             /** Revision */
             revision: string;
+            schedule?: components["schemas"]["AutomationSchedule"];
             /** Skill Id */
             skill_id: string;
             /** Updated At */
@@ -21015,6 +21119,11 @@ export interface components {
             finished_at: number | null;
             /** Id */
             id: string;
+            /**
+             * Result Text
+             * @default
+             */
+            result_text: string;
             /** Started At */
             started_at: number;
             /** Status */
@@ -22059,6 +22168,10 @@ export interface components {
             name: string;
             /** Requested Id */
             requested_id?: string | null;
+            /** Source Revision */
+            source_revision?: string | null;
+            /** Source Skill Id */
+            source_skill_id?: string | null;
             /** Tool Ids */
             tool_ids?: string[];
             /**
@@ -22955,6 +23068,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AutomationApprovalsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    automation_activity_runs_api_ai_automation_runs_get: {
+        parameters: {
+            query?: {
+                automation_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityAutomationRunsResponse"];
                 };
             };
             /** @description Validation Error */
