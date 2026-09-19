@@ -223,7 +223,7 @@ describe('AIModelComparisonModal', () => {
         expect(container.textContent).toContain('Model One');
         expect(container.textContent).toContain('model_comparison.title');
         const toggle = container.querySelector<HTMLButtonElement>(
-            '[role="switch"]',
+            'tbody [role="switch"]',
         );
         if (!toggle) throw new Error('Availability switch was not rendered');
         act(() => {

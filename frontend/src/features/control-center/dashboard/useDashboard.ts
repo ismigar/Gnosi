@@ -1,3 +1,4 @@
+import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import {useTranslation} from 'react-i18next';
@@ -98,9 +99,9 @@ export function useDashboard() {
             void refetchNotifications();
         };
         const interval = window.setInterval(refresh, 20000);
-        window.addEventListener('focus', refresh);
-        document.addEventListener('visibilitychange', refresh);
-        return () => { window.clearInterval(interval); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+        const stopFocus = subscribeWindowEvent('focus', refresh);
+        const stopVisibility = subscribeDocumentEvent('visibilitychange', refresh);
+        return () => { window.clearInterval(interval); stopFocus(); stopVisibility(); };
     }, [automationsEnabled, selectedControlTab, taskHistoryPage, fetchTaskHistory, refetchNotifications]);
     useEffect(() => {
         if ((automationsEnabled || aiEnabled) && !['schedulers', 'history', 'approvals', 'admin'].includes(selectedControlTab)) {

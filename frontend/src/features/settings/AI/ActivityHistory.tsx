@@ -1,3 +1,4 @@
+import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -56,9 +57,9 @@ export function ActivityHistory({ canEdit, aiEnabled, resources, agents, systemH
         });
         const refresh = () => { if (document.visibilityState === 'visible') setVersion(value => value + 1); };
         const timer = window.setInterval(refresh, 20000);
-        window.addEventListener('focus', refresh);
-        document.addEventListener('visibilitychange', refresh);
-        return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+        const stopFocus = subscribeWindowEvent('focus', refresh);
+        const stopVisibility = subscribeDocumentEvent('visibilitychange', refresh);
+        return () => { controller.abort(); window.clearInterval(timer); stopFocus(); stopVisibility(); };
     }, [aiEnabled, automationId, offset, vaultId, version]);
     const items: HistoryItem[] = [
         ...(aiEnabled ? page.runs.map(run => ({ id: `automation:${run.id}`, name: run.automation_name, origin: 'personal' as const, status: resources.approvals.some(approval => approval.session_id === `automation-${run.automation_id}` && typeof approval.created_at === 'number' && approval.created_at >= run.started_at && approval.created_at <= (run.finished_at || Date.now() / 1000)) ? 'awaiting_approval' : run.status, result: run.result_text, time: run.started_at * 1000, finished: run.finished_at ? run.finished_at * 1000 : null, agent: run.agent_id, error: run.error_code, automationId: run.automation_id, calls: run.ai_calls, confirmations: run.confirmation_count })) : []),

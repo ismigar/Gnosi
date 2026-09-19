@@ -346,3 +346,36 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(fns) - failed}/{len(fns)} OK")
     sys.exit(1 if failed else 0)
+
+
+def test_budget_compares_usd_spend_against_converted_configured_currency(monkeypatch):
+    from agent import model_router
+    from backend.services import fx_rates
+    from backend.config import app_config
+
+    class Ledger:
+        def spend_usd(self, period):
+            return 10.0
+
+        def rows(self, period):
+            return []
+
+    monkeypatch.setattr(model_router, "UsageStore", Ledger)
+    for code, rate, cap, exceeded in [
+        ("EUR", 0.9, 9.9, False),
+        ("EUR", 0.9, 9.0, True),
+        ("JPY", 150.0, 1400.0, True),
+        ("USD", 1.0, 11.0, False),
+    ]:
+        monkeypatch.setattr(app_config, "load_params", lambda **kwargs: {
+            "settings": {"currency": code}, "ai": {"budget": {"monthly_cost_cap": cap}},
+        })
+        monkeypatch.setattr(fx_rates, "rate_info", lambda currency: {
+            "code": code, "symbol": code, "usd_rate": rate,
+        })
+        monkeypatch.setattr(fx_rates, "usd_to_currency", lambda amount, currency: amount * rate)
+        result = model_router.budget_status("2026-09")
+        assert result["cap_ccy"] == cap
+        assert result["cap_usd"] == round(cap / rate, 4)
+        assert result["spent_ccy"] == 10.0 * rate
+        assert result["over_cap"] is exceeded

@@ -1,3 +1,4 @@
+import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -57,7 +58,7 @@ describe('Unified AI activity', () => {
         await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
         expect(mocks.runs).toHaveBeenCalledTimes(initial + 1);
         vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
-        await act(async () => { window.dispatchEvent(new Event('focus')); await Promise.resolve(); });
+        await act(async () => { dispatchWindowEvent(new Event('focus')); await Promise.resolve(); });
         expect(mocks.runs).toHaveBeenCalledTimes(initial + 2);
         await mount('schedulers');
         await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
@@ -87,7 +88,7 @@ describe('Unified AI activity', () => {
         await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
         expect(mocks.refreshApprovals).toHaveBeenCalledTimes(1);
         visibility.mockReturnValue('visible');
-        await act(async () => { await Promise.resolve(); window.dispatchEvent(new Event('focus')); });
+        await act(async () => { await Promise.resolve(); dispatchWindowEvent(new Event('focus')); });
         expect(mocks.refreshApprovals).toHaveBeenCalledTimes(2);
         await mount('schedulers');
         await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });

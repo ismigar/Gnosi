@@ -1,3 +1,4 @@
+import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,12 +43,12 @@ export function AIActivityPanel({ tab, aiEnabled, automationsEnabled, canEdit, s
         if (!aiEnabled || tab !== 'approvals') return;
         const refresh = () => { if (document.visibilityState === 'visible') void refreshApprovals(); };
         const timer = window.setInterval(refresh, 15_000);
-        window.addEventListener('focus', refresh);
-        document.addEventListener('visibilitychange', refresh);
+        const stopFocus = subscribeWindowEvent('focus', refresh);
+        const stopVisibility = subscribeDocumentEvent('visibilitychange', refresh);
         return () => {
             window.clearInterval(timer);
-            window.removeEventListener('focus', refresh);
-            document.removeEventListener('visibilitychange', refresh);
+            stopFocus();
+            stopVisibility();
         };
     }, [aiEnabled, tab, vaultId, refreshApprovals]);
     useEffect(() => {

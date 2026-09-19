@@ -115,6 +115,15 @@ describe('model comparison domain', () => {
         expect(modelComparisonUiReducer(output, { type: 'set-input-tokens', value: '' }).inputTokens).toBe('');
     });
 
+    it('applies the price ceiling in configured currency after USD conversion', () => {
+        const models = [comparisonModel({ input_price: 10 })];
+        for (const [rate, limit, count] of [[0.9, '9', 1], [0.9, '8.99', 0], [150, '1400', 0], [1, '10', 1]] as const) {
+            expect(filteredComparisonModels({ ...feed, models, currency: { ...currency, usd_rate: rate } }, [], {
+                ...INITIAL_COMPARISON_UI_STATE, maxPrice: limit,
+            })).toHaveLength(count);
+        }
+    });
+
     it('requires every selected mode by default and supports any mode explicitly', () => {
         const models = [
             comparisonModel({ id: 'text', modes: ['text'] }),
