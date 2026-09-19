@@ -219,7 +219,7 @@ def test_ingestion_facade_resolves_generation_and_write_seams_late(
             "test-model",
         )
 
-    monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
 
     def apply(plan: dict[str, Any], *_args: Any, **_kwargs: Any) -> dict[str, list[str]]:
         applied.append(plan)

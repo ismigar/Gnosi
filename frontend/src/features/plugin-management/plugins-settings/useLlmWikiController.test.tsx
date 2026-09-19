@@ -7,13 +7,11 @@ import type { LlmWikiController } from './llmWikiModel';
 
 const api = vi.hoisted(() => ({
     fetchPluginLlmWikiConfig: vi.fn(), savePluginLlmWikiConfig: vi.fn(),
-    createPluginLlmWikiBrain: vi.fn(), runPluginLlmWikiMaintenance: vi.fn(),
+    createPluginLlmWikiBrain: vi.fn(),
 }));
-const suggestions = vi.hoisted(() => vi.fn(() => new Promise<never>(() => {})));
 const translate = vi.hoisted(() => (key: string) => key);
 vi.mock('../../../shared/api/plugins', () => api);
 vi.mock('../../../shared/api/vaults', () => ({ fetchVaultTables: () => Promise.resolve([]) }));
-vi.mock('../../../shared/api/brain', () => ({ fetchBrainSuggestions: suggestions }));
 vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: translate }) }));
 let controller: LlmWikiController;
@@ -86,5 +84,27 @@ it('shows the translated load error when the local server returns an empty failu
     await act(async () => { await controller.retryLoad(); });
     expect(controller.error).toBe('settings.plugins.llm_wiki_load_error');
     await act(async () => { await controller.retryLoad(); });
+    expect(controller.error).toBe('');
+});
+
+it('saves the chosen agent immediately before table setup and preserves unfinished edits', async () => {
+    api.savePluginLlmWikiConfig.mockResolvedValue({ config: { agent_id: 'custom', brain_table_id: 'brain', source_tables: [] } });
+    act(() => { controller.setDraft(current => ({ ...current, brain_table_id: 'unfinished' })); });
+    await act(async () => { await controller.selectAgent('custom'); });
+    expect(api.savePluginLlmWikiConfig).toHaveBeenCalledWith({ agent_id: 'custom' });
+    expect(controller.draft.agent_id).toBe('custom');
+    expect(controller.draft.brain_table_id).toBe('unfinished');
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(api.savePluginLlmWikiConfig).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the previous agent when selection fails and retries the requested selection', async () => {
+    await act(async () => { await controller.selectAgent('custom'); });
+    expect(controller.draft.agent_id).toBe('llm-wiki');
+    expect(controller.error).toBe('Invalid source field');
+    api.savePluginLlmWikiConfig.mockResolvedValue({ config: { agent_id: 'custom', source_tables: [] } });
+    await act(async () => { await controller.retrySave(); });
+    expect(api.savePluginLlmWikiConfig).toHaveBeenLastCalledWith({ agent_id: 'custom' });
+    expect(controller.draft.agent_id).toBe('custom');
     expect(controller.error).toBe('');
 });

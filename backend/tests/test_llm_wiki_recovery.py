@@ -232,16 +232,19 @@ def answer(key: str) -> tuple[str, str]:
     return json.dumps({"summary": key, "notes": [{"managed_key": key}]}), "test-model"
 
 
-def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.agent import factory
+@pytest.mark.parametrize("agent_id", ["llm-wiki", "custom-researcher"])
+def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch, agent_id: str) -> None:
+    from backend.services import llm_wiki_generation as factory
 
+    config = {**llm_wiki.llm_wiki_config.load_config(), "agent_id": agent_id}
+    monkeypatch.setattr(llm_wiki.llm_wiki_config, "load_config", lambda: config)
     generate = Mock(side_effect=[answer("one"), answer("two")])
     monkeypatch.setattr(factory, "generate_text", generate)
     run, _apply, _chunks = ingest
     job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
     run(job_id=job_id)
     assert generate.call_count == 2
-    assert all(call.kwargs["agent_id"] == "llm-wiki" for call in generate.call_args_list)
+    assert all(call.kwargs["agent_id"] == agent_id for call in generate.call_args_list)
 
 
 @pytest.mark.parametrize("source_table_id", ["", "sources"])
@@ -288,7 +291,7 @@ def test_chunk_retry_preserves_progress_and_writes_once(monkeypatch, clock, inge
 
     monkeypatch.setattr(recovery.time, "sleep", sleep)
     generate = Mock(side_effect=[answer("one"), provider_error(), answer("two")])
-    monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     run(job_id=job_id)
     assert len(observed) == 1
     assert clock.waits == [5]
@@ -306,7 +309,7 @@ def test_resume_only_reuses_matching_completed_fragments(monkeypatch, clock, ing
     run, apply, chunks = ingest
     first = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
     generate = Mock(side_effect=[answer("one"), *[provider_error() for _ in range(5)]])
-    monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     with pytest.raises(RateLimitError):
         run(job_id=first)
     apply.assert_not_called()
@@ -315,7 +318,7 @@ def test_resume_only_reuses_matching_completed_fragments(monkeypatch, clock, ing
     if changed == "source":
         chunks[0]["id"] = "changed"
     generate = Mock(side_effect=[answer("one"), answer("two")])
-    monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     run(job_id=second, resume_job_id=first, language="French" if changed == "language" else "English")
     assert generate.call_count == (1 if changed == "none" else 2)
     assert llm_wiki_storage.load_checkpoint(second, "plan-1")
@@ -331,7 +334,7 @@ def test_failed_resume_carries_reused_fragments_into_the_next_job(monkeypatch, c
         current = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
         responses = ([answer("one")] if attempt == 0 else []) + [provider_error() for _ in range(5)]
         generate = Mock(side_effect=responses)
-        monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+        monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
         with pytest.raises(RateLimitError):
             run(job_id=current, resume_job_id=previous)
         assert generate.call_count == (6 if attempt == 0 else 5)
@@ -356,7 +359,7 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     assert threading.Thread is not InlineThread
     monkeypatch.setattr("backend.services.context_vars.get_active_vault_path", lambda: None)
     generate = Mock(side_effect=[answer("one"), *[provider_error() for _ in range(5)]])
-    monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     kwargs = dict(
         source_table_id="sources", source_table={"id": "sources"},
         source_config={"table_id": "sources"},
@@ -368,7 +371,7 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     assert status["progress"] == 40
     assert "Rate limit" in status["error"]
     generate = Mock(side_effect=[answer("one"), answer("two")])
-    monkeypatch.setattr("backend.agent.factory.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     second = llm_wiki.start_ingest("resource", "Book", {}, "", "brain", tmp_path, force=force, **kwargs)
     assert generate.call_count == (2 if force else 1)
     assert llm_wiki_storage.get_job_status(str(second["job_id"]))["phase"] == "done"

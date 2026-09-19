@@ -24,7 +24,7 @@ LLM_WIKI_SKILL_IDS = [
     *LEGACY_LLM_WIKI_SKILL_IDS,
     "core.gnosi-vault",
 ]
-LLM_WIKI_REQUIRED_SKILL_IDS = ["plugin.llm-wiki.query"]
+LLM_WIKI_REQUIRED_SKILL_IDS: list[str] = []
 LEGACY_DEFAULT_SKILL_IDS = ["core.legacy-default-v1"]
 
 DEFAULT_PERSONA = """You are Gnosi's Brain agent, a persistent knowledge wiki.
@@ -73,18 +73,24 @@ def ensure_agent(ai_config: dict[str, object]) -> tuple[dict[str, object], bool]
         # The global assignment migration may have materialized the legacy
         # bundle before this plugin-specific migration runs. Replace only that
         # exact synthetic value; preserve every explicit user selection.
-        if (
+        if not existing.get("skills_seed_version") and (
             "skill_ids" not in existing
             or existing.get("skill_ids") == LEGACY_DEFAULT_SKILL_IDS
             or existing.get("skill_ids") == LEGACY_LLM_WIKI_SKILL_IDS
         ):
             existing["skill_ids"] = list(LLM_WIKI_SKILL_IDS)
             changed = True
-        required_skill_ids = list_values(existing.get("required_skill_ids") or [])
-        for skill_id in LLM_WIKI_REQUIRED_SKILL_IDS:
-            if skill_id not in required_skill_ids:
-                required_skill_ids.append(skill_id)
-                changed = True
+        if not existing.get("skills_seed_version"):
+            existing["skills_seed_version"] = 1
+            changed = True
+        # Older installations locked the query skill. Allow its replacement
+        # with a user-edited copy, preserving unrelated explicit requirements.
+        required_skill_ids = [
+            value for value in list_values(existing.get("required_skill_ids") or [])
+            if value != "plugin.llm-wiki.query"
+        ]
+        if existing.get("required_skill_ids") != required_skill_ids:
+            changed = True
         existing["required_skill_ids"] = required_skill_ids
         if existing.pop("plugin_suspended", False):
             existing["enabled"] = bool(
@@ -113,6 +119,7 @@ def ensure_agent(ai_config: dict[str, object]) -> tuple[dict[str, object], bool]
         "context": "",
         "context_refs": [],
         "skill_ids": list(LLM_WIKI_SKILL_IDS),
+        "skills_seed_version": 1,
         "required_skill_ids": list(LLM_WIKI_REQUIRED_SKILL_IDS),
     })
     next_ai["agents"] = agents

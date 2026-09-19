@@ -63,7 +63,7 @@ vi.mock('@dnd-kit/utilities', () => ({
     CSS: { Transform: { toString: (): undefined => undefined } },
 }));
 
-vi.mock('../../agent/inbox/BrainInbox', () => ({ BrainInbox: (): null => null }));
+vi.mock('../../agent/inbox/BrainTools', () => ({ BrainTools: (): null => null }));
 vi.mock('../../literature/records/ReferenceImportExport', () => ({
     ReferenceImportExport: (): null => null,
 }));

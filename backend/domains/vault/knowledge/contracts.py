@@ -46,6 +46,7 @@ class LlmWikiConfigUpdateRequest(BaseModel):
     """Known persisted settings without pre-empting legacy normalization."""
 
     version: object | None = None
+    agent_id: str | None = None
     ui_locale: object | None = None
     brain_table_id: object | None = None
     target_table: object | None = None
@@ -80,6 +81,7 @@ class LlmWikiSettingsDocument(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     version: int | None = None
+    agent_id: str = "llm-wiki"
     brain_table_id: str = ""
     target_table: str = ""
     source_tables: list[dict[str, JsonValue]] = Field(default_factory=list)
@@ -112,12 +114,20 @@ class LlmWikiValidationResponse(BaseModel):
     missing: list[dict[str, JsonValue]]
 
 
+class LlmWikiAgentOptionResponse(BaseModel):
+    id: str
+    name: str
+    enabled: bool
+    ready: bool
+
+
 class LlmWikiConfigResponse(BaseModel):
     """Migrated configuration plus runtime status used by settings and pages."""
 
     model_config = ConfigDict(extra="allow")
 
     config: LlmWikiSettingsDocument
+    agents: list[LlmWikiAgentOptionResponse] = Field(default_factory=list)
     brain: LlmWikiBrainResponse
     eligible_index_properties: list[dict[str, JsonValue]]
     index_options: dict[str, list[LlmWikiSettingsOptionResponse]]

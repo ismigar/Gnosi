@@ -1713,6 +1713,14 @@
       "llm_wiki_lint_xref": "{{count}} referencias cruzadas que faltan",
       "llm_wiki_lint_reprocess": "{{count}} recursos modificados tras procesarse",
       "llm_wiki_pending": "{{count}} sugerencias pendientes en el Buzón",
+      "llm_wiki_agent": "Agente a utilizar",
+      "llm_wiki_agent_missing": "Agente no disponible ({{id}})",
+      "llm_wiki_agent_setup": "Requiere configuración",
+      "llm_wiki_agent_help": "Cerebro crea un agente con sus habilidades y herramientas al activarse. Puedes elegir cualquier otro agente para las operaciones de IA del plugin.",
+      "llm_wiki_agent_not_ready": "Activa este agente y selecciona un modelo en su configuración para poder utilizarlo.",
+      "llm_wiki_edit_agent": "Edita el agente y las habilidades asignadas",
+      "llm_wiki_edit_skills": "Edita el contenido de las habilidades",
+      "llm_wiki_skills_help": "En Habilidades, personaliza una habilidad del plugin, edita sus instrucciones y herramientas, y asigna la copia a tu agente. Las habilidades propias se pueden editar directamente.",
       "llm_wiki_intro_v2": "Elige el Cerebro, una o más tablas fuente y los campos categóricos que mantendrán índices.",
       "llm_wiki_pending_connections": "{{count}} conexiones pendientes",
       "llm_wiki_error": "No se ha podido actualizar el Cerebro.",
@@ -6161,7 +6169,15 @@
       "kind_support": "Apoyo",
       "kind_contradiction": "Contradicción",
       "kind_gap": "Vacío",
-      "notes": "Notas"
+      "notes": "Notas",
+      "load_error": "No se han podido cargar las conexiones. Cierra este panel y vuelve a intentarlo."
+    },
+    "tools": {
+      "button": "Herramientas del Cerebro",
+      "review": "Revisar Cerebro",
+      "report_title": "Revisión del Cerebro",
+      "results": "Ver la revisión",
+      "unavailable": "Revisa la tabla y las fuentes configuradas en Configuración → Complementos → Cerebro antes de continuar."
     }
   },
   "relation_item": {

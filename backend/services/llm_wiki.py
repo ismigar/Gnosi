@@ -418,8 +418,7 @@ def process_resource(
     resume_job_id: str = "",
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
-    from backend.agent.factory import generate_text
-    from backend.services.llm_wiki_agent import LLM_WIKI_AGENT_ID
+    from backend.services.llm_wiki_generation import generate_text
 
     dependencies = llm_wiki_ingestion.IngestionDependencies(
         load_config=llm_wiki_config.load_config,
@@ -434,7 +433,8 @@ def process_resource(
         build_prompt=_build_chunk_prompt,
         generate_text=cast(
             Callable[..., tuple[str, str]],
-            partial(generate_text, agent_id=LLM_WIKI_AGENT_ID),
+            partial(generate_text, agent_id=str(llm_wiki_config.load_config().get("agent_id") or "llm-wiki"),
+                    operation="plugin.llm-wiki.process-source"),
         ),
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,

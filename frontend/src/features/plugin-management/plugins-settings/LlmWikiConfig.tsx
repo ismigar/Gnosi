@@ -10,10 +10,11 @@ import {
     type DimensionMapping,
     type LlmWikiSource,
 } from './llmWikiModel';
-import { SELECT_STYLE } from './pluginSettingsModel';
+import { SELECT_STYLE, type PluginConfigProps } from './pluginSettingsModel';
+import { LlmWikiAgentSettings } from './LlmWikiAgentSettings';
 import { useLlmWikiController } from './useLlmWikiController';
 
-export function LlmWikiConfig() {
+export function LlmWikiConfig({ onOpenAISettings }: PluginConfigProps = {}) {
     const { t } = useTranslation();
     const controller = useLlmWikiController();
     const { draft, brainTable, tables } = controller;
@@ -98,6 +99,13 @@ export function LlmWikiConfig() {
                 marginTop: 8, padding: '12px 14px',
             }}>
                 <div style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{tp('llm_wiki_intro_v2', 'Choose the Brain, one or more source tables, and the categorical fields that will maintain indexes.')}</div>
+                <LlmWikiAgentSettings
+                    agentId={draft.agent_id}
+                    agents={controller.serverState.agents ?? []}
+                    busy={controller.busy}
+                    onSelect={controller.selectAgent}
+                    onOpenAISettings={onOpenAISettings}
+                />
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <span style={{ color: 'var(--text-secondary, #475569)', fontSize: 12, fontWeight: 600 }}>{tp('llm_wiki_table', 'Brain table')}</span>
                     <select style={SELECT_STYLE} value={draft.brain_table_id} disabled={controller.busy} onChange={(event) => { pickBrain(event.target.value); }}>
@@ -115,11 +123,6 @@ export function LlmWikiConfig() {
                         {controller.serverState.brain.configured
                             ? tp('llm_wiki_active', 'Active in «{{name}}»', { name: controller.serverState.brain.name ?? '' })
                             : tp('llm_wiki_inactive', 'No table designated yet.')}
-                        {controller.serverState.brain.configured && controller.pendingSuggestions > 0 && (
-                            <span style={{ color: 'var(--gnosi-primary, #6366f1)', fontWeight: 700, marginLeft: 8 }}>
-                                {tp('llm_wiki_pending_connections', '{{count}} pending connections', { count: controller.pendingSuggestions })}
-                            </span>
-                        )}
                     </span>
                 </div>
                 {brainTable && (
@@ -158,8 +161,6 @@ export function LlmWikiConfig() {
                 </div>}
                 <div style={{ borderTop: '1px solid var(--border-primary)', display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 12 }}>
                     <span style={{ alignSelf: 'center', color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{controller.busy ? tp('llm_wiki_saving', 'Saving…') : tp('llm_wiki_autosave', 'Changes save automatically.')}</span>
-                    <button type="button" onClick={() => { void controller.runLint(); }} disabled={controller.lintBusy || !controller.serverState.validation.valid} className="btn-gnosi">{controller.lintBusy ? tp('llm_wiki_lint_running', 'Reviewing…') : tp('llm_wiki_lint_run', 'Review the Brain (lint)')}</button>
-                    <button type="button" onClick={() => { void controller.runSemanticAudit(); }} disabled={controller.semanticBusy || !controller.serverState.validation.valid} className="btn-gnosi">{controller.semanticBusy ? tp('llm_wiki_semantic_running', 'Analyzing connections…') : tp('llm_wiki_semantic_run', 'Propose connections with AI')}</button>
                 </div>
                 <LlmWikiStatus controller={controller} />
             </div>
