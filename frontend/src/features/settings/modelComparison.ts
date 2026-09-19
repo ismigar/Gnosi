@@ -387,7 +387,7 @@ export const filteredComparisonModels = (
         )
         && (
             ui.maxPrice === ''
-            || (model.input_price !== null && model.input_price <= priceLimit)
+            || (model.input_price !== null && model.input_price * (feed?.currency.usd_rate || 1) <= priceLimit)
         )
         && (
             ui.minContext === ''

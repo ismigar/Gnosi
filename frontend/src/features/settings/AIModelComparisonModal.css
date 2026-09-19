@@ -65,8 +65,8 @@
 .model-comparison-summary { display: flex; align-items: center; gap: 14px; min-height: 24px; margin: 12px 2px -6px; color: var(--text-secondary); font-size: .78rem; }
 .model-comparison-summary strong { color: var(--text-primary); }
 
-.model-show-incomplete-toggle { flex-direction: row !important; align-items: center !important; justify-content: center; min-height: 42px; padding: 0 8px; border: none; cursor: pointer; }
-.model-show-incomplete-toggle input[type="checkbox"] { width: 16px !important; min-height: auto !important; margin: 0 !important; accent-color: var(--gnosi-blue); flex: 0 0 16px; }
+.model-show-incomplete-toggle { display: flex; gap: 8px; align-self: end; color: var(--text-secondary); font-size: .78rem; flex-direction: row !important; align-items: center !important; justify-content: center; min-height: 42px; padding: 0 8px; border: none; cursor: pointer; }
+.model-show-incomplete-toggle .gnosi-toggle { flex-shrink: 0; }
 .model-show-incomplete-toggle span { font-weight: 600 !important; line-height: 1.2; text-align: center; }
 .model-cost-calculator { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); align-items: end; gap: 12px; margin: 10px 0 8px; padding: 10px 12px; border: 1px solid rgba(59,130,246,.22); border-radius: 14px; background: rgba(59,130,246,.07); }
 .model-cost-title { align-self: center; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }

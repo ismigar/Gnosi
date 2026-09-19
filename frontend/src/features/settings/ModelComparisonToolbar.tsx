@@ -1,6 +1,7 @@
 import { useEffect, useRef, type Dispatch, type RefObject } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { GnosiToggle } from '../../shared/ui/settings/SettingsPrimitives';
 import { ComparisonLabel } from './ComparisonLabel';
 
 import {
@@ -18,6 +19,7 @@ import {
 
 
 interface ModelComparisonToolbarProps {
+    readonly currencySymbol: string;
     readonly dispatch: Dispatch<ModelComparisonUiAction>;
     readonly metricAvailability: MetricAvailability;
     readonly profileHelpRef: RefObject<HTMLElement | null>;
@@ -27,6 +29,7 @@ interface ModelComparisonToolbarProps {
 
 
 export function ModelComparisonToolbar({
+    currencySymbol,
     dispatch,
     metricAvailability,
     profileHelpRef,
@@ -159,7 +162,7 @@ export function ModelComparisonToolbar({
                     ) : null}
                 </div>
                 <label>
-                    <ComparisonLabel text={t('model_comparison.compact_filters.max_price')} full={t('model_comparison.max_price')} />
+                    <ComparisonLabel text={t('model_comparison.compact_filters.max_price', { symbol: currencySymbol })} full={t('model_comparison.max_price', { symbol: currencySymbol })} />
                     <input
                         min="0"
                         onChange={(event) => {
@@ -189,19 +192,19 @@ export function ModelComparisonToolbar({
                         value={state.minContext}
                     />
                 </label>
-                <label className="model-show-incomplete-toggle">
-                    <input
-                        checked={state.showIncomplete}
-                        onChange={(event) => {
+                <div className="model-show-incomplete-toggle">
+                    <GnosiToggle
+                        active={state.showIncomplete}
+                        label={t('model_comparison.show_incomplete')}
+                        onChange={() => {
                             dispatch({
                                 type: 'set-show-incomplete',
-                                value: event.target.checked,
+                                value: !state.showIncomplete,
                             });
                         }}
-                        type="checkbox"
                     />
                     <ComparisonLabel text={t('model_comparison.compact_filters.show_incomplete')} full={t('model_comparison.show_incomplete')} />
-                </label>
+                </div>
                 <div className="model-parameter-filters" role="group" aria-label={t('model_comparison.columns.parameters')}>
                     <label>
                         <ComparisonLabel text={t('model_comparison.compact_filters.parameter_status')} full={t('model_comparison.parameter_status')} />

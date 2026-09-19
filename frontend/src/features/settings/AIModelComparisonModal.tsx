@@ -158,6 +158,7 @@ export function AIModelComparisonModal({
                     {!data.loading && data.feed ? (
                         <>
                             <ModelComparisonToolbar
+                                currencySymbol={data.feed.currency.symbol || data.feed.currency.code}
                                 dispatch={dispatchUi}
                                 metricAvailability={metricAvailability}
                                 profileHelpRef={profileHelpRef}

@@ -3,10 +3,13 @@ import { Loader2 } from 'lucide-react';
 import { formatCost } from './formatting';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { context: Pick<SettingsController, 'aiUsage' | 'enforceBlock' | 'monthlyCostCap' | 'saveAiBudget' | 'savingBudget' | 'setEnforceBlock' | 'setMonthlyCostCap' | 't'> };
+type Props = { context: Pick<SettingsController, 'aiUsage' | 'draft' | 'enforceBlock' | 'monthlyCostCap' | 'saveAiBudget' | 'savingBudget' | 'setEnforceBlock' | 'setMonthlyCostCap' | 't'> };
 
 export function ModelBudget({ context }: Props) {
-  const { aiUsage, enforceBlock, monthlyCostCap, saveAiBudget, savingBudget, setEnforceBlock, setMonthlyCostCap, t } = context;
+  const { aiUsage, draft, enforceBlock, monthlyCostCap, saveAiBudget, savingBudget, setEnforceBlock, setMonthlyCostCap, t } = context;
+  const currency = aiUsage?.currency.code
+    ? `${aiUsage.currency.code} (${aiUsage.currency.symbol})`
+    : draft.settings.currency;
   return (<div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
     <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
       <strong>{t('settings.ai.budget_title', 'Control de despesa i consum')}</strong>
@@ -54,7 +57,7 @@ export function ModelBudget({ context }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <div>
         <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '6px' }}>
-          {t('settings.ai.monthly_cap_label', 'Topall mensual de cost (€ / $)')}
+          {t('settings.ai.monthly_cap_label', { currency, defaultValue: 'Topall mensual de cost ({{currency}})' })}
         </label>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <input

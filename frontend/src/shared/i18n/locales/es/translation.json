@@ -2099,6 +2099,7 @@
       "link_to_sync": "Vincula una cuenta para sincronizar"
     },
     "ai": {
+      "monthly_cap_label": "Límite mensual de coste ({{currency}})",
       "agent_name": "Nombre del Agente",
       "icon_label": "Icono",
       "providers_section": "Proveedores de Modelos",
@@ -4515,7 +4516,7 @@
       "profile": "Perfil",
       "availability": "Estado",
       "modes": "Modos",
-      "max_price": "Entrada máx.\n$/1M tokens",
+      "max_price": "Entrada máx.\n{{symbol}}/1M tokens",
       "min_context": "Contexto mín.\nK tokens",
       "show_incomplete": "Incluye incompletos",
       "parameter_status": "Parámetros",
@@ -4592,7 +4593,7 @@
     "catalog_fallback_no_cache": "Artificial Analysis no está disponible y todavía no existe una caché completa anterior. Mientras tanto se muestran datos de {{source}} y se ocultan las columnas que esta fuente no proporciona.",
     "catalog_fallback_no_cache_until": "La cuota de Artificial Analysis está agotada y todavía no existe una caché completa anterior. La cuota se restablece el {{date}}. Mientras tanto se muestran datos de {{source}}.",
     "cached_fallback": "La cuota de Artificial Analysis está agotada. Se muestra la última comparativa completa guardada localmente.",
-    "max_price": "Precio máx. entrada ($/1M)",
+    "max_price": "Precio máx. entrada ({{symbol}}/1M)",
     "min_context": "Contexto mínimo (K tokens)",
     "calculator": "Calculadora de coste mensual",
     "input_tokens": "Tokens de entrada / mes",
