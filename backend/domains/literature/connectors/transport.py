@@ -59,7 +59,7 @@ class ConnectorError(RuntimeError):
 
 
 def begin_request_audit() -> tuple[Any, list[dict[str, Any]]]:
-    """Start one task-local audit of public academic GET requests."""
+    """Start one task-local audit of public academic requests."""
     records: list[dict[str, Any]] = []
     return _REQUEST_AUDIT.set(records), records
 
@@ -88,7 +88,7 @@ def _record_request(response: httpx.Response) -> None:
         return
     records.append(
         {
-            "method": "GET",
+            "method": response.request.method,
             "url": _auditable_url(response.request.url),
             "status_code": response.status_code,
             "retrieved_at": datetime.now(timezone.utc).isoformat(),
@@ -158,6 +158,23 @@ async def safe_get_bytes(
     max_bytes: int = MAX_RESPONSE_BYTES,
 ) -> tuple[bytes, str, dict[str, str]]:
     """Fetch one bounded public HTTPS response with manual redirect validation."""
+    return await _safe_request_bytes(
+        "GET", url, params=params, headers=headers,
+        accepted_types=accepted_types, max_bytes=max_bytes,
+    )
+
+
+async def _safe_request_bytes(
+    method: str,
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    accepted_types: tuple[str, ...],
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    json_body: dict[str, Any] | None = None,
+    content: bytes | None = None,
+) -> tuple[bytes, str, dict[str, str]]:
     runtime = current_runtime()
     current = runtime.validate_public_https_url(url)
     request_headers = {"User-Agent": runtime.USER_AGENT, "Accept": ", ".join(accepted_types)}
@@ -169,13 +186,17 @@ async def safe_get_bytes(
         for redirect_count in range(runtime.MAX_REDIRECTS + 1):
             try:
                 async with client.stream(
-                    "GET",
+                    method,
                     current,
                     params=params if redirect_count == 0 else None,
                     headers=request_headers,
+                    json=json_body if method == "POST" else None,
+                    content=content if method == "POST" else None,
                 ) as response:
                     runtime._record_request(response)
                     if response.status_code in {301, 302, 303, 307, 308}:
+                        if method == "POST":
+                            raise ConnectorError("The repository redirected a credentialed POST request.")
                         if redirect_count >= runtime.MAX_REDIRECTS:
                             raise ConnectorError("The repository exceeded the redirect limit.")
                         location = response.headers.get("location")
@@ -232,6 +253,24 @@ async def safe_get_json(url: str, **kwargs: Any) -> tuple[Any, str, dict[str, st
         url,
         accepted_types=("application/json", "text/json", "application/ld+json", "text/plain"),
         **kwargs,
+    )
+    try:
+        return json.loads(body.decode("utf-8-sig")), final_url, response_headers
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ConnectorError("The repository returned invalid JSON.") from exc
+
+
+async def safe_post_json(
+    url: str,
+    *,
+    json_body: dict[str, Any] | None = None,
+    content: bytes | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[Any, str, dict[str, str]]:
+    """POST a bounded JSON response without forwarding credentials to redirects."""
+    body, final_url, response_headers = await _safe_request_bytes(
+        "POST", url, json_body=json_body, content=content, headers=headers,
+        accepted_types=("application/json", "text/json", "application/ld+json", "text/plain"),
     )
     try:
         return json.loads(body.decode("utf-8-sig")), final_url, response_headers
