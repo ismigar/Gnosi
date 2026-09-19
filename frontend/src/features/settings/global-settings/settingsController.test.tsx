@@ -188,7 +188,7 @@ describe('settings controller persistence contracts', () => {
     act(() => { promote.click(); });
     expect(snapshot().draft.ai.active_agent_id).toBe('other-profile');
     expect(snapshot().draft.ai.agents).toHaveLength(2);
-    expect(snapshot().draft.ai.agents[0].protected_extension).toEqual({ keep: true });
+    expect(snapshot().draft.ai.agents[0]?.protected_extension).toEqual({ keep: true });
   });
 
   it('redirects the automation plugin configure action to activity without writing', async () => {
