@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1094 | 125240 | 32 |
+| `features` | 1094 | 125274 | 32 |
 | `generated` | 2 | 44513 | 455 |
-| `shared` | 250 | 30570 | 400 |
+| `shared` | 251 | 30577 | 400 |
 
 ## app
 
@@ -86,7 +86,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/agent/AgentChatLauncher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/AgentChatLauncher.tsx) | 29 | `AgentChatLauncher` | — |
 | [`frontend/src/features/agent/chat/ChatComposer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatComposer.tsx) | 189 | `ChatComposer` | — |
 | [`frontend/src/features/agent/chat/ChatDock.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatDock.tsx) | 49 | `ChatDock` | — |
-| [`frontend/src/features/agent/chat/ChatHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatHeader.tsx) | 129 | `ChatHeader` | — |
+| [`frontend/src/features/agent/chat/ChatHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatHeader.tsx) | 130 | `ChatHeader` | — |
 | [`frontend/src/features/agent/chat/ChatIcon.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatIcon.tsx) | 19 | `ChatIcon` | — |
 | [`frontend/src/features/agent/chat/ChatMessageRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatMessageRow.tsx) | 208 | `ChatMessageRow` | — |
 | [`frontend/src/features/agent/chat/ChatPanelView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatPanelView.tsx) | 173 | `ChatPanelView` | — |
@@ -128,7 +128,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/agent/chat/useChatPanelState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatPanelState.ts) | 27 | `chatPanelReducer`, `useChatPanelState` | — |
 | [`frontend/src/features/agent/chat/useChatRewind.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatRewind.ts) | 47 | `useChatRewind` | — |
 | [`frontend/src/features/agent/chat/useChatSessionPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatSessionPersistence.ts) | 73 | `useChatSessionPersistence` | — |
-| [`frontend/src/features/agent/chat/useChatSessionSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatSessionSelection.ts) | 46 | `useChatSessionSelection`, `useSessionMessageBinding` | — |
+| [`frontend/src/features/agent/chat/useChatSessionSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatSessionSelection.ts) | 51 | `useChatSessionSelection`, `useSessionMessageBinding` | — |
 | [`frontend/src/features/agent/chat/useNotebookConversation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useNotebookConversation.ts) | 33 | `useNotebookConversation` | — |
 | [`frontend/src/features/agent/inbox/BrainInbox.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainInbox.tsx) | 243 | `BrainInbox` | — |
 | [`frontend/src/features/agent/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/index.ts) | 2 | — | — |
@@ -424,7 +424,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/notebooks/create/NotebookResourceFilters.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/create/NotebookResourceFilters.tsx) | 101 | `NotebookResourceFilters`, `function` | — |
 | [`frontend/src/features/notebooks/create/notebookResourceCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/create/notebookResourceCatalog.ts) | 75 | `EMPTY_RESOURCE_FACETS`, `EMPTY_RESOURCE_FILTERS`, `normalizeResourceFacets`, `notebookResourceCatalogUrl` | — |
 | [`frontend/src/features/notebooks/detail/AddResourcesDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/AddResourcesDialog.tsx) | 139 | `AddResourcesDialog`, `function` | — |
-| [`frontend/src/features/notebooks/detail/NotebookChatPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookChatPanel.tsx) | 50 | `NotebookChatPanel`, `function` | — |
+| [`frontend/src/features/notebooks/detail/NotebookChatPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookChatPanel.tsx) | 49 | `NotebookChatPanel`, `function` | — |
 | [`frontend/src/features/notebooks/detail/NotebookDetail.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookDetail.tsx) | 29 | `NotebookDetail` | — |
 | [`frontend/src/features/notebooks/detail/NotebookDetailDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookDetailDialogs.tsx) | 23 | `NotebookDetailDialogs`, `function` | — |
 | [`frontend/src/features/notebooks/detail/NotebookDetailHeader.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/notebooks/detail/NotebookDetailHeader.tsx) | 40 | `NotebookDetailHeader`, `function` | — |
@@ -498,10 +498,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/reader/zotero/useZoteroReaderController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/useZoteroReaderController.ts) | 281 | `openReaderDocumentExternally`, `useZoteroReaderController` | `/api/vault/local-file/register`, `/api/vault/open-local-path` |
 | [`frontend/src/features/reader/zotero/zoteroReaderModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderModel.ts) | 144 | `detectKindFromSrc`, `isUnknownArray`, `isUnknownRecord`, `pdfAnnotationToZotero`, `toFilesystemPath`, `zoteroToPdfAnnotation` | — |
 | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 159 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
-| [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 90 | `AIActivityPanel` | — |
+| [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 92 | `AIActivityPanel` | — |
 | [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 171 | `AgentSkillsField` | — |
 | [`frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx) | 244 | `OperationsHistoryPanel` | — |
-| [`frontend/src/features/settings/AI/AIOperationsSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.tsx) | 387 | `AutomationsSettingsPanel` | — |
+| [`frontend/src/features/settings/AI/AIOperationsSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.tsx) | 391 | `AutomationsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIQualityMemorySection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualityMemorySection.tsx) | 191 | `AIQualityMemorySection` | — |
 | [`frontend/src/features/settings/AI/AIQualitySettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualitySettings.tsx) | 263 | `AIQualitySettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIResourcePrimitives.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcePrimitives.tsx) | 181 | `CatalogError`, `EffectBadges`, `EmptyState`, `JsonSchemaDetails`, `ResourceState`, `SearchField` | — |
@@ -509,8 +509,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AI/AIScheduleFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIScheduleFields.tsx) | 21 | `ScheduleFields` | — |
 | [`frontend/src/features/settings/AI/AISkillCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillCard.tsx) | 179 | `SkillCard` | — |
 | [`frontend/src/features/settings/AI/AISkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillEditor.tsx) | 251 | `SkillEditor` | — |
-| [`frontend/src/features/settings/AI/AISkillUsage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillUsage.tsx) | 51 | `SkillUsage` | — |
-| [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 347 | `SkillsSettingsPanel` | — |
+| [`frontend/src/features/settings/AI/AISkillUsage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillUsage.tsx) | 58 | `SkillUsage` | — |
+| [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 349 | `SkillsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIToolPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolPicker.tsx) | 53 | `ToolPicker` | — |
 | [`frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx) | 178 | `ToolsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/ActivityHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityHistory.tsx) | 121 | `ActivityHistory` | — |
@@ -547,8 +547,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/AccountRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountRow.tsx) | 71 | `AccountRow` | — |
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 160 | `AgentsPanel` | — |
-| [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 92 | `AiPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 173 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 93 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |
@@ -1188,6 +1188,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
+| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 7 | `principalAssistant` | — |
 | [`frontend/src/shared/api/ApiProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ApiProvider.tsx) | 14 | `ApiProvider` | — |
 | [`frontend/src/shared/api/agent-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/agent-context.ts) | 27 | `fetchExternalContextSources`, `fetchInternalContextSources` | `/api/agent/context-sources`, `/api/agent/internal-sources` |
 | [`frontend/src/shared/api/ai-activity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ai-activity.ts) | 27 | `changeActivityJob`, `fetchAutomationRuns`, `readActivityJobResult` | `/api/ai/automation-runs`, `/api/ai/jobs/{job_id}/cancel`, `/api/ai/jobs/{job_id}/result`, `/api/ai/jobs/{job_id}/resume` |

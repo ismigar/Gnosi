@@ -33,6 +33,7 @@ export function AIActivityPanel({ tab, aiEnabled, automationsEnabled, canEdit, s
     const { t } = useTranslation();
     const vaultId = useActiveVaultId();
     const resources = useAIResources(aiEnabled);
+    const [principalAgentId, setPrincipalAgentId] = useState('');
     const [agents, setAgents] = useState<AIResourceAgent[]>([]);
     const [configVersion, setConfigVersion] = useState(0);
     const [configError, setConfigError] = useState('');
@@ -54,9 +55,10 @@ export function AIActivityPanel({ tab, aiEnabled, automationsEnabled, canEdit, s
     useEffect(() => {
         if (!aiEnabled) return;
         let active = true;
-        void Promise.resolve().then(() => { if (active) { setAgents([]); setConfigError(''); } return fetchConfiguration(); }).then(config => {
+        void Promise.resolve().then(() => { if (active) { setAgents([]); setPrincipalAgentId(''); setConfigError(''); } return fetchConfiguration(); }).then(config => {
             if (!active) return;
             const ai = isJsonRecord(config.ai) ? config.ai : {};
+            setPrincipalAgentId(typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
             setAgents(Array.isArray(ai.agents) ? ai.agents.filter((agent): agent is AIResourceAgent => isJsonRecord(agent) && typeof agent.id === 'string') : []);
             setConfigError('');
         }).catch((error: unknown) => { if (active) setConfigError(String(error)); });
@@ -74,7 +76,7 @@ export function AIActivityPanel({ tab, aiEnabled, automationsEnabled, canEdit, s
                 {!available ? <p>{t('activity.plugins_required')}</p> : <>
                     <CatalogError error={resources.error || resources.resourceErrors.automations || configError} onRetry={async () => { setConfigVersion(value => value + 1); await resources.reload(); }} />
                     {resources.loading && <p role="status">{t('common.loading')}</p>}
-                    {!resources.error && !resources.resourceErrors.automations && !configError && <AutomationsSettingsPanel key={vaultId} selectedAutomationId={params.get('automation') || undefined} resources={automationResources(resources)} agents={agents} canEdit={canEdit} onViewRuns={openRuns} />}
+                    {!resources.error && !resources.resourceErrors.automations && !configError && <AutomationsSettingsPanel key={vaultId} selectedAutomationId={params.get('automation') || undefined} resources={automationResources(resources)} agents={agents} principalAgentId={principalAgentId} canEdit={canEdit} onViewRuns={openRuns} />}
                 </>}
             </>}
         </>}

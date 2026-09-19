@@ -1,3 +1,5 @@
+import { principalAssistant } from '../../../shared/ai/assistantProfiles';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useState } from 'react';
 import { AlertTriangle, Check, Clock3, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -50,6 +52,7 @@ interface AutomationDraft extends AutomationBudgetFields {
 
 
 interface AISettingsAgent {
+    enabled?: boolean;
     id: string;
     name?: string | null;
     skill_ids?: readonly string[];
@@ -75,6 +78,7 @@ interface AutomationsResources {
 
 interface AutomationsSettingsPanelProps {
     readonly agents: readonly AISettingsAgent[];
+    readonly principalAgentId?: string;
     readonly canEdit?: boolean;
     readonly selectedAutomationId?: string;
     readonly onViewRuns?: (id: string) => void;
@@ -105,6 +109,7 @@ export const AutomationsSettingsPanel = ({
     resources,
     agents,
     canEdit = true,
+    principalAgentId = '',
     onViewRuns,
     selectedAutomationId,
 }: AutomationsSettingsPanelProps) => {
@@ -112,6 +117,7 @@ export const AutomationsSettingsPanel = ({
     const [draft, setDraft] = useState<AutomationDraft | null>(null);
     const [saving, setSaving] = useState(false);
     const [runningId, setRunningId] = useState('');
+    const principal = principalAssistant(agents, principalAgentId);
     const selectedAgent = agents.find(agent => agent.id === draft?.agent_id);
     const assignedIds = new Set(selectedAgent?.skill_ids || []);
     const skills = resources.skills.filter(skill => (
@@ -119,8 +125,8 @@ export const AutomationsSettingsPanel = ({
     ));
     const valid = draft !== null && Boolean(
         draft.name.trim()
-        && draft.agent_id
-        && draft.skill_id
+        && selectedAgent && selectedAgent.enabled !== false
+        && skills.some(skill => skill.id === draft.skill_id)
         && draft.instruction.trim()
         && (draft.schedule?.kind !== 'weekly' || draft.schedule.weekdays.length > 0)
         && (!draft.schedule || Boolean(draft.schedule.time && draft.schedule.timezone)),
@@ -179,7 +185,7 @@ export const AutomationsSettingsPanel = ({
                     className="btn-gnosi btn-gnosi-primary"
                     disabled={!canEdit}
                     onClick={() => {
-                        setDraft(toDraft());
+                        setDraft({ ...toDraft(), agent_id: principal?.enabled !== false ? principal?.id || '' : '' });
                     }}
                 >
                     <Plus size={16} /> {t('settings.ai.operations.new_automation')}
@@ -187,7 +193,6 @@ export const AutomationsSettingsPanel = ({
             </div>
             {draft && (
                 <div className="ai-resource-editor ai-automation-editor">
-                    <ScheduleFields schedule={draft.schedule || defaultSchedule()} onChange={schedule => { update({ schedule }); }} />
                     <div className="ai-resource-editor__grid">
                         <label>
                             <span>{t('settings.ai.resources.name')}</span>
@@ -198,22 +203,6 @@ export const AutomationsSettingsPanel = ({
                                     update({ name: event.target.value });
                                 }}
                             />
-                        </label>
-                        <label>
-                            <span>{t('settings.ai.operations.agent')}</span>
-                            <select
-                                className="gnosi-select"
-                                value={draft.agent_id}
-                                onChange={(event) => {
-                                    update({
-                                        agent_id: event.target.value,
-                                        skill_id: '',
-                                    });
-                                }}
-                            >
-                                <option value="">—</option>
-                                {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name || agent.id}</option>)}
-                            </select>
                         </label>
                         <label>
                             <span>{t('settings.ai.operations.skill')}</span>
@@ -242,6 +231,28 @@ export const AutomationsSettingsPanel = ({
                             />
                         </label>
                     </div>
+                    <p>{t('settings.ai.assistant.automation_help', { name: selectedAgent?.name || selectedAgent?.id || '—' })}</p>
+                    {!skills.length && <p role="status">{t('settings.ai.assistant.no_skills')}</p>}
+                    <details open={draft.agent_id !== principal?.id}>
+                        <summary>{t('settings.ai.assistant.other_profile')}</summary>
+                        <label>
+                            <span>{t('settings.ai.assistant.profile')}</span>
+                            <select
+                                className="gnosi-select"
+                                value={draft.agent_id}
+                                onChange={(event) => {
+                                    update({
+                                        agent_id: event.target.value,
+                                        skill_id: '',
+                                    });
+                                }}
+                            >
+                                <option value="">—</option>
+                                {agents.map(agent => <option key={agent.id} value={agent.id} disabled={agent.enabled === false}>{agent.name || agent.id}</option>)}
+                            </select>
+                        </label>
+                    </details>
+                    <ScheduleFields schedule={draft.schedule || defaultSchedule()} onChange={schedule => { update({ schedule }); }} />
                     <label>
                         <span>{t('settings.ai.operations.instruction')}</span>
                         <textarea
@@ -293,17 +304,10 @@ export const AutomationsSettingsPanel = ({
                                 }}
                             />
                         </label>
-                        <label>
-                            <span>
-                                <input
-                                    type="checkbox"
-                                    checked={draft.enabled}
-                                    onChange={(event) => {
-                                        update({ enabled: event.target.checked });
-                                    }}
-                                /> {t('settings.ai.operations.enabled')}
-                            </span>
-                        </label>
+                        <div className="flex items-center gap-3">
+                            <GnosiToggle active={draft.enabled} label={t('settings.ai.operations.enabled')} onChange={() => { update({ enabled: !draft.enabled }); }} />
+                            <span>{t('settings.ai.operations.enabled')}</span>
+                        </div>
                     </div>
                     {!valid && <div className="ai-resource-validation"><AlertTriangle size={15} />{t('activity.required_fields')}</div>}
                     <div className="ai-resource-editor__actions">

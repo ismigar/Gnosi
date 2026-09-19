@@ -45,11 +45,12 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                         <ChatIcon icon={agentIcon} size={18} />
                     </div>
                     <div>
-                        {embedded ? (
+                        {embedded || agentList.length < 2 ? (
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {agentName}
                             </div>
-                        ) : <select
+                        ) : <details><summary>{agentName}</summary><label>{t('settings.ai.assistant.other_profile')}<select
+                            aria-label={t('settings.ai.assistant.profile')}
                             value={selectedAgentId}
                             onChange={(e) => { setSelectedAgentId(e.target.value); }}
                             onClick={(e) => { e.stopPropagation(); }}
@@ -71,7 +72,7 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                             {agentList.map((a) => (
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}
-                        </select>}
+                        </select></label></details>}
                         {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
                             {runtimeStatusLabel}

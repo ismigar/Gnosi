@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
@@ -59,6 +61,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -780,8 +784,7 @@ modifications des preuves sources ou des entrées de planification invalident le
 fragments enregistrés ; un traitement explicitement forcé ignore tous les points
 de reprise précédents. Les tâches interrompues conservent leur progression réelle
 et les notes sources ne sont écrites qu’une fois la planification terminée.
-Chaque appel d’ingestion sélectionne explicitement l’agent configuré
-`llm-wiki`. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
+L’ingestion sélectionne un profil géré `llm-wiki` existant ou l’assistant principal. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
 arrête les nouvelles tentatives automatiques, car attendre ne peut pas
 reconstituer une limite de zéro requête ; une capacité restante nulle avec une
 limite positive conserve les tentatives habituelles. Après un redémarrage du
@@ -1193,3 +1196,11 @@ Noms et descriptions sont traduits dans les quatre langues. Identifiants secrets
 attribution des droits, approbations, installation des plugins et accès aux appareils
 restent dans l’interface. Les tests utilisent des données simulées sans recherches
 externes ni appels aux fournisseurs.
+
+## Assistant principal et profils facultatifs
+
+L’onglet Assistant présente le profil principal sélectionné par `ai.active_agent_id`. Les compétences apportent des procédures réutilisables et des outils ; les profils supplémentaires restent dans les options avancées pour d’autres modèles, instructions, sources ou compétences. Les profils et réglages existants sont conservés. Une nouvelle conversation et le chat des carnets utilisent le principal par défaut ; les sélections de chat enregistrées restent explicites.
+
+Les nouvelles automatisations commencent avec l’assistant principal et ne proposent que ses compétences attribuées. Un sélecteur avancé permet un autre profil. L’enregistrement fixe l’identifiant concret du profil : changer le principal ensuite ne réattribue pas les automatisations et n’élargit pas les permissions.
+
+Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal.

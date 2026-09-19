@@ -33,7 +33,6 @@ export default function NotebookChatPanel({ controller }: { controller: Notebook
                                     embedded
                                     storageIdentity={notebookStorageIdentity()}
                                     forcedSessionId={notebook.conversation_session_id}
-                                    forcedAgentId="gnosy"
                                     notebookId={notebook.id}
                                     conversationMode={notebook.conversation_mode}
                                     contextRefs={chatContext}

@@ -18,6 +18,11 @@ export function useChatSessionSelection(context: ChatSessionController) {
     if (!scopeReady || !selectedAgentId) return;
     const current = chatSessions.find((session) => session.id === sessionId);
     if (current?.agentId === selectedAgentId) return;
+    // Bind the empty initial session once configuration resolves the principal.
+    if (current && !current.agentId && !current.messages.length) {
+      setChatSessions(previous => previous.map(session => session.id === current.id ? { ...session, agentId: selectedAgentId } : session));
+      return;
+    }
     const recent = chatSessions.filter((session) => session.agentId === selectedAgentId && !session.archived).sort((left, right) => right.updatedAt - left.updatedAt)[0];
     const target = recent ?? createChatSession(defaultSessionTitle, selectedAgentId);
     if (!recent) setChatSessions((previous) => [target, ...previous]);

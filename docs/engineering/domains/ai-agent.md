@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
@@ -59,6 +61,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -650,7 +654,7 @@ plans, copies them into the new job and continues at the remaining fragments.
 Changed source evidence or planning inputs invalidate cached fragments; explicit
 force processing bypasses all previous checkpoints. Interrupted jobs retain
 their actual progress and source notes are written only after planning completes.
-Every ingestion call explicitly selects the configured `llm-wiki` agent. A
+Ingestion selects an existing managed `llm-wiki` profile or the principal assistant. A
 provider response with `x-ratelimit-limit-req-minute: 0` stops automatic retries,
 because waiting cannot replenish a zero request limit; zero remaining capacity
 with a positive limit still receives normal retries. After a backend restart,
@@ -990,3 +994,11 @@ French. Administrators can compose custom skills from individual tools or assign
 the domain skills to agents. Credentials, permission grants, approval decisions,
 plugin installation and device access intentionally remain outside this tool
 expansion. No external searches or provider calls are made by the regression tests.
+
+## Principal assistant and optional profiles
+
+The Assistant tab presents the principal profile selected by `ai.active_agent_id`. Skills supply reusable procedures and tools; additional profiles live under advanced options for different models, instructions, sources or skill assignments. Existing profiles and their settings remain intact. A fresh chat and notebook chat use the principal by default; saved chat selections remain explicit.
+
+New automations start with the principal assistant and only offer its assigned skills. An advanced selector permits another profile. Saving stores the concrete profile identifier, so changing the principal later does not reassign existing automations or expand permissions.
+
+Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant.

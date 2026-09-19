@@ -59,13 +59,15 @@ def _model_seed(agents: list[object], active_agent_id: str) -> tuple[str, str]:
     return "", ""
 
 
-def ensure_agent(ai_config: dict[str, object]) -> tuple[dict[str, object], bool]:
+def ensure_agent(ai_config: dict[str, object], *, create: bool = True) -> tuple[dict[str, object], bool]:
     """Creates the managed profile without overwriting a user's edits."""
     next_ai = deepcopy(ai_config or {})
     agents = list_values(next_ai.get("agents") or [])
     existing = _managed_agent(agents)
     if existing:
         if existing.get("managed_by") != LLM_WIKI_AGENT_MARKER:
+            if not create:
+                return next_ai, False
             raise LlmWikiAgentError(
                 "The reserved 'llm-wiki' ID already belongs to another agent; it was not changed."
             )
@@ -96,6 +98,9 @@ def ensure_agent(ai_config: dict[str, object]) -> tuple[dict[str, object], bool]
             changed = True
         next_ai["agents"] = agents
         return next_ai, changed
+
+    if not create:
+        return next_ai, False
 
     provider, model = _model_seed(agents, str(next_ai.get("active_agent_id") or ""))
     agents.append({
@@ -154,9 +159,7 @@ def suspend_agent(ai_config: dict[str, object]) -> tuple[dict[str, object], bool
         next_ai["agents"] = agents
         return next_ai, False
     if existing.get("managed_by") != LLM_WIKI_AGENT_MARKER:
-        raise LlmWikiAgentError(
-            "The reserved 'llm-wiki' ID is not managed by the plugin and cannot be suspended."
-        )
+        return next_ai, False
     if existing.get("plugin_suspended"):
         next_ai["agents"] = agents
         return next_ai, False
@@ -193,6 +196,23 @@ def validate_agent_preserved(current_ai: dict[str, object], requested_ai: dict[s
         )
 
 
+def default_plugin_agent_id(ai_config: dict[str, object] | None = None) -> str:
+    """Preserve a legacy Brain profile; otherwise use the principal assistant.
+
+    Do not assign new skills or create a profile merely by enabling a plugin.
+    Existing configured selections are kept for the runtime to validate.
+    """
+    ai = dict(load_params(strict_env=False).ai or {}) if ai_config is None else ai_config
+    agents = [agent for agent in list_values(ai.get("agents") or []) if isinstance(agent, dict)]
+    legacy = _managed_agent(list(agents))
+    if legacy and legacy.get("managed_by") == LLM_WIKI_AGENT_MARKER:
+        return LLM_WIKI_AGENT_ID
+    selected = str(ai.get("active_agent_id") or "")
+    if selected:
+        return selected
+    return next((str(agent.get("id") or "") for agent in agents if agent.get("enabled", True)), "")
+
+
 def transition_agent(enabled: bool) -> dict[str, object]:
     """Persists the profile transition in the active vault's AI configuration."""
     with _config_lock:
@@ -208,7 +228,7 @@ def transition_agent(enabled: bool) -> dict[str, object]:
             persisted = {}
 
         if enabled:
-            next_ai, changed = ensure_agent(dict(cfg.ai or {}))
+            next_ai, changed = ensure_agent(dict(cfg.ai or {}), create=False)
         else:
             next_ai, changed = suspend_agent(dict(cfg.ai or {}))
         if changed:
@@ -220,4 +240,4 @@ def transition_agent(enabled: bool) -> dict[str, object]:
                 sort_keys=False,
             )
             safe_write_text(path, yaml_text)
-        return {"agent_id": LLM_WIKI_AGENT_ID, "agent_changed": changed}
+        return {"agent_id": default_plugin_agent_id(next_ai), "agent_changed": changed}

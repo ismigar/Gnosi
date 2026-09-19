@@ -99,6 +99,18 @@ describe('AgentChat shared transport integration', () => {
     expect(mocks.databases).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the configured principal for a fresh notebook session instead of a hardcoded profile', async () => {
+    mocks.configuration.mockResolvedValueOnce({ ai: { active_agent_id: 'principal', agents: [
+      { id: 'gnosy', name: 'Legacy', provider: 'fixture', model: 'fixture', icon: 'G' },
+      { id: 'principal', name: 'Principal', provider: 'fixture', model: 'fixture', icon: 'P' },
+    ] } });
+    await render(<AgentChat embedded forcedSessionId="principal-notebook" notebookId="notebook" />);
+    expect(container.textContent).toContain('Principal');
+    const requests = mocks.transport.mock.calls.map(([input]) => requestPath(input));
+    expect(requests.some(path => path.includes('agent_id=principal'))).toBe(true);
+    expect(requests.some(path => path.includes('agent_id=gnosy'))).toBe(false);
+  });
+
   it('stops confirmation polling while an activated floating chat is closed', async () => {
     vi.useFakeTimers();
     await render(<AgentChat />);

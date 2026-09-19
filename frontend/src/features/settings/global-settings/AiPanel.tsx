@@ -31,10 +31,10 @@ export function AiPanel({ context }: Props) {
       ariaLabel={t('settings.ai.resources.sections_label')}
       activeId={aiSection}
       items={[
-        { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
-        { id: 'agents', icon: Bot, label: t('settings.ai.resources.agents_tab') },
+        { id: 'agents', icon: Bot, label: t('settings.ai.assistant.title') },
         { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
         { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
+        { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
       ]}
       onChange={sectionId => {
         setAiSection(sectionId);
@@ -71,6 +71,7 @@ export function AiPanel({ context }: Props) {
           selectedSkillId={selectedSkill}
           canEdit={['admin', 'owner'].includes(context.role)}
           agents={draft.ai.agents}
+          principalAgentId={draft.ai.active_agent_id}
           onAgentsChanged={agents => {
             setDraft(prev => ({
               ...prev,

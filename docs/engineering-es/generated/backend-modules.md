@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 158 | 36960 |
+| `services` | 158 | 36980 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **815 modules** and **168362 source lines**.
+Total: **815 modules** and **168382 source lines**.
 
 ## agent
 
@@ -834,7 +834,7 @@ Total: **815 modules** and **168362 source lines**.
 | [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_service.py) | 144 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical literature domain. |
 | [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki.py) | 689 | 1 | 29 | 0 | 12 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
 | [`backend/services/llm_wiki_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_actions.py) | 211 | 2 | 4 | 1 | 6 | Application actions shared by LLM Wiki HTTP routes and agent tools. |
-| [`backend/services/llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_agent.py) | 223 | 1 | 7 | 0 | 8 | Lifecycle and protection rules for the built-in LLM Wiki agent profile. |
+| [`backend/services/llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_agent.py) | 243 | 1 | 8 | 0 | 9 | Lifecycle and protection rules for the built-in LLM Wiki agent profile. |
 | [`backend/services/llm_wiki_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_ai_contributions.py) | 265 | 0 | 4 | 0 | 2 | Declarative agent skills and governed tools contributed by LLM Wiki. |
 | [`backend/services/llm_wiki_assist.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_assist.py) | 192 | 0 | 7 | 0 | 4 | Accessible editing for the Brain Inbox (F6). |
 | [`backend/services/llm_wiki_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_config.py) | 493 | 0 | 30 | 0 | 13 | Per-vault configuration for the built-in LLM Wiki ("Brain") plugin. |

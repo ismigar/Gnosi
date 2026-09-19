@@ -78,7 +78,8 @@ describe('AI governed operations settings', () => {
         const container = render(
             <AutomationsSettingsPanel
                 resources={resources}
-                agents={[{ id: 'brain', name: 'Brain', skill_ids: ['core.assigned'] }]}
+                principalAgentId="brain"
+                agents={[{ id: 'other', name: 'Other', skill_ids: ['core.hidden'] }, { id: 'brain', name: 'Brain', skill_ids: ['core.assigned'] }]}
             />,
         );
         const newButton = [...container.querySelectorAll('button')]
@@ -90,13 +91,16 @@ describe('AI governed operations settings', () => {
         const selects = container.querySelectorAll('select');
         const agentSelect = [...selects].find(select => [...select.options].some(option => option.value === 'brain'));
         if (!agentSelect) throw new Error('Agent selection is missing');
+        expect(agentSelect.value).toBe('brain');
+        expect(container.textContent).toContain('Assigned');
+        expect(container.textContent).not.toContain('Hidden');
         act(() => {
-            agentSelect.value = 'brain';
+            agentSelect.value = 'other';
             agentSelect.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
-        expect(container.textContent).toContain('Assigned');
-        expect(container.textContent).not.toContain('Hidden');
+        expect(container.textContent).toContain('Hidden');
+        expect(container.textContent).not.toContain('Assigned');
     });
 
     it('renders durable jobs and metadata-only audit events', () => {
