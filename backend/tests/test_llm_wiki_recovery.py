@@ -232,10 +232,14 @@ def answer(key: str) -> tuple[str, str]:
     return json.dumps({"summary": key, "notes": [{"managed_key": key}]}), "test-model"
 
 
-@pytest.mark.parametrize("agent_id", ["llm-wiki", "custom-researcher"])
-def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch, agent_id: str) -> None:
+@pytest.mark.parametrize(("agent_id", "expected"), [
+    ("llm-wiki", "llm-wiki"), ("principal", "principal"),
+    ("custom-researcher", "custom-researcher"), ("", "principal"),
+])
+def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch, agent_id: str, expected: str) -> None:
     from backend.services import llm_wiki_generation as factory
 
+    monkeypatch.setattr(factory, "default_plugin_agent_id", lambda: "principal")
     config = {**llm_wiki.llm_wiki_config.load_config(), "agent_id": agent_id}
     monkeypatch.setattr(llm_wiki.llm_wiki_config, "load_config", lambda: config)
     generate = Mock(side_effect=[answer("one"), answer("two")])
@@ -244,7 +248,7 @@ def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.M
     job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
     run(job_id=job_id)
     assert generate.call_count == 2
-    assert all(call.kwargs["agent_id"] == agent_id for call in generate.call_args_list)
+    assert all(call.kwargs["agent_id"] == expected for call in generate.call_args_list)
 
 
 @pytest.mark.parametrize("source_table_id", ["", "sources"])

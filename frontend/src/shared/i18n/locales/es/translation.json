@@ -1571,8 +1571,8 @@
           "description": "Importa espacios de trabajo de Notion a datos portables del Vault."
         },
         "ai-platform": {
-          "name": "IA y agentes",
-          "description": "Proveedores, modelos, agentes, habilidades y herramientas gobernadas."
+          "name": "IA y asistente",
+          "description": "Asistente principal, habilidades, herramientas, modelos y proveedores."
         },
         "grounded-notebooks": {
           "name": "Cuadernos fundamentados",
@@ -1716,7 +1716,7 @@
       "llm_wiki_agent": "Agente a utilizar",
       "llm_wiki_agent_missing": "Agente no disponible ({{id}})",
       "llm_wiki_agent_setup": "Requiere configuración",
-      "llm_wiki_agent_help": "Cerebro crea un agente con sus habilidades y herramientas al activarse. Puedes elegir cualquier otro agente para las operaciones de IA del plugin.",
+      "llm_wiki_agent_help": "Cerebro utiliza el asistente principal por defecto y conserva los agentes Cerebro existentes. Puedes elegir otro agente y editar sus habilidades asignadas.",
       "llm_wiki_agent_not_ready": "Activa este agente y selecciona un modelo en su configuración para poder utilizarlo.",
       "llm_wiki_edit_agent": "Edita el agente y las habilidades asignadas",
       "llm_wiki_edit_skills": "Edita el contenido de las habilidades",
@@ -3099,6 +3099,20 @@
           "done": "Completada",
           "unknown": "Estado desconocido"
         }
+      },
+      "assistant": {
+        "title": "Asistente",
+        "principal": "Asistente principal",
+        "help": "Las habilidades definen qué sabe hacer tu asistente. Configura aquí el modelo y las instrucciones generales.",
+        "advanced": "Perfiles adicionales (avanzado)",
+        "profiles_help": "Crea otro perfil solo si necesitas otro modelo, instrucciones, fuentes o habilidades. Cambiar el principal no modifica las automatizaciones guardadas.",
+        "create_profile": "Crear perfil",
+        "setup": "Configurar asistente",
+        "make_principal": "Hacer principal",
+        "profile": "Perfil del asistente",
+        "other_profile": "Usar otro perfil (avanzado)",
+        "automation_help": "Ejecutará la habilidad con {{name}}. El perfil se guarda con la automatización.",
+        "no_skills": "Asigna habilidades a este asistente en Configuración → IA → Asistente para programarlas."
       }
     },
     "footer": {

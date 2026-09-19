@@ -38,6 +38,7 @@ interface DeletionConflict {
 
 interface SkillsSettingsPanelProps {
     readonly agents: readonly AIResourceAgent[];
+    readonly principalAgentId?: string;
     readonly canEdit?: boolean;
     readonly selectedSkillId?: string;
     readonly onAgentsChanged: (agents: AIResourceAgent[]) => void;
@@ -61,6 +62,7 @@ const issueText = (issue: JsonRecord): string => (
 export function SkillsSettingsPanel({
     agents,
     canEdit = true,
+    principalAgentId = '',
     selectedSkillId,
     onAgentsChanged,
     resources,
@@ -270,7 +272,7 @@ export function SkillsSettingsPanel({
             ) : null}
 
             {usage && resources.assignAgentSkills && resources.saveAutomation && <SkillUsage
-                key={usage.skill.id} skill={usage.skill} source={usage.source} agents={agents} onAgentsChanged={onAgentsChanged}
+                key={usage.skill.id} skill={usage.skill} source={usage.source} agents={agents} principalAgentId={principalAgentId} onAgentsChanged={onAgentsChanged}
                 resources={{ automations: resources.automations || [], assignAgentSkills: resources.assignAgentSkills, saveAutomation: resources.saveAutomation }}
             />}
             {source && <div className="ai-resource-alert">{t('settings.ai.resources.customize_help')}

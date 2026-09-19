@@ -56,7 +56,7 @@ export interface LlmWikiController {
 }
 
 export const EMPTY_LLM_WIKI_DRAFT: LlmWikiDraft = {
-    agent_id: 'llm-wiki',
+    agent_id: '',
     brain_roles: {},
     brain_table_id: '',
     configured: false,
@@ -114,7 +114,7 @@ export function normalizeLlmWikiDraft(value: unknown): LlmWikiDraft {
     if (!isRecord(value)) return EMPTY_LLM_WIKI_DRAFT;
     const sources = Array.isArray(value.source_tables) ? value.source_tables : [];
     return {
-        agent_id: stringValue(value.agent_id).trim() || 'llm-wiki',
+        agent_id: stringValue(value.agent_id).trim(),
         brain_roles: isRecord(value.brain_roles) ? value.brain_roles : {},
         brain_table_id: stringValue(value.brain_table_id),
         configured: value.configured === true,

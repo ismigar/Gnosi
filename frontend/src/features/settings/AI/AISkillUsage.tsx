@@ -1,17 +1,21 @@
+import { principalAssistant } from '../../../shared/ai/assistantProfiles';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AIResourceAgent, AIResourcesController } from './aiResourceSettingsTypes';
 import type { NormalizedSkill } from './aiSettingsUtils';
 import { isJsonRecord, jsonString } from './aiResourcesApi';
 
-export function SkillUsage({ skill, source, agents, resources, onAgentsChanged }: {
+export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, principalAgentId = '' }: {
     readonly skill: NormalizedSkill; readonly source: NormalizedSkill | null;
+    readonly principalAgentId?: string;
     readonly agents: readonly AIResourceAgent[];
     readonly resources: Pick<AIResourcesController, 'automations' | 'assignAgentSkills' | 'saveAutomation'>;
     readonly onAgentsChanged: (agents: AIResourceAgent[]) => void;
 }) {
     const { t } = useTranslation();
-    const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+    const principal = principalAssistant(agents, principalAgentId);
+    const [selectedAgents, setSelectedAgents] = useState<string[]>(() => principal ? [principal.id] : []);
     const [selectedAutomations, setSelectedAutomations] = useState<string[]>([]);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
@@ -43,7 +47,10 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged }
     };
     return <div className="ai-resource-editor">
         <strong>{t('settings.ai.resources.assign_copy')}</strong><p>{t('settings.ai.resources.assignment_help')}</p>
-        {agents.map(agent => <label key={agent.id}><input type="checkbox" checked={selectedAgents.includes(agent.id)} onChange={() => { setSelectedAgents(values => toggle(values, agent.id)); }} />{agent.name || agent.id}</label>)}
+        {principal && <div className="flex items-center gap-3"><GnosiToggle active={selectedAgents.includes(principal.id)} label={t('settings.ai.assistant.principal')} onChange={() => { setSelectedAgents(values => toggle(values, principal.id)); }} /><span>{t('settings.ai.assistant.principal')}: {principal.name || principal.id}</span></div>}
+        <details><summary>{t('settings.ai.assistant.advanced')}</summary>
+            {agents.filter(agent => agent.id !== principal?.id).map(agent => <div className="flex items-center gap-3" key={agent.id}><GnosiToggle active={selectedAgents.includes(agent.id)} label={agent.name || agent.id} onChange={() => { setSelectedAgents(values => toggle(values, agent.id)); }} /><span>{agent.name || agent.id}</span></div>)}
+        </details>
         {automations.map(item => <label key={String(item.id)}><input type="checkbox" checked={selectedAutomations.includes(String(item.id))} onChange={() => { setSelectedAutomations(values => toggle(values, String(item.id))); }} />{jsonString(item.name)}</label>)}
         <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={saving || (!selectedAgents.length && !selectedAutomations.length)} onClick={() => { void apply(); }}>{t('common.save')}</button>
         {message && <p role="status">{message}</p>}

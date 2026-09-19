@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi import HTTPException
 
-from backend.services import llm_wiki_config, llm_wiki_generation
+from backend.services import llm_wiki_agent, llm_wiki_config, llm_wiki_generation
 from backend.services.llm_wiki_agent import LlmWikiAgentError, ensure_agent, suspend_agent
 
 
@@ -17,12 +17,31 @@ def profile(**values):
             "skill_ids": ["user.ingest"], **values}
 
 
-def test_legacy_config_defaults_and_explicit_selection_survives_disk(tmp_path, monkeypatch):
+@pytest.mark.parametrize("legacy", [False, True])
+def test_config_defaults_and_explicit_selection_survives_disk(tmp_path, monkeypatch, legacy):
+    ai = {"active_agent_id": "principal", "agents": [profile(id="principal")]}
+    if legacy:
+        ai, _ = ensure_agent(ai)
+    monkeypatch.setattr(llm_wiki_agent, "load_params", lambda **_: SimpleNamespace(ai=ai))
     monkeypatch.setattr(llm_wiki_config, "config_path", lambda: tmp_path / "wiki.json")
     monkeypatch.setattr(llm_wiki_config, "_legacy_reference_table_id", lambda: "")
-    assert llm_wiki_config.normalize_config({})["agent_id"] == "llm-wiki"
+    assert llm_wiki_config.normalize_config({})["agent_id"] == ""
+    expected = "llm-wiki" if legacy else "principal"
+    assert llm_wiki_config.load_config()["agent_id"] == expected
+    assert llm_wiki_config.migrate_config()["agent_id"] == expected
+    ai["active_agent_id"] = "different-principal"
+    assert llm_wiki_config.load_config()["agent_id"] == expected
     llm_wiki_config.save_config({"agent_id": "custom", "brain_table_id": "brain"})
     assert llm_wiki_config.migrate_config()["agent_id"] == "custom"
+
+
+@pytest.mark.parametrize("selection", ["custom", "missing", "llm-wiki"])
+def test_explicit_selections_never_resolve_to_the_principal(monkeypatch, selection):
+    monkeypatch.setattr(llm_wiki_config, "load_config", lambda: {"agent_id": selection})
+    default = Mock(return_value="principal")
+    monkeypatch.setattr(llm_wiki_generation, "default_plugin_agent_id", default)
+    assert llm_wiki_generation.configured_agent_id() == selection
+    default.assert_not_called()
 
 
 def test_lifecycle_unlocks_query_and_preserves_custom_or_empty_skills():

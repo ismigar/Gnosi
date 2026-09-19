@@ -1,10 +1,13 @@
 # Configurable Brain agent
 
 The Brain plugin stores `agent_id` in the vault's `.gnosi/llm_wiki.json`.
-Existing vaults default to `llm-wiki`. Enabling the plugin seeds that managed
-profile with the Brain skills and vault tools; subsequent lifecycle transitions
-preserve user edits and skill assignments. The historical mandatory query skill
-is no longer locked, so a customized copy can replace it.
+Without a saved selection, an existing managed `llm-wiki` profile is preserved;
+otherwise the principal assistant is selected. Configuration migration stores
+the resolved identifier, and later explicit selections are never replaced.
+Enabling the plugin contributes skills and tools without creating profiles or
+assigning skills. Lifecycle transitions preserve existing user edits and skill
+assignments. The historical mandatory query skill is no longer locked, so a
+customized copy can replace it.
 
 Brain settings offer an agent selector and shortcuts to the existing agent and
 skill editors. Plugin skills can be customized into editable user skills and

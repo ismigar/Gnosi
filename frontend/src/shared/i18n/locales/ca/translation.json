@@ -1625,8 +1625,8 @@
           "description": "Importa espais de treball de Notion a dades portables del Vault."
         },
         "ai-platform": {
-          "name": "IA i agents",
-          "description": "Proveïdors, models, agents, habilitats i eines governades."
+          "name": "IA i assistent",
+          "description": "Assistent principal, habilitats, eines, models i proveïdors."
         },
         "grounded-notebooks": {
           "name": "Quaderns fonamentats",
@@ -1770,7 +1770,7 @@
       "llm_wiki_agent": "Agent a utilitzar",
       "llm_wiki_agent_missing": "Agent no disponible ({{id}})",
       "llm_wiki_agent_setup": "Cal configurar-lo",
-      "llm_wiki_agent_help": "Cervell crea un agent amb les seves habilitats i eines en activar-se. Pots triar qualsevol altre agent per a les operacions d’IA del plugin.",
+      "llm_wiki_agent_help": "Cervell utilitza l’assistent principal per defecte i conserva els agents Cervell existents. Pots triar un altre agent i editar les habilitats que té assignades.",
       "llm_wiki_agent_not_ready": "Activa aquest agent i selecciona un model a la seva configuració per poder utilitzar-lo.",
       "llm_wiki_edit_agent": "Edita l’agent i les habilitats assignades",
       "llm_wiki_edit_skills": "Edita el contingut de les habilitats",
@@ -3153,6 +3153,20 @@
           "done": "Completada",
           "unknown": "Estat desconegut"
         }
+      },
+      "assistant": {
+        "title": "Assistent",
+        "principal": "Assistent principal",
+        "help": "Les habilitats defineixen què sap fer el teu assistent. Configura aquí el model i les instruccions generals.",
+        "advanced": "Perfils addicionals (avançat)",
+        "profiles_help": "Crea un altre perfil només si necessites un model, unes instruccions, unes fonts o unes habilitats diferents. Canviar el principal no modifica les automatitzacions desades.",
+        "create_profile": "Crea un perfil",
+        "setup": "Configura l’assistent",
+        "make_principal": "Fes-lo principal",
+        "profile": "Perfil de l’assistent",
+        "other_profile": "Utilitza un altre perfil (avançat)",
+        "automation_help": "Executarà l’habilitat amb {{name}}. El perfil queda desat amb l’automatització.",
+        "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les."
       }
     },
     "footer": {

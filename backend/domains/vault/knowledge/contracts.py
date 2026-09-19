@@ -81,7 +81,7 @@ class LlmWikiSettingsDocument(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     version: int | None = None
-    agent_id: str = "llm-wiki"
+    agent_id: str = ""
     brain_table_id: str = ""
     target_table: str = ""
     source_tables: list[dict[str, JsonValue]] = Field(default_factory=list)

@@ -1,3 +1,4 @@
+import { AgentsPanel } from './AgentsPanel';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import React, { act, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -64,9 +65,10 @@ function snapshot(): SettingsController {
   return current;
 }
 function LocationProbe() { const location = useLocation(); return <output data-testid="location">{location.pathname + location.search}</output>; }
-function Harness(props: GlobalSettingsModalProps & { showView?: boolean }) {
+function Harness(props: GlobalSettingsModalProps & { showView?: boolean; showAgents?: boolean }) {
   const controller = useGlobalSettingsController(props);
   useLayoutEffect(() => { current = controller; });
+  if (props.showAgents) return <AgentsPanel context={controller} />;
   return props.showView ? <MemoryRouter><GlobalSettingsView context={controller} /><LocationProbe /></MemoryRouter> : null;
 }
 async function mount(props: Partial<GlobalSettingsModalProps> = {}) {
@@ -170,6 +172,23 @@ describe('settings controller persistence contracts', () => {
     expect(snapshot().addAccountEmail).toBe('user+calendar@example.test');
     expect(snapshot().addAccountType).toBe('calendar');
     expect(snapshot().draft).toEqual(draftBefore);
+  });
+
+  it('shows the principal first and preserves optional profiles behind advanced settings', async () => {
+    await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="ai" showAgents />); await Promise.resolve(); });
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [...previous.ai.agents, { ...agent, id: 'other-profile', name: 'Other profile' }] } })); });
+    expect(container.textContent).toContain('Fixture agent');
+    expect(container.textContent).not.toContain('Other profile');
+    const advanced = container.querySelector<HTMLButtonElement>('button[aria-expanded]');
+    if (!advanced) throw new Error('Missing advanced profiles control');
+    act(() => { advanced.click(); });
+    expect(container.textContent).toContain('Other profile');
+    const promote = [...container.querySelectorAll('button')].find(button => button.textContent.includes('make_principal'));
+    if (!promote) throw new Error('Missing principal selection');
+    act(() => { promote.click(); });
+    expect(snapshot().draft.ai.active_agent_id).toBe('other-profile');
+    expect(snapshot().draft.ai.agents).toHaveLength(2);
+    expect(snapshot().draft.ai.agents[0].protected_extension).toEqual({ keep: true });
   });
 
   it('redirects the automation plugin configure action to activity without writing', async () => {

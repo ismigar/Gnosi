@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
@@ -64,6 +66,8 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -620,11 +624,13 @@ makes a handler executable.
 
 ## LLM Wiki configuration
 
-The plugin stores the chosen `agent_id`, defaulting to `llm-wiki`. Activation
-creates the default agent with its tools and skills; later activations preserve
-custom assignments and instructions. Settings link to the agent and skill
-editors. Ingestion, connection proposals and writing assistance use that profile
-and fail explicitly if it is unavailable instead of switching providers.
+The plugin stores the chosen `agent_id`. Without a saved selection it keeps an
+existing managed `llm-wiki` profile, otherwise it uses the principal assistant.
+The resolved selection is saved without replacing later explicit choices.
+Activation contributes tools and skills without creating or assigning profiles;
+existing custom assignments and instructions are preserved. Settings link to
+the agent and skill editors. Ingestion, connection proposals and writing
+assistance use the selected profile and fail explicitly if it is unavailable.
 
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
@@ -666,7 +672,7 @@ plans, copies them into the new job and continues at the remaining fragments.
 Changed source evidence or planning inputs invalidate cached fragments; explicit
 force processing bypasses all previous checkpoints. Interrupted jobs retain
 their actual progress and source notes are written only after planning completes.
-Every ingestion call explicitly selects the agent selected by `agent_id` (default `llm-wiki`). A
+Every ingestion call explicitly selects the configured `agent_id`. A
 provider response with `x-ratelimit-limit-req-minute: 0` stops automatic retries,
 because waiting cannot replenish a zero request limit; zero remaining capacity
 with a positive limit still receives normal retries. After a backend restart,
@@ -1006,3 +1012,11 @@ French. Administrators can compose custom skills from individual tools or assign
 the domain skills to agents. Credentials, permission grants, approval decisions,
 plugin installation and device access intentionally remain outside this tool
 expansion. No external searches or provider calls are made by the regression tests.
+
+## Principal assistant and optional profiles
+
+The Assistant tab presents the principal profile selected by `ai.active_agent_id`. Skills supply reusable procedures and tools; additional profiles live under advanced options for different models, instructions, sources or skill assignments. Existing profiles and their settings remain intact. A fresh chat and notebook chat use the principal by default; saved chat selections remain explicit.
+
+New automations start with the principal assistant and only offer its assigned skills. An advanced selector permits another profile. Saving stores the concrete profile identifier, so changing the principal later does not reassign existing automations or expand permissions.
+
+Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant. An explicit Brain agent selection takes precedence over these defaults.

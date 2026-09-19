@@ -23,7 +23,7 @@ export function useChatSessionPersistence(context: ChatSessionController): void 
     setPendingConfirmation(null);
     setSessionsHydrated(false);
     setHydratedStorageScope('');
-    const agentId = forcedAgentId || readChatStorage(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
+    const agentId = forcedAgentId || readChatStorage(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || '';
     const restored = restoreChatSessions({
       value: parseStoredSessions(readChatStorage(scopedStorageKey(CHAT_SESSIONS_KEY))),
       defaultTitle: defaultSessionTitle, agentId,

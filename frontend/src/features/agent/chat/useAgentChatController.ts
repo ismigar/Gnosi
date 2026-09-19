@@ -37,7 +37,7 @@ export function useAgentChatController({
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState('');
-    const [selectedAgentId, setSelectedAgentId] = useState('gnosy');
+    const [selectedAgentId, setSelectedAgentId] = useState('');
     const [chatSessions, setChatSessions] = useState<StoredChatSession[]>([]);
     const [sessionsHydrated, setSessionsHydrated] = useState(false);
     const [hydratedStorageScope, setHydratedStorageScope] = useState('');

@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
@@ -64,6 +66,8 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -739,12 +743,14 @@ gestionnaire exécutable.
 
 ## Configuration de LLM Wiki
 
-Le plugin enregistre l’`agent_id` choisi, avec `llm-wiki` par défaut.
-L’activation crée l’agent avec ses outils et compétences ; les activations
-suivantes préservent les affectations et instructions personnalisées. Les
+Le plugin enregistre l’`agent_id` choisi. Sans sélection enregistrée, il conserve
+un profil géré `llm-wiki` existant ou utilise l’assistant principal. La sélection
+résolue est enregistrée sans remplacer les choix explicites ultérieurs.
+L’activation apporte des outils et compétences sans créer de profils ni
+attribuer de compétences, et conserve les personnalisations existantes. Les
 paramètres donnent accès aux éditeurs d’agents et de compétences. L’ingestion,
-les propositions de connexion et l’aide à la rédaction utilisent ce profil
-et signalent son indisponibilité sans changer de fournisseur.
+les propositions de connexion et l’aide à la rédaction utilisent le profil
+choisi et signalent son indisponibilité.
 
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
@@ -798,8 +804,7 @@ modifications des preuves sources ou des entrées de planification invalident le
 fragments enregistrés ; un traitement explicitement forcé ignore tous les points
 de reprise précédents. Les tâches interrompues conservent leur progression réelle
 et les notes sources ne sont écrites qu’une fois la planification terminée.
-Chaque appel d’ingestion sélectionne explicitement l’agent choisi dans
-`agent_id` (`llm-wiki` par défaut). Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
+Chaque appel d’ingestion sélectionne explicitement l’`agent_id` configuré. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
 arrête les nouvelles tentatives automatiques, car attendre ne peut pas
 reconstituer une limite de zéro requête ; une capacité restante nulle avec une
 limite positive conserve les tentatives habituelles. Après un redémarrage du
@@ -1211,3 +1216,11 @@ Noms et descriptions sont traduits dans les quatre langues. Identifiants secrets
 attribution des droits, approbations, installation des plugins et accès aux appareils
 restent dans l’interface. Les tests utilisent des données simulées sans recherches
 externes ni appels aux fournisseurs.
+
+## Assistant principal et profils facultatifs
+
+L’onglet Assistant présente le profil principal sélectionné par `ai.active_agent_id`. Les compétences apportent des procédures réutilisables et des outils ; les profils supplémentaires restent dans les options avancées pour d’autres modèles, instructions, sources ou compétences. Les profils et réglages existants sont conservés. Une nouvelle conversation et le chat des carnets utilisent le principal par défaut ; les sélections de chat enregistrées restent explicites.
+
+Les nouvelles automatisations commencent avec l’assistant principal et ne proposent que ses compétences attribuées. Un sélecteur avancé permet un autre profil. L’enregistrement fixe l’identifiant concret du profil : changer le principal ensuite ne réattribue pas les automatisations et n’élargit pas les permissions.
+
+Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal. Une sélection explicite de l’agent du Cerveau est prioritaire sur ces valeurs par défaut.

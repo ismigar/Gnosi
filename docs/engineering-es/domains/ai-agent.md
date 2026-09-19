@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
@@ -64,6 +66,8 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
   - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
@@ -730,12 +734,14 @@ que un manejador sea ejecutable.
 
 ## Configuración de LLM Wiki
 
-El complemento guarda el `agent_id` elegido, con `llm-wiki` como valor
-predeterminado. La activación crea el agente con sus herramientas y habilidades;
-las activaciones posteriores conservan las asignaciones e instrucciones
-personalizadas. Los ajustes enlazan a los editores de agentes y habilidades.
-La ingesta, las propuestas de conexión y la asistencia de escritura usan ese
-perfil y muestran un error si no está disponible, sin cambiar de proveedor.
+El complemento guarda el `agent_id` elegido. Sin una selección guardada,
+conserva un perfil gestionado `llm-wiki` existente o utiliza el asistente
+principal. La selección resuelta se guarda sin sustituir elecciones explícitas
+posteriores. La activación aporta herramientas y habilidades sin crear perfiles
+ni asignar habilidades, y conserva las personalizaciones existentes. Los ajustes
+enlazan a los editores de agentes y habilidades. La ingesta, las propuestas de
+conexión y la asistencia de escritura usan el agente elegido y muestran un
+error si no está disponible.
 
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
@@ -787,8 +793,7 @@ evidencia de origen o las entradas de planificación invalidan los fragmentos
 guardados; el procesamiento forzado explícitamente ignora todos los puntos de
 recuperación anteriores. Los trabajos interrumpidos conservan su progreso real y
 las notas de origen solo se escriben cuando se completa la planificación.
-Cada llamada de ingesta selecciona explícitamente el agente elegido en
-`agent_id` (`llm-wiki` por defecto). Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
+Cada llamada de ingesta selecciona explícitamente el `agent_id` configurado. Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
 detiene los reintentos automáticos, porque esperar no puede reponer un límite de
 cero peticiones; la capacidad restante nula con un límite positivo sigue
 recibiendo los reintentos habituales. Tras reiniciar el servidor, la consulta de
@@ -1189,3 +1194,11 @@ progreso de búsquedas e indexaciones para confirmar su finalización.
 Los nombres y las descripciones están traducidos a los cuatro idiomas. Credenciales,
 concesión de permisos, aprobaciones, instalación de plugins y dispositivos siguen
 en la interfaz. Las pruebas usan datos simulados sin búsquedas externas ni proveedores.
+
+## Asistente principal y perfiles opcionales
+
+La pestaña Asistente presenta el perfil principal seleccionado mediante `ai.active_agent_id`. Las habilidades aportan procedimientos reutilizables y herramientas; los perfiles adicionales quedan en las opciones avanzadas para otros modelos, instrucciones, fuentes o habilidades. Se conservan los perfiles y configuraciones existentes. Un chat nuevo y el chat de los cuadernos utilizan el principal por defecto; las selecciones de chat guardadas se mantienen explícitas.
+
+Las automatizaciones nuevas empiezan con el asistente principal y solo ofrecen sus habilidades asignadas. Un selector avanzado permite otro perfil. Al guardar se fija el identificador concreto del perfil: cambiar el principal posteriormente no reasigna automatizaciones ni amplía permisos.
+
+Activar el complemento Brain aporta habilidades y herramientas sin crear otro perfil ni asignar habilidades automáticamente. Si ya existe un perfil gestionado `llm-wiki`, se conserva y se reactiva cuando corresponde; el procesamiento lo utiliza por compatibilidad y, si no existe, utiliza el asistente principal. Una selección explícita del agente del Cerebro tiene prioridad sobre estos valores predeterminados.

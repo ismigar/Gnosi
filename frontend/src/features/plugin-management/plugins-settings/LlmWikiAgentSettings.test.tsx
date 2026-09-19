@@ -13,24 +13,31 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => { root.unmount(); }); vi.unstubAllGlobals(); });
 
-it('shows the selected profile and opens the shared editors for it', () => {
+it.each(['custom', 'principal'])('opens the shared editors for the selected %s profile', (agentId) => {
     const select = vi.fn().mockResolvedValue(undefined);
     const open = vi.fn();
-    act(() => { root.render(<LlmWikiAgentSettings agentId="custom" agents={[
+    act(() => { root.render(<LlmWikiAgentSettings agentId={agentId} agents={[
         { id: 'llm-wiki', name: 'Brain', enabled: true, ready: true },
-        { id: 'custom', name: 'Research', enabled: true, ready: true },
+        { id: agentId, name: 'Research', enabled: true, ready: true },
     ]} busy={false} onSelect={select} onOpenAISettings={open} />); });
     const field = host.querySelector('select');
-    expect(field?.value).toBe('custom');
+    expect(field?.value).toBe(agentId);
     expect(field?.options).toHaveLength(2);
     act(() => { host.querySelectorAll('button')[0]?.click(); });
-    expect(open).toHaveBeenLastCalledWith('agents', 'custom');
+    expect(open).toHaveBeenLastCalledWith('agents', agentId);
     act(() => { host.querySelectorAll('button')[1]?.click(); });
     expect(open).toHaveBeenLastCalledWith('skills');
     act(() => {
         if (field) { field.value = 'llm-wiki'; field.dispatchEvent(new Event('change', { bubbles: true })); }
     });
     expect(select).toHaveBeenCalledWith('llm-wiki');
+});
+
+it('offers principal assistant setup when no profile exists', () => {
+    act(() => { root.render(<LlmWikiAgentSettings agentId="" agents={[]} busy={false} onSelect={vi.fn()} onOpenAISettings={vi.fn()} />); });
+    expect(host.querySelector('select')?.value).toBe('');
+    expect(host.textContent).toContain('settings.ai.assistant.setup');
+    expect(host.textContent).not.toContain('settings.plugins.llm_wiki_agent_missing');
 });
 
 it('keeps a missing profile visible and prevents edits while saving', () => {

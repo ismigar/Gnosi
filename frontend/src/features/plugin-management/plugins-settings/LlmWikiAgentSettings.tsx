@@ -16,7 +16,7 @@ export function LlmWikiAgentSettings({ agentId, agents, busy, onSelect, onOpenAI
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>{t('settings.plugins.llm_wiki_agent')}</span>
             <select style={SELECT_STYLE} value={agentId} disabled={busy} onChange={event => { void onSelect(event.target.value); }}>
-                {!selected && <option value={agentId}>{t('settings.plugins.llm_wiki_agent_missing', { id: agentId })}</option>}
+                {!selected && <option value={agentId}>{agentId ? t('settings.plugins.llm_wiki_agent_missing', { id: agentId }) : t('settings.ai.assistant.setup')}</option>}
                 {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name}{agent.ready ? '' : ` · ${t('settings.plugins.llm_wiki_agent_setup')}`}</option>)}
             </select>
         </label>

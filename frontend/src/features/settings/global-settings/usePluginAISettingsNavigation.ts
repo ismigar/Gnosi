@@ -5,7 +5,7 @@ import { isJsonRecord } from '../AI/aiResourcesApi';
 import { settingsAgents } from './settingsDocuments';
 import type { SettingsController } from './useGlobalSettingsController';
 
-/** Open the existing editors, including a profile just created by a plugin. */
+/** Open the existing editors for the principal assistant or a selected profile. */
 export function usePluginAISettingsNavigation(context: SettingsController) {
     const { activeTab, draft, setActiveTab, setAiSection, setDraft, setEditingAgent, t } = context;
     const pendingAgent = useRef<string | undefined>(undefined);

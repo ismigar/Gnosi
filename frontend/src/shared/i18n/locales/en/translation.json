@@ -1610,8 +1610,8 @@
           "description": "Import Notion workspaces into portable Vault data."
         },
         "ai-platform": {
-          "name": "AI and agents",
-          "description": "Providers, models, agents, skills, and governed tools."
+          "name": "AI and assistant",
+          "description": "Principal assistant, skills, tools, models and providers."
         },
         "grounded-notebooks": {
           "name": "Grounded notebooks",
@@ -1755,7 +1755,7 @@
       "llm_wiki_agent": "Agent to use",
       "llm_wiki_agent_missing": "Unavailable agent ({{id}})",
       "llm_wiki_agent_setup": "Needs setup",
-      "llm_wiki_agent_help": "Brain creates an agent with its skills and tools when enabled. You can choose any other agent for the plugin’s AI operations.",
+      "llm_wiki_agent_help": "Brain uses the principal assistant by default and preserves existing Brain agents. You can choose another agent and edit its assigned skills.",
       "llm_wiki_agent_not_ready": "Enable this agent and choose a model in its settings before using it.",
       "llm_wiki_edit_agent": "Edit agent and assigned skills",
       "llm_wiki_edit_skills": "Edit skill content",
@@ -3134,6 +3134,20 @@
           "done": "Completed",
           "unknown": "Unknown status"
         }
+      },
+      "assistant": {
+        "title": "Assistant",
+        "principal": "Principal assistant",
+        "help": "Skills define what your assistant can do. Configure its model and general instructions here.",
+        "advanced": "Additional profiles (advanced)",
+        "profiles_help": "Create another profile only for a different model, instructions, sources or skills. Changing the principal does not change saved automations.",
+        "create_profile": "Create profile",
+        "setup": "Set up assistant",
+        "make_principal": "Make principal",
+        "profile": "Assistant profile",
+        "other_profile": "Use another profile (advanced)",
+        "automation_help": "Runs the skill with {{name}}. The profile is saved with the automation.",
+        "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them."
       }
     },
     "footer": {

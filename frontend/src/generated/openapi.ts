@@ -16277,7 +16277,7 @@ export interface components {
         LlmWikiSettingsDocument: {
             /**
              * Agent Id
-             * @default llm-wiki
+             * @default
              */
             agent_id: string;
             /** Brain Roles */

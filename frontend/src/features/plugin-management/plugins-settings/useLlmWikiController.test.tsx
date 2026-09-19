@@ -25,7 +25,7 @@ function Harness() {
 beforeEach(async () => {
     vi.useFakeTimers();
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-    api.fetchPluginLlmWikiConfig.mockResolvedValue({ config: { brain_table_id: 'brain', source_tables: [] } });
+    api.fetchPluginLlmWikiConfig.mockResolvedValue({ config: { agent_id: 'principal', brain_table_id: 'brain', source_tables: [] } });
     api.savePluginLlmWikiConfig.mockRejectedValue(new GnosiApiError(new Response(null, { status: 400 }), { detail: 'Invalid source field' }));
     host = document.createElement('div');
     root = createRoot(host);
@@ -100,7 +100,7 @@ it('saves the chosen agent immediately before table setup and preserves unfinish
 
 it('keeps the previous agent when selection fails and retries the requested selection', async () => {
     await act(async () => { await controller.selectAgent('custom'); });
-    expect(controller.draft.agent_id).toBe('llm-wiki');
+    expect(controller.draft.agent_id).toBe('principal');
     expect(controller.error).toBe('Invalid source field');
     api.savePluginLlmWikiConfig.mockResolvedValue({ config: { agent_id: 'custom', source_tables: [] } });
     await act(async () => { await controller.retrySave(); });

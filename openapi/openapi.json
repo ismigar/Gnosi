@@ -17779,7 +17779,7 @@
         "description": "Persisted configuration with forward-compatible feature fields.",
         "properties": {
           "agent_id": {
-            "default": "llm-wiki",
+            "default": "",
             "title": "Agent Id",
             "type": "string"
           },

@@ -1331,6 +1331,20 @@
           "done": "Terminée",
           "unknown": "État inconnu"
         }
+      },
+      "assistant": {
+        "title": "Assistant",
+        "principal": "Assistant principal",
+        "help": "Les compétences définissent ce que votre assistant peut faire. Configurez ici son modèle et ses instructions générales.",
+        "advanced": "Profils supplémentaires (avancé)",
+        "profiles_help": "Créez un autre profil uniquement pour un modèle, des instructions, des sources ou des compétences différents. Changer le principal ne modifie pas les automatisations enregistrées.",
+        "create_profile": "Créer un profil",
+        "setup": "Configurer l’assistant",
+        "make_principal": "Définir comme principal",
+        "profile": "Profil de l’assistant",
+        "other_profile": "Utiliser un autre profil (avancé)",
+        "automation_help": "Exécute la compétence avec {{name}}. Le profil est enregistré avec l’automatisation.",
+        "no_skills": "Attribuez des compétences à cet assistant dans Paramètres → IA → Assistant pour les programmer."
       }
     },
     "footer": {
@@ -1547,8 +1561,8 @@
           "description": "Importez des espaces de travail Notion dans des données Vault portables."
         },
         "ai-platform": {
-          "name": "IA et agents",
-          "description": "Fournisseurs, modèles, agents, compétences et outils gouvernés."
+          "name": "IA et assistant",
+          "description": "Assistant principal, compétences, outils, modèles et fournisseurs."
         },
         "grounded-notebooks": {
           "name": "Carnets documentés",
@@ -1692,7 +1706,7 @@
       "llm_wiki_agent": "Agent à utiliser",
       "llm_wiki_agent_missing": "Agent indisponible ({{id}})",
       "llm_wiki_agent_setup": "À configurer",
-      "llm_wiki_agent_help": "Cerveau crée un agent avec ses compétences et outils lors de son activation. Vous pouvez choisir un autre agent pour les opérations d’IA du plugin.",
+      "llm_wiki_agent_help": "Cerveau utilise l’assistant principal par défaut et conserve les agents Cerveau existants. Vous pouvez choisir un autre agent et modifier ses compétences attribuées.",
       "llm_wiki_agent_not_ready": "Activez cet agent et choisissez un modèle dans ses paramètres avant de l’utiliser.",
       "llm_wiki_edit_agent": "Modifier l’agent et les compétences attribuées",
       "llm_wiki_edit_skills": "Modifier le contenu des compétences",

@@ -42,7 +42,7 @@ URL_TYPES = {"url"}
 
 DEFAULT_CONFIG: Config = {
     "version": CONFIG_VERSION,
-    "agent_id": "llm-wiki",
+    "agent_id": "",
     # Generated Brain content is English by default. UI copy remains localized.
     "ui_locale": "en",
     "brain_table_id": "",
@@ -267,7 +267,7 @@ def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
 
     return {
         "version": CONFIG_VERSION,
-        "agent_id": str(data.get("agent_id") or "llm-wiki").strip() or "llm-wiki",
+        "agent_id": str(data.get("agent_id") or "").strip(),
         "ui_locale": ui_locale,
         "brain_table_id": brain_id,
         "target_table": brain_id,
@@ -303,6 +303,15 @@ def _normalize_dimension_mappings(value: object) -> dict[str, dict[str, object]]
     return out
 
 
+def _with_default_agent(config: Config) -> Config:
+    """Resolve missing selections at the persistence boundary, not during normalization."""
+    if not config["agent_id"]:
+        from backend.services.llm_wiki_agent import default_plugin_agent_id
+
+        config["agent_id"] = default_plugin_agent_id()
+    return config
+
+
 def load_config() -> Config:
     """Read and normalize the active vault configuration."""
     path = config_path()
@@ -310,14 +319,14 @@ def load_config() -> Config:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         data = {}
-    return normalize_config(data, reference_table_id=_legacy_reference_table_id())
+    return _with_default_agent(normalize_config(data, reference_table_id=_legacy_reference_table_id()))
 
 
 def save_config(cfg: object) -> Config:
     """Normalize and atomically persist a v2 configuration."""
     from backend.utils.safe_io import safe_write_json
 
-    normalized = normalize_config(cfg)
+    normalized = _with_default_agent(normalize_config(cfg))
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     safe_write_json(path, normalized, indent=2, ensure_ascii=False)
@@ -331,7 +340,7 @@ def migrate_config() -> Config:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         raw = {}
-    normalized = normalize_config(raw, reference_table_id=_legacy_reference_table_id())
+    normalized = _with_default_agent(normalize_config(raw, reference_table_id=_legacy_reference_table_id()))
     if raw != normalized:
         with cfg_lock:
             return save_config(normalized)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from backend.config.app_config import load_params
 from backend.services import llm_wiki_config
-from backend.services.llm_wiki_agent import LlmWikiAgentError
+from backend.services.llm_wiki_agent import LlmWikiAgentError, default_plugin_agent_id
 from backend.utils.open_values import iterable_values
 
 
@@ -13,6 +13,11 @@ def agent_profiles() -> list[dict[str, object]]:
         agent for agent in iterable_values(load_params(strict_env=False).ai.get("agents") or [])
         if isinstance(agent, dict) and agent.get("id")
     ]
+
+
+def configured_agent_id() -> str:
+    """Keep explicit selections; resolve the default only for unconfigured vaults."""
+    return str(llm_wiki_config.load_config().get("agent_id") or "").strip() or default_plugin_agent_id()
 
 
 def selected_agent(agent_id: str, *, require_ready: bool = False) -> dict[str, object]:
@@ -36,7 +41,7 @@ def generate_text(
     from backend.models.agent_skills import SkillActivation, SkillKind
     from backend.services.agent_skill_catalog import get_skill_catalog
 
-    chosen_id = agent_id or str(llm_wiki_config.load_config().get("agent_id") or "llm-wiki")
+    chosen_id = agent_id or configured_agent_id()
     profile = selected_agent(chosen_id, require_ready=True)
     assigned = {str(value) for value in iterable_values(profile.get("skill_ids") or [])}
     instructions = [str(profile.get("persona") or ""), str(profile.get("context") or "")]
