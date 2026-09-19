@@ -94,4 +94,21 @@ describe('AI resource presentation localization', () => {
         expect(skillDisplayDescription(t, personal)).toBe(personal.description);
         expect(skillDisplayInstructions(t, personal)).toBe(personal.instructions);
     });
+
+    it.each(['ca', 'en', 'es', 'fr'])('presents newly assignable feature domains in %s', async language => {
+        const t = await translator(language);
+        for (const [domain, toolId] of [
+            ['notebooks', 'notebook-list'],
+            ['literature', 'literature-start-search'],
+            ['media', 'media-search'],
+            ['activity', 'activity-read-runs'],
+        ] as const) {
+            const skill = { id: `core.gnosi-${domain}`, origin: { type: 'core', id: 'gnosi' }, metadata: { domain } };
+            const tool = { id: `core.gnosi.${toolId}`, origin: skill.origin, metadata: skill.metadata };
+            expect(skillDisplayName(t, skill)).toBe(`Gnosi · ${t(`settings.ai.catalog.domains.${domain}`)}`);
+            expect(skillDisplayDescription(t, skill)).toBe(t(`settings.ai.catalog.skill_descriptions.core_gnosi_${domain}`));
+            expect(toolDisplayName(t, tool)).toBe(t(`settings.ai.catalog.tool_names.${toolId.replaceAll('-', '_')}`));
+            expect(toolDisplayDescription(t, tool)).toBe(t(`settings.ai.catalog.tool_descriptions.${toolId.replaceAll('-', '_')}`));
+        }
+    });
 });

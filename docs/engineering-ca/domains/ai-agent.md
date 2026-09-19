@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
   - backend/tests/test_model_parameters.py
@@ -58,6 +59,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_feature_agent_tools.py
+  - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
   - backend/tests/test_agent_observability_policy.py
   - frontend/src/features/agent/public-entry.test.ts
@@ -1030,6 +1033,27 @@ identitat de respostes i excepcions i que el contingut fictici de peticions
 i errors no entri als diagnòstics. No cal cridar cap proveïdor ni llegir
 registres reals de l’usuari.
 
+## Catàleg de recursos i personalització
+
+Els noms de les eines corresponen a cada operació concreta; les operacions diferents
+ja no comparteixen un verb i un domini genèrics. Les descripcions traduïdes utilitzen
+el text original com a alternativa. Les instruccions mostren el contingut real desat.
+Els identificadors tècnics i els esquemes es poden desplegar; la selecció d’eines
+inclou descripcions, origen, efectes, disponibilitat i filtres de cerca.
+
+Les habilitats incloses són immutables. Personalitza obre un esborrany editable que
+no es desa fins a prémer Desa. El servidor comprova la revisió d’origen i desa
+la identitat, la versió, les instruccions i les eines originals a `derived_from`.
+Les edicions posteriors conserven aquesta procedència i les actualitzacions del
+catàleg es comparen sense sobreescriure la versió personal.
+
+Aplicar una habilitat personal a agents i automatitzacions és una acció explícita.
+Les assignacions utilitzen revisions acabades de consultar i mantenen les habilitats
+obligatòries. Primer s’assigna l’habilitat als agents i després s’actualitzen les
+automatitzacions seleccionades; es conserven els canvis completats i es comuniquen
+els errors. Si una altra automatització encara utilitza l’original, es manté assignat.
+Cancel·lar l’esborrany no modifica ni el catàleg ni les assignacions.
+
 ## Comparativa de models i paràmetres verificats
 
 La comparativa prioritza intel·ligència, context, preus d’entrada/sortida i cost mensual estimat, seguits de modes, paràmetres, velocitat, latència, perfil i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
@@ -1041,3 +1065,41 @@ Els paràmetres s’expressen en mil milions, distingint totals i actius en mode
 Només s’accepten organitzacions oficials de Hugging Face autoritzades, identitats inequívoques i camps explícits de paràmetres. Les dades verificades conserven font i data. Si una font falla o no coincideix, es preserven els valors anteriors; l’absència mai es converteix automàticament en «No publicats». Els models ambigus o no compatibles queden pendents de revisió manual. La substitució de la memòria cau és atòmica. Les proves cobreixen extracció, ambigüitat, conservació de dades, lots, registre del procés, metadades remotes i filtres.
 
 Les columnes monetàries, el filtre de preu màxim d’entrada i el topall mensual utilitzen la moneda configurada. Els preus de comparació i la despesa registrada provenen de USD i utilitzen el tipus de canvi proporcionat abans de filtrar o comprovar el pressupost. El filtre de models incomplets utilitza l’interruptor compartit de l’aplicació.
+
+## Cobertura d’eines de les funcionalitats
+
+La revisió de setembre de 2026 incorpora 29 eines assignables a habilitats i
+agents. Reutilitzen els serveis de l’aplicació i les seves validacions. Hi ha
+quatre habilitats noves (quaderns, cerca bibliogràfica, galeria i activitat) i
+cinc eines més dins de planificació. No s’assignen automàticament als agents.
+
+| Àmbit | Cobertura |
+| --- | --- |
+| Vault, taules, etiquetes, comentaris, enllaços i paperera | Les eines existents cobreixen consultes i modificacions amb permisos. |
+| Correu, contactes i calendaris | Eines existents limitades als comptes configurats, amb confirmació dels canvis externs. |
+| Lector i treballs d’anàlisi | Eines existents per a fonts, extracció, anàlisi, progrés, cancel·lació i represa. |
+| Quaderns | 10 eines per consultar quaderns i fonts, cercar i citar una revisió concreta, crear quaderns privats, afegir Recursos, canviar títols i actualitzar o aturar la indexació. Les eines del context adjunt conserven la selecció de fonts. |
+| Cerca bibliogràfica i Recursos | 8 eines per consultar fonts i cerques, iniciar cerques limitades, llegir resultats, importar-ne un amb control de duplicats i consultar revisions sistemàtiques. Els registres de Recursos ja són accessibles mitjançant les eines de taules. |
+| Galeria | 3 eines per consultar ubicacions, cercar per nom, tipus o etiquetes i editar etiquetes i descripcions. |
+| Centre de control | 3 eines per consultar automatitzacions pròpies, resultats d’execució i serveis programats a l’espai personal. |
+| Planificació | 5 eines per llistar versions de referència, crear o editar calendaris de treball, recursos i assignacions, i eliminar un element amb confirmació i comprovació de dependències. Es mantenen les eines existents de calendari, càrrega, desviacions, treball real i recurrències. |
+| Cervell, memòria, publicació social, traducció i Notion | Coberts per les eines internes i dels plugins existents. |
+| Reunions, documents i graf | Els lectors de fonts internes, pàgines/PDF i les operacions d’enllaços cobreixen la informació desada. La captura en directe, els dispositius i la disposició visual del graf es gestionen a la interfície. |
+
+Cada eina comprova la identitat, l’espai, el rol i el vault de la conversa.
+Les consultes requereixen permís de lectura; les modificacions, permís d’edició
+i la política de confirmació corresponent. Els quaderns mantenen les comprovacions
+de propietat i revisió. Si es desactiva un plugin, les seves eines continuen
+visibles al catàleg però deixen d’estar disponibles, també a les habilitats pròpies.
+
+Les cerques acadèmiques requereixen fonts concretes habilitades i disponibles;
+no amplien la cerca a totes les fonts si un identificador és incorrecte. El llistat
+omet credencials i configuració de connexió. La importació i la consulta de
+revisions requereixen el vault principal personal perquè els serveis existents
+resolen Recursos allà; altres vaults es rebutgen abans d’accedir-hi. Cal consultar
+el progrés de les cerques i la indexació per saber si han finalitzat.
+
+Els noms i les descripcions estan traduïts als quatre idiomes de l’aplicació.
+Les credencials, la concessió de permisos, les aprovacions, la instal·lació de
+plugins i l’accés a dispositius continuen a la interfície. Les proves utilitzen
+dades simulades i no executen cerques externes ni crides a proveïdors.

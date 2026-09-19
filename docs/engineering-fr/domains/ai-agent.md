@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
   - backend/tests/test_model_parameters.py
@@ -58,6 +59,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_feature_agent_tools.py
+  - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
   - backend/tests/test_agent_observability_policy.py
   - frontend/src/features/agent/public-entry.test.ts
@@ -1119,6 +1122,27 @@ l'absence du contenu synthétique des prompts et des erreurs dans les diagnostic
 Ces vérifications ne nécessitent aucun appel de fournisseur ni aucun journal
 réel d'utilisateur.
 
+## Catalogue des ressources et personnalisation
+
+Les noms des outils correspondent à chaque opération précise, sans regrouper des
+opérations différentes sous un verbe et un domaine génériques. Les descriptions
+traduites utilisent le texte original en repli. Les instructions montrent le contenu
+réel enregistré. Les identifiants techniques et schémas sont dépliables ; la sélection
+inclut descriptions, origine, effets, disponibilité et filtres de recherche.
+
+Les compétences fournies restent immuables. Personnaliser ouvre un brouillon modifiable
+sans écriture avant Enregistrer. Le serveur vérifie la révision source et conserve
+l’identité, la version, les instructions et les outils d’origine dans `derived_from`.
+Les modifications ultérieures préservent cette provenance ; les mises à jour du
+catalogue sont comparées sans écraser la version personnelle.
+
+Appliquer une compétence personnelle à des agents et automatisations est explicite.
+Les affectations utilisent des révisions fraîchement lues et conservent les compétences
+obligatoires. Les agents reçoivent la compétence avant la mise à jour des automatisations
+sélectionnées ; les changements réussis sont conservés et les erreurs signalées.
+L’original reste affecté si une autre automatisation l’utilise encore. Annuler le
+brouillon ne modifie ni le catalogue ni les affectations.
+
 ## Comparaison des modèles et paramètres vérifiés
 
 La comparaison donne priorité à l’intelligence, au contexte, aux prix d’entrée/sortie et au coût mensuel estimé, puis aux modes, paramètres, vitesse, latence, profil et scores spécialisés. Les titres compacts conservent unités et infobulles complètes ; les filtres sont alignés, Modes se ferme en cliquant ailleurs et les tokens mensuels regroupent les milliers. Le pied reste dégagé de la barre horizontale.
@@ -1130,3 +1154,42 @@ Les paramètres sont exprimés en milliards, avec distinction entre paramètres 
 Seules les organisations officielles autorisées de Hugging Face, les identités sans ambiguïté et les champs explicites de paramètres sont acceptés. Les données vérifiées conservent source et date. Une source indisponible ou sans correspondance préserve les valeurs antérieures ; l’absence ne devient jamais automatiquement « Non publiés ». Les modèles ambigus ou non pris en charge restent en attente de vérification manuelle. Le remplacement du cache est atomique. Les tests couvrent extraction, ambiguïté, conservation des données, lots, inscription de la tâche, métadonnées distantes et filtres.
 
 Les colonnes monétaires, le filtre de prix maximal en entrée et le plafond mensuel utilisent la devise configurée. Les prix comparés et les dépenses enregistrées proviennent de USD et utilisent le taux de change fourni avant le filtrage ou la vérification du budget. Le filtre des modèles incomplets utilise le commutateur partagé de l’application.
+
+## Couverture des outils par fonctionnalité
+
+La revue de septembre 2026 ajoute 29 outils attribuables aux compétences et aux
+agents, via les services et validations existants. Quatre compétences regroupent
+carnets, recherche bibliographique, galerie et activité ; cinq outils complètent
+la planification. Ils ne sont pas attribués automatiquement aux agents existants.
+
+| Domaine | Couverture |
+| --- | --- |
+| Vault, tables, étiquettes, commentaires, liens et corbeille | Outils existants pour les consultations et modifications avec autorisations. |
+| Courrier, contacts et calendriers | Outils existants limités aux comptes configurés, avec confirmation des modifications externes. |
+| Lecteur et travaux d’analyse | Outils existants pour les sources, l’extraction, l’analyse, le suivi, l’annulation et la reprise. |
+| Carnets | 10 outils pour consulter les carnets et sources, chercher et citer une révision précise, créer des carnets privés, ajouter des Ressources, renommer et actualiser ou annuler l’indexation. Le contexte joint conserve sa sélection de sources. |
+| Recherche bibliographique et Ressources | 8 outils pour lister sources et recherches, lancer une recherche limitée, lire les résultats, importer un résultat avec dédoublonnage et consulter les revues systématiques. Les outils de tables donnent déjà accès aux Ressources. |
+| Galerie | 3 outils pour lister les emplacements, rechercher par nom/type/étiquettes et modifier les étiquettes et descriptions. |
+| Centre de contrôle | 3 outils pour consulter ses automatisations, leurs résultats et les services planifiés dans l’espace personnel. |
+| Planification | 5 outils pour lister les références, créer/modifier calendriers de travail, ressources et affectations, ou supprimer un élément après confirmation et vérification des dépendances. Les outils de calendrier, charge, écarts, travail réel et récurrences restent disponibles. |
+| Cerveau, mémoire, publication sociale, traduction et Notion | Couverts par les contributions internes et les plugins existants. |
+| Réunions, documents et graphe | Les lecteurs de sources internes, pages/PDF et opérations sur les liens couvrent les informations enregistrées. Capture en direct, appareils et disposition visuelle du graphe restent dans l’interface. |
+
+Les outils vérifient l’identité, l’espace, le rôle et le Vault de la conversation.
+Les lectures nécessitent un rôle lecteur ; les modifications, un rôle éditeur et
+la politique de confirmation correspondante. Les carnets conservent leurs contrôles
+de propriété et révision. Désactiver un plugin rend ses outils indisponibles tout
+en les laissant visibles, y compris dans les compétences personnalisées.
+
+Les recherches académiques exigent des sources précises, activées et disponibles ;
+une sélection incorrecte n’étend jamais la recherche à toutes les sources. Le
+catalogue omet les identifiants secrets et la configuration de transport.
+L’importation et la consultation des revues nécessitent le Vault principal personnel,
+car les services existants y résolvent les Ressources ; les autres Vaults sont refusés
+avant l’accès. Il faut consulter la progression pour confirmer la fin des recherches
+et de l’indexation.
+
+Noms et descriptions sont traduits dans les quatre langues. Identifiants secrets,
+attribution des droits, approbations, installation des plugins et accès aux appareils
+restent dans l’interface. Les tests utilisent des données simulées sans recherches
+externes ni appels aux fournisseurs.

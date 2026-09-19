@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Tuple, TypedDict
 
+from backend.services.feature_ai_contributions import FEATURE_DOMAINS, feature_registrations
+
 from backend.agent.gnosi_tools import (
     CONFIRMED_WRITE_TOOLS,
     EXPLICIT_WRITE_TOOLS,
@@ -78,6 +80,10 @@ CORE_GNOSI_DOMAIN_SKILLS = (
     "core.gnosi-social",
     "core.gnosi-translation",
     "core.gnosi-notion",
+    "core.gnosi-notebooks",
+    "core.gnosi-literature",
+    "core.gnosi-media",
+    "core.gnosi-activity",
 )
 
 
@@ -347,7 +353,7 @@ def core_gnosi_registrations() -> Tuple[Tuple[ToolDescriptor, Any], ...]:
             ),
             handler,
         ))
-    return tuple(registrations)
+    return tuple(registrations) + feature_registrations()
 
 
 def core_gnosi_skill_descriptors(
@@ -441,6 +447,8 @@ def core_gnosi_skill_descriptors(
             "an explicit request and never prune source-orphaned content automatically."
         ),
     }
+    names.update({domain: value[0] for domain, value in FEATURE_DOMAINS.items()})
+    instructions.update({domain: value[1] for domain, value in FEATURE_DOMAINS.items()})
     domain_skills = tuple(
         SkillDescriptor(
             id=f"core.gnosi-{domain}",

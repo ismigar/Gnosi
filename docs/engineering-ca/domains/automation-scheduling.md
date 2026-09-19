@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
@@ -173,3 +173,29 @@ horàries, reintents, represa i cancel·lació OAI, marques d'eliminació, detec
 nous resultats i confinament del manteniment. Executeu també les proves
 d'automatització de Playwright i una integració representativa de principi a fi
 amb dades sintètiques o un compte de proves.
+
+## Centre d’activitat unificat
+
+El tauler conté les programacions, l’historial d’execucions i les aprovacions
+pendents. Distingeix les automatitzacions personals d’habilitats dels serveis
+de manteniment i integració del sistema. La configuració conserva models, agents,
+habilitats i eines; les antigues pestanyes d’operacions redirigeixen al tauler.
+La ruta independent del planificador redirigeix a les programacions del sistema.
+
+Les programacions personals admeten intervals, hores locals diàries i dies de la
+setmana seleccionats, amb zona horària IANA explícita. Una hora inexistent al canvi
+de primavera s’avança segons el salt; una hora ambigua a la tardor s’executa només
+a la primera ocurrència. Editar altres camps conserva la propera execució. La
+migració additiva `automations_0002` conserva els intervals existents i afegeix
+una resposta final de mida limitada a l’historial.
+
+L’historial relaciona definicions i execucions dins del vault, espai i usuari actuals.
+La paginació i el límit dels filtres a les pàgines carregades són visibles. L’historial
+del sistema, els treballs en segon pla i les execucions personals tenen orígens
+diferenciats. El distribuïdor intern queda ocult fins a activar l’activitat tècnica.
+Els detalls tradueixen missatges genèrics sense afirmar que s’ha fet feina quan
+el registre no ho confirma. L’enllaç de programació obre el servei concret; les
+referències i els missatges originals són desplegables, etiquetats i copiables.
+Els errors es distingeixen dels resultats buits. Eliminar una automatització conserva
+les files desades d’historial però les exclou d’aquesta consulta personal conjunta;
+és un historial operatiu, no un arxiu permanent d’auditoria.

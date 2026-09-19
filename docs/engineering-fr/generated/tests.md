@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 550 | 2312 |
-| pytest | 535 | 3775 |
+| pytest | 537 | 3798 |
 
 ## Fichiers
 
@@ -730,6 +730,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_env_loading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_env_loading.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_env_routes_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_env_routes_storage.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_environment_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_environment_api_contract.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_feature_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_feature_agent_tools.py) | 19 | Python AST |
+| pytest | [`backend/tests/test_feature_tool_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_feature_tool_catalog.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_feed_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_feed_ingester_savepoint.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_files_provider.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_files_provider.py) | 50 | Python AST |
 | pytest | [`backend/tests/test_files_provider_readability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_files_provider_readability.py) | 2 | Python AST |

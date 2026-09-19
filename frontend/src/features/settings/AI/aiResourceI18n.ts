@@ -27,6 +27,10 @@ type ResourceKind = 'skill' | 'tool';
 
 const BUNDLED_DOMAINS = new Set<string>([
     'brain',
+    'notebooks',
+    'literature',
+    'media',
+    'activity',
     'calendar',
     'contacts',
     'jobs',

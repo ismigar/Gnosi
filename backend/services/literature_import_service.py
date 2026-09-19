@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Any, Iterable, cast
+from typing import Any, Awaitable, Callable, Iterable, cast
 
 from fastapi import BackgroundTasks, HTTPException
 
@@ -201,8 +201,16 @@ async def import_works(
     context: WorkspaceContext, *, notebook_id: str = "", notebook_title: str = "",
 ) -> dict[str, Any]:
     """Deduplicate and import selected works inside one per-process atomic lock."""
-    from backend.api.vault_routes import PageSaveRequest, create_page, ensure_reference_table_schema, get_reference_table_id
+    from backend.api.vault_routes import create_page, ensure_reference_table_schema, get_reference_table_id
+    from backend.domains.vault.schemas.pages import PageSaveRequest
     from backend.services.notebook_service import add_resources, create_notebook
+
+    # Narrow the legacy facade ports while preserving their substitution seams.
+    ensure_schema = cast(Callable[[str], object], ensure_reference_table_schema)
+    save_page = cast(
+        Callable[[PageSaveRequest, BackgroundTasks, WorkspaceContext], Awaitable[dict[str, Any]]],
+        create_page,
+    )
 
     selected = [work for work in works if isinstance(work, dict)][:500]
     if not selected:
@@ -213,7 +221,7 @@ async def import_works(
         table_id = str(get_reference_table_id() or "")
         if not table_id:
             raise HTTPException(status_code=409, detail="Configure a Resources table before importing literature.")
-        ensure_reference_table_schema(table_id)
+        ensure_schema(table_id)
         imported: list[dict[str, Any]] = []
         existing_rows: list[dict[str, Any]] = []
         resource_ids: list[str] = []
@@ -228,7 +236,7 @@ async def import_works(
                         resource_ids.append(str(row["resource_id"]))
                     continue
                 metadata = work_to_resources(work)
-                created = await create_page(PageSaveRequest(title=str(work.get("title") or "Untitled academic work")[:500], content=str(work.get("abstract") or ""), metadata={"database_table_id": table_id, "table_id": table_id, **metadata}), background_tasks, context)
+                created = await save_page(PageSaveRequest(title=str(work.get("title") or "Untitled academic work")[:500], content=str(work.get("abstract") or ""), metadata={"database_table_id": table_id, "table_id": table_id, **metadata}), background_tasks, context)
                 row = {"work_id": work.get("id"), "resource_id": created.get("id"), "title": created.get("title") or work.get("title"), "created": True}
                 imported.append(row)
                 if key:

@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1094 | 125236 | 32 |
+| `features` | 1094 | 125240 | 32 |
 | `generated` | 2 | 44513 | 455 |
 | `shared` | 250 | 30570 | 400 |
 
@@ -518,7 +518,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AI/ActivityRunReference.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityRunReference.tsx) | 25 | `ActivityRunReference` | — |
 | [`frontend/src/features/settings/AI/activityHistoryPresentation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/activityHistoryPresentation.ts) | 14 | `systemRunResult` | — |
 | [`frontend/src/features/settings/AI/aiQualityTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiQualityTypes.ts) | 101 | — | — |
-| [`frontend/src/features/settings/AI/aiResourceI18n.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceI18n.ts) | 170 | `domainLabel`, `localizedResourceSearchText`, `operationStatusLabel`, `resourceDomain`, `resourceExample`, `resourceRoleLabel`, `resourceStatusLabel`, `skillCategory`, `skillDisplayDescription`, `skillDisplayInstructions`, `skillDisplayName`, `toolDisplayDescription`, `toolDisplayName` | — |
+| [`frontend/src/features/settings/AI/aiResourceI18n.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceI18n.ts) | 174 | `domainLabel`, `localizedResourceSearchText`, `operationStatusLabel`, `resourceDomain`, `resourceExample`, `resourceRoleLabel`, `resourceStatusLabel`, `skillCategory`, `skillDisplayDescription`, `skillDisplayInstructions`, `skillDisplayName`, `toolDisplayDescription`, `toolDisplayName` | — |
 | [`frontend/src/features/settings/AI/aiResourceLabels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceLabels.ts) | 19 | `effectLabel`, `originLabel` | — |
 | [`frontend/src/features/settings/AI/aiResourceSettingsTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceSettingsTypes.ts) | 34 | — | — |
 | [`frontend/src/features/settings/AI/aiResourcesApi.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourcesApi.ts) | 84 | `AIResourceRequestError`, `affectedAgentsFromError`, `isJsonRecord`, `jsonRecords`, `jsonString`, `requestAIResource` | — |
