@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { BrainInbox } from '../../../agent/inbox/BrainInbox';
+import { BrainTools } from '../../../agent/inbox/BrainTools';
 import { ReferenceImportExport } from '../../../literature/records/ReferenceImportExport';
 
 interface HeaderTitleProps {
@@ -28,7 +28,7 @@ export function HeaderTitle({
     const { t } = useTranslation();
 
     return (
-        <div className="flex items-start justify-between px-2 pt-vault-header-top pb-1.5 md:px-4 md:pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-2 px-2 pt-vault-header-top pb-1.5 md:px-4 md:pb-2">
             <div className="flex items-center gap-3">
                 <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2 md:gap-3 mt-0 leading-none">
                     {tableName}
@@ -50,9 +50,9 @@ export function HeaderTitle({
                         : t('views_header.records_count', { count: recordCount })}
                 </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
                 {brainTableId && (
-                    <BrainInbox onAccepted={onReferencesImported ? () => {
+                    <BrainTools key={brainTableId} tableId={brainTableId} onChanged={onReferencesImported ? () => {
                         onReferencesImported();
                     } : undefined} />
                 )}

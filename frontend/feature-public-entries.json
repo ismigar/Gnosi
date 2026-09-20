@@ -4,6 +4,7 @@
   "features/agent-context/agent-context/agentContextModel.ts": "Context-reference contract shared with settings.",
   "features/agent-context/model/vaultAgentContext.ts": "Vault context construction for application and editor composition.",
   "features/agent/inbox/BrainInbox.tsx": "Inbox indicator embedded in vault headers.",
+  "features/agent/inbox/BrainTools.tsx": "Brain maintenance actions and connection inbox embedded in vault headers.",
   "features/auth/context/AuthProvider.tsx": "Authentication provider installed by application composition.",
   "features/auth/settings/ApiTokensSettings.tsx": "Token administration section embedded in global settings.",
   "features/auth/settings/Auth/AccountSettings.tsx": "Account administration section embedded in global settings.",

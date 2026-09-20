@@ -14,6 +14,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -61,6 +64,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_principal_assistant_plugins.py
   - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
@@ -738,6 +743,21 @@ gestionnaire exécutable.
 
 ## Configuration de LLM Wiki
 
+Le plugin enregistre l’`agent_id` choisi. Sans sélection enregistrée, il conserve
+un profil géré `llm-wiki` existant ou utilise l’assistant principal. La sélection
+résolue est enregistrée sans remplacer les choix explicites ultérieurs.
+L’activation apporte des outils et compétences sans créer de profils ni
+attribuer de compétences, et conserve les personnalisations existantes. Les
+paramètres donnent accès aux éditeurs d’agents et de compétences. L’ingestion,
+les propositions de connexion et l’aide à la rédaction utilisent le profil
+choisi et signalent son indisponibilité.
+
+Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
+y compris les tables intégrées aux pages. Il propose une vérification
+déterministe avec un rapport dans la même vue et des propositions de connexion
+par IA qui actualisent et ouvrent la boîte existante. La maintenance ne figure
+plus dans les paramètres du plugin.
+
 `backend/domains/configuration/llm_wiki.py` valide la table Brain, les tables
 sources, les dimensions catégorielles, les champs de fichier et d'URL, les valeurs
 fixes et les cibles des relations avant toute mutation du schéma. Il met ensuite
@@ -784,7 +804,7 @@ modifications des preuves sources ou des entrées de planification invalident le
 fragments enregistrés ; un traitement explicitement forcé ignore tous les points
 de reprise précédents. Les tâches interrompues conservent leur progression réelle
 et les notes sources ne sont écrites qu’une fois la planification terminée.
-L’ingestion sélectionne un profil géré `llm-wiki` existant ou l’assistant principal. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
+Chaque appel d’ingestion sélectionne explicitement l’`agent_id` configuré. Une réponse du fournisseur avec `x-ratelimit-limit-req-minute: 0`
 arrête les nouvelles tentatives automatiques, car attendre ne peut pas
 reconstituer une limite de zéro requête ; une capacité restante nulle avec une
 limite positive conserve les tentatives habituelles. Après un redémarrage du
@@ -1203,6 +1223,6 @@ L’onglet Assistant présente le profil principal sélectionné par `ai.active_
 
 Les nouvelles automatisations commencent avec l’assistant principal et ne proposent que ses compétences attribuées. Un sélecteur avancé permet un autre profil. L’enregistrement fixe l’identifiant concret du profil : changer le principal ensuite ne réattribue pas les automatisations et n’élargit pas les permissions.
 
-Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal.
+Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal. Une sélection explicite de l’agent du Cerveau est prioritaire sur ces valeurs par défaut.
 
 Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence. Les affectations utilisent les interrupteurs accessibles partagés ; les compétences obligatoires restent verrouillées et les affectations indisponibles peuvent être retirées.

@@ -186,7 +186,6 @@ def _skill_descriptors() -> Iterable[SkillDescriptor]:
                 "only when evidence must be verified."
             ),
             status=status,
-            metadata={"required_for_agent": True},
         ),
         SkillDescriptor(
             id="plugin.llm-wiki.process-source",

@@ -1767,6 +1767,14 @@
       "llm_wiki_lint_xref": "{{count}} referències creuades que falten",
       "llm_wiki_lint_reprocess": "{{count}} recursos modificats després de processar-se",
       "llm_wiki_pending": "{{count}} suggeriments pendents a la Bústia",
+      "llm_wiki_agent": "Agent a utilitzar",
+      "llm_wiki_agent_missing": "Agent no disponible ({{id}})",
+      "llm_wiki_agent_setup": "Cal configurar-lo",
+      "llm_wiki_agent_help": "Cervell utilitza l’assistent principal per defecte i conserva els agents Cervell existents. Pots triar un altre agent i editar les habilitats que té assignades.",
+      "llm_wiki_agent_not_ready": "Activa aquest agent i selecciona un model a la seva configuració per poder utilitzar-lo.",
+      "llm_wiki_edit_agent": "Edita l’agent i les habilitats assignades",
+      "llm_wiki_edit_skills": "Edita el contingut de les habilitats",
+      "llm_wiki_skills_help": "A Habilitats, personalitza una habilitat del plugin, edita’n les instruccions i eines, i assigna la còpia al teu agent. Les habilitats pròpies es poden editar directament.",
       "llm_wiki_intro_v2": "Tria el Cervell, una o més taules font i els camps categòrics que mantindran índexs.",
       "llm_wiki_pending_connections": "{{count}} connexions pendents",
       "llm_wiki_error": "No s’ha pogut actualitzar el Cervell.",
@@ -6175,7 +6183,15 @@
       "kind_support": "Suport",
       "kind_contradiction": "Contradicció",
       "kind_gap": "Buit",
-      "notes": "Notes"
+      "notes": "Notes",
+      "load_error": "No s’han pogut carregar les connexions. Tanca aquest panell i torna-ho a provar."
+    },
+    "tools": {
+      "button": "Eines del Cervell",
+      "review": "Revisar Cervell",
+      "report_title": "Revisió del Cervell",
+      "results": "Veure la revisió",
+      "unavailable": "Revisa la taula i les fonts configurades a Configuració → Connectors → Cervell abans de continuar."
     }
   },
   "relation_item": {

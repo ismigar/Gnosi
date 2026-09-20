@@ -26,6 +26,7 @@ vi.mock('./api', () => ({
 }));
 vi.mock('./diagnostics', () => ({ reportEmbedError: vi.fn() }));
 vi.mock('../../../literature/records/ReferenceImportExport', () => ({ ReferenceImportExport: () => <span>Reference IO</span> }));
+vi.mock('../../../agent/inbox/BrainTools', () => ({ BrainTools: ({ tableId, onChanged }: { readonly tableId: string; readonly onChanged: () => void }) => <button data-testid="brain-tools" onClick={onChanged}>{tableId}</button> }));
 vi.mock('../../../../shared/ui/previews/IconRenderer', () => ({ IconRenderer: () => <span aria-hidden="true">icon</span> }));
 vi.mock('../VaultViewBody', () => ({
     VaultViewBody: (props: VaultViewBodyProps) => {
@@ -105,6 +106,19 @@ async function inputValue(input: HTMLInputElement | null, value: string): Promis
 async function tabMenu(): Promise<void> { await click(container.querySelectorAll('button[aria-label="View options"]')[1]); }
 
 describe('embedded view data and editor navigation', () => {
+    it('provides Brain tools on the configured embedded table and refreshes its records', async () => {
+        context = { ...context, brainTableId: 'books' };
+        await render();
+        const tools = container.querySelector('[data-testid="brain-tools"]');
+        expect(tools?.textContent).toBe('books');
+        await click(tools);
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+    });
+    it('keeps Brain tools out of other embedded tables', async () => {
+        context = { ...context, brainTableId: 'another-table' };
+        await render();
+        expect(container.querySelector('[data-testid="brain-tools"]')).toBeNull();
+    });
     it('loads records, keeps templates out, reuses cache and restores the selected tab', async () => {
         writeText(selectedKey('page', 'anchor'), 'other');
         await render();
