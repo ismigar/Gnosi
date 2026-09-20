@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { AlertTriangle, LockKeyhole } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -86,16 +87,16 @@ export function AgentSkillsField({
             />
             <div className="ai-agent-skills__list">
                 {missingIds.map((skillId) => (
-                    <label
+                    <div
                         className="ai-agent-skill is-selected is-unavailable"
                         key={skillId}
                     >
-                        <input
-                            checked
+                        <GnosiToggle
+                            label={`${t('settings.ai.resources.missing_skill')}: ${skillId}`}
+                            active
                             onChange={() => {
                                 onChange(selectedIds.filter((id) => id !== skillId));
                             }}
-                            type="checkbox"
                         />
                         <span className="ai-agent-skill__copy">
                             <strong>{t('settings.ai.resources.missing_skill')}</strong>
@@ -107,13 +108,13 @@ export function AgentSkillsField({
                                 {t('settings.ai.resources.status_missing')}
                             </span>
                         </span>
-                    </label>
+                    </div>
                 ))}
                 {visibleSkills.map((skill) => {
                     const selected = selectedIds.includes(skill.id);
                     const required = requiredIds.has(skill.id);
                     return (
-                        <label
+                        <div
                             className={`ai-agent-skill ${selected
                                 ? 'is-selected'
                                 : ''} ${skill.available
@@ -121,13 +122,13 @@ export function AgentSkillsField({
                                 : 'is-unavailable'}`}
                             key={skill.id}
                         >
-                            <input
-                                checked={selected}
+                            <GnosiToggle
+                                label={skillDisplayName(t, skill)}
+                                active={selected}
                                 disabled={required || (!skill.available && !selected)}
                                 onChange={() => {
                                     toggleSkill(skill);
                                 }}
-                                type="checkbox"
                             />
                             <span className="ai-agent-skill__copy">
                                 <strong>{onSelectSkill ? <a
@@ -152,7 +153,7 @@ export function AgentSkillsField({
                                 ) : null}
                                 <span>{originLabel(t, skill.origin)}</span>
                             </span>
-                        </label>
+                        </div>
                     );
                 })}
                 {visibleSkills.length === 0 && missingIds.length === 0 ? (

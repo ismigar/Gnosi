@@ -117,10 +117,13 @@ describe('AI resource settings components', () => {
         act(() => { link?.click(); });
         expect(onSelectSkill).toHaveBeenCalledWith(skill.id);
         expect(onChange).not.toHaveBeenCalled();
-        expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+        expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
+        act(() => { container.querySelector<HTMLElement>('[role="switch"]')?.click(); });
+        expect(onChange).toHaveBeenCalledWith([]);
     });
 
     it('shows required and missing assignments plus model incompatibility', () => {
+        const onChange = vi.fn();
         const required = normalizeSkill({
             id: 'plugin.llm-wiki.query',
             name: 'Query Brain',
@@ -136,7 +139,7 @@ describe('AI resource settings components', () => {
                     model: 'plain',
                     provider: 'custom',
                 }}
-                onChange={vi.fn()}
+                onChange={onChange}
                 registry={[]}
                 selectedIds={[
                     'plugin.llm-wiki.query',
@@ -156,7 +159,15 @@ describe('AI resource settings components', () => {
         expect(container.textContent).toContain(
             'settings.ai.resources.model_incompatible',
         );
-        expect(container.querySelector('input[disabled]')).not.toBeNull();
+        const locked = container.querySelector<HTMLElement>('[role="switch"][aria-disabled="true"]');
+        expect(locked).not.toBeNull();
+        act(() => {
+            locked?.click();
+            locked?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        });
+        expect(onChange).not.toHaveBeenCalled();
+        act(() => { container.querySelector<HTMLElement>('[role="switch"]:not([aria-disabled])')?.click(); });
+        expect(onChange).toHaveBeenCalledWith(['plugin.llm-wiki.query']);
     });
 
     it('opens personalization as a draft and cancel never writes a copy', () => {

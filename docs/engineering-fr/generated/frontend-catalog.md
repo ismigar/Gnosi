@@ -48,9 +48,9 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1098 | 125556 | 32 |
+| `features` | 1098 | 125557 | 32 |
 | `generated` | 2 | 44535 | 455 |
-| `shared` | 251 | 30579 | 400 |
+| `shared` | 251 | 30581 | 400 |
 
 ## app
 
@@ -502,7 +502,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/reader/zotero/zoteroReaderModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderModel.ts) | 144 | `detectKindFromSrc`, `isUnknownArray`, `isUnknownRecord`, `pdfAnnotationToZotero`, `toFilesystemPath`, `zoteroToPdfAnnotation` | — |
 | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 159 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
 | [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 92 | `AIActivityPanel` | — |
-| [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 182 | `AgentSkillsField` | — |
+| [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 183 | `AgentSkillsField` | — |
 | [`frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx) | 244 | `OperationsHistoryPanel` | — |
 | [`frontend/src/features/settings/AI/AIOperationsSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.tsx) | 391 | `AutomationsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIQualityMemorySection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualityMemorySection.tsx) | 191 | `AIQualityMemorySection` | — |
@@ -1439,7 +1439,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/shared/ui/previews/viewPopoverLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/viewPopoverLayout.ts) | 75 | `getViewPopoverLayout` | — |
 | [`frontend/src/shared/ui/sections/CollapsibleSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/sections/CollapsibleSection.tsx) | 70 | `CollapsibleSection` | — |
 | [`frontend/src/shared/ui/settings/SettingsBackButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsBackButton.tsx) | 16 | `SettingsBackButton` | — |
-| [`frontend/src/shared/ui/settings/SettingsPrimitives.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsPrimitives.tsx) | 85 | `FormGroup`, `GnosiToggle`, `InlineEditorPlacement`, `Section` | — |
+| [`frontend/src/shared/ui/settings/SettingsPrimitives.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsPrimitives.tsx) | 86 | `FormGroup`, `GnosiToggle`, `InlineEditorPlacement`, `Section` | — |
 | [`frontend/src/shared/ui/settings/SettingsSectionTabs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsSectionTabs.tsx) | 43 | `SettingsSectionTabs` | — |
-| [`frontend/src/shared/ui/settings/settings-primitives.types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/settings-primitives.types.ts) | 24 | — | — |
+| [`frontend/src/shared/ui/settings/settings-primitives.types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/settings-primitives.types.ts) | 25 | — | — |
 | [`frontend/src/shared/ui/tooltip/GlobalTooltip.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/tooltip/GlobalTooltip.tsx) | 298 | `GlobalTooltip` | — |

@@ -120,3 +120,8 @@
     outline: 2px solid var(--gnosi-primary);
     outline-offset: 2px;
 }
+
+.gnosi-toggle[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
