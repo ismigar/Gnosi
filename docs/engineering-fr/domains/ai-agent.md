@@ -1206,3 +1206,7 @@ Les nouvelles automatisations commencent avec l’assistant principal et ne prop
 Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal.
 
 Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence. Les affectations utilisent les interrupteurs accessibles partagés ; les compétences obligatoires restent verrouillées et les affectations indisponibles peuvent être retirées.
+
+## Langue des instructions
+
+Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue permet de demander une traduction dans la langue active avec le fournisseur IA configuré. Cette aide à la lecture apparaît à côté du texte original sans modifier les instructions enregistrées ou exécutées. Ouvrir une compétence ne demande aucune traduction. Les traductions sont conservées uniquement en mémoire, par vault, texte original et langue cible. En cas d’échec, le texte original reste disponible et une nouvelle tentative est possible.

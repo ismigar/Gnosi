@@ -813,7 +813,11 @@
         "no_automations": "Aucune automatisation n’utilise cette compétence.",
         "required_sources": "Sources nécessaires",
         "required_copy_help": "La copie ne remplace pas l’attribution obligatoire de l’original.",
-        "assignment_partial_error": "L’attribution n’a pas pu être terminée. Les modifications déjà enregistrées sont conservées."
+        "assignment_partial_error": "L’attribution n’a pas pu être terminée. Les modifications déjà enregistrées sont conservées.",
+        "instructions_translating": "Traduction des instructions…",
+        "instructions_translation_error": "Impossible de traduire les instructions. Le texte enregistré est affiché.",
+        "instructions_translate": "Traduire en français",
+        "instructions_translation_readonly": "Traduction de lecture. L’assistant continue à utiliser le texte original."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",

@@ -2573,7 +2573,11 @@
         "no_automations": "Ninguna automatización utiliza esta habilidad.",
         "required_sources": "Fuentes necesarias",
         "required_copy_help": "La copia no sustituye la asignación obligatoria del original.",
-        "assignment_partial_error": "No se ha podido completar la asignación. Los cambios ya guardados se conservan."
+        "assignment_partial_error": "No se ha podido completar la asignación. Los cambios ya guardados se conservan.",
+        "instructions_translating": "Traduciendo las instrucciones…",
+        "instructions_translation_error": "No se han podido traducir las instrucciones. Se muestra el texto guardado.",
+        "instructions_translate": "Traducir al español",
+        "instructions_translation_readonly": "Traducción de lectura. El asistente sigue utilizando el texto original."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
