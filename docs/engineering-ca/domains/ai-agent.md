@@ -1121,3 +1121,5 @@ Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al
 ## Idioma de les instruccions
 
 Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg permet demanar una traducció a l’idioma actiu amb el proveïdor d’IA configurat. Es mostra al costat de l’original com a ajuda de lectura, sense modificar les instruccions desades ni executades. Obrir una habilitat no demana cap traducció. Les traduccions es conserven només en memòria, per vault, text original i idioma de destí. Si fallen, es manté l’original i es pot tornar a provar.
+
+L’acció de traducció utilitza un botó compacte alineat a la dreta. Els errors de límit de peticions o quota del proveïdor mostren un missatge específic; l’original es manté visible.

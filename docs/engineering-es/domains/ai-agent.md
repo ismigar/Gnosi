@@ -1189,3 +1189,5 @@ Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el 
 ## Idioma de las instrucciones
 
 Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo permite solicitar una traducción al idioma activo mediante el proveedor de IA configurado. Se muestra junto al original como ayuda de lectura, sin modificar las instrucciones guardadas ni ejecutadas. Abrir una habilidad no solicita traducciones. Las traducciones se conservan solo en memoria, por vault, texto original e idioma de destino. Si fallan, el original sigue disponible y se puede reintentar.
+
+La acción de traducción utiliza un botón compacto alineado a la derecha. Los errores de límite de peticiones o cuota muestran un mensaje específico; el original sigue visible.

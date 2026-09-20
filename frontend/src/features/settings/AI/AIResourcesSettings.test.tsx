@@ -267,3 +267,12 @@ it('keeps the original available when a requested translation fails', async () =
     expect(container.querySelector<HTMLButtonElement>('button')?.disabled).toBe(false);
     expect(skill.instructions).toBe('No esborris res.');
 });
+
+it('explains provider rate limits without replacing the original instructions', async () => {
+    const skill = normalizeSkill({ id: 'user.rate-limited', instructions: 'Preserve this original.' });
+    vi.mocked(generateAiContent).mockRejectedValueOnce(new Error('OpenAIRateLimitError'));
+    const container = render(<SkillInstructions skill={skill} />);
+    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
+    expect(container.textContent).toContain('settings.ai.resources.instructions_translation_rate_limit');
+    expect(container.textContent).toContain('Preserve this original.');
+});

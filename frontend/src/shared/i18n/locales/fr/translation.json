@@ -817,7 +817,8 @@
         "instructions_translating": "Traduction des instructions…",
         "instructions_translation_error": "Impossible de traduire les instructions. Le texte enregistré est affiché.",
         "instructions_translate": "Traduire en français",
-        "instructions_translation_readonly": "Traduction de lecture. L’assistant continue à utiliser le texte original."
+        "instructions_translation_readonly": "Traduction de lecture. L’assistant continue à utiliser le texte original.",
+        "instructions_translation_rate_limit": "Le fournisseur IA a limité les requêtes ou épuisé son quota. Réessayez plus tard ou vérifiez son quota. Le texte original est conservé."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",

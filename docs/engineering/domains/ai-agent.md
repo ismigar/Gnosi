@@ -1008,3 +1008,5 @@ Assigned skill names link to their expanded catalogue entries. Opening a skill p
 ## Instruction language
 
 Skill instructions are saved and executed exactly as authored, in any language. The catalogue offers an explicit translation into the active interface language using the configured AI provider. This reading aid is shown alongside the original and never changes saved or executed instructions. Opening a skill does not request translation. Successful translations are cached only in memory, scoped by vault, original text and target language. Failures leave the original available and can be retried.
+
+The translation action uses a compact button aligned to the right. Provider rate-limit or quota failures have a specific message; the original remains visible.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { GnosiApiError } from '../../../shared/api/errors';
 import { generateAiContent } from '../../../shared/api/ai';
 import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import type { NormalizedSkill } from './aiSettingsUtils';
@@ -28,15 +29,15 @@ export function useSkillInstructions(skill: NormalizedSkill, language?: string) 
     const original = skill.instructions || '';
     const key = JSON.stringify([vault, target, original]);
     const [requested, setRequested] = useState('');
-    const [result, setResult] = useState({ key: '', text: '', error: false });
+    const [result, setResult] = useState({ key: '', text: '', error: false, rateLimited: false });
     const [attempt, setAttempt] = useState(0);
     useEffect(() => {
         if (requested !== key || !original) return;
         const controller = new AbortController();
         void translateInstructions(original, target, vault, controller.signal).then(text => {
-            if (!controller.signal.aborted) setResult({ key, text, error: false });
-        }).catch(() => {
-            if (!controller.signal.aborted) setResult({ key, text: '', error: true });
+            if (!controller.signal.aborted) setResult({ key, text, error: false, rateLimited: false });
+        }).catch((error: unknown) => {
+            if (!controller.signal.aborted) setResult({ key, text: '', error: true, rateLimited: (error instanceof GnosiApiError && error.status === 429) || (error instanceof Error && /rate.?limit|quota/i.test(error.message)) });
         });
         return () => { controller.abort(); };
     }, [requested, original, target, vault, key, attempt]);
@@ -45,6 +46,7 @@ export function useSkillInstructions(skill: NormalizedSkill, language?: string) 
         text: current?.text || '',
         loading: requested === key && !current,
         error: Boolean(current?.error),
-        translate: () => { setRequested(key); setResult({ key: '', text: '', error: false }); setAttempt(value => value + 1); },
+        rateLimited: Boolean(current?.rateLimited),
+        translate: () => { setRequested(key); setResult({ key: '', text: '', error: false, rateLimited: false }); setAttempt(value => value + 1); },
     };
 }

@@ -2613,7 +2613,8 @@
         "instructions_translating": "Translating instructions…",
         "instructions_translation_error": "The instructions could not be translated. Showing the saved text.",
         "instructions_translate": "Translate into English",
-        "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text."
+        "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
+        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",

@@ -1210,3 +1210,5 @@ Les noms des compétences attribuées renvoient à leurs fiches déployées dans
 ## Langue des instructions
 
 Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue permet de demander une traduction dans la langue active avec le fournisseur IA configuré. Cette aide à la lecture apparaît à côté du texte original sans modifier les instructions enregistrées ou exécutées. Ouvrir une compétence ne demande aucune traduction. Les traductions sont conservées uniquement en mémoire, par vault, texte original et langue cible. En cas d’échec, le texte original reste disponible et une nouvelle tentative est possible.
+
+La traduction utilise un bouton compact aligné à droite. Les limites de requêtes ou de quota affichent un message spécifique ; le texte original reste visible.

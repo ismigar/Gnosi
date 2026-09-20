@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 554 | 2323 |
+| Vitest | 554 | 2324 |
 | pytest | 539 | 3803 |
 
 ## Archivos
@@ -224,7 +224,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/AI/AIActivityPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIOperationsSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIQualitySettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualitySettings.test.tsx) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/AI/AIResourcesSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcesSettings.test.tsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/AI/AIResourcesSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcesSettings.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/activityHistoryPresentation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/activityHistoryPresentation.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/aiResourceI18n.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceI18n.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/aiSettingsUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.test.ts) | 10 | call-pattern estimate |
