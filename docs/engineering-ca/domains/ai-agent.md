@@ -1117,3 +1117,5 @@ Les automatitzacions noves comencen amb l’assistent principal i només ofereix
 Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal.
 
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
+
+Les lectures simultànies del catàleg esperen que acabi el registre de les extensions integrades. Es permeten les lectures recursives del mateix fil per evitar cicles d’importació, però altres fils no poden obtenir un catàleg parcial sense les habilitats del Cervell.

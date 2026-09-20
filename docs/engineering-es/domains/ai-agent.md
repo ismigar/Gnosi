@@ -1185,3 +1185,5 @@ Las automatizaciones nuevas empiezan con el asistente principal y solo ofrecen s
 Activar el complemento Brain aporta habilidades y herramientas sin crear otro perfil ni asignar habilidades automáticamente. Si ya existe un perfil gestionado `llm-wiki`, se conserva y se reactiva cuando corresponde; el procesamiento lo utiliza por compatibilidad y, si no existe, utiliza el asistente principal.
 
 Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad. Las asignaciones utilizan los interruptores accesibles compartidos; las habilidades obligatorias siguen bloqueadas y las asignaciones no disponibles se pueden retirar.
+
+Las lecturas simultáneas del catálogo esperan a que termine el registro de las extensiones integradas. Se permiten las lecturas recursivas del mismo hilo para evitar ciclos de importación, pero otros hilos no pueden obtener un catálogo parcial sin las habilidades del Cerebro.

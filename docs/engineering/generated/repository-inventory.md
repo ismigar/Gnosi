@@ -10,8 +10,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Surface | Count |
 | --- | ---: |
-| Backend Python files | 1314 |
-| Backend Python test files | 499 |
+| Backend Python files | 1315 |
+| Backend Python test files | 500 |
 | Frontend JS/TS source files | 1903 |
 | Frontend unit test files | 535 |
 | Registered FastAPI routers | 37 |
@@ -22,7 +22,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Surface | Files | Purpose boundary |
 | --- | ---: | --- |
-| `backend/` | 1332 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `backend/` | 1333 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 1983 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 115 | Desktop lifecycle, backend packaging, IPC, and updates |

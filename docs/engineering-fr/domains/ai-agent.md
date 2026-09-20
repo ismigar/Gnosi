@@ -1206,3 +1206,5 @@ Les nouvelles automatisations commencent avec l’assistant principal et ne prop
 Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal.
 
 Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence. Les affectations utilisent les interrupteurs accessibles partagés ; les compétences obligatoires restent verrouillées et les affectations indisponibles peuvent être retirées.
+
+Les lectures simultanées du catalogue attendent la fin de l’enregistrement des extensions intégrées. Les lectures récursives du même fil restent autorisées pour éviter les cycles d’importation ; les autres fils ne peuvent pas recevoir un catalogue partiel sans les compétences du Cerveau.
