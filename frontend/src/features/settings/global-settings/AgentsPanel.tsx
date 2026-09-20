@@ -24,7 +24,7 @@ export function AgentsPanel({ context }: Props) {
   return (<Section
     title={t('settings.ai.assistant.title')}
     icon={Bot}
-    extra={(expanded || !principal || editingAgent) &&
+    extra={(!principal || editingAgent) &&
       <button
         className="btn-gnosi btn-gnosi-primary"
         onClick={() => { setEditingAgent(current => current ? null : {}); }}
@@ -42,7 +42,18 @@ export function AgentsPanel({ context }: Props) {
     <button type="button" className="btn-gnosi btn-gnosi-secondary" aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
     </button>
-    {expanded && <p>{t('settings.ai.assistant.profiles_help')}</p>}
+    {expanded && <div className="ai-resources-panel">
+      <p>{t('settings.ai.assistant.profiles_help')}</p>
+      {principal && (!editingAgent || editingAgent.id) && <div>
+        <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
+          setAgentEditorTarget(null);
+          setEditingAgent({});
+        }}>
+          <Plus size={16} aria-hidden="true" />
+          {t('settings.ai.assistant.create_profile')}
+        </button>
+      </div>}
+    </div>}
     {editingAgent && (
       <InlineEditorPlacement
         target={editingAgent.id ? agentEditorTarget : null}
