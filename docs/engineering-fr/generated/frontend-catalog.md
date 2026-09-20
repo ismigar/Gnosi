@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1094 | 125285 | 32 |
+| `features` | 1094 | 125299 | 32 |
 | `generated` | 2 | 44513 | 455 |
 | `shared` | 251 | 30577 | 400 |
 
@@ -499,7 +499,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/reader/zotero/zoteroReaderModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderModel.ts) | 144 | `detectKindFromSrc`, `isUnknownArray`, `isUnknownRecord`, `pdfAnnotationToZotero`, `toFilesystemPath`, `zoteroToPdfAnnotation` | — |
 | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 159 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
 | [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 92 | `AIActivityPanel` | — |
-| [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 171 | `AgentSkillsField` | — |
+| [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 182 | `AgentSkillsField` | — |
 | [`frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx) | 244 | `OperationsHistoryPanel` | — |
 | [`frontend/src/features/settings/AI/AIOperationsSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.tsx) | 391 | `AutomationsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIQualityMemorySection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualityMemorySection.tsx) | 191 | `AIQualityMemorySection` | — |
@@ -540,15 +540,15 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/ModelComparisonTable.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonTable.tsx) | 191 | `ModelComparisonTable` | — |
 | [`frontend/src/features/settings/ModelComparisonToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonToolbar.tsx) | 321 | `ModelComparisonToolbar` | — |
 | [`frontend/src/features/settings/aiUsageHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.ts) | 208 | `buildModelProfileMap`, `formatUsageCost`, `formatUsageTokens`, `processAiUsageHistory` | — |
-| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 194 | `AIAgentForm` | — |
+| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 195 | `AIAgentForm` | — |
 | [`frontend/src/features/settings/global-settings/AccountEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountEditor.tsx) | 56 | `AccountEditor` | — |
 | [`frontend/src/features/settings/global-settings/AccountList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountList.tsx) | 171 | `AccountList` | — |
 | [`frontend/src/features/settings/global-settings/AccountProviderChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.tsx) | 85 | `AccountProviderChoices` | — |
 | [`frontend/src/features/settings/global-settings/AccountRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountRow.tsx) | 71 | `AccountRow` | — |
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 184 | `AgentsPanel` | — |
-| [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 93 | `AiPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 185 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 94 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |

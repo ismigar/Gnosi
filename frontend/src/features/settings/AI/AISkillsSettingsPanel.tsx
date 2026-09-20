@@ -68,12 +68,12 @@ export function SkillsSettingsPanel({
     resources,
 }: SkillsSettingsPanelProps) {
     const { t } = useTranslation();
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(selectedSkillId || '');
     const [origin, setOrigin] = useState('all');
     const [expandedId, setExpandedId] = useState(selectedSkillId || '');
     const [usage, setUsage] = useState<{ skill: NormalizedSkill; source: NormalizedSkill | null } | null>(null);
     const [source, setSource] = useState<NormalizedSkill | null>(null);
-    const [category, setCategory] = useState('all');
+    const [category, setCategory] = useState(resources.skills.some(skill => skill.id === selectedSkillId && skillCategory(skill) === 'legacy') ? 'legacy' : 'all');
     const [editing, setEditing] = useState<NormalizedSkill | null>(null);
     const [creating, setCreating] = useState(false);
     const [deletionConflict, setDeletionConflict] =

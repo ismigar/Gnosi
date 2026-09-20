@@ -1115,3 +1115,5 @@ La pestanya Assistent presenta el perfil principal seleccionat amb `ai.active_ag
 Les automatitzacions noves comencen amb l’assistent principal i només ofereixen les habilitats que té assignades. Un selector avançat permet un altre perfil. En desar es fixa l’identificador concret del perfil: canviar el principal posteriorment no reassigna automatitzacions ni amplia permisos.
 
 Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal.
+
+Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat.

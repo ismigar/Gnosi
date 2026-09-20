@@ -106,6 +106,20 @@ describe('AI resource settings components', () => {
         expect(container.textContent).toContain('settings.ai.resources.input_schema');
     });
 
+    it('opens a skill without changing its assignment', () => {
+        const onChange = vi.fn();
+        const onSelectSkill = vi.fn();
+        const skill = normalizeSkill({ id: 'core.example', name: 'Example skill', origin: 'core' });
+        const container = render(<AgentSkillsField agent={{ id: 'agent' }} onChange={onChange}
+            onSelectSkill={onSelectSkill} registry={[]} selectedIds={[skill.id]} skills={[skill]} tools={[]} />);
+        const link = container.querySelector('a');
+        expect(link?.textContent).toBe('Example skill');
+        act(() => { link?.click(); });
+        expect(onSelectSkill).toHaveBeenCalledWith(skill.id);
+        expect(onChange).not.toHaveBeenCalled();
+        expect(container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    });
+
     it('shows required and missing assignments plus model incompatibility', () => {
         const required = normalizeSkill({
             id: 'plugin.llm-wiki.query',

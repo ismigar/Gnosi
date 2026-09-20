@@ -25,6 +25,7 @@ import {
 interface AgentSkillsFieldProps {
     readonly agent: AIResourceAgent;
     readonly onChange: (selectedIds: string[]) => void;
+    readonly onSelectSkill?: (id: string) => void;
     readonly registry: unknown;
     readonly selectedIds: readonly string[];
     readonly skills: readonly NormalizedSkill[];
@@ -35,6 +36,7 @@ interface AgentSkillsFieldProps {
 export function AgentSkillsField({
     agent,
     onChange,
+    onSelectSkill,
     registry,
     selectedIds,
     skills,
@@ -128,7 +130,16 @@ export function AgentSkillsField({
                                 type="checkbox"
                             />
                             <span className="ai-agent-skill__copy">
-                                <strong>{skillDisplayName(t, skill)}</strong>
+                                <strong>{onSelectSkill ? <a
+                                    href={`#skill-${encodeURIComponent(skill.id)}`}
+                                    className="text-[var(--gnosi-blue)] underline underline-offset-2"
+                                    title={`${t('common.open')}: ${skillDisplayName(t, skill)}`}
+                                    onClick={event => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onSelectSkill(skill.id);
+                                    }}
+                                >{skillDisplayName(t, skill)}</a> : skillDisplayName(t, skill)}</strong>
                                 <span>{skillDisplayDescription(t, skill) || skill.id}</span>
                                 <EffectBadges effects={skillEffects(skill, toolsById)} />
                             </span>

@@ -1002,3 +1002,5 @@ The Assistant tab presents the principal profile selected by `ai.active_agent_id
 New automations start with the principal assistant and only offer its assigned skills. An advanced selector permits another profile. Saving stores the concrete profile identifier, so changing the principal later does not reassign existing automations or expand permissions.
 
 Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant.
+
+Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment.
