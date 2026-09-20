@@ -14,12 +14,7 @@ import {
     type NormalizedTool,
     type SkillDraft,
 } from './aiSettingsUtils';
-import { localizedResourceSearchText, toolDisplayName } from './aiResourceI18n';
-import {
-    EffectBadges,
-    ResourceState,
-    SearchField,
-} from './AIResourcePrimitives';
+import { ToolPicker } from './AIToolPicker';
 
 
 interface EditableSkillDraft extends SkillDraft {
@@ -81,15 +76,9 @@ export function SkillEditor({
 }: SkillEditorProps) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState(() => createDraft(skill));
-    const [toolSearch, setToolSearch] = useState('');
     const [saving, setSaving] = useState(false);
     const [validation, setValidation] = useState<SkillValidation | null>(null);
     const [validating, setValidating] = useState(false);
-    const normalizedSearch = toolSearch.trim().toLowerCase();
-    const visibleTools = tools.filter((tool) => (
-        !normalizedSearch
-        || localizedResourceSearchText(t, tool, 'tool').includes(normalizedSearch)
-    ));
     const canSave = Boolean(draft.name.trim() && draft.instructions.trim());
 
     const toggleTool = (toolId: string): void => {
@@ -182,6 +171,7 @@ export function SkillEditor({
             </label>
             <label>
                 <span>{t('settings.ai.resources.instructions')}</span>
+                <span className="ai-resource-muted">{t('settings.ai.resources.instructions_help')}</span>
                 <textarea
                     className="gnosi-input"
                     onChange={(event) => {
@@ -194,51 +184,7 @@ export function SkillEditor({
                     value={draft.instructions}
                 />
             </label>
-            <div className="ai-resource-editor__tools">
-                <div>
-                    <strong>{t('settings.ai.resources.approved_tools')}</strong>
-                    <p>{t('settings.ai.resources.approved_tools_help')}</p>
-                </div>
-                <SearchField
-                    onChange={setToolSearch}
-                    placeholder={t('settings.ai.resources.search_tools')}
-                    value={toolSearch}
-                />
-                <div className="ai-resource-tool-options">
-                    {visibleTools.map((tool) => (
-                        <label
-                            className={`ai-resource-tool-option ${tool.available
-                                ? ''
-                                : 'is-unavailable'}`}
-                            key={tool.id}
-                        >
-                            <input
-                                checked={draft.toolIds.includes(tool.id)}
-                                disabled={!tool.available
-                                    && !draft.toolIds.includes(tool.id)}
-                                onChange={() => {
-                                    toggleTool(tool.id);
-                                }}
-                                type="checkbox"
-                            />
-                            <span className="ai-resource-tool-option__copy">
-                                <strong>{toolDisplayName(t, tool)}</strong>
-                                <code>{tool.id}</code>
-                                <EffectBadges effects={tool.effects} />
-                            </span>
-                            <ResourceState
-                                available={tool.available}
-                                status={tool.status}
-                            />
-                        </label>
-                    ))}
-                    {visibleTools.length === 0 ? (
-                        <span className="ai-resource-muted">
-                            {t('settings.ai.resources.no_matching_tools')}
-                        </span>
-                    ) : null}
-                </div>
-            </div>
+            <ToolPicker tools={tools} selected={draft.toolIds} onToggle={toggleTool} />
             {!canSave ? (
                 <div className="ai-resource-validation">
                     <AlertTriangle size={15} />

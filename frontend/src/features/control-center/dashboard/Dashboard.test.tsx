@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import {act, useEffect, type ReactNode} from 'react';
 import {createRoot, type Root} from 'react-dom/client';
 import {afterEach, beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     directive: {name: 'fixture_directive', path: 'docs/fixture.md', category: 'Memory', size_bytes: 1024, trap_count: 1},
     member: {user_id: 'fixture-user', name: 'Fixture member', email: 'member@example.test', role: 'editor', joined_at: '2026-08-01', permissions: {capabilities: ['read'], custom: 'kept'}},
 }));
+vi.mock('../../settings/AIActivity', () => ({ AIActivityPanel: ({ systemPanel }: { systemPanel: ReactNode }) => <>{systemPanel}</> }));
 vi.mock('react-i18next', () => {
     const t = (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key;
     return {useTranslation: () => ({t, i18n: {resolvedLanguage: 'ca'}})};
@@ -30,8 +32,8 @@ vi.mock('react-i18next', () => {
 vi.mock('../../../shared/api/use-api', () => ({useApi: () => ({apiFetch: mocks.apiFetch, role: 'owner'})}));
 vi.mock('../../../shared/plugins/usePlugins', () => ({usePlugins: () => ({isEnabled: () => mocks.enabled})}));
 vi.mock('../../../shared/ui/layout/AppHeader', () => ({AppHeader: ({children, title}: {children?: ReactNode; title: string}) => <header>{title}{children}</header>}));
-vi.mock('../../../shared/notifications/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}}));
-vi.mock('../../../shared/api/configuration', () => ({fetchEditorConfiguration: vi.fn()}));
+vi.mock('../../../shared/notifications/toast', () => ({default: {error: vi.fn(), success: vi.fn(), loading: vi.fn(() => 'fixture-toast')}, toast: {error: vi.fn(), success: vi.fn()}}));
+vi.mock('../../../shared/api/configuration', () => ({fetchEditorConfiguration: vi.fn(), fetchConfiguration: vi.fn(() => Promise.resolve({ ai: { agents: [] } }))}));
 vi.mock('../../../shared/api/scheduler', () => ({
     fetchScheduledTasks: vi.fn(), fetchSchedulerHistory: vi.fn(),
     updateScheduledTask: vi.fn(), runScheduledTask: vi.fn(), clearSchedulerHistory: vi.fn(),
@@ -84,8 +86,16 @@ afterEach(async () => {
     removeStorage(WORKSPACE_ID_STORAGE_KEY); removeStorage(USER_ROLE_STORAGE_KEY);
 });
 describe('Dashboard behavior', () => {
+    it('opens the selected service from history and can show all services again', async () => {
+        vi.mocked(scheduler.fetchScheduledTasks).mockResolvedValue([mocks.task, { ...mocks.task, name: 'other_task', description: 'Other service' }]);
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?tab=schedulers&kind=system&task=fixture_task']}><Dashboard/></MemoryRouter>);});
+        expect(container.textContent).toContain('Synthetic task');
+        expect(container.textContent).not.toContain('Other service');
+        await run(() => {click('activity.show_all_services');});
+        expect(container.textContent).toContain('Other service');
+    });
     it('opens the public localized history from the version link', async () => {
-        await run(() => {root.render(<Dashboard/>);});
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Dashboard/></MemoryRouter>);});
         const link = container.querySelector<HTMLAnchorElement>('a[aria-label="release_notes.open_aria"]');
         expect(link?.href).toBe(`https://ismigar.github.io/changelog.ca.html#v${APP_VERSION}`);
         expect(link?.target).toBe('_blank');
@@ -93,7 +103,7 @@ describe('Dashboard behavior', () => {
         expect(container.querySelector('[aria-labelledby="release-notes-title"]')).toBeNull();
     });
     it('renders task controls and organization members without changing scheduler payloads', async () => {
-        await run(() => {root.render(<Dashboard/>);});
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Dashboard/></MemoryRouter>);});
         expect(container.textContent).toContain('fixture task');
         expect(container.textContent).toContain('Synthetic task');
         expect(readStorage(USER_ROLE_STORAGE_KEY)).toBe('owner');
@@ -107,7 +117,7 @@ describe('Dashboard behavior', () => {
     });
     it('retains history offsets, polling intervals and cleanup', async () => {
         vi.useFakeTimers();
-        await run(() => {root.render(<Harness/>);});
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Harness/></MemoryRouter>);});
         await run(async () => {await state().fetchTaskHistory(2); state().setSelectedControlTab('history');});
         expect(scheduler.fetchSchedulerHistory).toHaveBeenLastCalledWith({limit: 15, offset: 30});
         await run(async () => {await vi.advanceTimersByTimeAsync(30000);});
@@ -119,7 +129,7 @@ describe('Dashboard behavior', () => {
         root = createRoot(container);
     });
     it('edits directives, preserves pagination and does not submit while typing multiline content', async () => {
-        await run(() => {root.render(<Harness/>);});
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Harness/></MemoryRouter>);});
         await run(async () => {await state().fetchDirectives(1); state().setIsDirectivesModalOpen(true); await state().handleEditDirective(mocks.directive);});
         expect(analytics.fetchDirectiveAnalytics).toHaveBeenCalledWith({limit: 12, offset: 12});
         const textarea = container.querySelector('textarea');
@@ -135,7 +145,7 @@ describe('Dashboard behavior', () => {
         expect(state().isDirectivesModalOpen).toBe(false);
     });
     it('keeps invitation, role and per-vault access contracts', async () => {
-        await run(() => {root.render(<Harness/>);});
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Harness/></MemoryRouter>);});
         await run(() => {state().setNewMemberEmail('new@example.test'); state().setNewMemberRole('admin');});
         await run(async () => {await state().handleAddMember();});
         expect(mocks.apiFetch).toHaveBeenCalledWith('/api/workspaces/fixture-workspace/members', {method: 'POST', body: JSON.stringify({email: 'new@example.test', role: 'admin'})});
@@ -146,7 +156,7 @@ describe('Dashboard behavior', () => {
         expect(mocks.apiFetch).toHaveBeenCalledWith('/api/workspaces/fixture-workspace/members/fixture-user/vaults', {method: 'POST', body: JSON.stringify({vault_id: 'fixture-vault', permissions: {capabilities: ['read']}})});
     });
     it('retains data on background failure and reports directive errors without closing the editor', async () => {
-        await run(() => {root.render(<Harness/>);});
+        await run(() => {root.render(<MemoryRouter initialEntries={['/dashboard?kind=system']}><Harness/></MemoryRouter>);});
         vi.mocked(scheduler.fetchScheduledTasks).mockRejectedValueOnce(new Error('offline'));
         await run(async () => {await state().fetchSchedulers();});
         expect(state().schedulers).toEqual([mocks.task]); expect(state().schedulerLoading).toBe(false);

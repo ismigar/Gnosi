@@ -1,8 +1,8 @@
+import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import {
   Calendar,
   CheckCircle,
   Clock,
-  RefreshCw,
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -72,15 +72,7 @@ export default function PostHistory() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="flex justify-end mb-4 shrink-0">
-        <button
-          className={`p-2 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] transition-all ${isRefreshing ? 'animate-spin' : ''}`}
-          onClick={() => {
-            void historyQuery.refetch();
-          }}
-          title={t('common.refresh', 'Refresh')}
-        >
-          <RefreshCw size={18} />
-        </button>
+        <RefreshButton loading={isRefreshing} onClick={() => { void historyQuery.refetch(); }} />
       </div>
       <div className="max-w-3xl mx-auto space-y-6 pb-12">
         {loading ? (

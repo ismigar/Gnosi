@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
@@ -176,3 +176,29 @@ fuseaux horaires, nouvelles tentatives, reprise et annulation OAI, marqueurs de
 suppression, détection des nouveaux résultats et confinement de la maintenance.
 Exécutez aussi les tests Playwright d'automatisation et une intégration
 représentative de bout en bout sur des données synthétiques ou un compte de test.
+
+## Centre d’activité unifié
+
+Le tableau de bord regroupe planifications, historique des exécutions et approbations
+en attente. Il distingue les automatisations personnelles de compétences des services
+de maintenance et d’intégration du système. Les réglages conservent modèles, agents,
+compétences et outils ; les anciens onglets d’opérations redirigent vers le tableau
+de bord. L’adresse indépendante du planificateur redirige vers les services planifiés.
+
+Les planifications personnelles acceptent intervalles, heures locales quotidiennes
+et jours sélectionnés, avec un fuseau IANA explicite. Une heure inexistante au
+printemps est décalée selon le saut horaire ; une heure ambiguë en automne ne
+s’exécute qu’à sa première occurrence. Modifier d’autres champs préserve la prochaine
+exécution. La migration additive `automations_0002` conserve les intervalles existants
+et ajoute une réponse finale de taille limitée à l’historique.
+
+L’historique joint définitions et exécutions dans le Vault, l’espace et l’utilisateur
+courants. Pagination et limitation des filtres aux pages chargées sont visibles.
+Historique système, tâches de fond et exécutions personnelles ont des origines
+distinctes. Le répartiteur interne reste masqué jusqu’à l’activation de l’activité
+technique. Les détails traduisent les messages génériques sans affirmer qu’un travail
+a été effectué si le journal ne le confirme pas. Le lien de planification ouvre le
+service précis ; références et messages d’origine sont repliés, étiquetés et copiables.
+Les erreurs se distinguent des résultats vides. Supprimer une automatisation conserve
+les lignes stockées mais les retire de cette consultation personnelle jointe ; il
+s’agit d’un historique opérationnel, pas d’une archive d’audit permanente.

@@ -1,10 +1,10 @@
+import { RefreshButton } from '../../../../shared/ui/actions/RefreshButton';
 import {
   Archive,
   CheckCircle2,
   CircleDot,
   FolderInput,
   PanelLeft,
-  RefreshCw,
   Tag,
   Trash2,
 } from 'lucide-react';
@@ -214,19 +214,7 @@ export function MailListHeader({
               />
             </button>
             <div className="w-px h-4 bg-[var(--border-primary)] mx-1" />
-            <button
-              onClick={() => {
-                controller.fetchMessages({ force: true });
-              }}
-              disabled={controller.loading}
-              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors disabled:opacity-40 shrink-0"
-              title={t('common.refresh')}
-            >
-              <RefreshCw
-                size={16}
-                className={(controller.loading || controller.syncing) ? 'animate-spin' : ''}
-              />
-            </button>
+            <RefreshButton label={t('common.refresh')} loading={controller.loading || controller.syncing} onClick={() => { controller.fetchMessages({ force: true }); }} />
           </div>
         </>
       )}

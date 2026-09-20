@@ -61,5 +61,6 @@
   "features/vault/views/styles/vault-feed.css": "Application-owned ordering of record feed styles.",
   "features/workspaces/Navigation/WorkspaceSwitcher.tsx": "Workspace selector composed by the application shell.",
   "features/workspaces/Workspace/WorkspaceMembersPanel.tsx": "Workspace membership administration embedded in settings.",
-  "features/workspaces/styles/workspaces.css": "Application-owned ordering of workspace styles."
+  "features/workspaces/styles/workspaces.css": "Application-owned ordering of workspace styles.",
+  "features/settings/AIActivity.ts": "Public integration of governed AI schedules, execution history and approvals in the control centre."
 }

@@ -88,7 +88,7 @@ FAMILIES = {
         MigrationFamily(
             "capability_automations",
             "capability_automations",
-            ("automations_0001",),
+            ("automations_0001", "automations_0002"),
         ),
         MigrationFamily("tool_registry", "tool_registry", ("tool_registry_0001",)),
     )

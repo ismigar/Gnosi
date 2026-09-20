@@ -232,8 +232,10 @@ def answer(key: str) -> tuple[str, str]:
     return json.dumps({"summary": key, "notes": [{"managed_key": key}]}), "test-model"
 
 
-def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("profile_id", ["llm-wiki", "principal"])
+def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch, profile_id: str) -> None:
     from backend.agent import factory
+    monkeypatch.setattr("backend.services.llm_wiki_agent.default_plugin_agent_id", lambda: profile_id)
 
     generate = Mock(side_effect=[answer("one"), answer("two")])
     monkeypatch.setattr(factory, "generate_text", generate)
@@ -241,7 +243,7 @@ def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.M
     job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
     run(job_id=job_id)
     assert generate.call_count == 2
-    assert all(call.kwargs["agent_id"] == "llm-wiki" for call in generate.call_args_list)
+    assert all(call.kwargs["agent_id"] == profile_id for call in generate.call_args_list)
 
 
 @pytest.mark.parametrize("source_table_id", ["", "sources"])

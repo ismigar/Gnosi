@@ -270,3 +270,60 @@
 .ai-resource-details .is-unavailable {
     color: var(--status-error);
 }
+
+.ai-activity-panel {
+    --settings-bg: var(--bg-primary);
+    --settings-input-bg: var(--bg-primary);
+    --settings-sidebar-bg: var(--bg-secondary);
+    --settings-border: var(--border-primary);
+}
+
+.ai-resource-details pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.ai-resource-tool-option__copy > span {
+    overflow-wrap: anywhere;
+}
+
+.ai-activity-panel .ai-resources-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ai-activity-panel .ai-resource-card__actions {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.ai-automation-editor .ai-resource-editor__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ai-schedule-fields__help,
+.ai-schedule-fields > fieldset {
+    grid-column: 1 / -1;
+}
+.ai-schedule-fields__help {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: 0;
+}
+.ai-schedule-fields > fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+@media (max-width: 760px) {
+    .ai-activity-panel .ai-resources-toolbar,
+    .ai-automation-editor .ai-resource-editor__grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.ai-history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+}

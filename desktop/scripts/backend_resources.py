@@ -103,6 +103,7 @@ MIGRATIONS = (
     "actions_0001",
     "actions_0002",
     "automations_0001",
+    "automations_0002",
     "capability_audit_0001",
     "evaluations_0001",
     "health_0001",

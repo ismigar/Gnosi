@@ -13,7 +13,7 @@ import { useModelReliability } from '../AI/modelReliability';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }: { agent: AgentDraft; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
+export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
   const { t } = useTranslation();
   const [name, setName] = useState(agent.name || '');
   const [provider, setProvider] = useState(agent.provider || '');
@@ -156,6 +156,7 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }: { agen
             registry={aiRegistry}
             selectedIds={selectedSkillIds}
             onChange={setSelectedSkillIds}
+            onSelectSkill={onSelectSkill}
           />
         </FormGroup>
       </div>

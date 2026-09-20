@@ -222,4 +222,48 @@ describe('useAIResources API contract', () => {
             expected_revision: 'agent-r4',
         });
     });
+    it.each([true, false])('keeps the original when required or used by an automation (required=%s)', async required => {
+        const fetchMock = vi.fn<typeof fetch>((input, options) => {
+            const url = requestPath(input);
+            if (url === '/api/ai/agents/brain/skills') {
+                if (options?.method === 'PUT') return response({ skill_ids: ['source', 'other', 'copy'] });
+                return response({ skill_ids: ['source', 'other'], required_skill_ids: required ? ['source'] : [], revision: 'fresh' });
+            }
+            if (url === '/api/ai/automations') return response({ automations: required ? [] : [{ id: 'new-schedule', agent_id: 'brain', skill_id: 'source' }] });
+            return response({});
+        });
+        const resources = await mountHook(fetchMock);
+        await act(async () => { await resources().assignAgentSkills('brain', [], { sourceId: 'source', targetId: 'copy', keepSource: false }); });
+        expect(requestBody(fetchMock.mock.calls.find(([, options]) => options?.method === 'PUT'))).toEqual({
+            skill_ids: ['source', 'other', 'copy'], expected_revision: 'fresh',
+        });
+    });
+
+    it('refreshes only approvals without clearing the current view when a request fails', async () => {
+        const fetchMock = vi.fn<typeof fetch>(() => response({ approvals: [{ id: 'pending' }] }));
+        const resources = await mountHook(fetchMock);
+        fetchMock.mockClear();
+        fetchMock.mockImplementation(() => response({ detail: 'Offline' }, 503));
+        await act(async () => { await resources().refreshApprovals(); });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(requestPath(fetchMock.mock.calls[0]?.[0] ?? '')).toBe('/api/ai/approvals');
+        expect(resources().approvals).toEqual([{ id: 'pending' }]);
+        expect(resources().loading).toBe(false);
+        expect(resources().resourceErrors.approvals).toContain('Offline');
+        fetchMock.mockImplementation(() => response({ approvals: [{ id: 'new' }] }));
+        await act(async () => { await resources().refreshApprovals(); });
+        expect(resources().approvals).toEqual([{ id: 'new' }]);
+        expect(resources().resourceErrors.approvals).toBe('');
+    });
+
+    it('reports optional endpoint failures separately from an empty catalogue', async () => {
+        const resources = await mountHook(vi.fn<typeof fetch>(input => {
+            if (requestPath(input) === '/api/ai/automations') return response({ detail: 'Temporarily unavailable' }, 503);
+            return response({});
+        }));
+        expect(resources().automations).toEqual([]);
+        expect(resources().resourceErrors.automations).toContain('Temporarily unavailable');
+        expect(resources().error).toBe('');
+    });
+
 });

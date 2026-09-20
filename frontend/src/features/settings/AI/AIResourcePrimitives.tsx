@@ -164,7 +164,7 @@ export function CatalogError({
     const { t } = useTranslation();
     if (!error) return null;
     return (
-        <div className="ai-resource-alert is-error">
+        <div role="alert" className="ai-resource-alert is-error">
             <AlertTriangle size={17} />
             <span>{t('settings.ai.resources.load_error')}: {error}</span>
             <button

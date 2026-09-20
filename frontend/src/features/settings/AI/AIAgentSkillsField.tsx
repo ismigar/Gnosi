@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { AlertTriangle, LockKeyhole } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +26,7 @@ import {
 interface AgentSkillsFieldProps {
     readonly agent: AIResourceAgent;
     readonly onChange: (selectedIds: string[]) => void;
+    readonly onSelectSkill?: (id: string) => void;
     readonly registry: unknown;
     readonly selectedIds: readonly string[];
     readonly skills: readonly NormalizedSkill[];
@@ -35,6 +37,7 @@ interface AgentSkillsFieldProps {
 export function AgentSkillsField({
     agent,
     onChange,
+    onSelectSkill,
     registry,
     selectedIds,
     skills,
@@ -84,16 +87,16 @@ export function AgentSkillsField({
             />
             <div className="ai-agent-skills__list">
                 {missingIds.map((skillId) => (
-                    <label
+                    <div
                         className="ai-agent-skill is-selected is-unavailable"
                         key={skillId}
                     >
-                        <input
-                            checked
+                        <GnosiToggle
+                            label={`${t('settings.ai.resources.missing_skill')}: ${skillId}`}
+                            active
                             onChange={() => {
                                 onChange(selectedIds.filter((id) => id !== skillId));
                             }}
-                            type="checkbox"
                         />
                         <span className="ai-agent-skill__copy">
                             <strong>{t('settings.ai.resources.missing_skill')}</strong>
@@ -105,13 +108,13 @@ export function AgentSkillsField({
                                 {t('settings.ai.resources.status_missing')}
                             </span>
                         </span>
-                    </label>
+                    </div>
                 ))}
                 {visibleSkills.map((skill) => {
                     const selected = selectedIds.includes(skill.id);
                     const required = requiredIds.has(skill.id);
                     return (
-                        <label
+                        <div
                             className={`ai-agent-skill ${selected
                                 ? 'is-selected'
                                 : ''} ${skill.available
@@ -119,16 +122,25 @@ export function AgentSkillsField({
                                 : 'is-unavailable'}`}
                             key={skill.id}
                         >
-                            <input
-                                checked={selected}
+                            <GnosiToggle
+                                label={skillDisplayName(t, skill)}
+                                active={selected}
                                 disabled={required || (!skill.available && !selected)}
                                 onChange={() => {
                                     toggleSkill(skill);
                                 }}
-                                type="checkbox"
                             />
                             <span className="ai-agent-skill__copy">
-                                <strong>{skillDisplayName(t, skill)}</strong>
+                                <strong>{onSelectSkill ? <a
+                                    href={`#skill-${encodeURIComponent(skill.id)}`}
+                                    className="text-[var(--gnosi-blue)] underline underline-offset-2"
+                                    title={`${t('common.open')}: ${skillDisplayName(t, skill)}`}
+                                    onClick={event => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onSelectSkill(skill.id);
+                                    }}
+                                >{skillDisplayName(t, skill)}</a> : skillDisplayName(t, skill)}</strong>
                                 <span>{skillDisplayDescription(t, skill) || skill.id}</span>
                                 <EffectBadges effects={skillEffects(skill, toolsById)} />
                             </span>
@@ -141,7 +153,7 @@ export function AgentSkillsField({
                                 ) : null}
                                 <span>{originLabel(t, skill.origin)}</span>
                             </span>
-                        </label>
+                        </div>
                     );
                 })}
                 {visibleSkills.length === 0 && missingIds.length === 0 ? (

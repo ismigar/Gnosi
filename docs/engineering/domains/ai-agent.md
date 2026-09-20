@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
+  - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
   - backend/tests/test_model_parameters.py
@@ -58,6 +61,10 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
+  - backend/tests/test_feature_agent_tools.py
+  - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
   - backend/tests/test_agent_observability_policy.py
   - frontend/src/features/agent/public-entry.test.ts
@@ -647,7 +654,7 @@ plans, copies them into the new job and continues at the remaining fragments.
 Changed source evidence or planning inputs invalidate cached fragments; explicit
 force processing bypasses all previous checkpoints. Interrupted jobs retain
 their actual progress and source notes are written only after planning completes.
-Every ingestion call explicitly selects the configured `llm-wiki` agent. A
+Ingestion selects an existing managed `llm-wiki` profile or the principal assistant. A
 provider response with `x-ratelimit-limit-req-minute: 0` stops automatic retries,
 because waiting cannot replenish a zero request limit; zero remaining capacity
 with a positive limit still receives normal retries. After a backend restart,
@@ -914,6 +921,28 @@ wrapper is exercised with an inert model to verify response/exception identity
 and absence of synthetic prompt/error content in diagnostics. No provider call
 or real user log is required for these checks.
 
+## Resource catalogue and personalisation
+
+Tool labels are keyed by exact operation identity; different operations no
+longer collapse to a generic verb and domain. Localised descriptions have an
+exact-key fallback to the original catalogue text. Executable instructions
+always show the actual stored content. Technical identifiers and schemas are
+available in expandable details; tool selection includes descriptions, origin,
+effects, availability and search filters.
+
+Bundled skills remain immutable. Personalise opens an editable draft, with no
+write until Save. The server verifies the source revision and stores source
+identity, version, original instructions and tool selection in `derived_from`.
+Subsequent edits preserve this provenance, and catalogue updates are compared
+without overwriting the personal version.
+
+Applying a personal skill to selected agents and automations is explicit.
+Assignments use freshly read revisions and retain required skills. Targets receive
+the new skill before selected automations are updated; successful partial
+changes are preserved and errors are reported. An original still used by an
+unselected automation remains assigned. Cancelling a draft changes neither the
+catalogue nor assignments.
+
 ## Model comparison and verified parameter counts
 
 The comparison prioritizes intelligence, context, input/output prices and estimated monthly cost, followed by modes, parameter counts, speed, latency, task profile and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
@@ -925,3 +954,53 @@ Parameter counts are expressed in billions, distinguishing total and active MoE 
 Only allowlisted official Hugging Face organizations, unambiguous model identities and explicit parameter fields are accepted. Verified entries retain source and check date. Unmatched or unavailable sources preserve earlier verified values; absence never automatically becomes “not published”. Unsupported and ambiguous models remain pending manual review. Cache replacement is atomic. Tests cover parsing, identity ambiguity, failed-source preservation, resumable batches, scheduler reconciliation, remote metadata and filter interactions.
 
 Monetary columns, the maximum input-price filter and the monthly spending cap use the configured currency. Comparison prices and ledger spending originate in USD and use the supplied exchange rate for conversion before filtering or budget checks. The incomplete-model filter uses the shared application switch.
+
+## Application tool coverage
+
+The September 2026 audit adds 29 assignable tools, reusing canonical feature
+services and their validation. Four domain skills group the new notebook,
+literature, media and activity tools; five planning tools extend the existing
+planning skill. These additions do not grant skills to existing agents.
+
+| Application area | Agent and skill coverage |
+| --- | --- |
+| Vault, tables, tags, comments, links and trash | Existing first-party tools cover discovery, reading and governed mutations. |
+| Mail, contacts and calendar | Existing account-scoped tools cover reading and actions, including confirmations for external changes. |
+| Reader and analysis jobs | Existing tools cover feeds, extraction, analysis, progress, cancellation and resumption. |
+| Notebooks | 10 new tools list/read notebooks and sources, search a fixed revision, read cited evidence, create private notebooks, add Resources, rename, refresh and cancel indexing. Attached-context tools remain constrained to their selected notebook sources. |
+| Academic discovery and Resources | 8 new tools list sources/searches, start a bounded search, read results, import one stored result with deduplication and inspect systematic reviews. Ordinary Resources records remain accessible through existing table tools. |
+| Gallery | 3 new tools list roots, search by name/type/tags and edit a file's tags and description. They do not edit file contents or expose native file pickers. |
+| Control center | 3 new tools inspect the user's automations and run results, plus system schedules in the personal workspace. They do not approve actions or create schedules. |
+| Planning | 5 new tools list baselines and create/update work calendars, resources and assignments, or delete an exact entity with confirmation and dependency checks. Existing schedule, allocation, variance, worklog and recurrence tools remain available. |
+| Brain, memory, social publishing, translation and Notion | Existing built-in/plugin contributions remain the supported entry points. |
+| Meetings, documents and graph | Existing internal-source readers, page/PDF tools and link operations expose recorded information. Live capture, native device access and graph layout stay in the interface. |
+
+The adapters require the server-bound user, workspace, role and active Vault;
+missing or mismatched context fails closed. Notebook ownership and revision
+checks remain authoritative. Reads require viewer access; writes require editor
+access and the normal runtime confirmation policy. Plugin availability is
+rechecked both when resolving skills and when executing tools. Disabled plugins
+leave catalogue entries visible but unavailable, including in custom skills.
+
+Academic queries require explicit enabled, available source IDs and never fall
+back to searching every source. Source listings omit transport configuration and
+credentials. Import and review inspection currently require the personal primary
+Vault because their canonical services resolve Resources there. Other Vaults are
+rejected before access rather than silently redirected. Search and indexing
+responses report queued/running state; completion must be checked separately.
+
+Names and actionable descriptions are provided in Catalan, English, Spanish and
+French. Administrators can compose custom skills from individual tools or assign
+the domain skills to agents. Credentials, permission grants, approval decisions,
+plugin installation and device access intentionally remain outside this tool
+expansion. No external searches or provider calls are made by the regression tests.
+
+## Principal assistant and optional profiles
+
+The Assistant tab presents the principal profile selected by `ai.active_agent_id`. Skills supply reusable procedures and tools; additional profiles live under advanced options for different models, instructions, sources or skill assignments. Existing profiles and their settings remain intact. A fresh chat and notebook chat use the principal by default; saved chat selections remain explicit.
+
+New automations start with the principal assistant and only offer its assigned skills. An advanced selector permits another profile. Saving stores the concrete profile identifier, so changing the principal later does not reassign existing automations or expand permissions.
+
+Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant.
+
+Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.

@@ -90,7 +90,7 @@ describe('AI resource settings components', () => {
             />,
         );
 
-        expect(container.textContent).toContain('settings.ai.catalog.tool_name');
+        expect(container.textContent).toContain('Process source');
         expect(container.textContent).toContain('local write');
         expect(container.textContent).toContain('settings.ai.resources.status_available');
 
@@ -106,7 +106,24 @@ describe('AI resource settings components', () => {
         expect(container.textContent).toContain('settings.ai.resources.input_schema');
     });
 
+    it('opens a skill without changing its assignment', () => {
+        const onChange = vi.fn();
+        const onSelectSkill = vi.fn();
+        const skill = normalizeSkill({ id: 'core.example', name: 'Example skill', origin: 'core' });
+        const container = render(<AgentSkillsField agent={{ id: 'agent' }} onChange={onChange}
+            onSelectSkill={onSelectSkill} registry={[]} selectedIds={[skill.id]} skills={[skill]} tools={[]} />);
+        const link = container.querySelector('a');
+        expect(link?.textContent).toBe('Example skill');
+        act(() => { link?.click(); });
+        expect(onSelectSkill).toHaveBeenCalledWith(skill.id);
+        expect(onChange).not.toHaveBeenCalled();
+        expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
+        act(() => { container.querySelector<HTMLElement>('[role="switch"]')?.click(); });
+        expect(onChange).toHaveBeenCalledWith([]);
+    });
+
     it('shows required and missing assignments plus model incompatibility', () => {
+        const onChange = vi.fn();
         const required = normalizeSkill({
             id: 'plugin.llm-wiki.query',
             name: 'Query Brain',
@@ -122,7 +139,7 @@ describe('AI resource settings components', () => {
                     model: 'plain',
                     provider: 'custom',
                 }}
-                onChange={vi.fn()}
+                onChange={onChange}
                 registry={[]}
                 selectedIds={[
                     'plugin.llm-wiki.query',
@@ -136,13 +153,35 @@ describe('AI resource settings components', () => {
             />,
         );
 
-        expect(container.textContent).toContain('settings.ai.catalog.tool_name');
+        expect(container.textContent).toContain('Query Brain');
         expect(container.textContent).toContain('plugin.disabled.missing');
         expect(container.textContent).toContain('settings.ai.resources.required');
         expect(container.textContent).toContain(
             'settings.ai.resources.model_incompatible',
         );
-        expect(container.querySelector('input[disabled]')).not.toBeNull();
+        const locked = container.querySelector<HTMLElement>('[role="switch"][aria-disabled="true"]');
+        expect(locked).not.toBeNull();
+        act(() => {
+            locked?.click();
+            locked?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        });
+        expect(onChange).not.toHaveBeenCalled();
+        act(() => { container.querySelector<HTMLElement>('[role="switch"]:not([aria-disabled])')?.click(); });
+        expect(onChange).toHaveBeenCalledWith(['plugin.llm-wiki.query']);
+    });
+
+    it('opens personalization as a draft and cancel never writes a copy', () => {
+        const skill = normalizeSkill({ id: 'core.example', name: 'Example', instructions: 'Exact runtime instructions', origin: 'core', description: 'Specific original description' });
+        const cloneSkill = vi.fn(); const createSkill = vi.fn();
+        const container = render(<SkillsSettingsPanel agents={[]} onAgentsChanged={vi.fn()} resources={{ skills: [skill], tools: [], cloneSkill, createSkill, updateSkill: vi.fn(), validateSkill: vi.fn(), deleteSkill: vi.fn(), reload: vi.fn(), issues: [], loading: false, error: '' }} />);
+        const customize = [...container.querySelectorAll('button')].find(button => button.textContent.includes('customize'));
+        act(() => { customize?.click(); });
+        expect(container.querySelector('textarea[rows="7"]')?.textContent).toBe(skill.instructions);
+        expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
+        const cancel = [...container.querySelectorAll('button')].find(button => button.textContent.includes('common.cancel'));
+        act(() => { cancel?.click(); });
+        expect(container.querySelector('.ai-resource-editor')).toBeNull();
+        expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
     });
 
     it('surfaces the atomic unassign-and-delete conflict', async () => {

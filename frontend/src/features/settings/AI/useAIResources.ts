@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { logError } from '../../../shared/notifications/notifyError';
 import {
     cloneSkillPayload,
@@ -68,6 +69,9 @@ const signalIsAborted = (signal: AbortSignal): boolean => signal.aborted;
 
 
 export const useAIResources = (enabled: boolean) => {
+    const vaultId = useActiveVaultId();
+    const generation = useRef(0);
+    const [resourceErrors, setResourceErrors] = useState<Record<string, string>>({});
     const [skills, setSkills] = useState<NormalizedSkill[]>([]);
     const [tools, setTools] = useState<NormalizedTool[]>([]);
     const [issues, setIssues] = useState<JsonRecord[]>([]);
@@ -84,6 +88,7 @@ export const useAIResources = (enabled: boolean) => {
     const [error, setError] = useState('');
 
     const applySnapshot = useCallback((snapshot: AIResourceSnapshot): void => {
+        setResourceErrors(snapshot.resourceErrors);
         setSkills(snapshot.skills);
         setTools(snapshot.tools);
         setIssues(snapshot.issues);
@@ -97,27 +102,47 @@ export const useAIResources = (enabled: boolean) => {
         setModelEvaluations(snapshot.modelEvaluations);
     }, []);
 
+    const refreshingApprovals = useRef(false);
+    const refreshApprovals = useCallback(async (): Promise<void> => {
+        if (!enabled || refreshingApprovals.current) return;
+        refreshingApprovals.current = true;
+        const epoch = generation.current;
+        try {
+            const payload = await requestAIResource('/api/ai/approvals');
+            if (epoch !== generation.current) return;
+            setApprovals(jsonRecords(payload, 'approvals'));
+            setResourceErrors(previous => ({ ...previous, approvals: '' }));
+        } catch (failure: unknown) {
+            if (epoch === generation.current) setResourceErrors(previous => ({ ...previous, approvals: requestErrorMessage(failure) }));
+        } finally { refreshingApprovals.current = false; }
+    }, [enabled]);
+
     const reload = useCallback(async (): Promise<void> => {
         if (!enabled) return;
+        const epoch = generation.current;
         setLoading(true);
         setError('');
         try {
-            applySnapshot(await loadAIResourceSnapshot());
+            const snapshot = await loadAIResourceSnapshot();
+            if (epoch === generation.current) applySnapshot(snapshot);
         } catch (requestError) {
+            if (epoch !== generation.current) return;
             logError('ai-resource-catalog-load', requestError);
             setError(requestErrorMessage(requestError));
         } finally {
-            setLoading(false);
+            if (epoch === generation.current) setLoading(false);
         }
     }, [applySnapshot, enabled]);
 
     useEffect(() => {
-        if (!enabled) return undefined;
+        generation.current += 1;
         const controller = new AbortController();
         void Promise.resolve().then(async () => {
             if (signalIsAborted(controller.signal)) return;
-            setLoading(true);
-            setError('');
+            setSkills([]); setTools([]); setAutomations([]); setJobs([]); setAuditEvents([]); setApprovals([]); setAgentMemories([]);
+            setResourceErrors({}); setError('');
+            setLoading(enabled);
+            if (!enabled) return;
             try {
                 const snapshot = await loadAIResourceSnapshot();
                 if (!signalIsAborted(controller.signal)) applySnapshot(snapshot);
@@ -131,8 +156,9 @@ export const useAIResources = (enabled: boolean) => {
         });
         return () => {
             controller.abort();
+            generation.current += 1;
         };
-    }, [applySnapshot, enabled]);
+    }, [applySnapshot, enabled, vaultId]);
 
     const createSkill = useCallback(async (
         draft: SkillDraft,
@@ -212,15 +238,26 @@ export const useAIResources = (enabled: boolean) => {
     const assignAgentSkills = useCallback(async (
         agentId: string,
         skillIds: readonly string[],
+        replacement?: { sourceId: string; targetId: string; keepSource: boolean },
     ): Promise<string[]> => {
         const currentAssignment = await requestAIResource(
             `/api/ai/agents/${encodeURIComponent(agentId)}/skills`,
         );
         const currentAssignmentRecord = optionalRecord(currentAssignment);
+        const currentIds = stringArray(currentAssignmentRecord?.skill_ids);
+        const requiredIds = stringArray(currentAssignmentRecord?.required_skill_ids);
+        const dependencies = replacement && !replacement.keepSource
+            ? jsonRecords(await requestAIResource('/api/ai/automations'), 'automations')
+            : [];
+        const sourceStillUsed = dependencies.some(item => item.agent_id === agentId && item.skill_id === replacement?.sourceId);
+        const nextIds = replacement ? [...new Set([
+            ...currentIds.filter(id => id !== replacement.sourceId || replacement.keepSource || sourceStillUsed || requiredIds.includes(id)),
+            replacement.targetId,
+        ])] : skillIds;
         const payload = await requestAIResource(`/api/ai/agents/${encodeURIComponent(agentId)}/skills`, {
             method: 'PUT',
             body: JSON.stringify({
-                skill_ids: skillIds,
+                skill_ids: nextIds,
                 ...(currentAssignmentRecord?.revision
                     ? { expected_revision: currentAssignmentRecord.revision }
                     : {}),
@@ -252,6 +289,7 @@ export const useAIResources = (enabled: boolean) => {
             skill_id: draft.skill_id,
             instruction: draft.instruction,
             interval_minutes: Number(draft.interval_minutes),
+            ...(draft.schedule ? { schedule: draft.schedule } : {}),
             enabled: draft.enabled,
             max_runs_per_day: Number(draft.max_runs_per_day),
             max_ai_calls_per_run: Number(draft.max_ai_calls_per_run),
@@ -387,6 +425,7 @@ export const useAIResources = (enabled: boolean) => {
     }, []);
 
     return useMemo(() => ({
+        resourceErrors,
         skills,
         tools,
         issues,
@@ -402,6 +441,7 @@ export const useAIResources = (enabled: boolean) => {
         loading,
         error,
         reload,
+        refreshApprovals,
         createSkill,
         updateSkill,
         validateSkill,
@@ -419,6 +459,7 @@ export const useAIResources = (enabled: boolean) => {
         removeAgentMemory,
         runModelEvaluation,
     }), [
+        resourceErrors,
         assignAgentSkills,
         auditEvents,
         approvals,
@@ -434,6 +475,7 @@ export const useAIResources = (enabled: boolean) => {
         error,
         loading,
         reload,
+        refreshApprovals,
         issues,
         jobs,
         skills,

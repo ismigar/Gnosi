@@ -1,17 +1,23 @@
 import {Play, Clock, Loader2} from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import type {DashboardState} from './useDashboard';
 
 export function SchedulerPanel({state}: {state: DashboardState}) {
-const {schedulers, schedulerLoading, executingTasks, updateScheduler, runSchedulerNow, t, automationsEnabled, selectedControlTab, formatFrequency, getTaskTitle, getTaskDescription} = state;
+const {isAdmin, schedulerError, fetchSchedulers, schedulers, schedulerLoading, executingTasks, updateScheduler, runSchedulerNow, t, automationsEnabled, selectedControlTab, formatFrequency, getTaskTitle, getTaskDescription} = state;
+const [params, setParams] = useSearchParams();
+const selectedTask = params.get('task');
+const visibleSchedulers = selectedTask ? schedulers.filter(task => task.name === selectedTask) : schedulers;
 return <>{automationsEnabled && selectedControlTab === 'schedulers' && (
                     <div className="w-full">
+                        {selectedTask && <div className="ai-resource-card__actions"><button type="button" onClick={() => { setParams({ tab: 'schedulers', kind: 'system' }); }}>{t('activity.show_all_services')}</button></div>}
+                        {schedulerError && <div role="alert">{t('dashboard.scheduler_load_error')}: {schedulerError}<button type="button" onClick={() => { void fetchSchedulers(); }}>{t('common.retry')}</button></div>}
                         {schedulerLoading ? (
                             <p className="text-[var(--text-secondary)] py-4 text-center">{t('dashboard.loading_tasks')}</p>
-                        ) : schedulers.length === 0 ? (
-                            <p className="text-[var(--text-secondary)] py-4 text-center">{t('dashboard.no_tasks')}</p>
+                        ) : visibleSchedulers.length === 0 && !schedulerError ? (
+                            <p className="text-[var(--text-secondary)] py-4 text-center">{t(selectedTask ? 'activity.service_unavailable' : 'dashboard.no_tasks')}</p>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
-                                {schedulers.map(task => (
+                                {visibleSchedulers.map(task => (
                                     <div
                                         key={task.name}
                                         className={`p-5 rounded-xl border transition-all h-full flex flex-col ${
@@ -44,6 +50,7 @@ return <>{automationsEnabled && selectedControlTab === 'schedulers' && (
                                                     <input
                                                         type="checkbox"
                                                         className="sr-only peer"
+                                                        disabled={!isAdmin}
                                                         checked={task.enabled}
                                                         onChange={(e) => { void updateScheduler(task, { enabled: e.target.checked }); }}
                                                         aria-label={t('dashboard.toggle_task', 'Toggle {{task}}', { task: getTaskTitle(task) })}
@@ -57,10 +64,12 @@ return <>{automationsEnabled && selectedControlTab === 'schedulers' && (
                                                 {typeof task.interval_minutes === 'number' && (
                                                     <select
                                                         className="text-xs bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg px-2.5 py-1.5 focus:border-[var(--gnosi-blue)] outline-none"
+                                                        disabled={!isAdmin}
                                                         value={task.interval_minutes}
                                                         onChange={(e) => { void updateScheduler(task, { interval_minutes: Number(e.target.value) }); }}
                                                         aria-label={t('dashboard.task_interval_label', 'Interval for {{task}}', { task: getTaskTitle(task) })}
                                                     >
+                                                        {![15, 30, 45, 60, 90, 120, 180, 300, 360, 720, 1440, 10080].includes(task.interval_minutes) && <option value={task.interval_minutes}>{formatFrequency(task)}</option>}
                                                         <option value={15}>{t('dashboard.time_15_min')}</option>
                                                         <option value={30}>{t('dashboard.time_30_min')}</option>
                                                         <option value={45}>{t('dashboard.time_45_min')}</option>
@@ -80,7 +89,7 @@ return <>{automationsEnabled && selectedControlTab === 'schedulers' && (
                                             <button
                                                 type="button"
                                                 onClick={() => { void runSchedulerNow(task.name); }}
-                                                disabled={executingTasks.has(task.name)}
+                                                disabled={!isAdmin || executingTasks.has(task.name)}
                                                 className="btn-gnosi btn-gnosi-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 ml-auto"
                                             >
                                                 {executingTasks.has(task.name) ? (

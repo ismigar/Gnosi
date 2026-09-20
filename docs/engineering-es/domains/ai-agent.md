@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-19
 source_paths:
+  - backend/services/llm_wiki_agent.py
+  - frontend/src/shared/ai/assistantProfiles.ts
+  - backend/services/feature_ai_contributions.py
   - backend/services/model_parameters.py
   - backend/services/model_parameter_seed.py
   - backend/tests/test_model_parameters.py
@@ -58,6 +61,10 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_principal_assistant_plugins.py
+  - frontend/src/shared/ai/assistantProfiles.test.ts
+  - backend/tests/test_feature_agent_tools.py
+  - backend/tests/test_feature_tool_catalog.py
   - backend/tests/test_agent_observability_contracts.py
   - backend/tests/test_agent_observability_policy.py
   - frontend/src/features/agent/public-entry.test.ts
@@ -767,8 +774,7 @@ evidencia de origen o las entradas de planificación invalidan los fragmentos
 guardados; el procesamiento forzado explícitamente ignora todos los puntos de
 recuperación anteriores. Los trabajos interrumpidos conservan su progreso real y
 las notas de origen solo se escriben cuando se completa la planificación.
-Cada llamada de ingesta selecciona explícitamente el agente configurado
-`llm-wiki`. Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
+La ingesta selecciona un perfil gestionado `llm-wiki` existente o el asistente principal. Una respuesta del proveedor con `x-ratelimit-limit-req-minute: 0`
 detiene los reintentos automáticos, porque esperar no puede reponer un límite de
 cero peticiones; la capacidad restante nula con un límite positivo sigue
 recibiendo los reintentos habituales. Tras reiniciar el servidor, la consulta de
@@ -1100,6 +1106,27 @@ identidad de respuestas y excepciones y la ausencia de contenido sintético de
 entradas al modelo o errores en los diagnósticos. Estas comprobaciones no
 requieren llamadas a proveedores ni registros reales del usuario.
 
+## Catálogo de recursos y personalización
+
+Los nombres de las herramientas corresponden a operaciones concretas, sin agrupar
+operaciones distintas bajo un verbo y dominio genéricos. Las descripciones traducidas
+usan el texto original como alternativa. Las instrucciones muestran el contenido
+real guardado. Los identificadores técnicos y esquemas se pueden desplegar; la
+selección incluye descripciones, origen, efectos, disponibilidad y filtros de búsqueda.
+
+Las habilidades incluidas son inmutables. Personalizar abre un borrador editable
+que no escribe hasta Guardar. El servidor verifica la revisión de origen y guarda
+la identidad, versión, instrucciones y herramientas originales en `derived_from`.
+Las ediciones posteriores conservan esta procedencia y las actualizaciones del
+catálogo se comparan sin sobrescribir la versión personal.
+
+Aplicar una habilidad personal a agentes y automatizaciones es una acción explícita.
+Las asignaciones usan revisiones recién consultadas y conservan las habilidades
+obligatorias. Primero se asigna la habilidad a los agentes y después se actualizan
+las automatizaciones seleccionadas; se conservan los cambios completados y se
+comunican los errores. Si otra automatización sigue usando el original, se mantiene
+asignado. Cancelar el borrador no modifica el catálogo ni las asignaciones.
+
 ## Comparativa de modelos y parámetros verificados
 
 La comparativa prioriza inteligencia, contexto, precios de entrada/salida y coste mensual estimado, seguidos de modos, parámetros, velocidad, latencia, perfil y puntuaciones especializadas. Los títulos compactos conservan unidades y texto completo emergente; los filtros se alinean con sus campos, Modos se cierra al pulsar fuera y los tokens mensuales separan los miles. El pie queda libre de la barra horizontal.
@@ -1111,3 +1138,50 @@ Los parámetros se expresan en miles de millones, distinguiendo totales y activo
 Solo se aceptan organizaciones oficiales autorizadas de Hugging Face, identidades inequívocas y campos explícitos de parámetros. Los datos verificados conservan fuente y fecha. Si una fuente falla o no coincide, se preservan los valores anteriores; la ausencia nunca se convierte automáticamente en «No publicados». Los modelos ambiguos o no compatibles quedan pendientes de revisión manual. La sustitución de la caché es atómica. Las pruebas cubren extracción, ambigüedad, conservación de datos, lotes, registro de la tarea, metadatos remotos y filtros.
 
 Las columnas monetarias, el filtro de precio máximo de entrada y el límite mensual utilizan la moneda configurada. Los precios de comparación y el gasto registrado proceden de USD y utilizan el tipo de cambio proporcionado antes de filtrar o comprobar el presupuesto. El filtro de modelos incompletos utiliza el interruptor compartido de la aplicación.
+
+## Cobertura de herramientas de las funcionalidades
+
+La revisión de septiembre de 2026 añade 29 herramientas asignables a habilidades
+y agentes. Reutilizan los servicios y las validaciones de la aplicación. Cuatro
+habilidades nuevas agrupan cuadernos, búsqueda bibliográfica, galería y actividad;
+cinco herramientas amplían planificación. No se asignan automáticamente a agentes.
+
+| Área | Cobertura |
+| --- | --- |
+| Vault, tablas, etiquetas, comentarios, enlaces y papelera | Herramientas existentes para consultas y cambios con permisos. |
+| Correo, contactos y calendarios | Herramientas existentes limitadas a cuentas configuradas, con confirmaciones para cambios externos. |
+| Lector y trabajos de análisis | Herramientas existentes para fuentes, extracción, análisis, progreso, cancelación y reanudación. |
+| Cuadernos | 10 herramientas para consultar cuadernos y fuentes, buscar y citar una revisión concreta, crear cuadernos privados, añadir Recursos, renombrar y actualizar o cancelar la indexación. El contexto adjunto mantiene su selección de fuentes. |
+| Búsqueda bibliográfica y Recursos | 8 herramientas para listar fuentes y búsquedas, iniciar búsquedas acotadas, leer resultados, importar uno con control de duplicados y consultar revisiones sistemáticas. Los registros de Recursos siguen accesibles mediante las herramientas de tablas. |
+| Galería | 3 herramientas para listar ubicaciones, buscar por nombre/tipo/etiquetas y editar etiquetas y descripciones. |
+| Centro de control | 3 herramientas para consultar automatizaciones propias, resultados y servicios programados en el espacio personal. |
+| Planificación | 5 herramientas para listar versiones de referencia, crear/editar calendarios laborales, recursos y asignaciones, y eliminar un elemento con confirmación y control de dependencias. Se conservan las herramientas de calendario, carga, desviaciones, trabajo real y recurrencias. |
+| Cerebro, memoria, publicación social, traducción y Notion | Cubiertos por las contribuciones internas y de plugins existentes. |
+| Reuniones, documentos y grafo | Los lectores de fuentes internas, páginas/PDF y las operaciones de enlaces cubren la información guardada. La captura en directo, los dispositivos y la disposición visual del grafo permanecen en la interfaz. |
+
+Las herramientas comprueban identidad, espacio, rol y Vault de la conversación.
+Las consultas requieren lectura; los cambios, edición y la política de confirmación
+correspondiente. Los cuadernos conservan controles de propiedad y revisión. Al
+desactivar un plugin, sus herramientas permanecen visibles pero no disponibles,
+incluso en habilidades personalizadas.
+
+Las búsquedas académicas exigen fuentes concretas habilitadas y disponibles;
+nunca amplían una selección incorrecta a todas las fuentes. El catálogo omite
+credenciales y configuración de transporte. La importación y consulta de revisiones
+requieren el Vault principal personal porque los servicios existentes resuelven
+Recursos allí; otros Vaults se rechazan antes del acceso. Hay que consultar el
+progreso de búsquedas e indexaciones para confirmar su finalización.
+
+Los nombres y las descripciones están traducidos a los cuatro idiomas. Credenciales,
+concesión de permisos, aprobaciones, instalación de plugins y dispositivos siguen
+en la interfaz. Las pruebas usan datos simulados sin búsquedas externas ni proveedores.
+
+## Asistente principal y perfiles opcionales
+
+La pestaña Asistente presenta el perfil principal seleccionado mediante `ai.active_agent_id`. Las habilidades aportan procedimientos reutilizables y herramientas; los perfiles adicionales quedan en las opciones avanzadas para otros modelos, instrucciones, fuentes o habilidades. Se conservan los perfiles y configuraciones existentes. Un chat nuevo y el chat de los cuadernos utilizan el principal por defecto; las selecciones de chat guardadas se mantienen explícitas.
+
+Las automatizaciones nuevas empiezan con el asistente principal y solo ofrecen sus habilidades asignadas. Un selector avanzado permite otro perfil. Al guardar se fija el identificador concreto del perfil: cambiar el principal posteriormente no reasigna automatizaciones ni amplía permisos.
+
+Activar el complemento Brain aporta habilidades y herramientas sin crear otro perfil ni asignar habilidades automáticamente. Si ya existe un perfil gestionado `llm-wiki`, se conserva y se reactiva cuando corresponde; el procesamiento lo utiliza por compatibilidad y, si no existe, utiliza el asistente principal.
+
+Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad. Las asignaciones utilizan los interruptores accesibles compartidos; las habilidades obligatorias siguen bloqueadas y las asignaciones no disponibles se pueden retirar.

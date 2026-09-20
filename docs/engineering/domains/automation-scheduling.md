@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
@@ -179,3 +179,30 @@ overlap prevention, time zones, retry/idempotency, OAI resume and cancellation,
 tombstones, review new-result detection, and maintenance path confinement, plus the Playwright automation
 scout. A representative scheduled integration should run end to end against a
 safe fixture or test account.
+
+## Unified activity centre
+
+The dashboard owns schedules, execution history and pending approvals. Schedules
+distinguish personal skill automations from system maintenance and integration
+tasks. Settings keeps models, agents, skills and tools; legacy operations tabs
+redirect to the dashboard. The standalone scheduler URL redirects to the system
+schedule view.
+
+Personal schedules support intervals, daily local times and selected weekdays,
+with an explicit IANA timezone. A nonexistent spring-forward time moves forward
+by the DST gap; an ambiguous autumn time runs at its first occurrence only.
+Editing unrelated fields preserves the next occurrence. The additive
+`automations_0002` migration preserves existing interval schedules and adds a
+bounded final response to execution history.
+
+The history endpoint joins definitions and runs within the current Vault,
+workspace and user scope. Pagination and the loaded-page filter limitation are
+visible. System history, background jobs and personal runs have distinct origins.
+The internal automation dispatcher is hidden until technical activity is enabled.
+System run details translate generic completion messages without claiming that
+work was performed when the log does not record it. A schedule link opens the
+specific system service; run references and original diagnostic messages are
+collapsed, labelled and copyable for support.
+Failures are displayed separately from empty results. Deleting an automation
+retains the historical storage rows but removes them from the joined personal
+history; this endpoint is operational history, not a permanent audit archive.

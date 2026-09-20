@@ -4,6 +4,8 @@ import toast from '../../../shared/notifications/toast';
 import { clearSchedulerHistory, fetchScheduledTasks, fetchSchedulerHistory, runScheduledTask, updateScheduledTask, type ScheduledTask, type ScheduledTaskUpdate, type SchedulerHistory } from '../../../shared/api/scheduler';
 export function useDashboardSchedulers() {
 const {t} = useTranslation();
+    const [schedulerError, setSchedulerError] = useState('');
+    const [historyError, setHistoryError] = useState('');
     const [schedulers, setSchedulers] = useState<ScheduledTask[]>([]);
     const [schedulerLoading, setSchedulerLoading] = useState(true);
     const [taskHistory, setTaskHistory] = useState<SchedulerHistory["items"]>([]);
@@ -18,7 +20,8 @@ const {t} = useTranslation();
         if (!silent) setSchedulerLoading(true);
         try {
             setSchedulers(await fetchScheduledTasks());
-        } catch { /* Keep the last successful data on background failures. */ } finally {
+            setSchedulerError('');
+        } catch (error: unknown) { setSchedulerError(String(error)); } finally {
             if (!silent) setSchedulerLoading(false);
         }
     }, []);
@@ -29,10 +32,11 @@ const {t} = useTranslation();
         try {
             const offset = page * HISTORY_LIMIT;
             const data = await fetchSchedulerHistory({ limit: HISTORY_LIMIT, offset });
+            setHistoryError('');
             setTaskHistory(data.items);
             setTaskHistoryTotal(data.total);
             setTaskHistoryPage(page);
-        } catch { /* Keep the last successful data on background failures. */ } finally {
+        } catch (error: unknown) { setHistoryError(String(error)); } finally {
             setTaskHistoryLoading(false);
         }
     }, []);
@@ -58,7 +62,7 @@ const {t} = useTranslation();
                 },
             });
             void fetchSchedulers(true);
-        } catch { /* Keep the last successful data on background failures. */ }
+        } catch { toast.error(t('settings.ai.operations.automation_save_error')); }
     };
 
     const runSchedulerNow = async (taskName: string) => {
@@ -84,5 +88,5 @@ const {t} = useTranslation();
     };
 
 
-return { schedulers, schedulerLoading, taskHistory, taskHistoryTotal, taskHistoryPage, taskHistoryLoading, HISTORY_LIMIT, executingTasks, fetchSchedulers, fetchTaskHistory, updateScheduler, runSchedulerNow, confirmPurgeHistory, setConfirmPurgeHistory, handlePurgeHistory, doPurgeHistory };
+return { schedulerError, historyError, schedulers, schedulerLoading, taskHistory, taskHistoryTotal, taskHistoryPage, taskHistoryLoading, HISTORY_LIMIT, executingTasks, fetchSchedulers, fetchTaskHistory, updateScheduler, runSchedulerNow, confirmPurgeHistory, setConfirmPurgeHistory, handlePurgeHistory, doPurgeHistory };
 }

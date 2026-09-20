@@ -15,6 +15,7 @@ import {
 
 
 export interface AIResourceSnapshot {
+    resourceErrors: Record<string, string>;
     approvals: JsonRecord[];
     auditEvents: JsonRecord[];
     automations: JsonRecord[];
@@ -56,6 +57,11 @@ export const stringArray = (
 
 
 export const loadAIResourceSnapshot = async (): Promise<AIResourceSnapshot> => {
+    const resourceErrors: Record<string, string> = {};
+    const optional = (name: string, url: string): Promise<unknown> => requestAIResource(url).catch((error: unknown) => {
+        resourceErrors[name] = error instanceof Error ? error.message : String(error);
+        return null;
+    });
     const [
         skillsPayload,
         toolsPayload,
@@ -70,18 +76,18 @@ export const loadAIResourceSnapshot = async (): Promise<AIResourceSnapshot> => {
     ] = await Promise.all([
         requestAIResource('/api/ai/skills'),
         requestAIResource('/api/ai/tools'),
-        requestAIResource('/api/ai/automations').catch(() => ({ automations: [] })),
-        requestAIResource('/api/ai/jobs').catch(() => ({ jobs: [] })),
-        requestAIResource('/api/ai/capability-audit').catch(() => ({ events: [] })),
-        requestAIResource('/api/ai/approvals').catch(() => ({ approvals: [] })),
+        optional('automations', '/api/ai/automations'),
+        optional('jobs', '/api/ai/jobs'),
+        optional('audit', '/api/ai/capability-audit'),
+        optional('approvals', '/api/ai/approvals'),
         requestAIResource('/api/ai/quality/dashboard').catch(() => null),
         requestAIResource('/api/ai/semantic-associations')
             .catch(() => ({ associations: [] })),
         requestAIResource('/api/ai/quality/conformance').catch(() => null),
-        requestAIResource('/api/ai/evals/models')
-            .catch(() => ({ evaluations: [] })),
+        optional('evaluations', '/api/ai/evals/models'),
     ]);
     return {
+        resourceErrors,
         approvals: jsonRecords(approvalsPayload, 'approvals'),
         auditEvents: jsonRecords(auditPayload, 'events'),
         automations: jsonRecords(automationsPayload, 'automations'),

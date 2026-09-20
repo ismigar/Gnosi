@@ -65,7 +65,7 @@
 .model-comparison-summary { display: flex; align-items: center; gap: 14px; min-height: 24px; margin: 12px 2px -6px; color: var(--text-secondary); font-size: .78rem; }
 .model-comparison-summary strong { color: var(--text-primary); }
 
-.model-show-incomplete-toggle { display: flex; gap: 8px; align-self: end; color: var(--text-secondary); font-size: .78rem; flex-direction: row !important; align-items: center !important; justify-content: center; min-height: 42px; padding: 0 8px; border: none; cursor: pointer; }
+.model-show-incomplete-toggle { display: flex; margin-left: 12px; gap: 8px; align-self: end; color: var(--text-secondary); font-size: .78rem; flex-direction: row !important; align-items: center !important; justify-content: center; min-height: 42px; padding: 0 8px; border: none; cursor: pointer; }
 .model-show-incomplete-toggle .gnosi-toggle { flex-shrink: 0; }
 .model-show-incomplete-toggle span { font-weight: 600 !important; line-height: 1.2; text-align: center; }
 .model-cost-calculator { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); align-items: end; gap: 12px; margin: 10px 0 8px; padding: 10px 12px; border: 1px solid rgba(59,130,246,.22); border-radius: 14px; background: rgba(59,130,246,.07); }
@@ -173,8 +173,8 @@
 .model-comparison-table th > button > svg { flex-shrink: 0; }
 .model-comparison-table th .model-comparison-label { max-width: 115px; }
 .model-comparison-toolbar > label > .model-comparison-label,
-.model-modes-filter > .model-comparison-label,
-.model-parameter-filters > label > .model-comparison-label { min-height: 32px; justify-content: flex-end; }
+.model-modes-filter > .model-comparison-label { min-height: 32px; justify-content: center; }
+.model-parameter-filters > label > .model-comparison-label { min-height: 32px; justify-content: flex-start; }
 .model-comparison-toolbar .model-show-incomplete-toggle > .model-comparison-label { min-height: auto; }
 
 .model-profile-filter > span { min-height: 32px; justify-content: flex-start; }

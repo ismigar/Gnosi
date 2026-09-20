@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-31
+last_verified: 2026-09-19
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
@@ -172,3 +172,29 @@ horarias, reintentos, reanudación y cancelación OAI, marcas de eliminación,
 detección de nuevos resultados y confinamiento del mantenimiento. Ejecute también
 las pruebas de automatización de Playwright y una integración representativa de
 principio a fin con datos sintéticos o una cuenta de pruebas.
+
+## Centro de actividad unificado
+
+El panel contiene programaciones, historial de ejecuciones y aprobaciones pendientes.
+Distingue las automatizaciones personales de habilidades de los servicios de
+mantenimiento e integración del sistema. Configuración conserva modelos, agentes,
+habilidades y herramientas; las antiguas pestañas de operaciones redirigen al panel.
+La ruta independiente del planificador redirige a las programaciones del sistema.
+
+Las programaciones personales admiten intervalos, horas locales diarias y días de
+la semana seleccionados, con zona horaria IANA explícita. Una hora inexistente en
+primavera se desplaza según el salto horario; una hora ambigua en otoño se ejecuta
+solo en su primera ocurrencia. Editar otros campos conserva la siguiente ejecución.
+La migración aditiva `automations_0002` mantiene los intervalos existentes y añade
+una respuesta final de tamaño limitado al historial.
+
+El historial relaciona definiciones y ejecuciones dentro del Vault, espacio y usuario
+actuales. La paginación y el límite de los filtros a las páginas cargadas son visibles.
+El historial del sistema, los trabajos de fondo y las ejecuciones personales tienen
+orígenes distintos. El distribuidor interno se oculta hasta activar la actividad
+técnica. Los detalles traducen mensajes genéricos sin afirmar que se ha realizado
+trabajo cuando el registro no lo confirma. El enlace de programación abre el servicio
+concreto; las referencias y mensajes originales se pueden desplegar y copiar, con
+etiquetas explicativas. Los errores se distinguen de resultados vacíos. Eliminar una
+automatización conserva las filas guardadas pero las excluye de esta consulta personal
+conjunta; es un historial operativo, no un archivo permanente de auditoría.

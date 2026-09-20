@@ -18,6 +18,7 @@ from langchain_core.messages import HumanMessage
 from backend.agent.action_confirmations import confirmation_context, confirmation_event
 from backend.agent.factory import create_agent_workflow, prepare_agent_runtime
 from backend.config.app_config import load_params
+from backend.services.automation_schedule import AutomationSchedule, next_scheduled_run
 
 
 AUTOMATION_ID_RE = re.compile(r"^[a-f0-9]{32}$")
@@ -90,6 +91,7 @@ def _public(row: sqlite3.Row) -> Dict[str, Any]:
         "skill_id": row["skill_id"],
         "instruction": row["instruction"],
         "interval_minutes": row["interval_minutes"],
+        "schedule": AutomationSchedule.model_validate_json(row["schedule"]).model_dump(),
         "enabled": bool(row["enabled"]),
         "budgets": {
             "max_runs_per_day": row["max_runs_per_day"],
@@ -162,12 +164,21 @@ def save_automation(
     }
     if not all((definition["name"], definition["agent_id"], definition["skill_id"], definition["instruction"])):
         raise ValueError("Automation name, agent, skill, and instruction are required.")
-    revision = _revision(definition)
     with _database_connection() as connection:
         existing = connection.execute(
             "SELECT * FROM capability_automations WHERE id = ?", (normalized_id,)
         ).fetchone()
+        schedule = AutomationSchedule.model_validate(payload.get("schedule") or (
+            json.loads(existing["schedule"]) if existing is not None else {}
+        ))
+        definition["schedule"] = schedule.model_dump()
+        revision = _revision(definition)
+        next_run = next_scheduled_run(schedule, definition["interval_minutes"], now) if definition["enabled"] else None
         if existing is not None:
+            if (bool(existing["enabled"]) == definition["enabled"]
+                    and existing["interval_minutes"] == definition["interval_minutes"]
+                    and AutomationSchedule.model_validate_json(existing["schedule"]) == schedule):
+                next_run = existing["next_run_at"]
             clause, values = _scope_clauses(scope)
             if connection.execute(
                 f"SELECT id FROM capability_automations WHERE id = ? AND {clause}",
@@ -182,15 +193,15 @@ def save_automation(
                     name=?, agent_id=?, skill_id=?, instruction=?,
                     interval_minutes=?, enabled=?, max_runs_per_day=?,
                     max_ai_calls_per_run=?, max_runtime_seconds=?,
-                    next_run_at=?, updated_at=?, revision=? WHERE id=?
+                    next_run_at=?, updated_at=?, revision=?, schedule=? WHERE id=?
                 """,
                 (
                     definition["name"], definition["agent_id"], definition["skill_id"],
                     definition["instruction"], definition["interval_minutes"],
                     int(definition["enabled"]), definition["max_runs_per_day"],
                     definition["max_ai_calls_per_run"], definition["max_runtime_seconds"],
-                    now + definition["interval_minutes"] * 60 if definition["enabled"] else None,
-                    now, revision, normalized_id,
+                    next_run,
+                    now, revision, schedule.model_dump_json(), normalized_id,
                 ),
             )
         else:
@@ -201,8 +212,8 @@ def save_automation(
                     name, agent_id, skill_id, instruction, interval_minutes,
                     enabled, max_runs_per_day, max_ai_calls_per_run,
                     max_runtime_seconds, next_run_at, last_run_at, last_status,
-                    created_at, updated_at, revision
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'never', ?, ?, ?)
+                    created_at, updated_at, revision, schedule
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'never', ?, ?, ?, ?)
                 """,
                 (
                     normalized_id, scope["vault_scope"], str(Path(vault_path).resolve()),
@@ -211,8 +222,8 @@ def save_automation(
                     definition["instruction"], definition["interval_minutes"],
                     int(definition["enabled"]), definition["max_runs_per_day"],
                     definition["max_ai_calls_per_run"], definition["max_runtime_seconds"],
-                    now + definition["interval_minutes"] * 60 if definition["enabled"] else None,
-                    now, now, revision,
+                    next_run,
+                    now, now, revision, schedule.model_dump_json(),
                 ),
             )
         row = connection.execute(
@@ -317,7 +328,7 @@ def _reserve_run(row: sqlite3.Row, *, manual: bool) -> str:
             SET last_run_at=?, last_status='running',
                 next_run_at=?, updated_at=? WHERE id=?
             """,
-            (now, now + current["interval_minutes"] * 60, now, row["id"]),
+            (now, next_scheduled_run(AutomationSchedule.model_validate_json(current["schedule"]), current["interval_minutes"], now), now, row["id"]),
         )
     return run_id
 
@@ -336,6 +347,7 @@ async def run_automation(automation_id: str, *, manual: bool = False) -> Dict[st
     }
     ai_calls = 0
     confirmations = 0
+    result_text = ""
     status = "completed"
     error_code = ""
     try:
@@ -377,8 +389,11 @@ async def run_automation(automation_id: str, *, manual: bool = False) -> Dict[st
                     for update in event.values():
                         for message in update.get("messages", []):
                             if getattr(message, "type", "") == "ai":
+                                content = getattr(message, "content", "")
+                                if isinstance(content, str) and not getattr(message, "tool_calls", None):
+                                    result_text = content[:12_000]
                                 ai_calls += 1
-                                if ai_calls >= row["max_ai_calls_per_run"]:
+                                if ai_calls >= row["max_ai_calls_per_run"] and getattr(message, "tool_calls", None):
                                     status = "budget_exhausted"
                                     break
                             if confirmation_event(getattr(message, "content", None)):
@@ -396,9 +411,9 @@ async def run_automation(automation_id: str, *, manual: bool = False) -> Dict[st
             connection.execute(
                 """
                 UPDATE capability_automation_runs SET status=?, ai_calls=?,
-                    confirmation_count=?, error_code=?, finished_at=? WHERE id=?
+                    confirmation_count=?, error_code=?, finished_at=?, result_text=? WHERE id=?
                 """,
-                (status, ai_calls, confirmations, error_code or None, now, run_id),
+                (status, ai_calls, confirmations, error_code or None, now, result_text, run_id),
             )
             connection.execute(
                 """
@@ -434,4 +449,4 @@ async def run_due_automations() -> Dict[str, Any]:
     results = []
     for automation_id in ids:
         results.append(await run_automation(automation_id))
-    return {"success": True, "due_count": len(ids), "results": results}
+    return {"success": all(result.get("status") not in {"failed", "error", "budget_exhausted"} for result in results), "due_count": len(ids), "results": results}

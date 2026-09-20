@@ -1,5 +1,6 @@
+import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Menu, RotateCw } from 'lucide-react';
+import { BookOpen, Menu, } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '../../shared/ui/layout/AppHeader';
@@ -228,7 +229,7 @@ export default function ReaderDashboard() {
     return <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
         <AppHeader icon={BookOpen} title={t('reader_title')}>
             <button onClick={() => { setMobileChannelsOpen(true); }} title={t('reader_open_channels')} aria-label={t('reader_open_channels')} className="md:hidden p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors" type="button"><Menu size={16} /></button>
-            <button onClick={() => { void handleSyncAll(); }} disabled={syncing} title={t('reader_sync')} aria-label={t('reader_sync')} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors disabled:opacity-50" type="button"><RotateCw size={16} className={syncing ? 'animate-spin' : ''} /></button>
+            <RefreshButton loading={syncing} label={t('reader_sync')} onClick={() => { void handleSyncAll(); }} />
         </AppHeader>
         <div className="flex flex-1 overflow-hidden relative">
             {mobileChannelsOpen ? <button onClick={() => { setMobileChannelsOpen(false); }} className="md:hidden fixed inset-0 bg-black/40 z-40 animate-fade-in-up" aria-label={t('reader_close_channels')} type="button" /> : null}

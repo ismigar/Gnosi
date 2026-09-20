@@ -1,5 +1,6 @@
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { useEffect, useState } from 'react';
-import { Activity, Check, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Activity, Check, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { logError } from '../../../shared/notifications/notifyError';
@@ -101,18 +102,11 @@ export const AIQualitySettingsPanel = ({
 
     return (
         <div className="ai-resources-panel">
+            <div className="flex justify-end"><RefreshButton onClick={() => { void resources.reload(); }} /></div>
             <div className="ai-resource-alert">
                 <Activity size={18} />
                 <span>{t('settings.ai.quality.privacy_help')}</span>
-                <button
-                    type="button"
-                    className="btn-gnosi-secondary"
-                    onClick={() => {
-                        void resources.reload();
-                    }}
-                >
-                    <RefreshCw size={15} /> {t('common.refresh')}
-                </button>
+
             </div>
             <div className="ai-resource-list" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                 <Metric label={t('settings.ai.quality.completed_turns')} value={quality.completed_turns || 0} />

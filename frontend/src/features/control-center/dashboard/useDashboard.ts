@@ -1,4 +1,6 @@
+import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {useSearchParams} from 'react-router-dom';
 import {useTranslation} from 'react-i18next';
 import {useApi} from '../../../shared/api/use-api';
 import {usePlugins} from '../../../shared/plugins/usePlugins';
@@ -25,7 +27,9 @@ export function useDashboard() {
     const isAdmin = userRole === 'admin' || userRole === 'owner';
     const activeWorkspaceId = readStorage(WORKSPACE_ID_STORAGE_KEY) || 'personal';
     const [gnosiMode, setGnosiMode] = useState('personal');
-    const [selectedControlTab, setSelectedControlTab] = useState('schedulers');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const selectedControlTab = searchParams.get('tab') || 'schedulers';
+    const setSelectedControlTab = useCallback((tab: string) => { setSearchParams({ tab }); }, [setSearchParams]);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const schedulers = useDashboardSchedulers();
     const memory = useDashboardMemory();
@@ -34,7 +38,7 @@ export function useDashboard() {
     const {fetchPendingTools, fetchAnalytics, fetchDirectives, fetchTraps} = memory;
     const [notifPage, setNotifPage] = useState(0);
     const NOTIF_LIMIT = 20;
-    const {data: notificationPage, isFetching: notificationsLoading, refetch: refetchNotifications} =
+    const {data: notificationPage, isFetching: notificationsLoading, error: notificationsError, refetch: refetchNotifications} =
         useSystemNotifications({limit: NOTIF_LIMIT, offset: notifPage * NOTIF_LIMIT});
     const clearNotifications = useClearSystemNotifications();
     const notifications = notificationPage?.items || [];
@@ -89,17 +93,23 @@ export function useDashboard() {
         fetchDirectives, fetchTraps, fetchConfig, fetchPendingTools, fetchSchedulers, fetchTaskHistory]);
     useEffect(() => {
         if (!automationsEnabled || selectedControlTab !== 'history') return;
-        const interval = setInterval(() => {
+        const refresh = () => {
+            if (document.visibilityState !== 'visible') return;
             void fetchTaskHistory(taskHistoryPage);
             void refetchNotifications();
-        }, 20000);
-        return () => { clearInterval(interval); };
+        };
+        const interval = window.setInterval(refresh, 20000);
+        const stopFocus = subscribeWindowEvent('focus', refresh);
+        const stopVisibility = subscribeDocumentEvent('visibilitychange', refresh);
+        return () => { window.clearInterval(interval); stopFocus(); stopVisibility(); };
     }, [automationsEnabled, selectedControlTab, taskHistoryPage, fetchTaskHistory, refetchNotifications]);
     useEffect(() => {
-        if (!automationsEnabled && ['schedulers', 'history'].includes(selectedControlTab)) {
+        if ((automationsEnabled || aiEnabled) && !['schedulers', 'history', 'approvals', 'admin'].includes(selectedControlTab)) {
+            void Promise.resolve().then(() => { setSelectedControlTab('schedulers'); });
+        } else if (!automationsEnabled && !aiEnabled && ['schedulers', 'history', 'approvals'].includes(selectedControlTab)) {
             void Promise.resolve().then(() => { setSelectedControlTab(isAdmin && gnosiMode === 'org' ? 'admin' : 'overview'); });
         }
-    }, [automationsEnabled, gnosiMode, isAdmin, selectedControlTab]);
+    }, [automationsEnabled, aiEnabled, gnosiMode, isAdmin, selectedControlTab, setSelectedControlTab]);
     const formatFrequency = (task: ScheduledTask) => formatTaskFrequency(task, t);
     const getTaskTitle = (task: ScheduledTask) => {
         const key = `dashboard.tasks.${task.name}.title`;
@@ -113,7 +123,7 @@ export function useDashboard() {
     };
     return {...schedulers, ...memory, ...members, t, language: i18n.resolvedLanguage ?? i18n.language, automationsEnabled, aiEnabled,
         isAdmin, scrollContainerRef, selectedControlTab, setSelectedControlTab, gnosiMode,
-        notifications, notificationsLoading,
+        notifications, notificationsLoading, notificationsError,
         notifTotal, notifPage, setNotifPage, refetchNotifications, NOTIF_LIMIT,
         confirmPurgeLogs, setConfirmPurgeLogs, handlePurgeLogs, doPurgeLogs,
         formatFrequency, getTaskTitle, getTaskDescription};

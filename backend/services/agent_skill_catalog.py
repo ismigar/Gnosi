@@ -316,6 +316,8 @@ class ToolCatalog:
                 if tool_id in result:
                     raise CatalogConflictError(f"duplicate tool ID: {tool_id}")
                 result[tool_id] = registration
+        from backend.services.feature_tool_availability import suspend_disabled_features
+        suspend_disabled_features(result)
         return result
 
     def list(self) -> Tuple[ToolDescriptor, ...]:

@@ -1,7 +1,8 @@
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { useTranslation } from 'react-i18next';
 import type { NotebookController } from './useNotebookController';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, CircleStop, LoaderCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CircleStop, LoaderCircle, Trash2 } from 'lucide-react';
 import { vaultPath } from '../../../shared/routing/vaultRouting';
 import StatusBadge from './StatusBadge';
 import { isIndexing } from './notebookModel';
@@ -18,7 +19,7 @@ export default function NotebookDetailHeader({ controller }: { controller: Noteb
                     <div><StatusBadge status={notebook.status} /><span>{t('notebooks.revision_label', 'Revision {{revision}}', { revision: notebook.active_revision || '—' })}</span></div>
                 </div>
                 <div className="notebook-detail__actions">
-                    {notebook.can_manage && <button className="btn-gnosi" onClick={() => { void refresh(); }}><RefreshCw size={15} />{t('notebooks.refresh', 'Refresh')}</button>}
+                    {notebook.can_manage && <RefreshButton label={t('notebooks.refresh', 'Refresh')} onClick={() => { void refresh(); }} />}
                     {notebook.can_manage && <button className="notebook-icon-button notebook-icon-button--danger" onClick={() => { setShowDelete(true); }} aria-label={t('notebooks.delete', 'Delete notebook')}><Trash2 size={17} /></button>}
                 </div>
             </header>
