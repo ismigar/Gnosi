@@ -39,7 +39,7 @@ export function AgentsPanel({ context, onSelectSkill }: Props) {
     }
   >
     <p>{t('settings.ai.assistant.help')}</p>
-    <button type="button" className="btn-gnosi btn-gnosi-secondary" aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
+    <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
     </button>
     {expanded && <div className="ai-resources-panel">
