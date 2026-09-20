@@ -1224,3 +1224,5 @@ L’onglet Assistant présente le profil principal sélectionné par `ai.active_
 Les nouvelles automatisations commencent avec l’assistant principal et ne proposent que ses compétences attribuées. Un sélecteur avancé permet un autre profil. L’enregistrement fixe l’identifiant concret du profil : changer le principal ensuite ne réattribue pas les automatisations et n’élargit pas les permissions.
 
 Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal. Une sélection explicite de l’agent du Cerveau est prioritaire sur ces valeurs par défaut.
+
+Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence.

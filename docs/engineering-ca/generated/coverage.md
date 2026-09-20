@@ -8,7 +8,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Domini | Estat | Guia | Fitxers font | Fitxers de proves | Directives trobades |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 669 | 227 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 671 | 229 | 0 |
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 997 | 264 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 442 | 111 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |

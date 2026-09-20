@@ -17,7 +17,7 @@ import type { SettingsController } from './useGlobalSettingsController';
 type Props = { context: SettingsController };
 
 export function AiPanel({ context }: Props) {
-  const { aiResources, aiSection, draft, setAiSection, setDraft, setEditingAgent, setIsModelComparisonOpen, handleClose, t } = context;
+  const { aiResources, aiSection, draft, setAiSection, setDraft, setIsModelComparisonOpen, handleClose, t } = context;
   const navigate = useNavigate();
   const [selectedSkill, setSelectedSkill] = useState('');
   const openActivity = (tab = 'schedulers') => { void handleClose().then(() => navigate(`/dashboard?tab=${tab}&kind=personal`)); };
@@ -38,7 +38,6 @@ export function AiPanel({ context }: Props) {
       ]}
       onChange={sectionId => {
         setAiSection(sectionId);
-        setEditingAgent(null);
       }}
     />
 
@@ -61,7 +60,9 @@ export function AiPanel({ context }: Props) {
 
     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
-    {aiSection === 'agents' && <AgentsPanel context={context} />}
+    <div hidden={aiSection !== 'agents'}>
+      <AgentsPanel context={context} onSelectSkill={id => { setSelectedSkill(id); setAiSection('skills'); }} />
+    </div>
 
     {aiSection === 'skills' && (
       <Section title={t('settings.ai.resources.skills_title')} icon={Zap}>

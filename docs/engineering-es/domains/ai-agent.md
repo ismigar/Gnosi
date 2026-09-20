@@ -1202,3 +1202,5 @@ La pestaña Asistente presenta el perfil principal seleccionado mediante `ai.act
 Las automatizaciones nuevas empiezan con el asistente principal y solo ofrecen sus habilidades asignadas. Un selector avanzado permite otro perfil. Al guardar se fija el identificador concreto del perfil: cambiar el principal posteriormente no reasigna automatizaciones ni amplía permisos.
 
 Activar el complemento Brain aporta habilidades y herramientas sin crear otro perfil ni asignar habilidades automáticamente. Si ya existe un perfil gestionado `llm-wiki`, se conserva y se reactiva cuando corresponde; el procesamiento lo utiliza por compatibilidad y, si no existe, utiliza el asistente principal. Una selección explícita del agente del Cerebro tiene prioridad sobre estos valores predeterminados.
+
+Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad.

@@ -14,9 +14,9 @@ import { X } from 'lucide-react';
 import { toast } from '../../../shared/notifications/toast';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { context: Pick<SettingsController, 'agentEditorTarget' | 'aiRegistry' | 'aiResources' | 'draft' | 'editingAgent' | 'handleDeleteAIAgent' | 'setAgentEditorTarget' | 'setDraft' | 'setEditingAgent' | 't' | 'tn'> };
+type Props = { onSelectSkill?: (id: string) => void; context: Pick<SettingsController, 'agentEditorTarget' | 'aiRegistry' | 'aiResources' | 'draft' | 'editingAgent' | 'handleDeleteAIAgent' | 'setAgentEditorTarget' | 'setDraft' | 'setEditingAgent' | 't' | 'tn'> };
 
-export function AgentsPanel({ context }: Props) {
+export function AgentsPanel({ context, onSelectSkill }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t, tn } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
   const [showProfiles, setShowProfiles] = useState(false);
@@ -102,6 +102,7 @@ export function AgentsPanel({ context }: Props) {
             aiRegistry={aiRegistry}
             skills={aiResources.skills}
             tools={aiResources.tools}
+            onSelectSkill={onSelectSkill}
           />
         </div>
       </InlineEditorPlacement>
