@@ -237,13 +237,13 @@ def answer(key: str) -> tuple[str, str]:
     ("custom-researcher", "custom-researcher"), ("", "principal"),
 ])
 def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch, agent_id: str, expected: str) -> None:
-    from backend.services import llm_wiki_generation as factory
+    from backend.services import llm_wiki_generation
 
-    monkeypatch.setattr(factory, "default_plugin_agent_id", lambda: "principal")
+    monkeypatch.setattr(llm_wiki_generation, "default_plugin_agent_id", lambda: "principal")
     config = {**llm_wiki.llm_wiki_config.load_config(), "agent_id": agent_id}
     monkeypatch.setattr(llm_wiki.llm_wiki_config, "load_config", lambda: config)
     generate = Mock(side_effect=[answer("one"), answer("two")])
-    monkeypatch.setattr(factory, "generate_text", generate)
+    monkeypatch.setattr(llm_wiki_generation, "generate_text", generate)
     run, _apply, _chunks = ingest
     job_id = str(llm_wiki_storage.create_job("sources", "resource")["job_id"])
     run(job_id=job_id)

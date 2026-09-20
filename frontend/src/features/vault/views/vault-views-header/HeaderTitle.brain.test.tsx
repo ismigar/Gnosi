@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { HeaderTitle } from './HeaderTitle';
+import { dispatchWindowEvent } from '../../../../shared/platform/browser-events';
 
 const api = vi.hoisted(() => ({ config: vi.fn(), maintenance: vi.fn(), suggestions: vi.fn(), dismiss: vi.fn() }));
 vi.mock('../../../../shared/api/plugins', () => ({ fetchPluginLlmWikiConfig: api.config, runPluginLlmWikiMaintenance: api.maintenance }));
@@ -60,7 +61,7 @@ it('runs the deterministic review and keeps its result available in the header',
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('settings.plugins.llm_wiki_lint_summary:12');
     expect(document.body.textContent).toContain('settings.plugins.llm_wiki_lint_cites:2');
     expect(changed).toHaveBeenCalledOnce();
-    await act(async () => { await Promise.resolve(); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    await act(async () => { await Promise.resolve(); dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
     await click('llm_wiki.tools.button');
     await click('llm_wiki.tools.results');
     expect(document.body.textContent).toContain('settings.plugins.llm_wiki_lint_summary:12');
@@ -106,7 +107,7 @@ it('supports keyboard navigation and blocks duplicate actions while running', as
     await act(async () => { await Promise.resolve(); document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
     expect(document.activeElement?.textContent).toBe('settings.plugins.llm_wiki_semantic_run');
     await click('llm_wiki.tools.review');
-    await act(async () => { await Promise.resolve(); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    await act(async () => { await Promise.resolve(); dispatchWindowEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
     await click('llm_wiki.tools.button');
     const actions = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
     expect(actions.slice(0, 2).every(button => button.disabled)).toBe(true);

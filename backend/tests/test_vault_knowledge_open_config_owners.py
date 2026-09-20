@@ -32,7 +32,7 @@ def test_normalized_config_retains_original_coercions_and_deduplication() -> Non
     }
     result = config.normalize_config(value)
     assert result == {
-        "version": 2, "ui_locale": "ca", "brain_table_id": "brain", "target_table": "brain",
+        "version": 2, "agent_id": "", "ui_locale": "ca", "brain_table_id": "brain", "target_table": "brain",
         "source_tables": [{"table_id": "source", "title_property_id": "",
                            "attachment_property_ids": [], "url_property_ids": [],
                            "language_property_id": "", "include_body": False,
