@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1094 | 125274 | 32 |
+| `features` | 1094 | 125285 | 32 |
 | `generated` | 2 | 44513 | 455 |
 | `shared` | 251 | 30577 | 400 |
 
@@ -547,7 +547,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AccountRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountRow.tsx) | 71 | `AccountRow` | — |
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 173 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 184 | `AgentsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 93 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
