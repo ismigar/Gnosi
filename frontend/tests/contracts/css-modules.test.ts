@@ -177,9 +177,102 @@ function removeVerifiedResponsiveToolbarRules(root: Root): void {
   }
 }
 
+// Verify the intentional skill-switch changes before restoring the extraction
+// snapshot. The immutable baseline continues to detect unrelated CSS drift.
+function verifySkillSwitchRules(root: Root, global: boolean): void {
+  const expected = postcss.parse(global ? `
+.gnosi-toggle[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+` : `
+.ai-agent-skill { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--settings-border); border-radius: 12px; }
+.ai-agent-skill > .gnosi-toggle { flex-shrink: 0; margin-top: 2px; }
+`);
+  for (const rule of expected.nodes) {
+    if (rule.type !== 'rule') throw new Error('Expected skill switch rule');
+    const matches = root.nodes.filter(node => node.type === 'rule' && node.selector === rule.selector);
+    expect(matches).toHaveLength(1);
+    const actual = matches[0];
+    if (actual?.type !== 'rule') throw new Error('Missing skill switch rule');
+    expect(semantic(actual)).toEqual(semantic(rule));
+    if (global) actual.remove();
+    else if (rule.selector === '.ai-agent-skill') actual.append({ prop: 'cursor', value: 'pointer' });
+    else {
+      actual.selector = '.ai-agent-skill > input';
+      actual.removeAll();
+      actual.append({ prop: 'margin-top', value: '4px' }, { prop: 'accent-color', value: 'var(--gnosi-blue)' });
+    }
+  }
+}
+
+function removeVerifiedActivityRules(root: Root): void {
+  const expected = postcss.parse(`
+.ai-activity-panel {
+    --settings-bg: var(--bg-primary);
+    --settings-input-bg: var(--bg-primary);
+    --settings-sidebar-bg: var(--bg-secondary);
+    --settings-border: var(--border-primary);
+}
+
+.ai-resource-details pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.ai-resource-tool-option__copy > span {
+    overflow-wrap: anywhere;
+}
+
+.ai-activity-panel .ai-resources-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ai-activity-panel .ai-resource-card__actions {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.ai-automation-editor .ai-resource-editor__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ai-schedule-fields__help,
+.ai-schedule-fields > fieldset {
+    grid-column: 1 / -1;
+}
+.ai-schedule-fields__help {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: 0;
+}
+.ai-schedule-fields > fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+@media (max-width: 760px) {
+    .ai-activity-panel .ai-resources-toolbar,
+    .ai-automation-editor .ai-resource-editor__grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.ai-history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+}
+`);
+  for (const node of expected.nodes) {
+    const matches = root.nodes.filter(actual => JSON.stringify(semantic(actual)) === JSON.stringify(semantic(node)));
+    expect(matches).toHaveLength(1);
+    matches[0]?.remove();
+  }
+}
+
 function extractionTree(entry: string): Root {
   const root = expand(resolve(frontend, entry));
   if (entry === 'src/app/styles/index.css') {
+    verifySkillSwitchRules(root, true);
     // Verify the mobile control's exact scope, declarations and cascade position
     // before removing this reviewed addition from the immutable baseline check.
     removeVerifiedMobileQuickAccessRule(root);
@@ -217,7 +310,9 @@ function extractionTree(entry: string): Root {
     expect(restored).toBe(1);
   }
   if (entry === 'src/features/settings/AI/AIResourcesSettings.css') {
-    // The only post-extraction change: axe found 3.67:1 active-tab text.
+    verifySkillSwitchRules(root, false);
+    removeVerifiedActivityRules(root);
+    // Another reviewed change: axe found 3.67:1 active-tab text.
     // Assert the exact accessible replacement before comparing everything else
     // against the immutable original hash; never regenerate that baseline.
     let replacements = 0;
