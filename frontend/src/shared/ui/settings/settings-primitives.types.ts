@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 
 export type ToggleEvent = KeyboardEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>;
 export interface ToggleProps {
+  disabled?: boolean;
   active?: boolean | null;
   onChange?: (event: ToggleEvent) => void;
   label?: string;

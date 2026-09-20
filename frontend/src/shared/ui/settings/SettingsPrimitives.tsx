@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
  * interactive control is a parent container.
  */
 
-export const GnosiToggle = ({ active, onChange, label, style, scale, display = false }: ToggleProps) => {
+export const GnosiToggle = ({ active, onChange, label, style, scale, display = false, disabled = false }: ToggleProps) => {
   const mergedStyle = scale != null ? { ...style, transform: `scale(${String(scale)})` } : style;
   if (display) {
     return (
@@ -21,7 +21,7 @@ export const GnosiToggle = ({ active, onChange, label, style, scale, display = f
     );
   }
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === ' ' || e.key === 'Enter') {
+    if (!disabled && (e.key === ' ' || e.key === 'Enter')) {
       e.preventDefault();
       onChange?.(e);
     }
@@ -29,11 +29,12 @@ export const GnosiToggle = ({ active, onChange, label, style, scale, display = f
   return (
     <div
       role="switch"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
       aria-checked={!!active}
+      aria-disabled={disabled || undefined}
       aria-label={label}
       className={`gnosi-toggle ${active ? 'active' : ''}`}
-      onClick={(e) => { onChange?.(e); }}
+      onClick={(e) => { if (!disabled) onChange?.(e); }}
       onKeyDown={handleKeyDown}
       style={mergedStyle}
     >

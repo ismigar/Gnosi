@@ -172,7 +172,6 @@
     padding: 12px;
     border: 1px solid var(--settings-border);
     border-radius: 12px;
-    cursor: pointer;
 }
 
 .ai-agent-skill.is-selected {
@@ -184,9 +183,9 @@
     border-style: dashed;
 }
 
-.ai-agent-skill > input {
-    margin-top: 4px;
-    accent-color: var(--gnosi-blue);
+.ai-agent-skill > .gnosi-toggle {
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .ai-agent-skill__copy {
