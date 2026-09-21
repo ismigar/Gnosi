@@ -2627,7 +2627,12 @@
         "no_automations": "Cap automatització utilitza aquesta habilitat.",
         "required_sources": "Fonts necessàries",
         "required_copy_help": "La còpia no substitueix l’assignació obligatòria de l’original.",
-        "assignment_partial_error": "No s’ha pogut completar l’assignació. Els canvis ja desats es conserven."
+        "assignment_partial_error": "No s’ha pogut completar l’assignació. Els canvis ja desats es conserven.",
+        "instructions_translating": "Traduint les instruccions…",
+        "instructions_translation_error": "No s’han pogut traduir les instruccions. Es mostra el text desat.",
+        "instructions_translate": "Tradueix al català",
+        "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
+        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",

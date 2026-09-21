@@ -1144,3 +1144,9 @@ Validació: `backend/tests/test_agent_learning.py` comprova captura, propietat, 
 El botó de la font i el xat utilitzen el mateix treball persistent de processament i la skill assignada `plugin.llm-wiki.process-source`. El treball fixa el perfil seleccionat, el model i les instruccions efectives. Si falta la skill o el perfil està desactivat, falla explícitament. La skill dirigeix la interpretació, l’atribució, les peticions d’evidència i la revisió; l’aplicació controla els pressupostos, les citacions, el desament i els índexs.
 
 La lectura utilitza fragments estructurals amb context veí, mapes de secció i un mapa global jeràrquic. L’extracció i la revisió poden demanar passatges originals distants. Es justifica el tractament de cada fragment principal i les notes proposades es revisen amb una visió conjunta abans de desar-les. La cobertura i les citacions literals acrediten la procedència, però no garanteixen la correcció semàntica. Els punts de recuperació només es reutilitzen quan coincideixen la font i les entrades d’execució; els plans antics sense revisió s’invaliden. El diàleg mostra el progrés i les observacions de la lectura.
+
+## Idioma de les instruccions
+
+Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg permet demanar una traducció a l’idioma actiu amb el proveïdor d’IA configurat. Es mostra al costat de l’original com a ajuda de lectura, sense modificar les instruccions desades ni executades. Obrir una habilitat no demana cap traducció. Les traduccions es conserven només en memòria, per vault, text original i idioma de destí. Si fallen, es manté l’original i es pot tornar a provar.
+
+L’acció de traducció utilitza un botó compacte alineat a la dreta. Els errors de límit de peticions o quota del proveïdor mostren un missatge específic; l’original es manté visible.

@@ -8,12 +8,12 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { SkillInstructions } from './SkillInstructions';
 
 import type { NormalizedSkill, NormalizedTool } from './aiSettingsUtils';
 import { skillEffects } from './aiSettingsUtils';
 import {
     skillDisplayDescription,
-    skillDisplayInstructions,
     skillDisplayName,
     toolDisplayName,
     toolDisplayDescription,
@@ -55,10 +55,7 @@ function SkillDetails({
     return (
         <div className="ai-resource-details">
             {skill.instructions ? (
-                <div>
-                    <strong>{t('settings.ai.resources.instructions')}</strong>
-                    <pre>{skillDisplayInstructions(t, skill)}</pre>
-                </div>
+                <SkillInstructions skill={skill} />
             ) : null}
             <div>
                 <strong>{t('settings.ai.resources.effects_title')}</strong>

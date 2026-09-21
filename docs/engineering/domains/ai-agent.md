@@ -1031,3 +1031,9 @@ Validation: `backend/tests/test_agent_learning.py` covers capture, ownership, sc
 The source button and chat use the same durable processing job and the assigned `plugin.llm-wiki.process-source` skill. The job freezes the selected profile, model and effective instructions. A missing skill or disabled profile fails explicitly. The skill owns interpretation, attribution, evidence requests and review; the application enforces budgets, citations, persistence and indexes.
 
 Reading follows structural fragments with neighbouring context, section maps and a hierarchical global map. Extraction and review can request distant original passages. Every primary fragment is accounted for, and proposed notes are reviewed against a joint overview before writing. Coverage and exact quotations establish provenance, not guaranteed semantic correctness. Checkpoints are reused only when their source and execution inputs match; legacy unreviewed write plans are invalidated. Progress and reading observations appear in the processing dialog.
+
+## Instruction language
+
+Skill instructions are saved and executed exactly as authored, in any language. The catalogue offers an explicit translation into the active interface language using the configured AI provider. This reading aid is shown alongside the original and never changes saved or executed instructions. Opening a skill does not request translation. Successful translations are cached only in memory, scoped by vault, original text and target language. Failures leave the original available and can be retried.
+
+The translation action uses a compact button aligned to the right. Provider rate-limit or quota failures have a specific message; the original remains visible.

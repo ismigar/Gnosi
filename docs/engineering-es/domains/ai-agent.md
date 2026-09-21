@@ -1212,3 +1212,9 @@ Validación: `backend/tests/test_agent_learning.py` comprueba captura, propiedad
 El botón de la fuente y el chat utilizan el mismo trabajo persistente de procesamiento y la skill asignada `plugin.llm-wiki.process-source`. El trabajo fija el perfil seleccionado, el modelo y las instrucciones efectivas. Si falta la skill o el perfil está desactivado, falla explícitamente. La skill dirige la interpretación, la atribución, las peticiones de evidencia y la revisión; la aplicación controla los presupuestos, las citas, el guardado y los índices.
 
 La lectura utiliza fragmentos estructurales con contexto vecino, mapas de sección y un mapa global jerárquico. La extracción y la revisión pueden solicitar pasajes originales distantes. Se justifica el tratamiento de cada fragmento principal y las notas propuestas se revisan con una visión conjunta antes de guardarlas. La cobertura y las citas literales acreditan la procedencia, pero no garantizan la corrección semántica. Los puntos de recuperación solo se reutilizan cuando coinciden la fuente y las entradas de ejecución; los planes antiguos sin revisión se invalidan. El diálogo muestra el progreso y las observaciones de la lectura.
+
+## Idioma de las instrucciones
+
+Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo permite solicitar una traducción al idioma activo mediante el proveedor de IA configurado. Se muestra junto al original como ayuda de lectura, sin modificar las instrucciones guardadas ni ejecutadas. Abrir una habilidad no solicita traducciones. Las traducciones se conservan solo en memoria, por vault, texto original e idioma de destino. Si fallan, el original sigue disponible y se puede reintentar.
+
+La acción de traducción utiliza un botón compacto alineado a la derecha. Los errores de límite de peticiones o cuota muestran un mensaje específico; el original sigue visible.

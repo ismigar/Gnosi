@@ -1233,3 +1233,9 @@ Validation : `backend/tests/test_agent_learning.py` vérifie la capture, la prop
 Le bouton de la source et le chat utilisent le même traitement persistant et la skill attribuée `plugin.llm-wiki.process-source`. Le traitement fixe le profil sélectionné, le modèle et les instructions effectives. L’absence de skill ou un profil désactivé provoque un échec explicite. La skill dirige l’interprétation, l’attribution, les demandes de preuves et la révision ; l’application contrôle les budgets, les citations, l’enregistrement et les index.
 
 La lecture utilise des fragments structurels avec leur contexte voisin, des cartes de section et une carte globale hiérarchique. L’extraction et la révision peuvent demander des passages originaux distants. Le traitement de chaque fragment principal est justifié et les notes proposées sont révisées avec une vue d’ensemble avant leur enregistrement. La couverture et les citations exactes établissent la provenance sans garantir la justesse sémantique. Les points de reprise sont réutilisés uniquement lorsque la source et les entrées d’exécution correspondent ; les anciens plans non révisés sont invalidés. Le dialogue affiche la progression et les observations de lecture.
+
+## Langue des instructions
+
+Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue permet de demander une traduction dans la langue active avec le fournisseur IA configuré. Cette aide à la lecture apparaît à côté du texte original sans modifier les instructions enregistrées ou exécutées. Ouvrir une compétence ne demande aucune traduction. Les traductions sont conservées uniquement en mémoire, par vault, texte original et langue cible. En cas d’échec, le texte original reste disponible et une nouvelle tentative est possible.
+
+La traduction utilise un bouton compact aligné à droite. Les limites de requêtes ou de quota affichent un message spécifique ; le texte original reste visible.
