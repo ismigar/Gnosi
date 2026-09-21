@@ -1025,3 +1025,9 @@ Conversation-to-skill extraction uses the saved private transcript and the selec
 Portable `gnosi-skill-v1` JSON packages include instructions, tool dependencies, criteria, examples and text resources. Import validates size and resource names before review; it never automatically saves or assigns a skill. Export excludes personal memories and conversation history. Runtime instructions include the saved criteria and resources without expanding tool permissions. The additive `personal_memory_0002` migration preserves existing memories and creates private project/session bindings.
 
 Validation: `backend/tests/test_agent_learning.py` covers capture, ownership, scopes, expiry, stale revisions, package boundaries and trial failures. Frontend tests cover read-only memory management, scope-preserving changes, learning intent and replay-safe acknowledgements.
+
+## Contextual source reading
+
+The source button and chat use the same durable processing job and the assigned `plugin.llm-wiki.process-source` skill. The job freezes the selected profile, model and effective instructions. A missing skill or disabled profile fails explicitly. The skill owns interpretation, attribution, evidence requests and review; the application enforces budgets, citations, persistence and indexes.
+
+Reading follows structural fragments with neighbouring context, section maps and a hierarchical global map. Extraction and review can request distant original passages. Every primary fragment is accounted for, and proposed notes are reviewed against a joint overview before writing. Coverage and exact quotations establish provenance, not guaranteed semantic correctness. Checkpoints are reused only when their source and execution inputs match; legacy unreviewed write plans are invalidated. Progress and reading observations appear in the processing dialog.

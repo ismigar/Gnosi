@@ -1138,3 +1138,9 @@ L’extracció d’habilitats utilitza la conversa privada desada i el model con
 Els paquets JSON `gnosi-skill-v1` inclouen instruccions, dependències, criteris, exemples i recursos de text. La importació valida la mida i els noms abans de revisar-los; no desa ni assigna automàticament. L’exportació exclou els records personals i l’historial de conversa. L’execució incorpora els criteris i recursos sense ampliar permisos. La migració additiva `personal_memory_0002` conserva els records i crea els vincles privats de projecte i conversa.
 
 Validació: `backend/tests/test_agent_learning.py` comprova captura, propietat, àmbits, caducitat, revisions, paquets i errors de les proves. Les proves de la interfície comproven el mode de lectura, la conservació de l’àmbit, les peticions d’aprenentatge i els avisos sense duplicats.
+
+## Lectura contextual de fonts
+
+El botó de la font i el xat utilitzen el mateix treball persistent de processament i la skill assignada `plugin.llm-wiki.process-source`. El treball fixa el perfil seleccionat, el model i les instruccions efectives. Si falta la skill o el perfil està desactivat, falla explícitament. La skill dirigeix la interpretació, l’atribució, les peticions d’evidència i la revisió; l’aplicació controla els pressupostos, les citacions, el desament i els índexs.
+
+La lectura utilitza fragments estructurals amb context veí, mapes de secció i un mapa global jeràrquic. L’extracció i la revisió poden demanar passatges originals distants. Es justifica el tractament de cada fragment principal i les notes proposades es revisen amb una visió conjunta abans de desar-les. La cobertura i les citacions literals acrediten la procedència, però no garanteixen la correcció semàntica. Els punts de recuperació només es reutilitzen quan coincideixen la font i les entrades d’execució; els plans antics sense revisió s’invaliden. El diàleg mostra el progrés i les observacions de la lectura.
