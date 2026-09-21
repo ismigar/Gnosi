@@ -95,7 +95,7 @@ function assertFatalGates(workflow, reusableCI = false) {
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
       const expectedIf = reusableCI && name === 'docker'
-        && step.name === 'Release unused Docker resources' ? 'always()'
+        && ['Remove Docker smoke containers', 'Release unused Docker resources'].includes(step.name) ? 'always()'
         : reusableCI && name === 'native-smoke' && step.name === HOSTED_CHROMIUM_SETUP.name
           ? HOSTED_CHROMIUM_SETUP.if : undefined;
       assert.equal(step.if, expectedIf,

@@ -293,7 +293,7 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         if name == "docker":
             assert conditional_steps == steps[-2:]
             assert all(step["if"] == "always()" for step in conditional_steps)
-            assert steps[-2]["env"]["GNOSI_DOCKER_SMOKE_PROJECT"] == (
+            assert workflow_mapping(steps[-2]["env"])["GNOSI_DOCKER_SMOKE_PROJECT"] == (
                 "gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}"
             )
         elif name == "native-smoke":
