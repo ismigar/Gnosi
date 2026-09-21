@@ -122,10 +122,13 @@
     },
     "personal_memory": {
       "branch": "personal_memory",
-      "head": "personal_memory_0001",
+      "head": "personal_memory_0002",
       "revisions": {
         "personal_memory_0001": [
           "1651265a70e14096ea1e22456bf82f558dc41ffd01d791f902302287d089153f"
+        ],
+        "personal_memory_0002": [
+          "f4fabdc167a910d66863cdb0a28168980529434242fa772a4e411636bc72427f"
         ]
       }
     },

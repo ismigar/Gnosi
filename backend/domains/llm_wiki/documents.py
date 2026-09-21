@@ -76,12 +76,20 @@ def extract_pdf(
 def extract_docx(path: Path) -> list[Segment]:
     """Extract paragraphs with their most recent document heading."""
     from docx import Document
+    from docx.table import Table
 
     document = Document(str(path))
     segments: list[Segment] = []
     heading = ""
     paragraph_number = 0
-    for paragraph in document.paragraphs:
+    for paragraph in document.iter_inner_content():
+        if isinstance(paragraph, Table):
+            paragraph_number += 1
+            segments.append({"text": "\n".join(" | ".join(cell.text for cell in row.cells)
+                                                  for row in paragraph.rows),
+                             "locator": {"section": heading, "paragraph": paragraph_number,
+                                         "block": "table"}})
+            continue
         text = str(paragraph.text or "").strip()
         if not text:
             continue
@@ -107,15 +115,21 @@ def extract_epub(path: Path) -> list[Segment]:
     book = epub.read_epub(str(path))
     segments: list[Segment] = []
     chapter_number = 0
-    for item in book.get_items_of_type(ITEM_DOCUMENT):
+    documents = list(book.get_items_of_type(ITEM_DOCUMENT))
+    by_id = {item.get_id(): item for item in documents}
+    ordered = [by_id[item_id] for item_id, _linear in book.spine if item_id in by_id]
+    ordered.extend(item for item in documents if item not in ordered)
+    for item in ordered:
         chapter_number += 1
         soup = BeautifulSoup(item.get_content(), "html.parser")
         title_node = soup.find(["h1", "h2", "title"])
         chapter = title_node.get_text(" ", strip=True) if title_node else item.get_name()
         for paragraph_number, node in enumerate(
-            soup.find_all(["p", "li", "blockquote"]),
+            soup.find_all(["p", "li", "blockquote", "table"]),
             start=1,
         ):
+            if node.find_parent(["li", "blockquote", "table"]):
+                continue
             text = node.get_text(" ", strip=True)
             if text:
                 segments.append(
@@ -141,7 +155,9 @@ def extract_html(raw_html: str) -> list[Segment]:
     segments: list[Segment] = []
     heading = ""
     paragraph_number = 0
-    for node in soup.find_all(["h1", "h2", "h3", "p", "li", "blockquote"]):
+    for node in soup.find_all(["h1", "h2", "h3", "p", "li", "blockquote", "table"]):
+        if node.find_parent(["li", "blockquote", "table"]):
+            continue
         text = html.unescape(node.get_text(" ", strip=True))
         if not text:
             continue
@@ -168,17 +184,22 @@ def paragraph_segments(raw: str, *, locator_prefix: str) -> list[Segment]:
     """Split text without losing stable line-range locators."""
     segments: list[Segment] = []
     line_cursor = 1
+    heading = ""
     for paragraph in re.split(r"\n\s*\n+", str(raw or "")):
         text = paragraph.strip()
         if not text:
             line_cursor += paragraph.count("\n") + 1
             continue
         line_count = text.count("\n") + 1
+        heading_match = re.match(r"^#{1,6}\s+(.+)", text)
+        if heading_match:
+            heading = heading_match[1]
         segments.append(
             {
                 "text": " ".join(line.strip() for line in text.splitlines() if line.strip()),
                 "locator": {
                     "kind": locator_prefix,
+                    "section": heading,
                     "line_start": line_cursor,
                     "line_end": line_cursor + line_count - 1,
                 },

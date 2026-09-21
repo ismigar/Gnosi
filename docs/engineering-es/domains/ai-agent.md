@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_learning_models.py
+  - backend/services/agent_learning_capture.py
+  - backend/services/agent_learning_generation.py
+  - backend/services/agent_learning_packages.py
+  - backend/services/agent_learning_projects.py
+  - frontend/src/features/agent-learning
   - backend/services/llm_wiki_agent.py
   - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
@@ -61,6 +67,11 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_learning.py
+  - backend/tests/test_agent_learning_api.py
+  - frontend/src/features/agent-learning/ConversationLearning.test.tsx
+  - frontend/src/features/agent-learning/MemorySettings.test.tsx
+  - frontend/src/features/agent-learning/learningIntent.test.ts
   - backend/tests/test_principal_assistant_plugins.py
   - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
@@ -1187,6 +1198,22 @@ Activar el complemento Brain aporta habilidades y herramientas sin crear otro pe
 Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad. Las asignaciones utilizan los interruptores accesibles compartidos; las habilidades obligatorias siguen bloqueadas y las asignaciones no disponibles se pueden retirar.
 
 Las lecturas simultáneas del catálogo esperan a que termine el registro de las extensiones integradas. Se permiten las lecturas recursivas del mismo hilo para evitar ciclos de importación, pero otros hilos no pueden obtener un catálogo parcial sin las habilidades del Cerebro.
+
+## Aprendizaje de conversaciones y memoria editable
+
+El panel de aprendizaje del chat privado agrupa instrucciones de proyecto, fuentes seleccionadas y referencias de resultados. Las peticiones explícitas como «Recuerda que…» crean recuerdos con origen identificable; las citas y referencias ambiguas no. Los recuerdos están aislados por espacio de conocimiento, asistente y usuario, con ámbitos adicionales de proyecto o habilidad. Configuración → IA → Memoria permite buscar, filtrar, editar, activar, fijar caducidad y eliminar. Las actualizaciones rechazan revisiones antiguas. Eliminar un proyecto desvincula las conversaciones y desactiva sus recuerdos.
+
+La extracción de habilidades utiliza la conversación privada guardada y el modelo configurado del asistente seleccionado. El usuario revisa el procedimiento, los criterios, los ejemplos sintéticos y las plantillas antes de guardarlos en el catálogo existente. La asignación es una acción explícita de administración. La prueba con un segundo caso no ejecuta herramientas: una revisión separada del modelo aporta evidencias para cada criterio y el usuario decide si conserva el ejemplo. No certifica acciones externas ni la veracidad de los resultados.
+
+Los paquetes JSON `gnosi-skill-v1` incluyen instrucciones, dependencias, criterios, ejemplos y recursos de texto. La importación valida el tamaño y los nombres antes de revisarlos; no guarda ni asigna automáticamente. La exportación excluye recuerdos personales e historial de conversación. La ejecución incorpora los criterios y recursos sin ampliar permisos. La migración aditiva `personal_memory_0002` conserva los recuerdos y crea los vínculos privados de proyecto y conversación.
+
+Validación: `backend/tests/test_agent_learning.py` comprueba captura, propiedad, ámbitos, caducidad, revisiones, paquetes y errores de las pruebas. Las pruebas de interfaz comprueban el modo de lectura, la conservación del ámbito, las peticiones de aprendizaje y los avisos sin duplicados.
+
+## Lectura contextual de fuentes
+
+El botón de la fuente y el chat utilizan el mismo trabajo persistente de procesamiento y la skill asignada `plugin.llm-wiki.process-source`. El trabajo fija el perfil seleccionado, el modelo y las instrucciones efectivas. Si falta la skill o el perfil está desactivado, falla explícitamente. La skill dirige la interpretación, la atribución, las peticiones de evidencia y la revisión; la aplicación controla los presupuestos, las citas, el guardado y los índices.
+
+La lectura utiliza fragmentos estructurales con contexto vecino, mapas de sección y un mapa global jerárquico. La extracción y la revisión pueden solicitar pasajes originales distantes. Se justifica el tratamiento de cada fragmento principal y las notas propuestas se revisan con una visión conjunta antes de guardarlas. La cobertura y las citas literales acreditan la procedencia, pero no garantizan la corrección semántica. Los puntos de recuperación solo se reutilizan cuando coinciden la fuente y las entradas de ejecución; los planes antiguos sin revisión se invalidan. El diálogo muestra el progreso y las observaciones de la lectura.
 
 ## Idioma de las instrucciones
 

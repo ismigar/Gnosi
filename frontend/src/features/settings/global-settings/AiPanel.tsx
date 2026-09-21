@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity } from 'lucide-react';
+import { Activity, Brain } from 'lucide-react';
+import { MemorySettings } from '../../agent-learning';
 import { AgentsPanel } from './AgentsPanel';
 import { Bot } from 'lucide-react';
 import { Clock3 } from 'lucide-react';
@@ -32,6 +33,7 @@ export function AiPanel({ context }: Props) {
       activeId={aiSection}
       items={[
         { id: 'agents', icon: Bot, label: t('settings.ai.assistant.title') },
+        { id: 'memory', icon: Brain, label: t('learning.memory_title') },
         { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
         { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
         { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
@@ -82,6 +84,8 @@ export function AiPanel({ context }: Props) {
         />
       </Section>
     )}
+
+    {aiSection === 'memory' && <Section title={t('learning.memory_title')} icon={Brain}><MemorySettings agents={draft.ai.agents} skills={aiResources.skills} principalAgentId={draft.ai.active_agent_id} canEdit={['editor', 'admin', 'owner'].includes(context.role)} /></Section>}
 
     {aiSection === 'tools' && (
       <Section title={t('settings.ai.resources.tools_title')} icon={Sliders}>

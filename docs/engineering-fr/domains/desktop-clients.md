@@ -604,3 +604,5 @@ La constante du backend `GNOSI_VERSION` indique également `3.0.4` ; le test du 
 Il faut régénérer le document OpenAPI enregistré et son SHA-256 après modification de la version du backend. Pour ce candidat, la différence vérifiée du schéma se limite à la version de l’application ; les routes et les données restent inchangées.
 
 La CI Docker réessaie le nettoyage des conteneurs de test et le répète dans une étape indépendante toujours exécutée avant de supprimer les images CI, afin qu’un nettoyage échoué ne bloque pas la construction suivante.
+
+La liste des ressources vérifiées de l’application de bureau inclut `personal_memory_0002`, afin que les versions installées conservent les souvenirs existants tout en ajoutant les portées de mémoire et les projets privés d’apprentissage.

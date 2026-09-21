@@ -413,6 +413,9 @@ def create_agent_memory(
             payload.text,
             category=payload.category,
             provenance=payload.provenance,
+            enabled=payload.enabled,
+            scope_kind=payload.scope_kind,
+            scope_id=payload.scope_id,
             expires_at=payload.expires_at,
             user_id=context.user_id,
         )
@@ -446,6 +449,8 @@ def edit_agent_memory(
             enabled=payload.enabled,
             expires_at=payload.expires_at,
             expected_revision=payload.expected_revision,
+            scope_kind=payload.scope_kind if "scope_kind" in payload.model_fields_set else None,
+            scope_id=payload.scope_id if "scope_id" in payload.model_fields_set else None,
             user_id=context.user_id,
         )
     except ValueError as exc:

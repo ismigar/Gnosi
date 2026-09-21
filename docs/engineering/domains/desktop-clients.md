@@ -521,3 +521,5 @@ The backend runtime constant `GNOSI_VERSION` also reports `3.0.4`; the health AP
 Regenerate the committed OpenAPI document and its SHA-256 after changing the runtime version. For this candidate, the reviewed schema difference is limited to the application version; routes and payloads remain unchanged.
 
 Docker CI retries smoke-container cleanup and runs it again in an independent always-run step before removing CI images, so a failed exit trap cannot silently leave containers blocking the next build.
+
+The reviewed desktop resource list includes `personal_memory_0002`, so installed builds preserve existing memories while adding scoped memory and private learning projects.

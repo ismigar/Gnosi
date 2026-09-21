@@ -25,6 +25,7 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
     active_skill_ids: Optional[List[str]] = None,
     turn_context_refs: Optional[List[Dict[str, Any]]] = None,
     memory_user_id: str = "",
+    memory_project_id: str = "",
 ) -> tuple[Any, Dict[str, Any]]:
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -102,6 +103,8 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
             user_message,
             user_id=memory_user_id,
             limit=5,
+            project_id=memory_project_id,
+            skill_ids=tuple(runtime_active_ids),
         )
     memory_revision = hashlib.sha256(
         json.dumps(

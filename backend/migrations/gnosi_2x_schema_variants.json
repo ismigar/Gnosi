@@ -174,6 +174,7 @@
   },
   "post_2x_revisions": {
     "capability_automations": ["automations_0002"],
+    "personal_memory": ["personal_memory_0002"],
     "vault": ["vault_0004", "vault_0005", "vault_0006"]
   },
   "limits": [

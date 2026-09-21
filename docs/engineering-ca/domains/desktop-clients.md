@@ -578,3 +578,5 @@ La constant del backend `GNOSI_VERSION` també indica `3.0.4`; la prova del cont
 Cal regenerar el document OpenAPI desat i el seu SHA-256 després de canviar la versió del backend. En aquest candidat, la diferència revisada de l’esquema es limita a la versió de l’aplicació; les rutes i les dades no canvien.
 
 La CI de Docker reintenta la neteja dels contenidors de prova i la repeteix en un pas independent que sempre s’executa abans d’eliminar les imatges de CI, per evitar que una neteja fallida bloquegi la construcció següent.
+
+La llista de recursos revisats de l’aplicació d’escriptori inclou `personal_memory_0002`, de manera que les versions instal·lades conserven els records existents en afegir la memòria per àmbits i els projectes privats d’aprenentatge.

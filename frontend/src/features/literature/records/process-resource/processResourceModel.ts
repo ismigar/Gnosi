@@ -13,6 +13,8 @@ export const PHASE_LABELS = {
     error: 'Error',
     indexing: 'Updating indexes and log…',
     partial: 'Interrupted; it can be resumed',
+    overview: 'Understanding the whole source…',
+    reviewing: 'Reviewing notes in context…',
     planning: 'Planning notes with AI…',
     reading: 'Reading the source…',
     retrying: 'Waiting for the AI provider; retrying automatically…',

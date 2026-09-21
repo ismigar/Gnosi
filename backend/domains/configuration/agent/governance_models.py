@@ -166,6 +166,10 @@ class SemanticAssociationDeleteResponse(BaseModel):
 
 
 class PersonalMemoryResponse(ForwardCompatibleGovernanceResponse):
+    scope_kind: str = "personal"
+    scope_id: str = ""
+    source_session_id: str = ""
+    source_turn_id: str = ""
     memory_id: str
     text: str
     category: str

@@ -68,6 +68,8 @@ from backend.domains.configuration.agent.governance_routes import (
     run_agent_model_evaluation,
     run_reviewed_agent_evaluation_candidates,
 )
+from backend.domains.configuration.agent.learning_routes import router as learning_router
+from backend.domains.configuration.agent.learning_project_routes import router as learning_project_router
 from backend.domains.configuration.agent.router import router
 from backend.services.agent_quality_telemetry import (
     list_evaluation_candidates,
@@ -186,3 +188,7 @@ __all__ = [
     "update_skill_automation",
     "validate_skill",
 ]
+
+
+router.include_router(learning_router)
+router.include_router(learning_project_router)
