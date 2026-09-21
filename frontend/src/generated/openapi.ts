@@ -47,6 +47,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/agents/{agent_id}/learning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learning Workspace */
+        get: operations["get_learning_workspace_api_ai_agents__agent_id__learning_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/agents/{agent_id}/learning/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Bind Learning Project */
+        put: operations["bind_learning_project_api_ai_agents__agent_id__learning__session_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/agents/{agent_id}/memories": {
         parameters: {
             query?: never;
@@ -78,6 +112,41 @@ export interface paths {
         post?: never;
         /** Remove Agent Memory */
         delete: operations["remove_agent_memory_api_ai_agents__agent_id__memories__memory_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/agents/{agent_id}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Learning Project */
+        post: operations["create_learning_project_api_ai_agents__agent_id__projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/agents/{agent_id}/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Learning Project */
+        put: operations["update_learning_project_api_ai_agents__agent_id__projects__project_id__put"];
+        post?: never;
+        /** Remove Learning Project */
+        delete: operations["remove_learning_project_api_ai_agents__agent_id__projects__project_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -500,6 +569,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/learning/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Learning Draft
+         * @description Extract an editable draft from the caller's canonical private conversation.
+         */
+        post: operations["create_learning_draft_api_ai_learning_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/learning/package/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Learning Package
+         * @description Validate an imported text-only package without saving or assigning it.
+         */
+        post: operations["validate_learning_package_api_ai_learning_package_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/learning/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Learned Skill
+         * @description Publish the reviewed draft to the existing catalog, optionally assigning it.
+         */
+        post: operations["save_learned_skill_api_ai_learning_skills_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/learning/trial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Learning Trial
+         * @description Run a new text case and a separate rubric review, without side effects.
+         */
+        post: operations["run_learning_trial_api_ai_learning_trial_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/model-catalog": {
         parameters: {
             query?: never;
@@ -823,6 +972,26 @@ export interface paths {
         put?: never;
         /** Clone Skill */
         post: operations["clone_skill_api_ai_skills__skill_id__clone_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/skills/{skill_id}/package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Learning Package
+         * @description Export procedure, explicit examples and text resources, never private memory.
+         */
+        get: operations["export_learning_package_api_ai_skills__skill_id__package_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13010,6 +13179,15 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CriterionResult */
+        CriterionResult: {
+            /** Criterion */
+            criterion: string;
+            /** Evidence */
+            evidence: string;
+            /** Met */
+            met: boolean;
+        };
         /** CslStyleResponse */
         CslStyleResponse: {
             /** File */
@@ -14813,6 +14991,76 @@ export interface components {
             };
         };
         JsonValue: unknown;
+        /** LearnedSkill */
+        LearnedSkill: {
+            /** Criteria */
+            criteria: string[];
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Examples */
+            examples?: components["schemas"]["SkillExample"][];
+            /** Instructions */
+            instructions: string;
+            /** Name */
+            name: string;
+            /** Resources */
+            resources?: components["schemas"]["SkillResource"][];
+            /** Tool Ids */
+            tool_ids?: string[];
+        };
+        /** LearningProject */
+        LearningProject: {
+            /** Context Refs */
+            context_refs?: components["schemas"]["TurnContextRef"][];
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /** Name */
+            name: string;
+            /** Results */
+            results?: string[];
+            /** Revision */
+            revision: number;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** LearningWorkspace */
+        LearningWorkspace: {
+            /**
+             * Project Id
+             * @default
+             */
+            project_id: string;
+            /** Projects */
+            projects: components["schemas"]["LearningProject"][];
+        };
+        /** LearnRequest */
+        LearnRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Goal
+             * @default
+             */
+            goal: string;
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "ca" | "en" | "es" | "fr";
+            /** Session Id */
+            session_id: string;
+        };
         /**
          * LevelingApplyResponse
          * @description Result of applying a current, ETag-validated proposal.
@@ -19227,6 +19475,16 @@ export interface components {
              * @default user
              */
             provenance: string;
+            /**
+             * Scope Id
+             * @default
+             */
+            scope_id: string;
+            /**
+             * Scope Kind
+             * @default personal
+             */
+            scope_kind: string;
             /** Text */
             text: string;
         };
@@ -19246,6 +19504,26 @@ export interface components {
             provenance: string;
             /** Revision */
             revision: number;
+            /**
+             * Scope Id
+             * @default
+             */
+            scope_id: string;
+            /**
+             * Scope Kind
+             * @default personal
+             */
+            scope_kind: string;
+            /**
+             * Source Session Id
+             * @default
+             */
+            source_session_id: string;
+            /**
+             * Source Turn Id
+             * @default
+             */
+            source_turn_id: string;
             /** Text */
             text: string;
             /** Updated At */
@@ -19521,6 +19799,30 @@ export interface components {
             details: components["schemas"]["ProcessedPublicationResponse"][];
             /** Processed */
             processed: number;
+        };
+        /** ProjectBinding */
+        ProjectBinding: {
+            /**
+             * Project Id
+             * @default
+             */
+            project_id: string;
+        };
+        /** ProjectDraft */
+        ProjectDraft: {
+            /** Context Refs */
+            context_refs?: components["schemas"]["TurnContextRef"][];
+            /** Expected Revision */
+            expected_revision?: number | null;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /** Name */
+            name: string;
+            /** Results */
+            results?: string[];
         };
         /**
          * ProjectScheduleResponse
@@ -20817,6 +21119,31 @@ export interface components {
             } | null;
             role?: components["schemas"]["UserRole"] | null;
         };
+        /** SavedLearning */
+        SavedLearning: {
+            /** Assigned */
+            assigned: boolean;
+            /** Missing Tools */
+            missing_tools?: string[];
+            /** Skill Id */
+            skill_id: string;
+        };
+        /** SaveLearningRequest */
+        SaveLearningRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Assign
+             * @default false
+             */
+            assign: boolean;
+            /**
+             * Session Id
+             * @default
+             */
+            session_id: string;
+            skill: components["schemas"]["LearnedSkill"];
+        };
         /**
          * ScheduleDiagnosticResponse
          * @description Scheduling diagnostic for one task, several tasks, or the project.
@@ -21184,12 +21511,59 @@ export interface components {
              */
             version: string;
         };
+        /** SkillExample */
+        SkillExample: {
+            /** Expected */
+            expected: string;
+            /** Input */
+            input: string;
+            /** Name */
+            name: string;
+        };
         /**
          * SkillKind
          * @description Supported skill package categories.
          * @enum {string}
          */
         SkillKind: "agent" | "action" | "automation" | "developer";
+        /** SkillPackage */
+        SkillPackage: {
+            /**
+             * Format
+             * @default gnosi-skill-v1
+             * @constant
+             */
+            format: "gnosi-skill-v1";
+            skill: components["schemas"]["LearnedSkill"];
+        };
+        /** SkillResource */
+        SkillResource: {
+            /** Content */
+            content: string;
+            /** Name */
+            name: string;
+        };
+        /** SkillTrialRequest */
+        SkillTrialRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Input */
+            input: string;
+            skill: components["schemas"]["LearnedSkill"];
+        };
+        /** SkillTrialResult */
+        SkillTrialResult: {
+            /** Checks */
+            checks: components["schemas"]["CriterionResult"][];
+            /**
+             * Mode
+             * @default text_trial
+             * @constant
+             */
+            mode: "text_trial";
+            /** Output */
+            output: string;
+        };
         /** SkippedReferenceDetailResponse */
         SkippedReferenceDetailResponse: {
             /** Existing Key */
@@ -22803,6 +23177,89 @@ export interface operations {
             };
         };
     };
+    get_learning_workspace_api_ai_agents__agent_id__learning_get: {
+        parameters: {
+            query?: {
+                session_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                agent_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningWorkspace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bind_learning_project_api_ai_agents__agent_id__learning__session_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                agent_id: string;
+                session_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectBinding"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningWorkspace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_agent_memories_api_ai_agents__agent_id__memories_get: {
         parameters: {
             query?: never;
@@ -22952,6 +23409,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonalMemoryDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_learning_project_api_ai_agents__agent_id__projects_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                agent_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningProject"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_learning_project_api_ai_agents__agent_id__projects__project_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                agent_id: string;
+                project_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningProject"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_learning_project_api_ai_agents__agent_id__projects__project_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                agent_id: string;
+                project_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningWorkspace"];
                 };
             };
             /** @description Validation Error */
@@ -23897,6 +24478,166 @@ export interface operations {
             };
         };
     };
+    create_learning_draft_api_ai_learning_draft_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LearnRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnedSkill"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_learning_package_api_ai_learning_package_validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillPackage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillPackage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_learned_skill_api_ai_learning_skills_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveLearningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedLearning"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_learning_trial_api_ai_learning_trial_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillTrialRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTrialResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_model_catalog_api_ai_model_catalog_get: {
         parameters: {
             query?: {
@@ -24623,6 +25364,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentSkillCatalogItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_learning_package_api_ai_skills__skill_id__package_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                skill_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillPackage"];
                 };
             };
             /** @description Validation Error */

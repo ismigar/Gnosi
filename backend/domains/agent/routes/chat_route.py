@@ -280,8 +280,24 @@ async def chat_endpoint(
             session_id=session_id,
         )
 
+        learning_memory = None
+        learning_project_id = ""
+        project_refs: list[dict[str, Any]] = []
+        if not notebook_turn:
+            from backend.domains.agent.routes.learning_context import prepare_learning_context
+
+            project_text, project_refs, learning_project_id, learning_memory = await asyncio.to_thread(
+                prepare_learning_context, workspace_context, agent_id, session_id,
+                chat_req.turn_id or "", chat_req.message,
+            )
+            user_content += project_text
+
         # 2. Get the workflow only after request-owned uploads are cleaned up.
         turn_context_refs = [item.model_dump(mode="python") for item in chat_req.context_refs]
+        if project_refs:
+            from backend.agent.agent_context import merge_context_refs
+
+            turn_context_refs = merge_context_refs(project_refs, turn_context_refs)
         if notebook_turn:
             turn_context_refs = notebook_turn["contexts"]
         workflow, llm_selection = await get_agent_workflow(
@@ -296,6 +312,7 @@ async def chat_endpoint(
             active_skill_ids=requested_skill_ids,
             turn_context_refs=turn_context_refs,
             memory_user_id=workspace_context.user_id,
+            **({"memory_project_id": learning_project_id} if learning_project_id else {}),
         )
         workflow_ready_at = time.monotonic()
         cancel_token = create_cancel_token()
@@ -387,8 +404,10 @@ async def chat_endpoint(
         db_path = cast(Path, cfg.paths["CHECKPOINTS"]) / f"agent_{checkpoint_key}.sqlite"
         os.makedirs(db_path.parent, exist_ok=True)
 
-        def event_generator() -> AsyncIterator[str]:
-            return stream_agent_events(
+        async def event_generator() -> AsyncIterator[str]:
+            if learning_memory:
+                yield json.dumps({"type": "memory_saved", "memory_id": learning_memory["memory_id"]}) + "\n"
+            async for event in stream_agent_events(
                 request_started_at=request_started_at,
                 workflow_ready_at=workflow_ready_at,
                 llm_selection=llm_selection,
@@ -409,7 +428,8 @@ async def chat_endpoint(
                 cancel_token=cancel_token,
                 turn_claimed=turn_claimed,
                 chat_principal=chat_principal,
-            )
+            ):
+                yield event
 
         return StreamingResponse(
             protocolize_stream(

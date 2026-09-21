@@ -1,3 +1,4 @@
+import { ConversationLearning } from '../../agent-learning';
 import { Brain, Sparkles } from 'lucide-react';
 import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import { ConfirmationReview } from './ConfirmationReview';
@@ -11,6 +12,7 @@ import type { useAgentChatController } from './useAgentChatController';
 export function ChatPanelView({ controller }: { controller: ReturnType<typeof useAgentChatController> }) {
     const {
         t, embedded, readOnly, notebookId, conversationMode, storageIdentity, contextRefs,
+        showLearning, setShowLearning, learningGoal, setLearningGoal, sessionId, browserStorageScope,
         isOpen, isDockOpen, agentIcon, setIsDockOpen, setIsOpen, isMinimized, handleChatKeyDown,
         isLoading, runtimeLimited, agentHasModel, agentName, selectedAgentId, runtimeStatusLabel,
         agentModel, runtimeStatusHelp, agentList, archiveCurrentSession, setIsMinimized,
@@ -26,6 +28,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
         pendingConfirmation, cancelPendingAction, confirmPendingAction, pendingRewindIndex,
         confirmConversationRewind
     } = controller;
+    const learningVisible = showLearning && !notebookId && !readOnly;
     if (!isOpen && !embedded) {
         return <ChatDock isDockOpen={isDockOpen} agentIcon={agentIcon} setIsDockOpen={setIsDockOpen} setIsOpen={setIsOpen} />;
     }
@@ -34,7 +37,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
         <div
             className={embedded ? 'gnosi-embedded-chat' : 'gnosi-floating-panel gnosi-floating-panel--chat'}
             tabIndex={0}
-            onKeyDown={handleChatKeyDown}
+            onKeyDown={learningVisible ? undefined : handleChatKeyDown}
             style={{
             position: embedded ? 'relative' : 'fixed',
             bottom: embedded ? 'auto' : 'max(16px, env(safe-area-inset-bottom))',
@@ -55,8 +58,17 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
 
             {!isMinimized && (
                 <>
-                    {/* Missatges */}
-                    <div ref={messagesContainerRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {!notebookId && !readOnly && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={isLoading || !selectedAgentId} onClick={() => { setLearningGoal(''); setShowLearning(value => !value); }}>{t('learning.title')}</button>}
+                    {learningVisible && <ConversationLearning
+                        key={`${browserStorageScope}:${selectedAgentId}:${sessionId}`}
+                        agentId={selectedAgentId} sessionId={sessionId} contextRefs={contextRefs} initialGoal={learningGoal}
+                        lastResult={[...messages].reverse().find(message => message.role === 'assistant')?.content}
+                        hasConversation={messages.some(message => message.role === 'user')}
+                        onRequestConsumed={() => { setLearningGoal(''); }}
+                        onClose={() => { setLearningGoal(''); setShowLearning(false); }}
+                    />}
+                    {/* Messages */}
+                    <div ref={messagesContainerRef} style={{ display: learningVisible ? 'none' : 'flex', flex: 1, padding: '20px', overflowY: 'auto', flexDirection: 'column', gap: '16px' }}>
                         {showSessionsView && (
                             <ChatSessionList sortedSessions={sortedSessions} setShowSessionsView={setShowSessionsView} selectSession={(id) => { void selectSession(id); }} deleteSessionById={(id) => { void deleteSessionById(id); }} />
                         )}
@@ -113,7 +125,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                     </div>
 
                     {/* Input Area */}
-                    <ChatComposer
+                    {!learningVisible && <ChatComposer
                         readOnly={readOnly}
                         embedded={embedded}
                         isLoading={isLoading}
@@ -136,7 +148,7 @@ export function ChatPanelView({ controller }: { controller: ReturnType<typeof us
                         removeAttachment={removeAttachment}
                         applyMention={applyMention}
                         createNewSession={createNewSession}
-                    />
+                    />}
                 </>
             )}
             <ConfirmModal

@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_learning_models.py
+  - backend/services/agent_learning_capture.py
+  - backend/services/agent_learning_generation.py
+  - backend/services/agent_learning_packages.py
+  - backend/services/agent_learning_projects.py
+  - frontend/src/features/agent-learning
   - backend/services/llm_wiki_agent.py
   - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
@@ -61,6 +67,11 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_learning.py
+  - backend/tests/test_agent_learning_api.py
+  - frontend/src/features/agent-learning/ConversationLearning.test.tsx
+  - frontend/src/features/agent-learning/MemorySettings.test.tsx
+  - frontend/src/features/agent-learning/learningIntent.test.ts
   - backend/tests/test_principal_assistant_plugins.py
   - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
@@ -1206,3 +1217,13 @@ Les nouvelles automatisations commencent avec l’assistant principal et ne prop
 Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal.
 
 Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence. Les affectations utilisent les interrupteurs accessibles partagés ; les compétences obligatoires restent verrouillées et les affectations indisponibles peuvent être retirées.
+
+## Apprentissage des conversations et mémoire modifiable
+
+Le panneau d’apprentissage du dialogue privé regroupe les instructions du projet, les sources sélectionnées et les références de résultats. Les demandes explicites comme « Retiens que… » créent des souvenirs dont l’origine est identifiable ; les citations et références ambiguës ne le font pas. Les souvenirs sont isolés par espace de connaissances, assistant et utilisateur, avec des portées supplémentaires par projet ou compétence. Paramètres → IA → Mémoire permet de rechercher, filtrer, modifier, activer, définir une expiration et supprimer. Les modifications refusent les révisions périmées. Supprimer un projet dissocie ses conversations et désactive ses souvenirs.
+
+L’extraction de compétences utilise la conversation privée enregistrée et le modèle configuré de l’assistant sélectionné. L’utilisateur examine la procédure, les critères, les exemples synthétiques et les modèles de texte avant leur enregistrement dans le catalogue existant. L’affectation reste une action explicite d’administration. L’essai avec un second cas n’exécute aucun outil : une évaluation distincte du modèle fournit des preuves pour chaque critère et l’utilisateur décide de conserver l’exemple. Il ne certifie ni les actions externes ni l’exactitude des résultats.
+
+Les paquets JSON `gnosi-skill-v1` comprennent les instructions, dépendances, critères, exemples et ressources textuelles. L’importation valide la taille et les noms avant examen ; elle n’enregistre ni n’affecte automatiquement. L’exportation exclut les souvenirs personnels et l’historique des conversations. L’exécution incorpore les critères et ressources sans élargir les permissions. La migration additive `personal_memory_0002` conserve les souvenirs et crée les liens privés entre projets et conversations.
+
+Validation : `backend/tests/test_agent_learning.py` vérifie la capture, la propriété, les portées, l’expiration, les révisions, les paquets et les échecs des essais. Les tests de l’interface vérifient la lecture seule, la conservation de la portée, les demandes d’apprentissage et les notifications sans doublons.

@@ -1,3 +1,4 @@
+import { SkillPackageTools } from '../../agent-learning';
 import {
     AlertTriangle,
     ChevronDown,
@@ -29,6 +30,8 @@ import {
 
 interface SkillCardProps {
     readonly expanded: boolean;
+    readonly trialAgentId?: string;
+    readonly onPackageSaved?: () => void;
     readonly baseSkill?: NormalizedSkill;
     readonly automationNames?: readonly string[];
     readonly agentNames?: ReadonlyMap<string, string>;
@@ -97,6 +100,8 @@ function SkillDetails({
 
 export function SkillCard({
     expanded,
+    trialAgentId = '',
+    onPackageSaved,
     baseSkill,
     automationNames = [],
     agentNames,
@@ -160,6 +165,7 @@ export function SkillCard({
                 ) : null}
             </div>
             {expanded ? <>
+                <SkillPackageTools skillId={skill.id} agentId={trialAgentId} canEdit={canEdit} onSaved={onPackageSaved} />
                 {resourceExample(t, skill) && <p className="ai-resource-details">{t('settings.ai.resources.example')}: {resourceExample(t, skill)}</p>}
                 {(skill.metadata?.required_source_ids || baseSkill?.metadata?.required_source_ids)?.length ? <p className="ai-resource-details">{t('settings.ai.resources.required_sources')}: {(skill.metadata?.required_source_ids || baseSkill?.metadata?.required_source_ids || []).map(id => domainLabel(t, id)).join(', ')}</p> : null}
                 {skill.required && <p className="ai-resource-details">{t('settings.ai.resources.required_skill')} · {t('settings.ai.resources.required_copy_help')}</p>}

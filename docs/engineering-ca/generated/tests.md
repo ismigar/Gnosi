@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 553 | 2319 |
-| pytest | 538 | 3802 |
+| Vitest | 556 | 2324 |
+| pytest | 540 | 3816 |
 
 ## Fitxers
 
@@ -60,6 +60,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/app/startup.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/startup.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-context/AgentContextSources.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/AgentContextSources.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent-context/model/vaultAgentContext.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.test.ts) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent-learning/ConversationLearning.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/ConversationLearning.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent-learning/MemorySettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/MemorySettings.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent-learning/learningIntent.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/learningIntent.test.ts) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/AgentChatLauncher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/AgentChatLauncher.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/AgentConfirmations.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/AgentConfirmations.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/AgentChat.transport.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/AgentChat.transport.test.tsx) | 8 | call-pattern estimate |
@@ -67,7 +70,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/agent/chat/ChatComposer.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatComposer.test.tsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/ChatMessageRow.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatMessageRow.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/MessageDetails.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.test.tsx) | 7 | call-pattern estimate |
-| Vitest | [`frontend/src/features/agent/chat/applyChatStreamEvent.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/applyChatStreamEvent.test.ts) | 8 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent/chat/applyChatStreamEvent.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/applyChatStreamEvent.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/chat-message-actions.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chat-message-actions.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/chatDiagnostics.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chatDiagnostics.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/chatPersistence.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chatPersistence.test.ts) | 3 | call-pattern estimate |
@@ -616,6 +619,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_factory_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_factory_facade.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_governance_response_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_governance_response_contracts.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_agent_learning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_learning.py) | 13 | Python AST |
+| pytest | [`backend/tests/test_agent_learning_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_learning_api.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_agent_legacy_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_legacy_memory.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_observability_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_contracts.py) | 28 | Python AST |
 | pytest | [`backend/tests/test_agent_observability_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_observability_policy.py) | 2 | Python AST |

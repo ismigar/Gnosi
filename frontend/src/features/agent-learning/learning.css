@@ -1,0 +1,37 @@
+@import "../../shared/ui/settings/SettingsSectionTabs.css";
+
+.agent-learning {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    color: var(--text-primary);
+}
+.agent-learning__toolbar, .agent-learning__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.agent-learning__toolbar > :first-child { flex: 1; min-width: 0; }
+.agent-learning__card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--settings-border);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    overflow-wrap: anywhere;
+}
+.agent-learning label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
+.agent-learning input, .agent-learning textarea, .agent-learning select { width: 100%; min-width: 0; }
+.agent-learning textarea { resize: vertical; font-family: inherit; }
+.agent-learning .agent-learning__toggle { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+.agent-learning__muted { color: var(--text-secondary); font-size: 0.85rem; margin: 0; }
+.agent-learning__error { color: var(--text-danger, var(--text-primary)); border: 1px solid currentColor; padding: 10px; border-radius: 8px; }
+.agent-learning pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; margin: 0; }
+.agent-learning__panel { padding: 16px; overflow-y: auto; flex: 1; min-height: 0; }
+.agent-learning details > summary { cursor: pointer; }
+.agent-learning__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.agent-learning__meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--text-secondary); font-size: 0.75rem; }
