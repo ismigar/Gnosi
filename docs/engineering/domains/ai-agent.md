@@ -1004,3 +1004,9 @@ New automations start with the principal assistant and only offer its assigned s
 Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant.
 
 Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.
+
+## Instruction language
+
+Skill instructions are saved and executed exactly as authored, in any language. The catalogue offers an explicit translation into the active interface language using the configured AI provider. This reading aid is shown alongside the original and never changes saved or executed instructions. Opening a skill does not request translation. Successful translations are cached only in memory, scoped by vault, original text and target language. Failures leave the original available and can be retried.
+
+The translation action uses a compact button aligned to the right. Provider rate-limit or quota failures have a specific message; the original remains visible.

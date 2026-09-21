@@ -2609,7 +2609,12 @@
         "no_automations": "No automations use this skill.",
         "required_sources": "Required sources",
         "required_copy_help": "The copy does not replace the mandatory assignment of the original.",
-        "assignment_partial_error": "Assignment could not be completed. Changes already saved are preserved."
+        "assignment_partial_error": "Assignment could not be completed. Changes already saved are preserved.",
+        "instructions_translating": "Translating instructions…",
+        "instructions_translation_error": "The instructions could not be translated. Showing the saved text.",
+        "instructions_translate": "Translate into English",
+        "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
+        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
