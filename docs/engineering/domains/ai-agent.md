@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_learning_models.py
+  - backend/services/agent_learning_capture.py
+  - backend/services/agent_learning_generation.py
+  - backend/services/agent_learning_packages.py
+  - backend/services/agent_learning_projects.py
+  - frontend/src/features/agent-learning
   - backend/services/llm_wiki_agent.py
   - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
@@ -66,6 +72,11 @@ source_paths:
 tests:
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
+  - backend/tests/test_agent_learning.py
+  - backend/tests/test_agent_learning_api.py
+  - frontend/src/features/agent-learning/ConversationLearning.test.tsx
+  - frontend/src/features/agent-learning/MemorySettings.test.tsx
+  - frontend/src/features/agent-learning/learningIntent.test.ts
   - backend/tests/test_principal_assistant_plugins.py
   - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
@@ -1022,6 +1033,22 @@ New automations start with the principal assistant and only offer its assigned s
 Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant. An explicit Brain agent selection takes precedence over these defaults.
 
 Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.
+
+## Conversation learning and editable memory
+
+The private chat learning panel groups project instructions, selected sources and result references. Explicit requests such as “Remember that…” create traceable memories; quoted text and ambiguous references do not. Memories are isolated by vault, assistant and user, with additional project or skill scopes. Settings → AI → Memory supports search, filters, editing, activation, expiry and deletion. Updates reject stale revisions. Deleting a project unlinks its sessions and disables its scoped memories.
+
+Conversation-to-skill extraction uses the saved private transcript and the selected assistant’s configured model. The user reviews the procedure, acceptance criteria, synthetic examples and text templates before saving to the existing skill catalog. Assignment remains an explicit administrator action. A second-case trial makes no tool calls: a separate model review reports evidence for each criterion, and the user decides whether to keep the example. It does not certify external actions or factual correctness.
+
+Portable `gnosi-skill-v1` JSON packages include instructions, tool dependencies, criteria, examples and text resources. Import validates size and resource names before review; it never automatically saves or assigns a skill. Export excludes personal memories and conversation history. Runtime instructions include the saved criteria and resources without expanding tool permissions. The additive `personal_memory_0002` migration preserves existing memories and creates private project/session bindings.
+
+Validation: `backend/tests/test_agent_learning.py` covers capture, ownership, scopes, expiry, stale revisions, package boundaries and trial failures. Frontend tests cover read-only memory management, scope-preserving changes, learning intent and replay-safe acknowledgements.
+
+## Contextual source reading
+
+The source button and chat use the same durable processing job and the assigned `plugin.llm-wiki.process-source` skill. The job freezes the selected profile, model and effective instructions. A missing skill or disabled profile fails explicitly. The skill owns interpretation, attribution, evidence requests and review; the application enforces budgets, citations, persistence and indexes.
+
+Reading follows structural fragments with neighbouring context, section maps and a hierarchical global map. Extraction and review can request distant original passages. Every primary fragment is accounted for, and proposed notes are reviewed against a joint overview before writing. Coverage and exact quotations establish provenance, not guaranteed semantic correctness. Checkpoints are reused only when their source and execution inputs match; legacy unreviewed write plans are invalidated. Progress and reading observations appear in the processing dialog.
 
 ## Instruction language
 

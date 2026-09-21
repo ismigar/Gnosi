@@ -8372,6 +8372,32 @@
         "title": "CredentialStatus",
         "type": "object"
       },
+      "CriterionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "maxLength": 1000,
+            "title": "Criterion",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 2000,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "met": {
+            "title": "Met",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "criterion",
+          "met",
+          "evidence"
+        ],
+        "title": "CriterionResult",
+        "type": "object"
+      },
       "CslStyleResponse": {
         "additionalProperties": true,
         "properties": {
@@ -12828,6 +12854,196 @@
         "type": "object"
       },
       "JsonValue": {},
+      "LearnRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "goal": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Goal",
+            "type": "string"
+          },
+          "language": {
+            "default": "en",
+            "enum": [
+              "ca",
+              "en",
+              "es",
+              "fr"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "session_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_id",
+          "session_id"
+        ],
+        "title": "LearnRequest",
+        "type": "object"
+      },
+      "LearnedSkill": {
+        "additionalProperties": false,
+        "properties": {
+          "criteria": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Criteria",
+            "type": "array"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/SkillExample"
+            },
+            "maxItems": 8,
+            "title": "Examples",
+            "type": "array"
+          },
+          "instructions": {
+            "maxLength": 24000,
+            "minLength": 1,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/SkillResource"
+            },
+            "maxItems": 12,
+            "title": "Resources",
+            "type": "array"
+          },
+          "tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Tool Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "instructions",
+          "criteria"
+        ],
+        "title": "LearnedSkill",
+        "type": "object"
+      },
+      "LearningProject": {
+        "additionalProperties": false,
+        "properties": {
+          "context_refs": {
+            "items": {
+              "$ref": "#/components/schemas/TurnContextRef"
+            },
+            "maxItems": 16,
+            "title": "Context Refs",
+            "type": "array"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instructions": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 40,
+            "title": "Results",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "revision",
+          "updated_at"
+        ],
+        "title": "LearningProject",
+        "type": "object"
+      },
+      "LearningWorkspace": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "default": "",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/LearningProject"
+            },
+            "title": "Projects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "projects"
+        ],
+        "title": "LearningWorkspace",
+        "type": "object"
+      },
       "LevelingApplyResponse": {
         "description": "Result of applying a current, ETag-validated proposal.",
         "properties": {
@@ -25787,6 +26003,18 @@
             "title": "Provenance",
             "type": "string"
           },
+          "scope_id": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Scope Id",
+            "type": "string"
+          },
+          "scope_kind": {
+            "default": "personal",
+            "pattern": "^(personal|project|skill)$",
+            "title": "Scope Kind",
+            "type": "string"
+          },
           "text": {
             "maxLength": 4000,
             "minLength": 1,
@@ -25839,6 +26067,26 @@
           "revision": {
             "title": "Revision",
             "type": "integer"
+          },
+          "scope_id": {
+            "default": "",
+            "title": "Scope Id",
+            "type": "string"
+          },
+          "scope_kind": {
+            "default": "personal",
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "source_session_id": {
+            "default": "",
+            "title": "Source Session Id",
+            "type": "string"
+          },
+          "source_turn_id": {
+            "default": "",
+            "title": "Source Turn Id",
+            "type": "string"
           },
           "text": {
             "title": "Text",
@@ -26455,6 +26703,69 @@
           "results"
         ],
         "title": "ProcessedPublicationResponse",
+        "type": "object"
+      },
+      "ProjectBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "title": "ProjectBinding",
+        "type": "object"
+      },
+      "ProjectDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "context_refs": {
+            "items": {
+              "$ref": "#/components/schemas/TurnContextRef"
+            },
+            "maxItems": 16,
+            "title": "Context Refs",
+            "type": "array"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
+          },
+          "instructions": {
+            "default": "",
+            "maxLength": 8000,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 40,
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectDraft",
         "type": "object"
       },
       "ProjectScheduleResponse": {
@@ -29186,6 +29497,63 @@
         "title": "RoleUpdateRequest",
         "type": "object"
       },
+      "SaveLearningRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "assign": {
+            "default": false,
+            "title": "Assign",
+            "type": "boolean"
+          },
+          "session_id": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Session Id",
+            "type": "string"
+          },
+          "skill": {
+            "$ref": "#/components/schemas/LearnedSkill"
+          }
+        },
+        "required": [
+          "skill",
+          "agent_id"
+        ],
+        "title": "SaveLearningRequest",
+        "type": "object"
+      },
+      "SavedLearning": {
+        "additionalProperties": false,
+        "properties": {
+          "assigned": {
+            "title": "Assigned",
+            "type": "boolean"
+          },
+          "missing_tools": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Tools",
+            "type": "array"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skill_id",
+          "assigned"
+        ],
+        "title": "SavedLearning",
+        "type": "object"
+      },
       "ScheduleDiagnosticResponse": {
         "additionalProperties": true,
         "description": "Scheduling diagnostic for one task, several tasks, or the project.",
@@ -30153,6 +30521,36 @@
         "title": "SkillDescriptor",
         "type": "object"
       },
+      "SkillExample": {
+        "additionalProperties": false,
+        "properties": {
+          "expected": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Expected",
+            "type": "string"
+          },
+          "input": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "input",
+          "expected"
+        ],
+        "title": "SkillExample",
+        "type": "object"
+      },
       "SkillKind": {
         "description": "Supported skill package categories.",
         "enum": [
@@ -30163,6 +30561,103 @@
         ],
         "title": "SkillKind",
         "type": "string"
+      },
+      "SkillPackage": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "const": "gnosi-skill-v1",
+            "default": "gnosi-skill-v1",
+            "title": "Format",
+            "type": "string"
+          },
+          "skill": {
+            "$ref": "#/components/schemas/LearnedSkill"
+          }
+        },
+        "required": [
+          "skill"
+        ],
+        "title": "SkillPackage",
+        "type": "object"
+      },
+      "SkillResource": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 16000,
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[\\w.-]+\\.(?:md|txt|json|csv|yaml)$",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "content"
+        ],
+        "title": "SkillResource",
+        "type": "object"
+      },
+      "SkillTrialRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "input": {
+            "maxLength": 12000,
+            "minLength": 1,
+            "title": "Input",
+            "type": "string"
+          },
+          "skill": {
+            "$ref": "#/components/schemas/LearnedSkill"
+          }
+        },
+        "required": [
+          "skill",
+          "agent_id",
+          "input"
+        ],
+        "title": "SkillTrialRequest",
+        "type": "object"
+      },
+      "SkillTrialResult": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CriterionResult"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "mode": {
+            "const": "text_trial",
+            "default": "text_trial",
+            "title": "Mode",
+            "type": "string"
+          },
+          "output": {
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output",
+          "checks"
+        ],
+        "title": "SkillTrialResult",
+        "type": "object"
       },
       "SkippedReferenceDetailResponse": {
         "additionalProperties": true,
@@ -34832,6 +35327,281 @@
         "summary": "List Internal Context Sources"
       }
     },
+    "/api/ai/agents/{agent_id}/learning": {
+      "get": {
+        "operationId": "get_learning_workspace_api_ai_agents__agent_id__learning_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "session_id",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningWorkspace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Learning Workspace",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/agents/{agent_id}/learning/{session_id}": {
+      "put": {
+        "operationId": "bind_learning_project_api_ai_agents__agent_id__learning__session_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectBinding"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningWorkspace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind Learning Project",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
     "/api/ai/agents/{agent_id}/memories": {
       "get": {
         "operationId": "get_agent_memories_api_ai_agents__agent_id__memories_get",
@@ -35352,6 +36122,411 @@
           }
         },
         "summary": "Edit Agent Memory",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/agents/{agent_id}/projects": {
+      "post": {
+        "operationId": "create_learning_project_api_ai_agents__agent_id__projects_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningProject"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Learning Project",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/agents/{agent_id}/projects/{project_id}": {
+      "delete": {
+        "operationId": "remove_learning_project_api_ai_agents__agent_id__projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningWorkspace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Learning Project",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      },
+      "put": {
+        "operationId": "update_learning_project_api_ai_agents__agent_id__projects__project_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectDraft"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningProject"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Learning Project",
         "tags": [
           "AI Skills",
           "AI Skills"
@@ -38223,6 +39398,506 @@
         ]
       }
     },
+    "/api/ai/learning/draft": {
+      "post": {
+        "description": "Extract an editable draft from the caller's canonical private conversation.",
+        "operationId": "create_learning_draft_api_ai_learning_draft_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearnedSkill"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Learning Draft",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/learning/package/validate": {
+      "post": {
+        "description": "Validate an imported text-only package without saving or assigning it.",
+        "operationId": "validate_learning_package_api_ai_learning_package_validate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillPackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillPackage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Learning Package",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/learning/skills": {
+      "post": {
+        "description": "Publish the reviewed draft to the existing catalog, optionally assigning it.",
+        "operationId": "save_learned_skill_api_ai_learning_skills_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveLearningRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedLearning"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Learned Skill",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/learning/trial": {
+      "post": {
+        "description": "Run a new text case and a separate rubric review, without side effects.",
+        "operationId": "run_learning_trial_api_ai_learning_trial_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillTrialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillTrialResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Learning Trial",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
     "/api/ai/model-catalog": {
       "get": {
         "description": "Provider \u2192 model catalog (ids + cost/context/capabilities) feeding the\nregistry UI dropdowns. Sources: models.dev (day-cached) \u2192 disk cache \u2192\nvendored JSON, plus the live Ollama model list. Each provider is annotated\nwith `connected` (credential/env present, or local) so the UI can group\nusable providers and flag registry rows the router would skip. to_thread:\nthe loader does blocking I/O (disk + short HTTP fetches) and must not\nfreeze the event loop.",
@@ -40442,6 +42117,130 @@
           }
         },
         "summary": "Clone Skill",
+        "tags": [
+          "AI Skills",
+          "AI Skills"
+        ]
+      }
+    },
+    "/api/ai/skills/{skill_id}/package": {
+      "get": {
+        "description": "Export procedure, explicit examples and text resources, never private memory.",
+        "operationId": "export_learning_package_api_ai_skills__skill_id__package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillPackage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Learning Package",
         "tags": [
           "AI Skills",
           "AI Skills"

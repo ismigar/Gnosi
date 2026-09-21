@@ -1,3 +1,4 @@
+import { isLearningRequest } from '../../agent-learning';
 import { useState, useRef, useEffect, useEffectEvent, useCallback, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useExclusiveFloatingPanel } from '../../../shared/hooks/useExclusiveFloatingPanel';
@@ -35,6 +36,9 @@ export function useAgentChatController({
     const { isOpen, setIsOpen, isMinimized, setIsMinimized } = useChatPanelState(embedded, initiallyOpen);
     const [messages, setMessages] = useState<readonly StoredChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
+    const [showLearning, setShowLearning] = useState(false);
+    const [learningGoal, setLearningGoal] = useState('');
+    const [learningScope, setLearningScope] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState('');
     const [selectedAgentId, setSelectedAgentId] = useState('');
@@ -206,6 +210,13 @@ export function useAgentChatController({
 
     const handleSubmit = (event: Pick<SyntheticEvent, 'preventDefault'>) => {
         event.preventDefault();
+        if (!notebookId && !readOnly && !isLoading && isLearningRequest(inputValue)) {
+            setLearningGoal(inputValue);
+            setLearningScope(`${browserStorageScope}:${selectedAgentId}:${sessionId}`);
+            setShowLearning(true);
+            setInputValue('');
+            return Promise.resolve();
+        }
         return submitChatTurn({
             t, inputValue, attachments, readOnly, isLoading, agentHasModel, selectedMentions,
             processingStartedAtRef, setMessages, setInputValue, clearDraftMentions,
@@ -261,6 +272,9 @@ export function useAgentChatController({
         requestAbortRef.current?.abort();
     };
     return {
+        showLearning, setShowLearning,
+        learningGoal: learningScope === `${browserStorageScope}:${selectedAgentId}:${sessionId}` ? learningGoal : '',
+        setLearningGoal, sessionId, browserStorageScope,
         t, embedded, readOnly, notebookId, conversationMode, storageIdentity, contextRefs,
         isOpen, isDockOpen, agentIcon, setIsDockOpen, setIsOpen, isMinimized, handleChatKeyDown,
         isLoading, runtimeLimited, agentHasModel, agentName, selectedAgentId, runtimeStatusLabel,

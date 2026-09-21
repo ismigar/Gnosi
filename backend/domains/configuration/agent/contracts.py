@@ -77,6 +77,8 @@ class PersonalMemoryPayload(BaseModel):
     text: str = Field(min_length=1, max_length=4_000)
     category: str = Field(default="preference", max_length=48)
     provenance: str = Field(default="user", max_length=96)
+    scope_kind: str = Field(default="personal", pattern=r"^(personal|project|skill)$")
+    scope_id: str = Field(default="", max_length=160)
     expires_at: Optional[str] = Field(default=None, max_length=40)
     enabled: bool = True
     expected_revision: Optional[int] = Field(default=None, ge=1)

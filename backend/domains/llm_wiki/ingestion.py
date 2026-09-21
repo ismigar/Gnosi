@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast
 
-from backend.domains.llm_wiki.recovery import call_with_retry
+from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
 from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import iterable_values
 
@@ -103,6 +102,10 @@ class IngestionDependencies:
     clock: Callable[[], float]
     logger: logging.Logger
     phases: IngestionPhases
+    execution_revision: str = ""
+    execution_metadata: dict[str, object] | None = None
+    input_budget: int = 24000
+    count_tokens: Callable[[str], int] = lambda text: len(text.encode("utf-8"))
 
 
 @dataclass(frozen=True)
@@ -162,12 +165,15 @@ def process_resource(
         resolved_config,
         metadata,
     )
+    reading_revision = fingerprint([dependencies.execution_revision, source_title, language,
+                                    source_dimensions, ai_dimensions, brain_index, sources.chunks])
     plan, models = _resolve_plan(
         source_title,
         language,
         sources,
         brain_index,
         ai_dimensions,
+        reading_revision,
         resume_checkpoint,
         resume_job_id,
         job_id,
@@ -182,6 +188,7 @@ def process_resource(
         sources.origins,
         job_id,
         dependencies,
+        reading_revision,
     )
     result = dependencies.apply_plan(
         plan,
@@ -200,6 +207,7 @@ def process_resource(
         sources.warnings,
         dependencies,
     )
+    sources.warnings.extend(str(w) for w in iterable_values(plan.get("warnings", [])) if isinstance(w, str))
     model = next((item for item in reversed(models) if item), "")
     report = _build_report(
         sources,
@@ -209,6 +217,9 @@ def process_resource(
         model,
         annotation_report,
     )
+    report["execution"] = dependencies.execution_metadata or {}
+    report["coverage"] = plan.get("coverage", [])
+    report["reviewed"] = plan.get("reviewed", False)
     _save_manifest(
         resolved_table_id,
         source_page_id,
@@ -278,6 +289,7 @@ def _resolve_plan(
     sources: _PreparedSources,
     brain_index: list[dict[str, object]],
     ai_dimensions: list[dict[str, object]],
+    reading_revision: str,
     resume_checkpoint: dict[str, object] | None,
     resume_job_id: str,
     job_id: str,
@@ -290,7 +302,10 @@ def _resolve_plan(
         if resume_checkpoint
         else []
     )
-    if checkpoint_plan and checkpoint_hashes == current_hashes:
+    if (checkpoint_plan and checkpoint_hashes == current_hashes
+            and resume_checkpoint is not None
+            and resume_checkpoint.get("reading_revision") == reading_revision
+            and checkpoint_plan.get("reviewed") is True):
         model = str(resume_checkpoint.get("model") or "") if resume_checkpoint else ""
         if job_id:
             dependencies.update_job(
@@ -301,116 +316,10 @@ def _resolve_plan(
                 model=model or None,
             )
         return checkpoint_plan, [model]
-    return _generate_plan(
-        source_title,
-        language,
-        sources,
-        brain_index,
-        ai_dimensions,
-        resume_job_id,
-        job_id,
-        dependencies,
-    )
-
-
-def _generate_plan(
-    source_title: str,
-    language: str,
-    sources: _PreparedSources,
-    brain_index: list[dict[str, object]],
-    ai_dimensions: list[dict[str, object]],
-    resume_job_id: str,
-    job_id: str,
-    dependencies: IngestionDependencies,
-) -> tuple[dict[str, object], list[str]]:
-    plans: list[tuple[dict[str, object], dict[str, object]]] = []
-    models: list[str] = []
-    for chunk_index, chunk in enumerate(sources.chunks, start=1):
-        prompt = dependencies.build_prompt(
-            chunk,
-            source_title,
-            brain_index,
-            language,
-            ai_dimensions,
-        )
-        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-        cached = (
-            dependencies.load_checkpoint(resume_job_id, f"plan-{chunk_index}")
-            if resume_job_id else None
-        )
-        if (
-            is_record(cached)
-            and cached.get("prompt_hash") == prompt_hash
-            and cached.get("chunk") == chunk
-            and is_record(cached.get("plan"))
-        ):
-            chunk_plan = dict(cast(dict[str, object], cached["plan"]))
-            model = str(cached.get("model") or "")
-        else:
-            raw, model = call_with_retry(
-                lambda timeout: dependencies.generate_text(
-                    prompt, user_message=source_title, timeout=timeout,
-                ),
-                on_wait=lambda: _set_planning_phase(job_id, dependencies.phases.retrying, dependencies),
-                on_attempt=lambda: _set_planning_phase(job_id, dependencies.phases.planning, dependencies),
-            )
-            chunk_plan = dependencies.parse_plan(raw)
-        models.append(model)
-        plans.append((chunk, chunk_plan))
-        _record_chunk_progress(
-            chunk_index,
-            chunk,
-            chunk_plan,
-            model,
-            prompt_hash,
-            len(sources.chunks),
-            job_id,
-            dependencies,
-        )
-    notes, grounding_warnings = dependencies.reduce_plans(
-        plans,
-        sources.origins,
-        ai_dimensions,
-    )
-    sources.warnings.extend(grounding_warnings)
-    if not notes:
-        raise RuntimeError("The model produced no grounded atomic reading notes")
-    summary = "\n\n".join(
-        str(item.get("summary") or "").strip()
-        for _chunk, item in plans
-        if str(item.get("summary") or "").strip()
-    )
-    return {"summary": summary, "notes": notes}, models
-
-
-def _set_planning_phase(job_id: str, phase: str, dependencies: IngestionDependencies) -> None:
-    if job_id:
-        dependencies.update_job(job_id, phase=phase)
-
-
-def _record_chunk_progress(
-    chunk_index: int,
-    chunk: dict[str, object],
-    chunk_plan: dict[str, object],
-    model: str,
-    prompt_hash: str,
-    chunk_count: int,
-    job_id: str,
-    dependencies: IngestionDependencies,
-) -> None:
-    if not job_id:
-        return
-    dependencies.save_checkpoint(
-        job_id,
-        f"plan-{chunk_index}",
-        {"chunk": chunk, "plan": chunk_plan, "model": model, "prompt_hash": prompt_hash},
-    )
-    dependencies.update_job(
-        job_id,
-        chunks_done=chunk_index,
-        model=model,
-        progress=10 + round(60 * chunk_index / max(1, chunk_count)),
-    )
+    return ContextualReader(
+        dependencies, sources.chunks, sources.origins, source_title, language,
+        brain_index, ai_dimensions, job_id, resume_job_id,
+    ).run()
 
 
 def _persist_reduced_plan(
@@ -419,6 +328,7 @@ def _persist_reduced_plan(
     origins: list[dict[str, object]],
     job_id: str,
     dependencies: IngestionDependencies,
+    reading_revision: str,
 ) -> None:
     if not job_id:
         return
@@ -427,6 +337,7 @@ def _persist_reduced_plan(
         "reduced-plan",
         {
             "plan": plan,
+            "reading_revision": reading_revision,
             "origin_hashes": [str(origin.get("content_hash") or "") for origin in origins],
             "model": next((item for item in reversed(models) if item), ""),
         },
@@ -513,6 +424,9 @@ def _save_manifest(
             "last_job_id": job_id,
             "model": model,
             "warnings": sources.warnings,
+            "execution": report.get("execution", {}),
+            "reviewed": report.get("reviewed", False),
+            "coverage": report.get("coverage", []),
         }
     )
     dependencies.save_manifest(source_table_id, source_page_id, manifest)

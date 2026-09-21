@@ -1,3 +1,4 @@
+import { SkillPackageTools } from '../../agent-learning';
 import { useMemo, useState } from 'react';
 import {
     AlertTriangle,
@@ -176,6 +177,7 @@ export function SkillsSettingsPanel({
 
     return (
         <div className="ai-resources-panel">
+            <SkillPackageTools agentId={principalAgentId || agents[0]?.id || ''} canEdit={canEdit} onSaved={() => { void resources.reload(); }} />
             <div className="ai-resources-toolbar">
                 <SearchField
                     onChange={setSearch}
@@ -314,6 +316,8 @@ export function SkillsSettingsPanel({
                     {filtered.map((skill) => (
                         <SkillCard
                             expanded={expandedId === skill.id}
+                            trialAgentId={principalAgentId || agents[0]?.id || ''}
+                            onPackageSaved={() => { void resources.reload(); }}
                             baseSkill={resources.skills.find(base => base.id === skill.metadata?.derived_from?.id)}
                             automationNames={(resources.automations || []).filter(item => item.skill_id === skill.id).map(item => String(item.name))}
                             agentNames={new Map(agents.map(agent => [agent.id, agent.name || agent.id]))}

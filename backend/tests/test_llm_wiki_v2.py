@@ -1053,6 +1053,7 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
     origin = _origin("A grounded idea that was already planned.")
     segment_id = origin["segments"][0]["id"]
     plan = {
+        "reviewed": True,
         "summary": "Stored summary",
         "notes": [{
             "title": "Stored atomic idea",
@@ -1133,6 +1134,16 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
         lambda *_args, **_kwargs: pytest.fail("A matching write checkpoint must not call the LLM"),
     )
 
+    from types import SimpleNamespace
+    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.contextual_reading import fingerprint
+    from backend.services.llm_wiki_reading_runtime import token_bound
+    monkeypatch.setattr("backend.services.llm_wiki_reading_runtime.prepare_reading_runtime",
+                        lambda *_: SimpleNamespace(
+                            generate=lambda *_a, **_k: pytest.fail("Matching reviewed checkpoint must be reused"),
+                            identity="v2", metadata={}, input_budget=24000))
+    revision = fingerprint(["v2", "Resource", "English", {}, [], [],
+                            reading_chunks([origin], budget=4800, count=token_bound)])
     report = llm_wiki.process_resource(
         "resource-1",
         "Resource",
@@ -1145,6 +1156,7 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
         source_config={"table_id": "sources"},
         resume_checkpoint={
             "plan": plan,
+            "reading_revision": revision,
             "origin_hashes": [origin["content_hash"]],
             "model": "stored-model",
         },

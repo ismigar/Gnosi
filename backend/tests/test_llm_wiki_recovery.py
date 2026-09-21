@@ -187,8 +187,32 @@ def ingest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(llm_wiki_storage, "local_root", lambda: tmp_path)
     monkeypatch.setattr(llm_wiki_storage, "_JOBS", {})
     monkeypatch.setattr(llm_wiki_storage, "_RUNNING_BY_RESOURCE", {})
-    origins = [{"content_hash": "source-v1", "segments": []}]
-    chunks = [{"id": "one"}, {"id": "two"}]
+    chunks = [{"id": key, "origin_id": "source", "origin_label": "Book", "kind": "text",
+               "segments": [{"id": key, "text": f"Evidence {key}", "locator": {}}]}
+              for key in ("one", "two")]
+    origins = [{"origin_id": "source", "content_hash": "source-v1",
+                "segments": [chunk["segments"][0] for chunk in chunks]}]
+    monkeypatch.setattr("backend.domains.llm_wiki.chunking.reading_chunks", lambda *_args, **_kwargs: chunks)
+    def generate_phase(prompt, **kwargs):
+        from backend.services.llm_wiki_generation import configured_agent_id, generate_text
+        request = json.loads(prompt)
+        if request["phase"] in {"overview", "synthesis"}:
+            return json.dumps({"summary": "Global map"}), "test-model"
+        if request["phase"] == "extract":
+            raw, model = generate_text(prompt, agent_id=configured_agent_id(), **kwargs)
+            result = json.loads(raw)
+            segment = request["primary_segments"][0]
+            for note in result["notes"]:
+                note.update(title="Note", body_md="Evidence", source_segment_id=segment["id"],
+                            citations=[{"segment_id": segment["id"], "quote": segment["text"]}])
+        else:
+            result, model = {"notes": request["proposed_notes"], "summary": "Reviewed"}, "test-model"
+        result["coverage"] = [{"segment_id": seg["id"], "reason": "extracted"}
+                              for seg in request["primary_segments"]]
+        return json.dumps(result), model
+    monkeypatch.setattr("backend.services.llm_wiki_reading_runtime.prepare_reading_runtime",
+                        lambda *_: SimpleNamespace(generate=generate_phase, identity="skill-v2",
+                                                   metadata={}, input_budget=24000))
     monkeypatch.setattr(llm_wiki.llm_wiki_config, "load_config", lambda: {})
     monkeypatch.setattr(
         llm_wiki.llm_wiki_extractors, "extract_resource_sources", lambda *_args: (origins, []),
@@ -302,7 +326,7 @@ def test_chunk_retry_preserves_progress_and_writes_once(monkeypatch, clock, inge
     assert observed[0]["phase"] == "retrying"
     assert observed[0]["running"] is True
     assert observed[0]["chunks_done"] == 1
-    assert observed[0]["progress"] == 40
+    assert observed[0]["progress"] == 37
     assert generate.call_args_list[1] == generate.call_args_list[2]
     assert llm_wiki_storage.get_job_status(job_id)["chunks_done"] == 2
     apply.assert_called_once()
@@ -325,8 +349,8 @@ def test_resume_only_reuses_matching_completed_fragments(monkeypatch, clock, ing
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     run(job_id=second, resume_job_id=first, language="French" if changed == "language" else "English")
     assert generate.call_count == (1 if changed == "none" else 2)
-    assert llm_wiki_storage.load_checkpoint(second, "plan-1")
-    assert llm_wiki_storage.load_checkpoint(second, "plan-2")
+    assert llm_wiki_storage.load_checkpoint(second, "extract-0-0")
+    assert llm_wiki_storage.load_checkpoint(second, "extract-1-0")
     assert llm_wiki_storage.get_job_status(second)["chunks_done"] == 2
     apply.assert_called_once()
 
@@ -342,7 +366,7 @@ def test_failed_resume_carries_reused_fragments_into_the_next_job(monkeypatch, c
         with pytest.raises(RateLimitError):
             run(job_id=current, resume_job_id=previous)
         assert generate.call_count == (6 if attempt == 0 else 5)
-        assert llm_wiki_storage.load_checkpoint(current, "plan-1")
+        assert llm_wiki_storage.load_checkpoint(current, "extract-0-0")
         llm_wiki_storage.finish_job(current, phase="partial")
         previous = current
     apply.assert_not_called()
@@ -372,7 +396,7 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     status = llm_wiki_storage.get_job_status(str(first["job_id"]))
     assert status["phase"] == "partial"
     assert status["running"] is False
-    assert status["progress"] == 40
+    assert status["progress"] == 37
     assert "Rate limit" in status["error"]
     generate = Mock(side_effect=[answer("one"), answer("two")])
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)

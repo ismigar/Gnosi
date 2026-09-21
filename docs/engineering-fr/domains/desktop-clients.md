@@ -602,3 +602,5 @@ Le candidat `3.0.4` comprend la correction de préservation de l’enregistremen
 La constante du backend `GNOSI_VERSION` indique également `3.0.4` ; le test du contrat de l’API de santé la compare aux quatre manifestes de version.
 
 Il faut régénérer le document OpenAPI enregistré et son SHA-256 après modification de la version du backend. Pour ce candidat, la différence vérifiée du schéma se limite à la version de l’application ; les routes et les données restent inchangées.
+
+La liste des ressources vérifiées de l’application de bureau inclut `personal_memory_0002`, afin que les versions installées conservent les souvenirs existants tout en ajoutant les portées de mémoire et les projets privés d’apprentissage.

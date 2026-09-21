@@ -418,7 +418,12 @@ def process_resource(
     resume_job_id: str = "",
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
-    from backend.services.llm_wiki_generation import configured_agent_id, generate_text
+    from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime, token_bound
+    from backend.domains.llm_wiki.chunking import reading_chunks
+
+    runtime = prepare_reading_runtime(vault_root)
+    if job_id:
+        llm_wiki_storage.update_job(job_id, execution=runtime.metadata)
 
     dependencies = llm_wiki_ingestion.IngestionDependencies(
         load_config=llm_wiki_config.load_config,
@@ -427,15 +432,15 @@ def process_resource(
         update_job=llm_wiki_storage.update_job,
         extract_sources=llm_wiki_extractors.extract_resource_sources,
         save_snapshot=llm_wiki_storage.save_snapshot,
-        chunk_origins=llm_wiki_extractors.chunk_origins,
+        chunk_origins=partial(reading_chunks, budget=min(6000, runtime.input_budget // 5), count=token_bound),
         load_brain_index=_load_brain_index,
         dimension_context=_dimension_context,
         build_prompt=_build_chunk_prompt,
-        generate_text=cast(
-            Callable[..., tuple[str, str]],
-            partial(generate_text, agent_id=configured_agent_id(),
-                    operation="plugin.llm-wiki.process-source"),
-        ),
+        generate_text=runtime.generate,
+        execution_revision=runtime.identity,
+        execution_metadata=runtime.metadata,
+        input_budget=runtime.input_budget,
+        count_tokens=token_bound,
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,
         load_checkpoint=llm_wiki_storage.load_checkpoint,
@@ -552,6 +557,8 @@ def start_ingest(
                 updated=report["updated"],
                 model=report["model"],
                 warnings=report["warnings"],
+                reviewed=report.get("reviewed", False),
+                coverage=report.get("coverage", []),
                 index_report=index_report,
             )
         except Exception as exc:  # noqa: BLE001

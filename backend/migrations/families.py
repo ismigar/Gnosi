@@ -69,7 +69,7 @@ FAMILIES = {
         MigrationFamily(
             "personal_memory",
             "personal_memory",
-            ("personal_memory_0001",),
+            ("personal_memory_0001", "personal_memory_0002"),
         ),
         MigrationFamily("quality_telemetry", "quality_telemetry", ("quality_0001",)),
         MigrationFamily("agent_replay", "agent_replay", ("replay_0001",)),

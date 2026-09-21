@@ -10,6 +10,8 @@ from collections.abc import Callable
 
 from backend.utils.open_values import integer_value
 
+from backend.domains.llm_wiki.reading_skill import INSTRUCTIONS
+
 LocatorLabel = Callable[[dict[str, object]], str]
 NormalizeText = Callable[[object], str]
 ValidateDimensions = Callable[
@@ -49,19 +51,9 @@ def build_chunk_prompt(
         )
         or "(no AI-classified fields)"
     )
-    return f"""You maintain a persistent personal knowledge wiki using atomic Zettelkasten
-reading notes. Process this ordered SOURCE CHUNK completely.
+    return f"""{INSTRUCTIONS}
 
-Rules:
-- Write in {language}.
-- Each note contains exactly ONE idea. Split distinct ideas into distinct notes.
-- Preserve source order, not importance order.
-- Ground every note in at least one exact source segment.
-- citation.quote must be a verbatim substring of the cited segment.
-- Return source_segment_id for the segment where the idea first appears.
-- Never propose or create permanent notes.
-- Existing Brain notes are context for wikilinks only; do not ask to overwrite them.
-- For dimensions, use only the listed allowed labels. Omit a field when no label fits.
+Write in {language}.
 
 RESOURCE: {source_title}
 ORIGIN: {chunk.get("origin_label")} ({chunk.get("kind")})
@@ -151,7 +143,8 @@ def validate_and_reduce_plans(
     seen_evidence: set[tuple[str, str, str]] = set()
 
     for chunk, plan in plans:
-        chunk_segment_ids = {str(item.get("id")) for item in _mapping_list(chunk.get("segments"))}
+        primary_ids = {str(item.get("id")) for item in _mapping_list(chunk.get("segments"))}
+        chunk_segment_ids = primary_ids | {str(item.get("id")) for item in _mapping_list(chunk.get("evidence_segments"))}
         for note in _mapping_list(plan.get("notes")):
             citations = _validated_citations(
                 note,
@@ -163,6 +156,9 @@ def validate_and_reduce_plans(
                 warnings.append(f"Ungrounded model note skipped: {note.get('title')}")
                 continue
             first_segment_id = str(note.get("source_segment_id") or citations[0]["segment_id"])
+            if first_segment_id not in primary_ids:
+                warnings.append(f"Non-primary model note skipped: {note.get('title')}")
+                continue
             if first_segment_id not in segments:
                 first_segment_id = str(citations[0]["segment_id"])
             first_segment = segments[first_segment_id]
@@ -243,7 +239,7 @@ def _validated_citations(
         quote = " ".join(str(citation.get("quote") or "").split()).strip()
         if not segment or segment_id not in chunk_segment_ids or not quote:
             continue
-        if normalized_text(quote) not in normalized_text(segment.get("text")):
+        if quote not in " ".join(str(segment.get("text") or "").split()):
             continue
         citations.append(
             {

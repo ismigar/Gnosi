@@ -9,8 +9,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 ## Resumen
 
 - Enrutadores registrados: **37**
-- Operaciones descubiertas: **289**
-- Módulos de rutas no registrados: **2**
+- Operaciones descubiertas: **299**
+- Módulos de rutas no registrados: **4**
 
 ## Registro de enrutadores
 
@@ -58,6 +58,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Método | Ruta efectiva | Gestor | Etiquetas | Controles de dependencias | Resumen | Fuente |
 | --- | --- | --- | --- | --- | --- | --- |
+| `GET` | `/agents/{agent_id}/learning` | `get_learning_workspace` | — | Depends(require_role('viewer')) | Get learning workspace | [`backend/domains/configuration/agent/learning_project_routes.py:16`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py#L16) |
+| `PUT` | `/agents/{agent_id}/learning/{session_id}` | `bind_learning_project` | — | Depends(require_role('editor')) | Bind learning project | [`backend/domains/configuration/agent/learning_project_routes.py:62`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py#L62) |
+| `POST` | `/agents/{agent_id}/projects` | `create_learning_project` | — | Depends(require_role('editor')) | Create learning project | [`backend/domains/configuration/agent/learning_project_routes.py:25`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py#L25) |
+| `DELETE` | `/agents/{agent_id}/projects/{project_id}` | `remove_learning_project` | — | Depends(require_role('editor')) | Remove learning project | [`backend/domains/configuration/agent/learning_project_routes.py:49`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py#L49) |
+| `PUT` | `/agents/{agent_id}/projects/{project_id}` | `update_learning_project` | — | Depends(require_role('editor')) | Update learning project | [`backend/domains/configuration/agent/learning_project_routes.py:37`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py#L37) |
 | `GET` | `/api/ai/catalog` | `get_ai_catalog` | AI Settings | — | Get ai catalog | [`backend/api/ai_routes.py:200`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L200) |
 | `GET` | `/api/ai/model-catalog` | `get_model_catalog` | AI Settings | — | Provider → model catalog (ids + cost/context/capabilities) feeding the | [`backend/api/ai_routes.py:469`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L469) |
 | `GET` | `/api/ai/model-comparison` | `get_model_comparison` | AI Settings | — | Complete, freshly paginated Artificial Analysis language-model feed. | [`backend/api/ai_routes.py:525`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py#L525) |
@@ -327,11 +332,16 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `POST` | `/databases` | `create_database` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Create database | [`backend/domains/vault/tables/routes.py:78`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L78) |
 | `DELETE` | `/databases/{database_id}` | `delete_database` | — | [Depends(get_workspace_context)], [Depends(require_role('admin'))] | Delete database | [`backend/domains/vault/tables/routes.py:90`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L90) |
 | `POST` | `/generate` | `generate_content` | — | — | One-shot AI text generation to insert into Vault pages. | [`backend/domains/configuration/ai/content_routes.py:122`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py#L122) |
+| `POST` | `/learning/draft` | `create_learning_draft` | — | Depends(require_role('editor')) | Extract an editable draft from the caller's canonical private conversation. | [`backend/domains/configuration/agent/learning_routes.py:31`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L31) |
+| `POST` | `/learning/package/validate` | `validate_learning_package` | — | Depends(require_role('viewer')) | Validate an imported text-only package without saving or assigning it. | [`backend/domains/configuration/agent/learning_routes.py:128`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L128) |
+| `POST` | `/learning/skills` | `save_learned_skill` | — | Depends(require_role('admin')) | Publish the reviewed draft to the existing catalog, optionally assigning it. | [`backend/domains/configuration/agent/learning_routes.py:85`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L85) |
+| `POST` | `/learning/trial` | `run_learning_trial` | — | Depends(require_role('editor')) | Run a new text case and a separate rubric review, without side effects. | [`backend/domains/configuration/agent/learning_routes.py:97`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L97) |
 | `GET` | `/option-catalogs` | `list_option_catalogs` | — | [Depends(get_workspace_context)] | List option catalogs | [`backend/domains/vault/tables/routes.py:379`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L379) |
 | `DELETE` | `/option-catalogs/{name}` | `delete_option_catalog` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Deletes a shared catalog. 409 if any field still references it. | [`backend/domains/vault/tables/routes.py:408`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L408) |
 | `PUT` | `/option-catalogs/{name}` | `put_option_catalog` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Creates or replaces a shared catalog. Body: ``{options: [...]}``. | [`backend/domains/vault/tables/routes.py:388`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L388) |
 | `GET` | `/schema` | `get_schema` | — | [Depends(get_workspace_context)] | Get schema | [`backend/domains/vault/tables/routes.py:538`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L538) |
 | `POST` | `/schema` | `save_schema` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Legacy route to save schemas per folder. | [`backend/domains/vault/tables/routes.py:521`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L521) |
+| `GET` | `/skills/{skill_id}/package` | `export_learning_package` | — | Depends(require_role('viewer')) | Export procedure, explicit examples and text resources, never private memory. | [`backend/domains/configuration/agent/learning_routes.py:111`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py#L111) |
 | `GET` | `/tables` | `list_tables` | — | [Depends(get_workspace_context)] | List tables | [`backend/domains/vault/tables/routes.py:98`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L98) |
 | `POST` | `/tables` | `create_table` | — | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Create table | [`backend/domains/vault/tables/routes.py:118`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L118) |
 | `DELETE` | `/tables/{table_id}` | `delete_table` | — | [Depends(get_workspace_context)], [Depends(require_role('admin'))] | Delete a table. | [`backend/domains/vault/tables/routes.py:157`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py#L157) |
@@ -352,5 +362,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 These files contain an `APIRouter` or route-oriented module name but are not mounted by the FastAPI composition registry. They may be obsolete, imported indirectly, or under development and require human review.
 
+- [`backend/domains/configuration/agent/learning_project_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py)
+- [`backend/domains/configuration/agent/learning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py)
 - [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py)
 - [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py)

@@ -19,6 +19,17 @@ function fixture(initial: readonly StoredChatMessage[] = []) {
 }
 
 describe('typed stream event processing', () => {
+  it('acknowledges memory without claiming a model response and ignores replay or stale scope', () => {
+    const f = fixture();
+    f.send({ type: 'memory_saved', sequence: 1, memory_id: 'synthetic' });
+    f.send({ type: 'memory_saved', sequence: 1, memory_id: 'synthetic' });
+    expect(f.messages()).toHaveLength(1);
+    expect(f.messages()[0]).toMatchObject({ role: 'system', memoryId: 'synthetic' });
+    expect(f.state.responseReceived).toBe(false);
+    f.context.activeScopeRef.current = 'other';
+    f.send({ type: 'memory_saved', sequence: 2, memory_id: 'other' });
+    expect(f.messages()).toHaveLength(1);
+  });
   it('processes envelope metadata without creating empty assistant bubbles', () => {
     const f = fixture();
     for (const event of [

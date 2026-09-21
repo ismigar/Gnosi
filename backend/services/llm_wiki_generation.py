@@ -15,9 +15,12 @@ def agent_profiles() -> list[dict[str, object]]:
     ]
 
 
-def configured_agent_id() -> str:
+def configured_agent_id(ai_config: dict[str, object] | None = None) -> str:
     """Keep explicit selections; resolve the default only for unconfigured vaults."""
-    return str(llm_wiki_config.load_config().get("agent_id") or "").strip() or default_plugin_agent_id()
+    selected = str(llm_wiki_config.load_config().get("agent_id") or "").strip()
+    if selected:
+        return selected
+    return default_plugin_agent_id(ai_config) if ai_config is not None else default_plugin_agent_id()
 
 
 def selected_agent(agent_id: str, *, require_ready: bool = False) -> dict[str, object]:

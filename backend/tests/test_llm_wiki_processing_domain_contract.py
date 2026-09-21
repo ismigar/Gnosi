@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -210,16 +211,22 @@ def test_ingestion_facade_resolves_generation_and_write_seams_late(
 
     def generate(prompt: str, **_kwargs: Any) -> tuple[str, str]:
         generated.append(prompt)
+        request = json.loads(prompt)
+        if request["phase"] in {"overview", "synthesis"}:
+            return '{"summary":"Grounded summary"}', "test-model"
         return (
             '{"summary":"Grounded summary","notes":['
             '{"title":"Atomic idea","type":"concepte",'
             '"body_md":"Body","source_segment_id":"segment-1",'
             '"dimensions":{},"citations":['
-            '{"segment_id":"segment-1","quote":"Grounded text"}]}]}',
+            '{"segment_id":"segment-1","quote":"Grounded text"}]}],'
+            '"coverage":[{"segment_id":"segment-1","reason":"extracted"}]}',
             "test-model",
         )
 
-    monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
+    monkeypatch.setattr("backend.services.llm_wiki_reading_runtime.prepare_reading_runtime",
+                        lambda *_: SimpleNamespace(generate=generate, identity="v2",
+                                                   metadata={}, input_budget=24000))
 
     def apply(plan: dict[str, Any], *_args: Any, **_kwargs: Any) -> dict[str, list[str]]:
         applied.append(plan)
@@ -249,7 +256,8 @@ def test_ingestion_facade_resolves_generation_and_write_seams_late(
         source_table={"id": "sources", "properties": []},
         source_config={"table_id": "sources"},
     )
-    assert generated and "[SEGMENT segment-1" in generated[0]
+    assert generated and "segment-1" in generated[0]
+    assert applied[0]["reviewed"] is True
     assert applied[0]["notes"][0]["managed_key"]
     assert report["model"] == "test-model"
     assert report["created_ids"] == ["note-1"]

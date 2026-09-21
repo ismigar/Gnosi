@@ -20,6 +20,10 @@ export function applyChatStreamEvent(state: ChatStreamState, value: unknown, con
     state.streamId = stringifyLooseValue(value.stream_id || ''); context.activeStreamRef.current = state.streamId; return;
   }
   if (type === 'heartbeat') return;
+  if (type === 'memory_saved') {
+    setMessages(previous => activeScopeRef.current === requestScope ? [...previous, { role: 'system', content: context.t('learning.memory_saved'), turnId, memoryId: stringifyLooseValue(value.memory_id) }] : previous);
+    return;
+  }
   if (type === 'llm_selected') { state.model = selectedStreamModel(value); return; }
   if (type === 'agent_runtime') { context.setAgentRuntime(streamRuntime(value)); return; }
   if (type === 'phase' || type === 'progress') { context.setProcessingPhase(stringifyLooseValue(value.phase || 'routing')); return; }
