@@ -47,6 +47,7 @@ export function ProcessResourceModalView({
     const progress = getProgressPercent(job);
     const created = job?.created ?? [];
     const updated = job?.updated ?? [];
+    const warnings = job?.warnings ?? [];
 
     return (
         <div
@@ -56,7 +57,7 @@ export function ProcessResourceModalView({
         >
             <div
                 ref={modalRef}
-                className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]"
+                className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col border border-[var(--border-primary)]"
                 onMouseDown={(event) => {
                     event.stopPropagation();
                 }}
@@ -81,7 +82,7 @@ export function ProcessResourceModalView({
                     </button>
                 </div>
 
-                <div className="p-5 space-y-3">
+                <div className="p-5 space-y-3 overflow-y-auto min-h-0">
                     {title ? (
                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
                             {title}
@@ -92,7 +93,7 @@ export function ProcessResourceModalView({
                         <p className="text-xs text-[var(--text-secondary)]/80 leading-relaxed">
                             {translate(
                                 'modal_intro',
-                                'The AI will process every configured attachment and URL, create atomic notes, and update the Brain indexes.',
+                                'The agent will read every configured attachment and URL, build a global overview, and review reading notes before saving them to the Brain.',
                             )}
                             {force ? (
                                 <span className="block mt-2 font-semibold">
@@ -169,6 +170,18 @@ export function ProcessResourceModalView({
                                 {updated.length > 0 ? (
                                     <div>
                                         {translate('updated', 'Enriched')}: {updated.join(', ')}
+                                    </div>
+                                ) : null}
+                                {warnings.length > 0 ? (
+                                    <div className="mt-2">
+                                        <div className="font-semibold">
+                                            {translate('reading_warnings', 'Reading observations')}
+                                        </div>
+                                        <ul className="list-disc pl-4">
+                                            {warnings.map((warning, index) => (
+                                                <li key={`${String(index)}-${warning}`}>{warning}</li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 ) : null}
                             </div>

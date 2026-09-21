@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1094 | 125300 | 32 |
+| `features` | 1094 | 125315 | 32 |
 | `generated` | 2 | 44513 | 455 |
 | `shared` | 251 | 30579 | 400 |
 
@@ -295,8 +295,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx) | 168 | `MetadataLookupResults` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts) | 154 | `SOURCE_LABELS`, `groupMetadataEntries`, `initialFieldSelection`, `metadataDisplayText`, `metadataScalarText`, `metadataValueIsEmpty`, `normalizeLookupResult`, `resolveZoteroType`, `selectedMetadataPatch`, `zoteroTypeLabel` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 280 | `useMetadataLookup` | — |
-| [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 248 | `ProcessResourceModalView` | — |
-| [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 113 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
+| [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 261 | `ProcessResourceModalView` | — |
+| [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
 | [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 162 | `useProcessResourceController` | — |
 | [`frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts) | 27 | `duplicateReferenceBreakdown`, `referenceExportFilename` | — |
 | [`frontend/src/features/literature/records/resourceTemplateSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/resourceTemplateSelection.ts) | 82 | `resolveResourceDocumentType`, `selectResourceTemplate` | — |

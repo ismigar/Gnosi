@@ -1004,3 +1004,9 @@ New automations start with the principal assistant and only offer its assigned s
 Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant.
 
 Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.
+
+## Contextual source reading
+
+The source button and chat use the same durable processing job and the assigned `plugin.llm-wiki.process-source` skill. The job freezes the selected profile, model and effective instructions. A missing skill or disabled profile fails explicitly. The skill owns interpretation, attribution, evidence requests and review; the application enforces budgets, citations, persistence and indexes.
+
+Reading follows structural fragments with neighbouring context, section maps and a hierarchical global map. Extraction and review can request distant original passages. Every primary fragment is accounted for, and proposed notes are reviewed against a joint overview before writing. Coverage and exact quotations establish provenance, not guaranteed semantic correctness. Checkpoints are reused only when their source and execution inputs match; legacy unreviewed write plans are invalidated. Progress and reading observations appear in the processing dialog.

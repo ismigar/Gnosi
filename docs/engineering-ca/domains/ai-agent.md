@@ -1117,3 +1117,9 @@ Les automatitzacions noves comencen amb l’assistent principal i només ofereix
 Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal.
 
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
+
+## Lectura contextual de fonts
+
+El botó de la font i el xat utilitzen el mateix treball persistent de processament i la skill assignada `plugin.llm-wiki.process-source`. El treball fixa el perfil seleccionat, el model i les instruccions efectives. Si falta la skill o el perfil està desactivat, falla explícitament. La skill dirigeix la interpretació, l’atribució, les peticions d’evidència i la revisió; l’aplicació controla els pressupostos, les citacions, el desament i els índexs.
+
+La lectura utilitza fragments estructurals amb context veí, mapes de secció i un mapa global jeràrquic. L’extracció i la revisió poden demanar passatges originals distants. Es justifica el tractament de cada fragment principal i les notes proposades es revisen amb una visió conjunta abans de desar-les. La cobertura i les citacions literals acrediten la procedència, però no garanteixen la correcció semàntica. Els punts de recuperació només es reutilitzen quan coincideixen la font i les entrades d’execució; els plans antics sense revisió s’invaliden. El diàleg mostra el progrés i les observacions de la lectura.

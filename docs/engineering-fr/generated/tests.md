@@ -11,8 +11,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 553 | 2319 |
-| pytest | 538 | 3802 |
+| Vitest | 553 | 2320 |
+| pytest | 540 | 3817 |
 
 ## Fichiers
 
@@ -146,7 +146,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/literature/records/CslStylePicker.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/CslStylePicker.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/MetadataLookupModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/MetadataLookupModal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/PdfAnnotationsToCite.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/PdfAnnotationsToCite.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/literature/records/ProcessResourceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceModal.test.tsx) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/features/literature/records/ProcessResourceModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ProcessResourceModal.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ReferenceImportExport.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ReferenceImportExport.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/ZoteroExtrasSection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ZoteroExtrasSection.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.test.ts) | 4 | call-pattern estimate |
@@ -801,11 +801,13 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_agent.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_config_cold_latency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_config_cold_latency.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_configuration_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_configuration_domain_contract.py) | 1 | Python AST |
-| pytest | [`backend/tests/test_llm_wiki_extraction_domains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_extraction_domains.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_contextual_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_contextual_reading.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_extraction_domains.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_extraction_domains.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_lint_edge_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_lint_edge_contracts.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_pdf_annotations.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_processing_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_processing_domain_contract.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_reading_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_reading_runtime.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_recovery.py) | 19 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_request_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_request_contracts.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_storage_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_llm_wiki_storage_open_metadata_contract.py) | 10 | Python AST |

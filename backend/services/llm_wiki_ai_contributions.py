@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Callable, Iterable, cast
 
 from backend.agent.llm_wiki_tools import LLM_WIKI_TOOL_HANDLERS
+from backend.domains.llm_wiki.reading_skill import INSTRUCTIONS, SKILL_VERSION
 from backend.models.agent_skills import (
     CatalogOrigin,
     CatalogStatus,
@@ -201,12 +202,8 @@ def _skill_descriptors() -> Iterable[SkillDescriptor]:
                 "plugin.llm-wiki.process-source",
                 "plugin.llm-wiki.process-status",
             ],
-            instructions=(
-                "Process a source only when the user explicitly requests it. "
-                "Preserve provenance and source order. Start the durable job, "
-                "report its job id, and use the status tool rather than waiting "
-                "synchronously. Use force only for an explicit reprocess request."
-            ),
+            instructions=INSTRUCTIONS,
+            metadata={"reading_method_version": SKILL_VERSION},
             status=status,
         ),
         SkillDescriptor(
