@@ -96,6 +96,7 @@ fi'''.splitlines(),
         "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend "
         "--tag gnosi-backend:ci --context .",
         "scripts/smoke_docker.sh",
+        "scripts/smoke_docker.sh --cleanup",
         "python3 scripts/ci/prepare_docker_runner.py --cleanup",
     ],
 }
@@ -290,8 +291,11 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         assert all("continue-on-error" not in step for step in steps)
         conditional_steps = [step for step in steps if "if" in step]
         if name == "docker":
-            assert conditional_steps == [steps[-1]]
-            assert steps[-1]["if"] == "always()"
+            assert conditional_steps == steps[-2:]
+            assert all(step["if"] == "always()" for step in conditional_steps)
+            assert steps[-2]["env"]["GNOSI_DOCKER_SMOKE_PROJECT"] == (
+                "gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}"
+            )
         elif name == "native-smoke":
             assert len(conditional_steps) == 1
             assert conditional_steps[0]["if"] == "runner.environment == 'github-hosted'"

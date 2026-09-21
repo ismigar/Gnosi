@@ -587,3 +587,5 @@ El candidato `3.0.4` incluye la corrección de preservación del guardado autom�
 La constante del backend `GNOSI_VERSION` también indica `3.0.4`; la prueba del contrato de la API de salud la compara con los cuatro manifiestos de versión.
 
 Hay que regenerar el documento OpenAPI guardado y su SHA-256 después de cambiar la versión del backend. En este candidato, la diferencia revisada del esquema se limita a la versión de la aplicación; las rutas y los datos no cambian.
+
+La CI de Docker reintenta la limpieza de los contenedores de prueba y la repite en un paso independiente que siempre se ejecuta antes de eliminar las imágenes de CI, para evitar que una limpieza fallida bloquee la siguiente construcción.

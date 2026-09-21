@@ -1187,3 +1187,9 @@ Activar el complemento Brain aporta habilidades y herramientas sin crear otro pe
 Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad. Las asignaciones utilizan los interruptores accesibles compartidos; las habilidades obligatorias siguen bloqueadas y las asignaciones no disponibles se pueden retirar.
 
 Las lecturas simultáneas del catálogo esperan a que termine el registro de las extensiones integradas. Se permiten las lecturas recursivas del mismo hilo para evitar ciclos de importación, pero otros hilos no pueden obtener un catálogo parcial sin las habilidades del Cerebro.
+
+## Idioma de las instrucciones
+
+Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo permite solicitar una traducción al idioma activo mediante el proveedor de IA configurado. Se muestra junto al original como ayuda de lectura, sin modificar las instrucciones guardadas ni ejecutadas. Abrir una habilidad no solicita traducciones. Las traducciones se conservan solo en memoria, por vault, texto original e idioma de destino. Si fallan, el original sigue disponible y se puede reintentar.
+
+La acción de traducción utiliza un botón compacto alineado a la derecha. Los errores de límite de peticiones o cuota muestran un mensaje específico; el original sigue visible.

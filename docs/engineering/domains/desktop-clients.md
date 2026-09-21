@@ -519,3 +519,5 @@ The `3.0.4` candidate includes the autosave preservation fix merged in PR 96. It
 The backend runtime constant `GNOSI_VERSION` also reports `3.0.4`; the health API contract test compares it with all four release manifests.
 
 Regenerate the committed OpenAPI document and its SHA-256 after changing the runtime version. For this candidate, the reviewed schema difference is limited to the application version; routes and payloads remain unchanged.
+
+Docker CI retries smoke-container cleanup and runs it again in an independent always-run step before removing CI images, so a failed exit trap cannot silently leave containers blocking the next build.

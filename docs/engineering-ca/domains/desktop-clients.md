@@ -576,3 +576,5 @@ El candidat `3.0.4` inclou la correcció de preservació del desament automàtic
 La constant del backend `GNOSI_VERSION` també indica `3.0.4`; la prova del contracte de l’API de salut la compara amb els quatre manifestos de versió.
 
 Cal regenerar el document OpenAPI desat i el seu SHA-256 després de canviar la versió del backend. En aquest candidat, la diferència revisada de l’esquema es limita a la versió de l’aplicació; les rutes i les dades no canvien.
+
+La CI de Docker reintenta la neteja dels contenidors de prova i la repeteix en un pas independent que sempre s’executa abans d’eliminar les imatges de CI, per evitar que una neteja fallida bloquegi la construcció següent.

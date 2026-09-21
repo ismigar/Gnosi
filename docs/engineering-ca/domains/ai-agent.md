@@ -1119,3 +1119,9 @@ Activar el connector Brain aporta habilitats i eines sense crear un altre perfil
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
 
 Les lectures simultànies del catàleg esperen que acabi el registre de les extensions integrades. Es permeten les lectures recursives del mateix fil per evitar cicles d’importació, però altres fils no poden obtenir un catàleg parcial sense les habilitats del Cervell.
+
+## Idioma de les instruccions
+
+Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg permet demanar una traducció a l’idioma actiu amb el proveïdor d’IA configurat. Es mostra al costat de l’original com a ajuda de lectura, sense modificar les instruccions desades ni executades. Obrir una habilitat no demana cap traducció. Les traduccions es conserven només en memòria, per vault, text original i idioma de destí. Si fallen, es manté l’original i es pot tornar a provar.
+
+L’acció de traducció utilitza un botó compacte alineat a la dreta. Els errors de límit de peticions o quota del proveïdor mostren un missatge específic; l’original es manté visible.
