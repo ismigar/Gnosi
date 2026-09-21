@@ -176,6 +176,18 @@ describe('ProcessResourceModal', () => {
     });
 
 
+    it('shows reading observations even when no existing notes were updated', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            ...doneJob, updated: [], warnings: ['A distant definition remains uncertain.'],
+        });
+        render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        expect(container.textContent).toContain('Reading observations');
+        expect(container.textContent).toContain('A distant definition remains uncertain.');
+    });
+
+
     it('keeps polling while the provider cooldown is in progress', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...runningJob, phase: 'retrying', chunks_done: 1, chunks_total: 85,

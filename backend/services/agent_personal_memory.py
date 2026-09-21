@@ -94,7 +94,13 @@ def create_memory(
     provenance: str = "user",
     expires_at: Optional[str] = None,
     user_id: str = "personal",
+    scope_kind: str = "personal",
+    scope_id: str = "",
+    source_session_id: str = "",
+    source_turn_id: str = "",
+    enabled: bool = True,
 ) -> dict[str, Any]:
+    _validate_scope(scope_kind, scope_id)
     bounded = " ".join(str(text or "").split())[:MAX_MEMORY_TEXT]
     if not bounded:
         raise ValueError("Memory text cannot be empty.")
@@ -106,12 +112,14 @@ def create_memory(
         connection.execute(
             """INSERT INTO personal_memories
             (memory_id, scope_hash, text, category, provenance, enabled,
-             expires_at, revision, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 1, ?, 1, ?, ?)""",
+             expires_at, revision, created_at, updated_at, scope_kind, scope_id,
+             source_session_id, source_turn_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)""",
             (
                 memory_id, _scope(vault_path, agent_id, user_id), bounded,
-                str(category or "preference")[:48], str(provenance or "user")[:96],
-                _expiry(expires_at), now, now,
+                str(category or "preference")[:48], str(provenance or "user")[:96], int(enabled),
+                _expiry(expires_at), now, now, scope_kind, scope_id,
+                source_session_id[:128], source_turn_id[:128],
             ),
         )
         row = connection.execute(
@@ -131,18 +139,29 @@ def update_memory(
     expires_at: Optional[str],
     expected_revision: int,
     user_id: str = "personal",
+    scope_kind: str | None = None,
+    scope_id: str | None = None,
 ) -> dict[str, Any]:
     bounded = " ".join(str(text or "").split())[:MAX_MEMORY_TEXT]
     if not bounded:
         raise ValueError("Memory text cannot be empty.")
     with _connect() as connection:
+        current = connection.execute(
+            "SELECT scope_kind, scope_id FROM personal_memories WHERE memory_id=? AND scope_hash=?",
+            (memory_id, _scope(vault_path, agent_id, user_id)),
+        ).fetchone()
+        if current is None:
+            raise ValueError("Memory changed or no longer exists.")
+        scope_kind = current["scope_kind"] if scope_kind is None else scope_kind
+        scope_id = current["scope_id"] if scope_id is None else scope_id
+        _validate_scope(str(scope_kind), str(scope_id))
         cursor = connection.execute(
             """UPDATE personal_memories SET text=?, category=?, enabled=?,
-            expires_at=?, revision=revision+1, updated_at=?
+            expires_at=?, revision=revision+1, updated_at=?, scope_kind=?, scope_id=?
             WHERE memory_id=? AND scope_hash=? AND revision=?""",
             (
                 bounded, str(category or "preference")[:48], int(bool(enabled)),
-                _expiry(expires_at), _now(), str(memory_id),
+                _expiry(expires_at), _now(), scope_kind, scope_id, str(memory_id),
                 _scope(vault_path, agent_id, user_id), int(expected_revision),
             ),
         )
@@ -176,6 +195,8 @@ def search_memories(
     *,
     user_id: str = "personal",
     limit: int = 5,
+    project_id: str = "",
+    skill_ids: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
     tokens = {
         token for token in re.findall(r"[\wÀ-ÿ-]+", str(query or "").lower())
@@ -185,9 +206,26 @@ def search_memories(
     for item in list_memories(
         vault_path, agent_id, user_id=user_id, include_disabled=False,
     ):
+        if item["scope_kind"] == "project" and item["scope_id"] != project_id:
+            continue
+        if item["scope_kind"] == "skill" and item["scope_id"] not in skill_ids:
+            continue
         words = set(re.findall(r"[\wÀ-ÿ-]+", item["text"].lower()))
         score = len(tokens & words)
+        if item["category"] in {"preference", "procedure", "decision"}:
+            score += 1
+        if item["scope_kind"] != "personal":
+            score += 2
         if score or not tokens:
             ranked.append((score, item))
     ranked.sort(key=lambda pair: (pair[0], pair[1]["updated_at"]), reverse=True)
     return [item for _score, item in ranked[:max(1, min(int(limit), 20))]]
+
+
+def _validate_scope(scope_kind: str, scope_id: str) -> None:
+    if scope_kind not in {"personal", "project", "skill"}:
+        raise ValueError("Unknown memory scope.")
+    if (scope_kind == "personal" and scope_id) or (scope_kind != "personal" and not scope_id.strip()):
+        raise ValueError("Select the project or skill for this memory.")
+    if len(scope_id) > 160:
+        raise ValueError("Memory scope is too long.")

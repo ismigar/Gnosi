@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-19
+last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_learning_models.py
+  - backend/services/agent_learning_capture.py
+  - backend/services/agent_learning_generation.py
+  - backend/services/agent_learning_packages.py
+  - backend/services/agent_learning_projects.py
+  - frontend/src/features/agent-learning
   - backend/services/llm_wiki_agent.py
   - frontend/src/shared/ai/assistantProfiles.ts
   - backend/services/feature_ai_contributions.py
@@ -61,6 +67,11 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_learning.py
+  - backend/tests/test_agent_learning_api.py
+  - frontend/src/features/agent-learning/ConversationLearning.test.tsx
+  - frontend/src/features/agent-learning/MemorySettings.test.tsx
+  - frontend/src/features/agent-learning/learningIntent.test.ts
   - backend/tests/test_principal_assistant_plugins.py
   - frontend/src/shared/ai/assistantProfiles.test.ts
   - backend/tests/test_feature_agent_tools.py
@@ -1117,6 +1128,22 @@ Les automatitzacions noves comencen amb l’assistent principal i només ofereix
 Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal.
 
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
+
+## Aprenentatge de converses i memòria editable
+
+El panell d’aprenentatge del xat privat agrupa instruccions de projecte, fonts seleccionades i referències de resultats. Les peticions explícites com «Recorda que…» creen records amb origen identificable; les cites i les referències ambigües no. Els records estan aïllats per espai de coneixement, assistent i usuari, amb àmbits addicionals de projecte o habilitat. Configuració → IA → Memòria permet cercar, filtrar, editar, activar, fixar una caducitat i eliminar. Les actualitzacions rebutgen revisions antigues. Eliminar un projecte desvincula les converses i desactiva els seus records.
+
+L’extracció d’habilitats utilitza la conversa privada desada i el model configurat de l’assistent seleccionat. L’usuari revisa el procediment, els criteris, els exemples sintètics i les plantilles abans de desar-los al catàleg existent. L’assignació és una acció explícita d’administració. La prova amb un segon cas no executa eines: una revisió separada del model aporta evidències per a cada criteri i l’usuari decideix si conserva l’exemple. No certifica accions externes ni la veracitat dels resultats.
+
+Els paquets JSON `gnosi-skill-v1` inclouen instruccions, dependències, criteris, exemples i recursos de text. La importació valida la mida i els noms abans de revisar-los; no desa ni assigna automàticament. L’exportació exclou els records personals i l’historial de conversa. L’execució incorpora els criteris i recursos sense ampliar permisos. La migració additiva `personal_memory_0002` conserva els records i crea els vincles privats de projecte i conversa.
+
+Validació: `backend/tests/test_agent_learning.py` comprova captura, propietat, àmbits, caducitat, revisions, paquets i errors de les proves. Les proves de la interfície comproven el mode de lectura, la conservació de l’àmbit, les peticions d’aprenentatge i els avisos sense duplicats.
+
+## Lectura contextual de fonts
+
+El botó de la font i el xat utilitzen el mateix treball persistent de processament i la skill assignada `plugin.llm-wiki.process-source`. El treball fixa el perfil seleccionat, el model i les instruccions efectives. Si falta la skill o el perfil està desactivat, falla explícitament. La skill dirigeix la interpretació, l’atribució, les peticions d’evidència i la revisió; l’aplicació controla els pressupostos, les citacions, el desament i els índexs.
+
+La lectura utilitza fragments estructurals amb context veí, mapes de secció i un mapa global jeràrquic. L’extracció i la revisió poden demanar passatges originals distants. Es justifica el tractament de cada fragment principal i les notes proposades es revisen amb una visió conjunta abans de desar-les. La cobertura i les citacions literals acrediten la procedència, però no garanteixen la correcció semàntica. Els punts de recuperació només es reutilitzen quan coincideixen la font i les entrades d’execució; els plans antics sense revisió s’invaliden. El diàleg mostra el progrés i les observacions de la lectura.
 
 ## Idioma de les instruccions
 

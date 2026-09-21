@@ -43,6 +43,10 @@ describe('processResourceModel', () => {
             defaultLabel: 'Reading the source…',
             key: 'reading',
         });
+        for (const phase of ['overview', 'reviewing']) {
+            expect(getProcessPhase({ ...baseJob, phase }).key).toBe(phase);
+            expect(getTerminalProcessState({ ...baseJob, phase })).toBeNull();
+        }
         expect(getProcessPhase(null)).toEqual({
             defaultLabel: 'Reading the source…',
             key: 'reading',

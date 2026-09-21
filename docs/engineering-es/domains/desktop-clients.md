@@ -587,3 +587,5 @@ El candidato `3.0.4` incluye la corrección de preservación del guardado autom�
 La constante del backend `GNOSI_VERSION` también indica `3.0.4`; la prueba del contrato de la API de salud la compara con los cuatro manifiestos de versión.
 
 Hay que regenerar el documento OpenAPI guardado y su SHA-256 después de cambiar la versión del backend. En este candidato, la diferencia revisada del esquema se limita a la versión de la aplicación; las rutas y los datos no cambian.
+
+La lista de recursos revisados de la aplicación de escritorio incluye `personal_memory_0002`, de modo que las versiones instaladas conservan los recuerdos existentes al añadir memoria por ámbitos y proyectos privados de aprendizaje.

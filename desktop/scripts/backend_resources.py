@@ -120,6 +120,7 @@ MIGRATIONS = (
     "notebooks_0004",
     "notebooks_0005",
     "personal_memory_0001",
+    "personal_memory_0002",
     "quality_0001",
     "replay_0001",
     "semantic_memory_0001",

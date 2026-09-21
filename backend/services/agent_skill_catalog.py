@@ -775,13 +775,15 @@ def resolve_agent_runtime(
             else:
                 unavailable.append(tool_id)
 
+    from backend.services.agent_learning_packages import runtime_instructions
+
     return AgentRuntimeCapabilities(
         assigned_skill_ids=assigned,
         active_skill_ids=tuple(
             entry.descriptor.id for entry in active_entries
         ),
         instructions=tuple(
-            entry.descriptor.instructions
+            runtime_instructions(entry.descriptor)
             for entry in active_entries
             if entry.descriptor.instructions.strip()
         ),
