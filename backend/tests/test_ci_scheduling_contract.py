@@ -80,7 +80,7 @@ def test_native_smoke_installs_hosted_browser_dependencies_and_uses_http(
         for step in steps if "run" in _mapping(step)
     }
     dependencies = commands["pnpm --filter @gnosi/e2e exec playwright install-deps chromium"]
-    assert dependencies["if"] == "runner.environment == 'github-hosted'"
+    assert dependencies["if"] == "(runner.environment == 'github-hosted') && steps.scope.outputs.runtime_required != 'false'"
     assert "pnpm test:e2e:install" in commands
     startup = next(_mapping(step) for step in steps if _mapping(step).get("name") == "Start native services")
     assert _mapping(startup["env"])["VITE_DEV_HTTPS"] == "false"
@@ -118,7 +118,7 @@ def test_docker_cleanup_is_scoped_bounded_and_never_ignored(workflow: dict[str, 
     ):
         assert commands[command]["timeout-minutes"] == 10
         assert not commands[command].get("continue-on-error")
-    assert commands["python3 scripts/ci/prepare_docker_runner.py --cleanup"]["if"] == "always()"
+    assert commands["python3 scripts/ci/prepare_docker_runner.py --cleanup"]["if"] == "(always()) && steps.scope.outputs.runtime_required != 'false'"
     assert "scripts/smoke_docker.sh" in commands
     assert all("system prune" not in command for command in commands)
 
@@ -137,7 +137,7 @@ def test_extra_capacity_does_not_expand_permissions_or_fork_access(
     checkout = _mapping(steps[0])
     assert _mapping(checkout["with"])["persist-credentials"] is False
     assert _mapping(checkout["with"])["ref"] == "${{ github.sha }}"
-    assert {"run": "uv run pytest"} in steps
+    assert {"run": "uv run pytest", "if": "steps.scope.outputs.runtime_required != 'false'"} in steps
 
 
 def test_frontend_disables_remote_package_cache(
@@ -161,6 +161,21 @@ def test_frontend_disables_remote_package_cache(
     )
 
 
+@pytest.mark.parametrize("job_name", ["backend", "frontend", "native-smoke"])
+def test_runtime_checks_do_not_wait_for_full_python_snapshots(
+    workflow: dict[str, object], job_name: str,
+) -> None:
+    job = _mapping(_mapping(workflow["jobs"])[job_name])
+    assert _mapping(job["env"])["GNOSI_CI_SEALED_CACHE"] == "0"
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    commands = [str(_mapping(step).get("run", "")) for step in steps]
+    assert "python scripts/ci/prepare_python_environment.py" in commands
+    assert "uv sync --frozen" in commands
+    assert not any("python_cache.py" in command for command in commands)
+    assert not any(_mapping(step).get("continue-on-error") for step in steps)
+
+
 def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
     workflow: dict[str, object],
 ) -> None:
@@ -176,7 +191,7 @@ def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
         "uv sync --frozen",
         "pnpm check:api-client",
         "pnpm guardrails:frontend",
-        "pnpm lint:frontend",
+        'pnpm lint:frontend',
         "pnpm --filter @gnosi/frontend typecheck",
         "pnpm test:e2e:contracts",
         "pnpm test:frontend",
@@ -186,7 +201,7 @@ def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
     }
     assert required_commands <= commands.keys()
     for command in required_commands:
-        assert "if" not in commands[command]
+        assert commands[command]["if"] == "steps.scope.outputs.runtime_required != 'false'"
         assert not commands[command].get("continue-on-error")
 
 
@@ -220,7 +235,7 @@ def test_python_downloads_are_bounded_for_every_job(
     ]
     assert len(sync_steps) == 1
     assert sync_steps[0]["timeout-minutes"] == timeout
-    assert "if" not in sync_steps[0]
+    assert sync_steps[0].get("if") == (None if job_name == "documentation" else "steps.scope.outputs.runtime_required != 'false'")
     assert not sync_steps[0].get("continue-on-error")
 
 
@@ -259,7 +274,7 @@ def test_frontend_checks_native_python_before_installing_dependencies(
     assert check_index < named["Install locked frontend Python dependencies"]
     check = _mapping(steps[check_index])
     assert check["timeout-minutes"] == 5
-    assert "if" not in check
+    assert check["if"] == "steps.scope.outputs.runtime_required != 'false'"
     assert not check.get("continue-on-error")
     command = str(check["run"])
     assert command.startswith("uv run --frozen --no-sync python -c ")

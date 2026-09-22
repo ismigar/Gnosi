@@ -520,4 +520,28 @@ The backend runtime constant `GNOSI_VERSION` also reports `3.0.4`; the health AP
 
 Regenerate the committed OpenAPI document and its SHA-256 after changing the runtime version. For this candidate, the reviewed schema difference is limited to the application version; routes and payloads remain unchanged.
 
+Docker CI retries smoke-container cleanup and runs it again in an independent always-run step before removing CI images, so a failed exit trap cannot silently leave containers blocking the next build.
+
 The reviewed desktop resource list includes `personal_memory_0002`, so installed builds preserve existing memories while adding scoped memory and private learning projects.
+
+## Bounded CI acceleration
+
+Python package snapshots are disabled in all three runtime jobs after full-runtime sealing exceeded its five-minute limit on the Linux runner and prevented backend checks from starting. CI downloads into a fresh job-private cache and creates a new virtual environment with copied files. Snapshot helpers remain available for isolated experiments, but neither restoration nor archive creation runs in CI. Re-enabling them requires a measured full-runtime benefit and bounded failure handling that cannot prevent required checks. Docker may still remove old optional snapshots to satisfy its existing 12 GiB free-space requirement.
+
+ESLint uses content-based caching and mypy retains incremental analysis between
+jobs, with platform, dependency and configuration changes invalidating the cache.
+Frontend tests use two workers. The local comparison of 27 representative tests
+passed with one and two workers; full-suite elapsed time and memory still need
+to be assessed on the runner. Heavy job ordering remains unchanged.
+
+Only trusted pull requests exclusively changing Markdown in the four engineering
+portals may omit runtime steps. All five required job names remain visible and
+the documentation job still validates every locale. Empty or unknown diffs,
+source moves, code, configuration and dependency changes require full runtime
+validation. Pushes and release validation always retain all runtime checks.
+
+Because frontend lint uses TypeScript type information, any frontend source or local rule change invalidates its entire cache, including results for unchanged importers. Backend-only changes can reuse it. Unknown source state forces fresh lint.
+
+PDF annotation composition runs all 57 contracts in each of two isolated import orders. Each group has a bounded 300-second budget covering cold backend imports and the full set of checks. Verbose progress, slowest-test timings and a stack dump after a 60-second individual test stall distinguish slow startup from a blocked test. A group timeout or any child assertion remains fatal and its partial output is included in the failure.
+
+Local pre-PR validation and CI invoke the same `pnpm lint:frontend` entry point. The shared launcher always checks the entire frontend with zero warnings allowed; it adds content-cache options only when `GNOSI_ESLINT_CACHE` is set. Cache paths are passed as literal arguments without a shell, and lint failures remain fatal. The pre-PR parity test still rejects any CI validation missing from the local full plan.

@@ -106,7 +106,7 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
     frontend_scripts: object = frontend_manifest["scripts"]
     assert isinstance(frontend_scripts, dict)
     assert shlex.split(frontend_scripts["lint"]) == [
-        "eslint", ".", "--max-warnings=0",
+        "node", "scripts/lint.mjs",
     ]
     assert shlex.split(_scripts()["guardrails:frontend"]) == [
         "uv", "run", "python", "scripts/check_frontend_guardrails.py", "--require-zero",
@@ -114,6 +114,41 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     assert "run: pnpm guardrails:frontend" in workflow
     assert "run: pnpm lint:frontend" in workflow
+    assert _scripts()["lint:frontend"] == "pnpm --filter @gnosi/frontend lint"
+
+
+@pytest.mark.parametrize("cached,status", [(False, 0), (True, 0), (False, 2), (True, 23)])
+def test_shared_frontend_lint_preserves_scope_cache_arguments_and_failure(
+    tmp_path: Path, cached: bool, status: int,
+) -> None:
+    scripts = tmp_path / "frontend/scripts"
+    scripts.mkdir(parents=True)
+    runner = scripts / "lint.mjs"
+    runner.write_text((ROOT / "frontend/scripts/lint.mjs").read_text())
+    eslint = tmp_path / "frontend/node_modules/eslint/bin/eslint.js"
+    eslint.parent.mkdir(parents=True)
+    eslint.write_text(
+        "console.log(JSON.stringify({args: process.argv.slice(2), cwd: process.cwd()}));\n"
+        "console.error('synthetic lint diagnostic');\n"
+        f"process.exit({status});\n"
+    )
+    environment = dict(os.environ)
+    environment.pop("GNOSI_ESLINT_CACHE", None)
+    cache = str(tmp_path / "cache with spaces/$(must-not-execute)")
+    if cached:
+        environment["GNOSI_ESLINT_CACHE"] = cache
+    result = subprocess.run(
+        ("node", str(runner)), cwd=tmp_path, env=environment,
+        capture_output=True, text=True, check=False, timeout=30,
+    )
+    assert result.returncode == status
+    payload = json.loads(result.stdout)
+    expected = [".", "--max-warnings=0"]
+    if cached:
+        expected.extend(["--cache", "--cache-strategy", "content", "--cache-location", cache])
+    assert payload["args"] == expected
+    assert Path(payload["cwd"]).resolve() == (tmp_path / "frontend").resolve()
+    assert "synthetic lint diagnostic" in result.stderr
 
 
 def test_documentation_workflow_never_consumes_hosted_runner_budget() -> None:

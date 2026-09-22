@@ -577,4 +577,31 @@ La constant del backend `GNOSI_VERSION` també indica `3.0.4`; la prova del cont
 
 Cal regenerar el document OpenAPI desat i el seu SHA-256 després de canviar la versió del backend. En aquest candidat, la diferència revisada de l’esquema es limita a la versió de l’aplicació; les rutes i les dades no canvien.
 
+La CI de Docker reintenta la neteja dels contenidors de prova i la repeteix en un pas independent que sempre s’executa abans d’eliminar les imatges de CI, per evitar que una neteja fallida bloquegi la construcció següent.
+
 La llista de recursos revisats de l’aplicació d’escriptori inclou `personal_memory_0002`, de manera que les versions instal·lades conserven els records existents en afegir la memòria per àmbits i els projectes privats d’aprenentatge.
+
+## Acceleració limitada de CI
+
+Les còpies de paquets Python estan desactivades als tres jobs d’execució després que segellar l’entorn complet superés el límit de cinc minuts al runner Linux i impedís iniciar les comprovacions del backend. CI descarrega els paquets en una cache nova i exclusiva del job i crea un entorn virtual nou amb fitxers copiats. Les eines de còpia continuen disponibles per a experiments aïllats, però CI no restaura ni crea arxius. Reactivar-les requereix demostrar un benefici amb l’entorn complet i limitar els errors sense impedir les comprovacions obligatòries. Docker encara pot retirar còpies opcionals antigues per complir el requisit existent de 12 GiB lliures.
+
+ESLint utilitza una cache basada en el contingut i mypy conserva l'anàlisi
+incremental entre jobs; els canvis de plataforma, dependències i configuració
+invaliden la cache. Les proves del frontend utilitzen dos processos. La comparació
+local de 27 proves representatives ha passat amb un i dos processos; encara cal
+avaluar el temps i la memòria de la suite completa al runner. Es manté l'ordre
+dels jobs pesants.
+
+Només les peticions de canvi de confiança que modifiquen exclusivament Markdown
+dels quatre portals d'enginyeria poden ometre els passos d'execució. Els cinc
+noms de comprovació obligatoris continuen visibles i el job de documentació valida
+tots els idiomes. Els diffs buits o desconeguts, els moviments de codi i els canvis
+de codi, configuració o dependències requereixen la validació completa. Les
+publicacions de commits i les validacions de versions sempre conserven totes les
+comprovacions d'execució.
+
+Com que l'anàlisi del frontend utilitza els tipus de TypeScript, qualsevol canvi de fonts o regles locals del frontend invalida tota la seva cache, inclosos els resultats dels fitxers que els importen sense haver canviat. Els canvis exclusius del backend la poden reutilitzar. Si es desconeix l'estat de les fonts, es repeteix l'anàlisi.
+
+La composició d'anotacions PDF executa els 57 contractes en cadascun de dos ordres d'importació aïllats. Cada grup té un límit de 300 segons que cobreix la càrrega inicial del backend i totes les comprovacions. El progrés detallat, els temps de les proves més lentes i la pila després de 60 segons de bloqueig d'una prova individual permeten distingir una arrencada lenta d'una prova bloquejada. Un timeout del grup o qualsevol error del procés fill continua fent fallar la validació, que inclou la sortida parcial.
+
+La validació local prèvia a la PR i CI invoquen el mateix punt d’entrada `pnpm lint:frontend`. El llançador compartit sempre comprova tot el frontend sense permetre avisos; només afegeix les opcions de cache de contingut quan es defineix `GNOSI_ESLINT_CACHE`. Les rutes de cache es passen com a arguments literals sense intèrpret d’ordres i els errors d’anàlisi continuen sent fatals. La prova de paritat prèvia a la PR continua rebutjant qualsevol validació de CI absent del pla local complet.
