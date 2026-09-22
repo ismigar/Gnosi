@@ -352,6 +352,12 @@ def get_default_llm_with_meta(
 
     target_id = str(agent_id or ai_cfg.get("active_agent_id") or "")
     agent_data = next((a for a in agents if a.get("id") == target_id), None)
+    if agent_id and (
+        not agent_data or not agent_data.get("enabled", True)
+        or agent_data.get("plugin_suspended")
+        or not agent_data.get("provider") or not agent_data.get("model")
+    ):
+        return None, None, None
     if not agent_data and agents:
         agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
 
@@ -379,7 +385,7 @@ def get_default_llm_with_meta(
             timeout=timeout,
         )
 
-    if not llm:
+    if not llm and not agent_id:
         llm, provider_name, model_name = _get_hybrid_llm(timeout=timeout)
     if not llm:
         return None, None, None
@@ -395,6 +401,7 @@ def generate_text(
     timeout: int = 60,
     agent_id: str = "",
     *,
+    system_prompt: str = "",
     selector: Callable[..., tuple[BaseChatModel | None, str | None, str | None]] | None = None,
 ) -> tuple[str, str]:
     """One-shot call to the default LLM. Returns (text, model_label).
@@ -403,7 +410,7 @@ def generate_text(
     caller can gracefully degrade (HTTP 503 / reminder without an agenda).
 
     """
-    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import HumanMessage, SystemMessage
 
     select_llm = selector or get_default_llm_with_meta
     if agent_id:
@@ -421,7 +428,11 @@ def generate_text(
         raise RuntimeError("No AI provider available")
     # The timeout already lives in the client (get_default_llm→get_llm). Do NOT pass
     # config={"timeout": ...}: langchain ignores it (it's not a RunnableConfig key).
-    resp = llm.invoke([HumanMessage(content=prompt)])
+    messages: list[SystemMessage | HumanMessage] = []
+    if system_prompt:
+        messages.append(SystemMessage(content=system_prompt))
+    messages.append(HumanMessage(content=prompt))
+    resp = llm.invoke(messages)
     text = getattr(resp, "content", "") or ""
     if not isinstance(text, str):
         text = str(text)

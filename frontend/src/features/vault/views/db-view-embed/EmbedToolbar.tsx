@@ -1,5 +1,6 @@
 import { Heading } from './Heading';
 import { ReferenceImportExport } from '../../../literature/records/ReferenceImportExport';
+import { BrainTools } from '../../../agent/inbox/BrainTools';
 import { ViewActionsBar } from './ViewActionsBar';
 import type { EmbedModel } from './useEmbedController';
 export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
@@ -12,7 +13,10 @@ export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
                 {t('views_header.records_count', { count: rows.length })}
             </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+            {tableId && ctx.brainTableId === tableId && (
+                <BrainTools key={tableId} tableId={tableId} onChanged={reload} />
+            )}
             {ctx.referenceTableId === tableId && (
                 <ReferenceImportExport tableId={tableId} onImported={reload} />
             )}

@@ -1752,6 +1752,14 @@
       "llm_wiki_lint_xref": "{{count}} missing cross-references",
       "llm_wiki_lint_reprocess": "{{count}} resources modified after processing",
       "llm_wiki_pending": "{{count}} pending suggestions in the Inbox",
+      "llm_wiki_agent": "Agent to use",
+      "llm_wiki_agent_missing": "Unavailable agent ({{id}})",
+      "llm_wiki_agent_setup": "Needs setup",
+      "llm_wiki_agent_help": "Brain uses the principal assistant by default and preserves existing Brain agents. You can choose another agent and edit its assigned skills.",
+      "llm_wiki_agent_not_ready": "Enable this agent and choose a model in its settings before using it.",
+      "llm_wiki_edit_agent": "Edit agent and assigned skills",
+      "llm_wiki_edit_skills": "Edit skill content",
+      "llm_wiki_skills_help": "In Skills, customize a plugin skill, edit its instructions and tools, and assign the copy to your agent. Your own skills can be edited directly.",
       "llm_wiki_intro_v2": "Choose the Brain, one or more source tables, and the categorical fields that will maintain indexes.",
       "llm_wiki_pending_connections": "{{count}} pending connections",
       "llm_wiki_error": "The Brain could not be updated.",
@@ -5928,7 +5936,15 @@
       "kind_support": "Support",
       "kind_contradiction": "Contradiction",
       "kind_gap": "Gap",
-      "notes": "Notes"
+      "notes": "Notes",
+      "load_error": "Connections could not be loaded. Close this panel and try again."
+    },
+    "tools": {
+      "button": "Brain tools",
+      "review": "Review Brain",
+      "report_title": "Brain review",
+      "results": "View review",
+      "unavailable": "Check the table and sources in Settings → Plugins → Brain before continuing."
     }
   },
   "model_comparison": {

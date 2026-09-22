@@ -1,5 +1,4 @@
 import type {
-    PluginLlmWikiMaintenanceResponse,
     PluginLlmWikiSettingsDocument,
     PluginLlmWikiSettingsResponse,
 } from '../../../shared/api/plugins';
@@ -26,6 +25,7 @@ export interface LlmWikiSource {
 }
 
 export interface LlmWikiDraft {
+    readonly agent_id: string;
     readonly brain_roles: Readonly<Record<string, unknown>>;
     readonly brain_table_id: string;
     readonly configured: boolean;
@@ -37,21 +37,16 @@ export interface LlmWikiDraft {
 }
 
 export interface LlmWikiController {
+    readonly selectAgent: (agentId: string) => Promise<void>;
     readonly brainTable: VaultTable | null;
     readonly busy: boolean;
     readonly confirmCreate: boolean;
     readonly createBrain: () => Promise<void>;
     readonly draft: LlmWikiDraft;
     readonly error: string;
-    readonly lint: PluginLlmWikiMaintenanceResponse['lint'] | null;
-    readonly lintBusy: boolean;
     readonly loading: boolean;
-    readonly pendingSuggestions: number;
-    readonly runLint: () => Promise<void>;
     readonly retrySave: () => Promise<void>;
     readonly retryLoad: () => Promise<void>;
-    readonly runSemanticAudit: () => Promise<void>;
-    readonly semanticBusy: boolean;
     readonly serverState: PluginLlmWikiSettingsResponse | null;
     readonly setConfirmCreate: (open: boolean) => void;
     readonly setDraft: (
@@ -61,6 +56,7 @@ export interface LlmWikiController {
 }
 
 export const EMPTY_LLM_WIKI_DRAFT: LlmWikiDraft = {
+    agent_id: '',
     brain_roles: {},
     brain_table_id: '',
     configured: false,
@@ -118,6 +114,7 @@ export function normalizeLlmWikiDraft(value: unknown): LlmWikiDraft {
     if (!isRecord(value)) return EMPTY_LLM_WIKI_DRAFT;
     const sources = Array.isArray(value.source_tables) ? value.source_tables : [];
     return {
+        agent_id: stringValue(value.agent_id).trim(),
         brain_roles: isRecord(value.brain_roles) ? value.brain_roles : {},
         brain_table_id: stringValue(value.brain_table_id),
         configured: value.configured === true,
@@ -134,6 +131,7 @@ export function normalizeLlmWikiDraft(value: unknown): LlmWikiDraft {
 
 export function serializeLlmWikiDraft(draft: LlmWikiDraft): PluginLlmWikiSettingsDocument {
     return {
+        agent_id: draft.agent_id,
         brain_roles: draft.brain_roles,
         brain_table_id: draft.brain_table_id,
         configured: draft.configured,

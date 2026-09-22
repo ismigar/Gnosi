@@ -16080,6 +16080,17 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LlmWikiAgentOptionResponse */
+        LlmWikiAgentOptionResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Ready */
+            ready: boolean;
+        };
         /**
          * LlmWikiBrainCreateRequest
          * @description Loose 2.x-compatible body for the namespaced Brain creator.
@@ -16146,6 +16157,8 @@ export interface components {
          * @description Migrated configuration plus runtime status used by settings and pages.
          */
         LlmWikiConfigResponse: {
+            /** Agents */
+            agents?: components["schemas"]["LlmWikiAgentOptionResponse"][];
             brain: components["schemas"]["LlmWikiBrainResponse"];
             capabilities: components["schemas"]["LlmWikiCapabilitiesResponse"];
             config: components["schemas"]["LlmWikiSettingsDocument"];
@@ -16170,6 +16183,8 @@ export interface components {
          * @description Known persisted settings without pre-empting legacy normalization.
          */
         LlmWikiConfigUpdateRequest: {
+            /** Agent Id */
+            agent_id?: string | null;
             /** Brain Roles */
             brain_roles?: unknown | null;
             /** Brain Table Id */
@@ -16194,6 +16209,8 @@ export interface components {
          * @description Settings response returned after creating the standard Brain table.
          */
         LlmWikiCreatedSettingsResponse: {
+            /** Agents */
+            agents?: components["schemas"]["LlmWikiAgentOptionResponse"][];
             brain: components["schemas"]["LlmWikiBrainResponse"];
             capabilities: components["schemas"]["LlmWikiCapabilitiesResponse"];
             config: components["schemas"]["LlmWikiSettingsDocument"];
@@ -16506,6 +16523,11 @@ export interface components {
          * @description Persisted configuration with forward-compatible feature fields.
          */
         LlmWikiSettingsDocument: {
+            /**
+             * Agent Id
+             * @default
+             */
+            agent_id: string;
             /** Brain Roles */
             brain_roles?: {
                 [key: string]: components["schemas"]["JsonValue"];

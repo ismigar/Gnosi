@@ -78,6 +78,7 @@ export function decodeContext(value: VaultEditorContextValue): EmbedContext {
         exitEmbedToEditor: typeof value.exitEmbedToEditor === 'function' ? (id, dir) => invoke(value.exitEmbedToEditor, id, dir) : undefined,
         registerEmbedNav: typeof value.registerEmbedNav === 'function' ? (id, api) => invoke(value.registerEmbedNav, id, api) : undefined,
         viewSectionNonce: number(value.viewSectionNonce), referenceTableId: text(value.referenceTableId),
+        brainTableId: text(value.brainTableId),
         onAddSchemaOption: typeof value.onAddSchemaOption === 'function' ? (...args) => invoke(value.onAddSchemaOption, ...args) : undefined,
         onCreateTemplate: typeof value.onCreateTemplate === 'function' ? id => invoke(value.onCreateTemplate, id) : undefined,
         onCreateFromSource: typeof value.onCreateFromSource === 'function' ? id => invoke(value.onCreateFromSource, id) : undefined,

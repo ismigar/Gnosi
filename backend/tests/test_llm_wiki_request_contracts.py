@@ -46,6 +46,7 @@ def test_request_models_declare_fields_without_coercing_legacy_json() -> None:
             },
             {
                 "version",
+                "agent_id",
                 "ui_locale",
                 "brain_table_id",
                 "target_table",
