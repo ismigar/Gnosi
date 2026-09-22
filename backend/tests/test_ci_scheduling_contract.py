@@ -161,6 +161,21 @@ def test_frontend_disables_remote_package_cache(
     )
 
 
+@pytest.mark.parametrize("job_name", ["backend", "frontend", "native-smoke"])
+def test_runtime_checks_do_not_wait_for_full_python_snapshots(
+    workflow: dict[str, object], job_name: str,
+) -> None:
+    job = _mapping(_mapping(workflow["jobs"])[job_name])
+    assert _mapping(job["env"])["GNOSI_CI_SEALED_CACHE"] == "0"
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    commands = [str(_mapping(step).get("run", "")) for step in steps]
+    assert "python scripts/ci/prepare_python_environment.py" in commands
+    assert "uv sync --frozen" in commands
+    assert not any("python_cache.py" in command for command in commands)
+    assert not any(_mapping(step).get("continue-on-error") for step in steps)
+
+
 def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
     workflow: dict[str, object],
 ) -> None:

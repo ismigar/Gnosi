@@ -583,14 +583,7 @@ La llista de recursos revisats de l’aplicació d’escriptori inclou `personal
 
 ## Acceleració limitada de CI
 
-CI restaura les descàrregues de Python només a partir d'arxius segellats i
-verificats en una cache nova i exclusiva del job; sempre crea un entorn virtual
-nou i copia els fitxers instal·lats. Es comproven els hashes RECORD dels paquets
-abans de segellar i després d'extreure. Els arxius depenen del sistema operatiu,
-l'arquitectura, la versió d'uv, el bloqueig de dependències i el manifest del
-projecte. Si falta un arxiu o està malmès, es descarreguen els paquets. Cada arxiu
-ocupa com a màxim 1 GiB i el magatzem 2 GiB. Docker pot retirar aquestes còpies
-opcionals si necessita espai per complir el requisit existent de 12 GiB lliures.
+Les còpies de paquets Python estan desactivades als tres jobs d’execució després que segellar l’entorn complet superés el límit de cinc minuts al runner Linux i impedís iniciar les comprovacions del backend. CI descarrega els paquets en una cache nova i exclusiva del job i crea un entorn virtual nou amb fitxers copiats. Les eines de còpia continuen disponibles per a experiments aïllats, però CI no restaura ni crea arxius. Reactivar-les requereix demostrar un benefici amb l’entorn complet i limitar els errors sense impedir les comprovacions obligatòries. Docker encara pot retirar còpies opcionals antigues per complir el requisit existent de 12 GiB lliures.
 
 ESLint utilitza una cache basada en el contingut i mypy conserva l'anàlisi
 incremental entre jobs; els canvis de plataforma, dependències i configuració

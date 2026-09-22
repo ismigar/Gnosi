@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 559 | 2341 |
-| pytest | 548 | 3860 |
+| pytest | 548 | 3861 |
 
 ## Fitxers
 
@@ -691,7 +691,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_ci_native_smoke_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_native_smoke_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_ci_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_performance.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_ci_python_environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_python_environment.py) | 8 | Python AST |
-| pytest | [`backend/tests/test_ci_scheduling_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_scheduling_contract.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_ci_scheduling_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_scheduling_contract.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_citation_io_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_io_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_citation_key_and_pubmed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_key_and_pubmed.py) | 41 | Python AST |
 | pytest | [`backend/tests/test_citation_shared_lookup_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_shared_lookup_contracts.py) | 1 | Python AST |

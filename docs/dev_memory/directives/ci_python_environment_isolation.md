@@ -108,3 +108,13 @@ El límit és d'1 GiB per arxiu i 2 GiB per magatzem. Si falta espai per a Docke
 es poden retirar només aquests arxius opcionals, sense tocar altres caches ni
 dades. Les caches d'anàlisi ESLint i mypy es conserven separadament i s'invaliden
 quan canvien les eines, la configuració o la plataforma.
+
+## Desactivació de les còpies en CI (2026-09-22)
+
+Segellar el runtime complet ha superat cinc minuts al runner Linux i ha impedit
+executar totes les comprovacions posteriors del backend. Els tres jobs de runtime
+forcen `GNOSI_CI_SEALED_CACHE=0` i no invoquen el segellat. Les eines queden només
+per a experiments aïllats. No s’han de reactivar a partir d’una prova amb paquets
+petits: cal mesurar l’entorn complet i garantir que un error o un límit de temps
+de l’optimització no bloquegi les comprovacions obligatòries. No s’ha d’augmentar
+el límit del job ni ignorar errors de les proves per compensar aquest cost.

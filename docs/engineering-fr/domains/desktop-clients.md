@@ -609,15 +609,7 @@ La liste des ressources vérifiées de l’application de bureau inclut `persona
 
 ## Accélération limitée de CI
 
-CI restaure les téléchargements Python uniquement depuis des archives scellées
-et vérifiées dans un nouveau cache propre au job ; il crée toujours un nouvel
-environnement virtuel et copie les fichiers installés. Les empreintes RECORD
-des paquets sont vérifiées avant l'archivage et après l'extraction. Les archives
-dépendent du système, de l'architecture, de la version d'uv, du verrou des
-dépendances et du manifeste du projet. Une archive absente ou endommagée entraîne
-un nouveau téléchargement. Chaque archive est limitée à 1 GiB et le stockage
-à 2 GiB. Docker peut supprimer ces copies facultatives s'il a besoin de leur
-espace pour respecter l'exigence existante de 12 GiB libres.
+Les copies de paquets Python sont désactivées dans les trois jobs d’exécution après que l’archivage de l’environnement complet a dépassé sa limite de cinq minutes sur le runner Linux et empêché le démarrage des vérifications du backend. CI télécharge les paquets dans un nouveau cache propre au job et crée un nouvel environnement virtuel avec des fichiers copiés. Les outils d’archivage restent disponibles pour des expériences isolées, mais CI ne restaure ni ne crée d’archives. Leur réactivation exige un bénéfice mesuré avec l’environnement complet et une gestion bornée des erreurs qui ne bloque pas les vérifications obligatoires. Docker peut encore supprimer les anciennes copies facultatives pour respecter l’exigence existante de 12 GiB libres.
 
 ESLint utilise un cache basé sur le contenu et mypy conserve l'analyse
 incrémentale entre jobs ; les changements de plateforme, de dépendances et de

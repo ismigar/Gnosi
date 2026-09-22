@@ -78,7 +78,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       GNOSI_VITEST_MAX_WORKERS: '2'
-      GNOSI_CI_SEALED_CACHE: '1'
+      GNOSI_CI_SEALED_CACHE: '0'
       # Do not select an installed Intel interpreter through Rosetta on this runner.
       UV_PYTHON: cpython-3.11-macos-aarch64-none
     steps:
@@ -136,10 +136,6 @@ jobs:
         if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 45
         run: uv sync --frozen
-      - name: Seal verified Python packages
-        if: steps.scope.outputs.runtime_required != 'false'
-        timeout-minutes: 5
-        run: python scripts/ci/python_cache.py
       - name: Check OpenAPI, 2.x compatibility, and generated frontend client
         if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 10
@@ -170,7 +166,7 @@ jobs:
     # All CI runs use owner-managed machines, without hosted-runner fallback.
     runs-on: [self-hosted, Linux, ARM64]
     env:
-      GNOSI_CI_SEALED_CACHE: '1'
+      GNOSI_CI_SEALED_CACHE: '0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -209,10 +205,6 @@ jobs:
       - run: uv sync --frozen
         if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 45
-      - name: Seal verified Python packages
-        if: steps.scope.outputs.runtime_required != 'false'
-        timeout-minutes: 5
-        run: python scripts/ci/python_cache.py
       - name: Reject private tools and generated pipeline state
         if: steps.scope.outputs.runtime_required != 'false'
         run: uv run python scripts/check_public_pipeline.py
@@ -250,7 +242,7 @@ jobs:
     # Native smoke checks also stay on the owner-managed Linux machine.
     runs-on: [self-hosted, Linux, ARM64]
     env:
-      GNOSI_CI_SEALED_CACHE: '1'
+      GNOSI_CI_SEALED_CACHE: '0'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -291,10 +283,6 @@ jobs:
       - run: uv sync --frozen
         if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 45
-      - name: Seal verified Python packages
-        if: steps.scope.outputs.runtime_required != 'false'
-        timeout-minutes: 5
-        run: python scripts/ci/python_cache.py
       - name: Install Chromium system dependencies on hosted Linux
         if: (runner.environment == 'github-hosted') && steps.scope.outputs.runtime_required != 'false'
         run: pnpm --filter @gnosi/e2e exec playwright install-deps chromium

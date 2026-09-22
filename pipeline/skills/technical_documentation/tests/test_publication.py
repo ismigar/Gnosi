@@ -46,7 +46,6 @@ CI_COMMANDS = {
         '"',
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
-        "python scripts/ci/python_cache.py",
         "pnpm check:api-client",
         "pnpm guardrails:frontend",
         'pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 --cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"',
@@ -62,7 +61,6 @@ CI_COMMANDS = {
         "python scripts/ci/prepare_python_environment.py",
         "python scripts/ci/prepare_analysis_cache.py",
         "uv sync --frozen",
-        "python scripts/ci/python_cache.py",
         "uv run python scripts/check_public_pipeline.py",
         "uv run python scripts/check_public_pipeline.py --structure",
         "uv run python scripts/check_public_runtime.py",
@@ -84,7 +82,6 @@ CI_COMMANDS = {
         "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
-        "python scripts/ci/python_cache.py",
         "pnpm --filter @gnosi/e2e exec playwright install-deps chromium",
         "pnpm test:e2e:install",
         *r'''uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &

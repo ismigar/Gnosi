@@ -526,14 +526,7 @@ The reviewed desktop resource list includes `personal_memory_0002`, so installed
 
 ## Bounded CI acceleration
 
-CI restores Python downloads only from sealed, checksum-verified archives into
-a new job-private cache; it always creates a fresh virtual environment and
-copies installed files. Wheel RECORD hashes are checked before sealing and
-after extraction. Archives are scoped by operating system, architecture, uv
-version, dependency lock and project manifest. A missing or damaged archive
-falls back to downloading packages. Each archive is limited to 1 GiB and the
-archive store to 2 GiB. Docker may discard these optional snapshots if it needs
-their space to meet its existing 12 GiB free-space gate.
+Python package snapshots are disabled in all three runtime jobs after full-runtime sealing exceeded its five-minute limit on the Linux runner and prevented backend checks from starting. CI downloads into a fresh job-private cache and creates a new virtual environment with copied files. Snapshot helpers remain available for isolated experiments, but neither restoration nor archive creation runs in CI. Re-enabling them requires a measured full-runtime benefit and bounded failure handling that cannot prevent required checks. Docker may still remove old optional snapshots to satisfy its existing 12 GiB free-space requirement.
 
 ESLint uses content-based caching and mypy retains incremental analysis between
 jobs, with platform, dependency and configuration changes invalidating the cache.

@@ -594,15 +594,7 @@ La lista de recursos revisados de la aplicación de escritorio incluye `personal
 
 ## Aceleración limitada de CI
 
-CI restaura las descargas de Python únicamente desde archivos sellados y
-verificados en una caché nueva y exclusiva del job; siempre crea un entorno
-virtual nuevo y copia los archivos instalados. Se comprueban los hashes RECORD
-de los paquetes antes de sellar y después de extraer. Los archivos dependen del
-sistema operativo, la arquitectura, la versión de uv, el bloqueo de dependencias
-y el manifiesto del proyecto. Si falta un archivo o está dañado, se descargan los
-paquetes. Cada archivo ocupa como máximo 1 GiB y el almacén 2 GiB. Docker puede
-retirar estas copias opcionales si necesita espacio para cumplir el requisito
-existente de 12 GiB libres.
+Las copias de paquetes Python están desactivadas en los tres jobs de ejecución después de que sellar el entorno completo superara el límite de cinco minutos en el runner Linux e impidiera iniciar las comprobaciones del backend. CI descarga los paquetes en una caché nueva y exclusiva del job y crea un entorno virtual nuevo con archivos copiados. Las herramientas de copia siguen disponibles para experimentos aislados, pero CI no restaura ni crea archivos. Reactivarlas requiere demostrar un beneficio con el entorno completo y limitar los errores sin impedir las comprobaciones obligatorias. Docker todavía puede retirar copias opcionales antiguas para cumplir el requisito existente de 12 GiB libres.
 
 ESLint utiliza una caché basada en el contenido y mypy conserva el análisis
 incremental entre jobs; los cambios de plataforma, dependencias y configuración
