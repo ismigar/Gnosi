@@ -3139,7 +3139,7 @@
       "assistant": {
         "title": "Assistant",
         "principal": "Principal assistant",
-        "help": "Skills define what your assistant can do. Configure its model and general instructions here.",
+        "help": "Choose the model and general instructions for your assistant.",
         "advanced": "Additional profiles (advanced)",
         "profiles_help": "Create another profile only for a different model, instructions, sources or skills. Changing the principal does not change saved automations.",
         "create_profile": "Create profile",

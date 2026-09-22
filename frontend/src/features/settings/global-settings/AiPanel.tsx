@@ -63,7 +63,7 @@ export function AiPanel({ context }: Props) {
     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
     <div hidden={aiSection !== 'agents'}>
-      <AgentsPanel context={context} onSelectSkill={id => { setSelectedSkill(id); setAiSection('skills'); }} />
+      <AgentsPanel context={context} onOpenActivity={() => { openActivity(); }} onSelectSkill={id => { setSelectedSkill(id); setAiSection('skills'); }} />
     </div>
 
     {aiSection === 'skills' && (
@@ -93,6 +93,6 @@ export function AiPanel({ context }: Props) {
       </Section>
     )}
 
-    <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { openActivity(); }}><Clock3 size={16} />{t('activity.open_activity')}</button>
+    {aiSection !== 'agents' && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { openActivity(); }}><Clock3 size={16} />{t('activity.open_activity')}</button>}
   </>);
 }

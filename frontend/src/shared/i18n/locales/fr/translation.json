@@ -1340,7 +1340,7 @@
       "assistant": {
         "title": "Assistant",
         "principal": "Assistant principal",
-        "help": "Les compétences définissent ce que votre assistant peut faire. Configurez ici son modèle et ses instructions générales.",
+        "help": "Choisissez le modèle et les instructions générales de votre assistant.",
         "advanced": "Profils supplémentaires (avancé)",
         "profiles_help": "Créez un autre profil uniquement pour un modèle, des instructions, des sources ou des compétences différents. Changer le principal ne modifie pas les automatisations enregistrées.",
         "create_profile": "Créer un profil",

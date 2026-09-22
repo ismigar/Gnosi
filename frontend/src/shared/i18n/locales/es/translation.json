@@ -3104,7 +3104,7 @@
       "assistant": {
         "title": "Asistente",
         "principal": "Asistente principal",
-        "help": "Las habilidades definen qué sabe hacer tu asistente. Configura aquí el modelo y las instrucciones generales.",
+        "help": "Elige el modelo y las instrucciones generales de tu asistente.",
         "advanced": "Perfiles adicionales (avanzado)",
         "profiles_help": "Crea otro perfil solo si necesitas otro modelo, instrucciones, fuentes o habilidades. Cambiar el principal no modifica las automatizaciones guardadas.",
         "create_profile": "Crear perfil",

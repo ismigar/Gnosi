@@ -3158,7 +3158,7 @@
       "assistant": {
         "title": "Assistent",
         "principal": "Assistent principal",
-        "help": "Les habilitats defineixen què sap fer el teu assistent. Configura aquí el model i les instruccions generals.",
+        "help": "Tria el model i les instruccions generals del teu assistent.",
         "advanced": "Perfils addicionals (avançat)",
         "profiles_help": "Crea un altre perfil només si necessites un model, unes instruccions, unes fonts o unes habilitats diferents. Canviar el principal no modifica les automatitzacions desades.",
         "create_profile": "Crea un perfil",

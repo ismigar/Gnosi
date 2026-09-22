@@ -1,6 +1,6 @@
 import { configurableGap } from './settingsStyles';
 import { AIAgentForm } from './AIAgentForm';
-import { Bot } from 'lucide-react';
+import { Bot, Clock3 } from 'lucide-react';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { IconRenderer } from '../../../shared/ui/previews/IconRenderer';
 import { InlineEditorPlacement } from '../../../shared/ui/settings/SettingsPrimitives';
@@ -14,9 +14,9 @@ import { X } from 'lucide-react';
 import { toast } from '../../../shared/notifications/toast';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { onSelectSkill?: (id: string) => void; context: Pick<SettingsController, 'agentEditorTarget' | 'aiRegistry' | 'aiResources' | 'draft' | 'editingAgent' | 'handleDeleteAIAgent' | 'setAgentEditorTarget' | 'setDraft' | 'setEditingAgent' | 't' | 'tn'> };
+type Props = { onOpenActivity?: () => void; onSelectSkill?: (id: string) => void; context: Pick<SettingsController, 'agentEditorTarget' | 'aiRegistry' | 'aiResources' | 'draft' | 'editingAgent' | 'handleDeleteAIAgent' | 'setAgentEditorTarget' | 'setDraft' | 'setEditingAgent' | 't' | 'tn'> };
 
-export function AgentsPanel({ context, onSelectSkill }: Props) {
+export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t, tn } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
   const [showProfiles, setShowProfiles] = useState(false);
@@ -24,25 +24,19 @@ export function AgentsPanel({ context, onSelectSkill }: Props) {
   return (<Section
     title={t('settings.ai.assistant.title')}
     icon={Bot}
-    extra={(!principal || editingAgent) &&
-      <button
-        className="btn-gnosi btn-gnosi-primary"
-        onClick={() => { setEditingAgent(current => current ? null : {}); }}
-        style={{
-          padding: '10px 20px', fontSize: '0.85rem', borderRadius: '14px',
-          display: 'flex', alignItems: 'center', gap: '10px'
-        }}
-      >
-        {editingAgent ? <X size={16} /> : <Plus size={16} />}
-        {editingAgent ? t('common.cancel') : t(principal ? 'settings.ai.assistant.create_profile' : 'settings.ai.assistant.setup')}
-      </button>
-    }
+    extra={principal && editingAgent && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setEditingAgent(null); }}>
+      <X size={16} />{t('common.cancel')}
+    </button>}
   >
-    <p>{t('settings.ai.assistant.help')}</p>
-    <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
+    <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>{t('settings.ai.assistant.help')}</p>
+    {!principal && <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => { setAgentEditorTarget(null); setEditingAgent(current => current ? null : {}); }}>
+      {editingAgent ? <X size={16} /> : <Plus size={16} />}
+      {editingAgent ? t('common.cancel') : t('settings.ai.assistant.setup')}
+    </button>}
+    {principal && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
-    </button>
-    {expanded && <div className="ai-resources-panel">
+    </button>}
+    {principal && expanded && <div className="ai-resources-panel">
       <p>{t('settings.ai.assistant.profiles_help')}</p>
       {principal && (!editingAgent || editingAgent.id) && <div>
         <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
@@ -181,5 +175,10 @@ export function AgentsPanel({ context, onSelectSkill }: Props) {
         </React.Fragment>
       ))}
     </div>
+    {onOpenActivity && <div style={{ marginTop: '24px' }}>
+      <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={onOpenActivity}>
+        <Clock3 size={16} />{t('activity.open_activity')}
+      </button>
+    </div>}
   </Section>);
 }

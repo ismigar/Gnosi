@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1110 | 126164 | 32 |
+| `features` | 1109 | 126122 | 32 |
 | `generated` | 2 | 46949 | 484 |
 | `shared` | 253 | 30715 | 414 |
 
@@ -470,9 +470,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/plugin-management/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/index.ts) | 6 | — | — |
 | [`frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx) | 127 | `DailyNotesConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx) | 14 | `LlmWikiAgentSettings` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx) | 178 | `LlmWikiConfig` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx) | 173 | `LlmWikiConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx) | 135 | `LlmWikiSourceCard` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiStatus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiStatus.tsx) | 36 | `LlmWikiStatus` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx) | 88 | `PlanningAssignments` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx) | 110 | `PlanningCalendarsResources` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PluginCatalogGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginCatalogGallery.tsx) | 68 | `PluginCatalogGallery` | — |
@@ -562,7 +561,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/AccountRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountRow.tsx) | 71 | `AccountRow` | — |
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 185 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 184 | `AgentsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 98 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
