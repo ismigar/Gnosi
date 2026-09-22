@@ -85,3 +85,18 @@ def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch)
         asyncio.run(generate_content(GeneratePayload(prompt="Expand")))
 
     assert raised.value.status_code == 504
+
+
+@pytest.mark.parametrize(("incident", "detail"), [
+    ("principal_agent_unavailable", "No active principal agent is configured"),
+    ("principal_agent_model_unavailable", "The principal agent's model is unavailable"),
+    ("agent_skill_unavailable:core.gnosi-operation-writing", "missing the required skill: core.gnosi-operation-writing"),
+])
+def test_editor_reports_the_specific_principal_configuration_issue(monkeypatch, incident, detail):
+    def unavailable(*args, **kwargs):
+        raise RuntimeError(incident)
+    monkeypatch.setattr(agent_execution, "generate_for", unavailable)
+    with pytest.raises(HTTPException) as raised:
+        asyncio.run(generate_content(GeneratePayload(prompt="Write")))
+    assert raised.value.status_code == 503
+    assert detail in raised.value.detail

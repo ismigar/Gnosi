@@ -524,11 +524,8 @@ export interface paths {
          * Generate Content
          * @description One-shot AI text generation to insert into Vault pages.
          *
-         *     Uses the MODERN path `factory.generate_text` (get_llm + resolve_provider_api_key),
-         *     the same one used by the agent and the «validate» button in Settings › AI. Each call is
-         *     fresh (no caching), so calling «keep writing» twice gives different text.
-         *     Degrades with 503 if no provider is available, never with a hard
-         *     error.
+         *     The principal executor applies the assigned writing or translation skill,
+         *     model policy and scoped memory, and records the resulting activity.
          */
         post: operations["generate_content_api_ai_generate_post"];
         delete?: never;
@@ -23635,9 +23632,16 @@ export interface operations {
     list_context_sources_api_agent_context_sources_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -23648,6 +23652,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExternalContextSourceResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -24678,9 +24691,16 @@ export interface operations {
     get_ai_catalog_api_ai_catalog_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -24693,14 +24713,30 @@ export interface operations {
                     "application/json": components["schemas"]["AiCatalogResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     correct_text_api_ai_correct_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -24923,9 +24959,16 @@ export interface operations {
     generate_content_api_ai_generate_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -25306,9 +25349,16 @@ export interface operations {
             query?: {
                 refresh?: boolean;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -25335,9 +25385,16 @@ export interface operations {
     get_model_comparison_api_ai_model_comparison_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -25348,6 +25405,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -25393,9 +25459,16 @@ export interface operations {
     get_model_registry_api_ai_models_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -25406,6 +25479,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelRegistryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -26159,9 +26241,16 @@ export interface operations {
     get_ai_usage_api_ai_usage_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -26174,14 +26263,30 @@ export interface operations {
                     "application/json": components["schemas"]["AiUsageResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_ai_usage_history_api_ai_usage_history_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -26192,6 +26297,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiUsageHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -31068,9 +31182,16 @@ export interface operations {
     record_meeting_api_meetings_record_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -31101,9 +31222,16 @@ export interface operations {
     meeting_status_api_meetings_status_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -31114,6 +31242,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeetingStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -34715,11 +34852,18 @@ export interface operations {
             query?: {
                 limit?: number;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path: {
                 stream_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -34746,9 +34890,16 @@ export interface operations {
     get_post_history_api_social_history_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -34759,6 +34910,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PostHistoryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -34806,9 +34966,16 @@ export interface operations {
     get_networks_api_social_networks_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -34819,6 +34986,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SocialNetwork"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -35022,9 +35198,16 @@ export interface operations {
     get_scheduled_posts_api_social_scheduled_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -35035,6 +35218,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduledPostResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -35080,9 +35272,16 @@ export interface operations {
     get_streams_api_social_streams_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -35093,6 +35292,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Stream"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -37091,9 +37299,16 @@ export interface operations {
     recognize_handwriting_api_vault_handwriting_recognize_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -37124,9 +37339,16 @@ export interface operations {
     handwriting_status_api_vault_handwriting_status_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -37139,14 +37361,30 @@ export interface operations {
                     "application/json": components["schemas"]["HandwritingStatusResponse"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     handwriting_warmup_api_vault_handwriting_warmup_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -37157,6 +37395,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HandwritingWarmupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -180,7 +180,7 @@ def generate_summary(articles: Sequence[Article]) -> str:
     from backend.services.agent_execution_scope import personal_scheduler_scope
 
     print("Preparing the script with the principal agent...")
-    with personal_scheduler_scope():
+    with personal_scheduler_scope(origin="worker"):
         result, _model = generate_for("podcast", prompt)
     return result
 
@@ -199,7 +199,7 @@ def text_to_audio(text: str | None, filename: str | Path) -> None:
             raise TypeError("gtts.gTTS must provide save(filename)")
         tts.save(str(filename))
 
-    with personal_scheduler_scope():
+    with personal_scheduler_scope(origin="worker"):
         run_engine("speech", str(filename), synthesize)
     print(f"Podcast saved successfully to: {filename}")
 

@@ -117,7 +117,7 @@ def isolated_providers(
     monkeypatch.setattr(notion_importer, "NotionClient", forbidden)
     from backend.services import agent_execution, agent_execution_scope, agent_specialized_tools
     monkeypatch.setattr(agent_execution, "generate_for", forbidden)
-    monkeypatch.setattr(agent_execution_scope, "personal_scheduler_scope", nullcontext)
+    monkeypatch.setattr(agent_execution_scope, "personal_scheduler_scope", lambda **kwargs: nullcontext())
     monkeypatch.setattr(agent_specialized_tools, "run_engine", lambda _kind, _resource, invoke: invoke())
     yield
     assert attempts == []

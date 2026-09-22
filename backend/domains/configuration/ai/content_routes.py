@@ -86,6 +86,17 @@ def build_generation_prompt(payload: GeneratePayload) -> str:
     return f"{style}\n\n{body}"
 
 
+def _execution_unavailable_detail(error: RuntimeError) -> str:
+    code, _, skill = str(error).partition(":")
+    if code == "principal_agent_unavailable":
+        return "No active principal agent is configured. Check Settings › AI."
+    if code == "principal_agent_model_unavailable":
+        return "The principal agent's model is unavailable. Check Settings › AI."
+    if code == "agent_skill_unavailable":
+        return f"The principal agent is missing the required skill: {skill}. Check Settings › AI."
+    return "No AI provider is available. Check Settings › AI."
+
+
 def _provider_error(error: Exception, *, route: str) -> HTTPException:
     """Map provider failures to the stable editor-facing HTTP contract."""
     message = str(error).lower()
@@ -122,11 +133,8 @@ def _provider_error(error: Exception, *, route: str) -> HTTPException:
 async def generate_content(payload: GeneratePayload) -> dict[str, str]:
     """One-shot AI text generation to insert into Vault pages.
 
-    Uses the MODERN path `factory.generate_text` (get_llm + resolve_provider_api_key),
-    the same one used by the agent and the «validate» button in Settings › AI. Each call is
-    fresh (no caching), so calling «keep writing» twice gives different text.
-    Degrades with 503 if no provider is available, never with a hard
-    error.
+    The principal executor applies the assigned writing or translation skill,
+    model policy and scoped memory, and records the resulting activity.
     """
     from functools import partial
     from backend.services.agent_execution import generate_for
@@ -146,7 +154,7 @@ async def generate_content(payload: GeneratePayload) -> dict[str, str]:
     except RuntimeError as error:
         raise HTTPException(
             status_code=503,
-            detail="No AI provider is available. Check Settings › AI.",
+            detail=_execution_unavailable_detail(error),
         ) from error
     except Exception as error:
         raise _provider_error(error, route="POST /ai/generate") from error
@@ -210,7 +218,7 @@ async def correct_text(payload: CorrectPayload) -> dict[str, str]:
     except RuntimeError as error:
         raise HTTPException(
             status_code=503,
-            detail="No AI provider is available. Check Settings › AI.",
+            detail=_execution_unavailable_detail(error),
         ) from error
     except Exception as error:
         raise _provider_error(error, route="POST /ai/correct") from error

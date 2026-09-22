@@ -9,10 +9,11 @@ from typing import Any
 
 from fastapi import Depends
 
-from backend.services.agent_execution_models import ExecutionScope
+from backend.services.agent_execution_models import ExecutionOrigin, ExecutionScope
 from backend.services.context_vars import active_vault_path
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 
+_origin: ContextVar[ExecutionOrigin] = ContextVar("agent_execution_origin", default="button")
 _scope: ContextVar[ExecutionScope | None] = ContextVar("agent_execution_scope", default=None)
 
 
@@ -23,15 +24,22 @@ def current_scope() -> ExecutionScope:
     return value
 
 
+def current_origin() -> ExecutionOrigin:
+    return _origin.get()
+
+
 @contextmanager
-def execution_scope(scope: ExecutionScope) -> Iterator[None]:
+def execution_scope(scope: ExecutionScope, *, origin: ExecutionOrigin | None = None) -> Iterator[None]:
     token = _scope.set(scope)
+    origin_token = _origin.set(origin) if origin is not None else None
     vault_token = active_vault_path.set(Path(scope.vault_path))
     try:
         yield
     finally:
         active_vault_path.reset(vault_token)
         _scope.reset(token)
+        if origin_token is not None:
+            _origin.reset(origin_token)
 
 
 async def bind_request_scope(
@@ -41,7 +49,7 @@ async def bind_request_scope(
         "user_id": context.user_id, "workspace_id": context.workspace_id,
         "role": context.role, "vault_path": str(context.vault_path.resolve()),
     })
-    with execution_scope(scope):
+    with execution_scope(scope, origin="button"):
         from backend.services.principal_agent_migration import ensure_migrated
         ensure_migrated()
         yield
@@ -98,7 +106,7 @@ def revalidate_scope(scope: ExecutionScope) -> None:
 
 
 @contextmanager
-def personal_scheduler_scope() -> Iterator[None]:
+def personal_scheduler_scope(*, origin: ExecutionOrigin = "automation") -> Iterator[None]:
     """Bind the install's single personal owner for legacy system schedules."""
     if _scope.get() is not None:
         yield
@@ -121,7 +129,7 @@ def personal_scheduler_scope() -> Iterator[None]:
         )
         scope = ExecutionScope(user_id=context.user_id, workspace_id=context.workspace_id,
             vault_path=str(context.vault_path.resolve()), role="owner")
-    with execution_scope(scope):
+    with execution_scope(scope, origin=origin):
         yield
 
 

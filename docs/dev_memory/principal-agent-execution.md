@@ -86,3 +86,7 @@ The principal reference component is tested in Catalan, Spanish, English and Fre
 The standalone OPML-to-podcast command also uses the principal podcast operation and audited speech engine. Provider failures propagate and cannot become a saved error-text podcast; the static boundary rejects provider SDK constructors and completion/message/response creation outside the central adapters.
 
 Validation follow-up: main CI exceeded the PDF composition child-suite 90-second watchdog in both import orders while assertions were still progressing. Align that whole-suite watchdog with the existing 300-second drawing/citation checks; keep all PDF contract assertions and the fatal return-code check.
+
+HTTP scope is bound through the dependencies of each `app.include_router` call. Mutating a router's dependency list after its routes have been defined does not execute that dependency. A real HTTP regression exercises all thirteen functional adapters and verifies the authenticated user, workspace, role, Vault and context cleanup before returning the response.
+
+Trigger origin is carried by the execution context and durable snapshot. Child operations inherit their active parent's origin, so scheduled work is not mislabeled as a button request. Scope cleanup restores the previous origin together with the user and Vault; standalone RSS execution explicitly identifies itself as worker-originated.

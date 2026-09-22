@@ -6,6 +6,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+ExecutionOrigin = Literal["button", "chat", "automation", "worker"]
+
+
 class ExecutionScope(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     user_id: str = Field(min_length=1)
@@ -20,7 +23,7 @@ class AgentOperation(BaseModel):
     operation: str = Field(min_length=1)
     input: str
     language: str = ""
-    origin: Literal["button", "chat", "automation", "worker"] = "button"
+    origin: ExecutionOrigin = "button"
     context_refs: list[dict[str, Any]] = Field(default_factory=list)
     output_schema: dict[str, Any] | None = None
     timeout_seconds: int = Field(default=120, ge=1, le=3600)
@@ -38,6 +41,7 @@ class AgentExecutionSnapshot(BaseModel):
     instructions: list[str]
     catalog_revision: str
     revision: str
+    origin: ExecutionOrigin = "button"
     parent_run_id: str = ""
     skill_versions: dict[str, str] = Field(default_factory=dict)
     skill_instructions: dict[str, str] = Field(default_factory=dict)

@@ -13,20 +13,27 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from backend.services import agent_execution_store as store
 from backend.services.agent_run_middleware import report_run
-from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun
-from backend.services.agent_execution_scope import current_scope, execution_scope, revalidate_scope
+from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin
+from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
 from backend.services.agent_operation_catalog import skill_id
 
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
 _call_limit: ContextVar[int] = ContextVar("agent_execution_call_limit", default=2)
 _run: ContextVar[str] = ContextVar("agent_execution_run", default="")
+
+
+def operation_origin() -> ExecutionOrigin:
+    if _run.get():
+        return cast(ExecutionOrigin, store.read(current_scope(), _run.get()).origin)
+    snapshot = _snapshot.get()
+    return snapshot.origin if snapshot is not None else current_origin()
 
 
 def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None = None) -> AgentExecutionSnapshot:
@@ -60,7 +67,7 @@ def snapshot_from_runtime(scope: Any, profile: dict[str, Any], runtime: Any) -> 
     companions = {entry.descriptor.id: entry.descriptor.metadata.get("companion_for", []) for entry in entries}
     payload = {"profile": profile, "instructions": instructions, "skills": skills, "assigned_instructions": skill_instructions}
     revision = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
-    return AgentExecutionSnapshot(scope=scope, agent_id=str(profile["id"]), profile=profile,
+    return AgentExecutionSnapshot(scope=scope, origin=operation_origin(), agent_id=str(profile["id"]), profile=profile,
         skill_ids=skills, instructions=instructions, catalog_revision=str(getattr(runtime, "catalog_revision", "")), revision=revision,
         skill_versions={entry.descriptor.id: entry.descriptor.version for entry in entries},
         skill_instructions=skill_instructions, skill_companions=companions)
@@ -85,7 +92,7 @@ def select_snapshot_skill(snapshot: AgentExecutionSnapshot, selected: str) -> Ag
 def operation_session(snapshot: AgentExecutionSnapshot) -> Iterator[None]:
     token = _snapshot.set(snapshot)
     parent_token = _run.set(snapshot.parent_run_id) if snapshot.parent_run_id else None
-    with execution_scope(snapshot.scope):
+    with execution_scope(snapshot.scope, origin=snapshot.origin):
         try:
             yield
         finally:
@@ -162,6 +169,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
     snapshot = snapshot or prepare_snapshot("", active_skill_ids=inputs.get("active_skill_ids"))
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")
+    snapshot = snapshot.model_copy(update={"origin": origin})
     run_id = str(inputs.get("trace_id") or uuid.uuid4().hex)
     selection = selection or {}
     row = AgentRun(run_id=run_id, agent_id=snapshot.agent_id,
@@ -330,7 +338,7 @@ def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None
 def generate_result_for(operation: str, prompt: str, user_message: str = "", *, timeout: int = 120, agent_id: str = "", output_schema: dict[str, Any] | None = None) -> AgentRun:
     if agent_id and prepare_snapshot(skill_id(operation)).agent_id != agent_id:
         raise ValueError("Models are managed by the principal agent")
-    result = run_sync(AgentOperation(skill_id=skill_id(operation), operation=operation,
+    result = run_sync(AgentOperation(skill_id=skill_id(operation), operation=operation, origin=operation_origin(),
                                    input=prompt + ("\n\nRequest context:\n" + user_message if user_message and user_message not in prompt else ""), timeout_seconds=timeout, output_schema=output_schema))
     return result
 
@@ -405,7 +413,7 @@ async def resume_run(run_id: str) -> AgentRun:
 def create_job_run(snapshot: AgentExecutionSnapshot, job_id: str, operation: str, *, max_calls: int | None = None) -> AgentExecutionSnapshot:
     """Create the parent activity for a durable, deterministic feature job."""
     store.create(AgentRun(run_id=job_id, agent_id=snapshot.agent_id,
-        skill_id=",".join(snapshot.skill_ids), operation=operation, origin="worker",
+        skill_id=",".join(snapshot.skill_ids), operation=operation, origin=snapshot.origin,
         status="queued", created_at=time.time(), updated_at=time.time(),
         execution_revision=snapshot.revision), snapshot.scope,
         {"mode": "job", "operation": operation, "job_id": job_id, "max_calls": max_calls}, snapshot.model_dump())

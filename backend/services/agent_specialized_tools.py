@@ -20,7 +20,7 @@ ENGINES = {
 
 
 def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
-    from backend.services.agent_execution import prepare_snapshot, _run, _snapshot
+    from backend.services.agent_execution import operation_origin, prepare_snapshot, _run, _snapshot
     from backend.services.agent_execution_scope import current_scope, revalidate_scope
     from backend.services.agent_operation_catalog import skill_id
     from backend.services.agent_run_middleware import report_run
@@ -48,7 +48,7 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
         raise AgentTurnCancelled("agent_run_cancelled")
     run_id = uuid.uuid4().hex
     row = AgentRun(run_id=run_id, parent_run_id=_run.get(), agent_id=snapshot.agent_id,
-        skill_id=skill_id(operation), operation=kind, origin="worker", status="running",
+        skill_id=skill_id(operation), operation=kind, origin=operation_origin(), status="running",
         created_at=time.time(), updated_at=time.time(), model=engine,
         provider="google-tts" if kind == "speech" else "local-engine", execution_revision=snapshot.revision)
     store.create(row, scope, {"mode": "specialized", "resource": resource}, snapshot.model_dump())
