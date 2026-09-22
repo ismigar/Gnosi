@@ -183,10 +183,12 @@ def generate_suggestions(
         notes = _reading_notes_digest(brain_table_id)
         if len(notes) < 2:
             return 0
-        from backend.services.llm_wiki_generation import generate_text
+        from functools import partial
+        from backend.services.agent_execution import generate_for
 
-        raw, _model = generate_text(_suggest_prompt(notes, language), timeout=120,
-                                    operation="plugin.llm-wiki.propose-connections")
+        generate_text = partial(generate_for, "knowledge")
+
+        raw, _model = generate_text(_suggest_prompt(notes, language), timeout=120)
         parsed = _parse_suggestions(raw, {n["id"] for n in notes}, {n["id"]: n for n in notes})
         if focus_ids:
             focus = set(focus_ids)

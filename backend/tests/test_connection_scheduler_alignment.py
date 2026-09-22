@@ -33,7 +33,7 @@ def test_contact_sync_scheduler_uses_current_management_session_api(monkeypatch)
     assert result == {"success": True, "message": "No contact accounts configured"}
 
 
-def test_suggest_connections_uses_llm_wiki_queue(monkeypatch):
+def test_suggest_connections_uses_llm_wiki_queue(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(vault_routes, "_load_plugins_state", lambda: {})
     monkeypatch.setattr(vault_routes, "_llm_wiki_enabled", lambda _state: True)
@@ -46,7 +46,11 @@ def test_suggest_connections_uses_llm_wiki_queue(monkeypatch):
         },
     )
 
-    result = _manager()._task_suggest_connections()
+    from backend.services.agent_execution_models import ExecutionScope
+    from backend.services.agent_execution_scope import execution_scope
+    scope = ExecutionScope(user_id="owner", workspace_id="personal", role="owner", vault_path=str(tmp_path))
+    with execution_scope(scope):
+        result = _manager()._task_suggest_connections()
 
     assert calls == [True]
     assert result["success"] is True

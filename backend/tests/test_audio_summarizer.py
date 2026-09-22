@@ -61,137 +61,44 @@ def test_resolve_podcast_language_reads_current_settings_each_time(monkeypatch):
     assert audio_summarizer._resolve_podcast_language() == ("ca", "Catalan")
     assert audio_summarizer._resolve_podcast_language() == ("fr", "French")
 
-def test_resolve_podcast_llm_uses_default_model_when_route_is_empty(monkeypatch):
-    expected_llm = FakeLlm()
-    monkeypatch.setattr(
-        "backend.config.app_config.load_params",
-        lambda strict_env=False: _config(),
-    )
-    monkeypatch.setattr(
-        factory,
-        "get_default_llm_with_meta",
-        lambda user_message: (expected_llm, "ollama", "llama3.2:latest"),
-    )
-
-    assert audio_summarizer._resolve_podcast_llm() == (
-        expected_llm,
-        "ollama",
-        "llama3.2:latest",
-    )
+@pytest.mark.parametrize("old_route", [{}, {"provider": "old", "model": "disabled"}])
+def test_podcast_uses_only_the_principal_snapshot(monkeypatch, old_route):
+    from backend.services import agent_execution
+    snapshot = SimpleNamespace(profile={"provider": "principal-provider", "model": "principal-model"})
+    requested = []
+    def prepare(skill):
+        requested.append(skill)
+        return snapshot
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", prepare)
+    monkeypatch.setattr("backend.config.app_config.load_params", lambda **_: _config(settings={"reader": {"podcast": old_route}}))
+    assert audio_summarizer._resolve_podcast_llm() == (snapshot, "principal-provider", "principal-model")
+    assert requested == ["core.gnosi-daily-briefing"]
 
 
-def test_resolve_podcast_llm_uses_explicit_enabled_route(monkeypatch):
-    expected_llm = FakeLlm()
-    settings = {
-        "reader": {
-            "podcast": {
-                "provider": "Groq",
-                "model": "llama-3.3-70b-versatile",
-            }
-        }
-    }
-    cfg = _config(
-        settings=settings,
-        models=[
-            {
-                "provider": "groq",
-                "model_id": "llama-3.3-70b-versatile",
-                "enabled": True,
-            }
-        ],
-        providers={
-            "groq": {
-                "enabled": True,
-                "base_url": "https://api.groq.com/openai/v1",
-            }
-        },
-    )
-    monkeypatch.setattr(
-        "backend.config.app_config.load_params",
-        lambda strict_env=False: cfg,
-    )
-    monkeypatch.setattr(
-        "backend.security.ai_credentials.resolve_provider_api_key",
-        lambda provider, provider_config: "secret",
-    )
-    calls = []
-
-    def fake_get_llm(**kwargs):
-        calls.append(kwargs)
-        return expected_llm
-
-    monkeypatch.setattr(factory, "get_llm", fake_get_llm)
-
-    assert audio_summarizer._resolve_podcast_llm() == (
-        expected_llm,
-        "groq",
-        "llama-3.3-70b-versatile",
-    )
-    assert calls == [
-        {
-            "provider": "groq",
-            "model": "llama-3.3-70b-versatile",
-            "api_key": "secret",
-            "base_url": "https://api.groq.com/openai/v1",
-        }
-    ]
-
-
-def test_resolve_podcast_llm_rejects_inactive_explicit_route(monkeypatch):
-    cfg = _config(
-        settings={
-            "reader": {
-                "podcast": {"provider": "groq", "model": "disabled-model"}
-            }
-        },
-        models=[
-            {"provider": "groq", "model_id": "disabled-model", "enabled": False}
-        ],
-    )
-    monkeypatch.setattr(
-        "backend.config.app_config.load_params",
-        lambda strict_env=False: cfg,
-    )
-
-    with pytest.raises(audio_summarizer.PodcastModelError, match="not active"):
+def test_podcast_reports_missing_principal_without_legacy_fallback(monkeypatch):
+    from backend.services import agent_execution
+    def unavailable(_):
+        raise RuntimeError("principal_agent_unavailable")
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", unavailable)
+    with pytest.raises(RuntimeError, match="principal_agent_unavailable"):
         audio_summarizer._resolve_podcast_llm()
 
 
-def test_summarize_batch_uses_langchain_messages_and_records_usage(monkeypatch):
-    llm = FakeLlm(SimpleNamespace(content="Podcast script"))
-    recorded = []
-    monkeypatch.setattr(
-        "backend.agent.model_router.usage_from_message",
-        lambda response: (120, 30),
-    )
-    monkeypatch.setattr(
-        "backend.agent.model_router.record_llm_usage",
-        lambda provider, model, tokens_in, tokens_out: recorded.append(
-            (provider, model, tokens_in, tokens_out)
-        ),
-    )
-
-    result = audio_summarizer._summarize_batch(
-        llm,
-        ["Source: Example\nTitle: News\nContent: Details"],
-        1,
-        1,
-        "groq",
-        "llama-3.3-70b-versatile",
-        "Catalan",
-    )
-
-    assert result == "Podcast script"
-    assert "Write the entire response in Catalan" in llm.messages[0].content
-    assert "Translate all source material into Catalan" in llm.messages[0].content
-    assert "Do not write in English unless Catalan is English" in (
-        llm.messages[0].content
-    )
-    assert "Write the entire response in Catalan" in llm.messages[1].content
-    assert "Structure the summary as a fluid 10-15 minute podcast script" in (
-        llm.messages[1].content
-    )
-    assert recorded == [("groq", "llama-3.3-70b-versatile", 120, 30)]
+def test_summarize_batch_uses_shared_executor_and_preserves_language(monkeypatch):
+    from backend.services import agent_execution
+    snapshot = SimpleNamespace(profile={})
+    calls = []
+    def execute(request, **kwargs):
+        calls.append((request, kwargs))
+        return SimpleNamespace(result="Podcast script")
+    monkeypatch.setattr(agent_execution, "run_sync", execute)
+    assert audio_summarizer._summarize_batch(snapshot, ["News evidence"], 1, 1, "ignored", "ignored", "Catalan") == "Podcast script"
+    request, kwargs = calls[0]
+    assert kwargs["snapshot"] is snapshot
+    assert request.skill_id == "core.gnosi-daily-briefing"
+    assert request.language == "Catalan"
+    assert "News evidence" in request.input
+    assert "Write the entire response in Catalan" in request.input
 
 
 def test_generate_tts_uses_selected_language(monkeypatch, tmp_path):
@@ -270,8 +177,8 @@ def test_async_generation_preserves_selected_vault(monkeypatch, tmp_path):
         audio_summarizer.generation_status["running"] = False
 
     class ImmediateThread:
-        def __init__(self, target, daemon):
-            self.target = target
+        def __init__(self, target, daemon, args=()):
+            self.target = lambda: target(*args)
 
         def start(self):
             self.target()

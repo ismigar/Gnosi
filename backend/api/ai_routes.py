@@ -141,9 +141,10 @@ async def validate_provider(
         # (some LLMs don't expose `ainvoke` or their sync version is the primary path).
         from langchain_core.messages import HumanMessage
 
+        from backend.services.agent_diagnostics import invoke_diagnostic
         response = await asyncio.to_thread(
-            llm.invoke,
-            [HumanMessage(content="Say 'ok'")],
+            invoke_diagnostic, llm, [HumanMessage(content="Say 'ok'")],
+            provider=provider, model=str(target_model or ""),
         )
 
         return ProviderValidationResponse.model_validate(

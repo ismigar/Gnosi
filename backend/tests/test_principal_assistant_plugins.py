@@ -7,6 +7,7 @@ def test_activation_does_not_create_or_assign_profiles(tmp_path, monkeypatch):
     ai = {"active_agent_id": "main", "agents": [{"id": "main", "skill_ids": []}]}
     path = tmp_path / "params.yaml"
     monkeypatch.setattr(profiles, "load_params", lambda **_: SimpleNamespace(ai=ai, params_source=path))
+    monkeypatch.setattr("backend.services.principal_agent_migration.ensure_migrated", lambda: ai)
     result = profiles.transition_agent(True)
     assert result == {"agent_id": "main", "agent_changed": False}
     assert not path.exists()
@@ -18,14 +19,14 @@ def test_activation_restores_legacy_profiles_without_creating_more():
     suspended, _ = profiles.suspend_agent(original)
     restored, _ = profiles.ensure_agent(suspended, create=False)
     assert len(restored["agents"]) == 2
-    assert profiles.default_plugin_agent_id(restored) == "llm-wiki"
+    assert profiles.default_plugin_agent_id(restored) == "main"
 
 
 def test_plugin_defaults_preserve_explicit_principal_and_legacy_selection():
     ai = {"active_agent_id": "chosen", "agents": [{"id": "first"}, {"id": "chosen"}]}
     assert profiles.default_plugin_agent_id(ai) == "chosen"
     legacy, _ = profiles.ensure_agent(ai)
-    assert profiles.default_plugin_agent_id(legacy) == "llm-wiki"
+    assert profiles.default_plugin_agent_id(legacy) == "chosen"
     assert profiles.default_plugin_agent_id({"agents": [{"id": "off", "enabled": False}, {"id": "on"}]}) == "on"
 
 

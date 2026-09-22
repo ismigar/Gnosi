@@ -93,11 +93,13 @@ class ContextualReader:
             if phase in {"overview", "synthesis"}
             else "planning"
         )
-        for attempt in range(3):
+        structured_generate = getattr(self.dependencies, "generate_structured", None)
+        attempts = 1 if structured_generate else 2
+        for attempt in range(attempts):
             if self.dependencies.count_tokens(prompt) > self.budget:
                 raise RuntimeError("The reading phase exceeds the selected model's input budget")
             raw, model = call_with_retry(
-                lambda timeout: self.dependencies.generate_text(
+                lambda timeout: structured_generate(prompt, validate, timeout) if structured_generate else self.dependencies.generate_text(
                     prompt, user_message=self.title, timeout=timeout
                 ),
                 on_wait=lambda: self.phase("retrying"),
@@ -122,7 +124,7 @@ class ContextualReader:
                     )
                 return answer
             except (ValueError, TypeError, KeyError) as exc:
-                if attempt == 2:
+                if attempt == attempts - 1:
                     raise RuntimeError(
                         f"The reading skill returned an invalid {phase} result: {exc}"
                     ) from exc

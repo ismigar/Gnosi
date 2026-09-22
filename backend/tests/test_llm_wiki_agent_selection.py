@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend.services import llm_wiki_agent, llm_wiki_config, llm_wiki_generation
-from backend.services.llm_wiki_agent import LlmWikiAgentError, ensure_agent, suspend_agent
+from backend.services.llm_wiki_agent import ensure_agent, suspend_agent
 
 
 def profile(**values):
@@ -26,7 +26,8 @@ def test_config_defaults_and_explicit_selection_survives_disk(tmp_path, monkeypa
     monkeypatch.setattr(llm_wiki_config, "config_path", lambda: tmp_path / "wiki.json")
     monkeypatch.setattr(llm_wiki_config, "_legacy_reference_table_id", lambda: "")
     assert llm_wiki_config.normalize_config({})["agent_id"] == ""
-    expected = "llm-wiki" if legacy else "principal"
+    monkeypatch.setattr("backend.services.principal_agent_migration.ensure_migrated", lambda: ai)
+    expected = ""
     assert llm_wiki_config.load_config()["agent_id"] == expected
     assert llm_wiki_config.migrate_config()["agent_id"] == expected
     ai["active_agent_id"] = "different-principal"
@@ -36,12 +37,12 @@ def test_config_defaults_and_explicit_selection_survives_disk(tmp_path, monkeypa
 
 
 @pytest.mark.parametrize("selection", ["custom", "missing", "llm-wiki"])
-def test_explicit_selections_never_resolve_to_the_principal(monkeypatch, selection):
+def test_legacy_feature_selections_always_resolve_to_the_principal(monkeypatch, selection):
     monkeypatch.setattr(llm_wiki_config, "load_config", lambda: {"agent_id": selection})
     default = Mock(return_value="principal")
     monkeypatch.setattr(llm_wiki_generation, "default_plugin_agent_id", default)
-    assert llm_wiki_generation.configured_agent_id() == selection
-    default.assert_not_called()
+    assert llm_wiki_generation.configured_agent_id() == "principal"
+    default.assert_called_once()
 
 
 def test_lifecycle_unlocks_query_and_preserves_custom_or_empty_skills():
@@ -86,43 +87,26 @@ def test_select_agent_without_tables_preserves_other_config_and_validates_before
     assert (tmp_path / "wiki.json").read_bytes() == before
 
 
-def test_generation_reads_selected_profile_and_current_custom_skill_content(monkeypatch):
-    from backend.agent import factory
-    from backend.models.agent_skills import SkillActivation, SkillKind
-    from backend.services import agent_skill_catalog
+def test_generation_enters_shared_executor_without_feature_agent_override(monkeypatch):
+    from backend.services import agent_execution
 
-    monkeypatch.setattr(llm_wiki_config, "load_config", lambda: {"agent_id": "custom"})
-    monkeypatch.setattr(llm_wiki_generation, "agent_profiles", lambda: [profile()])
-    skill = SimpleNamespace(id="user.ingest", kind=SkillKind.AGENT,
-                            activation=SkillActivation.EXPLICIT,
-                            tool_ids=["plugin.llm-wiki.process-source"], instructions="Edited instructions")
-    entry = SimpleNamespace(available=True, descriptor=skill)
-    monkeypatch.setattr(agent_skill_catalog, "get_skill_catalog",
-                        lambda: SimpleNamespace(list_entries=lambda: [entry]))
-    generate = Mock(return_value=("result", "chosen"))
-    monkeypatch.setattr(factory, "generate_text", generate)
-    assert llm_wiki_generation.generate_text("JSON contract", operation="plugin.llm-wiki.process-source") == ("result", "chosen")
-    assert generate.call_args.args == ("JSON contract",)
-    assert generate.call_args.kwargs["agent_id"] == "custom"
-    assert generate.call_args.kwargs["system_prompt"] == "My persona\n\nMy context\n\nEdited instructions"
-    skill.instructions = "New content"
-    llm_wiki_generation.generate_text("JSON contract", operation="plugin.llm-wiki.process-source")
-    assert "New content" in generate.call_args.kwargs["system_prompt"]
-    entry.available = False
-    llm_wiki_generation.generate_text("JSON contract", operation="plugin.llm-wiki.process-source")
-    assert "New content" not in generate.call_args.kwargs["system_prompt"]
+    generate = Mock(return_value=("result", "principal-model"))
+    monkeypatch.setattr(agent_execution, "generate_for", generate)
+    assert llm_wiki_generation.generate_text("JSON contract", operation="plugin.llm-wiki.process-source", agent_id="old-choice") == ("result", "principal-model")
+    generate.assert_called_once_with("knowledge", "JSON contract", "", timeout=60)
 
 
-@pytest.mark.parametrize("agents", [[], [profile(enabled=False)], [profile(model="")], [profile(plugin_suspended=True)]])
-def test_unavailable_selected_agent_never_calls_model(monkeypatch, agents):
+def test_executor_failure_does_not_trigger_legacy_generation(monkeypatch):
+    from backend.services import agent_execution
     from backend.agent import factory
 
-    monkeypatch.setattr(llm_wiki_generation, "agent_profiles", lambda: agents)
-    generate = Mock()
-    monkeypatch.setattr(factory, "generate_text", generate)
-    with pytest.raises(LlmWikiAgentError):
-        llm_wiki_generation.generate_text("prompt", agent_id="custom")
-    generate.assert_not_called()
+    generate = Mock(side_effect=RuntimeError("principal_agent_unavailable"))
+    legacy = Mock()
+    monkeypatch.setattr(agent_execution, "generate_for", generate)
+    monkeypatch.setattr(factory, "generate_text", legacy)
+    with pytest.raises(RuntimeError, match="principal_agent_unavailable"):
+        llm_wiki_generation.generate_text("prompt", agent_id="old-choice")
+    legacy.assert_not_called()
 
 
 def test_explicit_model_selection_does_not_fall_back(monkeypatch):

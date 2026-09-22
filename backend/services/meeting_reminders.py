@@ -156,7 +156,10 @@ def _generate_agenda(ev: JsonObject) -> str:
         f"Description: {desc or '—'}\n"
     )
     try:
-        from backend.agent.factory import generate_text
+        from functools import partial
+        from backend.services.agent_execution import generate_for
+
+        generate_text = partial(generate_for, "meeting")
         content, _model = generate_text(prompt, user_message=title)
         return str(content or "").strip()
     except Exception as e:

@@ -814,6 +814,7 @@ def test_reader_analysis_recovers_when_interrupted_before_snapshot(
         vault_path,
         {"unread_only": True},
         launch=False,
+        model_call=lambda *_args: "unused",
     )
 
     interrupted = reader_analysis.get_status(vault_path, job["job_id"])
@@ -898,7 +899,7 @@ def test_reader_analysis_retries_transient_failure_with_persisted_budget(
             "article_ids": ["1"],
         })
 
-    job = reader_analysis.start_analysis(vault_path, {}, launch=False)
+    job = reader_analysis.start_analysis(vault_path, {}, launch=False, model_call=lambda *_args: "unused")
     reader_analysis._run_job(vault_path, job["job_id"], model_call=model_call)
     waiting = reader_analysis.get_status(vault_path, job["job_id"])
 
@@ -940,7 +941,7 @@ def test_reader_analysis_does_not_retry_past_attempt_budget(tmp_path, monkeypatc
         "_schedule_retry",
         lambda *_args, **_kwargs: scheduled.append(True),
     )
-    job = reader_analysis.start_analysis(vault_path, {}, launch=False)
+    job = reader_analysis.start_analysis(vault_path, {}, launch=False, model_call=lambda *_args: "unused")
     stored = reader_analysis._load_json(
         reader_analysis._job_path(vault_path, job["job_id"])
     )

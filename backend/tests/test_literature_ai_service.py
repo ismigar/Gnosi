@@ -1,5 +1,12 @@
+from types import SimpleNamespace
+import pytest
 from backend.services import literature_ai_service
 from backend.services.literature_models import canonical_work
+
+
+@pytest.fixture(autouse=True)
+def engines(monkeypatch):
+    monkeypatch.setattr("backend.services.agent_specialized_tools.run_engine", lambda kind, resource, invoke: invoke())
 
 
 def test_local_reranking_preserves_original_rank_and_audit(monkeypatch):
@@ -47,18 +54,18 @@ def test_token_overlap_fallback_still_preserves_original_order_metadata(monkeypa
 def test_query_strategy_uses_selected_agent_and_auto_framework(monkeypatch):
     captured = {}
 
-    def fake_generate_text(prompt, **kwargs):
+    def fake_generate_text(operation, prompt, **kwargs):
         captured["prompt"] = prompt
         captured.update(kwargs)
-        return '{"framework":"concepts","concepts":{},"synonyms":{},"boolean_query":"history","cautions":[]}', "test-model"
+        return SimpleNamespace(result='{"framework":"concepts","concepts":{},"synonyms":{},"boolean_query":"history","cautions":[]}', model="test-model", agent_id="principal", run_id="test-run", provider="test")
 
-    monkeypatch.setattr("backend.agent.factory.generate_text", fake_generate_text)
+    monkeypatch.setattr("backend.services.agent_execution.generate_result_for", fake_generate_text)
     response = literature_ai_service.run_operation(
         "query_strategy",
         {"question": "Historical periodization", "framework": "AUTO", "languages": ["es", "en"]},
         agent_id="research-agent",
     )
 
-    assert captured["agent_id"] == "research-agent"
+    assert "agent_id" not in captured
     assert "use PICO or SPIDER only when they fit" in captured["prompt"]
-    assert response["audit"]["agent_id"] == "research-agent"
+    assert response["audit"]["agent_id"] == "principal"

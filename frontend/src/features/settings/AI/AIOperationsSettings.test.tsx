@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -36,7 +37,7 @@ const render = (element: ReactElement): HTMLDivElement => {
     const root = createRoot(container);
     roots.push({ root, container });
     act(() => {
-        root.render(element);
+        root.render(<MemoryRouter>{element}</MemoryRouter>);
     });
     return container;
 };
@@ -62,7 +63,7 @@ afterEach(() => {
 });
 
 describe('AI governed operations settings', () => {
-    it('only offers skills assigned to the selected agent', () => {
+    it('only offers principal skills without an alternative agent selector', () => {
         const resources = {
             automations: [],
             skills: [
@@ -90,17 +91,10 @@ describe('AI governed operations settings', () => {
         });
         const selects = container.querySelectorAll('select');
         const agentSelect = [...selects].find(select => [...select.options].some(option => option.value === 'brain'));
-        if (!agentSelect) throw new Error('Agent selection is missing');
-        expect(agentSelect.value).toBe('brain');
+        expect(agentSelect).toBeUndefined();
         expect(container.textContent).toContain('Assigned');
         expect(container.textContent).not.toContain('Hidden');
-        act(() => {
-            agentSelect.value = 'other';
-            agentSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        });
 
-        expect(container.textContent).toContain('Hidden');
-        expect(container.textContent).not.toContain('Assigned');
     });
 
     it('renders durable jobs and metadata-only audit events', () => {
@@ -139,3 +133,5 @@ describe('AI governed operations settings', () => {
         expect(resolveApproval).toHaveBeenCalledWith(approval, 'confirm');
     });
 });
+
+vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: () => Promise.resolve({ ai: { active_agent_id: 'brain', agents: [{ id: 'brain', name: 'Brain' }] } }) }));

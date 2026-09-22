@@ -17,10 +17,11 @@ import tempfile
 import time
 from collections.abc import Callable, Iterator, Sequence
 from copy import deepcopy
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone, tzinfo
 from importlib import import_module
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from typing import TYPE_CHECKING
 
 import httpx
@@ -111,12 +112,13 @@ def isolated_providers(
     from backend.services import integration_manager as integrations
     from backend.services import notion_importer
     from backend.services.integration_manager import integration_manager
-    from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
-
     monkeypatch.setattr(integrations, "get_keychain", forbidden)
     monkeypatch.setattr(integration_manager, "get_raw", forbidden)
     monkeypatch.setattr(notion_importer, "NotionClient", forbidden)
-    monkeypatch.setattr(rss, "Groq", forbidden)
+    from backend.services import agent_execution, agent_execution_scope, agent_specialized_tools
+    monkeypatch.setattr(agent_execution, "generate_for", forbidden)
+    monkeypatch.setattr(agent_execution_scope, "personal_scheduler_scope", lambda **kwargs: nullcontext())
+    monkeypatch.setattr(agent_specialized_tools, "run_engine", lambda _kind, _resource, invoke: invoke())
     yield
     assert attempts == []
 
@@ -237,72 +239,38 @@ def check_rss_bad_entry_stops_only_its_feed(
 
 
 def check_rss_summary_contract_and_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services import agent_execution
     from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
 
-    calls: list[dict[str, object]] = []
+    calls: list[tuple[str, str]] = []
+    def generate(operation: str, prompt: str) -> tuple[str, str]:
+        calls.append((operation, prompt))
+        return "Synthetic script", "principal-model"
 
-    def create(**kwargs: object) -> SimpleNamespace:
-        calls.append(kwargs)
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))])
-
-    def factory(*, api_key: str) -> SimpleNamespace:
-        assert api_key == "synthetic-key"
-        return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
-
-    monkeypatch.setattr(rss, "GROQ_API_KEY", None)
-    assert rss.generate_summary([]) == "Error: the Groq API key is missing."
-    monkeypatch.setattr(rss, "GROQ_API_KEY", "synthetic-key")
     assert rss.generate_summary([]) == (
         "Hello. There are no new articles from the last 24 hours in the selected categories."
     )
-    monkeypatch.setattr(rss, "Groq", factory)
+    monkeypatch.setattr(agent_execution, "generate_for", generate)
     article: rss.Article = {**_article()}
     large: rss.Article = {**article, "content": "x" * 25000}
-    assert rss.generate_summary([article, large, article]) is None
+    assert rss.generate_summary([article, large, article]) == "Synthetic script"
     assert len(calls) == 1
-    assert calls[0]["model"] == "llama3-70b-8192" and calls[0]["temperature"] == 0.7
-    messages = calls[0]["messages"]
-    assert isinstance(messages, list) and len(messages) == 2
-    assert messages[0] == {
-        "role": "system",
-        "content": (
-            "You are an intelligent podcast assistant. Write only the text that will be read "
-            "aloud, without notes or meta-commentary."
-        ),
-    }
-    assert messages[1] == {
-        "role": "user",
-        "content": (
-            "You are a senior editorial assistant. Summarize the following articles for a listener "
-            "with a background in engineering and philosophy. Avoid shallow headlines; focus on "
-            "depth, connections between topics, and ethical implications. Structure the summary "
-            "as a fluid 10–15 minute podcast script. Language: English.\n\nARTICLES:\n"
-            "--- Article 1 ---\nSource: Synthetic (Category: News)\nTitle: Title\nContent: Body\n\n"
-        ),
-    }
+    assert calls[0][0] == "podcast"
+    assert "Language: English" in calls[0][1]
+    assert "Title: Title\nContent: Body" in calls[0][1]
+    assert "Article 2" not in calls[0][1]
 
 
 def check_rss_provider_error_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services import agent_execution
     from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
 
-    def fail(**kwargs: object) -> object:
-        raise RuntimeError("synthetic provider failure")
+    def fail(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("principal_agent_model_unavailable")
 
-    monkeypatch.setattr(rss, "GROQ_API_KEY", "synthetic-key")
-    article: rss.Article = {**_article()}
-    monkeypatch.setattr(rss, "Groq", fail)
-    with pytest.raises(RuntimeError, match="synthetic provider failure"):
-        rss.generate_summary([article])
-    monkeypatch.setattr(
-        rss,
-        "Groq",
-        lambda **_kwargs: SimpleNamespace(
-            chat=SimpleNamespace(completions=SimpleNamespace(create=fail))
-        ),
-    )
-    assert rss.generate_summary([article]) == (
-        "The summary could not be generated because of an LLM provider error."
-    )
+    monkeypatch.setattr(agent_execution, "generate_for", fail)
+    with pytest.raises(RuntimeError, match="principal_agent_model_unavailable"):
+        rss.generate_summary([_article()])
 
 
 @pytest.mark.parametrize("explicit", [False, True])
@@ -366,24 +334,18 @@ def check_rss_complete_flow_with_synthetic_providers(
     )
     events: list[str] = []
     monkeypatch.setattr(rss, "datetime", _Clock)
-    monkeypatch.setattr(rss, "GROQ_API_KEY", "synthetic-key")
 
     def fetch(url: str) -> object:
         assert url == "synthetic:feed"
         events.append("feed")
         return {"entries": [_entry("Recent"), _entry("Old", 25)]}
 
-    def create(**kwargs: object) -> SimpleNamespace:
-        assert kwargs["model"] == "llama3-70b-8192"
-        messages = kwargs["messages"]
-        assert isinstance(messages, list)
-        prompt = messages[1]["content"]
+    def generate(operation: str, prompt: str) -> tuple[str, str]:
+        assert operation == "podcast"
         assert "Title: Recent" in prompt and "Title: Old" not in prompt
         assert "Content: Hello world" in prompt
         events.append("summary")
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="Synthetic spoken summary"))]
-        )
+        return "Synthetic spoken summary", "principal-model"
 
     class Audio:
         def __init__(self, *, text: str, lang: str, slow: bool) -> None:
@@ -394,13 +356,8 @@ def check_rss_complete_flow_with_synthetic_providers(
             Path(filename).write_bytes(b"synthetic-mp3")
 
     monkeypatch.setattr(import_module("feedparser"), "parse", fetch)
-    monkeypatch.setattr(
-        rss,
-        "Groq",
-        lambda **_kwargs: SimpleNamespace(
-            chat=SimpleNamespace(completions=SimpleNamespace(create=create))
-        ),
-    )
+    from backend.services import agent_execution
+    monkeypatch.setattr(agent_execution, "generate_for", generate)
     monkeypatch.setattr(import_module("gtts"), "gTTS", Audio)
     rss.main(["--opml", str(source), "--output-dir", str(output)])
     assert events == ["feed", "summary", "tts"]
@@ -423,7 +380,7 @@ def check_rewalk_cli_help_and_required_vault_do_not_read_credentials(
     assert missing_vault.value.code == 2
 
 
-def check_rss_tts_failure_still_returns_none(
+def check_rss_tts_failure_is_not_reported_as_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
@@ -434,8 +391,8 @@ def check_rss_tts_failure_still_returns_none(
 
     monkeypatch.setattr(import_module("gtts"), "gTTS", lambda **_kwargs: BrokenAudio())
     generate: Callable[[str | None, str | Path], object] = rss.text_to_audio
-    assert generate("Hello", tmp_path / "out.mp3") is None
-    assert "Error generating TTS audio: synthetic save failure" in capsys.readouterr().out
+    with pytest.raises(RuntimeError, match="synthetic save failure"):
+        generate("Hello", tmp_path / "out.mp3")
     assert not (tmp_path / "out.mp3").exists()
 
 

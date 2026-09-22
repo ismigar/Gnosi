@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Dict
 
 from backend.agent.action_confirmations import bind_confirmation_context
-from backend.agent.model_router import record_llm_usage
 from backend.agent.semantic_interpreter import clarification_message
 from backend.domains.agent.routes.chat_stream_errors import (
     finalize_agent_stream,
@@ -250,15 +249,7 @@ async def stream_agent_events(
             config=config,
         ):
             yield event
-        if state.total_in_tok or state.total_out_tok:
-            await asyncio.to_thread(
-                record_llm_usage,
-                (llm_selection or {}).get("provider"),
-                (llm_selection or {}).get("model"),
-                state.total_in_tok,
-                state.total_out_tok,
-            )
-            state.usage_recorded = True
+        state.usage_recorded = True  # Recorded at the shared model boundary.
         yield json.dumps(state.metrics_payload()) + "\n"
         state.metrics_emitted = True
         yield (

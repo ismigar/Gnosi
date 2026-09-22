@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from gtts import gTTS  # type: ignore[import-untyped]
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
 from sqlalchemy.orm import Session
 
 from backend.config.logger_config import get_logger
@@ -136,62 +135,17 @@ def _resolve_podcast_language() -> tuple[str, str]:
     return _podcast_language_selection(cfg.settings)
 
 
-def _resolve_podcast_llm() -> tuple[BaseChatModel, str, str]:
-    """Resolve the current podcast LLM and return it with provider metadata."""
-    from backend.agent.factory import get_default_llm_with_meta, get_llm
-    from backend.agent.model_router import strip_legacy_registry_rows
-    from backend.config.app_config import load_params
-    from backend.security.ai_credentials import resolve_provider_api_key
+def _resolve_podcast_llm() -> tuple[AgentExecutionSnapshot, str, str]:
+    """Freeze the principal and its assigned briefing skill for this episode."""
+    from backend.services.agent_execution import prepare_snapshot, _snapshot
+    from backend.services.agent_operation_catalog import skill_id
 
-    cfg = load_params(strict_env=False)
-    provider, model = _podcast_model_selection(cfg.settings)
-    if not provider:
-        default_llm, default_provider, default_model = get_default_llm_with_meta(
-            user_message="Generate the daily news podcast script."
-        )
-        if not default_llm:
-            raise PodcastModelError(
-                "No default AI model is available. Configure one in Settings → AI."
-            )
-        return default_llm, default_provider or "", default_model or ""
-
-    registry = strip_legacy_registry_rows((cfg.ai or {}).get("models"))
-    route_enabled = any(
-        row.get("enabled") is True
-        and str(row.get("provider") or "").strip().lower() == provider
-        and str(row.get("model_id") or "").strip() == model
-        for row in registry
-    )
-    if not route_enabled:
-        raise PodcastModelError(
-            f"The selected daily podcast model ({provider}/{model}) is not active. "
-            "Choose an active model in Settings → Reader."
-        )
-
-    providers = (cfg.ai or {}).get("providers") or {}
-    provider_config = providers.get(provider) or {}
-    if provider_config.get("enabled") is False:
-        raise PodcastModelError(
-            f"The selected daily podcast provider ({provider}) is disabled. "
-            "Enable it in Settings → AI."
-        )
-    api_key = resolve_provider_api_key(provider, provider_config)
-    llm = get_llm(
-        provider=provider,
-        model=model,
-        api_key=api_key,
-        base_url=provider_config.get("base_url"),
-    )
-    if not llm:
-        raise PodcastModelError(
-            f"The selected daily podcast model ({provider}/{model}) is unavailable. "
-            "Check its provider in Settings → AI."
-        )
-    return llm, provider, model
+    snapshot = _snapshot.get() or prepare_snapshot(skill_id("podcast"))
+    return snapshot, str(snapshot.profile.get("provider") or ""), str(snapshot.profile.get("model") or "")
 
 
 def _summarize_batch(
-    llm: BaseChatModel,
+    llm: AgentExecutionSnapshot,
     batch_texts: list[str],
     batch_num: int,
     total_batches: int,
@@ -222,22 +176,14 @@ def _summarize_batch(
             f"ARTICLES:\n{joined}"
         )
 
-    response = llm.invoke(
-        [
-            SystemMessage(content=SYSTEM_PROMPT_TEMPLATE.format(language_name=language_name)),
-            HumanMessage(content=user_prompt),
-        ]
-    )
-    content = getattr(response, "content", "") or ""
-    if not isinstance(content, str):
-        content = str(content)
+    from backend.services.agent_execution import run_sync
+    from backend.services.agent_operation_catalog import skill_id
 
-    from backend.agent.model_router import record_llm_usage, usage_from_message
-
-    usage = usage_from_message(response)
-    if usage:
-        record_llm_usage(provider, model, usage[0], usage[1])
-    return content
+    result = run_sync(AgentOperation(
+        skill_id=skill_id("podcast"), operation="podcast.segment",
+        input=user_prompt, language=language_name,
+    ), snapshot=llm)
+    return result.result
 
 
 def _split_into_sentences(text: str) -> list[str]:
@@ -319,6 +265,26 @@ def get_podcast_output_dir(vault_path: str | Path | None = None) -> Path:
 
 
 def generate_daily_podcast() -> str | None:
+    import uuid
+    from backend.services.agent_execution import create_job_run, operation_session
+    from backend.services import agent_execution_store as store
+    snapshot, _provider, _model = _resolve_podcast_llm()
+    run_id = uuid.uuid4().hex
+    snapshot = create_job_run(snapshot, run_id, "podcast")
+    with operation_session(snapshot):
+        store.update(snapshot.scope, run_id, status="running")
+        try:
+            result = _generate_daily_podcast()
+            store.update(snapshot.scope, run_id,
+                status="failed" if generation_status["error"] else "completed",
+                result=result or "", error=generation_status["error"] or "")
+            return result
+        except BaseException as error:
+            store.update(snapshot.scope, run_id, status="failed", error=type(error).__name__)
+            raise
+
+
+def _generate_daily_podcast() -> str | None:
     """
     Collect unread articles from the last 24 hours, generate a batched script
     through the configured AI model, and convert it to MP3 audio.
@@ -395,7 +361,7 @@ def generate_daily_podcast() -> str | None:
             except Exception as e:
                 log.error(f"Error in batch {batch_num}: {e}")
                 generation_status["progress"] = f"Error in batch {batch_num}: {e}"
-                # Continue with the remaining batches if there are any
+                raise  # A partial episode must not be reported as complete.
 
         if not all_summaries:
             log.error("No summaries generated. All calls failed.")
@@ -416,7 +382,8 @@ def generate_daily_podcast() -> str | None:
 
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
-            _generate_tts_atomically(full_script, audio_path, language_code)
+            from backend.services.agent_specialized_tools import run_engine
+            run_engine("speech", audio_filename, lambda: _generate_tts_atomically(full_script, audio_path, language_code))
             log.info(f"Podcast generated successfully: {audio_filename}")
             generation_status["result_filename"] = audio_filename
             generation_status["progress"] = "Completed!"
@@ -459,10 +426,15 @@ def start_generation_async(vault_path: str | Path | None = None) -> bool:
         token = active_vault_path.set(selected_vault_path)
         try:
             generate_daily_podcast()
+        except Exception as error:
+            generation_status["error"] = str(error)
         finally:
+            generation_status["running"] = False
             active_vault_path.reset(token)
 
-    thread = threading.Thread(target=run_for_selected_vault, daemon=True)
+    from contextvars import copy_context
+    context = copy_context()
+    thread = threading.Thread(target=context.run, args=(run_for_selected_vault,), daemon=True)
     thread.start()
     return True
 

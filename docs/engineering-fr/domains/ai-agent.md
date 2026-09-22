@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -70,6 +72,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_agent_learning.py
@@ -754,14 +757,7 @@ gestionnaire exécutable.
 
 ## Configuration de LLM Wiki
 
-Le plugin enregistre l’`agent_id` choisi. Sans sélection enregistrée, il conserve
-un profil géré `llm-wiki` existant ou utilise l’assistant principal. La sélection
-résolue est enregistrée sans remplacer les choix explicites ultérieurs.
-L’activation apporte des outils et compétences sans créer de profils ni
-attribuer de compétences, et conserve les personnalisations existantes. Les
-paramètres donnent accès aux éditeurs d’agents et de compétences. L’ingestion,
-les propositions de connexion et l’aide à la rédaction utilisent le profil
-choisi et signalent son indisponibilité.
+Connaissances utilise toujours l’Agent principal. Le paramètre historique `agent_id` est conservé mais ne permet pas de choisir un autre profil d’exécution. La migration versionnée retire le profil géré `llm-wiki` ; les profils personnels et les instructions de Connaissances sont conservés. Les paramètres renvoient au principal et à ses compétences. Chaque exécution planifiée prend le principal actuel ; les exécutions commencées conservent leur instantané.
 
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
@@ -1230,12 +1226,6 @@ externes ni appels aux fournisseurs.
 
 ## Assistant principal et profils facultatifs
 
-L’onglet Assistant présente le profil principal sélectionné par `ai.active_agent_id`. Les compétences apportent des procédures réutilisables et des outils ; les profils supplémentaires restent dans les options avancées pour d’autres modèles, instructions, sources ou compétences. Les profils et réglages existants sont conservés. Une nouvelle conversation et le chat des carnets utilisent le principal par défaut ; les sélections de chat enregistrées restent explicites.
-
-Les nouvelles automatisations commencent avec l’assistant principal et ne proposent que ses compétences attribuées. Un sélecteur avancé permet un autre profil. L’enregistrement fixe l’identifiant concret du profil : changer le principal ensuite ne réattribue pas les automatisations et n’élargit pas les permissions.
-
-Activer le module Brain apporte des compétences et des outils sans créer un autre profil ni attribuer automatiquement des compétences. Un profil géré `llm-wiki` existant est conservé et réactivé si nécessaire ; le traitement l’utilise par compatibilité et utilise sinon l’assistant principal. Une sélection explicite de l’agent du Cerveau est prioritaire sur ces valeurs par défaut.
-
 Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence. Les affectations utilisent les interrupteurs accessibles partagés ; les compétences obligatoires restent verrouillées et les affectations indisponibles peuvent être retirées.
 
 Les lectures simultanées du catalogue attendent la fin de l’enregistrement des extensions intégrées. Les lectures récursives du même fil restent autorisées pour éviter les cycles d’importation ; les autres fils ne peuvent pas recevoir un catalogue partiel sans les compétences du Cerveau.
@@ -1261,3 +1251,9 @@ La lecture utilise des fragments structurels avec leur contexte voisin, des cart
 Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue permet de demander une traduction dans la langue active avec le fournisseur IA configuré. Cette aide à la lecture apparaît à côté du texte original sans modifier les instructions enregistrées ou exécutées. Ouvrir une compétence ne demande aucune traduction. Les traductions sont conservées uniquement en mémoire, par vault, texte original et langue cible. En cas d’échec, le texte original reste disponible et une nouvelle tentative est possible.
 
 La traduction utilise un bouton compact aligné à droite. Les limites de requêtes ou de quota affichent un message spécifique ; le texte original reste visible.
+
+## Exécution de l’Agent principal
+
+L’IA fonctionnelle passe par l’exécuteur partagé de l’Agent principal. Boutons, chat et programmations utilisent les compétences attribuées, la politique de modèles du principal, une mémoire délimitée et un registre commun de consommation. Les opérations structurées autorisent une seule réparation de format dans le même budget. Les phases longues conservent un instantané du profil et réutilisent les points de reprise terminés.
+
+L’Activité présente les identifiants d’exécution, l’annulation et les reprises compatibles. La migration versionnée sauvegarde la configuration, retire uniquement le profil Brain géré, préserve les profils personnels et déplace les instructions de Connaissances vers une compétence complémentaire. Les anciennes URL et celles de Connaissances partagent les mêmes traitements et autorisations ; Notion reste facultatif.

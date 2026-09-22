@@ -1,7 +1,7 @@
 """AI-powered meeting minutes taker orchestrator.
 
 Flow of a job (one in flight): audio → LOCAL transcription (faster-whisper) → MINUTES with
-AI (`factory.generate_text`) → Vault page. Degrades gracefully: if the AI
+AI (principal Agent) → Vault page. Degrades gracefully: if the AI
 fails (invalid keys), the page is still saved with the transcription + a warning.
 
 Single-job global state, `audio_summarizer.generation_status`-style (queried
@@ -82,7 +82,28 @@ def _create_vault_page(title: str, content: str) -> Optional[str]:
     return (result or {}).get("id")
 
 
-def process_meeting(
+def process_meeting(audio_path: str, title: str, mode: str) -> dict[str, Any]:
+    import uuid
+    from backend.services.agent_execution import _snapshot, prepare_snapshot, create_job_run, operation_session
+    from backend.services.agent_operation_catalog import skill_id
+    from backend.services import agent_execution_store
+    snapshot = _snapshot.get() or prepare_snapshot(skill_id("meeting"))
+    run_id = uuid.uuid4().hex
+    snapshot = create_job_run(snapshot, run_id, "meeting.minutes")
+    with operation_session(snapshot):
+        agent_execution_store.update(snapshot.scope, run_id, status="running")
+        try:
+            result = _process_meeting(audio_path, title, mode)
+            agent_execution_store.update(snapshot.scope, run_id,
+                status="failed" if result.get("error") else "completed",
+                result=str(result.get("page_id") or ""), error=str(result.get("error") or ""))
+            return result
+        except BaseException as error:
+            agent_execution_store.update(snapshot.scope, run_id, status="failed", error=str(error))
+            raise
+
+
+def _process_meeting(
     audio_path: str,
     title: str,
     mode: str = "presencial",
@@ -104,7 +125,10 @@ def process_meeting(
         acta_md = ""
         if transcript:
             try:
-                from backend.agent.factory import generate_text
+                from functools import partial
+                from backend.services.agent_execution import generate_for
+
+                generate_text = partial(generate_for, "meeting")
                 acta_md, _ = generate_text(
                     _build_acta_prompt(safe_title, transcript), user_message=safe_title
                 )
@@ -132,6 +156,8 @@ def process_meeting(
         page_title = f"Acta — {safe_title} ({now.strftime('%d/%m/%Y')})"
         content = _acta_page_markdown(acta_md, transcript, meta_line)
 
+        from backend.services.agent_execution_scope import current_scope, revalidate_scope
+        revalidate_scope(current_scope())
         page_id = _create_vault_page(page_title, content)
         job_status.update(
             {"running": False, "stage": "done", "progress": 100, "page_id": page_id}
@@ -152,6 +178,9 @@ def process_meeting(
 
 def start_async(audio_path: str, title: str, mode: str) -> bool:
     """Launches the job in a daemon thread. Returns False if one is already in flight."""
+    from backend.services.agent_execution import prepare_snapshot, operation_session
+    from backend.services.agent_operation_catalog import skill_id
+    snapshot = prepare_snapshot(skill_id("meeting"))
     with _LOCK:
         if job_status["running"]:
             return False
@@ -159,7 +188,12 @@ def start_async(audio_path: str, title: str, mode: str) -> bool:
             "running": True, "stage": "transcribing", "progress": 5,
             "error": None, "page_id": None, "title": (title or "").strip() or "Reunió",
         })
-    threading.Thread(
-        target=process_meeting, args=(audio_path, title, mode), daemon=True
-    ).start()
+    def worker() -> None:
+        try:
+            with operation_session(snapshot):
+                process_meeting(audio_path, title, mode)
+        except Exception as error:
+            job_status.update(running=False, stage="error", error=str(error))
+    from contextvars import copy_context
+    threading.Thread(target=copy_context().run, args=(worker,), daemon=True).start()
     return True

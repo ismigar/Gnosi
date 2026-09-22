@@ -113,15 +113,11 @@ def _call_provider_blocking(
     timeout: int,
     capacity: threading.BoundedSemaphore,
 ) -> str:
-    from pipeline import ai_client
+    from backend.services.agent_execution import generate_for
 
     try:
-        return ai_client.call_ai_client(
-            prompt[:6000],
-            timeout=timeout,
-            provider=provider,
-            use_cache=False,
-        )
+        text, _model = generate_for("mail", prompt, timeout=timeout, output_schema={"type": "object", "required": ["events", "contacts"], "properties": {"events": {"type": "array"}, "contacts": {"type": "array"}}})
+        return text
     finally:
         capacity.release()
 
@@ -139,64 +135,11 @@ def _is_local_endpoint(url: str) -> bool:
 
 
 def _configured_provider_names() -> list[str]:
-    """Return usable primary/fallback names without contacting providers."""
-    from pipeline import ai_client
-
-    candidates = [ai_client.PRIMARY_PROVIDER, ai_client.FALLBACK_PROVIDER]
-    configured: list[str] = []
-    for name in candidates:
-        if not name or name in configured:
-            continue
-        config = ai_client.PROVIDERS.get(name)
-        if not isinstance(config, dict) or config.get("enabled", True) is False:
-            continue
-        model_url = str(config.get("model_url") or "").strip()
-        model_name = str(config.get("model_name") or "").strip()
-        if not model_url or not model_name:
-            continue
-        if (
-            name.casefold() in _HOSTED_PROVIDERS_REQUIRING_CREDENTIALS
-            and not _is_local_endpoint(model_url)
-            and not resolve_provider_api_key(name, config)
-        ):
-            continue
-        configured.append(name)
-    return configured
+    """The principal is the only functional route, including its own policy."""
+    return ["principal_agent"]
 
 
 def _configuration_failure_reason() -> AnalysisReason:
-    """Explain why no provider can run without making a provider request."""
-    from pipeline import ai_client
-
-    saw_disabled = False
-    saw_missing_credentials = False
-    saw_enabled_candidate = False
-    for name in dict.fromkeys(
-        candidate
-        for candidate in (ai_client.PRIMARY_PROVIDER, ai_client.FALLBACK_PROVIDER)
-        if candidate
-    ):
-        config = ai_client.PROVIDERS.get(name)
-        if not isinstance(config, dict):
-            continue
-        if config.get("enabled", True) is False:
-            saw_disabled = True
-            continue
-        saw_enabled_candidate = True
-        model_url = str(config.get("model_url") or "").strip()
-        model_name = str(config.get("model_name") or "").strip()
-        if not model_url or not model_name:
-            continue
-        if (
-            name.casefold() in _HOSTED_PROVIDERS_REQUIRING_CREDENTIALS
-            and not _is_local_endpoint(model_url)
-            and not resolve_provider_api_key(name, config)
-        ):
-            saw_missing_credentials = True
-    if saw_missing_credentials:
-        return "credentials"
-    if saw_disabled and not saw_enabled_candidate:
-        return "disabled"
     return "not_configured"
 
 
@@ -210,8 +153,9 @@ async def request_entity_analysis(
     if not capacity.acquire(blocking=False):
         raise MailAnalysisProviderBusyError("Provider capacity is occupied")
     try:
+        from contextvars import copy_context
         provider_future = _PROVIDER_EXECUTOR.submit(
-            _call_provider_blocking,
+            copy_context().run, _call_provider_blocking,
             prompt,
             provider,
             timeout,

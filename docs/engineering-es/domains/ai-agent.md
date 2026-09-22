@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -70,6 +72,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_agent_learning.py
@@ -745,14 +748,7 @@ que un manejador sea ejecutable.
 
 ## Configuración de LLM Wiki
 
-El complemento guarda el `agent_id` elegido. Sin una selección guardada,
-conserva un perfil gestionado `llm-wiki` existente o utiliza el asistente
-principal. La selección resuelta se guarda sin sustituir elecciones explícitas
-posteriores. La activación aporta herramientas y habilidades sin crear perfiles
-ni asignar habilidades, y conserva las personalizaciones existentes. Los ajustes
-enlazan a los editores de agentes y habilidades. La ingesta, las propuestas de
-conexión y la asistencia de escritura usan el agente elegido y muestran un
-error si no está disponible.
+Conocimiento utiliza siempre el Agente principal. El parámetro histórico `agent_id` se conserva pero no permite seleccionar otro perfil de ejecución. La migración versionada retira el perfil gestionado `llm-wiki`; conserva los perfiles personales y las instrucciones de Conocimiento. Los ajustes enlazan al principal y sus habilidades. Cada ejecución programada toma el principal vigente; las iniciadas conservan su instantánea.
 
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
@@ -1208,12 +1204,6 @@ en la interfaz. Las pruebas usan datos simulados sin búsquedas externas ni prov
 
 ## Asistente principal y perfiles opcionales
 
-La pestaña Asistente presenta el perfil principal seleccionado mediante `ai.active_agent_id`. Las habilidades aportan procedimientos reutilizables y herramientas; los perfiles adicionales quedan en las opciones avanzadas para otros modelos, instrucciones, fuentes o habilidades. Se conservan los perfiles y configuraciones existentes. Un chat nuevo y el chat de los cuadernos utilizan el principal por defecto; las selecciones de chat guardadas se mantienen explícitas.
-
-Las automatizaciones nuevas empiezan con el asistente principal y solo ofrecen sus habilidades asignadas. Un selector avanzado permite otro perfil. Al guardar se fija el identificador concreto del perfil: cambiar el principal posteriormente no reasigna automatizaciones ni amplía permisos.
-
-Activar el complemento Brain aporta habilidades y herramientas sin crear otro perfil ni asignar habilidades automáticamente. Si ya existe un perfil gestionado `llm-wiki`, se conserva y se reactiva cuando corresponde; el procesamiento lo utiliza por compatibilidad y, si no existe, utiliza el asistente principal. Una selección explícita del agente del Cerebro tiene prioridad sobre estos valores predeterminados.
-
 Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad. Las asignaciones utilizan los interruptores accesibles compartidos; las habilidades obligatorias siguen bloqueadas y las asignaciones no disponibles se pueden retirar.
 
 Las lecturas simultáneas del catálogo esperan a que termine el registro de las extensiones integradas. Se permiten las lecturas recursivas del mismo hilo para evitar ciclos de importación, pero otros hilos no pueden obtener un catálogo parcial sin las habilidades del Cerebro.
@@ -1239,3 +1229,9 @@ La lectura utiliza fragmentos estructurales con contexto vecino, mapas de secci�
 Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo permite solicitar una traducción al idioma activo mediante el proveedor de IA configurado. Se muestra junto al original como ayuda de lectura, sin modificar las instrucciones guardadas ni ejecutadas. Abrir una habilidad no solicita traducciones. Las traducciones se conservan solo en memoria, por vault, texto original e idioma de destino. Si fallan, el original sigue disponible y se puede reintentar.
 
 La acción de traducción utiliza un botón compacto alineado a la derecha. Los errores de límite de peticiones o cuota muestran un mensaje específico; el original sigue visible.
+
+## Ejecución del Agente principal
+
+La IA funcional pasa por el ejecutor compartido del Agente principal. Botones, chat y programaciones utilizan habilidades asignadas, la política de modelos del principal, memoria delimitada y un registro común de consumo. Las operaciones estructuradas admiten una única reparación de formato dentro del mismo presupuesto. Las fases largas conservan una instantánea del perfil y reutilizan los puntos de reanudación completados.
+
+Actividad muestra identificadores de ejecución, cancelación y las reanudaciones compatibles. La migración versionada copia la configuración, retira solo el perfil Brain gestionado, preserva los perfiles personales y traslada las instrucciones de Conocimiento a una habilidad complementaria. Las rutas de Conocimiento y las antiguas comparten implementación y permisos; Notion sigue siendo opcional.

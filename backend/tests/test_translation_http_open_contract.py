@@ -9,7 +9,6 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi import BackgroundTasks, FastAPI, HTTPException
-from fastapi.exceptions import ResponseValidationError
 
 from backend.api import vault_routes
 from backend.domains.vault.translation import routes
@@ -87,51 +86,21 @@ def test_button_config_error_occurs_after_page_read_and_parse(
     assert seen == ["note", "body"]
 
 
-@pytest.mark.parametrize("raw", ["null", "[]", "7", '"text"'])
-def test_valid_nonobject_generated_json_is_not_replaced_by_fallback(
-    monkeypatch: pytest.MonkeyPatch, raw: str,
-) -> None:
+@pytest.mark.parametrize("raw", ["null", "[]", "7", '"text"', "not JSON"])
+def test_invalid_generated_shape_is_an_explicit_failure(monkeypatch, raw):
+    from backend.services import agent_execution
+    from fastapi import HTTPException
+    monkeypatch.setattr(agent_execution, "generate_for", lambda *args, **kwargs: (raw, "fake"))
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(routes.generate_button_action({"prompt": "Synthetic"}))
+    assert error.value.status_code == 502
+
+
+def test_valid_button_configuration_preserves_requested_action(monkeypatch):
     import json
-
-    from backend.agent import factory
-    def generate(instruction: str, prompt: str) -> tuple[str, str]:
-        return raw, "fake"
-    monkeypatch.setattr(factory, "generate_text", generate)
-    response = asyncio.run(routes.generate_button_action({"prompt": "Synthetic"}))
-    assert response == {"status": "ok", "result": json.loads(raw)}
-
-
-@pytest.mark.parametrize("raw", ["null", "[]", "7", '"text"'])
-def test_generated_shape_is_rejected_at_http_response_validation(
-    monkeypatch: pytest.MonkeyPatch, raw: str,
-) -> None:
-    from backend.agent import factory
-    calls: list[str] = []
-    def generate(instruction: str, prompt: str) -> tuple[str, str]:
-        calls.append(prompt)
-        return raw, "fake"
-    monkeypatch.setattr(factory, "generate_text", generate)
-    app = FastAPI()
-    app.add_api_route("/generate", routes.generate_button_action,
-                     methods=["POST"], response_model=routes.GenerateButtonActionResponse)
-    async def request() -> None:
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
-                                     base_url="http://synthetic.invalid") as client:
-            await client.post("/generate", json={"prompt": "Synthetic"})
-    with pytest.raises(ResponseValidationError):
-        asyncio.run(request())
-    assert calls == ["Synthetic"]
-
-
-def test_invalid_generated_json_retains_provider_fallback(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from backend.agent import factory
-    monkeypatch.setattr(factory, "generate_text", lambda *args: ("not JSON", "fake"))
-    result = asyncio.run(routes.generate_button_action({
-        "prompt": " Synthetic ", "fields": [{"name": "Summary"}],
-    }))
-    assert result == {"status": "ok", "result": {
-        "button_label": "Acció IA", "button_action": "ai_prompt",
-        "button_config": {"prompt": "Synthetic", "target_field": "Summary"},
-    }}
+    from backend.services import agent_execution
+    value = {"button_label":"Review", "button_action":"ai_prompt", "button_config":{"prompt":"Review the supplied record", "target_field":"Summary"}}
+    monkeypatch.setattr(agent_execution,"generate_for", lambda *args,**kwargs:(json.dumps(value),"fake"))
+    result = asyncio.run(routes.generate_button_action({"prompt":"Review this"}))
+    assert result["status"] == "ok"
+    assert result["result"]["button_action"] == "ai_prompt"

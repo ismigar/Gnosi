@@ -316,7 +316,10 @@ def propose_links(page_id_or_title: str, k: int = 8) -> str:
 @tool
 def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries") -> str:
     """Summarizes a page or PDF into a Cornell note and saves it as a new Vault page."""
-    from .factory import generate_text
+    from functools import partial
+    from backend.services.agent_execution import generate_for
+
+    generate_text = partial(generate_for, "capture")
 
     is_pdf = str(source).lower().endswith(".pdf")
     raw = _tool_function(read_pdf)(source) if is_pdf else _tool_function(read_page)(source)

@@ -204,47 +204,14 @@ def validate_agent_preserved(current_ai: dict[str, object], requested_ai: dict[s
 
 
 def default_plugin_agent_id(ai_config: dict[str, object] | None = None) -> str:
-    """Preserve a legacy Brain profile; otherwise use the principal assistant.
-
-    Do not assign new skills or create a profile merely by enabling a plugin.
-    Existing configured selections are kept for the runtime to validate.
-    """
-    ai = dict(load_params(strict_env=False).ai or {}) if ai_config is None else ai_config
-    agents = [agent for agent in list_values(ai.get("agents") or []) if isinstance(agent, dict)]
-    legacy = _managed_agent(list(agents))
-    if legacy and legacy.get("managed_by") == LLM_WIKI_AGENT_MARKER:
-        return LLM_WIKI_AGENT_ID
-    selected = str(ai.get("active_agent_id") or "")
-    if selected:
-        return selected
-    return next((str(agent.get("id") or "") for agent in agents if agent.get("enabled", True)), "")
+    """Compatibility alias: Knowledge always uses the principal."""
+    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+    ai = ensure_migrated() if ai_config is None else ai_config
+    return str(principal_profile(ai)["id"])
 
 
 def transition_agent(enabled: bool) -> dict[str, object]:
-    """Persists the profile transition in the active vault's AI configuration."""
-    with _config_lock:
-        cfg = load_params(strict_env=False)
-        path = cfg.params_source
-        persisted: dict[str, object] = {}
-        if path.exists():
-            try:
-                persisted = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            except (OSError, yaml.YAMLError) as exc:
-                raise LlmWikiAgentError(f"Could not read the AI configuration: {exc}") from exc
-        if not isinstance(persisted, dict):
-            persisted = {}
-
-        if enabled:
-            next_ai, changed = ensure_agent(dict(cfg.ai or {}), create=False)
-        else:
-            next_ai, changed = suspend_agent(dict(cfg.ai or {}))
-        if changed:
-            persisted["ai"] = next_ai
-            yaml_text = yaml.safe_dump(
-                persisted,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
-            )
-            safe_write_text(path, yaml_text)
-        return {"agent_id": default_plugin_agent_id(next_ai), "agent_changed": changed}
+    """Feature toggles never restore the retired managed profile."""
+    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+    ai = ensure_migrated()
+    return {"agent_id": str(principal_profile(ai)["id"]), "agent_changed": False}

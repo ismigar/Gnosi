@@ -184,6 +184,7 @@ def test_other_transient_provider_errors_recover(clock: Clock, error: Exception)
 @pytest.fixture
 def ingest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     """Exercise the real ingestion and job storage using two small source chunks."""
+    monkeypatch.setattr("backend.services.llm_wiki_generation.default_plugin_agent_id", lambda: "principal")
     monkeypatch.setattr(llm_wiki_storage, "local_root", lambda: tmp_path)
     monkeypatch.setattr(llm_wiki_storage, "_JOBS", {})
     monkeypatch.setattr(llm_wiki_storage, "_RUNNING_BY_RESOURCE", {})
@@ -257,10 +258,10 @@ def answer(key: str) -> tuple[str, str]:
 
 
 @pytest.mark.parametrize(("agent_id", "expected"), [
-    ("llm-wiki", "llm-wiki"), ("principal", "principal"),
-    ("custom-researcher", "custom-researcher"), ("", "principal"),
+    ("llm-wiki", "principal"), ("principal", "principal"),
+    ("custom-researcher", "principal"), ("", "principal"),
 ])
-def test_ingestion_explicitly_uses_the_brain_agent(ingest, monkeypatch: pytest.MonkeyPatch, agent_id: str, expected: str) -> None:
+def test_ingestion_uses_principal_despite_legacy_selection(ingest, monkeypatch: pytest.MonkeyPatch, agent_id: str, expected: str) -> None:
     from backend.services import llm_wiki_generation
 
     monkeypatch.setattr(llm_wiki_generation, "default_plugin_agent_id", lambda: "principal")
@@ -375,6 +376,11 @@ def test_failed_resume_carries_reused_fragments_into_the_next_job(monkeypatch, c
 @pytest.mark.parametrize("force", [False, True])
 def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force) -> None:
     _run, _apply, _chunks = ingest
+    from backend.services import agent_execution, agent_execution_store
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    snapshot = AgentExecutionSnapshot(scope=ExecutionScope(user_id="test", workspace_id="test", vault_path=str(tmp_path), role="owner"), agent_id="principal", profile={"id":"principal"}, skill_ids=["plugin.llm-wiki.process-source"], instructions=[], catalog_revision="test", revision="test")
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", lambda *_args, **_kwargs: snapshot)
+    monkeypatch.setattr(agent_execution_store, "resolve_data_dir", lambda **_kwargs: tmp_path)
 
     class InlineThread:
         def __init__(self, *, target, **_kwargs):

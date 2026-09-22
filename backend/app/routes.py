@@ -48,27 +48,32 @@ from backend.domains.genograms.routes import router as genograms_router
 
 def register_routers(app: FastAPI) -> None:
     """Register routers in the exact legacy matching order."""
+    from backend.services.agent_execution_scope import bind_request_scope
+    from backend.domains.agent.routes.runs import router as runs_router
+    app.include_router(runs_router)
     app.include_router(workspace_routes.router, tags=["Workspaces"])
     app.include_router(genograms_router)
 
     app.include_router(
         agent_router,
         prefix="/api",
-        dependencies=[Depends(require_plugins("ai-platform"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("ai-platform"))],
     )
     app.include_router(
         notebook_routes.router,
-        dependencies=[Depends(require_plugins("grounded-notebooks", "ai-platform"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("grounded-notebooks", "ai-platform"))],
     )
     app.include_router(system_routes.router, prefix="/api/system")
     app.include_router(
         social_routes.router,
         prefix="/api/social",
         tags=["Social"],
-        dependencies=[Depends(require_plugins("social-publishing"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("social-publishing"))],
     )
 
-    app.include_router(vault_routes.router, prefix="/api/vault", tags=["Vault"])
+    app.include_router(vault_routes.router, prefix="/api/vault", tags=["Vault"], dependencies=[Depends(bind_request_scope)])
+    from backend.domains.vault.knowledge.aliases import knowledge_aliases
+    app.include_router(knowledge_aliases(vault_routes.router), prefix="/api/vault", dependencies=[Depends(bind_request_scope)])
     app.include_router(
         planning_routes.router,
         prefix="/api",
@@ -77,9 +82,9 @@ def register_routers(app: FastAPI) -> None:
     )
     app.include_router(
         literature_routes.router,
-        dependencies=[Depends(require_plugins("resources"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("resources"))],
     )
-    app.include_router(handwriting_routes.router, tags=["Handwriting"])
+    app.include_router(handwriting_routes.router, tags=["Handwriting"], dependencies=[Depends(bind_request_scope)])
     app.include_router(vault_graph_routes.router, prefix="/api", tags=["Vault Graph"])
     app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
     app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaboration"])
@@ -88,22 +93,22 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(
         calendar_routes.router,
         tags=["Calendar"],
-        dependencies=[Depends(require_plugins("calendar"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("calendar"))],
     )
     app.include_router(
         mail_routes.router,
         tags=["Mail"],
-        dependencies=[Depends(require_plugins("mail"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("mail"))],
     )
     app.include_router(
         reader.router,
         tags=["Reader"],
-        dependencies=[Depends(require_plugins("feeds-reader"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("feeds-reader"))],
     )
     app.include_router(
         meeting_routes.router,
         tags=["Meetings"],
-        dependencies=[Depends(require_plugins("calendar", "ai-platform"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("calendar", "ai-platform"))],
     )
     app.include_router(
         tools_routes.router,
@@ -128,20 +133,20 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(microsoft_auth_routes.router, tags=["Auth"])
     app.include_router(integrations_routes.router, tags=["Integrations"])
     app.include_router(auth_routes.router, tags=["Auth"])
-    app.include_router(config_routes.router, prefix="/api", tags=["Config"])
+    app.include_router(config_routes.router, prefix="/api", tags=["Config"], dependencies=[Depends(bind_request_scope)])
     app.include_router(env_routes.router, prefix="/api", tags=["Env"])
     app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
     app.include_router(
         ai_routes.router,
         prefix="/api",
         tags=["AI Settings"],
-        dependencies=[Depends(require_plugins("ai-platform"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("ai-platform"))],
     )
     app.include_router(
         agent_skills_routes.router,
         prefix="/api",
         tags=["AI Skills"],
-        dependencies=[Depends(require_plugins("ai-platform"))],
+        dependencies=[Depends(bind_request_scope), Depends(require_plugins("ai-platform"))],
     )
     app.include_router(
         notion_routes.router,

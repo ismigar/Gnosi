@@ -334,6 +334,16 @@ def _reserve_run(row: sqlite3.Row, *, manual: bool) -> str:
 
 
 async def run_automation(automation_id: str, *, manual: bool = False) -> Dict[str, Any]:
+    from backend.services.agent_execution_models import ExecutionScope
+    from backend.services.agent_execution_scope import execution_scope, revalidate_scope
+    row = _load_for_run(automation_id)
+    scope = ExecutionScope(user_id=row["user_id"], workspace_id=row["workspace_id"], vault_path=row["vault_path"], role=row["role"])
+    revalidate_scope(scope)
+    with execution_scope(scope):
+        return await _run_scoped_automation(automation_id, manual=manual)
+
+
+async def _run_scoped_automation(automation_id: str, *, manual: bool = False) -> Dict[str, Any]:
     """Run one automation within hard time and model-call budgets."""
     row = _load_for_run(automation_id)
     run_id = await asyncio.to_thread(_reserve_run, row, manual=manual)
@@ -361,12 +371,13 @@ async def run_automation(automation_id: str, *, manual: bool = False) -> Dict[st
             raise PermissionError("Automation skill is not assigned and active.")
         workflow, _selection = await create_agent_workflow(
             [], None,
-            agent_id=row["agent_id"],
+            agent_id=str(agent["id"]),
             user_message=row["instruction"],
             active_skill_ids=[row["skill_id"]],
             vault_path=Path(row["vault_path"]),
             prepared_ai_cfg=_cfg,
             prepared_agent_data=agent,
+            memory_user_id=row["user_id"],
             runtime_capabilities=runtime,
             timeout=row["max_runtime_seconds"],
         )
@@ -375,14 +386,20 @@ async def run_automation(automation_id: str, *, manual: bool = False) -> Dict[st
         application = workflow.compile()
         inputs = {
             "messages": [HumanMessage(content=row["instruction"])],
+            "trace_id": run_id,
             "turn_authorized_tool_names": [],
             "active_skill_ids": [row["skill_id"]],
             "current_user_role": row["role"],
         }
-        with confirmation_context(**scope):
+        from backend.services.agent_execution import stream_workflow
+        from backend.services.agent_execution_models import ExecutionScope
+        from backend.services.agent_execution_scope import execution_scope
+        scope["agent_id"] = str(agent["id"])
+        operation_scope = ExecutionScope(user_id=row["user_id"], workspace_id=row["workspace_id"], vault_path=row["vault_path"], role=row["role"])
+        with confirmation_context(**scope), execution_scope(operation_scope):
             async with asyncio.timeout(row["max_runtime_seconds"]):
-                async for event in application.astream(
-                    inputs,
+                async for event in stream_workflow(
+                    application, inputs, origin="automation", selection=_selection, max_calls=row["max_ai_calls_per_run"], snapshot=getattr(workflow, "_execution_snapshot", None),
                     config={"recursion_limit": 32},
                     stream_mode="updates",
                 ):

@@ -35,7 +35,7 @@ export const BUILTIN_PLUGINS: readonly BuiltinPluginDefinition[] = [
     { id: 'social-publishing', name: 'Social publishing and media', description: 'Social dashboard, composer and media center.', icon: 'Share2', group: 'connections', settingsTab: 'social', requires: [], routes: ['/social-dashboard', '/composer', '/media'] },
     { id: 'notion-import', name: 'Notion import', description: 'Import Notion workspaces into portable Vault data.', icon: 'Database', group: 'connections', settingsTab: 'notion', requires: [], routes: [] },
     { id: 'ai-platform', name: 'AI and agents', description: 'Providers, models, agents, skills and governed tools.', icon: 'Cpu', group: 'knowledge', settingsTab: 'ai', requires: [], routes: [] },
-    { id: 'llm-wiki', name: 'Brain (LLM Wiki)', description: 'Maintain a linked knowledge wiki with AI.', icon: 'BrainCircuit', group: 'knowledge', settingsTab: 'llm-wiki', requires: ['ai-platform'], routes: [] },
+    { id: 'llm-wiki', name: 'Knowledge', description: 'Maintain a linked knowledge wiki with AI.', icon: 'BrainCircuit', group: 'knowledge', settingsTab: 'llm-wiki', requires: ['ai-platform'], routes: [] },
     { id: 'grounded-notebooks', name: 'Grounded notebooks', description: 'Ask grounded questions over selected reference sources.', icon: 'NotebookTabs', group: 'knowledge', requires: ['ai-platform'], routes: ['/notebooks'] },
     { id: 'automations', name: 'Automations', description: 'User automations, schedules and execution history.', icon: 'Clock3', group: 'advanced', settingsTab: 'automations', requires: [], routes: ['/scheduler'] },
 ];

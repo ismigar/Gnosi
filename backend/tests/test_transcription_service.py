@@ -32,6 +32,12 @@ def test_transcribe_normalizes_segments_and_metadata(monkeypatch) -> None:
 
     monkeypatch.setattr(transcription, "get_model", lambda: FakeModel())
 
+    from backend.services import agent_specialized_tools
+    calls = []
+    def engine(kind, resource, invoke):
+        calls.append((kind, resource))
+        return invoke()
+    monkeypatch.setattr(agent_specialized_tools, "run_engine", engine)
     assert transcription.transcribe("/tmp/note.webm", language="ca") == {
         "text": "Hola món",
         "language": "ca",
@@ -41,3 +47,4 @@ def test_transcribe_normalizes_segments_and_metadata(monkeypatch) -> None:
             {"start": 2.0, "end": 3.0, "text": "món"},
         ],
     }
+    assert calls == [("transcription", "audio")]

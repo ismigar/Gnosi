@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -70,6 +72,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_agent_learning.py
@@ -690,13 +693,7 @@ conformitat mai no fan executable un gestor.
 
 ## Configuració de LLM Wiki
 
-El plugin desa l’`agent_id` triat. Sense una selecció desada, conserva un perfil
-`llm-wiki` gestionat existent o utilitza l’assistent principal. La selecció
-resolta es desa sense substituir les tries explícites posteriors. L’activació
-aporta eines i habilitats sense crear perfils ni assignar habilitats, i conserva
-les personalitzacions existents. Els ajustos enllacen als editors d’agents i
-habilitats. La ingestió, les propostes de connexió i l’assistència d’escriptura
-utilitzen l’agent triat i informen d’un error si no està disponible.
+Coneixement utilitza sempre l’Agent principal. El paràmetre històric `agent_id` es conserva però no pot seleccionar un altre perfil d’execució. La migració versionada retira el perfil gestionat `llm-wiki`; es preserven els perfils personals i les instruccions de Coneixement. Els ajustos enllacen al principal i a les seves habilitats. Cada execució programada pren el principal vigent, mentre que les iniciades conserven la seva instantània.
 
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
@@ -1139,12 +1136,6 @@ dades simulades i no executen cerques externes ni crides a proveïdors.
 
 ## Assistent principal i perfils opcionals
 
-La pestanya Assistent presenta el perfil principal seleccionat amb `ai.active_agent_id`. Les habilitats aporten procediments reutilitzables i eines; els perfils addicionals queden a les opcions avançades per utilitzar altres models, instruccions, fonts o habilitats. Es conserven els perfils i les configuracions existents. Un xat nou i el xat dels quaderns utilitzen el principal per defecte; les seleccions de xat desades es mantenen explícites.
-
-Les automatitzacions noves comencen amb l’assistent principal i només ofereixen les habilitats que té assignades. Un selector avançat permet un altre perfil. En desar es fixa l’identificador concret del perfil: canviar el principal posteriorment no reassigna automatitzacions ni amplia permisos.
-
-Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal. Una selecció explícita d’agent del Cervell té prioritat sobre aquests valors per defecte.
-
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
 
 Les lectures simultànies del catàleg esperen que acabi el registre de les extensions integrades. Es permeten les lectures recursives del mateix fil per evitar cicles d’importació, però altres fils no poden obtenir un catàleg parcial sense les habilitats del Cervell.
@@ -1170,3 +1161,9 @@ La lectura utilitza fragments estructurals amb context veí, mapes de secció i 
 Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg permet demanar una traducció a l’idioma actiu amb el proveïdor d’IA configurat. Es mostra al costat de l’original com a ajuda de lectura, sense modificar les instruccions desades ni executades. Obrir una habilitat no demana cap traducció. Les traduccions es conserven només en memòria, per vault, text original i idioma de destí. Si fallen, es manté l’original i es pot tornar a provar.
 
 L’acció de traducció utilitza un botó compacte alineat a la dreta. Els errors de límit de peticions o quota del proveïdor mostren un missatge específic; l’original es manté visible.
+
+## Execució de l’Agent principal
+
+La IA funcional passa per l’executor compartit de l’Agent principal. Botons, xat i programacions utilitzen habilitats assignades, la política de models del principal, memòria delimitada i un registre comú de consum. Les operacions estructurades admeten una única reparació de format dins del mateix pressupost. Les fases llargues conserven una instantània del perfil i reutilitzen els punts de represa completats.
+
+Activitat mostra identificadors d’execució, cancel·lació i les represes compatibles. La migració versionada copia la configuració, retira només el perfil Brain gestionat, preserva els perfils personals i trasllada les instruccions de Coneixement a una habilitat complementària. Les rutes de Coneixement i les antigues comparteixen implementació i permisos; Notion continua sent opcional.

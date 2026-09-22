@@ -26,7 +26,10 @@ def register_middleware(app: FastAPI) -> None:
         allow_credentials=bool(origins_env),
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Agent-Run-Id"],
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+    from backend.services.agent_run_middleware import AgentRunMiddleware
+    app.add_middleware(AgentRunMiddleware)
     app.add_middleware(ActiveVaultMiddleware)
     app.add_middleware(DesktopInstanceMiddleware)

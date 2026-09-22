@@ -17,7 +17,6 @@ from backend.agent.model_reliability import (
     model_evidence,
     record_failure,
 )
-from backend.agent.model_router import record_llm_usage
 from backend.agent.recovery import recovery_metadata
 from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.checkpoints import SessionBusyError
@@ -242,14 +241,6 @@ async def finalize_agent_stream(
             )
         except Exception:  # noqa: BLE001
             log.exception("Failed to record completed agent turn telemetry.")
-    if not state.usage_recorded and (state.total_in_tok or state.total_out_tok):
-        await asyncio.to_thread(
-            record_llm_usage,
-            (state.llm_selection or {}).get("provider"),
-            (state.llm_selection or {}).get("model"),
-            state.total_in_tok,
-            state.total_out_tok,
-        )
     reset_confirmation_context(confirmation_token)
     release_agent_turn(cancel_token)
     if turn_claimed and chat_req.turn_id:

@@ -1,3 +1,4 @@
+import { PrincipalAgentReference } from '../../../shared/ui/settings/PrincipalAgentReference';
 import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useState } from 'react';
@@ -118,7 +119,7 @@ export const AutomationsSettingsPanel = ({
     const [saving, setSaving] = useState(false);
     const [runningId, setRunningId] = useState('');
     const principal = principalAssistant(agents, principalAgentId);
-    const selectedAgent = agents.find(agent => agent.id === draft?.agent_id);
+    const selectedAgent = principal;
     const assignedIds = new Set(selectedAgent?.skill_ids || []);
     const skills = resources.skills.filter(skill => (
         skill.assignable && assignedIds.has(skill.id)
@@ -233,25 +234,7 @@ export const AutomationsSettingsPanel = ({
                     </div>
                     <p>{t('settings.ai.assistant.automation_help', { name: selectedAgent?.name || selectedAgent?.id || '—' })}</p>
                     {!skills.length && <p role="status">{t('settings.ai.assistant.no_skills')}</p>}
-                    <details open={draft.agent_id !== principal?.id}>
-                        <summary>{t('settings.ai.assistant.other_profile')}</summary>
-                        <label>
-                            <span>{t('settings.ai.assistant.profile')}</span>
-                            <select
-                                className="gnosi-select"
-                                value={draft.agent_id}
-                                onChange={(event) => {
-                                    update({
-                                        agent_id: event.target.value,
-                                        skill_id: '',
-                                    });
-                                }}
-                            >
-                                <option value="">—</option>
-                                {agents.map(agent => <option key={agent.id} value={agent.id} disabled={agent.enabled === false}>{agent.name || agent.id}</option>)}
-                            </select>
-                        </label>
-                    </details>
+                    <PrincipalAgentReference operation="automation" />
                     <ScheduleFields schedule={draft.schedule || defaultSchedule()} onChange={schedule => { update({ schedule }); }} />
                     <label>
                         <span>{t('settings.ai.operations.instruction')}</span>

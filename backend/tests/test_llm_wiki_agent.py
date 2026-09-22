@@ -318,6 +318,7 @@ def test_agent_default_never_falls_back_to_an_unrelated_model(
             },
         },
     )
+    monkeypatch.setattr("backend.services.principal_agent_migration.ensure_migrated", lambda: factory.load_params()["ai"])
     monkeypatch.setattr(factory, "resolve_provider_api_key", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(factory, "get_llm", lambda **_kwargs: None)
     monkeypatch.setattr(

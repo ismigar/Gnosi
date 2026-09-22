@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from backend.config.app_config import load_params
-from backend.services import llm_wiki_config
 from backend.services.llm_wiki_agent import LlmWikiAgentError, default_plugin_agent_id
 from backend.utils.open_values import iterable_values
 
@@ -16,10 +15,7 @@ def agent_profiles() -> list[dict[str, object]]:
 
 
 def configured_agent_id(ai_config: dict[str, object] | None = None) -> str:
-    """Keep explicit selections; resolve the default only for unconfigured vaults."""
-    selected = str(llm_wiki_config.load_config().get("agent_id") or "").strip()
-    if selected:
-        return selected
+    """Historical feature selections cannot override the principal."""
     return default_plugin_agent_id(ai_config) if ai_config is not None else default_plugin_agent_id()
 
 
@@ -39,23 +35,7 @@ def generate_text(
     prompt: str, user_message: str = "", timeout: int = 60,
     *, operation: str = "", agent_id: str = "",
 ) -> tuple[str, str]:
-    """Use available assigned instructions without granting or calling tools."""
-    from backend.agent import factory
-    from backend.models.agent_skills import SkillActivation, SkillKind
-    from backend.services.agent_skill_catalog import get_skill_catalog
+    """Compatibility entrypoint to the shared Knowledge skill executor."""
+    from backend.services.agent_execution import generate_for
 
-    chosen_id = agent_id or configured_agent_id()
-    profile = selected_agent(chosen_id, require_ready=True)
-    assigned = {str(value) for value in iterable_values(profile.get("skill_ids") or [])}
-    instructions = [str(profile.get("persona") or ""), str(profile.get("context") or "")]
-    for entry in get_skill_catalog().list_entries():
-        skill = entry.descriptor
-        if not entry.available or skill.id not in assigned or skill.kind != SkillKind.AGENT:
-            continue
-        if skill.activation == SkillActivation.EXPLICIT and operation not in skill.tool_ids:
-            continue
-        instructions.append(skill.instructions)
-    return factory.generate_text(
-        prompt, user_message=user_message, timeout=timeout, agent_id=chosen_id,
-        system_prompt="\n\n".join(text for text in instructions if text.strip()),
-    )
+    return generate_for("knowledge", prompt, user_message, timeout=timeout)

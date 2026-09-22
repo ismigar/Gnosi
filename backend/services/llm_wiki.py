@@ -437,6 +437,7 @@ def process_resource(
         dimension_context=_dimension_context,
         build_prompt=_build_chunk_prompt,
         generate_text=runtime.generate,
+        generate_structured=getattr(runtime, "generate_structured", None),
         execution_revision=runtime.identity,
         execution_metadata=runtime.metadata,
         input_budget=runtime.input_budget,
@@ -511,8 +512,15 @@ def start_ingest(
         )
         if isinstance(loaded_checkpoint, dict):
             resume_checkpoint = {str(key): value for key, value in loaded_checkpoint.items()}
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_execution import prepare_snapshot, create_job_run, operation_session
+    from backend.services import agent_execution_store
+    snapshot = prepare_snapshot(SKILL_ID)
+    if Path(snapshot.scope.vault_path).resolve() != Path(vault_root).resolve():
+        raise PermissionError("agent_execution_vault_mismatch")
     job = llm_wiki_storage.create_job(source_table_id, source_page_id)
     job_id = str(job["job_id"])
+    snapshot = create_job_run(snapshot, job_id, "knowledge.process-source")
     active_vault = cv.get_active_vault_path()
 
     def _worker() -> None:
@@ -573,8 +581,19 @@ def start_ingest(
             if token is not None:
                 cv.active_vault_path.reset(token)
 
+    def _governed_worker() -> None:
+        with operation_session(snapshot):
+            agent_execution_store.update(snapshot.scope, job_id, status="running")
+            _worker()
+            status = llm_wiki_storage.get_job_status(job_id)
+            agent_execution_store.update(snapshot.scope, job_id,
+                status="completed" if status.get("phase") == PHASE_DONE else "failed",
+                error=str(status.get("error") or ""))
+
+    from contextvars import copy_context
+    worker_context = copy_context()
     threading.Thread(
-        target=_worker,
+        target=lambda: worker_context.run(_governed_worker),
         name=f"llm-wiki-{source_page_id[:8]}",
         daemon=True,
     ).start()

@@ -9,13 +9,13 @@ import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
 import { Trash2 } from 'lucide-react';
 import { deleteReaderSource } from '../../../shared/api/reader';
-import { parseModelRouteKey } from '../AI/aiSettingsUtils';
+import { PrincipalAgentReference } from '../../../shared/ui/settings/PrincipalAgentReference';
 import type { SettingsController } from './useGlobalSettingsController';
 
 type Props = { context: Pick<SettingsController, 'handleAddNewsletter' | 'handleNewsletterOpmlUpload' | 'isOpen' | 'loadNewsletterSources' | 'newsletterAccount' | 'newsletterAccountStatus' | 'newsletterAccountSyncing' | 'newsletterAccountTesting' | 'newsletterAddress' | 'newsletterName' | 'newsletterOpmlLoading' | 'newsletterOpmlRef' | 'newsletterSources' | 'newsletterSourcesError' | 'newsletterSourcesLoaded' | 'newsletterSourcesLoading' | 'newsletterStatus' | 'newsletterType' | 'podcastModelRoutes' | 'readerSection' | 'setConfirmConfig' | 'setDraft' | 'setNewsletterAccount' | 'setNewsletterAccountStatus' | 'setNewsletterAddress' | 'setNewsletterName' | 'setNewsletterPasswordDirty' | 'setNewsletterStatus' | 'setNewsletterType' | 'setReaderSection' | 'syncNewsletterAccount' | 't' | 'testNewsletterAccount'> };
 
 export function ReaderPanel({ context }: Props) {
-  const { handleAddNewsletter, handleNewsletterOpmlUpload, loadNewsletterSources, newsletterAccount, newsletterAccountStatus, newsletterAccountSyncing, newsletterAccountTesting, newsletterAddress, newsletterName, newsletterOpmlLoading, newsletterOpmlRef, newsletterSources, newsletterSourcesError, newsletterSourcesLoaded, newsletterSourcesLoading, newsletterStatus, newsletterType, podcastModelRoutes, readerSection, setConfirmConfig, setDraft, setNewsletterAccount, setNewsletterAccountStatus, setNewsletterAddress, setNewsletterName, setNewsletterPasswordDirty, setNewsletterStatus, setNewsletterType, setReaderSection, syncNewsletterAccount, t, testNewsletterAccount } = context;
+  const { handleAddNewsletter, handleNewsletterOpmlUpload, loadNewsletterSources, newsletterAccount, newsletterAccountStatus, newsletterAccountSyncing, newsletterAccountTesting, newsletterAddress, newsletterName, newsletterOpmlLoading, newsletterOpmlRef, newsletterSources, newsletterSourcesError, newsletterSourcesLoaded, newsletterSourcesLoading, newsletterStatus, newsletterType, readerSection, setConfirmConfig, setNewsletterAccount, setNewsletterAccountStatus, setNewsletterAddress, setNewsletterName, setNewsletterPasswordDirty, setNewsletterStatus, setNewsletterType, setReaderSection, syncNewsletterAccount, t, testNewsletterAccount } = context;
   return (<>
     <SettingsSectionTabs
       ariaLabel={t('settings.reader.sections_label')}
@@ -32,54 +32,7 @@ export function ReaderPanel({ context }: Props) {
         <div className="settings-desc" style={{ marginBottom: '24px', lineHeight: 1.6 }}>
           {t('settings.reader.podcast_description')}
         </div>
-        <FormGroup
-          label={t('settings.reader.model_label')}
-          description={t('settings.reader.model_description')}
-        >
-          <select
-            className="gnosi-select"
-            value={podcastModelRoutes.selectedKey}
-            onChange={event => {
-              const route = parseModelRouteKey(event.target.value);
-              setDraft(previous => ({
-                ...previous,
-                settings: {
-                  ...previous.settings,
-                  reader: {
-                    ...(previous.settings.reader || {}),
-                    podcast: route,
-                  },
-                },
-              }));
-            }}
-          >
-            <option value="">{t('settings.reader.default_model')}</option>
-            {podcastModelRoutes.groups.map(([provider, modelIds]) => (
-              <optgroup key={provider} label={provider}>
-                {modelIds.map(modelId => (
-                  <option key={modelId} value={`${provider}||${modelId}`}>
-                    {modelId}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            {podcastModelRoutes.unavailableSelection && (
-              <optgroup label={t('settings.reader.unavailable_group')}>
-                <option value={podcastModelRoutes.unavailableSelection.key}>
-                  {t('settings.reader.unavailable_model', {
-                    provider: podcastModelRoutes.unavailableSelection.provider,
-                    model: podcastModelRoutes.unavailableSelection.model,
-                  })}
-                </option>
-              </optgroup>
-            )}
-          </select>
-          {podcastModelRoutes.groups.length === 0 && (
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: 8 }}>
-              {t('settings.reader.no_active_models')}
-            </div>
-          )}
-        </FormGroup>
+        <PrincipalAgentReference operation="podcast" />
       </Section>
     )}
 

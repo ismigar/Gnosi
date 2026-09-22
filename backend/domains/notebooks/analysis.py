@@ -35,6 +35,9 @@ def start_notebook_analysis(
     source_ids: Optional[Iterable[str]] = None,
 ) -> dict[str, Any]:
     """Queue a durable hierarchical analysis over one pinned revision."""
+    from backend.services.agent_execution import prepare_snapshot
+    from backend.services.agent_operation_catalog import skill_id
+    execution = prepare_snapshot(skill_id("notebook"))
     _notebook_row(notebook_id)
     with _connect() as connection:
         pinned_revision = connection.execute(
@@ -52,6 +55,8 @@ def start_notebook_analysis(
         raise ValueError("Select at least one source for notebook analysis.")
     analysis_id = uuid.uuid4().hex
     job_id = uuid.uuid4().hex
+    from backend.services.agent_execution import create_job_run
+    execution = create_job_run(execution, job_id, "notebook.analysis")
     timestamp = _now()
     with _WRITE_LOCK, _connect() as connection:
         connection.execute(
@@ -62,7 +67,7 @@ def start_notebook_analysis(
                 notebook_id,
                 analysis_id,
                 int(revision),
-                "agent",
+                execution.scope.user_id,
                 normalized_request,
                 "queued",
                 job_id,
@@ -87,6 +92,7 @@ def start_notebook_analysis(
             "revision": int(revision),
             "source_ids": selected_source_ids,
             "vault_path": str(vault_path),
+            "agent_execution": execution.model_dump(),
         },
         idempotency_key=f"notebook-analysis:{notebook_id}:{analysis_id}",
         job_id=job_id,
@@ -152,13 +158,39 @@ def _analysis_batches(rows: list[sqlite3.Row], max_chars: int = 32_000) -> list[
 
 
 def _model_analysis(prompt: str, request: str) -> str:
-    from backend.agent.factory import generate_text
+    from functools import partial
+    from backend.services.agent_execution import generate_for
+
+    generate_text = partial(generate_for, "notebook")
 
     text, _model = generate_text(prompt, user_message=request, timeout=120)
     return str(text or "").strip()
 
 
 def _run_analysis(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]:
+    from backend.services.agent_execution import operation_session
+    from backend.services.agent_execution_models import AgentExecutionSnapshot
+    item = durable_job_queue.get(job_id)
+    payload = item.get("payload", {}) if isinstance(item, dict) else {}
+    if not payload.get("agent_execution"):
+        raise RuntimeError("agent_job_requires_authorized_restart")
+    snapshot = AgentExecutionSnapshot.model_validate(payload["agent_execution"])
+    if Path(snapshot.scope.vault_path).resolve() != Path(vault_path).resolve():
+        raise PermissionError("agent_execution_vault_mismatch")
+    from backend.services import agent_execution_store
+    agent_execution_store.update(snapshot.scope, job_id, status="running")
+    with operation_session(snapshot):
+        try:
+            result = _run_scoped_analysis(vault_path, job_id, worker_id)
+            agent_execution_store.update(snapshot.scope, job_id, status="completed", result=str(result.get("text") or ""))
+            return result
+        except BaseException as error:
+            from backend.services.agent_cancellation import AgentTurnCancelled
+            agent_execution_store.update(snapshot.scope, job_id, status="cancelled" if isinstance(error, AgentTurnCancelled) else "failed", error=type(error).__name__)
+            raise
+
+
+def _run_scoped_analysis(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]:
     item = durable_job_queue.get(job_id)
     payload = item.get("payload") if isinstance(item, dict) else None
     if not isinstance(payload, dict):
@@ -315,9 +347,10 @@ def _analysis_thread(vault_path: Path, job_id: str) -> None:
         payload = item.get("payload") if isinstance(item, dict) else {}
         with _WRITE_LOCK, _connect() as connection:
             connection.execute(
-                """UPDATE notebook_analyses SET state='failed',error=?,updated_at=?
+                """UPDATE notebook_analyses SET state=?,error=?,updated_at=?
                 WHERE notebook_id=? AND analysis_id=?""",
                 (
+                    "interrupted" if str(exc) == "agent_job_requires_authorized_restart" else "failed",
                     _bounded_text(exc, 2_000),
                     _now(),
                     str((payload or {}).get("notebook_id") or ""),

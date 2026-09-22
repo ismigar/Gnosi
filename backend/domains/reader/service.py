@@ -276,6 +276,11 @@ def _record_failure(vault_path: Path, job_id: str, error: Exception) -> int | No
     current_value = _load_json(_job_path(vault_path, job_id))
     current = dict(current_value) if isinstance(current_value, dict) else {}
     retry = _retry_policy(current)
+    if str(error) == "agent_job_requires_authorized_restart":
+        _update_job(vault_path, job_id, state="interrupted", phase="interrupted",
+                    error=str(error), completed_at=None,
+                    retry={**retry, "next_retry_at": None, "automatic_enabled": False})
+        return None
     can_retry = bool(
         _is_transient_failure(error)
         and retry.get("automatic_enabled")
@@ -364,8 +369,23 @@ def _run_job(
 
     vault_token = active_vault_path.set(Path(vault_path).resolve())
     retry_delay_seconds: Optional[int] = None
+    execution = None
     try:
         job = _begin_attempt(vault_path, job_id)
+        if model_call is _default_model_call:
+            from backend.services.agent_execution import operation_session
+            from backend.services.agent_execution_models import AgentExecutionSnapshot
+            if not job.get("agent_execution"):
+                raise RuntimeError("agent_job_requires_authorized_restart")
+            execution = AgentExecutionSnapshot.model_validate(job["agent_execution"])
+            if Path(execution.scope.vault_path).resolve() != Path(vault_path).resolve():
+                raise PermissionError("agent_execution_vault_mismatch")
+            from backend.services import agent_execution_store
+            agent_execution_store.update(execution.scope, job_id, status="running")
+            original_call = model_call
+            def model_call(prompt: str, message: str) -> str:
+                with operation_session(execution):
+                    return original_call(prompt, message)
         budgeted_model_call = _budgeted_model_call(vault_path, job_id, worker_id, model_call)
         snapshot, job = _load_or_create_snapshot(vault_path, job_id, job)
         if _cancel_if_requested(vault_path, job_id):
@@ -394,6 +414,12 @@ def _run_job(
         log.exception("Reader analysis job %s failed", job_id)
         retry_delay_seconds = _record_failure(vault_path, job_id, error)
     finally:
+        if execution is not None:
+            from backend.services import agent_execution_store
+            final_job = _load_json(_job_path(vault_path, job_id)) or {}
+            agent_execution_store.update(execution.scope, job_id,
+                status=str(final_job.get("state") or "interrupted"),
+                result=_report_path(vault_path, job_id).read_text() if final_job.get("state") == "completed" else "")
         active_vault_path.reset(vault_token)
         with _LOCK:
             _THREADS.pop(job_id, None)
@@ -464,6 +490,10 @@ def start_analysis(
         "created_at": _utc_now(),
         "updated_at": _utc_now(),
     }
+    if model_call is None:
+        from backend.services.agent_execution import create_job_run, prepare_snapshot
+        from backend.services.agent_operation_catalog import skill_id
+        job["agent_execution"] = create_job_run(prepare_snapshot(skill_id("reader")), job_id, "reader.analysis", max_calls=int(_default_retry_policy()["model_call_budget"])).model_dump()
     job = _save_job(vault_path, job)
     durable_job_queue.enqueue(
         "reader_analysis",
@@ -566,8 +596,14 @@ def resume_analysis(
 ) -> Dict[str, Any]:
     """Resume an interrupted or failed job from its persisted batch checkpoints."""
     status = get_status(vault_path, job_id)
-    if status.get("state") not in {"interrupted", "failed", "retry_wait"}:
+    if status.get("state") not in {"interrupted", "failed", "retry_wait", "cancelled"}:
         return status
+    stored = _load_json(_job_path(vault_path, job_id)) or {}
+    if model_call is None and not stored.get("agent_execution"):
+        # Explicit authorization starts a fresh run; legacy AI checkpoints stay untouched.
+        return start_analysis(vault_path, stored.get("scope"),
+                              language=str(stored.get("language") or "Catalan"),
+                              guidance=str(stored.get("guidance") or ""))
     retry = _retry_policy(status)
     if (
         retry["attempt"] >= retry["max_attempts"]

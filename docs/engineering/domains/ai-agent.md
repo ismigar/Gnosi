@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -70,6 +72,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_agent_learning.py
@@ -635,13 +638,7 @@ makes a handler executable.
 
 ## LLM Wiki configuration
 
-The plugin stores the chosen `agent_id`. Without a saved selection it keeps an
-existing managed `llm-wiki` profile, otherwise it uses the principal assistant.
-The resolved selection is saved without replacing later explicit choices.
-Activation contributes tools and skills without creating or assigning profiles;
-existing custom assignments and instructions are preserved. Settings link to
-the agent and skill editors. Ingestion, connection proposals and writing
-assistance use the selected profile and fail explicitly if it is unavailable.
+Knowledge always uses the principal Agent. The historical `agent_id` setting remains preserved but cannot select a different execution profile. The managed `llm-wiki` profile is retired by the versioned migration; personal profiles and custom Knowledge instructions are preserved. Settings link to the principal and its assigned skills. Each scheduled run resolves the current principal, while existing runs retain their snapshot.
 
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
@@ -1026,12 +1023,6 @@ expansion. No external searches or provider calls are made by the regression tes
 
 ## Principal assistant and optional profiles
 
-The Assistant tab presents the principal profile selected by `ai.active_agent_id`. Skills supply reusable procedures and tools; additional profiles live under advanced options for different models, instructions, sources or skill assignments. Existing profiles and their settings remain intact. A fresh chat and notebook chat use the principal by default; saved chat selections remain explicit.
-
-New automations start with the principal assistant and only offer its assigned skills. An advanced selector permits another profile. Saving stores the concrete profile identifier, so changing the principal later does not reassign existing automations or expand permissions.
-
-Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant. An explicit Brain agent selection takes precedence over these defaults.
-
 Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.
 
 Concurrent catalog readers wait for built-in plugin registration to finish. Recursive reads on the registering thread remain permitted to avoid import cycles; other threads cannot cache a partial catalog without Brain skills.
@@ -1057,3 +1048,9 @@ Reading follows structural fragments with neighbouring context, section maps and
 Skill instructions are saved and executed exactly as authored, in any language. The catalogue offers an explicit translation into the active interface language using the configured AI provider. This reading aid is shown alongside the original and never changes saved or executed instructions. Opening a skill does not request translation. Successful translations are cached only in memory, scoped by vault, original text and target language. Failures leave the original available and can be retried.
 
 The translation action uses a compact button aligned to the right. Provider rate-limit or quota failures have a specific message; the original remains visible.
+
+## Principal Agent execution
+
+Functional AI now enters the shared principal Agent executor. Buttons, chat and schedules use assigned skills, the principal’s model policy, scoped memory and common usage accounting. Structured operations permit at most one validated format repair within the same budget. Long-job phases retain a frozen profile and reusable successful checkpoints.
+
+Activity exposes scoped execution IDs, cancellation and supported resumptions. The versioned migration backs up configuration, retires only the managed Brain profile, preserves personal profiles and moves Knowledge-specific instructions into a companion skill. Knowledge URLs and the historical routes share handlers and permissions; Notion remains optional.

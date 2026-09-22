@@ -244,6 +244,10 @@ async def chat_endpoint(
     notebook_turn: Optional[Dict[str, Any]] = None
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
+        from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+        principal = principal_profile(ensure_migrated())
+        if agent_id != principal["id"]:
+            raise HTTPException(status_code=409, detail="principal_agent_changed")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()

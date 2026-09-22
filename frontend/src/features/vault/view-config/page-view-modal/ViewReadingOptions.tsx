@@ -1,11 +1,11 @@
+import { PrincipalAgentReference } from '../../../../shared/ui/settings/PrincipalAgentReference';
 import type { ModalInput } from './useViewController';
 import type { useViewStateResult } from './useViewState';
 
 export function ViewReadingOptions({
     viewType, t, setRowHeight, rowHeight,
     feedPillLimit, setFeedPillLimit, feedExcerptLines, setFeedExcerptLines,
-    feedFocus, setFeedFocus, summaryModel, setSummaryModel,
-    summaryModels
+    feedFocus, setFeedFocus
 }: Pick<
     useViewStateResult & ModalInput,
     'viewType'
@@ -68,13 +68,7 @@ export function ViewReadingOptions({
                     <input type="checkbox" checked={feedFocus} onChange={event => { setFeedFocus(event.target.checked); }} className="accent-[var(--gnosi-primary)]" />
                     {t('feed.focus_feed', 'Focus feed')}
                 </label>
-                <div>
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('feed.summary_model', 'Summary model')}</label>
-                    <select value={summaryModel} onChange={event => { setSummaryModel(event.target.value); }} disabled={!summaryModels.length} className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] disabled:opacity-50">
-                        <option value="">{t('feed.summary_model_placeholder', 'Select an active model')}</option>
-                        {summaryModels.map(model => <option key={`${model.provider}:${model.model_id}`} value={`${model.provider}:${model.model_id}`}>{model.provider}: {model.model_id}</option>)}
-                    </select>
-                </div>
+                <PrincipalAgentReference operation="writing" />
             </div>
         )}</>);
 }

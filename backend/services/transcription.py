@@ -112,6 +112,11 @@ def get_model() -> WhisperModel:
 
 
 def transcribe(audio_path: str, language: Optional[str] = None) -> TranscriptionResult:
+    from backend.services.agent_specialized_tools import run_engine
+    return run_engine("transcription", "audio", lambda: _transcribe_engine(audio_path, language))
+
+
+def _transcribe_engine(audio_path: str, language: Optional[str] = None) -> TranscriptionResult:
     """Transcribes an audio file.
 
     Returns `{text, language, duration, segments}` where `segments` is a list of
