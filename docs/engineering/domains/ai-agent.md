@@ -22,6 +22,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -70,6 +73,8 @@ source_paths:
   - frontend/src/features/agent-context
 tests:
   - backend/tests/test_agent_execution.py
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_agent_learning.py
   - backend/tests/test_agent_learning_api.py
   - frontend/src/features/agent-learning/ConversationLearning.test.tsx
@@ -633,6 +638,13 @@ makes a handler executable.
 
 ## LLM Wiki configuration
 
+Knowledge always uses the principal Agent. The historical `agent_id` setting remains preserved but cannot select a different execution profile. The managed `llm-wiki` profile is retired by the versioned migration; personal profiles and custom Knowledge instructions are preserved. Settings link to the principal and its assigned skills. Each scheduled run resolves the current principal, while existing runs retain their snapshot.
+
+The secondary Brain tools menu lives in the Brain table header, including
+embedded tables. It offers deterministic review with an in-view report and AI
+connection proposals that refresh and open the existing connection inbox.
+Maintenance actions no longer appear in plugin settings.
+
 `backend/domains/configuration/llm_wiki.py` validates the Brain table, source
 tables, categorical dimensions, file/URL fields, fixed values and relation
 targets before any schema mutation. It then provisions the canonical roles and
@@ -668,7 +680,7 @@ plans, copies them into the new job and continues at the remaining fragments.
 Changed source evidence or planning inputs invalidate cached fragments; explicit
 force processing bypasses all previous checkpoints. Interrupted jobs retain
 their actual progress and source notes are written only after planning completes.
-Ingestion selects an existing managed `llm-wiki` profile or the principal assistant. A
+Every ingestion call explicitly selects the configured `agent_id`. A
 provider response with `x-ratelimit-limit-req-minute: 0` stops automatic retries,
 because waiting cannot replenish a zero request limit; zero remaining capacity
 with a positive limit still receives normal retries. After a backend restart,
@@ -1010,12 +1022,6 @@ plugin installation and device access intentionally remain outside this tool
 expansion. No external searches or provider calls are made by the regression tests.
 
 ## Principal assistant and optional profiles
-
-The Assistant tab presents the principal profile selected by `ai.active_agent_id`. Skills supply reusable procedures and tools; additional profiles live under advanced options for different models, instructions, sources or skill assignments. Existing profiles and their settings remain intact. A fresh chat and notebook chat use the principal by default; saved chat selections remain explicit.
-
-New automations start with the principal assistant and only offer its assigned skills. An advanced selector permits another profile. Saving stores the concrete profile identifier, so changing the principal later does not reassign existing automations or expand permissions.
-
-Enabling the Brain plugin contributes its skills and tools without creating another profile or automatically assigning skills. An existing managed `llm-wiki` profile is preserved and resumed when appropriate; processing uses it for compatibility, otherwise it uses the principal assistant.
 
 Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.
 

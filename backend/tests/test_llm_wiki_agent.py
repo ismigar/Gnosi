@@ -291,7 +291,9 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
     assert request.app.state.agent_cache == {}
 
 
-def test_agent_default_never_falls_back_to_an_unrelated_model(monkeypatch, tmp_path):
+def test_agent_default_never_falls_back_to_an_unrelated_model(
+    monkeypatch, tmp_path, isolated_validation_runtime,
+):
     """A selected agent either uses its assigned model or remains unavailable."""
     import asyncio
 

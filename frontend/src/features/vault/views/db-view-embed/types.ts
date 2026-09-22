@@ -69,6 +69,7 @@ export type EmbedContext = Pick<VaultEditorContextValue, 'pageId' | 'idToTitle' 
     registerEmbedNav?: (blockId: string, api: NavApi | null) => unknown;
     viewSectionNonce?: number;
     referenceTableId?: string;
+    brainTableId?: string;
     onAddSchemaOption?: (...args: readonly unknown[]) => unknown;
     onCreateTemplate?: (tableId: string) => unknown;
     onCreateFromSource?: (tableId: string | null | undefined) => unknown;

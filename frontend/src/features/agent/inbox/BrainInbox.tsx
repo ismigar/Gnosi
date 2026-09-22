@@ -1,13 +1,14 @@
 import {
-    useCallback,
     useEffect,
     useRef,
     useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { BrainCircuit, Loader2, Trash2, X } from 'lucide-react';
 import { toast } from '../../../shared/notifications/toast';
 import { useModalKeyboard } from '../../../shared/hooks/useModalKeyboard';
+import { browserDocumentBody } from '../../../shared/platform/browser-events';
 import {
     dismissBrainSuggestion,
     fetchBrainSuggestions,
@@ -23,10 +24,12 @@ import { WikilinkInline } from '../../../shared/editor/WikilinkInline';
  */
 interface BrainInboxProps {
     readonly onAccepted?: () => void;
+    readonly open?: boolean;
+    readonly onOpenChange?: (open: boolean) => void;
 }
 
 
-export function BrainInbox({ onAccepted }: BrainInboxProps) {
+export function BrainInbox({ onAccepted, open: controlledOpen, onOpenChange }: BrainInboxProps) {
     const { t } = useTranslation();
     const tb = (
         key: string,
@@ -36,38 +39,37 @@ export function BrainInbox({ onAccepted }: BrainInboxProps) {
         defaultValue: fallback,
         ...values,
     });
-    const [open, setOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
+    const open = controlledOpen ?? internalOpen;
+    const setOpen = (next: boolean): void => {
+        setInternalOpen(next);
+        onOpenChange?.(next);
+    };
     const [items, setItems] = useState<BrainSuggestion[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [busy, setBusy] = useState('');
     const modalRef = useRef<HTMLDivElement>(null);
 
-    const load = useCallback(async (): Promise<void> => {
-        setLoading(true);
-        try {
-            const response = await fetchBrainSuggestions();
-            setItems(response.suggestions);
-        } catch {
-            // The inbox stays available and can retry when opened again.
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
-        let cancelled = false;
-        void fetchBrainSuggestions()
+        const request = new AbortController();
+        void Promise.resolve().then(() => {
+            if (request.signal.aborted) return;
+            setLoading(true);
+            setError(false);
+            return fetchBrainSuggestions(request.signal);
+        })
             .then((response) => {
-                if (!cancelled) setItems(response.suggestions);
+                if (!request.signal.aborted && response) setItems(response.suggestions);
             })
-            .catch(() => undefined)
+            .catch(() => {
+                if (!request.signal.aborted) setError(true);
+            })
             .finally(() => {
-                if (!cancelled) setLoading(false);
+                if (!request.signal.aborted) setLoading(false);
             });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+        return () => { request.abort(); };
+    }, [open]);
 
     useModalKeyboard({
         isOpen: open,
@@ -102,7 +104,6 @@ export function BrainInbox({ onAccepted }: BrainInboxProps) {
                 type="button"
                 onClick={() => {
                     setOpen(true);
-                    void load();
                 }}
                 className="relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
                 title={tb('button_title', "Connections proposed by the Brain")}
@@ -116,7 +117,7 @@ export function BrainInbox({ onAccepted }: BrainInboxProps) {
                 )}
             </button>
 
-            {open && (
+            {open && createPortal(
                 <div
                     className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
                     role="dialog"
@@ -165,12 +166,13 @@ export function BrainInbox({ onAccepted }: BrainInboxProps) {
                                     {tb('loading', "Loading connections…")}
                                 </div>
                             )}
-                            {!loading && items.length === 0 && (
+                            {error && <p role="alert" className="text-sm text-[var(--status-error)]">{tb('load_error', 'Connections could not be loaded. Close this panel and try again.')}</p>}
+                            {!loading && !error && items.length === 0 && (
                                 <p className="text-sm text-[var(--text-tertiary)]">
                                     {tb('empty', "No pending connections. New ones are proposed after processing or auditing the Brain.")}
                                 </p>
                             )}
-                            {items.map((suggestion) => (
+                            {!loading && !error && items.map((suggestion) => (
                                 <article
                                     key={suggestion.id}
                                     className="rounded-lg border border-[var(--border-primary)] p-4 space-y-3"
@@ -236,7 +238,7 @@ export function BrainInbox({ onAccepted }: BrainInboxProps) {
                             ))}
                         </div>
                     </div>
-                </div>
+                </div>, browserDocumentBody(),
             )}
         </>
     );

@@ -12,7 +12,10 @@ import {
 
 export type PluginSection = 'installed' | 'catalog' | 'updates';
 export type InstalledFilter = 'all' | 'enabled' | 'disabled';
-export type PluginConfigComponent = ComponentType;
+export interface PluginConfigProps {
+    readonly onOpenAISettings?: (section: 'agents' | 'skills', agentId?: string) => void;
+}
+export type PluginConfigComponent = ComponentType<PluginConfigProps>;
 
 export function sortPluginsByName<T>(
     plugins: readonly T[],

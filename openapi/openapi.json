@@ -16902,6 +16902,34 @@
         "title": "LiteratureWorkResponse",
         "type": "object"
       },
+      "LlmWikiAgentOptionResponse": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "ready"
+        ],
+        "title": "LlmWikiAgentOptionResponse",
+        "type": "object"
+      },
       "LlmWikiBrainCreateRequest": {
         "description": "Loose 2.x-compatible body for the namespaced Brain creator.",
         "properties": {
@@ -17075,6 +17103,13 @@
         "additionalProperties": true,
         "description": "Migrated configuration plus runtime status used by settings and pages.",
         "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiAgentOptionResponse"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
           "brain": {
             "$ref": "#/components/schemas/LlmWikiBrainResponse"
           },
@@ -17135,6 +17170,17 @@
       "LlmWikiConfigUpdateRequest": {
         "description": "Known persisted settings without pre-empting legacy normalization.",
         "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
           "brain_roles": {
             "anyOf": [
               {},
@@ -17224,6 +17270,13 @@
         "additionalProperties": true,
         "description": "Settings response returned after creating the standard Brain table.",
         "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/LlmWikiAgentOptionResponse"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
           "brain": {
             "$ref": "#/components/schemas/LlmWikiBrainResponse"
           },
@@ -18059,6 +18112,11 @@
         "additionalProperties": true,
         "description": "Persisted configuration with forward-compatible feature fields.",
         "properties": {
+          "agent_id": {
+            "default": "",
+            "title": "Agent Id",
+            "type": "string"
+          },
           "brain_roles": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"

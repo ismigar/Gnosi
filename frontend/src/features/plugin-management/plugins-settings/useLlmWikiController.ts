@@ -3,12 +3,9 @@ import { useTranslation } from 'react-i18next';
 
 import { logError } from '../../../shared/notifications/notifyError';
 import { apiErrorDetail } from '../../../shared/api/errors';
-import { fetchBrainSuggestions } from '../../../shared/api/brain';
 import {
     createPluginLlmWikiBrain,
-    runPluginLlmWikiMaintenance,
     savePluginLlmWikiConfig,
-    type PluginLlmWikiMaintenanceResponse,
     type PluginLlmWikiSettingsResponse,
 } from '../../../shared/api/plugins';
 import { loadLlmWikiSettings } from './loadLlmWikiSettings';
@@ -32,14 +29,11 @@ export function useLlmWikiController(): LlmWikiController {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [confirmCreate, setConfirmCreate] = useState(false);
-    const [lint, setLint] = useState<PluginLlmWikiMaintenanceResponse['lint'] | null>(null);
-    const [lintBusy, setLintBusy] = useState(false);
-    const [semanticBusy, setSemanticBusy] = useState(false);
-    const [pendingSuggestions, setPendingSuggestions] = useState(0);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const persistedDraftRef = useRef('');
     const failedDraftRef = useRef('');
     const latestDraftRef = useRef(draft);
+    const failedAgentRef = useRef('');
 
     useEffect(() => {
         latestDraftRef.current = draft;
@@ -67,14 +61,6 @@ export function useLlmWikiController(): LlmWikiController {
     }, [errorMessage]);
 
     useEffect(() => {
-        const controller = new AbortController();
-        void fetchBrainSuggestions(controller.signal).then(suggestions => {
-            if (!controller.signal.aborted) setPendingSuggestions(suggestions.suggestions.length);
-        }).catch(() => { /* Suggestions must not block configuration. */ });
-        return () => { controller.abort(); };
-    }, []);
-
-    useEffect(() => {
         void Promise.resolve().then(reload);
     }, [reload]);
 
@@ -85,6 +71,7 @@ export function useLlmWikiController(): LlmWikiController {
         setError('');
         try {
             const response = await savePluginLlmWikiConfig(payload);
+            failedAgentRef.current = '';
             failedDraftRef.current = '';
             setServerState(response);
             const normalized = normalizeLlmWikiDraft(response.config);
@@ -100,6 +87,24 @@ export function useLlmWikiController(): LlmWikiController {
             setBusy(false);
         }
     }, [errorMessage]);
+
+    const selectAgent = async (agentId: string): Promise<void> => {
+        setBusy(true);
+        setError('');
+        try {
+            const response = await savePluginLlmWikiConfig({ agent_id: agentId });
+            failedAgentRef.current = '';
+            setServerState(response);
+            const normalized = normalizeLlmWikiDraft(response.config);
+            persistedDraftRef.current = JSON.stringify(serializeLlmWikiDraft(normalized));
+            setDraftState(current => ({ ...current, agent_id: normalized.agent_id }));
+        } catch (saveError) {
+            failedAgentRef.current = agentId;
+            setError(apiErrorDetail(saveError, errorMessage('llm_wiki_save_error', 'The configuration could not be saved.')));
+        } finally {
+            setBusy(false);
+        }
+    };
 
     useEffect(() => {
         if (loading || busy) return undefined;
@@ -122,23 +127,6 @@ export function useLlmWikiController(): LlmWikiController {
     useEffect(() => () => {
         if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     }, []);
-
-    const runMaintenance = async (semantic: boolean): Promise<void> => {
-        if (semantic) setSemanticBusy(true);
-        else setLintBusy(true);
-        setError('');
-        try {
-            const response = await runPluginLlmWikiMaintenance(semantic);
-            setLint(response.lint);
-            if (semantic) setPendingSuggestions(response.suggestions_pending);
-        } catch (maintenanceError) {
-            logError(semantic ? 'llm-wiki.semantic-audit' : 'llm-wiki.maintenance', maintenanceError);
-            setError(errorMessage('llm_wiki_error', 'The Brain could not be updated.'));
-        } finally {
-            if (semantic) setSemanticBusy(false);
-            else setLintBusy(false);
-        }
-    };
 
     const createBrain = async (): Promise<void> => {
         setBusy(true);
@@ -166,15 +154,10 @@ export function useLlmWikiController(): LlmWikiController {
         createBrain,
         draft,
         error,
-        lint,
-        lintBusy,
         loading,
-        pendingSuggestions,
-        runLint: () => runMaintenance(false),
-        retrySave: () => save(latestDraftRef.current),
+        retrySave: () => failedAgentRef.current ? selectAgent(failedAgentRef.current) : save(latestDraftRef.current),
         retryLoad: reload,
-        runSemanticAudit: () => runMaintenance(true),
-        semanticBusy,
+        selectAgent,
         serverState,
         setConfirmCreate,
         setDraft: setDraftState,

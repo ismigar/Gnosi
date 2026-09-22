@@ -42,6 +42,7 @@ URL_TYPES = {"url"}
 
 DEFAULT_CONFIG: Config = {
     "version": CONFIG_VERSION,
+    "agent_id": "",
     # Generated Brain content is English by default. UI copy remains localized.
     "ui_locale": "en",
     "brain_table_id": "",
@@ -266,6 +267,7 @@ def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
 
     return {
         "version": CONFIG_VERSION,
+        "agent_id": str(data.get("agent_id") or "").strip(),
         "ui_locale": ui_locale,
         "brain_table_id": brain_id,
         "target_table": brain_id,

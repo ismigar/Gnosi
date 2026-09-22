@@ -1800,7 +1800,15 @@
       "web-clipper": {
         "name": "Web Clipper",
         "desc": "Save web pages from the browser into the table you choose, filling in its fields."
-      }
+      },
+      "llm_wiki_agent": "Agent to use",
+      "llm_wiki_agent_missing": "Unavailable agent ({{id}})",
+      "llm_wiki_agent_setup": "Needs setup",
+      "llm_wiki_agent_help": "Knowledge uses the principal assistant by default and preserves existing Knowledge agents. You can choose another agent and edit its assigned skills.",
+      "llm_wiki_agent_not_ready": "Enable this agent and choose a model in its settings before using it.",
+      "llm_wiki_edit_agent": "Edit agent and assigned skills",
+      "llm_wiki_edit_skills": "Edit skill content",
+      "llm_wiki_skills_help": "In Skills, customize a plugin skill, edit its instructions and tools, and assign the copy to your agent. Your own skills can be edited directly."
     },
     "workspace": {
       "intro": "Manage members, roles and vault access for the active workspace. This section exists for cooperatives, research teams and collectives sharing a single Gnosi instance. Real-time collaboration is under development — see the collaboration_proposal.md directive."
@@ -5928,7 +5936,15 @@
       "kind_support": "Support",
       "kind_contradiction": "Contradiction",
       "kind_gap": "Gap",
-      "notes": "Notes"
+      "notes": "Notes",
+      "load_error": "Connections could not be loaded. Close this panel and try again."
+    },
+    "tools": {
+      "button": "Knowledge tools",
+      "review": "Review Knowledge",
+      "report_title": "Knowledge review",
+      "results": "View review",
+      "unavailable": "Check the table and sources in Settings → Plugins → Knowledge before continuing."
     }
   },
   "model_comparison": {

@@ -84,6 +84,7 @@ export interface PageEditorProps {
   isCodeView?: boolean;
   isEditLocked?: boolean;
   referenceTableId?: string | null;
+  brainTableId?: string | null;
   onOpenViewConfig?: (view: Record<string, unknown>, onSaved?: (view: Record<string, unknown>) => void) => unknown;
   pageActions?: PageActionsConfig | null;
   isActivePage?: boolean;

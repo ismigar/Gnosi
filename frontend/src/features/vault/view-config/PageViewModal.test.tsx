@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PageViewModal } from './PageViewModal';
 import type { PageViewModalProps } from './page-view-modal/types';
@@ -56,6 +56,11 @@ beforeAll(() => {
     reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
+beforeEach(() => {
+    // Advance the autosave debounce explicitly instead of waiting on a busy CI host.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+});
+
 afterEach(async () => {
     if (root) {
         await act(async () => {
@@ -66,12 +71,13 @@ afterEach(async () => {
     document.body.replaceChildren();
     container = undefined;
     root = undefined;
+    vi.useRealTimers();
     vi.clearAllMocks();
 });
 
 const settle = async (): Promise<void> => {
     await act(async () => {
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        await vi.advanceTimersByTimeAsync(0);
         await Promise.resolve();
     });
 };
@@ -172,7 +178,8 @@ const actAndFlush = async (action: () => void): Promise<void> => {
     });
 };
 
-describe('PageViewModal editing', () => {
+// Rendering the full modal can exceed five seconds on the shared CI machine.
+describe('PageViewModal editing', { timeout: 15_000 }, () => {
     it('mirrors a renamed view in the existing-view picker while typing and after blur', async () => {
         await renderModal();
         const modal = requireContainer();
@@ -303,15 +310,18 @@ describe('PageViewModal editing', () => {
         const modal = requireContainer();
         const input = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
         await actAndFlush(() => { updateInput(input, 'Saved table'); });
-        await act(async () => { await new Promise(resolve => setTimeout(resolve, 850)); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.createVaultView).toHaveBeenCalledTimes(1);
         expect(api.upsertPageView).not.toHaveBeenCalled();
         await actAndFlush(() => { updateInput(input, 'Latest table'); });
-        await act(async () => { await new Promise(resolve => setTimeout(resolve, 850)); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
         expect(api.createVaultView).toHaveBeenCalledTimes(1);
         expect(api.updateVaultView).toHaveBeenCalledWith('view-2', expect.objectContaining({ name: 'Latest table' }));
+        await actAndFlush(() => { updateInput(input, 'Final table'); });
+        // Closing before the next debounce must still flush the final edit.
         await actAndFlush(() => { requireButton(modal, 'Close').click(); });
-        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ id: 'view-2', name: 'Latest table' }));
+        expect(api.updateVaultView).toHaveBeenLastCalledWith('view-2', expect.objectContaining({ name: 'Final table' }));
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ id: 'view-2', name: 'Final table' }));
     });
 
     it('reports a save error without closing and permits retry', async () => {

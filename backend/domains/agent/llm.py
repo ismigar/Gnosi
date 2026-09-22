@@ -352,6 +352,12 @@ def get_default_llm_with_meta(
 
     target_id = str(agent_id or ai_cfg.get("active_agent_id") or "")
     agent_data = next((a for a in agents if a.get("id") == target_id), None)
+    if agent_id and (
+        not agent_data or not agent_data.get("enabled", True)
+        or agent_data.get("plugin_suspended")
+        or not agent_data.get("provider") or not agent_data.get("model")
+    ):
+        return None, None, None
     if not agent_data and agents:
         agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
 
@@ -379,7 +385,7 @@ def get_default_llm_with_meta(
             timeout=timeout,
         )
 
-    if not llm:
+    if not llm and not agent_id:
         llm, provider_name, model_name = _get_hybrid_llm(timeout=timeout)
     if not llm:
         return None, None, None

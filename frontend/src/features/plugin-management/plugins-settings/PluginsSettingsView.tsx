@@ -24,6 +24,7 @@ import {
     type InstalledFilter,
     type PendingLifecycle,
     type PluginConfigComponent,
+    type PluginConfigProps,
     type PluginSection,
 } from './pluginSettingsModel';
 import { ThirdPartyPlugins } from './ThirdPartyPlugins';
@@ -51,7 +52,7 @@ function preloadPluginConfiguration(pluginId: string): void {
     void CONFIG_LOADERS[pluginId]?.().catch(() => {});
 }
 
-export interface PluginsSettingsProps {
+export interface PluginsSettingsProps extends PluginConfigProps {
     readonly configurationPluginId?: string | null;
     readonly initialPluginId?: string | null;
     readonly onOpenSettingsTab: (tab: string, pluginId: string) => void;
@@ -59,6 +60,7 @@ export interface PluginsSettingsProps {
 
 export function PluginsSettingsView({
     onOpenSettingsTab,
+    onOpenAISettings,
     configurationPluginId = null,
     initialPluginId = null,
 }: PluginsSettingsProps) {
@@ -163,7 +165,7 @@ export function PluginsSettingsView({
     if (configuredPlugin && Configuration) return (
         <Section title={pluginName(configuredPlugin)} icon={ICONS[configuredPlugin.icon] ?? Puzzle}>
             <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
-                <Configuration key={configuredPlugin.id} />
+                <Configuration key={configuredPlugin.id} onOpenAISettings={onOpenAISettings} />
             </Suspense>
         </Section>
     );
