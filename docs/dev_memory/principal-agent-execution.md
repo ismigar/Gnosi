@@ -84,3 +84,5 @@ phase reuse, migration backups, personal-profile preservation and Knowledge alia
 The principal reference component is tested in Catalan, Spanish, English and French.
 
 The standalone OPML-to-podcast command also uses the principal podcast operation and audited speech engine. Provider failures propagate and cannot become a saved error-text podcast; the static boundary rejects provider SDK constructors and completion/message/response creation outside the central adapters.
+
+Validation follow-up: main CI exceeded the PDF composition child-suite 90-second watchdog in both import orders while assertions were still progressing. Align that whole-suite watchdog with the existing 300-second drawing/citation checks; keep all PDF contract assertions and the fatal return-code check.

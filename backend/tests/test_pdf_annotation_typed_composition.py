@@ -82,7 +82,9 @@ def test_pdf_annotation_typed_composition_in_isolated_subprocess(import_order: s
              "--basetemp", str(root / "tests"), "-o", "python_functions=check_*",
              "backend/tests/test_pdf_annotation_typed_composition.py"],
             cwd=Path(__file__).resolve().parents[2], env=environment,
-            capture_output=True, text=True, timeout=90, check=False,
+            # This bounds the entire child suite, not a PDF latency contract.
+            # Match drawing/citation composition suites on the ARM64 CI runner.
+            capture_output=True, text=True, timeout=300, check=False,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         sys.stdout.write(f"{import_order}: {result.stdout}")
