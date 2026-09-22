@@ -201,20 +201,18 @@ def test_trial_keeps_failed_criteria_and_rejects_incomplete_review():
 
 def test_configured_model_is_budgeted_and_never_falls_back(monkeypatch):
     from types import SimpleNamespace
-    from backend.services import agent_learning_generation as generation
-
+    from backend.services import agent_learning_generation as generation, agent_execution
+    frozen = object()
     calls = []
-    def model(provider, name, **kwargs):
-        calls.append((provider, name, kwargs))
-        return SimpleNamespace(invoke=lambda _: SimpleNamespace(content="Synthetic result"))
-    monkeypatch.setattr(generation, "get_llm", model)
-    monkeypatch.setattr(generation, "resolve_provider_api_key", lambda *_: "synthetic")
-    monkeypatch.setattr(generation, "budget_status", lambda: {"over_cap": False})
-    monkeypatch.setattr(generation, "usage_from_message", lambda _: None)
-    invoke = generation.configured_invoker({"provider": "synthetic", "model": "chosen"}, {})
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", lambda skill: frozen)
+    def execute(request, **kwargs):
+        calls.append((request, kwargs))
+        return SimpleNamespace(result="Synthetic result", model_calls=1)
+    monkeypatch.setattr(agent_execution, "run_sync", execute)
+    invoke = generation.configured_invoker({"provider": "ignored", "model": "ignored"}, {})
     assert [invoke("task", "data") for _ in range(3)] == ["Synthetic result"] * 3
     with pytest.raises(ValueError, match="budget"):
         invoke("task", "data")
-    assert len(calls) == 1 and calls[0][:2] == ("synthetic", "chosen")
-    with pytest.raises(ValueError, match="available model"):
-        generation.configured_invoker({"provider": "synthetic", "model": "chosen", "enabled": False}, {})
+    assert len(calls) == 3
+    assert all(kwargs["snapshot"] is frozen for _, kwargs in calls)
+    assert all(request.skill_id == "core.gnosi-operation-learning" for request, _ in calls)

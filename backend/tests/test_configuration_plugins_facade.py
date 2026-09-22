@@ -111,11 +111,11 @@ def test_lifecycle_seam_remains_dynamic(monkeypatch: Any) -> None:
     assert calls == [("mail", True)]
 
 
-def test_configured_summary_model_seam_remains_dynamic(monkeypatch: Any) -> None:
+def test_feature_summary_model_selector_is_ignored(monkeypatch: Any) -> None:
     monkeypatch.setattr(
         vault_routes,
         "_configured_summary_model",
-        lambda: ("test-provider", "test-model"),
+        lambda: (_ for _ in ()).throw(AssertionError("Legacy selector must not run")),
     )
     monkeypatch.setattr(
         plugins_api,
@@ -134,5 +134,5 @@ def test_configured_summary_model_seam_remains_dynamic(monkeypatch: Any) -> None
 
     assert result == {
         "summary": "ok",
-        "model": "test-provider:test-model",
+        "model": ":",
     }

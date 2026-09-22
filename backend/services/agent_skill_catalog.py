@@ -489,17 +489,19 @@ _BUILTIN_PROVIDERS_REGISTERING = False
 
 
 def _register_builtin_gnosi_catalog() -> None:
-    """Register first-party tools, domain skills, and the legacy composition."""
     from backend.services.gnosi_ai_contributions import (
         core_gnosi_registrations,
         core_gnosi_skill_descriptors,
     )
 
     registrations = core_gnosi_registrations()
+    from backend.services.agent_specialized_tools import register_engines
+    register_engines(_TOOL_CATALOG.register_core)
     for tool_descriptor, handler in registrations:
         _TOOL_CATALOG.register_core(tool_descriptor, handler)
-    for skill_descriptor in core_gnosi_skill_descriptors(registrations):
-        _SKILL_CATALOG.register_core(skill_descriptor)
+    from backend.services.agent_operation_catalog import extend_descriptors
+    for descriptor in extend_descriptors(core_gnosi_skill_descriptors(registrations)):
+        _SKILL_CATALOG.register_core(descriptor)
     capability_platform_names = {
         "batch_mail_action",
         "calendar_free_busy",
@@ -734,6 +736,8 @@ def resolve_agent_runtime(
             for value in active_skill_ids
             if str(value or "").strip()
         }
+    from backend.services.agent_operation_catalog import activate_companions
+    activate_companions(found, explicitly_active)
     active_entries = []
     for entry in found:
         descriptor = entry.descriptor

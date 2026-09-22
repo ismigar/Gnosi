@@ -25,3 +25,17 @@ export async function changeActivityJob(jobId: string, action: 'cancel' | 'resum
         : await apiClient.POST('/api/ai/jobs/{job_id}/resume', { params });
     return unwrapApiResult<components['schemas']['CapabilityJobResponse'], unknown>(result);
 }
+
+export type AgentExecutionRun = components['schemas']['AgentRun'];
+
+export async function fetchAgentRuns(signal?: AbortSignal): Promise<AgentExecutionRun[]> {
+    return unwrapApiResult<AgentExecutionRun[], unknown>(await apiClient.GET('/api/agent/runs', { signal }));
+}
+
+export async function changeAgentRun(runId: string, action: 'cancel' | 'resume'): Promise<AgentExecutionRun> {
+    const params = { path: { run_id: runId } };
+    const response = action === 'cancel'
+        ? await apiClient.POST('/api/agent/runs/{run_id}/cancel', { params })
+        : await apiClient.POST('/api/agent/runs/{run_id}/resume', { params });
+    return unwrapApiResult<AgentExecutionRun, unknown>(response);
+}

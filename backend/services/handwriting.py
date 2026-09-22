@@ -146,7 +146,10 @@ def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
     if not text.strip():
         return None
     try:
-        from backend.agent.factory import generate_text
+        from functools import partial
+        from backend.services.agent_execution import generate_for
+
+        generate_text = partial(generate_for, "writing")
     except Exception:
         return None
 
@@ -169,7 +172,18 @@ def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
         return None
 
 
-def recognize(
+def recognize(image_bytes: bytes, segment: bool = True, correct: Optional[bool] = None, language: Optional[str] = None) -> dict[str, Any]:
+    from backend.services.agent_specialized_tools import run_engine
+    result = run_engine("handwriting", "image", lambda: _recognize_engine(image_bytes, segment, False, language))
+    want_correct = _correct_default() if correct is None else correct
+    if want_correct and result["raw"]:
+        corrected = _correct_text(str(result["raw"]), language)
+        if corrected:
+            result.update(text=corrected, corrected=corrected != result["raw"])
+    return result
+
+
+def _recognize_engine(
     image_bytes: bytes,
     segment: bool = True,
     correct: Optional[bool] = None,

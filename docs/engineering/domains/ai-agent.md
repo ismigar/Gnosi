@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -67,6 +69,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_agent_learning.py
   - backend/tests/test_agent_learning_api.py
   - frontend/src/features/agent-learning/ConversationLearning.test.tsx
@@ -1037,3 +1040,9 @@ Reading follows structural fragments with neighbouring context, section maps and
 Skill instructions are saved and executed exactly as authored, in any language. The catalogue offers an explicit translation into the active interface language using the configured AI provider. This reading aid is shown alongside the original and never changes saved or executed instructions. Opening a skill does not request translation. Successful translations are cached only in memory, scoped by vault, original text and target language. Failures leave the original available and can be retried.
 
 The translation action uses a compact button aligned to the right. Provider rate-limit or quota failures have a specific message; the original remains visible.
+
+## Principal Agent execution
+
+Functional AI now enters the shared principal Agent executor. Buttons, chat and schedules use assigned skills, the principal’s model policy, scoped memory and common usage accounting. Structured operations permit at most one validated format repair within the same budget. Long-job phases retain a frozen profile and reusable successful checkpoints.
+
+Activity exposes scoped execution IDs, cancellation and supported resumptions. The versioned migration backs up configuration, retires only the managed Brain profile, preserves personal profiles and moves Knowledge-specific instructions into a companion skill. Knowledge URLs and the historical routes share handlers and permissions; Notion remains optional.

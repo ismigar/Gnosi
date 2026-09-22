@@ -284,8 +284,9 @@ async def iter_workflow_events(
             async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                 agent_app = workflow.compile(checkpointer=saver)
                 previous_update_at = time.monotonic()
-                async for event in agent_app.astream(
-                    inputs,
+                from backend.services.agent_execution import stream_workflow
+                async for event in stream_workflow(
+                    agent_app, inputs, origin="chat", selection=state.llm_selection, snapshot=getattr(workflow, "_execution_snapshot", None),
                     config=config,
                     stream_mode="updates",
                 ):

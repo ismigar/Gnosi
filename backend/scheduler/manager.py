@@ -1,6 +1,4 @@
-"""
-Scheduler Manager: Manages scheduled tasks using APScheduler.
-"""
+"""Manage scheduled tasks using APScheduler."""
 
 import json
 import os
@@ -18,6 +16,7 @@ from backend.scheduler.bounded_executor import SchedulerExecutionRuntime
 from backend.scheduler.contracts import ScheduledTask, TaskSpec
 from backend.scheduler.notifications import notify
 from backend.scheduler.startup_policy import wait_before_automatic_dispatch
+from backend.services.agent_execution_scope import run_personal_schedule
 from backend.utils.open_values import get_value, iterable_values
 
 class SchedulerManager:
@@ -690,7 +689,7 @@ class SchedulerManager:
         """
         from backend.services.meeting_reminders import scan_and_notify
 
-        return scan_and_notify()
+        return dict(run_personal_schedule(scan_and_notify))
 
     def _task_fetch_mail(self) -> dict[str, Any]:
         """Sync mail from all configured accounts (Gmail + IMAP)."""
@@ -718,7 +717,7 @@ class SchedulerManager:
         """Generate the daily podcast from unread articles."""
         from backend.services.audio_summarizer import generate_daily_podcast
 
-        filename = generate_daily_podcast()
+        filename = run_personal_schedule(generate_daily_podcast)
         return {"filename": filename, "generated": bool(filename)}
 
     def _task_llm_wiki_maintenance(self) -> dict[str, Any]:
@@ -774,7 +773,7 @@ class SchedulerManager:
                 "skipped": True,
                 "message": "LLM Wiki is disabled; connection analysis was skipped.",
             }
-        report = run_maintenance(semantic=True)
+        report = run_personal_schedule(lambda: run_maintenance(semantic=True))
         return {
             "success": True,
             "message": "Brain connection analysis completed.",

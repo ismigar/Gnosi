@@ -79,6 +79,12 @@ def notebook_env(tmp_path, monkeypatch):
         notebook_resources._current_resource_snapshot,
     )
     context = WorkspaceContext("workspace-1", "user-1", "owner", vault, ["read", "write"])
+    from backend.services import agent_execution, agent_execution_store
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    snapshot = AgentExecutionSnapshot(scope=ExecutionScope(user_id=context.user_id,workspace_id=context.workspace_id,role="owner",vault_path=str(vault)), agent_id="principal", profile={"id":"principal"}, skill_ids=["core.gnosi-notebooks"], instructions=["Ground every claim"], catalog_revision="fixture", revision="fixture")
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", lambda *_args, **_kwargs: snapshot)
+    monkeypatch.setattr(agent_execution_store, "resolve_data_dir", lambda **_kwargs: local_data)
+
     return {
         "context": context,
         "vault": vault,

@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
 
-from backend.agent import factory
+from backend.services import agent_execution
 from backend.domains.configuration.ai.content_routes import (
     CorrectTextResponse,
     CorrectPayload,
@@ -42,11 +42,12 @@ def test_translation_prompt_preserves_target_language() -> None:
 def test_generate_content_uses_editor_context(monkeypatch: pytest.MonkeyPatch) -> None:
     observed: list[tuple[str, str]] = []
 
-    def fake_generate(prompt: str, user_message: str) -> tuple[str, str]:
+    def fake_generate(operation: str, prompt: str, user_message: str) -> tuple[str, str]:
+        assert operation == "writing"
         observed.append((prompt, user_message))
         return "Generated", "local"
 
-    monkeypatch.setattr(factory, "generate_text", fake_generate)
+    monkeypatch.setattr(agent_execution, "generate_for", fake_generate)
 
     result = asyncio.run(
         generate_content(GeneratePayload(prompt="Expand", context="Current page"))
@@ -60,11 +61,12 @@ def test_generate_content_uses_editor_context(monkeypatch: pytest.MonkeyPatch) -
 def test_correct_text_preserves_source_excerpt(monkeypatch: pytest.MonkeyPatch) -> None:
     observed: list[tuple[str, str]] = []
 
-    def fake_generate(prompt: str, user_message: str) -> tuple[str, str]:
+    def fake_generate(operation: str, prompt: str, user_message: str) -> tuple[str, str]:
+        assert operation == "writing"
         observed.append((prompt, user_message))
         return "Text corregit", "groq"
 
-    monkeypatch.setattr(factory, "generate_text", fake_generate)
+    monkeypatch.setattr(agent_execution, "generate_for", fake_generate)
 
     result = asyncio.run(correct_text(CorrectPayload(text="Text incorrekte", language="ca")))
 
@@ -74,10 +76,10 @@ def test_correct_text_preserves_source_excerpt(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail_generate(_prompt: str, _user_message: str) -> tuple[str, str]:
+    def fail_generate(_operation: str, _prompt: str, _user_message: str) -> tuple[str, str]:
         raise TimeoutError("provider timed out")
 
-    monkeypatch.setattr(factory, "generate_text", fail_generate)
+    monkeypatch.setattr(agent_execution, "generate_for", fail_generate)
 
     with pytest.raises(HTTPException) as raised:
         asyncio.run(generate_content(GeneratePayload(prompt="Expand")))

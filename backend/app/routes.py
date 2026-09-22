@@ -48,6 +48,17 @@ from backend.domains.genograms.routes import router as genograms_router
 
 def register_routers(app: FastAPI) -> None:
     """Register routers in the exact legacy matching order."""
+    from backend.services.agent_execution_scope import bind_request_scope
+    for scoped_router in (
+        agent_router, ai_routes.router, reader.router, mail_routes.router,
+        social_routes.router, meeting_routes.router, calendar_routes.router,
+        vault_routes.router, handwriting_routes.router, literature_routes.router,
+        notebook_routes.router, agent_skills_routes.router, config_routes.router,
+    ):
+        if not any(item.dependency is bind_request_scope for item in scoped_router.dependencies):
+            scoped_router.dependencies.append(Depends(bind_request_scope))
+    from backend.domains.agent.routes.runs import router as runs_router
+    app.include_router(runs_router)
     app.include_router(workspace_routes.router, tags=["Workspaces"])
     app.include_router(genograms_router)
 
@@ -69,6 +80,8 @@ def register_routers(app: FastAPI) -> None:
     )
 
     app.include_router(vault_routes.router, prefix="/api/vault", tags=["Vault"])
+    from backend.domains.vault.knowledge.aliases import knowledge_aliases
+    app.include_router(knowledge_aliases(vault_routes.router), prefix="/api/vault")
     app.include_router(
         planning_routes.router,
         prefix="/api",

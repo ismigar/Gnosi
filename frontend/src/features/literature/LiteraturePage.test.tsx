@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -155,7 +156,7 @@ async function renderPage(): Promise<void> {
     await act(async () => {
         mountedRoot.render(
             <TestApiProvider>
-                <LiteraturePage />
+                <MemoryRouter><LiteraturePage /></MemoryRouter>
             </TestApiProvider>,
         );
         await Promise.resolve();
@@ -421,7 +422,7 @@ describe('LiteraturePage', () => {
         await act(async () => {
             mountedRoot.render(
                 <TestApiProvider>
-                    <LiteraturePage />
+                    <MemoryRouter><LiteraturePage /></MemoryRouter>
                 </TestApiProvider>,
             );
             await Promise.resolve();
@@ -437,3 +438,5 @@ describe('LiteraturePage', () => {
         unsubscribe();
     });
 });
+
+vi.mock('../../shared/api/configuration', () => ({ fetchConfiguration: () => Promise.resolve({ ai: { active_agent_id: 'research-agent', agents: [{ id: 'research-agent', name: 'Research' }] } }) }));

@@ -21,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from langchain_core.messages import HumanMessage  # noqa: E402
 
-from agent import factory  # noqa: E402
 from agent.factory import generate_text, get_llm  # noqa: E402
 
 # Providers that resolve to an OpenAI-compatible wrapper (request_timeout + max_retries).
@@ -61,40 +60,17 @@ def test_ollama_without_timeout_defaults_to_60():
     assert getattr(llm, "client_kwargs", None) == {"timeout": 60}
 
 
-def test_generate_text_forwards_timeout_and_drops_ignored_config(monkeypatch):
-    """`generate_text(timeout=N)` must propagate N to the constructor (get_default_llm)
-    and call `.invoke()` WITHOUT `config` (the ignored key is no longer there)."""
+def test_generate_text_forwards_timeout_to_principal_executor(monkeypatch):
+    from backend.services import agent_execution
     captured = {}
-
-    class _FakeLLM:
-        model_name = "fake-model"
-
-        def invoke(self, messages, *args, **kwargs):
-            captured["invoke_args"] = args
-            captured["invoke_kwargs"] = kwargs
-
-            class _Resp:
-                content = "hola"
-
-            return _Resp()
-
-    def _fake_get_default_llm_with_meta(user_message="", timeout=None):
-        captured["timeout"] = timeout
-        # (llm, provider, model): generate_text uses the meta variant so it
-        # can attribute usage to the model that actually answered.
-        return _FakeLLM(), "fake", "fake-model"
-
-    monkeypatch.setattr(factory, "get_default_llm_with_meta",
-                        _fake_get_default_llm_with_meta)
-
+    def generate(operation, prompt, user_message="", **kwargs):
+        captured.update(kwargs)
+        assert operation == "writing"
+        return "hola", "fake-model"
+    monkeypatch.setattr(agent_execution, "generate_for", generate)
     text, label = generate_text("prompt qualsevol", timeout=33)
-
-    assert text == "hola"
-    assert label == "fake-model"
-    assert captured["timeout"] == 33, "el timeout no s'ha propagat a get_default_llm"
-    # No `config` (nor any other kwarg) in .invoke(): it used to be config={"timeout":...}.
-    assert captured["invoke_args"] == ()
-    assert captured["invoke_kwargs"] == {}
+    assert (text, label) == ("hola", "fake-model")
+    assert captured["timeout"] == 33
 
 
 def test_slow_provider_invoke_is_bounded():

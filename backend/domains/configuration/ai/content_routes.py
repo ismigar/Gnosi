@@ -128,7 +128,10 @@ async def generate_content(payload: GeneratePayload) -> dict[str, str]:
     Degrades with 503 if no provider is available, never with a hard
     error.
     """
-    from backend.agent.factory import generate_text
+    from functools import partial
+    from backend.services.agent_execution import generate_for
+
+    generate_text = partial(generate_for, "translation" if payload.mode in {"translate", "translate_instructions"} else "writing")
 
     final_prompt = build_generation_prompt(payload)
     if not final_prompt.strip() or final_prompt.strip() == ".":
@@ -180,7 +183,10 @@ async def correct_text(payload: CorrectPayload) -> dict[str, str]:
     a selection, a block, or an entire editor page. Degrades with a 503 if there's
     no provider, never with a hard error.
     """
-    from backend.agent.factory import generate_text
+    from functools import partial
+    from backend.services.agent_execution import generate_for
+
+    generate_text = partial(generate_for, "writing")
 
     text = payload.text.strip()
     if not text:

@@ -45,16 +45,14 @@ def test_entity_analysis_runs_provider_off_the_event_loop(
     caller_thread = threading.get_ident()
     provider_threads: list[int] = []
 
-    def fake_provider(_prompt: str, **options: object) -> str:
+    def fake_provider(_operation: str, _prompt: str, **options: object) -> tuple[str, str]:
         provider_threads.append(threading.get_ident())
-        assert options == {
-            "timeout": 8,
-            "provider": "fixture",
-            "use_cache": False,
-        }
-        return '{"events": [], "contacts": []}'
+        assert _operation == "mail"
+        assert options["timeout"] == 8
+        assert options["output_schema"]["required"] == ["events", "contacts"]
+        return '{"events": [], "contacts": []}', "principal-model"
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", fake_provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", fake_provider)
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
 
     result = asyncio.run(
@@ -75,11 +73,11 @@ def test_entity_analysis_runs_provider_off_the_event_loop(
 def test_entity_analysis_enforces_timeout_outside_provider_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def blocking_provider(_prompt: str, **_options: object) -> str:
+    def blocking_provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         time.sleep(0.05)
-        return '{"events": [], "contacts": []}'
+        return '{"events": [], "contacts": []}', "principal-model"
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", blocking_provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", blocking_provider)
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
     monkeypatch.setattr(analysis, "_PRIMARY_TIMEOUT_SECONDS", 0.01)
 
@@ -104,18 +102,18 @@ def test_entity_analysis_bounds_workers_when_provider_ignores_timeout(
     capacity = threading.BoundedSemaphore(2)
     executor = ThreadPoolExecutor(max_workers=2)
 
-    def blocking_provider(_prompt: str, **_options: object) -> str:
+    def blocking_provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         nonlocal calls
         with calls_lock:
             calls += 1
         release.wait(timeout=2)
-        return '{"events": [], "contacts": []}'
+        return '{"events": [], "contacts": []}', "principal-model"
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", blocking_provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", blocking_provider)
     monkeypatch.setattr(
         analysis,
         "_configured_provider_names",
-        lambda: ["primary", "secondary"],
+        lambda: ["principal_agent"],
     )
     monkeypatch.setattr(analysis, "_PRIMARY_TIMEOUT_SECONDS", 0.02)
     monkeypatch.setattr(analysis, "_PROVIDER_CAPACITY", capacity)
@@ -137,7 +135,7 @@ def test_entity_analysis_bounds_workers_when_provider_ignores_timeout(
         assert not capacity.acquire(blocking=False)
         assert all(result["result_source"] == "local" for result in results)
         assert all(result["status"] == "complete" for result in results)
-        assert all(len(result["provider_attempts"]) == 2 for result in results)
+        assert all(len(result["provider_attempts"]) == 1 for result in results)
     finally:
         release.set()
         executor.shutdown(wait=True)
@@ -149,12 +147,11 @@ def test_entity_analysis_bounds_workers_when_provider_ignores_timeout(
 def test_entity_analysis_treats_local_fallback_as_a_normal_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def failing_provider(_prompt: str, **_options: object) -> str:
+    def failing_provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         raise RuntimeError("provider diagnostics must stay private")
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", failing_provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", failing_provider)
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
 
     result = asyncio.run(
         compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
@@ -175,12 +172,11 @@ def test_entity_analysis_treats_local_fallback_as_a_normal_result(
 def test_entity_analysis_uses_literal_local_results_when_providers_fail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def failing_provider(_prompt: str, **_options: object) -> str:
+    def failing_provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         raise RuntimeError("synthetic provider failure")
 
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", failing_provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", failing_provider)
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
 
     result = asyncio.run(
         compose.extract_entities(
@@ -218,7 +214,7 @@ def test_entity_analysis_reports_missing_configuration_without_provider_call(
         lambda *_args, **_kwargs: pytest.fail("an unconfigured provider must not run"),
     )
     monkeypatch.setattr(
-        "pipeline.ai_client.call_ai_client",
+        "backend.services.agent_execution.generate_for",
         lambda *_args, **_kwargs: pytest.fail("a direct provider must not run"),
     )
 
@@ -261,7 +257,7 @@ def test_entity_analysis_errors_only_when_local_processing_also_fails(
 ) -> None:
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
     monkeypatch.setattr(
-        "pipeline.ai_client.call_ai_client",
+        "backend.services.agent_execution.generate_for",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             TimeoutError("synthetic provider timeout")
         ),
@@ -319,10 +315,9 @@ def test_entity_analysis_distinguishes_empty_and_invalid_responses(
         '{"events": "invalid", "contacts": []}',
     ])
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.PRIMARY_PROVIDER", "fixture")
     monkeypatch.setattr(
-        "pipeline.ai_client.call_ai_client",
-        lambda *_args, **_kwargs: next(responses),
+        "backend.services.agent_execution.generate_for",
+        lambda *_args, **_kwargs: (next(responses), "principal-model"),
     )
 
     empty = asyncio.run(
@@ -357,7 +352,7 @@ def test_entity_analysis_classifies_provider_failures_without_details(
 ) -> None:
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
     monkeypatch.setattr(
-        "pipeline.ai_client.call_ai_client",
+        "backend.services.agent_execution.generate_for",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(failure),
     )
 
@@ -372,103 +367,10 @@ def test_entity_analysis_classifies_provider_failures_without_details(
     assert "private response" not in str(result)
 
 
-def test_entity_analysis_cascades_after_malformed_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls: list[str] = []
-
-    def provider(_prompt: str, **options: object) -> str:
-        name = str(options["provider"])
-        calls.append(name)
-        return "not-json" if name == "primary" else '{"events": [], "contacts": []}'
-
-    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["primary", "backup"])
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
-
-    result = asyncio.run(
-        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
-    )
-
-    assert calls == ["primary", "backup"]
-    assert result["provider"] == "backup"
-    assert result["provider_attempts"] == [
-        {"provider": "primary", "status": "invalid_response"},
-        {"provider": "backup", "status": "success"},
-    ]
 
 
-def test_entity_analysis_uses_secondary_after_primary_timeout(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls: list[tuple[str, int]] = []
-
-    def provider(_prompt: str, **options: object) -> str:
-        name = str(options["provider"])
-        timeout = int(str(options["timeout"]))
-        calls.append((name, timeout))
-        if name == "primary":
-            raise TimeoutError("synthetic timeout")
-        return '{"events": [], "contacts": []}'
-
-    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["primary", "backup"])
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
-
-    result = asyncio.run(
-        compose.extract_entities(schemas.MailExtractEntitiesRequest(context="fixture"))
-    )
-
-    assert calls == [("primary", 8), ("backup", 12)]
-    assert result["provider"] == "backup"
-    assert result["provider_attempts"] == [
-        {"provider": "primary", "status": "timeout"},
-        {"provider": "backup", "status": "success"},
-    ]
 
 
-def test_entity_analysis_opens_and_recovers_provider_circuit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    now = 100.0
-    primary_calls = 0
-    backup_calls = 0
-
-    def provider(_prompt: str, **options: object) -> str:
-        nonlocal primary_calls, backup_calls
-        name = str(options["provider"])
-        if name == "primary":
-            primary_calls += 1
-            if primary_calls <= 2:
-                raise TimeoutError("synthetic timeout")
-        else:
-            backup_calls += 1
-        return '{"events": [], "contacts": []}'
-
-    monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["primary", "backup"])
-    monkeypatch.setattr(analysis, "_circuit_now", lambda: now)
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
-    request = schemas.MailExtractEntitiesRequest(context="synthetic circuit fixture")
-
-    first = asyncio.run(compose.extract_entities(request))
-    second = asyncio.run(compose.extract_entities(request))
-    protected = asyncio.run(compose.extract_entities(request))
-
-    assert first["provider"] == "backup"
-    assert second["provider"] == "backup"
-    assert protected["provider"] == "backup"
-    assert protected["provider_attempts"] == [
-        {"provider": "primary", "status": "unavailable"},
-        {"provider": "backup", "status": "success"},
-    ]
-    assert (primary_calls, backup_calls) == (2, 3)
-
-    now += analysis._PROVIDER_CIRCUIT_COOLDOWN_SECONDS + 1
-    recovered = asyncio.run(compose.extract_entities(request))
-
-    assert recovered["provider"] == "primary"
-    assert recovered["provider_attempts"] == [
-        {"provider": "primary", "status": "success"}
-    ]
-    assert (primary_calls, backup_calls) == (3, 3)
 
 
 def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(
@@ -477,15 +379,15 @@ def test_entity_analysis_recovers_exact_previous_result_after_provider_failure(
 ) -> None:
     calls = 0
 
-    def provider(_prompt: str, **_options: object) -> str:
+    def provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         nonlocal calls
         calls += 1
         if calls > 1:
             raise TimeoutError("synthetic timeout")
-        return '{"events": [{"title": "Literal fixture"}], "contacts": []}'
+        return '{"events": [{"title": "Literal fixture"}], "contacts": []}', "principal-model"
 
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", provider)
     request = schemas.MailExtractEntitiesRequest(
         context="Synthetic body that must never be cached verbatim",
         sender="Fixture Sender <sender@example.test>",
@@ -516,16 +418,16 @@ def test_entity_analysis_preserves_exact_previous_result_if_local_processing_fai
 ) -> None:
     calls = 0
 
-    def provider(_prompt: str, **_options: object) -> str:
+    def provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         nonlocal calls
         calls += 1
         if calls > 1:
             raise TimeoutError("synthetic timeout")
-        return '{"events": [{"title": "Cached fixture"}], "contacts": []}'
+        return '{"events": [{"title": "Cached fixture"}], "contacts": []}', "principal-model"
 
     request = schemas.MailExtractEntitiesRequest(context="Exact synthetic fixture")
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", provider)
     asyncio.run(compose.extract_entities(request))
     monkeypatch.setattr(
         analysis,
@@ -553,14 +455,14 @@ def test_entity_analysis_does_not_reuse_previous_result_for_different_input(
         TimeoutError("synthetic timeout"),
     ]
 
-    def provider(_prompt: str, **_options: object) -> str:
+    def provider(_operation: str, _prompt: str, **_options: object) -> tuple[str, str]:
         response = responses.pop(0)
         if isinstance(response, Exception):
             raise response
-        return response
+        return response, "principal-model"
 
     monkeypatch.setattr(analysis, "_configured_provider_names", lambda: ["fixture"])
-    monkeypatch.setattr("pipeline.ai_client.call_ai_client", provider)
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", provider)
 
     asyncio.run(
         compose.extract_entities(
@@ -578,38 +480,6 @@ def test_entity_analysis_does_not_reuse_previous_result_for_different_input(
     assert result["events"] == []
 
 
-@pytest.mark.parametrize(
-    ("provider_config", "api_key", "expected"),
-    [
-        ({"enabled": False, "model_name": "model", "model_url": "https://ai.example.test"}, None, "disabled"),
-        ({"enabled": True, "model_name": "model", "model_url": "https://ai.example.test"}, None, "credentials"),
-        ({"enabled": True, "model_name": "", "model_url": ""}, None, "not_configured"),
-    ],
-)
-def test_entity_analysis_classifies_local_provider_configuration_without_requests(
-    monkeypatch: pytest.MonkeyPatch,
-    provider_config: dict[str, object],
-    api_key: str | None,
-    expected: str,
-) -> None:
-    from pipeline import ai_client
-
-    monkeypatch.setattr(ai_client, "PRIMARY_PROVIDER", "openai")
-    monkeypatch.setattr(ai_client, "FALLBACK_PROVIDER", None)
-    monkeypatch.setattr(ai_client, "PROVIDERS", {"openai": provider_config})
-    monkeypatch.setattr(
-        analysis,
-        "resolve_provider_api_key",
-        lambda *_args, **_kwargs: api_key,
-    )
-    monkeypatch.setattr(
-        ai_client,
-        "call_ai_client",
-        lambda *_args, **_kwargs: pytest.fail("configuration inspection must not call a provider"),
-    )
-
-    assert analysis._configured_provider_names() == []
-    assert analysis._configuration_failure_reason() == expected
 
 
 def test_entity_analysis_cancellation_stops_the_cascade(
@@ -690,3 +560,34 @@ def test_imap_list_preserves_internet_message_identity() -> None:
 
     assert result is not None
     assert result["internet_message_id"] == "shared-delivery@example.test"
+
+
+def test_mail_has_one_principal_transport_and_no_provider_cascade(monkeypatch):
+    calls = []
+    def failing(operation, prompt, **options):
+        calls.append(operation)
+        raise TimeoutError("principal unavailable")
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", failing)
+    assert analysis._configured_provider_names() == ["principal_agent"]
+    result = asyncio.run(analysis.analyze_mail_entities("synthetic source"))
+    assert calls == ["mail"]
+    assert result["provider_attempts"] == [{"provider":"principal_agent","status":"timeout"}]
+    assert result["result_source"] == "local"
+
+
+def test_mail_principal_circuit_recovers_without_other_model(monkeypatch):
+    now = [100.0]
+    calls = []
+    def provider(operation, prompt, **options):
+        calls.append(operation)
+        if len(calls) < 3:
+            raise TimeoutError("temporary")
+        return '{"events":[],"contacts":[]}', "model"
+    monkeypatch.setattr(analysis, "_circuit_now", lambda:now[0])
+    monkeypatch.setattr("backend.services.agent_execution.generate_for", provider)
+    for _ in range(3):
+        asyncio.run(analysis.analyze_mail_entities("synthetic source"))
+    assert len(calls) == 2
+    now[0] += analysis._PROVIDER_CIRCUIT_COOLDOWN_SECONDS + 1
+    assert asyncio.run(analysis.analyze_mail_entities("synthetic source"))["provider"] == "principal_agent"
+    assert len(calls) == 3

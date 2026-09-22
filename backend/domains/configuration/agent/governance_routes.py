@@ -533,12 +533,13 @@ async def run_agent_model_evaluation(
     )
     if llm is None:
         raise HTTPException(status_code=409, detail="Agent model is unavailable.")
+    from backend.services.agent_diagnostics import invoke_diagnostic
     return await asyncio.to_thread(
         evaluate_with_invoker,
         provider,
         model,
         agent_id,
-        lambda prompt: llm.invoke([HumanMessage(content=prompt)]),
+        lambda prompt: invoke_diagnostic(llm, [HumanMessage(content=prompt)], provider=provider, model=model),
     )
 
 

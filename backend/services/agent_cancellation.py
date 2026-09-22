@@ -182,10 +182,13 @@ def invoke_cancellable(model: Any, prompt: Any, token: str, **kwargs: Any) -> An
     if not callable(getattr(model, "ainvoke", None)):
         return model.invoke(prompt, **kwargs)
 
+    with _LOCK:
+        registration = _TOKENS.get(token)
+        event = registration[0] if registration else None
     operation = model.ainvoke(prompt, **kwargs)
     future = asyncio.run_coroutine_threadsafe(operation, _persistent_async_loop())
     while True:
-        if is_cancelled(token):
+        if event is not None and event.is_set():
             future.cancel()
             raise AgentTurnCancelled("agent_turn_cancelled")
         try:

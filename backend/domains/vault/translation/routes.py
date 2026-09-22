@@ -465,7 +465,10 @@ async def generate_button_action(
     import json
     import re
 
-    from backend.agent.factory import generate_text
+    from functools import partial
+    from backend.services.agent_execution import generate_for
+
+    generate_text = partial(generate_for, "tables")
 
     field_names = [
         str(field["name"])
@@ -475,27 +478,17 @@ async def generate_button_action(
     system_instruction = f"""You are an AI assistant helping configure table button actions in a database application.\nAvailable table fields: {(", ".join(field_names) if field_names else "Title")}\n\nGiven the user's natural language request, output ONLY a valid JSON object (no markdown wrapping) with these keys:\n{{\n  "button_label": "<Short button label max 20 characters>",\n  "button_action": "set_fields" | "ai_prompt" | "run_skill",\n  "button_config": {{\n    "assignments": [\n       {{ "field": "<field_name>", "value": "<literal or formula like today()>" }}\n    ],\n    "prompt": "<prompt text for ai_prompt>",\n    "target_field": "<target field_name for ai_prompt>",\n    "skill_id": "<skill id for run_skill>"\n  }}\n}}\n"""
     try:
         raw_resp, _ = await _legacy.asyncio.to_thread(
-            generate_text, system_instruction, user_prompt
+            generate_text, system_instruction, user_prompt, output_schema={"type": "object", "required": ["button_label", "button_action", "button_config"], "properties": {"button_action": {"enum": ["set_fields", "ai_prompt", "run_skill"]}, "button_config": {"type": "object"}}}
         )
         cleaned = (raw_resp or "").strip()
         if cleaned.startswith("```"):
             cleaned = re.sub("^```[a-z]*\\n", "", cleaned)
             cleaned = re.sub("\\n```$", "", cleaned)
         data: object = json.loads(cleaned.strip())
-        return {"status": "ok", "result": data}
+        return GenerateButtonActionResponse.model_validate({"status": "ok", "result": data}).model_dump()
     except Exception as e:
-        _legacy.log.error(f"Error generating button action: {e}")
-        return {
-            "status": "ok",
-            "result": {
-                "button_label": "Acció IA",
-                "button_action": "ai_prompt",
-                "button_config": {
-                    "prompt": user_prompt,
-                    "target_field": field_names[0] if field_names else "title",
-                },
-            },
-        }
+        _legacy.log.error("Error generating button action: %s", type(e).__name__)
+        raise _legacy.HTTPException(status_code=502, detail="agent_operation_failed") from e
 
 
 @router.post(
@@ -533,7 +526,10 @@ async def execute_button_action(
             )
         import json
 
-        from backend.agent.factory import generate_text
+        from functools import partial
+        from backend.services.agent_execution import generate_for
+
+        generate_text = partial(generate_for, "tables")
 
         context_str = f"Title: {title}\nMetadata: {json.dumps(metadata, ensure_ascii=False)}\nContent: {body[:1000]}"
         full_instruction = f"Task: {user_prompt}\nProvide ONLY the result value to set for field '{target_field}'. Do not include formatting or commentary unless requested."

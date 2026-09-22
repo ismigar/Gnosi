@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -67,6 +69,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_agent_learning.py
   - backend/tests/test_agent_learning_api.py
   - frontend/src/features/agent-learning/ConversationLearning.test.tsx
@@ -1218,3 +1221,9 @@ La lectura utiliza fragmentos estructurales con contexto vecino, mapas de secci�
 Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo permite solicitar una traducción al idioma activo mediante el proveedor de IA configurado. Se muestra junto al original como ayuda de lectura, sin modificar las instrucciones guardadas ni ejecutadas. Abrir una habilidad no solicita traducciones. Las traducciones se conservan solo en memoria, por vault, texto original e idioma de destino. Si fallan, el original sigue disponible y se puede reintentar.
 
 La acción de traducción utiliza un botón compacto alineado a la derecha. Los errores de límite de peticiones o cuota muestran un mensaje específico; el original sigue visible.
+
+## Ejecución del Agente principal
+
+La IA funcional pasa por el ejecutor compartido del Agente principal. Botones, chat y programaciones utilizan habilidades asignadas, la política de modelos del principal, memoria delimitada y un registro común de consumo. Las operaciones estructuradas admiten una única reparación de formato dentro del mismo presupuesto. Las fases largas conservan una instantánea del perfil y reutilizan los puntos de reanudación completados.
+
+Actividad muestra identificadores de ejecución, cancelación y las reanudaciones compatibles. La migración versionada copia la configuración, retira solo el perfil Brain gestionado, preserva los perfiles personales y traslada las instrucciones de Conocimiento a una habilidad complementaria. Las rutas de Conocimiento y las antiguas comparten implementación y permisos; Notion sigue siendo opcional.

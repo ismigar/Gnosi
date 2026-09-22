@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -67,6 +69,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_agent_learning.py
   - backend/tests/test_agent_learning_api.py
   - frontend/src/features/agent-learning/ConversationLearning.test.tsx
@@ -1239,3 +1242,9 @@ La lecture utilise des fragments structurels avec leur contexte voisin, des cart
 Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue permet de demander une traduction dans la langue active avec le fournisseur IA configuré. Cette aide à la lecture apparaît à côté du texte original sans modifier les instructions enregistrées ou exécutées. Ouvrir une compétence ne demande aucune traduction. Les traductions sont conservées uniquement en mémoire, par vault, texte original et langue cible. En cas d’échec, le texte original reste disponible et une nouvelle tentative est possible.
 
 La traduction utilise un bouton compact aligné à droite. Les limites de requêtes ou de quota affichent un message spécifique ; le texte original reste visible.
+
+## Exécution de l’Agent principal
+
+L’IA fonctionnelle passe par l’exécuteur partagé de l’Agent principal. Boutons, chat et programmations utilisent les compétences attribuées, la politique de modèles du principal, une mémoire délimitée et un registre commun de consommation. Les opérations structurées autorisent une seule réparation de format dans le même budget. Les phases longues conservent un instantané du profil et réutilisent les points de reprise terminés.
+
+L’Activité présente les identifiants d’exécution, l’annulation et les reprises compatibles. La migration versionnée sauvegarde la configuration, retire uniquement le profil Brain géré, préserve les profils personnels et déplace les instructions de Connaissances vers une compétence complémentaire. Les anciennes URL et celles de Connaissances partagent les mêmes traitements et autorisations ; Notion reste facultatif.

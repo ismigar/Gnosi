@@ -133,7 +133,7 @@ async def prepare_profile(
     agent_data = selected_agent or dependencies.select_agent_profile(ai_cfg, target_id)
     if not agent_data:
         return None
-    target_id = str(agent_data.get("id") or target_id)
+    target_id = str(agent_data.get("id") or "")
     if resolved_runtime is None:
         resolved_runtime = dependencies.resolve_runtime_capabilities(
             agent_data,
@@ -297,6 +297,7 @@ def _with_reviewed_memory(
     default_vault_path: Any,
     target_id: str,
     user_message: str,
+    legacy_agent_ids: tuple[str, ...] = (),
 ) -> str:
     """Append reviewed memory as bounded data, never as policy."""
     try:
@@ -311,6 +312,10 @@ def _with_reviewed_memory(
                 user_id=memory_user_id,
                 limit=5,
             )
+        if memory_user_id:
+            for legacy_id in legacy_agent_ids:
+                memory_rows.extend(search_memories(vault_path or default_vault_path, legacy_id,
+                    user_message, user_id=memory_user_id, limit=5))
         if not memory_rows:
             return persona
         memory_lines = "\n".join(f"- {str(item.get('text') or '')[:800]}" for item in memory_rows)
@@ -419,12 +424,17 @@ def build_prompts(
     max_skill_instruction_chars: int,
     max_system_prompt_chars: int,
     default_supervisor_prompt: str,
+    preserve_instructions: bool = False,
 ) -> PromptSetup:
     """Assemble all bounded prompts and runtime skill identity."""
     context_window_tokens = _model_context_window(model.provider_name, model.model_name)
     model_input_chars = max(8_000, min(240_000, int(context_window_tokens * 0.75 * 3)))
-    persona = str(profile.agent_data.get("persona", ""))[:8_000]
-    detailed = _detailed_persona(instructions_dir, profile.target_id)
+    persona = str(profile.agent_data.get("persona", ""))
+    if not preserve_instructions:
+        persona = persona[:8_000]
+    if "_execution_detailed_persona" not in profile.agent_data:
+        profile.agent_data["_execution_detailed_persona"] = _detailed_persona(instructions_dir, profile.target_id)
+    detailed = str(profile.agent_data["_execution_detailed_persona"])
     combined = f"{persona}\n\n{detailed}" if detailed else persona
     combined = _with_reviewed_memory(
         combined,
@@ -434,6 +444,7 @@ def build_prompts(
         default_vault_path=default_vault_path,
         target_id=profile.target_id,
         user_message=user_message,
+        legacy_agent_ids=("llm-wiki",) if profile.ai_cfg.get("retired_profiles", {}).get("llm-wiki") and any(identifier in {"plugin.llm-wiki.process-source", "core.gnosi-operation-knowledge"} for identifier in getattr(profile.resolved_runtime, "active_skill_ids", ())) else (),
     )
     active_runtime_ids = tuple(
         str(skill_id)
@@ -453,18 +464,21 @@ def build_prompts(
         and "skill_ids" not in profile.agent_data
         and active_skill_ids is None
     )
-    skill_block = _bounded_skill_block(instructions, max_skill_instruction_chars)
+    skill_block = "\n\n".join(instructions) if preserve_instructions else _bounded_skill_block(instructions, max_skill_instruction_chars)
     if skill_block:
         combined = f"{combined}\n\n{skill_block}" if combined else skill_block
 
     raw_context_refs = profile.agent_data.get("context_refs") or []
     context_refs = [ref for ref in raw_context_refs if isinstance(ref, dict)]
-    combined = _with_context(
-        combined,
-        _bounded_context_block(profile.agent_data, context_refs),
-        model_input_chars=model_input_chars,
-        max_system_prompt_chars=max_system_prompt_chars,
-    )
+    if preserve_instructions:
+        combined += "\n\n" + str(profile.agent_data.get("context") or "")
+    else:
+        combined = _with_context(
+            combined,
+            _bounded_context_block(profile.agent_data, context_refs),
+            model_input_chars=model_input_chars,
+            max_system_prompt_chars=max_system_prompt_chars,
+        )
     general_prompt, supervisor_prompt = _agent_prompts(
         str(profile.agent_data.get("name", "Gnosy")),
         combined,

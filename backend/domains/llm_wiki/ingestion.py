@@ -102,6 +102,7 @@ class IngestionDependencies:
     clock: Callable[[], float]
     logger: logging.Logger
     phases: IngestionPhases
+    generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
     execution_revision: str = ""
     execution_metadata: dict[str, object] | None = None
     input_budget: int = 24000

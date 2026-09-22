@@ -290,19 +290,9 @@ def _select_agent_profile(
     ai_cfg: dict[str, Any],
     agent_id: str,
 ) -> dict[str, Any] | None:
-    """Select one enabled-compatible profile using the historical fallback."""
-    agents = ai_cfg.get("agents", []) or []
-    target_id = agent_id or ai_cfg.get("active_agent_id")
-    agent_data = next(
-        (agent for agent in agents if agent.get("id") == target_id),
-        None,
-    )
-    if not agent_data and agents:
-        agent_data = next(
-            (agent for agent in agents if agent.get("enabled", True)),
-            agents[0],
-        )
-    return agent_data
+    """Functional entrypoints always use the active principal profile."""
+    from backend.services.principal_agent_migration import principal_profile
+    return principal_profile(ai_cfg)
 
 
 def _resolve_runtime_capabilities(
@@ -311,17 +301,8 @@ def _resolve_runtime_capabilities(
     vault_path: Optional[Path] = None,
     active_skill_ids: Optional[Iterable[str]] = None,
 ) -> Any:
-    """Resolve assigned skills through the governed catalog.
-
-    The import remains local while the catalog is introduced so older installs
-    can still start during the compatibility release. Once the catalog exists,
-    validation or resolution errors are deliberately propagated: silently
-    falling back to a broader legacy tool belt would be a privilege escalation.
-    """
-    try:
-        from backend.services.agent_skill_catalog import resolve_agent_runtime
-    except ImportError:
-        return None
+    """Resolve assigned skills; an unavailable catalog must fail closed."""
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
     return resolve_agent_runtime(
         agent_data,
         vault_path=vault_path,
@@ -336,8 +317,8 @@ def prepare_agent_runtime(
     active_skill_ids: Optional[Iterable[str]] = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None, Any]:
     """Load current AI config, selected profile, and resolved capabilities."""
-    raw_ai_cfg = load_params(strict_env=False).ai
-    ai_cfg = dict(raw_ai_cfg) if isinstance(raw_ai_cfg, dict) else {}
+    from backend.services.principal_agent_migration import ensure_migrated
+    ai_cfg = ensure_migrated()
     agent_data = _select_agent_profile(ai_cfg, agent_id)
     runtime = (
         _resolve_runtime_capabilities(

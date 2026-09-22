@@ -158,13 +158,12 @@ def generate_text(
     timeout: int = 60,
     agent_id: str = "",
 ) -> tuple[str, str]:
-    """Preserve the factory's historical selector monkeypatch seam."""
+    """Compatibility alias to the principal writing skill."""
     text, label = _domain_generate_text(
         prompt,
         user_message=user_message,
         timeout=timeout,
         agent_id=agent_id,
-        selector=get_default_llm_with_meta,
     )
     return str(text), str(label)
 
@@ -175,24 +174,9 @@ def _compat_prepare_agent_runtime(
     vault_path: Path | None = None,
     active_skill_ids: Iterable[str] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None, Any]:
-    """Resolve runtime state through facade-level compatibility collaborators."""
-    loaded = load_params(strict_env=False)
-    if isinstance(loaded, dict):
-        raw_ai_cfg = loaded["ai"] if "ai" in loaded else {}
-    else:
-        raw_ai_cfg = loaded.ai
-    ai_cfg = dict(raw_ai_cfg) if isinstance(raw_ai_cfg, dict) else {}
-    agent_data = _select_agent_profile(ai_cfg, agent_id)
-    runtime = (
-        _resolve_runtime_capabilities(
-            agent_data,
-            vault_path=vault_path,
-            active_skill_ids=active_skill_ids,
-        )
-        if agent_data
-        else None
-    )
-    return ai_cfg, agent_data, runtime
+    """Resolve the shared principal runtime for every workflow entrypoint."""
+    from backend.domains.agent.runtime_tools import prepare_agent_runtime as prepare
+    return prepare(agent_id, vault_path=vault_path, active_skill_ids=active_skill_ids)
 
 
 async def create_agent_workflow(
@@ -211,6 +195,7 @@ async def create_agent_workflow(
     runtime_capabilities: Any = None,
     memory_user_id: str = "",
     reviewed_memory_rows: Iterable[dict[str, Any]] | None = None,
+    operation_mode: bool = False,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Delegate to the canonical workflow with explicit compatibility seams."""
     dependencies = WorkflowDependencies(
@@ -241,6 +226,7 @@ async def create_agent_workflow(
         runtime_capabilities=runtime_capabilities,
         memory_user_id=memory_user_id,
         reviewed_memory_rows=reviewed_memory_rows,
+        operation_mode=operation_mode,
         dependencies=dependencies,
     )
     return workflow, dict(metadata)

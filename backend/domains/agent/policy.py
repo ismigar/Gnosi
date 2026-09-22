@@ -52,6 +52,8 @@ def _turn_is_cancelled(state: Any) -> bool:
 
 def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
     """Invoke a model with request cancellation when the graph has a token."""
+    from backend.services.agent_execution import before_model_call, after_model_call
+    before_model_call()
     token = state.get("cancel_token", "") if isinstance(state, dict) else ""
     trace_id = state.get("trace_id", "") if isinstance(state, dict) else ""
     with observability_span(
@@ -59,7 +61,9 @@ def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
         trace_id=str(trace_id or ""),
         attributes={"model": getattr(model, "model_name", "") or getattr(model, "model", "")},
     ):
-        return invoke_cancellable(model, prompt, str(token or ""))
+        response = invoke_cancellable(model, prompt, str(token or ""))
+        after_model_call(response)
+        return response
 
 
 def _turn_authorized_tool_names(state: Any) -> set[str]:
@@ -160,6 +164,8 @@ def _execute_policy_tool(
     """Execute one validated tool and update health plus audit metadata."""
     started = time.monotonic()
     try:
+        from backend.services.agent_execution import before_tool_call
+        before_tool_call(tool_name, dynamic_context=bool(getattr(policy.get("_descriptor"), "metadata", {}).get("dynamic_context")))
         with observability_span(
             "agent.tool",
             trace_id=str(state.get("trace_id") or ""),

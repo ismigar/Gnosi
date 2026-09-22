@@ -702,16 +702,17 @@ async def reply_message(
     response_model=mail_schemas.MailGenerateDraftResponse,
 )
 async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
-    from pipeline.ai_client import call_ai_with_fallback
+    from functools import partial
+    from backend.services.agent_execution import generate_for
 
     context = payload.context
     instruction = payload.prompt
     ai_prompt = (
         f"Context: {context}\nInstruction: {instruction}\n"
-        "Respond only with the email body in English."
+        "Respond only with the email body in the language requested or used by the user."
     )
     try:
-        content, provider = await asyncio.to_thread(call_ai_with_fallback, ai_prompt)
+        content, provider = await asyncio.to_thread(partial(generate_for, "mail"), ai_prompt)
     except Exception as error:
         raise HTTPException(
             status_code=503,

@@ -166,13 +166,15 @@ def run_operation(operation: str, payload: dict[str, Any], agent_id: str = "") -
         raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
     works = _bounded_works(payload.get("works"), 100)
     if operation == "rerank" and str(payload.get("mode") or "local") == "local":
-        result, model, fallback_reason = _local_embedding_rerank(str(payload.get("query") or ""), works)
+        from backend.services.agent_specialized_tools import run_engine
+        result, model, fallback_reason = run_engine("semantic-ranking", "literature selection", lambda: _local_embedding_rerank(str(payload.get("query") or ""), works))
         return {"operation": operation, "result": result, "audit": {"model": model, "provider": "local", "usage": {"input_tokens": 0, "output_tokens": 0}, "cost": 0, "fallback_reason": fallback_reason, "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}
     system_prompt, user_message, works = _prompt(operation, payload)
     try:
-        from backend.agent.factory import generate_text
-
-        raw, model = generate_text(f"{system_prompt}\n\nINPUT:\n{user_message}", user_message=user_message[:500], timeout=120, agent_id=agent_id)
+        from backend.services.agent_execution import generate_result_for
+        run = generate_result_for("literature", f"{system_prompt}\n\nINPUT:\n{user_message}", user_message=user_message[:500], timeout=120, output_schema={"type": "object"})
+        raw, model = run.result, run.model
+        agent_id = run.agent_id
         result = _clean_json(raw)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="No AI provider is configured. Deterministic literature search remains available.") from exc
@@ -183,4 +185,4 @@ def run_operation(operation: str, payload: dict[str, Any], agent_id: str = "") -
         "output_tokens_estimate": max(1, len(str(raw or "")) // 4),
         "reported_by_provider": False,
     }
-    return {"operation": operation, "result": result, "audit": {"agent_id": agent_id or None, "model": model, "provider": "configured", "usage": usage, "cost": None, "cost_status": "Provider cost was not reported; usage is estimated.", "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}
+    return {"operation": operation, "result": result, "audit": {"run_id": run.run_id, "agent_id": agent_id, "model": model, "provider": run.provider, "usage": usage, "cost": None, "cost_status": "Provider cost was not reported; usage is estimated.", "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}

@@ -35,6 +35,7 @@ def build_steps(root: Path, base_sha: str, *, quick: bool) -> list[Step]:
         _python("Public pipeline", "python", "scripts/check_public_pipeline.py"),
         _python("Pipeline structure", "python", "scripts/check_public_pipeline.py", "--structure"),
         _python("Public runtime", "python", "scripts/check_public_runtime.py"),
+        _python("Principal execution boundary", "python", "scripts/check_agent_execution_boundary.py"),
         _python(
             "Python lint",
             "ruff",

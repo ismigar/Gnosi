@@ -334,34 +334,10 @@ def _summarize_with_model(
     provider: str,
     model_id: str,
 ) -> PluginState:
-    from langchain_core.messages import HumanMessage
+    from backend.services.agent_execution import generate_for
 
-    from backend.agent.factory import get_llm
-    from backend.agent.model_router import record_llm_usage, usage_from_message
-    from backend.security.ai_credentials import resolve_provider_api_key
-
-    ai_cfg = _deps().ai_configuration()
-    provider_cfg = (ai_cfg.get("providers") or {}).get(provider, {}) or {}
-    llm = get_llm(
-        provider=provider,
-        model=model_id,
-        api_key=resolve_provider_api_key(provider, provider_cfg),
-        base_url=provider_cfg.get("base_url"),
-        timeout=60,
-    )
-    if not llm:
-        raise HTTPException(
-            status_code=503,
-            detail="The configured summary model is unavailable.",
-        )
-    response = llm.invoke([HumanMessage(content=_summary_prompt(request, content))])
-    summary = getattr(response, "content", "") or ""
-    if not isinstance(summary, str):
-        summary = str(summary)
-    usage = usage_from_message(response)
-    if usage:
-        record_llm_usage(provider, model_id, usage[0], usage[1])
-    return {"summary": summary.strip(), "model": f"{provider}:{model_id}"}
+    summary, model = generate_for("writing", _summary_prompt(request, content), timeout=60)
+    return {"summary": summary.strip(), "model": model}
 
 
 async def summarize_with_vault_plugin(
@@ -376,13 +352,12 @@ async def summarize_with_vault_plugin(
             status_code=422,
             detail="Content exceeds the 60,000 character limit.",
         )
-    provider, model_id = await asyncio.to_thread(_deps().configured_summary_model)
     return await asyncio.to_thread(
         _summarize_with_model,
         request,
         content,
-        provider,
-        model_id,
+        "",
+        "",
     )
 
 

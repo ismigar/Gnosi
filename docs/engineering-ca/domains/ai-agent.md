@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-21
 source_paths:
+  - backend/services/agent_execution.py
+  - backend/services/principal_agent_migration.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -67,6 +69,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_execution.py
   - backend/tests/test_agent_learning.py
   - backend/tests/test_agent_learning_api.py
   - frontend/src/features/agent-learning/ConversationLearning.test.tsx
@@ -1150,3 +1153,9 @@ La lectura utilitza fragments estructurals amb context veí, mapes de secció i 
 Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg permet demanar una traducció a l’idioma actiu amb el proveïdor d’IA configurat. Es mostra al costat de l’original com a ajuda de lectura, sense modificar les instruccions desades ni executades. Obrir una habilitat no demana cap traducció. Les traduccions es conserven només en memòria, per vault, text original i idioma de destí. Si fallen, es manté l’original i es pot tornar a provar.
 
 L’acció de traducció utilitza un botó compacte alineat a la dreta. Els errors de límit de peticions o quota del proveïdor mostren un missatge específic; l’original es manté visible.
+
+## Execució de l’Agent principal
+
+La IA funcional passa per l’executor compartit de l’Agent principal. Botons, xat i programacions utilitzen habilitats assignades, la política de models del principal, memòria delimitada i un registre comú de consum. Les operacions estructurades admeten una única reparació de format dins del mateix pressupost. Les fases llargues conserven una instantània del perfil i reutilitzen els punts de represa completats.
+
+Activitat mostra identificadors d’execució, cancel·lació i les represes compatibles. La migració versionada copia la configuració, retira només el perfil Brain gestionat, preserva els perfils personals i trasllada les instruccions de Coneixement a una habilitat complementària. Les rutes de Coneixement i les antigues comparteixen implementació i permisos; Notion continua sent opcional.

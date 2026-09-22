@@ -120,9 +120,17 @@ def _extract_json(text: str) -> Optional[Dict[str, Any]]:
 
 
 def _default_model_call(prompt: str, user_message: str) -> str:
-    from backend.agent.factory import generate_text
+    from functools import partial
+    from backend.services.agent_execution import generate_for
 
-    text, _model = generate_text(prompt, user_message=user_message, timeout=120)
+    generate_text = partial(generate_for, "reader")
+
+    required = ["topic", "evolution", "turning_points", "article_ids"] if user_message.startswith("Synthesize") else ["topic", "summary", "developments", "article_ids"]
+    text, _model = generate_text(prompt, user_message=user_message, timeout=120, output_schema={
+        "type": "object", "required": required,
+        "properties": {"topic": {"type": "string"}, "summary": {"type": "string"}, "evolution": {"type": "string"},
+            "developments": {"type": "array"}, "turning_points": {"type": "array"}, "article_ids": {"type": "array", "items": {"type": "string"}}},
+    })
     return str(text)
 
 

@@ -1,3 +1,4 @@
+import { AgentExecutionHistory } from './AgentExecutionHistory';
 import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
@@ -75,6 +76,7 @@ export function ActivityHistory({ canEdit, aiEnabled, resources, agents, systemH
         && (!since || item.time >= new Date(`${since}T00:00:00`).getTime()) && (!until || item.time <= new Date(`${until}T23:59:59.999`).getTime()))
         .sort((a, b) => b.time - a.time);
     return <div className="ai-resources-panel">
+        {aiEnabled && !automationId && <AgentExecutionHistory key={vaultId} canEdit={canEdit} />}
         <div className="flex justify-end"><RefreshButton onClick={() => { setVersion(value => value + 1); void resources.reload(); }} /></div>
         <div className="ai-resources-toolbar">
             <label>{t('activity.origin')}<select className="gnosi-select" value={origin} onChange={event => { setOrigin(event.target.value); }}>{['all', 'personal', 'system', 'manual'].map(value => <option key={value} value={value}>{t(`activity.${value}`)}</option>)}</select></label>

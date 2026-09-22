@@ -1,3 +1,4 @@
+import { PrincipalAgentReference } from '../../../shared/ui/settings/PrincipalAgentReference';
 import {
   ChevronDown,
   ChevronRight,
@@ -10,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useRef, type RefObject } from 'react';
 
-import { agentsFromConfiguration } from './literatureTypes';
 import { TERMINAL_SEARCH_STATES } from './literatureModel';
 import { LanguageFilter, SourcePicker } from './SearchControls';
 import { SearchAncillary } from './SearchAncillary';
@@ -30,7 +30,6 @@ interface SearchPanelProps extends SearchWorkspaceProps {
 
 function SearchPanel({ controller, language, queryInputRef, t }: SearchPanelProps) {
   const { actions, setters, state } = controller;
-  const agents = agentsFromConfiguration(state.configuration.ai_agents);
   const rerankModel = typeof state.rerankAudit?.model === 'string'
     ? state.rerankAudit.model
     : '';
@@ -51,22 +50,7 @@ function SearchPanel({ controller, language, queryInputRef, t }: SearchPanelProp
             ref={queryInputRef}
             value={state.query}
           />
-          {agents.length > 0 && (
-            <select
-              aria-label={t('literature.ai.agent')}
-              className="literature-ai-agent"
-              onChange={(event) => void actions.changeAiAgent(event.target.value)}
-              title={t('literature.ai.agent')}
-              value={state.aiAgentId}
-            >
-              <option value="">{t('literature.ai.default_agent')}</option>
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name}{agent.model ? ` · ${agent.model}` : ''}
-                </option>
-              ))}
-            </select>
-          )}
+          <PrincipalAgentReference operation="literature" />
           <button
             aria-busy={state.busy === 'ai'}
             className="literature-ai-button"

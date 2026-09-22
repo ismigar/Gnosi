@@ -119,7 +119,7 @@ def compose_one(
     Returns {text, hashtags, char_count, over_limit, provider}.
     
     """
-    from pipeline.ai_client import call_ai_with_fallback
+    from backend.services.agent_execution import generate_for
 
     prompt = build_prompt(
         content=content,
@@ -133,7 +133,7 @@ def compose_one(
         hint=hint,
         variation=variation,
     )
-    raw, provider = call_ai_with_fallback(prompt)
+    raw, provider = generate_for("social", prompt)
     text = _clean_output(raw)
     return {
         "text": text,

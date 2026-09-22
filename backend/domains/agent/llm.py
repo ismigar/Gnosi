@@ -397,44 +397,11 @@ def generate_text(
     *,
     selector: Callable[..., tuple[BaseChatModel | None, str | None, str | None]] | None = None,
 ) -> tuple[str, str]:
-    """One-shot call to the default LLM. Returns (text, model_label).
-
-    Raises RuntimeError if no AI provider is available, so that the
-    caller can gracefully degrade (HTTP 503 / reminder without an agenda).
-
-    """
-    from langchain_core.messages import HumanMessage
-
-    select_llm = selector or get_default_llm_with_meta
-    if agent_id:
-        llm, provider_name, model_name = select_llm(
-            user_message=user_message or prompt[:200],
-            timeout=timeout,
-            agent_id=agent_id,
-        )
-    else:
-        llm, provider_name, model_name = select_llm(
-            user_message=user_message or prompt[:200],
-            timeout=timeout,
-        )
-    if not llm:
-        raise RuntimeError("No AI provider available")
-    # The timeout already lives in the client (get_default_llm→get_llm). Do NOT pass
-    # config={"timeout": ...}: langchain ignores it (it's not a RunnableConfig key).
-    resp = llm.invoke([HumanMessage(content=prompt)])
-    text = getattr(resp, "content", "") or ""
-    if not isinstance(text, str):
-        text = str(text)
-
-    # Feed the spend ledger (best-effort, never breaks the response)
-    from backend.agent.model_router import record_llm_usage, usage_from_message
-
-    usage = usage_from_message(resp)
-    if usage:
-        record_llm_usage(provider_name, model_name, usage[0], usage[1])
-
-    label = getattr(llm, "model_name", None) or getattr(llm, "model", None) or "ai"
-    return text, str(label)
+    """Compatibility alias; functional calls cannot bypass the principal."""
+    from backend.services.agent_execution import generate_for
+    if selector is not None:
+        raise ValueError("Use the diagnostic transport for explicit model tests")
+    return generate_for("writing", prompt, user_message, timeout=timeout)
 
 
 def _is_local_provider(provider: str) -> bool:

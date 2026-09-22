@@ -214,6 +214,11 @@ def test_run_persists_actual_final_response(tmp_path, monkeypatch):
         return Workflow(), None
     monkeypatch.setattr(capability_automations, "prepare_agent_runtime", lambda *_args, **_kwargs: ({}, {"id": "brain"}, SimpleNamespace(active_skill_ids=[item["skill_id"]])))
     monkeypatch.setattr(capability_automations, "create_agent_workflow", workflow)
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    from backend.services.agent_execution_scope import current_scope
+    monkeypatch.setattr("backend.services.agent_execution_scope.revalidate_scope", lambda scope: None)
+    monkeypatch.setattr("backend.services.agent_execution.revalidate_scope", lambda scope: None)
+    monkeypatch.setattr("backend.services.agent_execution.prepare_snapshot", lambda *args, **kwargs: AgentExecutionSnapshot(scope=current_scope(), agent_id="brain",profile={"id":"brain"},skill_ids=[item["skill_id"]],instructions=[],catalog_revision="test",revision="test"))
     outcome = asyncio.run(capability_automations.run_automation(item["id"], manual=True))
     assert outcome["status"] == "completed"
     assert capability_automations.list_runs(item["id"], _scope())[0]["result_text"] == "Completed briefing with sources."

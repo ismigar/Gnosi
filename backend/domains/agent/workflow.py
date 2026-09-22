@@ -178,8 +178,11 @@ async def create_agent_workflow(
     memory_user_id: str = "",
     reviewed_memory_rows: Optional[Iterable[dict[str, Any]]] = None,
     dependencies: WorkflowDependencies | None = None,
+    operation_mode: bool = False,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Create an uncompiled multi-agent graph and its selection metadata."""
+    # Feature selectors cannot override the principal model policy.
+    llm_mode, llm_provider, llm_model = "agent_default", None, None
     deps = dependencies or DEFAULT_WORKFLOW_DEPENDENCIES
     profile = await prepare_profile(
         mcp_client=mcp_client,
@@ -217,7 +220,14 @@ async def create_agent_workflow(
         max_skill_instruction_chars=MAX_SKILL_INSTRUCTION_CHARS,
         max_system_prompt_chars=MAX_SYSTEM_PROMPT_CHARS,
         default_supervisor_prompt=DEFAULT_SUPERVISOR_PROMPT,
+        preserve_instructions=operation_mode,
     )
+    if operation_mode:
+        from backend.domains.agent.operation_graph import operation_workflow
+        return operation_workflow(model.llm, prompts.combined_persona, prompts.context_window_tokens), {
+            "provider": model.provider_name, "model": model.model_name,
+            "active_skill_ids": list(prompts.active_runtime_skill_ids),
+        }
     tools = build_tool_workflow(
         profile,
         model,
@@ -227,6 +237,11 @@ async def create_agent_workflow(
         active_skill_ids=active_skill_ids,
         dependencies=deps,
     )
+    from backend.services.agent_execution import snapshot_from_runtime
+    from backend.services.agent_execution_scope import _scope
+    execution_scope = _scope.get()
+    if execution_scope is not None:
+        setattr(tools.workflow, "_execution_snapshot", snapshot_from_runtime(execution_scope, profile.agent_data, profile.resolved_runtime))
     return tools.workflow, _selection_metadata(
         llm_mode=llm_mode,
         profile=profile,
