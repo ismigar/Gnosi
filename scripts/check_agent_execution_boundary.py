@@ -13,7 +13,7 @@ TRANSPORT = {
     "backend/domains/agent/workflow_setup.py", "backend/domains/agent/workflow.py",
     "backend/api/ai_routes.py", "backend/domains/configuration/agent/governance_routes.py",
 }
-MODEL_FUNCTIONS = {"get_llm", "get_default_llm", "get_default_llm_with_meta", "call_ai_client", "call_ai_with_fallback", "ChatOpenAI", "ChatAnthropic", "ChatOllama", "ChatGroq", "OpenAI", "Anthropic"}
+MODEL_FUNCTIONS = {"get_llm", "get_default_llm", "get_default_llm_with_meta", "call_ai_client", "call_ai_with_fallback", "ChatOpenAI", "ChatAnthropic", "ChatOllama", "ChatGroq", "OpenAI", "Anthropic", "Groq", "AsyncGroq", "AsyncOpenAI", "AsyncAnthropic"}
 
 
 def violations(path: Path) -> list[str]:
@@ -32,13 +32,14 @@ def violations(path: Path) -> list[str]:
             function = node.func
             name = function.id if isinstance(function, ast.Name) else function.attr if isinstance(function, ast.Attribute) else ""
             direct_invoke = isinstance(function, ast.Attribute) and function.attr in {"invoke", "ainvoke"} and isinstance(function.value, ast.Name) and function.value.id in {"llm", "model", "chat_model"}
-            if name in aliases or direct_invoke:
+            provider_create = isinstance(function, ast.Attribute) and function.attr == "create" and isinstance(function.value, ast.Attribute) and function.value.attr in {"completions", "messages", "responses"}
+            if name in aliases or direct_invoke or provider_create:
                 errors.append(f"{relative}:{node.lineno}: model access must use the principal executor")
     return errors
 
 
 def main() -> int:
-    errors = [error for directory in ("backend", "pipeline") for path in (ROOT / directory).rglob("*.py") for error in violations(path)]
+    errors = [error for directory in ("backend", "pipeline", "extensions") for path in (ROOT / directory).rglob("*.py") for error in violations(path)]
     print("\n".join(errors) if errors else "Principal-agent execution boundary passed")
     return bool(errors)
 

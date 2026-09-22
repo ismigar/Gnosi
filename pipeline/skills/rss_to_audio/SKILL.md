@@ -1,6 +1,6 @@
 ---
 name: rss-to-audio
-description: Generate Gnosi's standalone RSS podcast from an explicitly selected OPML file, preserving its existing English summary and audio behavior. Use for this CLI's development or requested execution, not automatic provider calls.
+description: Generate Gnosi's standalone RSS podcast from an explicitly selected OPML file, using the principal agent and its podcast skill for the English script. Use for this CLI's development or requested execution, not automatic provider calls.
 ---
 
 # SKILL: RSS to Audio Podcast
@@ -13,8 +13,8 @@ description: Generate Gnosi's standalone RSS podcast from an explicitly selected
 
 ## 1. Objectives and Scope
 
-- **Main Objective:** Read OPML feeds, synthesize their recent content with the existing Groq model setting and generate English audio using gTTS.
-- **Success Criteria:** Review the generated text and audio. A zero exit code alone does not prove success: existing provider errors can be reported as text and TTS errors are logged. This refactor does not certify live provider availability or add Piper support.
+- **Main Objective:** Read OPML feeds, synthesize their recent content with the principal agent’s assigned podcast skill and model policy and generate English audio using gTTS.
+- **Success Criteria:** Review the generated text and audio. Generation and speech failures propagate as errors; they are never saved as a successful spoken summary. This tool does not certify live provider availability or add Piper support.
 
 ---
 
@@ -22,8 +22,7 @@ description: Generate Gnosi's standalone RSS podcast from an explicitly selected
 
 ### Inputs
 - **Arguments:** `--opml <file>` and `--output-dir <directory>` override the configured defaults. Execution is opt-in, not an installed autonomous job.
-- **Environment Variables (process, local `.env`, or explicit shared file):**
-    - `GROQ_API_KEY`: Groq API access key for synthesis.
+- **Agent configuration:** A valid principal, assigned podcast skill and available policy-approved model are required. The CLI binds the single personal workspace owner; organization work requires an explicit authenticated application context.
 - **Source Files:**
     - Default input: `GNOSI_DATA_DIR/rss_to_audio/feeds.opml`. Export an OPML file from an RSS reader or select one explicitly with `--opml`.
 
@@ -37,23 +36,23 @@ description: Generate Gnosi's standalone RSS podcast from an explicitly selected
 ## 3. Logical Flow (Algorithm)
 1. **Initialization:** Load environment variables and verify the existence of the `feeds.opml` file. Configure logging.
 2. **Acquisition (OPML & RSS):** Match the existing folder labels `Religió`, `ESS`, `Actualitat` and `News` exactly. Fetch with feedparser, keep articles dated within the last 24 hours and remove HTML with BeautifulSoup. Preserve FeedParserDict aliases and both struct_time and nine-element date tuples.
-3. **Processing (Groq API):** Preserve the existing `llama3-70b-8192` model setting, English editorial prompt, 2,000-character article limit and 25,000-character approximate prompt budget. These are implementation settings, not a claim about current provider limits or guaranteed duration.
-4. **Persistence (TTS):** Write the summary text and request English gTTS audio (`lang='en'`) in the chosen output directory. Keep null provider content as an error rather than silently producing an empty podcast.
+3. **Processing (principal executor):** Use the shared `podcast` operation. Preserve the English editorial context, 2,000-character article limit and 25,000-character approximate prompt budget. The principal selects the model; no CLI-specific provider or model fallback is available.
+4. **Persistence (TTS):** Write the validated summary text and request audited English gTTS audio through the specialized speech tool (`lang='en'`) in the chosen output directory. Keep null provider content as an error rather than silently producing an empty podcast.
 5. **Cleanup & Robustness:** Implement `try/except` blocks per RSS source so that a crash or poor format from one blog does not stop the entire execution.
 
 ---
 
 ## 4. Tools and Libraries
-- **Python libraries:** `feedparser`, `groq`, `gTTS`, `beautifulsoup4`, `python-dotenv`.
-- **External APIs:** Groq API (`llama3-70b-8192`).
+- **Python libraries:** `feedparser`, `gTTS`, `beautifulsoup4`, `python-dotenv`, and the shared agent runtime.
+- **External APIs:** The principal’s configured provider and gTTS.
 
 ---
 
 ## 5. Restrictions and Edge Cases
-- **External effects:** RSS downloads, Groq and gTTS require network access and can disclose selected article content to providers. Run them only for an explicitly requested generation; unit tests must inject fake providers.
-- **Formats:** RSS feed content is often infested with HTML tags. It is mandatory to clean it with BeautifulSoup before sending it to Groq.
+- **External effects:** RSS downloads, the principal’s provider and gTTS require network access and can disclose selected article content to providers. Run them only for an explicitly requested generation; unit tests must inject fake providers.
+- **Formats:** RSS feed content is often infested with HTML tags. It is mandatory to clean it with BeautifulSoup before passing it to the principal executor.
 - **Robustness:** OPML nodes sometimes lack category tags; the script must handle this.
-- **Scope:** Changing language, model, category selection or TTS engine is a separate behavior change. Earlier instructions described Catalan/Piper aspirations that the implementation did not provide.
+- **Scope:** Language, category selection and TTS engine remain unchanged; model selection belongs exclusively to the principal. Earlier instructions described Catalan/Piper aspirations that the implementation did not provide.
 
 ---
 
@@ -78,7 +77,7 @@ uv run python pipeline/skills/rss_to_audio/scripts/rss_to_audio.py \
 ---
 
 ## 8. Pre-Execution Checklist
-- [ ] `GROQ_API_KEY` available through the process, local `.env`, or explicitly selected shared environment file. This CLI reads the resolved environment.
+- [ ] Principal configured with the podcast skill, an available model and a verified personal workspace owner.
 - [x] Dependencies installed (`uv sync --frozen`).
 - [x] Input `feeds.opml` file available.
 

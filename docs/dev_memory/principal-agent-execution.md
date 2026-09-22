@@ -82,3 +82,5 @@ diagnostics. `backend/tests/test_agent_execution.py` covers structured repair,
 permissions, scope isolation, cancellation, interrupted runs, atomic resume, budgets,
 phase reuse, migration backups, personal-profile preservation and Knowledge aliases.
 The principal reference component is tested in Catalan, Spanish, English and French.
+
+The standalone OPML-to-podcast command also uses the principal podcast operation and audited speech engine. Provider failures propagate and cannot become a saved error-text podcast; the static boundary rejects provider SDK constructors and completion/message/response creation outside the central adapters.

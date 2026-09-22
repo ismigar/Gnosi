@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Protocol, TypedDict, TypeGuard, runtime_checkable
 
 from bs4 import BeautifulSoup
-from groq import Groq
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 if str(REPOSITORY_ROOT) not in sys.path:
@@ -29,8 +28,6 @@ from backend.config.data_dir import resolve_data_dir  # noqa: E402
 from backend.config.env_config import load_env  # noqa: E402
 
 load_env()
-
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 TARGET_TAGS = ["Religió", "ESS", "Actualitat", "News"]
 
@@ -157,16 +154,10 @@ def fetch_rss_24h(feeds: Sequence[Feed]) -> list[Article]:
     return articles
 
 
-def generate_summary(articles: Sequence[Article]) -> str | None:
-    """Join articles within the token budget and request the existing Groq summary."""
-    if not GROQ_API_KEY:
-        print("GROQ_API_KEY is missing!")
-        return "Error: the Groq API key is missing."
-
+def generate_summary(articles: Sequence[Article]) -> str:
+    """Prepare the existing English script through the principal podcast skill."""
     if not articles:
         return "Hello. There are no new articles from the last 24 hours in the selected categories."
-
-    client = Groq(api_key=GROQ_API_KEY)
 
     prompt = (
         "You are a senior editorial assistant. Summarize the following articles for a listener "
@@ -185,34 +176,21 @@ def generate_summary(articles: Sequence[Article]) -> str | None:
             break
         prompt += article_text
 
-    print("Calling the Groq API (Llama-3-70b)... This may take a few seconds.")
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an intelligent podcast assistant. Write only the text that "
-                        "will be read aloud, without notes or meta-commentary."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            model="llama3-70b-8192",
-            temperature=0.7,
-        )
-        return chat_completion.choices[0].message.content
-    except Exception as e:
-        print(f"Groq API error: {e}")
-        return "The summary could not be generated because of an LLM provider error."
+    from backend.services.agent_execution import generate_for
+    from backend.services.agent_execution_scope import personal_scheduler_scope
+
+    print("Preparing the script with the principal agent...")
+    with personal_scheduler_scope():
+        result, _model = generate_for("podcast", prompt)
+    return result
 
 
 def text_to_audio(text: str | None, filename: str | Path) -> None:
     """Converts English text to audio using gTTS."""
-    print(f"Generating audio with gTTS; it will be saved as {filename}...")
-    try:
-        # gTTS ships no typing marker. Validate its callable factory and save
-        # interface at this boundary, without asserting a schema for its internals.
+    from backend.services.agent_execution_scope import personal_scheduler_scope
+    from backend.services.agent_specialized_tools import run_engine
+
+    def synthesize() -> None:
         factory: object = import_module("gtts").gTTS
         if not callable(factory):
             raise TypeError("gtts.gTTS must be callable")
@@ -220,9 +198,10 @@ def text_to_audio(text: str | None, filename: str | Path) -> None:
         if not isinstance(tts, _Audio):
             raise TypeError("gtts.gTTS must provide save(filename)")
         tts.save(str(filename))
-        print(f"Podcast saved successfully to: {filename}")
-    except Exception as e:
-        print(f"Error generating TTS audio: {e}")
+
+    with personal_scheduler_scope():
+        run_engine("speech", str(filename), synthesize)
+    print(f"Podcast saved successfully to: {filename}")
 
 
 def main(argv: Sequence[str] | None = None) -> None:

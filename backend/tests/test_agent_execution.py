@@ -358,3 +358,17 @@ def test_same_pid_restart_is_interrupted_and_resume_claims_new_instance(runtime,
         assert store.read(scope, "reused-pid").status == "resuming"
         store.update(scope, "reused-pid", status="running")
         assert store.read(scope, "reused-pid").status == "running"
+
+
+@pytest.mark.parametrize("source", [
+    "from groq import Groq as Client\nClient()",
+    "client.chat.completions.create(model='legacy')",
+    "client.responses.create(model='legacy')",
+    "client.messages.create(model='legacy')",
+])
+def test_static_boundary_rejects_direct_provider_calls(tmp_path, monkeypatch, source):
+    from scripts import check_agent_execution_boundary as boundary
+    monkeypatch.setattr(boundary, "ROOT", tmp_path)
+    module = tmp_path / "feature.py"
+    module.write_text(source)
+    assert boundary.violations(module)
