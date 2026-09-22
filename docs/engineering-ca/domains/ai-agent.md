@@ -1147,6 +1147,8 @@ Activar el connector Brain aporta habilitats i eines sense crear un altre perfil
 
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
 
+Les lectures simultànies del catàleg esperen que acabi el registre de les extensions integrades. Es permeten les lectures recursives del mateix fil per evitar cicles d’importació, però altres fils no poden obtenir un catàleg parcial sense les habilitats del Cervell.
+
 ## Aprenentatge de converses i memòria editable
 
 El panell d’aprenentatge del xat privat agrupa instruccions de projecte, fonts seleccionades i referències de resultats. Les peticions explícites com «Recorda que…» creen records amb origen identificable; les cites i les referències ambigües no. Els records estan aïllats per espai de coneixement, assistent i usuari, amb àmbits addicionals de projecte o habilitat. Configuració → IA → Memòria permet cercar, filtrar, editar, activar, fixar una caducitat i eliminar. Les actualitzacions rebutgen revisions antigues. Eliminar un projecte desvincula les converses i desactiva els seus records.

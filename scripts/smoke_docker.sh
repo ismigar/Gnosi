@@ -25,8 +25,20 @@ compose() {
 }
 
 cleanup() {
-  compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  local attempt
+  for attempt in 1 2 3; do
+    if compose down --volumes --remove-orphans; then
+      return 0
+    fi
+    echo "Docker smoke cleanup failed (attempt ${attempt}/3)" >&2
+    if [[ "${attempt}" != 3 ]]; then sleep 5; fi
+  done
+  return 1
 }
+if [[ "${1:-}" == --cleanup ]]; then
+  cleanup
+  exit $?
+fi
 trap cleanup EXIT
 
 wait_http() {

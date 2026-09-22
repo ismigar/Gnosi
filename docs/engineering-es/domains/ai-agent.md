@@ -1216,6 +1216,8 @@ Activar el complemento Brain aporta habilidades y herramientas sin crear otro pe
 
 Los nombres de las habilidades asignadas enlazan a sus fichas desplegadas en el catálogo. Abrir una habilidad conserva el editor del asistente y los valores del formulario sin guardar; volver a la pestaña Asistente recupera el mismo borrador. Seguir el enlace no cambia la asignación de la habilidad. Las asignaciones utilizan los interruptores accesibles compartidos; las habilidades obligatorias siguen bloqueadas y las asignaciones no disponibles se pueden retirar.
 
+Las lecturas simultáneas del catálogo esperan a que termine el registro de las extensiones integradas. Se permiten las lecturas recursivas del mismo hilo para evitar ciclos de importación, pero otros hilos no pueden obtener un catálogo parcial sin las habilidades del Cerebro.
+
 ## Aprendizaje de conversaciones y memoria editable
 
 El panel de aprendizaje del chat privado agrupa instrucciones de proyecto, fuentes seleccionadas y referencias de resultados. Las peticiones explícitas como «Recuerda que…» crean recuerdos con origen identificable; las citas y referencias ambiguas no. Los recuerdos están aislados por espacio de conocimiento, asistente y usuario, con ámbitos adicionales de proyecto o habilidad. Configuración → IA → Memoria permite buscar, filtrar, editar, activar, fijar caducidad y eliminar. Las actualizaciones rechazan revisiones antiguas. Eliminar un proyecto desvincula las conversaciones y desactiva sus recuerdos.

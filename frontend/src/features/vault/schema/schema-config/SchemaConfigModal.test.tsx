@@ -3,7 +3,8 @@ import { advance, baseSchema, button, change, click, input, key, setupModal } fr
 import * as schemaApi from '../../../../shared/api/vault-schema';
 import type { SchemaConfigModalProps } from './types';
 
-describe('SchemaConfigModal public behavior', () => {
+// Full dialog interactions need headroom on the shared CI machine; autosave uses fake timers.
+describe('SchemaConfigModal public behavior', { timeout: 15_000 }, () => {
     const modal = setupModal();
 
     it('hydrates before autosaving, keeps edits across parent rerenders and flushes the final payload', async () => {

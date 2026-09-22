@@ -588,4 +588,31 @@ La constante del backend `GNOSI_VERSION` también indica `3.0.4`; la prueba del 
 
 Hay que regenerar el documento OpenAPI guardado y su SHA-256 después de cambiar la versión del backend. En este candidato, la diferencia revisada del esquema se limita a la versión de la aplicación; las rutas y los datos no cambian.
 
+La CI de Docker reintenta la limpieza de los contenedores de prueba y la repite en un paso independiente que siempre se ejecuta antes de eliminar las imágenes de CI, para evitar que una limpieza fallida bloquee la siguiente construcción.
+
 La lista de recursos revisados de la aplicación de escritorio incluye `personal_memory_0002`, de modo que las versiones instaladas conservan los recuerdos existentes al añadir memoria por ámbitos y proyectos privados de aprendizaje.
+
+## Aceleración limitada de CI
+
+Las copias de paquetes Python están desactivadas en los tres jobs de ejecución después de que sellar el entorno completo superara el límite de cinco minutos en el runner Linux e impidiera iniciar las comprobaciones del backend. CI descarga los paquetes en una caché nueva y exclusiva del job y crea un entorno virtual nuevo con archivos copiados. Las herramientas de copia siguen disponibles para experimentos aislados, pero CI no restaura ni crea archivos. Reactivarlas requiere demostrar un beneficio con el entorno completo y limitar los errores sin impedir las comprobaciones obligatorias. Docker todavía puede retirar copias opcionales antiguas para cumplir el requisito existente de 12 GiB libres.
+
+ESLint utiliza una caché basada en el contenido y mypy conserva el análisis
+incremental entre jobs; los cambios de plataforma, dependencias y configuración
+invalidan la caché. Las pruebas del frontend utilizan dos procesos. La comparación
+local de 27 pruebas representativas ha pasado con uno y dos procesos; todavía
+hay que evaluar el tiempo y la memoria de la suite completa en el runner. Se
+mantiene el orden de los jobs pesados.
+
+Solo las solicitudes de cambio de confianza que modifican exclusivamente
+Markdown de los cuatro portales de ingeniería pueden omitir los pasos de
+ejecución. Los cinco nombres de comprobación obligatorios siguen visibles y el
+job de documentación valida todos los idiomas. Los diffs vacíos o desconocidos,
+los movimientos de código y los cambios de código, configuración o dependencias
+requieren la validación completa. Los envíos de commits y las validaciones de
+versiones siempre conservan todas las comprobaciones de ejecución.
+
+Como el análisis del frontend utiliza los tipos de TypeScript, cualquier cambio de fuentes o reglas locales del frontend invalida toda su caché, incluidos los resultados de los archivos que los importan sin haber cambiado. Los cambios exclusivos del backend pueden reutilizarla. Si se desconoce el estado de las fuentes, se repite el análisis.
+
+La composición de anotaciones PDF ejecuta los 57 contratos en cada uno de dos órdenes de importación aislados. Cada grupo tiene un límite de 300 segundos que cubre la carga inicial del backend y todas las comprobaciones. El progreso detallado, los tiempos de las pruebas más lentas y la pila tras 60 segundos de bloqueo de una prueba individual permiten distinguir un arranque lento de una prueba bloqueada. Un timeout del grupo o cualquier error del proceso hijo sigue haciendo fallar la validación, que incluye la salida parcial.
+
+La validación local previa a la PR y CI invocan el mismo punto de entrada `pnpm lint:frontend`. El lanzador compartido siempre comprueba todo el frontend sin permitir avisos; solo añade las opciones de caché de contenido cuando se define `GNOSI_ESLINT_CACHE`. Las rutas de caché se pasan como argumentos literales sin intérprete de órdenes y los errores de análisis siguen siendo fatales. La prueba de paridad previa a la PR sigue rechazando cualquier validación de CI ausente del plan local completo.

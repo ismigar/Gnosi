@@ -13,4 +13,4 @@ def test_heavy_jobs_are_serial_but_failures_do_not_skip_later_checks() -> None:
         assert '!cancelled()' in condition
         assert 'github.event.pull_request.head.repo.full_name == github.repository' in condition
         assert 'self-hosted' in jobs[job]['runs-on']
-    assert jobs['frontend']['env']['GNOSI_VITEST_MAX_WORKERS'] == '1'
+    assert jobs['frontend']['env']['GNOSI_VITEST_MAX_WORKERS'] == '2'
