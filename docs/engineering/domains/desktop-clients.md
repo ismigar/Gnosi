@@ -546,3 +546,5 @@ portals may omit runtime steps. All five required job names remain visible and
 the documentation job still validates every locale. Empty or unknown diffs,
 source moves, code, configuration and dependency changes require full runtime
 validation. Pushes and release validation always retain all runtime checks.
+
+Because frontend lint uses TypeScript type information, any frontend source or local rule change invalidates its entire cache, including results for unchanged importers. Backend-only changes can reuse it. Unknown source state forces fresh lint.

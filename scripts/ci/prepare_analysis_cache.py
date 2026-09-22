@@ -6,7 +6,39 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import subprocess
 from typing import Mapping
+
+
+def frontend_fingerprint(project: Path) -> str | None:
+    """Hash JS/TS/JSON inputs, including types and data imported from other roots."""
+    try:
+        names = subprocess.check_output(
+            ["git", "-C", str(project), "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--",
+             "*.ts", "*.tsx", "*.js", "*.jsx", "*.mjs", "*.cjs", "*.mts", "*.cts", "*.json"],
+            stderr=subprocess.DEVNULL, timeout=30,
+        ).decode().split("\0")
+        fingerprint = hashlib.sha256()
+        for name in sorted(set(filter(None, names))):
+            path = project / name
+            fingerprint.update(name.encode())
+            fingerprint.update(path.read_bytes() if path.is_file() else b"<missing>")
+        return fingerprint.hexdigest()
+    except (OSError, UnicodeError, subprocess.SubprocessError):
+        return None
+
+
+def invalidate_typed_lint(target: Path, project: Path) -> None:
+    fingerprint = frontend_fingerprint(project)
+    marker = target / "eslint-source-key"
+    if marker.is_symlink():
+        marker.unlink()
+    previous = marker.read_text() if marker.is_file() else None
+    if fingerprint is None or fingerprint != previous:
+        cache = target / "eslint"
+        if cache.is_file() or cache.is_symlink():
+            cache.unlink()
+    marker.write_text(fingerprint or "")
 
 
 def prepare(environment: Mapping[str, str], project: Path) -> dict[str, str]:
@@ -29,6 +61,7 @@ def prepare(environment: Mapping[str, str], project: Path) -> dict[str, str]:
     for child in (target / "mypy", target / "eslint"):
         if child.is_symlink():
             child.unlink()
+    invalidate_typed_lint(target, project)
     # Tool version changes invalidate both caches. Bound old versions on disk.
     others = sorted((p for p in root.iterdir() if p.is_dir() and p != target),
                     key=lambda p: p.stat().st_mtime, reverse=True)

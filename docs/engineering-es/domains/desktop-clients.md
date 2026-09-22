@@ -618,3 +618,5 @@ job de documentación valida todos los idiomas. Los diffs vacíos o desconocidos
 los movimientos de código y los cambios de código, configuración o dependencias
 requieren la validación completa. Los envíos de commits y las validaciones de
 versiones siempre conservan todas las comprobaciones de ejecución.
+
+Como el análisis del frontend utiliza los tipos de TypeScript, cualquier cambio de fuentes o reglas locales del frontend invalida toda su caché, incluidos los resultados de los archivos que los importan sin haber cambiado. Los cambios exclusivos del backend pueden reutilizarla. Si se desconoce el estado de las fuentes, se repite el análisis.

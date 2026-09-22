@@ -200,3 +200,33 @@ def test_docker_can_release_optional_snapshots_without_touching_other_data(tmp_p
     assert not archive.exists()
     assert not archive.with_suffix(".sha256").exists()
     assert unrelated.read_bytes() == b"preserve"
+
+
+
+def test_typed_lint_invalidates_dependents_but_preserves_mypy(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    subprocess.run(["git", "init", "-q", str(project)], check=True)
+    source = project / "frontend/src"
+    source.mkdir(parents=True)
+    dependency = source / "types.ts"
+    dependency.write_text("export type Value = string")
+    environment = {"RUNNER_TOOL_CACHE": str(tmp_path)}
+    paths = prepare(environment, project)
+    cache = Path(paths["GNOSI_ESLINT_CACHE"])
+    cache.write_text("typed result")
+    mypy = Path(paths["MYPY_CACHE_DIR"])
+    mypy.mkdir()
+    (mypy / "result").write_text("incremental result")
+    prepare(environment, project)
+    assert cache.read_text() == "typed result"
+    dependency.write_text("export type Value = number")
+    prepare(environment, project)
+    assert not cache.exists()
+    assert (mypy / "result").read_text() == "incremental result"
+    cache.write_text("typed result")
+    external = project / "desktop"
+    external.mkdir()
+    (external / "help-links.json").write_text('{"shared": "typed data"}')
+    prepare(environment, project)
+    assert not cache.exists()

@@ -633,3 +633,5 @@ valide toutes les langues. Les diffs vides ou inconnus, les déplacements de cod
 et les changements de code, de configuration ou de dépendances exigent la
 validation complète. Les envois de commits et les validations de versions
 conservent toujours tous les contrôles d'exécution.
+
+L'analyse du frontend utilisant les types TypeScript, tout changement des sources ou règles locales du frontend invalide son cache entier, y compris les résultats des fichiers importateurs inchangés. Les changements limités au backend peuvent le réutiliser. Un état des sources inconnu impose une nouvelle analyse.

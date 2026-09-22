@@ -606,3 +606,5 @@ tots els idiomes. Els diffs buits o desconeguts, els moviments de codi i els can
 de codi, configuració o dependències requereixen la validació completa. Les
 publicacions de commits i les validacions de versions sempre conserven totes les
 comprovacions d'execució.
+
+Com que l'anàlisi del frontend utilitza els tipus de TypeScript, qualsevol canvi de fonts o regles locals del frontend invalida tota la seva cache, inclosos els resultats dels fitxers que els importen sense haver canviat. Els canvis exclusius del backend la poden reutilitzar. Si es desconeix l'estat de les fonts, es repeteix l'anàlisi.
