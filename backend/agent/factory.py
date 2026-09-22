@@ -157,6 +157,8 @@ def generate_text(
     user_message: str = "",
     timeout: int = 60,
     agent_id: str = "",
+    *,
+    system_prompt: str = "",
 ) -> tuple[str, str]:
     """Preserve the factory's historical selector monkeypatch seam."""
     text, label = _domain_generate_text(
@@ -164,6 +166,7 @@ def generate_text(
         user_message=user_message,
         timeout=timeout,
         agent_id=agent_id,
+        system_prompt=system_prompt,
         selector=get_default_llm_with_meta,
     )
     return str(text), str(label)

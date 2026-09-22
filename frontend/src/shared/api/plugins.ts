@@ -95,6 +95,7 @@ export interface PluginRegistryUrlResponse extends JsonRecord {
 
 
 export interface PluginLlmWikiSettingsDocument extends JsonRecord {
+  readonly agent_id?: string;
   readonly brain_roles?: Readonly<Record<string, unknown>>;
   readonly brain_table_id?: string;
   readonly configured?: boolean;
@@ -107,6 +108,7 @@ export interface PluginLlmWikiSettingsDocument extends JsonRecord {
 
 
 export interface PluginLlmWikiSettingsResponse extends JsonRecord {
+  readonly agents?: readonly { readonly id: string; readonly name: string; readonly enabled: boolean; readonly ready: boolean }[];
   readonly brain: JsonRecord & {
     readonly configured: boolean;
     readonly name: string | null;

@@ -97,7 +97,7 @@ def reformulate(sug: Dict[str, object], language: str = "English") -> List[Dict[
     """LLM variants of a suggestion's draft, one per editorial angle.
 
     Raises RuntimeError when no AI provider is available (endpoint → 503)."""
-    from backend.agent.factory import generate_text
+    from backend.services.llm_wiki_generation import generate_text
 
     labels = "\n".join(f'- "{lb}"' for lb in VARIANT_LABELS)
     prompt = f"""You edit a permanent note in a Zettelkasten. The user chooses among
@@ -178,7 +178,7 @@ RAW DICTATION TRANSCRIPT:
 
 Return ONLY JSON: {{"proposed": "the text the user probably meant, ready to insert"}}"""
     try:
-        from backend.agent.factory import generate_text
+        from backend.services.llm_wiki_generation import generate_text
 
         raw, _model = generate_text(prompt, timeout=60)
         cleaned = re.sub(r"^```(?:json)?|```$", "", (raw or "").strip(), flags=re.MULTILINE).strip()

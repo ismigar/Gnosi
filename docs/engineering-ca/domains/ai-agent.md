@@ -20,6 +20,9 @@ source_paths:
   - backend/domains/llm_wiki/legacy_ports.py
   - backend/domains/vault/knowledge/config_routes.py
   - backend/services/llm_wiki_lint.py
+  - backend/services/llm_wiki_generation.py
+  - frontend/src/features/agent/inbox/BrainTools.tsx
+  - frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx
   - backend/domains/llm_wiki/lint_contracts.py
   - backend/services/llm_wiki_assist.py
   - backend/services/llm_wiki_suggestions.py
@@ -67,6 +70,8 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_llm_wiki_agent_selection.py
+  - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
   - backend/tests/test_agent_learning.py
   - backend/tests/test_agent_learning_api.py
   - frontend/src/features/agent-learning/ConversationLearning.test.tsx
@@ -685,6 +690,19 @@ conformitat mai no fan executable un gestor.
 
 ## Configuració de LLM Wiki
 
+El plugin desa l’`agent_id` triat. Sense una selecció desada, conserva un perfil
+`llm-wiki` gestionat existent o utilitza l’assistent principal. La selecció
+resolta es desa sense substituir les tries explícites posteriors. L’activació
+aporta eines i habilitats sense crear perfils ni assignar habilitats, i conserva
+les personalitzacions existents. Els ajustos enllacen als editors d’agents i
+habilitats. La ingestió, les propostes de connexió i l’assistència d’escriptura
+utilitzen l’agent triat i informen d’un error si no està disponible.
+
+El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
+incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
+resum a la mateixa vista i propostes de connexió amb IA que actualitzen i obren
+la bústia existent. Les accions de manteniment ja no apareixen als ajustos.
+
 `backend/domains/configuration/llm_wiki.py` valida la taula Brain, les taules
 d’origen, les dimensions categòriques, els camps de fitxer/URL, els valors fixos
 i els destins de relació abans de mutar l’esquema. Després crea els rols i les
@@ -728,7 +746,7 @@ d’origen o les entrades de planificació invaliden els fragments desats; el
 processament forçat explícitament ignora tots els punts de recuperació anteriors.
 Els treballs interromputs conserven el progrés real i les notes de font només
 s’escriuen quan la planificació s’ha completat.
-La ingestió selecciona un perfil gestionat `llm-wiki` existent o l’assistent principal.
+Cada crida d’ingestió selecciona explícitament l’agent configurat a `agent_id`.
 Una resposta del proveïdor amb `x-ratelimit-limit-req-minute: 0` atura els
 reintents automàtics, perquè esperar no pot reposar un límit de zero peticions;
 la capacitat restant nul·la amb un límit positiu continua rebent els reintents
@@ -1125,7 +1143,7 @@ La pestanya Assistent presenta el perfil principal seleccionat amb `ai.active_ag
 
 Les automatitzacions noves comencen amb l’assistent principal i només ofereixen les habilitats que té assignades. Un selector avançat permet un altre perfil. En desar es fixa l’identificador concret del perfil: canviar el principal posteriorment no reassigna automatitzacions ni amplia permisos.
 
-Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal.
+Activar el connector Brain aporta habilitats i eines sense crear un altre perfil ni assignar habilitats automàticament. Si ja existeix un perfil gestionat `llm-wiki`, es conserva i es reactiva quan correspon; el processament l’utilitza per compatibilitat i, si no existeix, utilitza l’assistent principal. Una selecció explícita d’agent del Cervell té prioritat sobre aquests valors per defecte.
 
 Els noms de les habilitats assignades enllacen a les seves fitxes desplegades al catàleg. Obrir una habilitat conserva l’editor de l’assistent i els valors del formulari sense desar; tornar a la pestanya Assistent recupera el mateix esborrany. Seguir l’enllaç no canvia l’assignació de l’habilitat. Les assignacions utilitzen els interruptors accessibles compartits; les habilitats obligatòries continuen bloquejades i les assignacions no disponibles es poden retirar.
 
