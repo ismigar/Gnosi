@@ -564,8 +564,8 @@ def _ensure_builtin_providers() -> None:
     """Lazily register bundled plugin adapters without creating import cycles."""
 
     global _BUILTIN_PROVIDERS_REGISTERING
-    if _BUILTIN_PROVIDERS_REGISTERING:
-        return
+    # Concurrent readers must wait for registration. Only recursive calls
+    # from the owning thread may observe an in-progress registration.
     with _BUILTIN_PROVIDER_LOCK:
         if _BUILTIN_PROVIDERS_REGISTERING:
             return

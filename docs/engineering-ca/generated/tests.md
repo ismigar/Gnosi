@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 561 | 2341 |
-| pytest | 545 | 3860 |
+| pytest | 549 | 3880 |
 
 ## Fitxers
 
@@ -692,8 +692,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_ci_heavy_job_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_heavy_job_order.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_ci_native_readiness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_native_readiness.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_ci_native_smoke_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_native_smoke_contract.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_ci_performance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_performance.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_ci_python_environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_python_environment.py) | 8 | Python AST |
-| pytest | [`backend/tests/test_ci_scheduling_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_scheduling_contract.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_ci_scheduling_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ci_scheduling_contract.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_citation_io_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_io_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_citation_key_and_pubmed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_key_and_pubmed.py) | 41 | Python AST |
 | pytest | [`backend/tests/test_citation_shared_lookup_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_citation_shared_lookup_contracts.py) | 1 | Python AST |
@@ -722,6 +723,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_desktop_vault_discovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_desktop_vault_discovery.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_dimensions_connector.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_dimensions_connector.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_directory_preparation_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_directory_preparation_cache.py) | 8 | Python AST |
+| pytest | [`backend/tests/test_docker_smoke_cleanup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_docker_smoke_cleanup.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_drawing_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_response_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_drawing_soft_delete.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_soft_delete.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_drawing_typed_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_drawing_typed_composition.py) | 1 | Python AST |
@@ -907,6 +909,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_path_resolution_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_path_resolution_reads.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_path_resolver_freshness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_path_resolver_freshness.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pdf_annotation_typed_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_annotation_typed_composition.py) | 1 | Python AST |
+| pytest | [`backend/tests/test_pdf_composition_harness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pdf_composition_harness.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_pipeline_ai_client.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_ai_client.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pipeline_naming.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_naming.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pipeline_skill_classification.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_pipeline_skill_classification.py) | 1 | Python AST |
@@ -960,7 +963,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_response_model_none_inventory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_response_model_none_inventory.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_restore_index_symlink_vault.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_restore_index_symlink_vault.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rollup_percent_checked_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rollup_percent_checked_parity.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_root_typecheck_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_root_typecheck_contract.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_route_preparation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_route_preparation.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_derived_order.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_derived_order.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_open_metadata_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_rule_engine_open_metadata_contract.py) | 14 | Python AST |
@@ -976,6 +979,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_schema_crash_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_schema_crash_recovery.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_schema_migrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_schema_migrations.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_set_user_password_script.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_set_user_password_script.py) | 15 | Python AST |
+| pytest | [`backend/tests/test_skill_catalog_startup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_skill_catalog_startup.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_skill_instruction_language.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_skill_instruction_language.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_snapshot_sort_accent_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_snapshot_sort_accent_parity.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_social_api_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_social_api_contract.py) | 3 | Python AST |

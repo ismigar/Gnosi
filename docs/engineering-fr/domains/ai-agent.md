@@ -1228,6 +1228,8 @@ externes ni appels aux fournisseurs.
 
 Les noms des compétences attribuées renvoient à leurs fiches déployées dans le catalogue. Ouvrir une compétence conserve l’éditeur de l’assistant et les valeurs non enregistrées du formulaire ; revenir à l’onglet Assistant reprend le même brouillon. Suivre le lien ne modifie pas l’attribution de la compétence. Les affectations utilisent les interrupteurs accessibles partagés ; les compétences obligatoires restent verrouillées et les affectations indisponibles peuvent être retirées.
 
+Les lectures simultanées du catalogue attendent la fin de l’enregistrement des extensions intégrées. Les lectures récursives du même fil restent autorisées pour éviter les cycles d’importation ; les autres fils ne peuvent pas recevoir un catalogue partiel sans les compétences du Cerveau.
+
 ## Apprentissage des conversations et mémoire modifiable
 
 Le panneau d’apprentissage du dialogue privé regroupe les instructions du projet, les sources sélectionnées et les références de résultats. Les demandes explicites comme « Retiens que… » créent des souvenirs dont l’origine est identifiable ; les citations et références ambiguës ne le font pas. Les souvenirs sont isolés par espace de connaissances, assistant et utilisateur, avec des portées supplémentaires par projet ou compétence. Paramètres → IA → Mémoire permet de rechercher, filtrer, modifier, activer, définir une expiration et supprimer. Les modifications refusent les révisions périmées. Supprimer un projet dissocie ses conversations et désactive ses souvenirs.

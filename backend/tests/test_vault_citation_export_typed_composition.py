@@ -37,7 +37,15 @@ ROUTE_NAMES = (
 )
 
 
-@pytest.mark.parametrize("suite", ["composition", "existing-regressions"])
+EXPORT_CHECKS = "check_export or check_facade or check_invalid"
+COMPOSITION_GROUPS = {
+    "exports": EXPORT_CHECKS,
+    "imports": "check_import",
+    "references-and-formatting": f"not ({EXPORT_CHECKS} or check_import)",
+}
+
+
+@pytest.mark.parametrize("suite", [*COMPOSITION_GROUPS, "existing-regressions"])
 def test_citation_export_composition_in_isolated_subprocess(suite: str) -> None:
     with tempfile.TemporaryDirectory(prefix="gnosi-citation-composition-") as temporary:
         root = Path(temporary).resolve()
@@ -62,9 +70,11 @@ def test_citation_export_composition_in_isolated_subprocess(suite: str) -> None:
             [
                 "-o",
                 "python_functions=check_*",
+                "-k",
+                COMPOSITION_GROUPS[suite],
                 "backend/tests/test_vault_citation_export_typed_composition.py",
             ]
-            if suite == "composition"
+            if suite in COMPOSITION_GROUPS
             else [
                 "backend/tests/test_pandoc_bin.py",
                 "backend/tests/test_references_io.py",
@@ -78,28 +88,33 @@ def test_citation_export_composition_in_isolated_subprocess(suite: str) -> None:
                 "backend/tests/test_typed_citation_pdf_routes.py",
             ]
         )
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
-                "--tb=short",
-                "-p",
-                "no:cacheprovider",
-                "--basetemp",
-                str(root / "tests"),
-                *selected,
-            ],
-            cwd=ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-            # This budget includes a cold backend import and the entire suite,
-            # not one request. Keep runtime/export timeouts unchanged.
-            timeout=300,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-v",
+                    "--durations=10",
+                    "--tb=short",
+                    "-p",
+                    "no:cacheprovider",
+                    "--basetemp",
+                    str(root / "tests"),
+                    *selected,
+                ],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                # Bound each independent group, including its cold backend import.
+                # All composition checks still run; runtime/export timeouts stay unchanged.
+                timeout=300,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            progress = (error.stdout or b"").decode("utf-8", errors="replace")
+            pytest.fail(f"Citation group {suite!r} exceeded 300s. Child progress:\n{progress}")
         assert result.returncode == 0, result.stdout + result.stderr
         sys.stdout.write(result.stdout)
 

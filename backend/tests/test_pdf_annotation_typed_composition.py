@@ -77,15 +77,29 @@ def test_pdf_annotation_typed_composition_in_isolated_subprocess(import_order: s
             "GNOSI_JWT_SECRET": "synthetic-pdf-fixture-secret-not-a-real-key",
             "GNOSI_PDF_TEST_IMPORT_ORDER": import_order,
         }
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "--tb=short", "-p", "no:cacheprovider",
-             "--basetemp", str(root / "tests"), "-o", "python_functions=check_*",
-             "backend/tests/test_pdf_annotation_typed_composition.py"],
-            cwd=Path(__file__).resolve().parents[2], env=environment,
-            # This bounds the entire child suite, not a PDF latency contract.
-            # Match drawing/citation composition suites on the ARM64 CI runner.
-            capture_output=True, text=True, timeout=300, check=False,
-        )
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", "-v", "--durations=10", "--tb=short",
+                 "-o", "faulthandler_timeout=60", "-p", "no:cacheprovider",
+                 "--basetemp", str(root / "tests"), "-o", "python_functions=check_*",
+                 "backend/tests/test_pdf_annotation_typed_composition.py"],
+                cwd=Path(__file__).resolve().parents[2], env=environment,
+                # Budget the cold backend import plus all 57 checks per import
+                # order, rather than treating the entire group as a single test.
+                capture_output=True, text=True, timeout=300, check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            progress = error.stdout or b""
+            diagnostic = error.stderr or b""
+            if isinstance(progress, bytes):
+                progress = progress.decode("utf-8", errors="replace")
+            if isinstance(diagnostic, bytes):
+                diagnostic = diagnostic.decode("utf-8", errors="replace")
+            pytest.fail(
+                f"PDF composition {import_order!r} exceeded the 300s group budget.\n"
+                f"Child progress:\n{progress}\nChild diagnostics:\n{diagnostic}",
+                pytrace=False,
+            )
         assert result.returncode == 0, result.stdout + result.stderr
         sys.stdout.write(f"{import_order}: {result.stdout}")
 

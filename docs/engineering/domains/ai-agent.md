@@ -1025,6 +1025,8 @@ expansion. No external searches or provider calls are made by the regression tes
 
 Assigned skill names link to their expanded catalogue entries. Opening a skill preserves the assistant editor and its unsaved form values; returning to the Assistant tab resumes the same draft. Following the link does not toggle the skill assignment. Assignments use the shared accessible switches; required skills remain disabled, while unavailable assignments can still be removed.
 
+Concurrent catalog readers wait for built-in plugin registration to finish. Recursive reads on the registering thread remain permitted to avoid import cycles; other threads cannot cache a partial catalog without Brain skills.
+
 ## Conversation learning and editable memory
 
 The private chat learning panel groups project instructions, selected sources and result references. Explicit requests such as “Remember that…” create traceable memories; quoted text and ambiguous references do not. Memories are isolated by vault, assistant and user, with additional project or skill scopes. Settings → AI → Memory supports search, filters, editing, activation, expiry and deletion. Updates reject stale revisions. Deleting a project unlinks its sessions and disables its scoped memories.

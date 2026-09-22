@@ -17,7 +17,8 @@ que ja no existeix.
    `uv sync` o `uv run`.
 5. Utilitzar una cache `uv` nova i exclusiva per job sota `RUNNER_TEMP`, amb
    còpia de fitxers a l'entorn; no compartir artefactes extrets ni desar o
-   restaurar entorns virtuals complets.
+   restaurar entorns virtuals complets. Es poden restaurar arxius segellats i
+   verificats dins de la cache exclusiva, sense compartir fitxers mutables.
 6. Aplicar la preparació a tots els jobs Linux de validació que sincronitzen el
    projecte Python.
 
@@ -93,3 +94,27 @@ que ja no existeix.
   aïllada després de `setup-python`/`setup-uv` i abans de la sincronització.
 - Càrrega de tots els YAML de workflow.
 - Ruff i mypy estricte sobre l'script i les proves; pytest enfocat verd.
+
+## Acceleració amb còpies verificades (2026-09-22)
+
+Es permet reutilitzar arxius segellats de paquets sota el directori controlat del
+runner. La clau inclou plataforma, arquitectura, versió d'uv, lock i manifest.
+Cal verificar el checksum de l'arxiu, extreure'l amb el filtre segur de tar i
+verificar els hashes RECORD dels paquets abans d'utilitzar-los. Una còpia malmesa
+ha de produir una instal·lació en fred. L'entorn virtual continua sent nou i
+exclusiu. No es reutilitza mai una cache extreta compartida.
+
+El límit és d'1 GiB per arxiu i 2 GiB per magatzem. Si falta espai per a Docker,
+es poden retirar només aquests arxius opcionals, sense tocar altres caches ni
+dades. Les caches d'anàlisi ESLint i mypy es conserven separadament i s'invaliden
+quan canvien les eines, la configuració o la plataforma.
+
+## Desactivació de les còpies en CI (2026-09-22)
+
+Segellar el runtime complet ha superat cinc minuts al runner Linux i ha impedit
+executar totes les comprovacions posteriors del backend. Els tres jobs de runtime
+forcen `GNOSI_CI_SEALED_CACHE=0` i no invoquen el segellat. Les eines queden només
+per a experiments aïllats. No s’han de reactivar a partir d’una prova amb paquets
+petits: cal mesurar l’entorn complet i garantir que un error o un límit de temps
+de l’optimització no bloquegi les comprovacions obligatòries. No s’ha d’augmentar
+el límit del job ni ignorar errors de les proves per compensar aquest cost.

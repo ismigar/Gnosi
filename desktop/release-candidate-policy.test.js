@@ -21,7 +21,8 @@ const DOCUMENTATION_IF = "(github.event_name == 'pull_request' && "
 const FRONTEND_NODE_OPTIONS = '--max-old-space-size=4096';
 const FRONTEND_RESOURCE_ENV = {
   NODE_OPTIONS: FRONTEND_NODE_OPTIONS,
-  GNOSI_VITEST_MAX_WORKERS: '1',
+  GNOSI_VITEST_MAX_WORKERS: '2',
+  GNOSI_CI_SEALED_CACHE: '0',
   UV_PYTHON: 'cpython-3.11-macos-aarch64-none',
 };
 const PYTHON_DOWNLOAD_ENV = {
@@ -33,7 +34,7 @@ const PYTHON_DOWNLOAD_ENV = {
 const CI_PREDECESSORS = { frontend: 'backend', docker: 'frontend' };
 const HOSTED_CHROMIUM_SETUP = {
   name: 'Install Chromium system dependencies on hosted Linux',
-  if: "runner.environment == 'github-hosted'",
+  if: "(runner.environment == 'github-hosted') && steps.scope.outputs.runtime_required != 'false'",
   run: 'pnpm --filter @gnosi/e2e exec playwright install-deps chromium',
 };
 const DEPENDENCIES = {
@@ -94,10 +95,16 @@ function assertFatalGates(workflow, reusableCI = false) {
     }
     for (const step of job.steps ?? []) {
       const label = `${name}: ${step.name ?? step.run ?? step.uses}`;
-      const expectedIf = reusableCI && name === 'docker'
-        && step.name === 'Release unused Docker resources' ? 'always()'
+      let expectedIf = reusableCI && name === 'docker'
+        && ['Remove Docker smoke containers', 'Release unused Docker resources'].includes(step.name) ? 'always()'
         : reusableCI && name === 'native-smoke' && step.name === HOSTED_CHROMIUM_SETUP.name
           ? HOSTED_CHROMIUM_SETUP.if : undefined;
+      if (reusableCI && name !== 'documentation'
+          && !step.uses?.startsWith('actions/checkout@') && step.id !== 'scope') {
+        const scope = "steps.scope.outputs.runtime_required != 'false'";
+        expectedIf = expectedIf === 'always()' ? `(always()) && ${scope}`
+          : expectedIf ?? scope;
+      }
       assert.equal(step.if, expectedIf,
         `${label} must retain its reviewed condition without skipping validation`);
       assert.equal(step['continue-on-error'], undefined, `${label} must fail the job`);
@@ -340,7 +347,7 @@ test('shared CI rejects reordered heavy jobs and extra test workers', () => {
       assert.throws(() => assertFatalGates(changed, true), assert.AssertionError);
     }
   }
-  for (const workers of [undefined, '2', '8']) {
+  for (const workers of [undefined, '1', '8']) {
     const changed = structuredClone(ci);
     changed.jobs.frontend.env.GNOSI_VITEST_MAX_WORKERS = workers;
     assert.throws(() => assertFrontendMemoryBudget(changed), assert.AssertionError);
