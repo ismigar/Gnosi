@@ -635,3 +635,5 @@ validation complète. Les envois de commits et les validations de versions
 conservent toujours tous les contrôles d'exécution.
 
 L'analyse du frontend utilisant les types TypeScript, tout changement des sources ou règles locales du frontend invalide son cache entier, y compris les résultats des fichiers importateurs inchangés. Les changements limités au backend peuvent le réutiliser. Un état des sources inconnu impose une nouvelle analyse.
+
+La composition des annotations PDF exécute les 57 contrats dans chacun de deux ordres d'importation isolés. Chaque groupe dispose d'un délai limité à 300 secondes couvrant le chargement initial du backend et tous les contrôles. La progression détaillée, les durées des tests les plus lents et la pile après 60 secondes de blocage d'un test individuel distinguent un démarrage lent d'un test bloqué. Un dépassement du délai du groupe ou une assertion du processus enfant reste fatal, avec sa sortie partielle dans le diagnostic.

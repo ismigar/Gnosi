@@ -608,3 +608,5 @@ publicacions de commits i les validacions de versions sempre conserven totes les
 comprovacions d'execució.
 
 Com que l'anàlisi del frontend utilitza els tipus de TypeScript, qualsevol canvi de fonts o regles locals del frontend invalida tota la seva cache, inclosos els resultats dels fitxers que els importen sense haver canviat. Els canvis exclusius del backend la poden reutilitzar. Si es desconeix l'estat de les fonts, es repeteix l'anàlisi.
+
+La composició d'anotacions PDF executa els 57 contractes en cadascun de dos ordres d'importació aïllats. Cada grup té un límit de 300 segons que cobreix la càrrega inicial del backend i totes les comprovacions. El progrés detallat, els temps de les proves més lentes i la pila després de 60 segons de bloqueig d'una prova individual permeten distingir una arrencada lenta d'una prova bloquejada. Un timeout del grup o qualsevol error del procés fill continua fent fallar la validació, que inclou la sortida parcial.

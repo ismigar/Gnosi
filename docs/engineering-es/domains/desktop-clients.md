@@ -620,3 +620,5 @@ requieren la validación completa. Los envíos de commits y las validaciones de
 versiones siempre conservan todas las comprobaciones de ejecución.
 
 Como el análisis del frontend utiliza los tipos de TypeScript, cualquier cambio de fuentes o reglas locales del frontend invalida toda su caché, incluidos los resultados de los archivos que los importan sin haber cambiado. Los cambios exclusivos del backend pueden reutilizarla. Si se desconoce el estado de las fuentes, se repite el análisis.
+
+La composición de anotaciones PDF ejecuta los 57 contratos en cada uno de dos órdenes de importación aislados. Cada grupo tiene un límite de 300 segundos que cubre la carga inicial del backend y todas las comprobaciones. El progreso detallado, los tiempos de las pruebas más lentas y la pila tras 60 segundos de bloqueo de una prueba individual permiten distinguir un arranque lento de una prueba bloqueada. Un timeout del grupo o cualquier error del proceso hijo sigue haciendo fallar la validación, que incluye la salida parcial.

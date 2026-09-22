@@ -548,3 +548,5 @@ source moves, code, configuration and dependency changes require full runtime
 validation. Pushes and release validation always retain all runtime checks.
 
 Because frontend lint uses TypeScript type information, any frontend source or local rule change invalidates its entire cache, including results for unchanged importers. Backend-only changes can reuse it. Unknown source state forces fresh lint.
+
+PDF annotation composition runs all 57 contracts in each of two isolated import orders. Each group has a bounded 300-second budget covering cold backend imports and the full set of checks. Verbose progress, slowest-test timings and a stack dump after a 60-second individual test stall distinguish slow startup from a blocked test. A group timeout or any child assertion remains fatal and its partial output is included in the failure.
