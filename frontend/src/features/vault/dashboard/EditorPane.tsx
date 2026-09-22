@@ -133,6 +133,7 @@ export function EditorPane({ dashboard, tabId }: {
       key={tab.id}
       noteFilename={tab.id}
       referenceTableId={refTableId}
+      brainTableId={context.brainTableId}
       onCreateFromSource={(tableId: unknown) => { setCreateSourceTableId(text(tableId) || null); }}
       initialContent={tab.content}
       initialMetadata={editorMetadata(tab.metadata)}

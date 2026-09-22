@@ -81,10 +81,10 @@ def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
     from backend.domains.agent.runtime_tools import _model_context_window
     from backend.security.ai_credentials import resolve_provider_api_key
     from backend.services.agent_skill_catalog import resolve_agent_runtime
-    from backend.services.llm_wiki_agent import default_plugin_agent_id
+    from backend.services.llm_wiki_generation import configured_agent_id
 
     ai = dict(load_params(strict_env=False).ai or {})
-    agent_id = default_plugin_agent_id(ai)
+    agent_id = configured_agent_id(ai)
     profile = next(
         (
             item
@@ -93,7 +93,7 @@ def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
         ),
         None,
     )
-    if not profile or not profile.get("enabled", True):
+    if not profile or not profile.get("enabled", True) or profile.get("plugin_suspended"):
         raise RuntimeError(
             "Enable the Brain processing agent in AI settings before processing a source"
         )

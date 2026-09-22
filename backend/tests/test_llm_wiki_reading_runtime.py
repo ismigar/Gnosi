@@ -31,6 +31,7 @@ def configured(monkeypatch):
         "providers": {"openai": {"enabled": True}},
     }
     monkeypatch.setattr("backend.config.app_config.load_params", lambda **_: SimpleNamespace(ai=ai))
+    monkeypatch.setattr("backend.services.llm_wiki_config.load_config", lambda: {})
     resolve = Mock(
         return_value=SimpleNamespace(active_skill_ids=(SKILL_ID,), instructions=(INSTRUCTIONS,))
     )
@@ -104,3 +105,28 @@ def test_oversized_prompt_never_reaches_provider(configured, tmp_path):
     with pytest.raises(RuntimeError, match="context budget"):
         runtime.generate("x" * (runtime.input_budget + 1))
     client.invoke.assert_not_called()
+
+
+def test_explicit_brain_profile_overrides_legacy_and_principal(configured, tmp_path, monkeypatch):
+    ai, resolve, llm_factory_mock, _ = configured
+    ai["agents"].extend([
+        {**ai["agents"][0], "id": "llm-wiki", "managed_by": "llm-wiki"},
+        {**ai["agents"][0], "id": "custom", "model": "chosen"},
+    ])
+    monkeypatch.setattr("backend.services.llm_wiki_config.load_config",
+                        lambda: {"agent_id": "custom"})
+    runtime = prepare_reading_runtime(tmp_path)
+    assert runtime.agent_id == "custom"
+    assert resolve.call_args.args[0]["id"] == "custom"
+    assert llm_factory_mock.call_args.kwargs["model"] == "chosen"
+
+
+@pytest.mark.parametrize("selection", ["missing", "suspended"])
+def test_unavailable_explicit_profile_never_falls_back(configured, tmp_path, monkeypatch, selection):
+    ai, _, llm_factory_mock, _ = configured
+    ai["agents"].append({**ai["agents"][0], "id": "suspended", "plugin_suspended": True})
+    monkeypatch.setattr("backend.services.llm_wiki_config.load_config",
+                        lambda: {"agent_id": selection})
+    with pytest.raises(RuntimeError, match="Enable the Brain processing agent"):
+        prepare_reading_runtime(tmp_path)
+    llm_factory_mock.assert_not_called()

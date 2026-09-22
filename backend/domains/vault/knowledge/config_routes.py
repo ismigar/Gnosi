@@ -189,6 +189,7 @@ def _llm_wiki_config_response(cfg: RecordReader) -> dict[str, object]:
     from backend.services import llm_wiki_config as wiki_cfg
     from backend.services import llm_wiki_storage
     from backend.services.llm_wiki_extractors import capability_report
+    from backend.services.llm_wiki_generation import agent_profiles
 
     brain_id = str(cfg.get("brain_table_id") or "")
     brain = _legacy._table_by_id(brain_id) if brain_id else None
@@ -215,6 +216,13 @@ def _llm_wiki_config_response(cfg: RecordReader) -> dict[str, object]:
     index_options = {str(prop.get("id")): _llm_wiki_property_options(prop) for prop in eligible}
     return {
         "config": cfg,
+        "agents": [
+            {"id": agent["id"], "name": str(agent.get("name") or agent["id"]),
+             "enabled": bool(agent.get("enabled", True)),
+             "ready": bool(agent.get("enabled", True) and agent.get("provider")
+                           and agent.get("model") and not agent.get("plugin_suspended"))}
+            for agent in agent_profiles()
+        ],
         "brain": {
             "table_id": brain_id or None,
             "name": brain.get("name") if brain else None,

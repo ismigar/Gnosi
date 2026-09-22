@@ -15,6 +15,7 @@ import { X } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
 import { settingsPanelLoaders } from './settingsPanelLoaders';
 import { googleSignInPath } from '../../../shared/api/google-auth';
+import { usePluginAISettingsNavigation } from './usePluginAISettingsNavigation';
 
 // Load editors only when their section or dialog is opened.
 const AIModelComparisonModal = lazy(() => import('../AIModelComparisonModal'));
@@ -36,6 +37,7 @@ const TranslationPanel = lazy(settingsPanelLoaders.translate);
 const WorkspacePanel = lazy(settingsPanelLoaders.workspace);
 
 export function GlobalSettingsView({ context }: { context: SettingsController }) {
+  const openPluginAISettings = usePluginAISettingsNavigation(context);
   const { activeTab, aiRegistry, confirmConfig, draft, googleCalAuthError, handleClose, initialPluginId, isModelComparisonOpen, isOpen, isUsageHistoryOpen, mailSection, panelRef, pickerField, pickerOpen, setActiveTab, setAddAccountType, setAiSection, setConfirmConfig, setDraft, setIsModelComparisonOpen, setIsUsageHistoryOpen, setMailSection, setPickerOpen, sidebarNavigation, t, tn } = context;
   const mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -177,6 +179,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                 {/* PLUGINS */}
                 {(activeTab === 'plugins' || pluginConfigurationForSettingsTab(activeTab)) && (
                   <PluginsSettings
+                    onOpenAISettings={openPluginAISettings}
                     configurationPluginId={pluginConfigurationForSettingsTab(activeTab)}
                     initialPluginId={initialPluginId}
                     onOpenSettingsTab={(tab) => {

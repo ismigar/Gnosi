@@ -1130,7 +1130,7 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
         lambda *_args: manifests.append(_args[-1]),
     )
     monkeypatch.setattr(
-        "backend.agent.factory.generate_text",
+        "backend.services.llm_wiki_generation.generate_text",
         lambda *_args, **_kwargs: pytest.fail("A matching write checkpoint must not call the LLM"),
     )
 

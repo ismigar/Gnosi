@@ -249,7 +249,25 @@ async def put_config(
     dependencies: LlmWikiConfigDependencies,
 ) -> Config:
     """Validate, normalize and atomically persist the LLM Wiki configuration."""
-    normalized = llm_wiki_config.normalize_config(payload)
+    from backend.services.llm_wiki_agent import LlmWikiAgentError
+    from backend.services.llm_wiki_generation import selected_agent
+
+    current = llm_wiki_config.load_config()
+    incoming: Config = {str(key): value for key, value in payload.items()} if is_record(payload) else {}
+    merged: Config = {**current, **incoming}
+    normalized = llm_wiki_config.normalize_config(merged)
+    if "agent_id" in incoming:
+        try:
+            selected_agent(str(normalized["agent_id"]))
+        except LlmWikiAgentError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+    # Agent selection is independent of table setup and must not rebuild
+    # schemas or indexes, including in a not-yet-configured vault.
+    if set(incoming) == {"agent_id"}:
+        with llm_wiki_config.cfg_lock:
+            latest = llm_wiki_config.load_config()
+            saved = llm_wiki_config.save_config({**latest, "agent_id": normalized["agent_id"]})
+        return await asyncio.to_thread(dependencies.config_response, saved)
     brain_id, brain, sources = _validate_tables(normalized, dependencies)
     requested_index_ids = [str(field_id) for field_id in iterable_values(normalized.get("index_field_ids") or [])]
     _validate_before_mutation(brain, sources, requested_index_ids, dependencies)

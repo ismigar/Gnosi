@@ -75,10 +75,10 @@ describe('BrainInbox', () => {
             open.click();
             await Promise.resolve();
         });
-        expect(container.textContent).toContain('Possible connection');
-        expect(container.textContent).toContain('Research note');
+        expect(document.body.textContent).toContain('Possible connection');
+        expect(document.body.textContent).toContain('Research note');
 
-        const dismiss = Array.from(container.querySelectorAll('button'))
+        const dismiss = Array.from(document.querySelectorAll('button'))
             .find((button) => button.textContent.includes('Dismiss'));
         if (!dismiss) throw new Error('Dismiss action not rendered');
         await act(async () => {
