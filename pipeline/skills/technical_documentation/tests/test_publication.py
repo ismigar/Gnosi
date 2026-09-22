@@ -48,7 +48,7 @@ CI_COMMANDS = {
         "uv sync --frozen",
         "pnpm check:api-client",
         "pnpm guardrails:frontend",
-        'pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 --cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"',
+        'pnpm lint:frontend',
         "pnpm --filter @gnosi/frontend typecheck",
         "pnpm test:e2e:contracts",
         "pnpm test:frontend",

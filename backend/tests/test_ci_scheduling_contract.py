@@ -191,7 +191,7 @@ def test_frontend_without_remote_cache_keeps_frozen_install_and_all_checks(
         "uv sync --frozen",
         "pnpm check:api-client",
         "pnpm guardrails:frontend",
-        'pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 --cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"',
+        'pnpm lint:frontend',
         "pnpm --filter @gnosi/frontend typecheck",
         "pnpm test:e2e:contracts",
         "pnpm test:frontend",

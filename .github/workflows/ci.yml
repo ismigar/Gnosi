@@ -143,7 +143,7 @@ jobs:
       - name: Enforce frontend migration guardrails
         if: steps.scope.outputs.runtime_required != 'false'
         run: pnpm guardrails:frontend
-      - run: pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 --cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"
+      - run: pnpm lint:frontend
         if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm --filter @gnosi/frontend typecheck
         if: steps.scope.outputs.runtime_required != 'false'

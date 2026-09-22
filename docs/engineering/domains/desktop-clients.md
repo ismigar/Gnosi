@@ -543,3 +543,5 @@ validation. Pushes and release validation always retain all runtime checks.
 Because frontend lint uses TypeScript type information, any frontend source or local rule change invalidates its entire cache, including results for unchanged importers. Backend-only changes can reuse it. Unknown source state forces fresh lint.
 
 PDF annotation composition runs all 57 contracts in each of two isolated import orders. Each group has a bounded 300-second budget covering cold backend imports and the full set of checks. Verbose progress, slowest-test timings and a stack dump after a 60-second individual test stall distinguish slow startup from a blocked test. A group timeout or any child assertion remains fatal and its partial output is included in the failure.
+
+Local pre-PR validation and CI invoke the same `pnpm lint:frontend` entry point. The shared launcher always checks the entire frontend with zero warnings allowed; it adds content-cache options only when `GNOSI_ESLINT_CACHE` is set. Cache paths are passed as literal arguments without a shell, and lint failures remain fatal. The pre-PR parity test still rejects any CI validation missing from the local full plan.
