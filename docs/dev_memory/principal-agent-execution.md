@@ -37,7 +37,8 @@ within the same parent job and snapshot revision, with validation repeated on re
 No old incompatible phase is promoted into a new snapshot.
 
 `GET /api/agent/runs` and `GET /api/agent/runs/{run_id}` expose scoped activity.
-Cancellation signals live inference and prevents subsequent phases. Explicit resume
+Cancellation signals live inference and prevents subsequent phases. A per-process
+instance identifier also detects interrupted work when a restart reuses its PID. Explicit resume
 atomically claims a failed/interrupted execution; the API never independently retries
 a specialized engine, conversational action, or contextual phase whose parent owns
 its semantic validation and persistence. Such runs expose `resumable: false` and

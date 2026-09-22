@@ -344,3 +344,17 @@ def test_snapshot_freezes_file_instructions(monkeypatch, runtime, tmp_path):
     assert frozen.profile["_execution_detailed_persona"] == "Original instructions"
     assert resumed.profile["_execution_detailed_persona"] == "Original instructions"
     assert "_execution_detailed_persona" not in original.profile
+
+
+def test_same_pid_restart_is_interrupted_and_resume_claims_new_instance(runtime, monkeypatch):
+    scope, snapshot = runtime
+    with execution_scope(scope):
+        execution.create_job_run(snapshot, "reused-pid", "reader.analysis")
+        store.update(scope, "reused-pid", status="running")
+        monkeypatch.setattr(store, "_WORKER_INSTANCE", "new-process-instance")
+        assert store.read(scope, "reused-pid").status == "interrupted"
+        request, _ = store.resume_data(scope, "reused-pid")
+        assert "_worker_instance" not in request
+        assert store.read(scope, "reused-pid").status == "resuming"
+        store.update(scope, "reused-pid", status="running")
+        assert store.read(scope, "reused-pid").status == "running"

@@ -5,12 +5,16 @@ import json
 import os
 import sqlite3
 import time
+import uuid
 from contextlib import contextmanager
 from collections.abc import Iterator
 from typing import Any, cast
 
 from backend.config.data_dir import resolve_data_dir
 from backend.services.agent_execution_models import AgentRun, ExecutionScope
+
+
+_WORKER_INSTANCE = uuid.uuid4().hex
 
 
 @contextmanager
@@ -36,7 +40,7 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
     with connect() as db:
         db.execute("INSERT INTO agent_runs VALUES (?,?,?,?,?,?,?,0)", (
             run.run_id, scope.user_id, scope.workspace_id, scope.vault_path,
-            run.model_dump_json(), json.dumps({**request, "_worker_pid": os.getpid()}), json.dumps(snapshot),
+            run.model_dump_json(), json.dumps({**request, "_worker_pid": os.getpid(), "_worker_instance": _WORKER_INSTANCE}), json.dumps(snapshot),
         ))
 
 
@@ -49,17 +53,31 @@ def _row(db: sqlite3.Connection, scope: ExecutionScope, run_id: str) -> sqlite3.
         raise LookupError("agent_run_not_found")
     run = AgentRun.model_validate_json(str(row["payload"]))
     request = json.loads(str(row["request"]))
-    worker = request.get("_worker_pid")
-    if run.status in {"running", "resuming"} and isinstance(worker, int) and worker != os.getpid():
-        try:
-            os.kill(worker, 0)
-        except ProcessLookupError:
-            run = run.model_copy(update={"status": "interrupted", "error": "worker_stopped", "updated_at": time.time()})
-            db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
-            row = db.execute("SELECT * FROM agent_runs WHERE run_id=?", (run_id,)).fetchone()
-        except PermissionError:
-            pass
+    if run.status in {"running", "resuming"} and not _worker_alive(request):
+        run = run.model_copy(update={"status": "interrupted", "error": "worker_stopped", "updated_at": time.time()})
+        db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
+        row = db.execute("SELECT * FROM agent_runs WHERE run_id=?", (run_id,)).fetchone()
     return cast(sqlite3.Row, row)
+
+
+def _worker_alive(request: dict[str, Any]) -> bool:
+    worker = request.get("_worker_pid")
+    if not isinstance(worker, int):
+        return True
+    if worker == os.getpid():
+        return bool(request.get("_worker_instance", _WORKER_INSTANCE) == _WORKER_INSTANCE)
+    try:
+        os.kill(worker, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
+
+def _claim_worker(db: sqlite3.Connection, run_id: str) -> None:
+    db.execute("UPDATE agent_runs SET request=json_set(request,'$._worker_pid',?,'$._worker_instance',?) WHERE run_id=?",
+               (os.getpid(), _WORKER_INSTANCE, run_id))
 
 
 def read(scope: ExecutionScope, run_id: str) -> AgentRun:
@@ -74,7 +92,7 @@ def update(scope: ExecutionScope, run_id: str, **changes: Any) -> AgentRun:
         run = AgentRun.model_validate({**old.model_dump(), **changes, "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         if changes.get("status") in {"running", "resuming"}:
-            db.execute("UPDATE agent_runs SET request=json_set(request,'$._worker_pid',?) WHERE run_id=?", (os.getpid(), run_id))
+            _claim_worker(db, run_id)
         return run
 
 
@@ -116,7 +134,9 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
             raise ValueError("agent_run_not_resumable")
         run = run.model_copy(update={"status": "resuming", "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET cancelled=0,payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
+        _claim_worker(db, run_id)
         request = json.loads(str(row["request"]))
+        request.pop("_worker_instance", None)
         request.pop("_worker_pid", None)
         request.pop("checkpoint_key", None)
         return request, json.loads(str(row["snapshot"]))

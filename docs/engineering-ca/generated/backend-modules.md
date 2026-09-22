@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 895 |
-| `services` | 174 | 38942 |
+| `services` | 174 | 38962 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **841 modules** and **171295 source lines**.
+Total: **841 modules** and **171315 source lines**.
 
 ## agent
 
@@ -777,7 +777,7 @@ Total: **841 modules** and **171295 source lines**.
 | [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 413 | 0 | 18 | 3 | 7 | One principal-agent executor for application operations and graph streams. |
 | [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 67 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 131 | 0 | 7 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
-| [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 201 | 0 | 12 | 0 | 3 | Private, scope-bound execution records shared by every application entrypoint. |
+| [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 221 | 0 | 14 | 0 | 3 | Private, scope-bound execution records shared by every application entrypoint. |
 | [`backend/services/agent_learning_capture.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_capture.py) | 73 | 0 | 2 | 0 | 0 | Capture only explicit first-person memory requests in the current user message. |
 | [`backend/services/agent_learning_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_generation.py) | 134 | 1 | 5 | 0 | 0 | Bounded, tool-free learning drafts and second-case trials on the configured model. |
 | [`backend/services/agent_learning_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_models.py) | 118 | 15 | 0 | 0 | 0 | Bounded, portable contracts for conversation learning. |
