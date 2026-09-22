@@ -96,6 +96,23 @@ def runner_temp(environment: Mapping[str, str]) -> Path:
     return path
 
 
+def _release_optional_snapshots(environment: Mapping[str, str], path: Path, minimum: int) -> None:
+    """Reclaim only our sealed package archives if Docker needs their space."""
+    raw = environment.get("RUNNER_TOOL_CACHE")
+    if not raw or _free_bytes(path) >= minimum:
+        return
+    store = Path(raw).resolve(strict=True) / "gnosi-sealed-uv-v1"
+    if store.is_symlink() or not store.is_dir():
+        return
+    for snapshot in sorted(store.glob("*.tar.gz"), key=lambda item: item.stat().st_mtime):
+        if _free_bytes(path) >= minimum:
+            break
+        if snapshot.is_file() and not snapshot.is_symlink():
+            snapshot.unlink()
+            snapshot.with_suffix(".sha256").unlink(missing_ok=True)
+            LOG.info("Released an optional Python cache snapshot for Docker capacity")
+
+
 def _require_capacity(path: Path, minimum_free_bytes: int) -> int:
     available = _free_bytes(path)
     if available < minimum_free_bytes:
@@ -112,6 +129,7 @@ def cleanup(
     """Always clean CI images/cache, then verify capacity; never prune volumes."""
     path = runner_temp(environment)
     _prune_unused_docker()
+    _release_optional_snapshots(environment, path, minimum_free_bytes)
     return _require_capacity(path, minimum_free_bytes)
 
 
@@ -132,6 +150,7 @@ def prepare(
         available / 1024**3,
     )
     _prune_unused_docker()
+    _release_optional_snapshots(environment, path, minimum_free_bytes)
     return _require_capacity(path, minimum_free_bytes)
 
 

@@ -113,7 +113,8 @@ def test_frontend_lint_and_guardrails_fail_closed() -> None:
     ]
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     assert "run: pnpm guardrails:frontend" in workflow
-    assert "run: pnpm lint:frontend" in workflow
+    assert ('run: pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 '
+            '--cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"') in workflow
 
 
 def test_documentation_workflow_never_consumes_hosted_runner_budget() -> None:

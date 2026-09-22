@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import sys
 from typing import Mapping
 
 
@@ -75,6 +76,11 @@ def prepare(environment: Mapping[str, str]) -> Path:
 
     _remove_scoped_path(candidate)
     _remove_scoped_path(cache)
+
+    if environment.get("GNOSI_CI_SEALED_CACHE") == "1":
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from scripts.ci.python_cache import restore_for_job
+        restore_for_job(environment, cache)
 
     with github_env.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(f"UV_PROJECT_ENVIRONMENT={candidate}\n")

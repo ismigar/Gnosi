@@ -580,3 +580,29 @@ Cal regenerar el document OpenAPI desat i el seu SHA-256 després de canviar la 
 La CI de Docker reintenta la neteja dels contenidors de prova i la repeteix en un pas independent que sempre s’executa abans d’eliminar les imatges de CI, per evitar que una neteja fallida bloquegi la construcció següent.
 
 La llista de recursos revisats de l’aplicació d’escriptori inclou `personal_memory_0002`, de manera que les versions instal·lades conserven els records existents en afegir la memòria per àmbits i els projectes privats d’aprenentatge.
+
+## Acceleració limitada de CI
+
+CI restaura les descàrregues de Python només a partir d'arxius segellats i
+verificats en una cache nova i exclusiva del job; sempre crea un entorn virtual
+nou i copia els fitxers instal·lats. Es comproven els hashes RECORD dels paquets
+abans de segellar i després d'extreure. Els arxius depenen del sistema operatiu,
+l'arquitectura, la versió d'uv, el bloqueig de dependències i el manifest del
+projecte. Si falta un arxiu o està malmès, es descarreguen els paquets. Cada arxiu
+ocupa com a màxim 1 GiB i el magatzem 2 GiB. Docker pot retirar aquestes còpies
+opcionals si necessita espai per complir el requisit existent de 12 GiB lliures.
+
+ESLint utilitza una cache basada en el contingut i mypy conserva l'anàlisi
+incremental entre jobs; els canvis de plataforma, dependències i configuració
+invaliden la cache. Les proves del frontend utilitzen dos processos. La comparació
+local de 27 proves representatives ha passat amb un i dos processos; encara cal
+avaluar el temps i la memòria de la suite completa al runner. Es manté l'ordre
+dels jobs pesants.
+
+Només les peticions de canvi de confiança que modifiquen exclusivament Markdown
+dels quatre portals d'enginyeria poden ometre els passos d'execució. Els cinc
+noms de comprovació obligatoris continuen visibles i el job de documentació valida
+tots els idiomes. Els diffs buits o desconeguts, els moviments de codi i els canvis
+de codi, configuració o dependències requereixen la validació completa. Les
+publicacions de commits i les validacions de versions sempre conserven totes les
+comprovacions d'execució.

@@ -591,3 +591,30 @@ Hay que regenerar el documento OpenAPI guardado y su SHA-256 después de cambiar
 La CI de Docker reintenta la limpieza de los contenedores de prueba y la repite en un paso independiente que siempre se ejecuta antes de eliminar las imágenes de CI, para evitar que una limpieza fallida bloquee la siguiente construcción.
 
 La lista de recursos revisados de la aplicación de escritorio incluye `personal_memory_0002`, de modo que las versiones instaladas conservan los recuerdos existentes al añadir memoria por ámbitos y proyectos privados de aprendizaje.
+
+## Aceleración limitada de CI
+
+CI restaura las descargas de Python únicamente desde archivos sellados y
+verificados en una caché nueva y exclusiva del job; siempre crea un entorno
+virtual nuevo y copia los archivos instalados. Se comprueban los hashes RECORD
+de los paquetes antes de sellar y después de extraer. Los archivos dependen del
+sistema operativo, la arquitectura, la versión de uv, el bloqueo de dependencias
+y el manifiesto del proyecto. Si falta un archivo o está dañado, se descargan los
+paquetes. Cada archivo ocupa como máximo 1 GiB y el almacén 2 GiB. Docker puede
+retirar estas copias opcionales si necesita espacio para cumplir el requisito
+existente de 12 GiB libres.
+
+ESLint utiliza una caché basada en el contenido y mypy conserva el análisis
+incremental entre jobs; los cambios de plataforma, dependencias y configuración
+invalidan la caché. Las pruebas del frontend utilizan dos procesos. La comparación
+local de 27 pruebas representativas ha pasado con uno y dos procesos; todavía
+hay que evaluar el tiempo y la memoria de la suite completa en el runner. Se
+mantiene el orden de los jobs pesados.
+
+Solo las solicitudes de cambio de confianza que modifican exclusivamente
+Markdown de los cuatro portales de ingeniería pueden omitir los pasos de
+ejecución. Los cinco nombres de comprobación obligatorios siguen visibles y el
+job de documentación valida todos los idiomas. Los diffs vacíos o desconocidos,
+los movimientos de código y los cambios de código, configuración o dependencias
+requieren la validación completa. Los envíos de commits y las validaciones de
+versiones siempre conservan todas las comprobaciones de ejecución.

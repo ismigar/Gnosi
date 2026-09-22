@@ -606,3 +606,30 @@ Il faut régénérer le document OpenAPI enregistré et son SHA-256 après modif
 La CI Docker réessaie le nettoyage des conteneurs de test et le répète dans une étape indépendante toujours exécutée avant de supprimer les images CI, afin qu’un nettoyage échoué ne bloque pas la construction suivante.
 
 La liste des ressources vérifiées de l’application de bureau inclut `personal_memory_0002`, afin que les versions installées conservent les souvenirs existants tout en ajoutant les portées de mémoire et les projets privés d’apprentissage.
+
+## Accélération limitée de CI
+
+CI restaure les téléchargements Python uniquement depuis des archives scellées
+et vérifiées dans un nouveau cache propre au job ; il crée toujours un nouvel
+environnement virtuel et copie les fichiers installés. Les empreintes RECORD
+des paquets sont vérifiées avant l'archivage et après l'extraction. Les archives
+dépendent du système, de l'architecture, de la version d'uv, du verrou des
+dépendances et du manifeste du projet. Une archive absente ou endommagée entraîne
+un nouveau téléchargement. Chaque archive est limitée à 1 GiB et le stockage
+à 2 GiB. Docker peut supprimer ces copies facultatives s'il a besoin de leur
+espace pour respecter l'exigence existante de 12 GiB libres.
+
+ESLint utilise un cache basé sur le contenu et mypy conserve l'analyse
+incrémentale entre jobs ; les changements de plateforme, de dépendances et de
+configuration invalident le cache. Les tests du frontend utilisent deux processus.
+La comparaison locale de 27 tests représentatifs a réussi avec un et deux
+processus ; le temps et la mémoire de la suite complète restent à évaluer sur le
+runner. L'ordre des jobs lourds reste inchangé.
+
+Seules les demandes de changement de confiance modifiant exclusivement le
+Markdown des quatre portails d'ingénierie peuvent omettre les étapes d'exécution.
+Les cinq noms de contrôle obligatoires restent visibles et le job de documentation
+valide toutes les langues. Les diffs vides ou inconnus, les déplacements de code
+et les changements de code, de configuration ou de dépendances exigent la
+validation complète. Les envois de commits et les validations de versions
+conservent toujours tous les contrôles d'exécution.

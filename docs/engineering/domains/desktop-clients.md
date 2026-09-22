@@ -523,3 +523,26 @@ Regenerate the committed OpenAPI document and its SHA-256 after changing the run
 Docker CI retries smoke-container cleanup and runs it again in an independent always-run step before removing CI images, so a failed exit trap cannot silently leave containers blocking the next build.
 
 The reviewed desktop resource list includes `personal_memory_0002`, so installed builds preserve existing memories while adding scoped memory and private learning projects.
+
+## Bounded CI acceleration
+
+CI restores Python downloads only from sealed, checksum-verified archives into
+a new job-private cache; it always creates a fresh virtual environment and
+copies installed files. Wheel RECORD hashes are checked before sealing and
+after extraction. Archives are scoped by operating system, architecture, uv
+version, dependency lock and project manifest. A missing or damaged archive
+falls back to downloading packages. Each archive is limited to 1 GiB and the
+archive store to 2 GiB. Docker may discard these optional snapshots if it needs
+their space to meet its existing 12 GiB free-space gate.
+
+ESLint uses content-based caching and mypy retains incremental analysis between
+jobs, with platform, dependency and configuration changes invalidating the cache.
+Frontend tests use two workers. The local comparison of 27 representative tests
+passed with one and two workers; full-suite elapsed time and memory still need
+to be assessed on the runner. Heavy job ordering remains unchanged.
+
+Only trusted pull requests exclusively changing Markdown in the four engineering
+portals may omit runtime steps. All five required job names remain visible and
+the documentation job still validates every locale. Empty or unknown diffs,
+source moves, code, configuration and dependency changes require full runtime
+validation. Pushes and release validation always retain all runtime checks.

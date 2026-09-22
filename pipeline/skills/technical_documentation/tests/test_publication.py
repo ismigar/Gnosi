@@ -36,7 +36,9 @@ CI_COMMANDS = {
         '--check-only --base-ref "$PR_BASE_SHA"',
     ],
     "frontend": [
+        "python3 scripts/ci/classify_changes.py",
         "python scripts/ci/prepare_python_environment.py",
+        "python scripts/ci/prepare_analysis_cache.py",
         'uv run --frozen --no-sync python -c "'
         "import platform; actual = platform.machine(); "
         "print(f'Frontend Python architecture: {actual}'); "
@@ -44,9 +46,10 @@ CI_COMMANDS = {
         '"',
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
+        "python scripts/ci/python_cache.py",
         "pnpm check:api-client",
         "pnpm guardrails:frontend",
-        "pnpm lint:frontend",
+        'pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 --cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"',
         "pnpm --filter @gnosi/frontend typecheck",
         "pnpm test:e2e:contracts",
         "pnpm test:frontend",
@@ -55,8 +58,11 @@ CI_COMMANDS = {
         "pnpm --filter @gnosi/desktop typecheck:ipc",
     ],
     "backend": [
+        "python3 scripts/ci/classify_changes.py",
         "python scripts/ci/prepare_python_environment.py",
+        "python scripts/ci/prepare_analysis_cache.py",
         "uv sync --frozen",
+        "python scripts/ci/python_cache.py",
         "uv run python scripts/check_public_pipeline.py",
         "uv run python scripts/check_public_pipeline.py --structure",
         "uv run python scripts/check_public_runtime.py",
@@ -73,10 +79,12 @@ CI_COMMANDS = {
         "uv run pytest",
     ],
     "native-smoke": [
+        "python3 scripts/ci/classify_changes.py",
         "npm install --global --ignore-scripts --no-audit --no-fund pnpm@11.19.0",
         "python scripts/ci/prepare_python_environment.py",
         "pnpm install --frozen-lockfile",
         "uv sync --frozen",
+        "python scripts/ci/python_cache.py",
         "pnpm --filter @gnosi/e2e exec playwright install-deps chromium",
         "pnpm test:e2e:install",
         *r'''uv run --frozen --no-sync python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
@@ -89,6 +97,7 @@ fi'''.splitlines(),
         "pnpm test:e2e:smoke",
     ],
     "docker": [
+        "python3 scripts/ci/classify_changes.py",
         "python3 scripts/ci/prepare_docker_runner.py",
         "docker compose config --quiet",
         "python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend "
@@ -289,19 +298,23 @@ def test_ci_preserves_all_five_jobs_commands_and_fatal_gates(
         )
         steps = workflow_steps(job)
         assert all("continue-on-error" not in step for step in steps)
-        conditional_steps = [step for step in steps if "if" in step]
+        guard = "steps.scope.outputs.runtime_required != 'false'"
+        for index, step in enumerate(steps):
+            expected_if = None
+            if name != "documentation" and index >= 2:
+                expected_if = guard
+                if name == "docker" and index >= len(steps) - 2:
+                    expected_if = f"(always()) && {guard}"
+                if step.get("name") == "Install Chromium system dependencies on hosted Linux":
+                    expected_if = f"(runner.environment == 'github-hosted') && {guard}"
+            assert step.get("if") == expected_if
+        if name != "documentation":
+            assert steps[1].get("id") == "scope"
+            assert steps[1].get("run") == "python3 scripts/ci/classify_changes.py"
         if name == "docker":
-            assert conditional_steps == steps[-2:]
-            assert all(step["if"] == "always()" for step in conditional_steps)
             assert workflow_mapping(steps[-2]["env"])["GNOSI_DOCKER_SMOKE_PROJECT"] == (
                 "gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}"
             )
-        elif name == "native-smoke":
-            assert len(conditional_steps) == 1
-            assert conditional_steps[0]["if"] == "runner.environment == 'github-hosted'"
-            assert conditional_steps[0]["run"] == "pnpm --filter @gnosi/e2e exec playwright install-deps chromium"
-        else:
-            assert conditional_steps == []
         commands = [
             line for step in steps if "run" in step
             for line in workflow_text(step["run"]).splitlines()

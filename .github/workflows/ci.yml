@@ -77,7 +77,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     env:
       NODE_OPTIONS: --max-old-space-size=4096
-      GNOSI_VITEST_MAX_WORKERS: '1'
+      GNOSI_VITEST_MAX_WORKERS: '2'
+      GNOSI_CI_SEALED_CACHE: '1'
       # Do not select an installed Intel interpreter through Rosetta on this runner.
       UV_PYTHON: cpython-3.11-macos-aarch64-none
     steps:
@@ -87,24 +88,42 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
+      - name: Classify CI scope
+        id: scope
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+        run: python3 scripts/ci/classify_changes.py
       - uses: pnpm/action-setup@v6
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: 11.19.0
       - uses: actions/setup-node@v7
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           node-version: '22.22.2'
           # Reuse pnpm's local store without remote cache restore/save delays.
           package-manager-cache: false
       - uses: actions/setup-python@v7
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
+        if: steps.scope.outputs.runtime_required != 'false'
         run: python scripts/ci/prepare_python_environment.py
+      - name: Prepare analyzer caches
+        if: steps.scope.outputs.runtime_required != 'false'
+        run: python scripts/ci/prepare_analysis_cache.py
       - name: Verify native frontend Python
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 5
         run: >-
           uv run --frozen --no-sync python -c
@@ -112,22 +131,37 @@ jobs:
           print(f'Frontend Python architecture: {actual}');
           assert actual == 'arm64', f'Expected native ARM64 Python, got {actual}'"
       - run: pnpm install --frozen-lockfile
+        if: steps.scope.outputs.runtime_required != 'false'
       - name: Install locked frontend Python dependencies
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 45
         run: uv sync --frozen
+      - name: Seal verified Python packages
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 5
+        run: python scripts/ci/python_cache.py
       - name: Check OpenAPI, 2.x compatibility, and generated frontend client
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 10
         run: pnpm check:api-client
       - name: Enforce frontend migration guardrails
+        if: steps.scope.outputs.runtime_required != 'false'
         run: pnpm guardrails:frontend
-      - run: pnpm lint:frontend
+      - run: pnpm --filter @gnosi/frontend exec eslint . --max-warnings=0 --cache --cache-strategy content --cache-location "$GNOSI_ESLINT_CACHE"
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm --filter @gnosi/frontend typecheck
+        if: steps.scope.outputs.runtime_required != 'false'
       - name: Validate authenticated E2E setup without live credentials
+        if: steps.scope.outputs.runtime_required != 'false'
         run: pnpm test:e2e:contracts
       - run: pnpm test:frontend
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm build:frontend
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm test:desktop
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm --filter @gnosi/desktop typecheck:ipc
+        if: steps.scope.outputs.runtime_required != 'false'
 
   backend:
     if: >-
@@ -135,6 +169,8 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     # All CI runs use owner-managed machines, without hosted-runner fallback.
     runs-on: [self-hosted, Linux, ARM64]
+    env:
+      GNOSI_CI_SEALED_CACHE: '1'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -142,39 +178,70 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
+      - name: Classify CI scope
+        id: scope
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+        run: python3 scripts/ci/classify_changes.py
       - uses: actions/setup-node@v7
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           node-version: '22.22.2'
       - uses: actions/setup-python@v7
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
+        if: steps.scope.outputs.runtime_required != 'false'
         run: python scripts/ci/prepare_python_environment.py
+      - name: Prepare analyzer caches
+        if: steps.scope.outputs.runtime_required != 'false'
+        run: python scripts/ci/prepare_analysis_cache.py
       - run: uv sync --frozen
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 45
+      - name: Seal verified Python packages
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 5
+        run: python scripts/ci/python_cache.py
       - name: Reject private tools and generated pipeline state
+        if: steps.scope.outputs.runtime_required != 'false'
         run: uv run python scripts/check_public_pipeline.py
       - name: Enforce public pipeline size and complexity limits
+        if: steps.scope.outputs.runtime_required != 'false'
         run: uv run python scripts/check_public_pipeline.py --structure
       - name: Reject retired host operations and local runtime state
+        if: steps.scope.outputs.runtime_required != 'false'
         run: uv run python scripts/check_public_runtime.py
       - run: uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: uv run python scripts/check-source-guardrails.py --require-pruned
+        if: steps.scope.outputs.runtime_required != 'false'
       - name: Strict type-check of the complete backend
+        if: steps.scope.outputs.runtime_required != 'false'
         run: uv run mypy --strict --exclude '^backend/tests/' backend
       - name: Strict type-check of every public pipeline Python file
+        if: steps.scope.outputs.runtime_required != 'false'
         run: uv run python scripts/check_public_pipeline.py --typecheck
       - name: Validate frozen backend resource policy
+        if: steps.scope.outputs.runtime_required != 'false'
         run: |
           uv run ruff check --select E,F,I desktop/scripts/backend_resources.py desktop/tests/test_backend_resources.py
           uv run mypy --strict --explicit-package-bases desktop/scripts/backend_resources.py desktop/tests/test_backend_resources.py
           uv run python desktop/scripts/backend_resources.py check-source --repository .
       - run: uv run python -m compileall -q backend pipeline scripts extensions
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: uv run pytest
+        if: steps.scope.outputs.runtime_required != 'false'
 
   native-smoke:
     if: >-
@@ -182,34 +249,59 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     # Native smoke checks also stay on the owner-managed Linux machine.
     runs-on: [self-hosted, Linux, ARM64]
+    env:
+      GNOSI_CI_SEALED_CACHE: '1'
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
+      - name: Classify CI scope
+        id: scope
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+        run: python3 scripts/ci/classify_changes.py
       - uses: actions/setup-node@v7
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           node-version: '22.22.2'
       - name: Install pinned pnpm JavaScript distribution
+        if: steps.scope.outputs.runtime_required != 'false'
         run: npm install --global --ignore-scripts --no-audit --no-fund pnpm@11.19.0
       - uses: actions/setup-python@v7
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v10.0.1
+        if: steps.scope.outputs.runtime_required != 'false'
         with:
           version: '0.10.0'
           enable-cache: false
       - name: Prepare isolated Python environment
+        if: steps.scope.outputs.runtime_required != 'false'
         run: python scripts/ci/prepare_python_environment.py
       - run: pnpm install --frozen-lockfile
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: uv sync --frozen
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 45
+      - name: Seal verified Python packages
+        if: steps.scope.outputs.runtime_required != 'false'
+        timeout-minutes: 5
+        run: python scripts/ci/python_cache.py
       - name: Install Chromium system dependencies on hosted Linux
-        if: runner.environment == 'github-hosted'
+        if: (runner.environment == 'github-hosted') && steps.scope.outputs.runtime_required != 'false'
         run: pnpm --filter @gnosi/e2e exec playwright install-deps chromium
       - run: pnpm test:e2e:install
+        if: steps.scope.outputs.runtime_required != 'false'
       - name: Start native services
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 7
         env:
           DIGITAL_BRAIN_VAULT_PATH: ${{ github.workspace }}/vault
@@ -226,6 +318,7 @@ jobs:
             exit 1
           fi
       - run: pnpm test:e2e:smoke
+        if: steps.scope.outputs.runtime_required != 'false'
         env:
           GNOSI_BASE_URL: http://127.0.0.1:5173
 
@@ -239,28 +332,43 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
           submodules: recursive
+      - name: Classify CI scope
+        id: scope
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+        run: python3 scripts/ci/classify_changes.py
       - name: Verify dedicated Docker runner capacity
+        if: steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 10
         run: python3 scripts/ci/prepare_docker_runner.py
       - run: docker compose config --quiet
+        if: steps.scope.outputs.runtime_required != 'false'
         env:
           GNOSI_JWT_SECRET: ci-configuration-placeholder-only
       - run: python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.frontend --tag gnosi-frontend:ci --context .
+        if: steps.scope.outputs.runtime_required != 'false'
       - run: python3 scripts/ci/build_container_image.py --dockerfile Dockerfile.backend --tag gnosi-backend:ci --context .
+        if: steps.scope.outputs.runtime_required != 'false'
       - name: Start Docker bundle and verify persistence
+        if: steps.scope.outputs.runtime_required != 'false'
         env:
           GNOSI_DOCKER_SMOKE_PROJECT: gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}
           GNOSI_JWT_SECRET: synthetic-ci-smoke-secret-not-for-production
         run: scripts/smoke_docker.sh
       - name: Remove Docker smoke containers
-        if: always()
+        if: (always()) && steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 10
         env:
           GNOSI_DOCKER_SMOKE_PROJECT: gnosi-ci-${{ github.run_id }}-${{ github.run_attempt }}
         run: scripts/smoke_docker.sh --cleanup
       - name: Release unused Docker resources
-        if: always()
+        if: (always()) && steps.scope.outputs.runtime_required != 'false'
         timeout-minutes: 10
         run: python3 scripts/ci/prepare_docker_runner.py --cleanup
