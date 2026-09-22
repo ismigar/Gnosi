@@ -39,6 +39,23 @@ _API_TOKEN = os.environ.get("GNOSI_API_TOKEN", "").strip()
 AUTH_HEADERS = {"Authorization": f"Bearer {_API_TOKEN}"} if _API_TOKEN else {}
 
 
+@pytest.fixture(autouse=True)
+def isolated_request_vault() -> Iterator[None]:
+    """Direct dependency calls in unit tests need a fresh request-local Vault.
+
+    HTTP requests get their own context from the middleware. Unit tests invoke
+    the same dependencies directly in pytest's shared context, so each test must
+    establish and restore that boundary as well.
+    """
+    from backend.services.context_vars import active_vault_path
+
+    token = active_vault_path.set(None)
+    try:
+        yield
+    finally:
+        active_vault_path.reset(token)
+
+
 @pytest.fixture
 def isolated_validation_runtime(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path

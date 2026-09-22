@@ -62,6 +62,7 @@ CI_COMMANDS = {
         "uv run python scripts/check_public_runtime.py",
         "uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy",
         "uv run python scripts/check-source-guardrails.py --require-pruned",
+        "uv run python scripts/check_agent_execution_boundary.py",
         "uv run mypy --strict --exclude '^backend/tests/' backend",
         "uv run python scripts/check_public_pipeline.py --typecheck",
         "uv run ruff check --select E,F,I desktop/scripts/backend_resources.py "
