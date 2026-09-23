@@ -6617,6 +6617,23 @@
         "fixes": {
           "autosave_metadata": "Modifier le titre ou le favori d’une page n’écrase plus le texte récemment enregistré automatiquement."
         }
+      },
+      "v3_1_0": {
+        "highlights": {
+          "shared_assistant": "Le chat, les actions de l’application et les tâches planifiées utilisent un assistant commun avec ses compétences, ses instructions et sa politique de modèles.",
+          "learning_memory": "Transformez les conversations en compétences révisées et réutilisables, et gérez des mémoires à portée définie avec recherche, modification, activation et expiration.",
+          "contextual_reading": "Traitez les sources avec une lecture contextuelle qui préserve la structure et les références, examine le document dans son ensemble et permet de reprendre un travail interrompu."
+        },
+        "improvements": {
+          "task_models": "Choisissez un modèle fixe, des modèles de remplacement autorisés ou une sélection automatique selon la tâche pour chaque assistant.",
+          "activity": "Consultez l’activité IA, les détails d’exécution et la progression au même endroit, avec annulation et reprise lorsque l’opération le permet.",
+          "skill_translation": "Traduisez les instructions des compétences à la demande pour les lire, tout en conservant les instructions originales pour leur exécution.",
+          "model_comparison": "Comparez les modèles avec des filtres plus clairs, des informations de paramètres actualisées et la devise que vous avez configurée."
+        },
+        "fixes": {
+          "skill_startup": "Les compétences attribuées restent disponibles lorsque plusieurs requêtes du catalogue arrivent au démarrage.",
+          "dimensions_auth": "Les recherches Dimensions authentifient la clé API configurée avant de demander les résultats."
+        }
       }
     }
   },

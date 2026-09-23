@@ -6617,6 +6617,23 @@
         "fixes": {
           "autosave_metadata": "Canviar el títol o el favorit d’una pàgina ja no sobreescriu el text desat automàticament fa un moment."
         }
+      },
+      "v3_1_0": {
+        "highlights": {
+          "shared_assistant": "El xat, les accions de l’aplicació i les tasques programades utilitzen un assistent compartit amb les seves habilitats, instruccions i política de models.",
+          "learning_memory": "Converteix converses en habilitats revisades i reutilitzables, i gestiona memòries amb un àmbit definit, cerca, edició, activació i caducitat.",
+          "contextual_reading": "Processa fonts amb una lectura contextual que conserva l’estructura i les referències, revisa el document en conjunt i permet reprendre el treball interromput."
+        },
+        "improvements": {
+          "task_models": "Tria un model fix, models alternatius permesos o la selecció automàtica segons la tasca per a cada assistent.",
+          "activity": "Consulta l’activitat d’IA, els detalls d’execució i el progrés en un mateix lloc, amb cancel·lació i represa quan l’operació ho admet.",
+          "skill_translation": "Tradueix les instruccions de les habilitats quan ho necessitis per llegir-les, mantenint les instruccions originals intactes per executar-les.",
+          "model_comparison": "Compara models amb filtres més clars, informació de paràmetres actualitzada i la moneda que tens configurada."
+        },
+        "fixes": {
+          "skill_startup": "Les habilitats assignades continuen disponibles quan arriben diverses peticions del catàleg durant l’inici.",
+          "dimensions_auth": "Les cerques a Dimensions autentiquen la clau d’API configurada abans de demanar els resultats."
+        }
       }
     }
   },
