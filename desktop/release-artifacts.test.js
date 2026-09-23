@@ -89,12 +89,20 @@ async function fixture(t, { installerUpdateInfo = true, version = VERSION } = {}
       event.packager.info.appInfo = event.packager.appInfo;
       // Explicit fixture owner/repo avoid credential/repository discovery and no
       // publisher is instantiated. Resolve the checked-in provider/channel policy.
-      const publishConfigs = await getPublishConfigs(event.packager, null, arch, false);
+      const targetPolicy = name.endsWith('.deb')
+        ? { publish: { ...BUILDER_CONFIG.deb.publish, owner: 'fixture', repo: 'fixture' } }
+        : null;
+      const publishConfigs = await getPublishConfigs(event.packager, targetPolicy, arch, false);
       tasks.push(...await createUpdateInfoTasks(event, publishConfigs));
     }
     // The emitter belongs to writeUpdateInfoFiles' second argument, not each
     // task; otherwise the real serializer fails with emitArtifactCreated missing.
-    await writeUpdateInfoFiles(tasks.reverse(), { emitArtifactCreated: async () => {} });
+    const emittedChannels = [];
+    await writeUpdateInfoFiles(tasks.reverse(), {
+      emitArtifactCreated: async event => { emittedChannels.push(event.file); },
+    });
+    assert.equal(new Set(emittedChannels).size, emittedChannels.length,
+      `${group} must write each channel once, without competing target policies`);
   }
   return {
     root, input, output,

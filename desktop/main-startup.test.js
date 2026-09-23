@@ -168,6 +168,41 @@ test('ready menu actions work but delayed settings sends stop after backend exit
   assertMenusCannotStart(runtime);
 });
 
+test('New Window becomes visible after load even without a first-paint event', async () => {
+  const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+    platform: 'linux', launchBackend: async () => ({ isRunning: async () => true }),
+  });
+  await runtime.readyCallbacks[0]();
+  runtime.clickMenu('New Window');
+  const newest = runtime.windows[1];
+  const before = runtime.calls.filter(call => call === 'window-shown').length;
+  newest.webContents.emit('did-finish-load');
+  assert.equal(runtime.calls.filter(call => call === 'window-shown').length, before + 1);
+  newest.emit('ready-to-show');
+  newest.webContents.emit('did-finish-load');
+  assert.equal(runtime.calls.filter(call => call === 'window-shown').length, before + 1);
+});
+
+for (const stopped of ['destroyed', 'backend-exited', 'quitting']) {
+  test(`late load cannot show a window when ${stopped}`, async () => {
+    const child = new EventEmitter();
+    const runtime = loadMainRuntime({ initialize: false, bundleExists: true,
+      launchBackend: async options => {
+        options.onSpawn(child);
+        return { process: child, isRunning: async () => true };
+      },
+    });
+    await runtime.readyCallbacks[0]();
+    const window = runtime.windows[0];
+    if (stopped === 'destroyed') window.destroyed = true;
+    else if (stopped === 'backend-exited') child.emit('exit', 1);
+    else runtime.lifecycle.get('before-quit')({ preventDefault() {} });
+    window.webContents.emit('did-finish-load');
+    window.emit('ready-to-show');
+    assert.equal(runtime.calls.includes('window-shown'), false);
+  });
+}
+
 test('quit before Electron readiness cannot start the backend or create a window', async () => {
   const runtime = loadMainRuntime({ initialize: false });
   runtime.lifecycle.get('before-quit')({ preventDefault: () => assert.fail('No child to reap') });
