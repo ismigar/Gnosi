@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import ConfirmModal from '../../../shared/ui/dialogs/ConfirmModal';
 import { sortFieldItems } from '../../../shared/schema/fieldOrdering';
 import { LlmWikiSourceCard } from './LlmWikiSourceCard';
-import { LlmWikiStatus } from './LlmWikiStatus';
 import {
     detectLlmWikiSource,
     normalizeFieldName,
@@ -159,10 +158,6 @@ export function LlmWikiConfig({ onOpenAISettings }: PluginConfigProps = {}) {
                         {t('common.retry', 'Retry')}
                     </button>
                 </div>}
-                <div style={{ borderTop: '1px solid var(--border-primary)', display: 'flex', flexWrap: 'wrap', gap: 10, paddingTop: 12 }}>
-                    <span style={{ alignSelf: 'center', color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{controller.busy ? tp('llm_wiki_saving', 'Saving…') : tp('llm_wiki_autosave', 'Changes save automatically.')}</span>
-                </div>
-                <LlmWikiStatus controller={controller} />
             </div>
             <ConfirmModal
                 isOpen={controller.confirmCreate}

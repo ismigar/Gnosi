@@ -20,6 +20,18 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 
 6. Contrôlez le résultat et ses sources. Enregistrez les conclusions utiles dans une page et distinguez votre interprétation du texte généré.
 
+### Choisir un modèle selon la tâche
+
+Les paramètres de l’assistant proposent trois options :
+
+- **Modèle fixe :** utilise toujours le modèle principal.
+- **Modèles de secours :** conserve le modèle principal et autorise des alternatives en cas d’erreur temporaire ou d’indisponibilité.
+- **Sélection automatique :** choisit un modèle pour chaque demande selon la tâche, les capacités, la disponibilité et le budget.
+
+Activez explicitement les modèles alternatifs autorisés. Ils doivent être activés et compatibles ; un assistant local ne peut utiliser que des alternatives locales. Les instructions, la mémoire et les compétences restent celles du même assistant.
+
+La sélection automatique peut utiliser le sélecteur interne de Gnosi ou **Jev (TypeSafe)**. Pour activer Jev, enregistrez votre clé TypeSafe dans le champ correspondant. Lorsqu’un choix entre modèles est nécessaire, le texte de la demande actuelle est envoyé à TypeSafe ; la mémoire et les sources jointes ne sont pas ajoutées automatiquement. Les requêtes sont comptabilisées dans les dépenses. En l’absence de clé, en cas d’erreur du service ou de décision incertaine, Gnosi utilise sa sélection interne. Les détails de la réponse indiquent le sélecteur utilisé.
+
 ## Résultat attendu {#expected-result}
 
 L’agent répond avec le contexte prévu et indique les capacités disponibles.

@@ -17,6 +17,11 @@ export function MessageDetails({ msg, onJobAction, onFocusComposer }: Props) {
             {msg.llm?.strategy?.mode && <div>{t('chat.agent_model_strategy', 'Strategy: {{strategy}}', {
                 strategy: t(`settings.ai.model_strategy.${msg.llm.strategy.mode}`, msg.llm.strategy.mode),
             })}</div>}
+            {msg.llm?.strategy?.decision?.engine === 'jev' && <div>
+                {t(msg.llm.strategy.decision.status === 'selected'
+                    ? 'settings.ai.model_strategy.decision_selected'
+                    : 'settings.ai.model_strategy.decision_fallback')}
+            </div>}
             {msg.timings && (
                 <>
                     <div>{t('chat.timing_total', 'Server total: {{count}} ms', { count: msg.timings.total_ms ?? 0 })}</div>

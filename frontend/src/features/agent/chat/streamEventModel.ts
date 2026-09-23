@@ -10,7 +10,10 @@ export interface StreamSelectedModel {
   readonly mode: string;
   readonly provider?: string;
   readonly model?: string;
-  readonly strategy?: Readonly<Record<string, unknown>> & { readonly mode?: string };
+  readonly strategy?: Readonly<Record<string, unknown>> & {
+    readonly mode?: string;
+    readonly decision?: { readonly engine?: string; readonly status?: string };
+  };
 }
 export interface ChatStreamState {
   sequence: number;

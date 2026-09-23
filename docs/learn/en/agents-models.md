@@ -20,6 +20,18 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 6. Inspect the result and its sources. Save useful conclusions to a page; keep your own interpretation distinct from generated text.
 
+### Select a model for each task
+
+The assistant settings offer three choices:
+
+- **Fixed model:** always uses the primary model.
+- **Fallback models:** keeps the primary and allows alternatives for temporary errors or when the primary is unavailable.
+- **Automatic selection:** chooses a model for each request based on the task, capabilities, availability and budget.
+
+Explicitly enable the alternative models you want to allow. They must be enabled and compatible; a local assistant can only use local alternatives. Instructions, memory and skills still belong to the same assistant.
+
+Automatic selection can use Gnosi’s internal selector or **Jev (TypeSafe)**. To enable Jev, save your TypeSafe key in the corresponding field. When a choice between models is needed, the current request text is sent to TypeSafe; memory and attached sources are not automatically added. Queries count toward spending. Missing credentials, service errors or uncertain decisions fall back to Gnosi’s internal selection. Response details identify the selector used.
+
 ## Expected result {#expected-result}
 
 The selected agent can respond with the intended context and exposes the capabilities available to it.

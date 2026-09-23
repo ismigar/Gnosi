@@ -120,6 +120,20 @@ def before_model_call() -> None:
     store.reserve_model_call(scope, run_id, _call_limit.get())
 
 
+def reserve_decision_call() -> bool:
+    """Account for an optional selector while reserving one call for the answer."""
+    run_id = _run.get()
+    if not run_id:
+        return True
+    scope = current_scope()
+    revalidate_scope(scope)
+    try:
+        store.reserve_model_call(scope, run_id, max(0, _call_limit.get() - 1))
+    except RuntimeError:
+        return False
+    return True
+
+
 def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
     """Recheck live permission and assignments before every governed action."""
     if not _run.get():
@@ -271,7 +285,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     _tokens[run_id] = cancel_token
     try:
         workflow, selection = await create_agent_workflow(
-            [], None, agent_id=snapshot.agent_id, user_message=request.input[:2000],
+            [], None, agent_id=snapshot.agent_id, user_message=request.input,
             timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
             vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
             prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,

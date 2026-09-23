@@ -9,6 +9,7 @@ from fastapi import HTTPException, Request
 
 from backend.agent.factory import create_agent_workflow, prepare_agent_runtime
 from backend.domains.agent.routes.checkpoints import _ai_runtime_revision
+from backend.services.agent_model_strategy import normalize_model_strategy
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +59,10 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
         vault_path=vault_path,
         active_skill_ids=active_skill_ids,
     )
+    # Availability, quotas and task difficulty can change between turns. A
+    # cached graph would pin the previous turn's adaptive model indefinitely.
+    if normalize_model_strategy(agent_data or {})["mode"] != "pinned":
+        use_cache = False
     if turn_context_refs:
         from backend.agent.agent_context import (
             expand_dashboard_context_refs,

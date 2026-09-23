@@ -20,6 +20,18 @@ Activa la funció d’IA. Un proveïdor al núvol necessita credencials vàlides
 
 6. Inspecciona el resultat i les fonts. Desa les conclusions útils en una pàgina i distingeix la interpretació pròpia del text generat.
 
+### Tria de model segons la tasca
+
+A la configuració de l’assistent pots triar tres opcions:
+
+- **Model fix:** fa servir sempre el model principal.
+- **Alternatives si falla:** conserva el principal i permet alternatives davant errors temporals o si el principal no està disponible.
+- **Selecció automàtica:** tria un model per a cada petició segons la tasca, les capacitats, la disponibilitat i el pressupost.
+
+Activa explícitament els models alternatius que vols permetre. Han d’estar habilitats i ser compatibles; un assistent local només pot fer servir alternatives locals. Les instruccions, la memòria i les habilitats continuen pertanyent al mateix assistent.
+
+En selecció automàtica pots fer servir el selector intern de Gnosi o **Jev (TypeSafe)**. Per activar Jev, desa la clau de TypeSafe al camp corresponent. Quan calgui triar entre models, se li enviarà el text de la petició actual; no s’hi afegeixen automàticament la memòria ni les fonts adjuntes. Les consultes compten en la despesa. Si falta la clau, el servei falla o la decisió és incerta, Gnosi fa la selecció interna. Els detalls de la resposta indiquen quin selector s’ha utilitzat.
+
 ## Resultat esperat {#expected-result}
 
 L’agent seleccionat respon amb el context previst i mostra les capacitats disponibles.

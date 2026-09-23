@@ -1,4 +1,5 @@
 import type { TOptions } from 'i18next';
+import type { AgentModelStrategy } from './agentModelStrategy';
 import type { AppSidebarSettingsProps } from '../AppSidebarSettings';
 import type { IdentityProfileData } from '../identity/IdentityProfile';
 import type { ContextReference } from '../../agent-context/agent-context/agentContextModel';
@@ -26,6 +27,7 @@ export interface SettingsAgent extends Record<string, unknown> {
   enabled?: boolean;
   skill_ids?: string[];
   context_refs?: ContextReference[];
+  model_strategy?: AgentModelStrategy;
 }
 export type AgentDraft = Partial<SettingsAgent>;
 export interface SettingsPreferences extends Record<string, unknown> {
