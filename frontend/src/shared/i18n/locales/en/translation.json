@@ -3149,6 +3149,32 @@
         "other_profile": "Use another profile (advanced)",
         "automation_help": "Runs the skill with {{name}}. The profile is saved with the automation.",
         "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them."
+      },
+      "model_strategy": {
+        "primary": "Primary model",
+        "label": "Model selection",
+        "help": "The same assistant keeps its instructions, memory and tools when switching models.",
+        "pinned": "Always use the primary model",
+        "resilient": "Primary model with alternatives if it fails",
+        "adaptive": "Automatic for each task",
+        "alternatives": "Allowed alternative models",
+        "alternatives_help": "Choose up to {{count}} models. They must support the primary model’s tools and images and share its local or remote scope.",
+        "no_alternatives": "Enable another compatible model in the Models tab to select it here.",
+        "primary_only": "With no alternatives selected, only the primary model will be used.",
+        "engine": "How to choose the model",
+        "engine_help": "Selection respects allowed models, availability and spending limits.",
+        "rules": "Gnosi’s internal selection",
+        "jev": "Jev · TypeSafe AI",
+        "local_only": "With a local primary model, selection stays on this device and Jev is disabled.",
+        "jev_help": "Enabling Jev sends the text of each request that needs a choice between models to TypeSafe AI. Memory and attached sources are not added. If the key is missing, an error occurs or the decision is uncertain, Gnosi uses internal selection. Jev calls count towards spending.",
+        "jev_key": "TypeSafe API key",
+        "jev_key_help": "Stored in this device’s secure credential store. Leave blank to keep the current key.",
+        "jev_connected": "TypeSafe key saved",
+        "jev_connect": "Save key and connect",
+        "jev_connection_error": "Could not connect TypeSafe. Check the key and try again.",
+        "save_error": "Could not save the assistant. Please try again.",
+        "decision_selected": "Model selected with Jev",
+        "decision_fallback": "Gnosi’s internal selection: Jev did not provide a usable decision."
       }
     },
     "footer": {

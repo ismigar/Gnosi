@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
@@ -94,6 +95,7 @@ def _model_strategy_metadata(profile: ProfileSetup, model: ModelSetup) -> dict[s
             "model": profile.agent_data.get("model"),
         },
         "selection_reason": model.strategy.get("selection_reason"),
+        "decision": model.strategy.get("decision"),
         "rejected_models": model.strategy.get("rejected_models") or [],
     }
 
@@ -196,7 +198,8 @@ async def create_agent_workflow(
     )
     if profile is None:
         return None, {}
-    model, failure_metadata = resolve_model(
+    model, failure_metadata = await asyncio.to_thread(
+        resolve_model,
         profile,
         llm_mode=llm_mode,
         llm_provider=llm_provider,

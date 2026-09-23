@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-21
+last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -57,6 +57,8 @@ source_paths:
   - backend/services/turn_idempotency.py
   - backend/services/capability_audit.py
   - backend/services/agent_model_strategy.py
+  - backend/services/agent_model_decisions.py
+  - backend/services/agent_routing_policy.py
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
   - backend/services/agent_capability_contract.py
@@ -263,6 +265,26 @@ autenticación, política o contenido nunca provocan el paso a una alternativa.
 La alternativa seleccionada se indica en los metadatos del mensaje y en el
 comprobante del flujo, de modo que un modelo local no pueda enviar inesperadamente
 contexto privado a un proveedor remoto.
+
+Los perfiles adaptativos pueden definir `decision_engine: jev` manteniendo la
+identidad, memoria y herramientas del asistente. Gnosi filtra el principal y las
+alternativas explícitas por disponibilidad, ventana de contexto, capacidades, cuotas
+y presupuesto antes de que el adaptador las reciba. Los perfiles locales nunca llaman
+a Jev. El adaptador envía solo la petición actual (hasta 12.000 caracteres) y los
+metadatos de candidatos al destino HTTPS fijo de TypeSafe; las credenciales usan el
+almacén seguro existente. Se permite una única consulta limitada, sin redirecciones
+ni reintentos. La distribución validada debe elegir un candidato permitido con
+confianza y probabilidad de al menos 0,75; este umbral es una heurística de selección,
+no una garantía de exactitud. La falta de credenciales, la incertidumbre y los errores
+conservan la selección interna. El uso se añade al registro compartido de gasto, con
+estimaciones conservadoras cuando un tiempo de espera agotado deja la facturación
+incierta. Las operaciones gobernadas reservan una llamada de modelo para la decisión
+y conservan una para la respuesta. Los flujos no fijos se reconstruyen en cada turno
+para que la caché no reutilice la selección de una tarea anterior. La configuración
+expone los tres modos y las credenciales opcionales de TypeSafe; los detalles de la
+respuesta identifican Jev o la selección interna. La cobertura se encuentra en
+`backend/tests/test_agent_model_decisions.py` y
+`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 El cliente MCP por stdio valida los objetos en el límite JSON-RPC, tipa
 explícitamente las peticiones asíncronas pendientes y enruta las herramientas

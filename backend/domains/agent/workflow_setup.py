@@ -41,6 +41,9 @@ from backend.domains.agent.runtime_tools import (
 from backend.domains.agent.workflow_nodes import AgentWorkflowNodes
 from backend.services.agent_model_evaluations import quality_scores
 from backend.services.agent_model_strategy import choose_agent_model
+from backend.services.agent_model_strategy import normalize_model_strategy
+from backend.services.agent_model_decisions import decision_selector
+from backend.services.agent_routing_policy import current_routing_limits
 
 log = logging.getLogger(__name__)
 
@@ -182,6 +185,8 @@ def _select_model_route(
         return provider_name, model_name, strategy
 
     registry = load_registry()
+    configured_strategy = normalize_model_strategy(profile.agent_data)
+    usage, budget = ({}, {}) if configured_strategy["mode"] == "pinned" else current_routing_limits()
     strategy = choose_agent_model(
         user_message,
         profile.agent_data,
@@ -191,6 +196,12 @@ def _select_model_route(
             (profile.providers or {}).get(provider) or {},
         ),
         quality_scores=quality_scores(),
+        usage=usage,
+        budget=budget,
+        selector=decision_selector(
+            configured_strategy["decision_engine"], profile.providers, budget,
+            disconnected=profile.ai_cfg.get("disconnected_providers") or [],
+        ),
     )
     selected_route = strategy["selected"]
     return str(selected_route["provider"]), str(selected_route["model"]), strategy

@@ -15,7 +15,7 @@ function Harness({ editing = false, empty = false, onOpenActivity }: { editing?:
   const [editingAgent, setEditingAgent] = useState<AgentDraft | null>(editing ? principal : null);
   const [agentEditorTarget, setAgentEditorTarget] = useState<HTMLDivElement | null>(null);
   const context = {
-    draft: { ai: { agents: empty ? [] : [principal], active_agent_id: empty ? null : principal.id } },
+    draft: { ai: { agents: empty ? [] : [principal], active_agent_id: empty ? null : principal.id, providers: {} } },
     editingAgent, setEditingAgent, agentEditorTarget, setAgentEditorTarget,
     aiRegistry: [], aiResources: { skills: [], tools: [] },
     t: (key: string) => key, tn: (key: string) => key,

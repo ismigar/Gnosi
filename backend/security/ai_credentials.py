@@ -28,6 +28,7 @@ PROVIDER_CREDENTIAL_KEYS = {
 }
 
 PROVIDER_ENV_KEYS = {
+    "typesafe": "TYPESAFE_API_KEY",
     "groq": "GROQ_API_KEY",
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

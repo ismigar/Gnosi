@@ -19,6 +19,7 @@ type Props = { onOpenActivity?: () => void; onSelectSkill?: (id: string) => void
 export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t, tn } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
+  const jevProvider = draft.ai.providers.typesafe as { has_api_key?: boolean; enabled?: boolean } | undefined;
   const [showProfiles, setShowProfiles] = useState(false);
   const expanded = showProfiles || Boolean(editingAgent && editingAgent.id !== principal?.id);
   return (<Section
@@ -29,16 +30,18 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
     </button>}
   >
     <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>{t('settings.ai.assistant.help')}</p>
-    {!principal && <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => { setAgentEditorTarget(null); setEditingAgent(current => current ? null : {}); }}>
-      {editingAgent ? <X size={16} /> : <Plus size={16} />}
-      {editingAgent ? t('common.cancel') : t('settings.ai.assistant.setup')}
-    </button>}
-    {principal && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
+    {!principal && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBlock: '16px' }}>
+      <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => { setAgentEditorTarget(null); setEditingAgent(current => current ? null : {}); }}>
+        {editingAgent ? <X size={16} /> : <Plus size={16} />}
+        {editingAgent ? t('common.cancel') : t('settings.ai.assistant.setup')}
+      </button>
+    </div>}
+    {principal && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
     </button>}
     {principal && expanded && <div className="ai-resources-panel">
       <p>{t('settings.ai.assistant.profiles_help')}</p>
-      {principal && (!editingAgent || editingAgent.id) && <div>
+      {(!editingAgent || editingAgent.id) && <div>
         <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
           setAgentEditorTarget(null);
           setEditingAgent({});
@@ -96,6 +99,11 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
             aiRegistry={aiRegistry}
             skills={aiResources.skills}
             tools={aiResources.tools}
+            jevConnected={jevProvider?.has_api_key === true && jevProvider.enabled !== false}
+            onConnectJev={() => { setDraft(prev => ({ ...prev, ai: { ...prev.ai, providers: {
+              ...prev.ai.providers,
+              typesafe: { ...(prev.ai.providers.typesafe as Record<string, unknown> | undefined), has_api_key: true, enabled: true },
+            } } })); }}
             onSelectSkill={onSelectSkill}
           />
         </div>

@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1109 | 126122 | 32 |
+| `features` | 1112 | 126321 | 32 |
 | `generated` | 2 | 46949 | 484 |
 | `shared` | 253 | 30715 | 414 |
 
@@ -92,7 +92,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/agent/chat/ChatPanelView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatPanelView.tsx) | 185 | `ChatPanelView` | — |
 | [`frontend/src/features/agent/chat/ChatSessionList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ChatSessionList.tsx) | 55 | `ChatSessionList` | — |
 | [`frontend/src/features/agent/chat/ConfirmationReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/ConfirmationReview.tsx) | 75 | `ConfirmationReview` | — |
-| [`frontend/src/features/agent/chat/MessageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.tsx) | 227 | `MessageDetails` | — |
+| [`frontend/src/features/agent/chat/MessageDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/MessageDetails.tsx) | 232 | `MessageDetails` | — |
 | [`frontend/src/features/agent/chat/agentChatTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/agentChatTypes.ts) | 13 | — | — |
 | [`frontend/src/features/agent/chat/applyChatStreamEvent.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/applyChatStreamEvent.ts) | 52 | `applyChatStreamEvent` | — |
 | [`frontend/src/features/agent/chat/chatComposerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/chatComposerTypes.ts) | 28 | — | — |
@@ -109,13 +109,13 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/agent/chat/confirmationState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/confirmationState.ts) | 69 | `confirmationRequest`, `localizedConfirmationError`, `mergeLiveConfirmationRecords`, `partialConfirmationMessage`, `recoveredConfirmationMessage`, `withConfirmationStatus` | — |
 | [`frontend/src/features/agent/chat/liveConversationModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/liveConversationModel.ts) | 22 | `hydrateChatMessages`, `readLiveChatMessages` | — |
 | [`frontend/src/features/agent/chat/messageActionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/messageActionModel.ts) | 33 | `messageFeedback`, `previousPrompt` | — |
-| [`frontend/src/features/agent/chat/messageDetailsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/messageDetailsModel.ts) | 15 | — | — |
+| [`frontend/src/features/agent/chat/messageDetailsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/messageDetailsModel.ts) | 18 | — | — |
 | [`frontend/src/features/agent/chat/messagePresentation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/messagePresentation.ts) | 56 | `messagePresentation` | — |
 | [`frontend/src/features/agent/chat/recoverChatStream.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/recoverChatStream.ts) | 55 | `recoverChatStream` | — |
 | [`frontend/src/features/agent/chat/sessionControllerTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/sessionControllerTypes.ts) | 32 | — | — |
 | [`frontend/src/features/agent/chat/sessionModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/sessionModel.ts) | 100 | `CHAT_ACTIVE_SESSION_KEY`, `CHAT_PENDING_CHECKPOINT_DELETES_KEY`, `CHAT_SELECTED_AGENT_KEY`, `CHAT_SESSIONS_KEY`, `MAX_STORED_MESSAGES`, `MAX_STORED_MESSAGE_CHARS`, `MAX_STORED_SESSIONS`, `boundedChatSessions`, `createChatSession`, `deriveSessionTitle` | — |
 | [`frontend/src/features/agent/chat/sessionRestore.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/sessionRestore.ts) | 48 | `checkpointIdentities`, `parseStoredSessions`, `restoreChatSessions` | — |
-| [`frontend/src/features/agent/chat/streamEventModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/streamEventModel.ts) | 51 | `createChatStreamState`, `definedTransparency`, `lastTurnResponseIndex` | — |
+| [`frontend/src/features/agent/chat/streamEventModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/streamEventModel.ts) | 54 | `createChatStreamState`, `definedTransparency`, `lastTurnResponseIndex` | — |
 | [`frontend/src/features/agent/chat/streamResponseMessage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/streamResponseMessage.ts) | 67 | `selectedStreamModel`, `streamResponseMessage`, `streamRuntime` | — |
 | [`frontend/src/features/agent/chat/streamSequence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/streamSequence.ts) | 10 | `acceptStreamSequence` | — |
 | [`frontend/src/features/agent/chat/submitChatTurn.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/submitChatTurn.ts) | 121 | `submitChatTurn` | — |
@@ -554,14 +554,15 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/ModelComparisonTable.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonTable.tsx) | 191 | `ModelComparisonTable` | — |
 | [`frontend/src/features/settings/ModelComparisonToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonToolbar.tsx) | 321 | `ModelComparisonToolbar` | — |
 | [`frontend/src/features/settings/aiUsageHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.ts) | 208 | `buildModelProfileMap`, `formatUsageCost`, `formatUsageTokens`, `processAiUsageHistory` | — |
-| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 195 | `AIAgentForm` | — |
+| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 209 | `AIAgentForm` | — |
 | [`frontend/src/features/settings/global-settings/AccountEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountEditor.tsx) | 56 | `AccountEditor` | — |
 | [`frontend/src/features/settings/global-settings/AccountList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountList.tsx) | 171 | `AccountList` | — |
 | [`frontend/src/features/settings/global-settings/AccountProviderChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.tsx) | 85 | `AccountProviderChoices` | — |
 | [`frontend/src/features/settings/global-settings/AccountRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountRow.tsx) | 71 | `AccountRow` | — |
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 184 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx) | 62 | `AgentModelStrategyFields` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 192 | `AgentsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 98 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
@@ -571,6 +572,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
 | [`frontend/src/features/settings/global-settings/GraphPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphPanel.tsx) | 82 | `GraphPanel` | — |
+| [`frontend/src/features/settings/global-settings/JevConnection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/JevConnection.tsx) | 52 | `JevConnection` | — |
 | [`frontend/src/features/settings/global-settings/LanguagePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/LanguagePanel.tsx) | 55 | `LanguagePanel` | — |
 | [`frontend/src/features/settings/global-settings/MailAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/MailAccountForm.tsx) | 199 | `MailAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/ModelBudget.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/ModelBudget.tsx) | 109 | `ModelBudget` | — |
@@ -586,6 +588,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/TranslationPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslationPanel.tsx) | 100 | `TranslationPanel` | — |
 | [`frontend/src/features/settings/global-settings/WorkspacePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/WorkspacePanel.tsx) | 27 | `WorkspacePanel` | — |
 | [`frontend/src/features/settings/global-settings/accountProviders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/accountProviders.ts) | 24 | `accountProviderForEmail`, `isCompleteAccountEmail` | — |
+| [`frontend/src/features/settings/global-settings/agentModelStrategy.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/agentModelStrategy.ts) | 50 | `MAX_ALTERNATIVES`, `compatibleAlternatives`, `isLocalModelProvider`, `modelRouteKey`, `readModelStrategy`, `reconcileModelStrategy` | — |
 | [`frontend/src/features/settings/global-settings/aiOperationsBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.ts) | 56 | `automationResources`, `operationResources` | — |
 | [`frontend/src/features/settings/global-settings/formatting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/formatting.ts) | 17 | `CURRENCIES`, `DATE_FORMATS`, `DECIMAL_SYMBOLS`, `formatCost` | — |
 | [`frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginSettingsNavigation.ts) | 14 | `pluginConfigurationForSettingsTab`, `pluginForSettingsTab` | — |
@@ -595,7 +598,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/global-settings/settingsStorage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsStorage.ts) | 12 | `configurePluginKey`, `mailDarkBodyKey`, `snippetsKey`, `syncErrorsKey`, `themeKey` | — |
 | [`frontend/src/features/settings/global-settings/settingsStyles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsStyles.ts) | 5 | `configurableGap` | — |
 | [`frontend/src/features/settings/global-settings/stateTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/stateTypes.ts) | 5 | — | — |
-| [`frontend/src/features/settings/global-settings/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/types.ts) | 140 | — | — |
+| [`frontend/src/features/settings/global-settings/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/types.ts) | 142 | — | — |
 | [`frontend/src/features/settings/global-settings/useGlobalSettingsController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useGlobalSettingsController.ts) | 39 | `useGlobalSettingsController` | — |
 | [`frontend/src/features/settings/global-settings/usePluginAISettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/usePluginAISettingsNavigation.ts) | 36 | `usePluginAISettingsNavigation` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsAccounts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsAccounts.ts) | 148 | `useSettingsAccounts` | — |

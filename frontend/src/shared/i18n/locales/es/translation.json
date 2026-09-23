@@ -3114,6 +3114,32 @@
         "other_profile": "Usar otro perfil (avanzado)",
         "automation_help": "Ejecutará la habilidad con {{name}}. El perfil se guarda con la automatización.",
         "no_skills": "Asigna habilidades a este asistente en Configuración → IA → Asistente para programarlas."
+      },
+      "model_strategy": {
+        "primary": "Modelo principal",
+        "label": "Selección del modelo",
+        "help": "El mismo asistente conserva las instrucciones, la memoria y las herramientas al cambiar de modelo.",
+        "pinned": "Siempre el modelo principal",
+        "resilient": "Modelo principal con alternativas si falla",
+        "adaptive": "Automático según la tarea",
+        "alternatives": "Modelos alternativos permitidos",
+        "alternatives_help": "Elige hasta {{count}} modelos. Deben ser compatibles con las herramientas e imágenes del principal y compartir su ámbito local o remoto.",
+        "no_alternatives": "Activa otro modelo compatible en la pestaña Modelos para seleccionarlo aquí.",
+        "primary_only": "Sin alternativas seleccionadas, solo se utilizará el modelo principal.",
+        "engine": "Cómo se elige el modelo",
+        "engine_help": "La selección respeta los modelos permitidos, la disponibilidad y los límites de gasto.",
+        "rules": "Selección interna de Gnosi",
+        "jev": "Jev · TypeSafe AI",
+        "local_only": "Con un modelo principal local, la selección se realiza en el dispositivo y Jev queda desactivado.",
+        "jev_help": "Al activar Jev, el texto de cada petición que requiera elegir entre modelos se enviará a TypeSafe AI. No se añaden la memoria ni las fuentes adjuntas. Si falta la clave, hay un error o la decisión es incierta, Gnosi hará la selección interna. Las consultas de Jev se contabilizan en el gasto.",
+        "jev_key": "Clave API de TypeSafe",
+        "jev_key_help": "Se guarda en el almacén seguro del dispositivo. Deja el campo vacío para conservar la clave actual.",
+        "jev_connected": "Clave de TypeSafe guardada",
+        "jev_connect": "Guardar clave y conectar",
+        "jev_connection_error": "No se ha podido conectar TypeSafe. Revisa la clave e inténtalo de nuevo.",
+        "save_error": "No se ha podido guardar el asistente. Inténtalo de nuevo.",
+        "decision_selected": "Modelo seleccionado con Jev",
+        "decision_fallback": "Selección interna de Gnosi: Jev no ha aportado una decisión utilizable."
       }
     },
     "footer": {

@@ -20,6 +20,18 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 6. Inspecciona resultado y fuentes. Guarda conclusiones útiles en una página y distingue tu interpretación del texto generado.
 
+### Elige un modelo según la tarea
+
+La configuración del asistente ofrece tres opciones:
+
+- **Modelo fijo:** utiliza siempre el modelo principal.
+- **Alternativas si falla:** conserva el principal y permite alternativas ante errores temporales o si el principal no está disponible.
+- **Selección automática:** elige un modelo para cada petición según la tarea, las capacidades, la disponibilidad y el presupuesto.
+
+Activa explícitamente los modelos alternativos que quieras permitir. Deben estar habilitados y ser compatibles; un asistente local solo puede usar alternativas locales. Las instrucciones, la memoria y las habilidades siguen perteneciendo al mismo asistente.
+
+La selección automática puede utilizar el selector interno de Gnosi o **Jev (TypeSafe)**. Para activar Jev, guarda la clave de TypeSafe en el campo correspondiente. Cuando haga falta elegir entre modelos, se enviará el texto de la petición actual; no se añaden automáticamente la memoria ni las fuentes adjuntas. Las consultas cuentan en el gasto. Si falta la clave, el servicio falla o la decisión es incierta, Gnosi hace la selección interna. Los detalles de la respuesta indican qué selector se ha utilizado.
+
 ## Resultado esperado {#expected-result}
 
 El agente responde con el contexto previsto y muestra las capacidades disponibles.

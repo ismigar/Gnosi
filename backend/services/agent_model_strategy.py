@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Mapping
 
+from backend.services.agent_model_decisions import DecisionSelector, ModelDecision
+from backend.services.agent_routing_policy import eligible_routes
+
 
 VALID_MODES = {"pinned", "resilient", "adaptive"}
 LOCAL_PROVIDERS = {"ollama", "lmstudio", "local", "llama-cpp", "llamacpp", "llama.cpp", "generic"}
@@ -28,7 +31,8 @@ def normalize_model_strategy(agent: Mapping[str, Any]) -> dict[str, Any]:
         mode = "pinned"
     alternatives = []
     seen = set()
-    for item in raw.get("allowed_models") or []:
+    raw_models = raw.get("allowed_models")
+    for item in raw_models if isinstance(raw_models, list) else []:
         if not isinstance(item, Mapping):
             continue
         provider = str(item.get("provider") or "").strip().lower()
@@ -40,7 +44,9 @@ def normalize_model_strategy(agent: Mapping[str, Any]) -> dict[str, Any]:
         alternatives.append({"provider": provider, "model": model})
         if len(alternatives) >= MAX_ALTERNATIVES:
             break
-    return {"schema_version": 1, "mode": mode, "allowed_models": alternatives}
+    engine = "jev" if raw.get("decision_engine") == "jev" else "rules"
+    return {"schema_version": 1, "mode": mode, "allowed_models": alternatives,
+            "decision_engine": engine}
 
 
 def resolve_model_strategy(
@@ -101,6 +107,8 @@ def validate_model_strategies(
             raise ValueError("Every AI agent must be an object.")
         agent = dict(raw_agent)
         resolved = resolve_model_strategy(agent, rows)
+        if resolved["decision_engine"] == "jev" and is_local_provider(agent.get("provider")):
+            raise ValueError("Jev cannot receive requests from a local-only assistant.")
         if resolved["rejected_models"]:
             identifier = str(agent.get("id") or agent.get("name") or "agent")[:128]
             reasons = ", ".join(sorted({
@@ -113,6 +121,7 @@ def validate_model_strategies(
         agent["model_strategy"] = {
             "schema_version": 1,
             "mode": resolved["mode"],
+            "decision_engine": resolved["decision_engine"],
             "allowed_models": [
                 {"provider": item["provider"], "model": item["model_id"]}
                 for item in resolved["eligible_models"]
@@ -131,16 +140,18 @@ def choose_agent_model(
     usage: Mapping[str, Any] | None = None,
     budget: Mapping[str, Any] | None = None,
     quality_scores: Mapping[str, float] | None = None,
+    selector: DecisionSelector | None = None,
 ) -> dict[str, Any]:
     """Choose a route while keeping the agent's primary model authoritative."""
     from backend.agent.model_router import classify_request, route_model
 
-    resolved = resolve_model_strategy(agent, registry)
+    rows = [dict(row) for row in registry]
+    resolved = resolve_model_strategy(agent, rows)
     primary = resolved["primary"]
     candidates = []
     registry_by_key = {
         route_key(row.get("provider"), row.get("model_id")): dict(row)
-        for row in registry if isinstance(row, Mapping)
+        for row in rows
     }
     primary_row = registry_by_key.get(route_key(primary["provider"], primary["model"]), {
         "provider": primary["provider"], "model_id": primary["model"], "enabled": True,
@@ -159,7 +170,19 @@ def choose_agent_model(
 
     selected = dict(primary)
     reason = "agent_primary_pinned"
-    if resolved["mode"] == "adaptive" and len(candidates) > 1:
+    decision_metadata: dict[str, Any] = {"engine": "rules", "status": "not_needed"}
+    if resolved["mode"] != "pinned":
+        # Tools/vision remain hard requirements even when the cheap model wins.
+        protected = set(primary_row.get("tags") or []) & {"tools", "vision"}
+        candidates = eligible_routes(
+            candidates, is_available=is_available, usage=usage or {}, budget=budget or {},
+            required_tags=protected, context_tokens=max(1, len(message) // 3),
+        )
+        if not candidates:
+            return {**resolved, "selected": {"provider": "", "model": ""},
+                    "selection_reason": "no_eligible_model", "fallback_models": [],
+                    "decision": decision_metadata}
+    if resolved["mode"] == "adaptive":
         decision = route_model(
             message,
             candidates,
@@ -170,6 +193,17 @@ def choose_agent_model(
         if decision.get("provider") and decision.get("model_id"):
             selected = {"provider": decision["provider"], "model": decision["model_id"]}
             reason = str(decision.get("reason") or "adaptive_profile_strategy")
+        selected, decision_metadata = _apply_decision_engine(
+            message, resolved, candidates, selected, selector,
+        )
+        if decision_metadata["status"] == "selected":
+            reason = "decision_jev"
+    elif resolved["mode"] == "resilient":
+        # Never instantiate a disabled, exhausted or over-budget primary.
+        first = next((row for row in candidates if route_key(row["provider"], row["model_id"])
+                      == route_key(primary["provider"], primary["model"])), candidates[0])
+        selected = {"provider": first["provider"], "model": first["model_id"]}
+        reason = "agent_primary_resilient" if selected == primary else "primary_unavailable"
     fallbacks = []
     if resolved["mode"] in {"resilient", "adaptive"}:
         fallbacks = [
@@ -183,4 +217,29 @@ def choose_agent_model(
         "selected": selected,
         "selection_reason": reason,
         "fallback_models": fallbacks,
+        "decision": decision_metadata,
     }
+
+
+def _apply_decision_engine(
+    message: str, strategy: Mapping[str, Any], candidates: list[dict[str, Any]],
+    selected: dict[str, Any], selector: DecisionSelector | None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    engine = strategy["decision_engine"]
+    if engine != "jev" or len(candidates) < 2:
+        return selected, {"engine": "rules", "status": "not_needed"}
+    if is_local_provider(strategy["primary"]["provider"]):
+        return selected, {"engine": engine, "status": "local_only"}
+    try:
+        result = selector(message, candidates) if selector else ModelDecision()
+    except Exception:
+        # Optional adapters cannot prevent an otherwise valid internal route.
+        result = ModelDecision(status="unavailable")
+    metadata = {"engine": engine, "status": result.status, "confidence": result.confidence}
+    if result.status == "selected":
+        row = next((row for row in candidates
+                    if route_key(row["provider"], row["model_id"]) == result.route), None)
+        if row is not None:
+            return {"provider": row["provider"], "model": row["model_id"]}, metadata
+        metadata["status"] = "invalid_response"
+    return selected, metadata

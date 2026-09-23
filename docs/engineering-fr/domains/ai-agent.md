@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-21
+last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -57,6 +57,8 @@ source_paths:
   - backend/services/turn_idempotency.py
   - backend/services/capability_audit.py
   - backend/services/agent_model_strategy.py
+  - backend/services/agent_model_decisions.py
+  - backend/services/agent_routing_policy.py
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
   - backend/services/agent_capability_contract.py
@@ -263,6 +265,27 @@ erreurs d'authentification, de politique et de contenu ne provoquent jamais de
 basculement. Le modèle de repli sélectionné est indiqué dans les métadonnées du
 message et dans le compte rendu du flux, de sorte qu'un modèle local ne puisse
 pas envoyer inopinément du contexte privé à un fournisseur distant.
+
+Les profils adaptatifs peuvent définir `decision_engine: jev` en conservant
+l’identité, la mémoire et les outils de l’assistant. Gnosi filtre le modèle principal
+et les alternatives explicites selon la disponibilité, la fenêtre de contexte, les
+capacités, les quotas et le budget avant de les transmettre à l’adaptateur. Les profils
+locaux n’appellent jamais Jev. L’adaptateur envoie uniquement la demande actuelle
+(jusqu’à 12 000 caractères) et les métadonnées des candidats au point HTTPS fixe de
+TypeSafe ; les identifiants utilisent le stockage sécurisé existant. Une seule requête
+bornée est autorisée, sans redirection ni nouvelle tentative. La distribution validée
+doit choisir un candidat autorisé avec une confiance et une probabilité d’au moins 0,75 ;
+ce seuil est une heuristique de sélection, pas une garantie d’exactitude. En l’absence
+d’identifiants, en cas d’incertitude ou d’erreur, la sélection interne est conservée.
+L’utilisation est ajoutée au registre partagé des dépenses, avec des estimations
+prudentes si un délai dépassé laisse la facturation incertaine. Les opérations gouvernées
+réservent un appel de modèle pour la décision et en conservent un pour la réponse.
+Les flux non fixes sont reconstruits à chaque tour pour éviter de réutiliser une
+sélection antérieure en cache. Les paramètres proposent les trois modes et les
+identifiants TypeSafe facultatifs ; les détails de réponse indiquent Jev ou la
+sélection interne. La couverture se trouve dans
+`backend/tests/test_agent_model_decisions.py` et
+`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 Le client MCP stdio valide les objets aux frontières JSON-RPC, type explicitement
 les requêtes asynchrones en attente et achemine les appels d'outils à travers un

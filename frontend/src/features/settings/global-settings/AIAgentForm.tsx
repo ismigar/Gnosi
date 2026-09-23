@@ -12,8 +12,10 @@ import { useMemo } from 'react';
 import { useModelReliability } from '../AI/modelReliability';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AgentModelStrategyFields } from './AgentModelStrategyFields';
+import { readModelStrategy, reconcileModelStrategy } from './agentModelStrategy';
 
-export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
+export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(agent.name || '');
   const [provider, setProvider] = useState(agent.provider || '');
@@ -31,6 +33,9 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
   const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
   const [selectedSkillIds, setSelectedSkillIds] = useState(agent.skill_ids || []);
   const [savingAgent, setSavingAgent] = useState(false);
+  const [strategy, setStrategy] = useState(() => readModelStrategy(agent.model_strategy));
+  const effectiveStrategy = reconcileModelStrategy(strategy, provider, model, aiRegistry);
+  const [saveError, setSaveError] = useState(false);
 
   // Group registry rows by provider for the <select> optgroups. Rows carry
   // {provider, model_id, ...}; we keep first-seen order of providers.
@@ -86,8 +91,8 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
                             Only enabled registry models are valid agent targets;
                             an agent whose provider/model is no longer in the
                             registry shows blank and must be re-picked. */}
-        <FormGroup label={t('settings.ai.model_specific')}>
-          <select className="gnosi-select" value={selectedKey}
+        <FormGroup label={t('settings.ai.model_strategy.primary')}>
+          <select className="gnosi-select" value={selectedKey} aria-label={t('settings.ai.model_strategy.primary')}
             onChange={e => {
               const [p, m] = e.target.value.split('||');
               setProvider(p || '');
@@ -126,6 +131,10 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
           )}
         </FormGroup>
 
+        <AgentModelStrategyFields strategy={effectiveStrategy} onChange={setStrategy}
+          provider={provider} model={model} registry={aiRegistry}
+          jevConnected={jevConnected} onConnectJev={onConnectJev} />
+
         <FormGroup label={t('settings.ai.instructions_label')}
           description={t('settings.ai.instructions_desc')}>
           <textarea className="gnosi-input" value={persona} onChange={e => { setPersona(e.target.value); }}
@@ -163,10 +172,11 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
       <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           className="btn-gnosi-primary"
-          disabled={!name || !provider || !model || savingAgent}
+          disabled={!name || !grouped.get(provider)?.includes(model) || savingAgent}
           onClick={() => {
             void (async () => {
               setSavingAgent(true);
+              setSaveError(false);
               try {
                 await onSave({
                   ...agent,
@@ -178,7 +188,10 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
                   context,
                   context_refs: contextRefs,
                   skill_ids: selectedSkillIds,
+                  model_strategy: effectiveStrategy,
                 });
+              } catch {
+                setSaveError(true);
               } finally {
                 setSavingAgent(false);
               }
@@ -190,6 +203,7 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
           {agent.id ? t('settings.ai.update_agent') : t('settings.ai.create_agent_action')}
         </button>
       </div>
+      {saveError && <p role="alert">{t('settings.ai.model_strategy.save_error')}</p>}
     </div>
   );
 }

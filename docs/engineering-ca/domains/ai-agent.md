@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-21
+last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -57,6 +57,8 @@ source_paths:
   - backend/services/turn_idempotency.py
   - backend/services/capability_audit.py
   - backend/services/agent_model_strategy.py
+  - backend/services/agent_model_decisions.py
+  - backend/services/agent_routing_policy.py
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
   - backend/services/agent_capability_contract.py
@@ -255,6 +257,25 @@ mai no amplien la llista. Els errors d’autenticació, política i contingut ma
 activen alternatives. L’alternativa seleccionada queda marcada a les metadades
 del missatge i al comprovant del flux, de manera que un model local no pugui
 enviar inesperadament context privat a un proveïdor remot.
+
+Els perfils adaptatius poden definir `decision_engine: jev` mantenint la identitat,
+la memòria i les eines de l’assistent. Gnosi filtra el principal i les alternatives
+explícites per disponibilitat, finestra de context, capacitats, quotes i pressupost
+abans que l’adaptador les rebi. Els perfils locals mai no criden Jev. L’adaptador
+envia només la petició actual (fins a 12.000 caràcters) i les metadades dels candidats
+al punt HTTPS fix de TypeSafe; les credencials fan servir el magatzem segur existent.
+Es permet una única consulta limitada, sense redireccions ni reintents. La distribució
+validada ha de triar un candidat permès amb confiança i probabilitat d’almenys 0,75;
+aquest llindar és una heurística de selecció, no una garantia d’exactitud. Si falten
+credencials, hi ha incertesa o errors, es conserva la selecció interna. L’ús s’afegeix
+al registre compartit de despesa, amb estimacions conservadores quan un temps d’espera
+esgotat deixa la facturació incerta. Les operacions governades reserven una crida de
+model per a la decisió i en conserven una per a la resposta. Els fluxos no fixos es
+reconstrueixen a cada torn perquè la memòria cau no reutilitzi la selecció anterior.
+La configuració mostra els tres modes i les credencials opcionals de TypeSafe;
+els detalls de resposta indiquen Jev o la selecció interna. La cobertura es troba a
+`backend/tests/test_agent_model_decisions.py` i
+`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 El client MCP per stdio valida els objectes JSON-RPC, tipa explícitament les
 peticions asíncrones pendents i encamina eines a través d’una memòria cau que

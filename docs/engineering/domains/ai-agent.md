@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-21
+last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -57,6 +57,8 @@ source_paths:
   - backend/services/turn_idempotency.py
   - backend/services/capability_audit.py
   - backend/services/agent_model_strategy.py
+  - backend/services/agent_model_decisions.py
+  - backend/services/agent_routing_policy.py
   - backend/services/agent_model_evaluations.py
   - backend/services/agent_personal_memory.py
   - backend/services/agent_capability_contract.py
@@ -241,6 +243,25 @@ same local/remote locality; credentials and catalog defaults never expand the
 allowlist. Authentication, policy, and content errors never cause failover.
 The selected fallback is marked in message metadata and in the stream receipt,
 so a local model cannot unexpectedly send private context to a remote provider.
+
+Adaptive profiles may set `decision_engine: jev` while keeping the same assistant
+identity, memory and tools. Gnosi filters the primary and explicit alternatives
+by availability, context window, capabilities, quotas and budget before the
+optional adapter sees them. Local profiles never call Jev. The adapter sends
+only the current request (at most 12,000 characters) and candidate metadata to
+TypeSafe’s fixed HTTPS endpoint; credentials use the existing secure provider
+store. One bounded request is allowed, with no redirects or retries. Validated
+choice distributions must select an allowed candidate with confidence and
+probability at least 0.75; this threshold is a routing heuristic, not an accuracy
+guarantee. Missing credentials, uncertainty and errors retain the internal
+selection. Usage is added to the shared spend ledger, with conservative estimates
+when a timeout leaves billing uncertain. Governed operations reserve a model
+call for the decision while retaining one for the answer. Non-pinned workflows
+are rebuilt each turn so cached graphs cannot reuse an earlier task’s selection.
+The settings expose all three routing modes and optional TypeSafe credentials;
+chat response details identify Jev selection or internal fallback. Coverage lives
+in `backend/tests/test_agent_model_decisions.py` and
+`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 The stdio MCP client validates JSON-RPC object boundaries, types pending async
 requests explicitly, and routes tools through a cache that refreshes only on a
