@@ -40,3 +40,7 @@ Un modelo puede conversar sin admitir herramientas. Ante errores de autenticaci�
 
 - [Pregunta sobre las fuentes seleccionadas](notebooks.md)
 - [Preguntas frecuentes y recuperación](troubleshooting.md)
+
+## Perfiles de los plugins
+
+Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus acciones. Configuración → IA → Asistente muestra los perfiles de plugins separados de los personales. Puedes editar el único modelo, las instrucciones, las fuentes y las habilidades asignadas. Los perfiles iniciales copian solo el modelo predeterminado actual; las actualizaciones preservan las ediciones. Desactivar un plugin suspende su perfil sin eliminar la configuración. Si falta el modelo o una habilidad necesaria, la acción falla explícitamente sin recurrir al perfil personal. Las acciones independientes nuevas y las habilidades programadas utilizan el perfil del plugin; los trabajos iniciados conservan su instantánea. El perfil elegido manualmente en una conversación sigue gobernando esa conversación.

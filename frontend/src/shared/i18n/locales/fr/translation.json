@@ -1348,9 +1348,9 @@
         "make_principal": "Utiliser par défaut",
         "profile": "Profil de l’assistant",
         "other_profile": "Utiliser un autre profil (avancé)",
-        "automation_help": "Utilise le profil par défaut lors de l’exécution ; actuellement {{name}}. La compétence doit être attribuée à ce profil.",
+        "automation_help": "Cette compétence utilisera le profil {{name}}. Vous pouvez le modifier dans les paramètres de l’assistant.",
         "no_skills": "Attribuez des compétences à cet assistant dans Paramètres → IA → Assistant pour les programmer.",
-        "principal_help": "Le profil par défaut est utilisé pour les nouvelles conversations et les actions de l’application. Changer le profil d’une conversation ne modifie pas les autres.",
+        "principal_help": "Le profil par défaut est utilisé pour les nouvelles conversations. Les plugins utilisent leurs propres profils. Changer le profil d’un chat n’affecte pas les autres conversations.",
         "principal_profile": "Profil par défaut",
         "additional_profile": "Profil supplémentaire",
         "new_profile": "Nouveau profil",
@@ -1363,7 +1363,12 @@
         "delete_profile_message": "Supprimer le profil « {{name}} » et sa configuration ? Les modèles, sources et compétences d’origine seront conservés.",
         "restore_help": "Ce profil est désactivé. Enregistrez sa configuration pour le réactiver.",
         "conversation_profile": "Profil de la conversation",
-        "profile_model": "Modèle du profil"
+        "profile_model": "Modèle du profil",
+        "plugin_profiles": "Profils des plugins",
+        "plugin_profile": "Profil de plugin",
+        "plugin_owner": "Utilisé par : {{name}}",
+        "plugin_suspended": "Plugin désactivé. Votre configuration est conservée.",
+        "plugin_profiles_help": "Chaque plugin utilise son profil pour les actions d’IA. Vous pouvez modifier son modèle, ses instructions, ses sources et ses compétences. Les mises à jour du plugin conservent vos modifications."
       },
       "model_strategy": {
         "primary": "Modèle principal",
@@ -7352,8 +7357,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Agent principal",
-    "configure": "Configurer l’Agent",
+    "principal": "Profil de l’assistant",
+    "configure": "Configurer le profil",
     "skills": {
       "writing": "Rédaction et résumés",
       "podcast": "Synthèse quotidienne et podcast",

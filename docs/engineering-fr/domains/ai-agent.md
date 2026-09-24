@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -749,7 +751,7 @@ gestionnaire exécutable.
 
 ## Configuration de LLM Wiki
 
-Connaissances utilise toujours l’Agent principal. Le paramètre historique `agent_id` est conservé mais ne permet pas de choisir un autre profil d’exécution. La migration versionnée retire le profil géré `llm-wiki` ; les profils personnels et les instructions de Connaissances sont conservés. Les paramètres renvoient au principal et à ses compétences. Chaque exécution planifiée prend le principal actuel ; les exécutions commencées conservent leur instantané.
+Connaissances utilise son profil de plugin. Le paramètre historique `agent_id` est conservé mais ne remplace pas le profil du plugin. L’ancien profil géré `llm-wiki` reste retiré ; le nouveau profil conserve les instructions complémentaires de Connaissances migrées. Les paramètres renvoient au profil du plugin et à ses compétences.
 
 Le menu secondaire Outils du Cerveau se trouve dans l’en-tête de sa table,
 y compris les tables intégrées aux pages. Il propose une vérification
@@ -1246,16 +1248,20 @@ La traduction utilise un bouton compact aligné à droite. Les limites de requê
 
 ## Exécution de l’Agent principal
 
-L’IA fonctionnelle passe par l’exécuteur partagé de l’Agent principal. Boutons, chat et programmations utilisent les compétences attribuées, la politique de modèles du principal, une mémoire délimitée et un registre commun de consommation. Les opérations structurées autorisent une seule réparation de format dans le même budget. Les phases longues conservent un instantané du profil et réutilisent les points de reprise terminés.
+L’IA fonctionnelle utilise un exécuteur partagé avec des profils explicites. Les boutons et programmations des plugins résolvent le profil du plugin ; les conversations utilisent le profil choisi. Les compétences, la mémoire délimitée, le suivi de consommation, la réparation de format bornée et les points de reprise restent partagés.
 
 L’Activité présente les identifiants d’exécution, l’annulation et les reprises compatibles. La migration versionnée sauvegarde la configuration, retire uniquement le profil Brain géré, préserve les profils personnels et déplace les instructions de Connaissances vers une compétence complémentaire. Les anciennes URL et celles de Connaissances partagent les mêmes traitements et autorisations ; Notion reste facultatif.
 
 
 ## Profils et conversations
 
-Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations et des actions de l’application, sans modifier les conversations existantes.
+Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations, sans modifier les conversations existantes.
 
 Chaque profil possède un seul LLM. Pour utiliser un autre modèle, choisissez un autre profil ou modifiez son modèle. Il n’y a ni sélection automatique ni modèle de remplacement en cas d’échec. Si un profil est supprimé ou son modèle indisponible, choisissez un autre profil dans le chat. Pour supprimer le profil par défaut, choisissez-en d’abord un autre. Désactivez le plugin IA pour désactiver l’IA.
 
 
-L’identité de l’historique reste dans `agent_id` et `session_id`. Le champ facultatif `profile_id` choisit le profil d’exécution, enregistré par le navigateur comme `profileId` pour chaque conversation. Changer de profil conserve les messages, pièces jointes, reprise du flux et retour arrière dans le même historique. Les arguments de confirmation enregistrés par le serveur conservent le profil original. Les nouvelles conversations et actions planifiées utilisent le profil par défaut actuel. Un profil absent ou désactivé provoque une erreur explicite.
+L’identité de l’historique reste dans `agent_id` et `session_id`. Le champ facultatif `profile_id` choisit le profil d’exécution, enregistré par le navigateur comme `profileId` pour chaque conversation. Changer de profil conserve les messages, pièces jointes, reprise du flux et retour arrière dans le même historique. Les arguments de confirmation enregistrés par le serveur conservent le profil original. Les nouvelles conversations utilisent le profil par défaut actuel ; les compétences planifiées utilisent le profil de leur plugin. Un profil absent ou désactivé provoque une erreur explicite.
+
+## Profils des plugins
+
+Chaque plugin d’IA déclare un profil modifiable et les compétences utilisées par ses actions. Paramètres → IA → Assistant présente les profils des plugins séparément des profils personnels. Vous pouvez modifier le modèle unique, les instructions, les sources et les compétences affectées. Les profils initiaux copient uniquement le modèle par défaut actuel ; les mises à jour préservent les modifications. Désactiver un plugin suspend son profil sans supprimer la configuration. Si le modèle ou une compétence nécessaire manque, l’action échoue explicitement sans utiliser le profil personnel. Les nouvelles actions autonomes et les compétences planifiées utilisent le profil du plugin ; les travaux commencés conservent leur instantané. Le profil choisi manuellement dans une conversation continue de gouverner cette conversation.

@@ -20,7 +20,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
   const [showProfiles, setShowProfiles] = useState(false);
-  const expanded = showProfiles || Boolean(principal && editingAgent && editingAgent.id !== principal.id);
+  const expanded = showProfiles || Boolean(principal && editingAgent && !editingAgent.managed_by && editingAgent.id !== principal.id);
   const editor = editingAgent && (
     <InlineEditorPlacement
       target={editingAgent.id ? agentEditorTarget : null}
@@ -30,11 +30,11 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
         <AIAgentForm
           key={editingAgent.id || 'new-agent'}
           agent={editingAgent}
-          purpose={!principal || editingAgent.id === principal.id ? 'principal' : 'profile'}
+          purpose={!editingAgent.managed_by && (!principal || editingAgent.id === principal.id) ? 'principal' : 'profile'}
           onSave={async (newAgent) => {
             const isNew = !newAgent.id;
             const id = newAgent.id || `agent_${String(Date.now())}`;
-            const agentToSave = { ...newAgent, id, ...(!principal || id === principal.id ? { enabled: true } : {}) };
+            const agentToSave = { ...newAgent, id, enabled: true };
             const previousSkillIds = (
               draft.ai.agents.find(item => item.id === id)?.skill_ids || []
             );
@@ -59,7 +59,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
               ...prev,
               ai: {
                 ...prev.ai,
-                active_agent_id: principalAssistant(prev.ai.agents, prev.ai.active_agent_id)?.id || id,
+                active_agent_id: principalAssistant(prev.ai.agents, prev.ai.active_agent_id)?.id || (newAgent.managed_by ? '' : id),
                 agents: isNew
                   ? [...prev.ai.agents, agentToSave]
                   : prev.ai.agents.map(a => a.id === id ? agentToSave : a)
@@ -108,7 +108,9 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
-            <strong>{t(agent.id === principal?.id ? 'settings.ai.assistant.principal_profile' : 'settings.ai.assistant.additional_profile')}</strong>
+            <strong>{t(agent.managed_by ? 'settings.ai.assistant.plugin_profile' : agent.id === principal?.id ? 'settings.ai.assistant.principal_profile' : 'settings.ai.assistant.additional_profile')}</strong>
+            {agent.managed_by && <p className="settings-desc">{t('settings.ai.assistant.plugin_owner', { name: t(`settings.plugins.catalog.${agent.managed_by.replace(/^(builtin:|plugin:)/, '')}.name`, { defaultValue: agent.managed_by.replace(/^(builtin:|plugin:)/, '') }) })}</p>}
+            {agent.plugin_suspended && <p role="status">{t('settings.ai.assistant.plugin_suspended')}</p>}
             {agent.id === principal?.id && agent.enabled === false && <p role="status">{t('settings.ai.assistant.restore_help')}</p>}
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.model}</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '5px' }}>
@@ -175,8 +177,15 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
     </div>}
     {principal && !editingAgent?.id && editor}
     {expanded && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
-      {draft.ai.agents.filter(agent => agent.id !== principal?.id).map(renderProfile)}
+      {draft.ai.agents.filter(agent => !agent.managed_by && agent.id !== principal?.id).map(renderProfile)}
     </div>}
+    {draft.ai.agents.some(agent => agent.managed_by) && <section aria-label={t('settings.ai.assistant.plugin_profiles')}>
+      <h4>{t('settings.ai.assistant.plugin_profiles')}</h4>
+      <p className="settings-desc">{t('settings.ai.assistant.plugin_profiles_help')}</p>
+      <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
+        {draft.ai.agents.filter(agent => agent.managed_by).map(renderProfile)}
+      </div>
+    </section>}
     {onOpenActivity && <div style={{ marginTop: '24px' }}>
       <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={onOpenActivity}>
         <Clock3 size={16} />{t('activity.open_activity')}

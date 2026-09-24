@@ -3166,9 +3166,9 @@
         "make_principal": "Fes servir per defecte",
         "profile": "Perfil de l’assistent",
         "other_profile": "Utilitza un altre perfil (avançat)",
-        "automation_help": "Farà servir el perfil predeterminat en executar-se; ara és {{name}}. L’habilitat ha d’estar assignada a aquest perfil.",
+        "automation_help": "Aquesta habilitat farà servir el perfil {{name}}. Pots editar-lo a la configuració de l’assistent.",
         "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les.",
-        "principal_help": "El perfil predeterminat s’utilitza en converses noves i en les accions de l’app. Canviar el perfil d’un xat no afecta les altres converses.",
+        "principal_help": "El perfil predeterminat s’utilitza en converses noves. Els plugins fan servir els seus perfils. Canviar el perfil d’un xat no afecta les altres converses.",
         "principal_profile": "Perfil predeterminat",
         "additional_profile": "Perfil addicional",
         "new_profile": "Nou perfil",
@@ -3181,7 +3181,12 @@
         "delete_profile_message": "Vols eliminar el perfil «{{name}}» i la seva configuració? Es conservaran els models, les fonts i les habilitats originals.",
         "restore_help": "Aquest perfil està desactivat. Desa’n la configuració per tornar-lo a activar.",
         "conversation_profile": "Perfil de la conversa",
-        "profile_model": "Model del perfil"
+        "profile_model": "Model del perfil",
+        "plugin_profiles": "Perfils dels plugins",
+        "plugin_profile": "Perfil de plugin",
+        "plugin_owner": "Utilitzat per: {{name}}",
+        "plugin_suspended": "Plugin desactivat. La configuració es conserva.",
+        "plugin_profiles_help": "Cada plugin fa servir el seu perfil per a les accions d’IA. Pots editar-ne el model, les instruccions, les fonts i les habilitats. Les actualitzacions del plugin conserven els teus canvis."
       },
       "model_strategy": {
         "primary": "Model principal",
@@ -7352,8 +7357,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Agent principal",
-    "configure": "Configura l’Agent",
+    "principal": "Perfil de l’assistent",
+    "configure": "Configura el perfil",
     "skills": {
       "writing": "Redacció i resums",
       "podcast": "Resum diari i pòdcast",

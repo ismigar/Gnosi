@@ -88,12 +88,14 @@ def build_generation_prompt(payload: GeneratePayload) -> str:
 
 def _execution_unavailable_detail(error: RuntimeError) -> str:
     code, _, skill = str(error).partition(":")
+    if code == "plugin_profile_unavailable":
+        return "The plugin profile is unavailable or missing its required skill. Check Settings › AI › Plugin profiles."
     if code == "principal_agent_unavailable":
         return "No active principal agent is configured. Check Settings › AI."
     if code == "principal_agent_model_unavailable":
-        return "The principal agent's model is unavailable. Check Settings › AI."
+        return "The selected profile's model is unavailable. Check Settings › AI."
     if code == "agent_skill_unavailable":
-        return f"The principal agent is missing the required skill: {skill}. Check Settings › AI."
+        return f"The selected profile is missing the required skill: {skill}. Check Settings › AI."
     return "No AI provider is available. Check Settings › AI."
 
 

@@ -89,6 +89,8 @@ def _read_editor_document() -> dict[str, object]:
 
 def _read_config_document() -> dict[str, object]:
     """Read and sanitize Settings data in one blocking worker unit."""
+    from backend.services.plugin_ai_contributions import reconcile_plugin_ai_contributions
+    reconcile_plugin_ai_contributions()
     safe_params = _read_ui_parameters()
 
     settings = safe_params.get("settings", {})
@@ -206,7 +208,9 @@ def _validate_llm_wiki_agent(current_ai: object, new_config: dict[str, Any]) -> 
             cast(dict[str, Any], current_ai) if isinstance(current_ai, dict) else {}
         )
         validate_agent_preserved(current_ai_payload, ai_payload)
-    except LlmWikiAgentError as exc:
+        from backend.services.plugin_agent_profiles import validate_preserved
+        validate_preserved(current_ai_payload, ai_payload)
+    except (LlmWikiAgentError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

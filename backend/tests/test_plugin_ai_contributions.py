@@ -108,6 +108,7 @@ def _install_runtime(monkeypatch, tmp_path, state, params):
 def test_reconcile_registers_catalogs_and_preserves_agent_overrides(
     monkeypatch,
     tmp_path,
+    isolated_validation_runtime,
 ):
     state = {
         "disabled": [],
@@ -127,7 +128,7 @@ def test_reconcile_registers_catalogs_and_preserves_agent_overrides(
 
     try:
         result = contributions.reconcile_plugin_ai_contributions()
-        profile = params["ai"]["agents"][0]
+        profile = next(p for p in params["ai"]["agents"] if p["id"] == "plugin.ai-demo.assistant")
         assert result["agents_changed"] is True
         assert profile["id"] == "plugin.ai-demo.assistant"
         assert profile["skill_ids"] == ["plugin.ai-demo.lookup"]
@@ -164,7 +165,7 @@ def test_reconcile_registers_catalogs_and_preserves_agent_overrides(
         assert profile.get("plugin_suspended") is None
 
         persisted = yaml.safe_load(params_path.read_text(encoding="utf-8"))
-        persisted_profile = persisted["ai"]["agents"][0]
+        persisted_profile = next(p for p in persisted["ai"]["agents"] if p["id"] == "plugin.ai-demo.assistant")
         assert persisted_profile["persona"] == "User override"
     finally:
         unregister_plugin_skill_provider("ai-demo")

@@ -1,6 +1,6 @@
 # Configure the assistant and its profiles
 
-The default profile is used for new conversations and application actions. Each conversation can choose another profile without affecting the others.
+The default profile is used for new conversations. Each conversation can choose another profile without affecting the others.
 
 ## Before you begin {#before-you-begin}
 
@@ -22,7 +22,7 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 ### Profiles and conversations
 
-Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations and application actions; it does not change existing chats.
+Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations; it does not change existing chats.
 
 ### One model per profile
 
@@ -40,3 +40,7 @@ A model may chat successfully while lacking tool support. For authentication, ti
 
 - [Ask questions about selected sources](notebooks.md)
 - [Frequently asked questions and recovery](troubleshooting.md)
+
+## Plugin profiles
+
+Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.

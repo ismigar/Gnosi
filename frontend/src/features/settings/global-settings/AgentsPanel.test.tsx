@@ -124,3 +124,19 @@ it('restores a disabled principal through an explicit action', () => {
   expect(savedAi().agents[0]?.enabled).toBe(true);
   expect(host.querySelector('[role="status"]')).toBeNull();
 });
+
+
+it('shows editable plugin profiles without making them the personal default', async () => {
+  const plugin = { id: 'builtin.mail.default', name: 'Mail profile', managed_by: 'builtin:mail', model: 'mail-model' };
+  act(() => { root.render(<Harness profiles={[principal, plugin]} />); });
+  const section = host.querySelector('section[aria-label="settings.ai.assistant.plugin_profiles"]');
+  expect(section?.textContent).toContain('Mail profile');
+  expect(section?.textContent).toContain('settings.ai.assistant.plugin_profile');
+  expect(section?.querySelector('[aria-label^="settings.ai.assistant.delete_profile"]')).toBeNull();
+  act(() => { section?.querySelector<HTMLButtonElement>('[aria-label^="settings.ai.assistant.configure_profile"]')?.click(); });
+  expect(host.querySelector('[data-purpose="profile"]')).not.toBeNull();
+  const save = [...host.querySelectorAll('button')].find(button => button.textContent === 'Save fixture');
+  await act(async () => { save?.click(); await Promise.resolve(); });
+  expect(savedAi().active_agent_id).toBe(principal.id);
+  expect(savedAi().agents.find(agent => agent.id === plugin.id)?.managed_by).toBe('builtin:mail');
+});

@@ -398,7 +398,8 @@ def _reconcile_agents(
     if not isinstance(agents, list):
         raise plugin_system.PluginError("ai.agents must be a list")
     by_id = {str(agent.get("id") or ""): agent for agent in agents if isinstance(agent, dict)}
-    changed = False
+    from backend.services.plugin_agent_profiles import reconcile
+    changed = reconcile(ai, dict(state))
     active_template_ids: set[str] = set()
 
     for plugin_id, manifest in manifests.items():

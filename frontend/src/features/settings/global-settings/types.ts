@@ -25,6 +25,8 @@ export interface SettingsAgent extends Record<string, unknown> {
   persona?: string;
   context?: string;
   enabled?: boolean;
+  managed_by?: string;
+  plugin_suspended?: boolean;
   skill_ids?: string[];
   context_refs?: ContextReference[];
   model_strategy?: AgentModelStrategy;

@@ -16,7 +16,7 @@ export interface ChatAgentProfile {
 
 export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).flatMap((profile) => profile.enabled === false || typeof profile.id !== 'string' ? [] : [{
+  return value.filter(isRecord).flatMap((profile) => profile.enabled === false || profile.plugin_suspended === true || typeof profile.id !== 'string' ? [] : [{
     ...profile, id: profile.id,
     name: typeof profile.name === 'string' ? profile.name : undefined,
     icon: typeof profile.icon === 'string' ? profile.icon : undefined,

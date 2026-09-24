@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -686,7 +688,7 @@ conformitat mai no fan executable un gestor.
 
 ## Configuració de LLM Wiki
 
-Coneixement utilitza sempre l’Agent principal. El paràmetre històric `agent_id` es conserva però no pot seleccionar un altre perfil d’execució. La migració versionada retira el perfil gestionat `llm-wiki`; es preserven els perfils personals i les instruccions de Coneixement. Els ajustos enllacen al principal i a les seves habilitats. Cada execució programada pren el principal vigent, mentre que les iniciades conserven la seva instantània.
+Coneixement utilitza el seu perfil de plugin. El paràmetre històric `agent_id` es conserva però no substitueix el perfil del plugin. L’antic perfil gestionat `llm-wiki` continua retirat; el perfil nou conserva les instruccions complementàries de Coneixement migrades. La configuració enllaça al perfil del plugin i a les seves habilitats.
 
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
@@ -1157,16 +1159,20 @@ L’acció de traducció utilitza un botó compacte alineat a la dreta. Els erro
 
 ## Execució de l’Agent principal
 
-La IA funcional passa per l’executor compartit de l’Agent principal. Botons, xat i programacions utilitzen habilitats assignades, la política de models del principal, memòria delimitada i un registre comú de consum. Les operacions estructurades admeten una única reparació de format dins del mateix pressupost. Les fases llargues conserven una instantània del perfil i reutilitzen els punts de represa completats.
+La IA funcional utilitza un executor compartit amb perfils explícits. Els botons i programacions dels plugins resolen el perfil del plugin; les converses utilitzen el perfil seleccionat. Es mantenen les habilitats, la memòria delimitada, el registre de consum, la reparació de format acotada i els punts de represa.
 
 Activitat mostra identificadors d’execució, cancel·lació i les represes compatibles. La migració versionada copia la configuració, retira només el perfil Brain gestionat, preserva els perfils personals i trasllada les instruccions de Coneixement a una habilitat complementària. Les rutes de Coneixement i les antigues comparteixen implementació i permisos; Notion continua sent opcional.
 
 
 ## Perfils i converses
 
-Crea perfils des de **Perfils addicionals (avançat)**. Al xat, obre el selector del nom de l’assistent i tria el **Perfil de la conversa**. El canvi s’aplica a les peticions següents i conserva l’historial. Cada conversa recorda el seu perfil. **Fes servir per defecte**, a Configuració, estableix el perfil per a converses noves i accions de l’app; no canvia els xats existents.
+Crea perfils des de **Perfils addicionals (avançat)**. Al xat, obre el selector del nom de l’assistent i tria el **Perfil de la conversa**. El canvi s’aplica a les peticions següents i conserva l’historial. Cada conversa recorda el seu perfil. **Fes servir per defecte**, a Configuració, estableix el perfil per a converses noves; no canvia els xats existents.
 
 Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfil o edita el model del perfil. No hi ha selecció automàtica ni models alternatius en cas de fallada. Si el perfil s’elimina o el model no està disponible, tria un altre perfil des del xat. Per eliminar el predeterminat, primer estableix-ne un altre. Per desactivar la IA, desactiva el plugin.
 
 
-La identitat de l’historial es manté a `agent_id` i `session_id`. El camp opcional `profile_id` tria el perfil d’execució, que el navegador desa com a `profileId` per conversa. Canviar de perfil manté els missatges, adjunts, recuperació del flux i retrocés vinculats al mateix historial. Els arguments de confirmació desats pel servidor conserven el perfil original. Les converses noves i accions programades utilitzen el predeterminat actual. Un perfil absent o desactivat produeix un error explícit.
+La identitat de l’historial es manté a `agent_id` i `session_id`. El camp opcional `profile_id` tria el perfil d’execució, que el navegador desa com a `profileId` per conversa. Canviar de perfil manté els missatges, adjunts, recuperació del flux i retrocés vinculats al mateix historial. Els arguments de confirmació desats pel servidor conserven el perfil original. Les converses noves utilitzen el predeterminat actual; les habilitats programades utilitzen el perfil del seu plugin. Un perfil absent o desactivat produeix un error explícit.
+
+## Perfils dels plugins
+
+Cada plugin d’IA declara un perfil editable i les habilitats que utilitzen les seves accions. Configuració → IA → Assistent mostra els perfils dels plugins separats dels personals. Hi pots editar l’únic model, les instruccions, les fonts i les habilitats assignades. Els perfils inicials copien només el model predeterminat actual; les actualitzacions preserven les edicions. Desactivar un plugin suspèn el seu perfil sense eliminar la configuració. Si falta el model o una habilitat necessària, l’acció falla explícitament sense recórrer al perfil personal. Les accions independents noves i les habilitats programades utilitzen el perfil del plugin; els treballs iniciats conserven la seva instantània. El perfil triat manualment en una conversa continua governant aquella conversa.

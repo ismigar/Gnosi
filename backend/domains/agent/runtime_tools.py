@@ -297,7 +297,7 @@ def _select_agent_profile(
     else:
         profile = next((dict(item) for item in ai_cfg.get("agents", [])
                         if isinstance(item, dict) and item.get("id") == agent_id
-                        and item.get("enabled", True) and item.get("managed_by") != "llm-wiki"), None)
+                        and item.get("enabled", True) and not item.get("plugin_suspended") and item.get("managed_by") != "llm-wiki"), None)
     if profile is not None:
         # Legacy routing settings cannot silently change a profile's LLM.
         profile["model_strategy"] = {"schema_version": 1, "mode": "pinned",

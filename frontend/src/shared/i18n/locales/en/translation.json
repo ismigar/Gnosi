@@ -3147,9 +3147,9 @@
         "make_principal": "Use as default",
         "profile": "Assistant profile",
         "other_profile": "Use another profile (advanced)",
-        "automation_help": "Uses the default profile when it runs; currently {{name}}. The skill must be assigned to that profile.",
+        "automation_help": "This skill will use the {{name}} profile. You can edit it in assistant settings.",
         "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them.",
-        "principal_help": "The default profile is used for new conversations and application actions. Changing a chat profile does not affect other conversations.",
+        "principal_help": "The default profile is used for new conversations. Plugins use their own profiles. Changing a chat profile does not affect other conversations.",
         "principal_profile": "Default profile",
         "additional_profile": "Additional profile",
         "new_profile": "New profile",
@@ -3162,7 +3162,12 @@
         "delete_profile_message": "Delete the profile “{{name}}” and its configuration? The original models, sources and skills will be kept.",
         "restore_help": "This profile is disabled. Save its configuration to enable it again.",
         "conversation_profile": "Conversation profile",
-        "profile_model": "Profile model"
+        "profile_model": "Profile model",
+        "plugin_profiles": "Plugin profiles",
+        "plugin_profile": "Plugin profile",
+        "plugin_owner": "Used by: {{name}}",
+        "plugin_suspended": "Plugin disabled. Your configuration is preserved.",
+        "plugin_profiles_help": "Each plugin uses its own profile for AI actions. You can edit its model, instructions, sources and skills. Plugin updates preserve your changes."
       },
       "model_strategy": {
         "primary": "Primary model",
@@ -7299,8 +7304,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Principal agent",
-    "configure": "Configure the Agent",
+    "principal": "Assistant profile",
+    "configure": "Configure profile",
     "skills": {
       "writing": "Writing and summaries",
       "podcast": "Daily briefing and podcast",

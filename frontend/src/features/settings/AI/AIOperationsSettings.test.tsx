@@ -7,10 +7,10 @@ import { AutomationsSettingsPanel, OperationsHistoryPanel } from './AIOperations
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key: string, values: { count?: unknown } = {}) => (
+        t: (key: string, values: { count?: unknown; name?: string } = {}) => (
             typeof values.count === 'number'
                 ? `${key}:${values.count.toString()}`
-                : key
+                : values.name ? `${key}:${values.name}` : key
         ),
         i18n: { language: 'en', resolvedLanguage: 'en' },
     }),
@@ -60,6 +60,24 @@ afterEach(() => {
         container.remove();
     }
     vi.clearAllMocks();
+});
+
+it.each([false, true])('routes scheduled plugin skills to their own active profile (suspended=%s)', suspended => {
+    const resources = { automations: [], skills: [{ id: 'core.gnosi-inbox-triage', name: 'Mail skill', assignable: true,
+        metadata: { application_operation: 'mail', required_plugins: ['mail'] } }], loading: false,
+        saveAutomation: vi.fn(), deleteAutomation: vi.fn(), runAutomation: vi.fn() };
+    const container = render(<AutomationsSettingsPanel resources={resources} principalAgentId="personal" agents={[
+        { id: 'personal', name: 'Personal', skill_ids: ['core.gnosi-inbox-triage'] },
+        { id: 'builtin.mail.default', name: 'Mail custom', managed_by: 'builtin:mail', plugin_suspended: suspended, skill_ids: ['core.gnosi-inbox-triage'] },
+    ]} />);
+    act(() => { [...container.querySelectorAll('button')].find(button => button.textContent.includes('new_automation'))?.click(); });
+    const option = container.querySelector<HTMLOptionElement>('option[value="core.gnosi-inbox-triage"]');
+    expect(Boolean(option)).toBe(!suspended);
+    if (option?.parentElement instanceof HTMLSelectElement) {
+        const select = option.parentElement;
+        act(() => { select.value = option.value; select.dispatchEvent(new Event('change', { bubbles: true })); });
+        expect(container.textContent).toContain('Mail custom');
+    }
 });
 
 describe('AI governed operations settings', () => {

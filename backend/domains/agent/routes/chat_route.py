@@ -248,7 +248,7 @@ async def chat_endpoint(
         profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
         from backend.services.principal_agent_migration import ensure_migrated
         profiles = ensure_migrated().get("agents", [])
-        if not any(p.get("id") == profile_id and p.get("enabled", True)
+        if not any(p.get("id") == profile_id and p.get("enabled", True) and not p.get("plugin_suspended")
                    and p.get("managed_by") != "llm-wiki" for p in profiles if isinstance(p, dict)):
             raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
         session_id = _validated_identifier(chat_req.session_id, "session_id")

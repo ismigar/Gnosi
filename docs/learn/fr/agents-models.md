@@ -22,7 +22,7 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 
 ### Profils et conversations
 
-Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations et des actions de l’application, sans modifier les conversations existantes.
+Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations, sans modifier les conversations existantes.
 
 ### Un seul modèle par profil
 
@@ -40,3 +40,7 @@ Un modèle peut converser sans prendre en charge les outils. En cas d’erreur d
 
 - [Interroger les sources sélectionnées](notebooks.md)
 - [Questions fréquentes et récupération](troubleshooting.md)
+
+## Profils des plugins
+
+Chaque plugin d’IA déclare un profil modifiable et les compétences utilisées par ses actions. Paramètres → IA → Assistant présente les profils des plugins séparément des profils personnels. Vous pouvez modifier le modèle unique, les instructions, les sources et les compétences affectées. Les profils initiaux copient uniquement le modèle par défaut actuel ; les mises à jour préservent les modifications. Désactiver un plugin suspend son profil sans supprimer la configuration. Si le modèle ou une compétence nécessaire manque, l’action échoue explicitement sans utiliser le profil personnel. Les nouvelles actions autonomes et les compétences planifiées utilisent le profil du plugin ; les travaux commencés conservent leur instantané. Le profil choisi manuellement dans une conversation continue de gouverner cette conversation.
