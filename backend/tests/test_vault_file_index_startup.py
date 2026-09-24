@@ -361,22 +361,41 @@ def test_shutdown_is_bounded_when_filesystem_call_does_not_return(
 
     def stuck_load(_stop_event: threading.Event | None = None) -> bool:
         load_started.set()
-        assert release_load.wait(timeout=1)
+        release_load.wait()
         return False
 
     monkeypatch.setattr(vault_file_index, "_load_from_disk", stuck_load)
 
     vault_file_index.kickoff_file_index_rebuild()
-    assert load_started.wait(timeout=1)
-    started_at = time.monotonic()
+    with vault_file_index._lock:
+        worker = vault_file_index._worker_thread
+        stop_event = vault_file_index._stop_event
+    assert worker is not None
+    join = worker.join
+    join_timeouts: list[float | None] = []
 
-    stopped = vault_file_index.shutdown_file_index(timeout_seconds=0.02)
+    def bounded_join(timeout: float | None = None) -> None:
+        join_timeouts.append(timeout)
+        # Reject an unbounded wait before it can hang the synthetic worker.
+        assert timeout == 0.02
+        join(timeout=timeout)
 
-    assert stopped is False
-    assert time.monotonic() - started_at < 0.2
-    assert vault_file_index.status()["error"] == "shutdown_timeout"
+    try:
+        assert load_started.wait(timeout=5)
+        with monkeypatch.context() as patch:
+            patch.setattr(worker, "join", bounded_join)
+            stopped = vault_file_index.shutdown_file_index(timeout_seconds=0.02)
 
-    release_load.set()
+        assert stopped is False
+        assert join_timeouts == [0.02]
+        assert worker.is_alive()
+        assert stop_event is not None and stop_event.is_set()
+        assert vault_file_index.status()["error"] == "shutdown_timeout"
+    finally:
+        release_load.set()
+        join(timeout=5)
+        assert not worker.is_alive()
+
     assert vault_file_index.shutdown_file_index(timeout_seconds=1) is True
 
 
