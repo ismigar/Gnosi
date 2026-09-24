@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-09-24
 source_paths:
   - backend/domains/reader
   - backend/domains/literature
@@ -12,6 +12,10 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
   - backend/domains/vault/citations/normalizers
+  - backend/domains/vault/citations/cover_metadata.py
+  - backend/domains/vault/citations/metadata_lookup.py
+  - frontend/src/features/vault/dashboard/useSources.ts
+  - frontend/src/shared/resources/pdfCover.ts
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
@@ -28,6 +32,9 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reference_covers.py
+  - frontend/src/features/vault/dashboard/useSources.test.tsx
+  - frontend/src/shared/resources/pdfCover.test.ts
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -82,6 +89,25 @@ Las rutas HTTP, los modelos canónicos y los servicios de revisión sistemática
 están tipados estrictamente. El recuento PRISMA, las transiciones de cribado, la
 evidencia de acceso abierto y las exportaciones CSV/JSON/Markdown/SVG viven en
 el dominio puro `review_logic.py`; las funciones históricas siguen como fachadas.
+
+## Portadas automáticas y plantillas de recursos
+
+La creación desde una fuente carga las plantillas de la tabla antes de comparar
+el tipo Zotero detectado, incluidas sus etiquetas traducidas. La plantilla
+correspondiente aporta contenido y valores iniciales; los metadatos importados
+tienen prioridad, pero se conserva una portada existente de la plantilla. Sin
+coincidencia se usa la plantilla predeterminada. Los registros nuevos no
+heredan los indicadores de plantilla.
+
+La consulta ISBN conserva la portada de la edición de Open Library. Las consultas
+DOI y web usan la imagen declarada por el editor mediante la consulta existente
+de URL públicas. La portada es opcional y no condiciona los metadatos. Si el PDF
+subido no tiene portada propuesta ni de plantilla, el navegador genera un JPEG
+acotado de la primera página y lo guarda en Assets/Covers antes de crear el
+recurso. El PDF original sigue adjunto. Los errores al generar o subir la portada
+no impiden la creación. Las portadas en línea son URL externas; las generadas
+del PDF son archivos locales. El enriquecimiento muestra una vista previa y
+no preselecciona sustituir una portada existente.
 
 ## Responsabilidad
 

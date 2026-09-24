@@ -37,15 +37,16 @@ function isUnknownRecord(value: unknown): value is Record<string, unknown> {
 /** Resolves a stored or imported resource type to its Zotero identifier. */
 export function resolveResourceDocumentType(value?: unknown): string | null {
   if (!value || typeof value !== 'string') return null;
-  const legacyType = LEGACY_ITEM_TYPE_TO_ZOTERO[value];
+  const normalized = value.trim();
+  const legacyType = LEGACY_ITEM_TYPE_TO_ZOTERO[normalized];
   if (legacyType) return legacyType;
-  if (ALL_ITEM_TYPES.includes(value)) return value;
+  if (ALL_ITEM_TYPES.includes(normalized)) return normalized;
   const labelCatalogues: readonly unknown[] = Object.values(
     LABEL_TO_ZOTERO_TYPE,
   );
   for (const labels of labelCatalogues) {
     if (!isUnknownRecord(labels)) continue;
-    const resolvedType = labels[value];
+    const resolvedType = labels[normalized];
     if (typeof resolvedType === 'string' && resolvedType) {
       return resolvedType;
     }

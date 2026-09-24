@@ -49,7 +49,7 @@ interface UseMetadataLookupOptions {
     readonly mode: MetadataLookupMode;
     readonly onApply?: (patch: Record<string, unknown>) => void;
     readonly onClose?: () => void;
-    readonly onCreate?: (metadata: MetadataRecord) => void;
+    readonly onCreate?: (metadata: MetadataRecord, sourceFile?: File) => void;
 }
 
 
@@ -131,7 +131,8 @@ export function useMetadataLookup({
                 }));
                 return;
             }
-            onCreate?.(normalized.suggested, pdfFileRef.current ?? undefined);
+            if (pdfFileRef.current) onCreate?.(normalized.suggested, pdfFileRef.current);
+            else onCreate?.(normalized.suggested);
             onClose?.();
             return;
         }
@@ -154,7 +155,8 @@ export function useMetadataLookup({
         requestRef.current = controller;
         setLoading(true);
         try {
-            populate(await request(controller.signal));
+            const response = await request(controller.signal);
+            if (!controller.signal.aborted) populate(response);
         } catch (error: unknown) {
             if (!controller.signal.aborted) {
                 logError(operation, error);
@@ -182,6 +184,7 @@ export function useMetadataLookup({
             }));
             return;
         }
+        pdfFileRef.current = null;
         await execute(
             'metadata-lookup-search',
             'metadata_lookup.fetch_failed',

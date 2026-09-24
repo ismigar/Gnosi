@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 462 | 99015 |
+| `domains` | 463 | 99134 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **843 modules** and **171672 source lines**.
+Total: **844 modules** and **171791 source lines**.
 
 ## agent
 
@@ -458,6 +458,7 @@ Total: **843 modules** and **171672 source lines**.
 | [`backend/domains/vault/assets/table_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/table_paths.py) | 412 | 2 | 24 | 0 | 12 | Table-scoped asset path and directory lifecycle. |
 | [`backend/domains/vault/citations/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault citations and bibliographic references domain. |
 | [`backend/domains/vault/citations/authors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/authors.py) | 161 | 0 | 5 | 0 | 0 | Author normalization and Recursos-to-CSL mapping. |
+| [`backend/domains/vault/citations/cover_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/cover_metadata.py) | 97 | 1 | 4 | 0 | 4 | Optional page covers from bibliographic providers and publisher metadata. |
 | [`backend/domains/vault/citations/export_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/export_composition.py) | 60 | 1 | 0 | 0 | 1 | Single typed view of the remaining citation-export facade seam. |
 | [`backend/domains/vault/citations/export_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/export_contracts.py) | 39 | 4 | 0 | 0 | 0 | Lossless records consumed by citation export's legacy composition seam. |
 | [`backend/domains/vault/citations/export_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/export_routes.py) | 620 | 0 | 47 | 1 | 17 | Typed Vault domain extracted from the historical route facade. |
@@ -466,8 +467,8 @@ Total: **843 modules** and **171672 source lines**.
 | [`backend/domains/vault/citations/io_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/io_api.py) | 454 | 8 | 5 | 1 | 2 | Bibliographic import/export and CSL catalog HTTP adapters. |
 | [`backend/domains/vault/citations/keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys.py) | 198 | 0 | 8 | 0 | 0 | Deterministic Better BibTeX-style citation keys. |
 | [`backend/domains/vault/citations/keys_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys_api.py) | 57 | 2 | 1 | 0 | 1 | Citation-key generation HTTP adapter. |
-| [`backend/domains/vault/citations/lookup_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/lookup_routes.py) | 780 | 4 | 33 | 6 | 26 | Typed Vault domain extracted from the historical route facade. |
-| [`backend/domains/vault/citations/metadata_lookup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/metadata_lookup.py) | 211 | 2 | 9 | 6 | 3 | Read-only metadata resolution for external reference identifiers. |
+| [`backend/domains/vault/citations/lookup_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/lookup_routes.py) | 787 | 4 | 33 | 6 | 26 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/citations/metadata_lookup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/metadata_lookup.py) | 226 | 2 | 9 | 6 | 3 | Read-only metadata resolution for external reference identifiers. |
 | [`backend/domains/vault/citations/normalizers/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/normalizers/__init__.py) | 39 | 0 | 0 | 0 | 0 | Typed normalizers from external citation payloads to Zotero items. |
 | [`backend/domains/vault/citations/normalizers/arxiv.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/normalizers/arxiv.py) | 64 | 0 | 3 | 0 | 1 | arXiv Atom payload normalization. |
 | [`backend/domains/vault/citations/normalizers/crossref.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/normalizers/crossref.py) | 112 | 0 | 5 | 0 | 1 | Crossref payload normalization. |

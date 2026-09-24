@@ -172,4 +172,39 @@ describe('MetadataLookupModal', () => {
         expect(onClose).toHaveBeenCalledOnce();
         expect(lookupMetadata).not.toHaveBeenCalled();
     });
+
+    it('forwards the original PDF for attachment and cover creation', async () => {
+        recognizePdf.mockResolvedValue({
+            error: null, identifiers: {}, source: 'pdf',
+            suggested: { Title: 'Uploaded report', 'Item Type': 'report' },
+        });
+        const onCreate = vi.fn();
+        const container = await render(<MetadataLookupModal isOpen mode="create" onCreate={onCreate} />);
+        const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!input) throw new Error('Missing PDF input');
+        const file = new File(['pdf'], 'report.pdf', { type: 'application/pdf' });
+        Object.defineProperty(input, 'files', { value: [file] });
+        await act(async () => {
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            await Promise.resolve();
+        });
+        expect(onCreate).toHaveBeenCalledWith({ Title: 'Uploaded report', 'Item Type': 'report' }, file);
+    });
+
+    it('shows a cover preview and leaves an existing cover unselected', async () => {
+        lookupMetadata.mockResolvedValue({
+            error: null, identifier: '10.1234/cover', source: 'crossref',
+            suggested: { Title: 'Paper', cover: 'https://example.org/proposed.jpg' },
+        });
+        const onApply = vi.fn();
+        const container = await render(<MetadataLookupModal isOpen onApply={onApply}
+            currentMetadata={{ DOI: '10.1234/cover', cover: 'https://example.org/chosen.jpg' }} />);
+        await act(async () => {
+            buttonByText(container, 'Search').click();
+            await Promise.resolve();
+        });
+        expect(container.querySelector('img[src="https://example.org/proposed.jpg"]')).not.toBeNull();
+        act(() => { buttonByText(container, 'Apply selection').click(); });
+        expect(onApply).toHaveBeenCalledWith({ Title: 'Paper' });
+    });
 });

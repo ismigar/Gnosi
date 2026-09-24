@@ -8,6 +8,11 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Literal, TypedDict, cast
 
+from backend.domains.vault.citations.cover_metadata import (
+    add_page_cover,
+    html_cover,
+    openlibrary_cover,
+)
 
 Metadata = dict[str, object]
 LookupSource = Literal["crossref", "arxiv", "pubmed", "openlibrary", "url"]
@@ -74,13 +79,17 @@ async def _lookup_crossref(
     parsed = _json_object(body) if body else None
     work = parsed.get("message") if parsed else None
     if isinstance(work, dict) and work:
+        suggested = _suggested(dependencies.crossref_to_metadata(cast(Metadata, work)), dependencies)
+        resource = work.get("resource")
+        primary = resource.get("primary") if isinstance(resource, dict) else None
+        page_url = primary.get("URL") if isinstance(primary, dict) else None
+        await asyncio.to_thread(
+            add_page_cover, suggested, page_url or work.get("URL"), dependencies.http_get_public,
+        )
         return {
             "source": "crossref",
             "identifier": doi,
-            "suggested": _suggested(
-                dependencies.crossref_to_metadata(cast(Metadata, work)),
-                dependencies,
-            ),
+            "suggested": suggested,
             "error": None,
         }
     return _failure("crossref", doi, "CrossRef returned no valid data")
@@ -96,6 +105,9 @@ async def _lookup_arxiv(
     )
     suggested = _suggested(dependencies.arxiv_to_metadata(body), dependencies) if body else {}
     if suggested:
+        await asyncio.to_thread(
+            add_page_cover, suggested, suggested.get("URL"), dependencies.http_get_public,
+        )
         return {
             "source": "arxiv",
             "identifier": arxiv_id,
@@ -118,13 +130,14 @@ async def _lookup_pubmed(
     result = parsed.get("result") if parsed else None
     document = result.get(pmid) if isinstance(result, dict) else None
     if isinstance(document, dict) and document and not document.get("error"):
+        suggested = _suggested(dependencies.pubmed_to_metadata(cast(Metadata, document)), dependencies)
+        await asyncio.to_thread(
+            add_page_cover, suggested, suggested.get("URL"), dependencies.http_get_public,
+        )
         return {
             "source": "pubmed",
             "identifier": pmid,
-            "suggested": _suggested(
-                dependencies.pubmed_to_metadata(cast(Metadata, document)),
-                dependencies,
-            ),
+            "suggested": suggested,
             "error": None,
         }
     return _failure("pubmed", pmid, "PubMed returned no data")
@@ -141,13 +154,14 @@ async def _lookup_openlibrary(
     parsed = _json_object(body) if body else None
     book = parsed.get(f"ISBN:{isbn}") if parsed else None
     if isinstance(book, dict) and book:
+        suggested = _suggested(dependencies.openlibrary_to_metadata(cast(Metadata, book)), dependencies)
+        cover = openlibrary_cover(book)
+        if cover:
+            suggested.setdefault("cover", cover)
         return {
             "source": "openlibrary",
             "identifier": isbn,
-            "suggested": _suggested(
-                dependencies.openlibrary_to_metadata(cast(Metadata, book)),
-                dependencies,
-            ),
+            "suggested": suggested,
             "error": None,
         }
     return _failure("openlibrary", isbn, "Open Library has no data for this ISBN")
@@ -159,13 +173,14 @@ async def _lookup_url(
 ) -> LookupResponse:
     body = await asyncio.to_thread(dependencies.http_get_public, url)
     if body:
+        suggested = _suggested(dependencies.html_to_metadata(body, url), dependencies)
+        cover = html_cover(body, url)
+        if cover:
+            suggested.setdefault("cover", cover)
         return {
             "source": "url",
             "identifier": url,
-            "suggested": _suggested(
-                dependencies.html_to_metadata(body, url),
-                dependencies,
-            ),
+            "suggested": suggested,
             "error": None,
         }
     return _failure("url", url, "Could not download the page")
