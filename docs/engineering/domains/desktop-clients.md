@@ -547,3 +547,9 @@ PDF annotation composition runs all 57 contracts in each of two isolated import 
 Local pre-PR validation and CI invoke the same `pnpm lint:frontend` entry point. The shared launcher always checks the entire frontend with zero warnings allowed; it adds content-cache options only when `GNOSI_ESLINT_CACHE` is set. Cache paths are passed as literal arguments without a shell, and lint failures remain fatal. The pre-PR parity test still rejects any CI validation missing from the local full plan.
 
 The `3.1.0` candidate packages the shared principal assistant, task-based model selection, scoped memory, reusable learning and contextual source reading. Existing data is preserved through the reviewed migrations. All manifests and `GNOSI_VERSION` match; the regenerated OpenAPI contract changes only its version relative to the prepared source. Both dependency locks remain unchanged. The catalog remains unpublished until source-matched installers pass fresh-install, persistence and upgrade acceptance on all four targets.
+## Release update notice
+
+The desktop update notice periodically checks for newly published releases.
+When an update has been downloaded, the macOS installer action can be retried
+from the notice if the first installation attempt fails. Background checks and
+the renderer action are intentionally guarded so they do not run concurrently.
