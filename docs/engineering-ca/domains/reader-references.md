@@ -110,6 +110,12 @@ de portada no impedeixen crear el recurs. Les portades en línia són URL
 externes; les generades del PDF són fitxers locals. L'enriquiment mostra una
 previsualització i no preselecciona substituir una portada existent.
 
+Un únic avís de progrés es manté visible després de tancar el diàleg de cerca.
+Indica la preparació, la pujada del PDF, la generació de la portada, el desament
+i l’obertura a mesura que comença cada etapa. El mateix avís confirma l’èxit
+quan el registre s’ha obert, o mostra un error si la creació falla. Les
+importacions per identificador mostren només les etapes aplicables.
+
 ## Responsabilitat
 
 Aquest domini combina la lectura de canals i butlletins amb un gestor de
