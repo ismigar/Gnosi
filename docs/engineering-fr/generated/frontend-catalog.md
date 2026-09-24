@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126321 | 32 |
+| `features` | 1112 | 126318 | 32 |
 | `generated` | 2 | 46949 | 484 |
 | `shared` | 253 | 30715 | 414 |
 
@@ -939,7 +939,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/navigation/vaultSidebarTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultSidebarTree.ts) | 181 | `buildVaultSidebarTrees` | — |
 | [`frontend/src/features/vault/navigation/vaultTagTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultTagTree.ts) | 72 | `buildTagTree`, `noteTags`, `tagNoteIcon` | — |
 | [`frontend/src/features/vault/properties/AutoriaField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/AutoriaField.tsx) | 276 | `AutoriaDisplay`, `AutoriaEditor` | — |
-| [`frontend/src/features/vault/properties/FileAttachmentField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileAttachmentField.tsx) | 210 | `FileAttachmentField` | — |
+| [`frontend/src/features/vault/properties/FileAttachmentField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileAttachmentField.tsx) | 207 | `FileAttachmentField` | — |
 | [`frontend/src/features/vault/properties/FileFieldValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/FileFieldValue.tsx) | 194 | `FileFieldValue` | — |
 | [`frontend/src/features/vault/properties/RelationItem.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/RelationItem.tsx) | 82 | `RelationItem` | — |
 | [`frontend/src/features/vault/properties/VaultDateProperty.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/properties/VaultDateProperty.ts) | 4 | — | — |

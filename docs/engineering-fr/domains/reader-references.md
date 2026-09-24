@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-15
 source_paths:
+  - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
   - backend/domains/literature/review_logic.py
@@ -28,6 +29,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - frontend/src/features/vault/properties/FileAttachmentField.test.tsx
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -228,6 +230,14 @@ sa signature publique et injecte les ports de fichiers, CSL et processus.
 Le lecteur Zotero intégré affiche les PDF et EPUB. Gnosi gère le pont qui localise les fichiers, sert des plages d'octets sûres, reçoit les annotations et relie les preuves sélectionnées aux enregistrements du vault. Les annotations contiennent l'URI source, la page, le type, la géométrie, le texte, le commentaire, les étiquettes, une clé gérée stable et les horodatages.
 
 Les endpoints de fichiers vérifient le confinement et gèrent l'hydratation cloud. Les identifiants persistants des annotations empêchent de dupliquer une citation générée à chaque réouverture du document.
+
+Les propriétés de fichier ouvrent les pièces jointes PDF et EPUB dans le lecteur
+interne avec l’action partagée d’ouverture. Les chemins relatifs au vault sont
+convertis en URL de ressources servies ; les liens locaux et les URL externes de
+documents utilisent la même route du lecteur. Si aucun tableau de bord ne traite
+l’événement, la navigation ouvre la page du lecteur. Ouvrir une pièce jointe ne
+modifie pas la valeur enregistrée. Les ressources du lecteur sont compilées avec
+le script existant et restent hors du contrôle de version.
 
 ## Flux et newsletters
 

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { FileText, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import {
   canonicalStorageFolder,
   filenameFromTarget,
   fileTargetKey,
+  openFileResource,
+  toServedAssetUrl,
 } from '../../../shared/resources/fileResource';
 import { InsertContentModal } from '../content/InsertContentModal';
 
@@ -88,6 +91,7 @@ export function FileAttachmentField({
   value,
 }: FileAttachmentFieldProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [error, setError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const isLink = fileMode === 'link';
@@ -134,30 +138,23 @@ export function FileAttachmentField({
     <div className="space-y-1.5">
       {entries.map((entry, index) => {
         const fileName = filenameFromTarget(entry);
-        const isServed = entry.startsWith('/api/') || /^https?:\/\//i.test(entry);
         return (
           <div
             className="flex items-center gap-2 text-xs bg-[var(--bg-secondary)] rounded-lg px-2.5 py-1.5 border border-[var(--border-primary)]"
             key={`${String(index)}-${entry}`}
           >
             <FileText className="text-[var(--gnosi-primary)] shrink-0" size={13} />
-            {isServed ? (
-              <a
-                className="truncate text-[var(--gnosi-primary)] hover:underline flex-1"
-                href={entry}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {fileName}
-              </a>
-            ) : (
-              <span
-                className="truncate text-[var(--text-secondary)] flex-1"
-                title={entry}
-              >
-                {fileName}
-              </span>
-            )}
+            <button
+              className="truncate text-left text-[var(--gnosi-primary)] hover:underline flex-1"
+              onClick={(event) => {
+                event.stopPropagation();
+                openFileResource(toServedAssetUrl(entry) || entry, { navigate, t, title: fileName });
+              }}
+              title={entry}
+              type="button"
+            >
+              {fileName}
+            </button>
             <button
               className="text-[var(--text-tertiary)] hover:text-red-500 transition-colors shrink-0"
               onClick={() => {

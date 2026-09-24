@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-15
 source_paths:
+  - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
   - backend/domains/literature/review_logic.py
@@ -28,6 +29,7 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - frontend/src/features/vault/properties/FileAttachmentField.test.tsx
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -247,6 +249,14 @@ i marques temporals.
 Els endpoints de fitxers validen el confinament i gestionen la hidratació del
 núvol. Els identificadors persistents d'anotació impedeixen duplicar una cita
 generada cada vegada que es reobre el document.
+
+Les propietats de fitxer obren els adjunts PDF i EPUB al lector intern amb
+l’acció compartida d’obertura. Els camins relatius al vault es converteixen en
+URL d’actius servits; els enllaços locals i els URL externs de documents utilitzen
+la mateixa ruta del lector. Si cap tauler gestiona l’esdeveniment d’obertura,
+es navega a la pàgina del lector. Obrir un adjunt no modifica el valor desat de
+la propietat. Els actius del lector es compilen amb l’script existent i no
+s’inclouen al control de versions.
 
 ## Canals i butlletins
 
