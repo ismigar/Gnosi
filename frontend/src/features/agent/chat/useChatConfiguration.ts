@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
 import { principalAssistant } from '../../../shared/ai/assistantProfiles';
@@ -31,23 +31,21 @@ interface Options {
 }
 export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Options) {
   const [agentList, setAgentList] = useState<ChatAgentProfile[]>([]);
+  const [defaultAgentId, setDefaultAgentId] = useState('');
   const loadConfig = useCallback(async () => {
     try {
       const data = await fetchConfiguration();
       const ai = isRecord(data.ai) ? data.ai : {};
-      const principal = principalAssistant(enabledChatAgents(ai.agents), typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
-      // Chat accepts only the current principal, just like application actions.
-      // Saved or previously selected profiles must not produce a rejected turn.
-      setAgentList(principal ? [principal] : []);
-      setSelectedAgentId(principal?.id || '');
+      const profiles = enabledChatAgents(ai.agents).filter(profile => profile.managed_by !== 'llm-wiki');
+      const principal = principalAssistant(profiles, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
+      setAgentList(profiles);
+      setDefaultAgentId(principal?.id || '');
+      // Only initialize an unbound conversation. Existing histories keep their identity.
+      setSelectedAgentId(current => current || principal?.id || '');
     } catch (error) { logChatError('agent-chat-configuration', error); }
   }, [setSelectedAgentId]);
   const onConfigChanged = useCallback(() => { void loadConfig(); }, [loadConfig]);
   useConfigChanged(onConfigChanged);
-  useEffect(() => {
-    const principal = agentList[0];
-    if (principal && principal.id !== selectedAgentId) setSelectedAgentId(principal.id);
-  }, [selectedAgentId, agentList, setSelectedAgentId]);
-  const agentConfig = agentList[0] || null;
-  return { agentConfig, agentList, loadConfig };
+  const agentConfig = agentList.find(profile => profile.id === selectedAgentId) || null;
+  return { agentConfig, agentList, defaultAgentId, loadConfig };
 }

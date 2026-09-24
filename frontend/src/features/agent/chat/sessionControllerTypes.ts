@@ -4,6 +4,7 @@ import type { StoredChatMessage, StoredChatSession } from './sessionModel';
 export interface ChatSessionController {
   readonly browserStorageScope: string;
   readonly defaultSessionTitle: string;
+  readonly defaultAgentId?: string;
   readonly embedded: boolean;
   readonly forcedAgentId: string;
   readonly forcedSessionId: string;

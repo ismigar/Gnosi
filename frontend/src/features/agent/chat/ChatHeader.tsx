@@ -45,11 +45,11 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                         <ChatIcon icon={agentIcon} size={18} />
                     </div>
                     <div>
-                        {embedded || agentList.length < 2 ? (
+                        {agentList.length < 2 && agentList.some(profile => profile.id === selectedAgentId) ? (
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {agentName}
                             </div>
-                        ) : <details><summary>{agentName}</summary><label>{t('settings.ai.assistant.other_profile')}<select
+                        ) : <details><summary>{agentName}</summary><label>{t('settings.ai.assistant.conversation_profile')}<select
                             aria-label={t('settings.ai.assistant.profile')}
                             value={selectedAgentId}
                             onChange={(e) => { setSelectedAgentId(e.target.value); }}
@@ -69,6 +69,7 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                                 cursor: 'pointer'
                             }}
                         >
+                            {!agentList.some(profile => profile.id === selectedAgentId) && <option value={selectedAgentId} disabled>{t('chat.model_not_configured')}</option>}
                             {agentList.map((a) => (
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}

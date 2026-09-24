@@ -193,7 +193,10 @@ def _normalized_scope(scope: Dict[str, Any]) -> Dict[str, str]:
     missing = sorted(key for key in required if not str(scope.get(key) or "").strip())
     if missing:
         raise RuntimeError(f"Missing confirmation scope: {', '.join(missing)}")
-    return {key: str(scope[key]) for key in required}
+    normalized = {key: str(scope[key]) for key in required}
+    if scope.get("profile_id"):
+        normalized["profile_id"] = str(scope["profile_id"])
+    return normalized
 
 
 @contextmanager
@@ -377,6 +380,7 @@ def request_governed_tool_confirmation(
     if not tool_id or not tool_name:
         raise ValueError("A governed confirmation requires a stable tool identity.")
     stored = {
+        "profile_id": scope.get("profile_id") or scope["agent_id"],
         "tool_id": tool_id,
         "tool_name": tool_name,
         "tool_arguments": tool_arguments,

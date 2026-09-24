@@ -1,6 +1,6 @@
 # Configurer l’assistant et ses profils
 
-L’assistant exécute les tâches d’IA de Gnosi. Un profil enregistre sa configuration : modèle, instructions, sources et compétences. Le profil principal est utilisé par le chat, les fonctions d’IA et les automatisations au moment de leur exécution.
+Le profil par défaut est utilisé pour les nouvelles conversations et les actions de l’application. Chaque conversation peut choisir un autre profil sans modifier les autres.
 
 ## Avant de commencer {#before-you-begin}
 
@@ -20,23 +20,13 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 
 6. Contrôlez le résultat et ses sources. Enregistrez les conclusions utiles dans une page et distinguez votre interprétation du texte généré.
 
-### Profils supplémentaires
+### Profils et conversations
 
-Dans **Profils supplémentaires (avancé)**, vous pouvez enregistrer d’autres configurations. **Créer un profil** ne change pas le profil principal. Choisissez **Utiliser comme profil principal** pour appliquer cette configuration ; le profil précédent est conservé. Les automatisations doivent disposer de leur compétence sur le nouveau profil principal.
+Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations et des actions de l’application, sans modifier les conversations existantes.
 
-Vous pouvez supprimer les profils supplémentaires. Pour supprimer le profil principal, choisissez d’abord un autre profil principal. Pour désactiver toute l’IA, désactivez le plugin d’IA dans Plugins.
+### Un seul modèle par profil
 
-### Choisir un modèle selon la tâche
-
-Les paramètres de l’assistant proposent trois options :
-
-- **Modèle fixe :** utilise toujours le modèle principal.
-- **Modèles de secours :** conserve le modèle principal et autorise des alternatives en cas d’erreur temporaire ou d’indisponibilité.
-- **Sélection automatique :** choisit un modèle pour chaque demande selon la tâche, les capacités, la disponibilité et le budget.
-
-Activez explicitement les modèles alternatifs autorisés. Ils doivent être activés et compatibles ; un assistant local ne peut utiliser que des alternatives locales. Les instructions, la mémoire et les compétences restent celles du même assistant.
-
-La sélection automatique peut utiliser le sélecteur interne de Gnosi ou **Jev (TypeSafe)**. Pour activer Jev, enregistrez votre clé TypeSafe dans le champ correspondant. Lorsqu’un choix entre modèles est nécessaire, le texte de la demande actuelle est envoyé à TypeSafe ; la mémoire et les sources jointes ne sont pas ajoutées automatiquement. Les requêtes sont comptabilisées dans les dépenses. En l’absence de clé, en cas d’erreur du service ou de décision incertaine, Gnosi utilise sa sélection interne. Les détails de la réponse indiquent le sélecteur utilisé.
+Chaque profil possède un seul LLM. Pour utiliser un autre modèle, choisissez un autre profil ou modifiez son modèle. Il n’y a ni sélection automatique ni modèle de remplacement en cas d’échec. Si un profil est supprimé ou son modèle indisponible, choisissez un autre profil dans le chat. Pour supprimer le profil par défaut, choisissez-en d’abord un autre. Désactivez le plugin IA pour désactiver l’IA.
 
 ## Résultat attendu {#expected-result}
 

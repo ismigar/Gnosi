@@ -10,8 +10,8 @@ let host: HTMLDivElement;
 let root: Root;
 const profiles = [{ id: 'other', name: 'Saved profile' }, { id: 'principal', name: 'Principal', model: 'model' }];
 
-function Harness() {
-  const [selectedAgentId, setSelectedAgentId] = useState('other');
+function Harness({ initial = 'other' }: { initial?: string }) {
+  const [selectedAgentId, setSelectedAgentId] = useState(initial);
   const { agentConfig, agentList, loadConfig } = useChatConfiguration({ selectedAgentId, setSelectedAgentId });
   useEffect(() => { void loadConfig(); }, [loadConfig]);
   return <>
@@ -31,31 +31,30 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => { root.unmount(); }); vi.unstubAllGlobals(); });
 
-it('uses only the principal even when a saved profile was previously selected', async () => {
+it('keeps a conversation profile when the default changes', async () => {
   vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: profiles, active_agent_id: 'principal' } });
   await act(async () => { root.render(<Harness />); await Promise.resolve(); });
-  expect(current().selectedAgentId).toBe('principal');
-  expect(current().agentList.map(profile => profile.id)).toEqual(['principal']);
-  expect(current().agentConfig?.id).toBe('principal');
-  expect(fetchConfiguration).toHaveBeenCalledOnce();
-});
-
-it('follows a changed principal and clears its stale model when that principal becomes unavailable', async () => {
-  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: profiles, active_agent_id: 'principal' } });
-  await act(async () => { root.render(<Harness />); await Promise.resolve(); });
+  expect(current().selectedAgentId).toBe('other');
+  expect(current().agentList.map(profile => profile.id)).toEqual(['other', 'principal']);
+  expect(current().agentConfig?.id).toBe('other');
   vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: profiles, active_agent_id: 'other' } });
   await act(async () => { host.querySelector('button')?.click(); await Promise.resolve(); });
   expect(current().selectedAgentId).toBe('other');
-  expect(current().agentConfig?.id).toBe('other');
-  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: profiles, active_agent_id: 'missing' } });
-  await act(async () => { host.querySelector('button')?.click(); await Promise.resolve(); });
-  expect(current()).toEqual({ agentConfig: null, agentList: [], selectedAgentId: '' });
 });
-
-it('does not silently replace a disabled explicit principal with a saved profile', async () => {
-  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: {
-    agents: [{ ...profiles[1], enabled: false }, profiles[0]], active_agent_id: 'principal',
-  } });
+it('initializes a new conversation with the default', async () => {
+  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: profiles, active_agent_id: 'principal' } });
+  await act(async () => { root.render(<Harness initial="" />); await Promise.resolve(); });
+  expect(current().selectedAgentId).toBe('principal');
+});
+it('does not silently replace a removed conversation profile', async () => {
+  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: [profiles[1]], active_agent_id: 'principal' } });
   await act(async () => { root.render(<Harness />); await Promise.resolve(); });
-  expect(current()).toEqual({ agentConfig: null, agentList: [], selectedAgentId: '' });
+  expect(current().agentConfig).toBeNull();
+  expect(current().selectedAgentId).toBe('other');
+  expect(current().agentList.map(profile => profile.id)).toEqual(['principal']);
+});
+it('excludes disabled and retired managed profiles', async () => {
+  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: [profiles[0], { id: 'disabled', enabled: false }, { id: 'wiki', managed_by: 'llm-wiki' }] } });
+  await act(async () => { root.render(<Harness />); await Promise.resolve(); });
+  expect(current().agentList.map(profile => profile.id)).toEqual(['other']);
 });

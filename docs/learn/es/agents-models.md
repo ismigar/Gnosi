@@ -1,6 +1,6 @@
 # Configura el asistente y sus perfiles
 
-El asistente ejecuta las tareas de IA de Gnosi. Un perfil guarda su configuración: modelo, instrucciones, fuentes y habilidades. El perfil principal es el que utilizan el chat, las funciones de IA y las automatizaciones cuando se ejecutan.
+El perfil predeterminado se usa en conversaciones nuevas y acciones de la app. Cada conversación puede elegir otro perfil sin afectar a las demás.
 
 ## Antes de empezar {#before-you-begin}
 
@@ -20,23 +20,13 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 6. Inspecciona resultado y fuentes. Guarda conclusiones útiles en una página y distingue tu interpretación del texto generado.
 
-### Perfiles adicionales
+### Perfiles y conversaciones
 
-En **Perfiles adicionales (avanzado)** puedes guardar otras configuraciones. **Crear perfil** no cambia el principal. Pulsa **Usar como principal** para aplicar esa configuración; el perfil anterior se conserva. Las automatizaciones necesitan tener su habilidad asignada al nuevo principal.
+Crea perfiles en **Perfiles adicionales (avanzado)**. En el chat, abre el selector junto al nombre del asistente y elige el **Perfil de la conversación**. El cambio se aplica a las peticiones siguientes y conserva el historial. Cada conversación recuerda su perfil. **Usar por defecto**, en Configuración, establece el perfil para conversaciones nuevas y acciones de la app; no cambia los chats existentes.
 
-Puedes eliminar los perfiles adicionales. Para eliminar el principal, elige primero otro perfil como principal. Si quieres desactivar toda la IA, desactiva el plugin de IA en Plugins.
+### Un único modelo por perfil
 
-### Elige un modelo según la tarea
-
-La configuración del asistente ofrece tres opciones:
-
-- **Modelo fijo:** utiliza siempre el modelo principal.
-- **Alternativas si falla:** conserva el principal y permite alternativas ante errores temporales o si el principal no está disponible.
-- **Selección automática:** elige un modelo para cada petición según la tarea, las capacidades, la disponibilidad y el presupuesto.
-
-Activa explícitamente los modelos alternativos que quieras permitir. Deben estar habilitados y ser compatibles; un asistente local solo puede usar alternativas locales. Las instrucciones, la memoria y las habilidades siguen perteneciendo al mismo asistente.
-
-La selección automática puede utilizar el selector interno de Gnosi o **Jev (TypeSafe)**. Para activar Jev, guarda la clave de TypeSafe en el campo correspondiente. Cuando haga falta elegir entre modelos, se enviará el texto de la petición actual; no se añaden automáticamente la memoria ni las fuentes adjuntas. Las consultas cuentan en el gasto. Si falta la clave, el servicio falla o la decisión es incierta, Gnosi hace la selección interna. Los detalles de la respuesta indican qué selector se ha utilizado.
+Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
 
 ## Resultado esperado {#expected-result}
 

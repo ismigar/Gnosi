@@ -247,35 +247,7 @@ mai no deriven la ubicació d’un Vault ni d’un proveïdor de núvol. Les pro
 injecten aquest mateix resolutor canònic, i les claus de xifratge del flux
 romanen al subdirectori `secrets` del directori de dades local.
 
-La selecció de model en execució pertany al perfil de l’agent. `pinned` només
-usa el proveïdor i model assignats; `resilient` comença amb aquests i només
-permet alternatives davant d’un error transitori; `adaptive` pot triar entre
-el principal i la llista explícita d’alternatives permeses del perfil. Cada
-alternativa ha de ser una entrada habilitada del registre amb la mateixa
-localitat, local o remota; les credencials i els valors per defecte del catàleg
-mai no amplien la llista. Els errors d’autenticació, política i contingut mai no
-activen alternatives. L’alternativa seleccionada queda marcada a les metadades
-del missatge i al comprovant del flux, de manera que un model local no pugui
-enviar inesperadament context privat a un proveïdor remot.
-
-Els perfils adaptatius poden definir `decision_engine: jev` mantenint la identitat,
-la memòria i les eines de l’assistent. Gnosi filtra el principal i les alternatives
-explícites per disponibilitat, finestra de context, capacitats, quotes i pressupost
-abans que l’adaptador les rebi. Els perfils locals mai no criden Jev. L’adaptador
-envia només la petició actual (fins a 12.000 caràcters) i les metadades dels candidats
-al punt HTTPS fix de TypeSafe; les credencials fan servir el magatzem segur existent.
-Es permet una única consulta limitada, sense redireccions ni reintents. La distribució
-validada ha de triar un candidat permès amb confiança i probabilitat d’almenys 0,75;
-aquest llindar és una heurística de selecció, no una garantia d’exactitud. Si falten
-credencials, hi ha incertesa o errors, es conserva la selecció interna. L’ús s’afegeix
-al registre compartit de despesa, amb estimacions conservadores quan un temps d’espera
-esgotat deixa la facturació incerta. Les operacions governades reserven una crida de
-model per a la decisió i en conserven una per a la resposta. Els fluxos no fixos es
-reconstrueixen a cada torn perquè la memòria cau no reutilitzi la selecció anterior.
-La configuració mostra els tres modes i les credencials opcionals de TypeSafe;
-els detalls de resposta indiquen Jev o la selecció interna. La cobertura es troba a
-`backend/tests/test_agent_model_decisions.py` i
-`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
+Els perfils utilitzen `pinned`: només el proveïdor i model configurats. Les opcions antigues `resilient`, `adaptive` i `decision_engine: jev` ja no seleccionen alternatives per als perfils. El formulari desa un únic model sense alternatives. Les utilitats antigues continuen cobertes a `backend/tests/test_agent_model_decisions.py`; l’edició de perfils es comprova a `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 El client MCP per stdio valida els objectes JSON-RPC, tipa explícitament les
 peticions asíncrones pendents i encamina eines a través d’una memòria cau que
@@ -1188,3 +1160,13 @@ L’acció de traducció utilitza un botó compacte alineat a la dreta. Els erro
 La IA funcional passa per l’executor compartit de l’Agent principal. Botons, xat i programacions utilitzen habilitats assignades, la política de models del principal, memòria delimitada i un registre comú de consum. Les operacions estructurades admeten una única reparació de format dins del mateix pressupost. Les fases llargues conserven una instantània del perfil i reutilitzen els punts de represa completats.
 
 Activitat mostra identificadors d’execució, cancel·lació i les represes compatibles. La migració versionada copia la configuració, retira només el perfil Brain gestionat, preserva els perfils personals i trasllada les instruccions de Coneixement a una habilitat complementària. Les rutes de Coneixement i les antigues comparteixen implementació i permisos; Notion continua sent opcional.
+
+
+## Perfils i converses
+
+Crea perfils des de **Perfils addicionals (avançat)**. Al xat, obre el selector del nom de l’assistent i tria el **Perfil de la conversa**. El canvi s’aplica a les peticions següents i conserva l’historial. Cada conversa recorda el seu perfil. **Fes servir per defecte**, a Configuració, estableix el perfil per a converses noves i accions de l’app; no canvia els xats existents.
+
+Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfil o edita el model del perfil. No hi ha selecció automàtica ni models alternatius en cas de fallada. Si el perfil s’elimina o el model no està disponible, tria un altre perfil des del xat. Per eliminar el predeterminat, primer estableix-ne un altre. Per desactivar la IA, desactiva el plugin.
+
+
+La identitat de l’historial es manté a `agent_id` i `session_id`. El camp opcional `profile_id` tria el perfil d’execució, que el navegador desa com a `profileId` per conversa. Canviar de perfil manté els missatges, adjunts, recuperació del flux i retrocés vinculats al mateix historial. Els arguments de confirmació desats pel servidor conserven el perfil original. Les converses noves i accions programades utilitzen el predeterminat actual. Un perfil absent o desactivat produeix un error explícit.

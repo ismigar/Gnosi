@@ -1,6 +1,6 @@
 # Configura l’assistent i els seus perfils
 
-L’assistent executa les tasques d’IA de Gnosi. Un perfil en desa la configuració: model, instruccions, fonts i habilitats. El perfil principal és el que utilitzen el xat, les funcions d’IA i les automatitzacions quan s’executen.
+El perfil predeterminat s’utilitza en converses noves i en accions de l’app. Cada conversa pot triar un altre perfil sense afectar les altres.
 
 ## Abans de començar {#before-you-begin}
 
@@ -20,23 +20,13 @@ Activa la funció d’IA. Un proveïdor al núvol necessita credencials vàlides
 
 6. Inspecciona el resultat i les fonts. Desa les conclusions útils en una pàgina i distingeix la interpretació pròpia del text generat.
 
-### Perfils addicionals
+### Perfils i converses
 
-A **Perfils addicionals (avançat)** pots desar altres configuracions. **Crea un perfil** no canvia el principal. Prem **Utilitza com a principal** per aplicar aquella configuració; el perfil anterior es conserva. Les automatitzacions necessiten tenir la seva habilitat assignada al nou principal.
+Crea perfils des de **Perfils addicionals (avançat)**. Al xat, obre el selector del nom de l’assistent i tria el **Perfil de la conversa**. El canvi s’aplica a les peticions següents i conserva l’historial. Cada conversa recorda el seu perfil. **Fes servir per defecte**, a Configuració, estableix el perfil per a converses noves i accions de l’app; no canvia els xats existents.
 
-Pots eliminar els perfils addicionals. Per eliminar el principal, tria primer un altre perfil com a principal. Si vols desactivar tota la IA, desactiva el plugin d’IA a Plugins.
+### Un únic model per perfil
 
-### Tria de model segons la tasca
-
-A la configuració de l’assistent pots triar tres opcions:
-
-- **Model fix:** fa servir sempre el model principal.
-- **Alternatives si falla:** conserva el principal i permet alternatives davant errors temporals o si el principal no està disponible.
-- **Selecció automàtica:** tria un model per a cada petició segons la tasca, les capacitats, la disponibilitat i el pressupost.
-
-Activa explícitament els models alternatius que vols permetre. Han d’estar habilitats i ser compatibles; un assistent local només pot fer servir alternatives locals. Les instruccions, la memòria i les habilitats continuen pertanyent al mateix assistent.
-
-En selecció automàtica pots fer servir el selector intern de Gnosi o **Jev (TypeSafe)**. Per activar Jev, desa la clau de TypeSafe al camp corresponent. Quan calgui triar entre models, se li enviarà el text de la petició actual; no s’hi afegeixen automàticament la memòria ni les fonts adjuntes. Les consultes compten en la despesa. Si falta la clau, el servei falla o la decisió és incerta, Gnosi fa la selecció interna. Els detalls de la resposta indiquen quin selector s’ha utilitzat.
+Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfil o edita el model del perfil. No hi ha selecció automàtica ni models alternatius en cas de fallada. Si el perfil s’elimina o el model no està disponible, tria un altre perfil des del xat. Per eliminar el predeterminat, primer estableix-ne un altre. Per desactivar la IA, desactiva el plugin.
 
 ## Resultat esperat {#expected-result}
 

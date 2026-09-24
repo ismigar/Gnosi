@@ -1,6 +1,6 @@
 # Configure the assistant and its profiles
 
-The assistant performs Gnosi’s AI tasks. A profile saves its configuration: model, instructions, sources and skills. The principal profile is used by chat, AI features and automations when they run.
+The default profile is used for new conversations and application actions. Each conversation can choose another profile without affecting the others.
 
 ## Before you begin {#before-you-begin}
 
@@ -20,23 +20,13 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 6. Inspect the result and its sources. Save useful conclusions to a page; keep your own interpretation distinct from generated text.
 
-### Additional profiles
+### Profiles and conversations
 
-Under **Additional profiles (advanced)** you can save other configurations. **Create profile** does not change the principal. Choose **Use as principal** to apply that configuration; the previous profile is kept. Automations need their skill assigned to the new principal.
+Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations and application actions; it does not change existing chats.
 
-You can delete additional profiles. To delete the principal, first choose another profile as principal. To turn off all AI, disable the AI plugin in Plugins.
+### One model per profile
 
-### Select a model for each task
-
-The assistant settings offer three choices:
-
-- **Fixed model:** always uses the primary model.
-- **Fallback models:** keeps the primary and allows alternatives for temporary errors or when the primary is unavailable.
-- **Automatic selection:** chooses a model for each request based on the task, capabilities, availability and budget.
-
-Explicitly enable the alternative models you want to allow. They must be enabled and compatible; a local assistant can only use local alternatives. Instructions, memory and skills still belong to the same assistant.
-
-Automatic selection can use Gnosi’s internal selector or **Jev (TypeSafe)**. To enable Jev, save your TypeSafe key in the corresponding field. When a choice between models is needed, the current request text is sent to TypeSafe; memory and attached sources are not automatically added. Queries count toward spending. Missing credentials, service errors or uncertain decisions fall back to Gnosi’s internal selection. Response details identify the selector used.
+Each profile has exactly one LLM. To use another model, choose another profile or edit the profile model. There is no automatic model selection or fallback to alternative models. If a profile is deleted or its model becomes unavailable, choose another profile in chat. To delete the default profile, first set another default. Disable the AI plugin to turn off AI.
 
 ## Expected result {#expected-result}
 

@@ -12,10 +12,8 @@ import { useMemo } from 'react';
 import { useModelReliability } from '../AI/modelReliability';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AgentModelStrategyFields } from './AgentModelStrategyFields';
-import { readModelStrategy, reconcileModelStrategy } from './agentModelStrategy';
 
-export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
+export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
   const { t } = useTranslation();
   const [name, setName] = useState(agent.name || '');
   const [provider, setProvider] = useState(agent.provider || '');
@@ -33,8 +31,6 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
   const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
   const [selectedSkillIds, setSelectedSkillIds] = useState(agent.skill_ids || []);
   const [savingAgent, setSavingAgent] = useState(false);
-  const [strategy, setStrategy] = useState(() => readModelStrategy(agent.model_strategy));
-  const effectiveStrategy = reconcileModelStrategy(strategy, provider, model, aiRegistry);
   const [saveError, setSaveError] = useState(false);
 
   // Group registry rows by provider for the <select> optgroups. Rows carry
@@ -91,8 +87,8 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
                             Only enabled registry models are valid agent targets;
                             an agent whose provider/model is no longer in the
                             registry shows blank and must be re-picked. */}
-        <FormGroup label={t('settings.ai.model_strategy.primary')}>
-          <select className="gnosi-select" value={selectedKey} aria-label={t('settings.ai.model_strategy.primary')}
+        <FormGroup label={t('settings.ai.assistant.profile_model')}>
+          <select className="gnosi-select" value={selectedKey} aria-label={t('settings.ai.assistant.profile_model')}
             onChange={e => {
               const [p, m] = e.target.value.split('||');
               setProvider(p || '');
@@ -131,9 +127,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
           )}
         </FormGroup>
 
-        <AgentModelStrategyFields strategy={effectiveStrategy} onChange={setStrategy}
-          provider={provider} model={model} registry={aiRegistry}
-          jevConnected={jevConnected} onConnectJev={onConnectJev} />
+
 
         <FormGroup label={t('settings.ai.instructions_label')}
           description={t('settings.ai.instructions_desc')}>
@@ -188,7 +182,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
                   context,
                   context_refs: contextRefs,
                   skill_ids: selectedSkillIds,
-                  model_strategy: effectiveStrategy,
+                  model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] },
                 });
               } catch {
                 setSaveError(true);

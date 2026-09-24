@@ -362,7 +362,7 @@ async def _run_scoped_automation(automation_id: str, *, manual: bool = False) ->
     error_code = ""
     try:
         _cfg, agent, runtime = prepare_agent_runtime(
-            row["agent_id"],
+            "",  # Application actions use the current default, not a chat profile.
             vault_path=Path(row["vault_path"]),
             active_skill_ids=[row["skill_id"]],
         )

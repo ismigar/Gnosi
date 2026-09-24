@@ -19,7 +19,6 @@ type Props = { onOpenActivity?: () => void; onSelectSkill?: (id: string) => void
 export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
-  const jevProvider = draft.ai.providers.typesafe as { has_api_key?: boolean; enabled?: boolean } | undefined;
   const [showProfiles, setShowProfiles] = useState(false);
   const expanded = showProfiles || Boolean(principal && editingAgent && editingAgent.id !== principal.id);
   const editor = editingAgent && (
@@ -71,11 +70,6 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
           aiRegistry={aiRegistry}
           skills={aiResources.skills}
           tools={aiResources.tools}
-          jevConnected={jevProvider?.has_api_key === true && jevProvider.enabled !== false}
-          onConnectJev={() => { setDraft(prev => ({ ...prev, ai: { ...prev.ai, providers: {
-            ...prev.ai.providers,
-            typesafe: { ...(prev.ai.providers.typesafe as Record<string, unknown> | undefined), has_api_key: true, enabled: true },
-          } } })); }}
           onSelectSkill={onSelectSkill}
         />
       </div>
