@@ -160,6 +160,26 @@ afterEach(() => {
 
 
 describe('AgentContextSources internal sources', () => {
+    it('adds the vault through Gnosi sources with the existing reference type', async () => {
+        fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
+        const onChange = vi.fn<(references: ContextReference[]) => void>();
+        const container = await render(
+            <AgentContextSources onChange={onChange} value={[]} />,
+        );
+        expect(container.textContent).not.toContain('Entire active vault');
+        await act(async () => {
+            buttonByText(container, 'Gnosi source').click();
+            await Promise.resolve();
+        });
+        act(() => { buttonByText(container, 'Vault').click(); });
+        expect(onChange).not.toHaveBeenCalled();
+        expect(container.textContent).toContain('Specific pages or databases');
+        act(() => { buttonByText(container, 'Entire active vault').click(); });
+        expect(onChange.mock.calls[0]?.[0]?.[0]).toMatchObject({
+            type: 'vault', ref: 'active', label: 'Entire active vault',
+        });
+    });
+
     it('adds a source reference with its server-provided default scope', async () => {
         fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
         const onChange = vi.fn<(references: ContextReference[]) => void>();

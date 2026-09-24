@@ -87,26 +87,6 @@ export function AgentContextPicker({
         <>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 <button
-                    onClick={() => {
-                        togglePicker('table');
-                    }}
-                    style={ADD_BUTTON_STYLE}
-                    type="button"
-                >
-                    <Database size={14} />
-                    {t('settings.ai.context_add_table', 'Database')}
-                </button>
-                <button
-                    onClick={() => {
-                        togglePicker('page');
-                    }}
-                    style={ADD_BUTTON_STYLE}
-                    type="button"
-                >
-                    <FileText size={14} />
-                    {t('settings.ai.context_add_page', 'Page')}
-                </button>
-                <button
                     disabled={uploading}
                     onClick={() => {
                         fileInputRef.current?.click();
@@ -118,20 +98,6 @@ export function AgentContextPicker({
                         ? <Loader2 className="spin" size={14} />
                         : <Paperclip size={14} />}
                     {t('settings.ai.context_add_file', 'File')}
-                </button>
-                <button
-                    onClick={() => {
-                        onAdd(
-                            'vault',
-                            'active',
-                            t('settings.ai.context_whole_vault', 'Whole vault'),
-                        );
-                    }}
-                    style={ADD_BUTTON_STYLE}
-                    type="button"
-                >
-                    <Layers size={14} />
-                    {t('settings.ai.context_add_vault', 'Whole vault')}
                 </button>
                 <button
                     onClick={() => {
@@ -197,7 +163,38 @@ export function AgentContextPicker({
                 </div>
             ) : null}
 
-            {picking ? (
+            {picking === 'vault' || picking === 'page' || picking === 'table' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <button style={ADD_BUTTON_STYLE} type="button" onClick={() => { togglePicker('internal'); }}>
+                        {t('settings.ai.context_back_sources', 'Back to Gnosi sources')}
+                    </button>
+                    <strong>Vault</strong>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                        {t('settings.ai.context_vault_description', 'Pages and databases in the active vault.')}
+                    </span>
+                    <button style={ADD_BUTTON_STYLE} type="button" onClick={() => {
+                        onAdd('vault', 'active', t('settings.ai.context_whole_vault', 'Entire active vault'));
+                    }}>
+                        <Layers size={14} />
+                        {t('settings.ai.context_whole_vault', 'Entire active vault')}
+                    </button>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                        {t('settings.ai.context_vault_specific', 'Specific pages or databases')}
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        <button style={ADD_BUTTON_STYLE} type="button" aria-pressed={picking === 'page'} onClick={() => { togglePicker('page'); }}>
+                            <FileText size={14} />
+                            {t('settings.ai.context_add_page', 'Page')}
+                        </button>
+                        <button style={ADD_BUTTON_STYLE} type="button" aria-pressed={picking === 'table'} onClick={() => { togglePicker('table'); }}>
+                            <Database size={14} />
+                            {t('settings.ai.context_add_table', 'Database')}
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            {picking && picking !== 'vault' ? (
                 <div style={{
                     background: 'var(--settings-bg)',
                     border: '1px solid var(--settings-border)',
@@ -207,6 +204,17 @@ export function AgentContextPicker({
                     gap: '8px',
                     padding: '10px',
                 }}>
+                    {picking === 'internal' && (!query.trim() || 'vault'.includes(query.trim().toLowerCase())) ? (
+                        <button style={ADD_BUTTON_STYLE} type="button" onClick={() => { togglePicker('vault'); }}>
+                            <Layers size={14} />
+                            <span style={{ textAlign: 'left' }}>
+                                <strong>Vault</strong>
+                                <span style={{ display: 'block', fontSize: '0.8rem' }}>
+                                    {t('settings.ai.context_vault_description', 'Pages and databases in the active vault.')}
+                                </span>
+                            </span>
+                        </button>
+                    ) : null}
                     <input
                         autoFocus
                         className="gnosi-input"
@@ -231,7 +239,7 @@ export function AgentContextPicker({
                                 {t('common.loading', 'Loading...')}
                             </span>
                         ) : null}
-                        {visibleOptions?.length === 0 ? (
+                        {visibleOptions?.length === 0 && !(picking === 'internal' && (!query.trim() || 'vault'.includes(query.trim().toLowerCase()))) ? (
                             <span style={{
                                 color: 'var(--text-tertiary)',
                                 fontSize: '0.82rem',
