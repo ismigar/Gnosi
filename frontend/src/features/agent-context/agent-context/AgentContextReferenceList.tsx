@@ -39,7 +39,11 @@ export function AgentContextReferenceList({
                         padding: '6px 10px',
                     }}>
                         <Icon size={14} />
-                        {reference.label}
+                        {reference.type === 'vault'
+                            ? `Vault · ${t('settings.ai.context_whole_vault', 'Entire active vault')}`
+                            : ['page', 'table', 'database'].includes(reference.type)
+                                ? `Vault · ${reference.label}`
+                                : reference.label}
                         {reference.type === 'internal' ? (
                             <button
                                 aria-label={t(
