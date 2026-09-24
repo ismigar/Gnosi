@@ -191,6 +191,38 @@ describe('settings controller persistence contracts', () => {
     expect(snapshot().draft.ai.agents[0]?.protected_extension).toEqual({ keep: true });
   });
 
+  it('deletes only the confirmed additional profile and persists the principal unchanged', async () => {
+    await mount();
+    await advance();
+    const extra = { ...agent, id: 'extra', name: 'Saved profile' };
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [agent, extra] } })); });
+    await advance();
+    requests = [];
+    act(() => { snapshot().handleDeleteAIAgent(extra); });
+    expect(snapshot().confirmConfig.title).toBe('settings.ai.assistant.delete_profile_title');
+    expect(snapshot().draft.ai.agents).toHaveLength(2);
+    await act(async () => { await snapshot().confirmConfig.onConfirm(); });
+    await advance();
+    expect(snapshot().draft.ai.agents).toEqual([agent]);
+    expect(writes().find(request => request.path === '/api/config')?.body).toMatchObject({ ai: {
+      agents: [agent], active_agent_id: agent.id,
+    } });
+  });
+
+  it('protects the principal and managed profiles, including a principal changed during confirmation', async () => {
+    await mount();
+    const extra = { ...agent, id: 'extra' };
+    act(() => { snapshot().handleDeleteAIAgent(agent); });
+    expect(snapshot().confirmConfig.isOpen).toBe(false);
+    act(() => { snapshot().handleDeleteAIAgent({ ...extra, managed_by: 'plugin' }); });
+    expect(snapshot().confirmConfig.isOpen).toBe(false);
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [agent, extra] } })); });
+    act(() => { snapshot().handleDeleteAIAgent(extra); });
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, active_agent_id: extra.id } })); });
+    await act(async () => { await snapshot().confirmConfig.onConfirm(); });
+    expect(snapshot().draft.ai.agents).toEqual([agent, extra]);
+  });
+
   it('redirects the automation plugin configure action to activity without writing', async () => {
     await act(async () => {
       root.render(<Harness isOpen onClose={vi.fn()} initialTab="plugins" showView />);

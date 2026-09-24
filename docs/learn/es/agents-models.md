@@ -1,6 +1,6 @@
-# Configura un agente y un modelo
+# Configura el asistente y sus perfiles
 
-El modelo genera respuestas. El agente combina modelo, instrucciones y habilidades; las herramientas permiten ejecutar acciones concretas.
+El asistente ejecuta las tareas de IA de Gnosi. Un perfil guarda su configuración: modelo, instrucciones, fuentes y habilidades. El perfil principal es el que utilizan el chat, las funciones de IA y las automatizaciones cuando se ejecutan.
 
 ## Antes de empezar {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 1. Abre los ajustes de modelos y proveedores y configura uno compatible o un servicio local. Guarda las credenciales en Configuración y selecciona un modelo disponible.
 
-2. Abre los ajustes de agentes, elige uno o créalo y asígnale el modelo. Selecciona las habilidades necesarias.
+2. Abre Configuración → Plugins → IA → Asistente y pulsa **Configurar asistente**. Elige el modelo, pon nombre al perfil y asígnale las habilidades necesarias.
 
 3. Abre el chat y comprueba agente y modelo. Haz una pregunta corta para verificar la conexión.
 
@@ -19,6 +19,12 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 5. Si quieres que actúe, comprueba que el modelo admite herramientas y que las habilidades necesarias están disponibles. Revisa las peticiones de confirmación antes de aceptarlas.
 
 6. Inspecciona resultado y fuentes. Guarda conclusiones útiles en una página y distingue tu interpretación del texto generado.
+
+### Perfiles adicionales
+
+En **Perfiles adicionales (avanzado)** puedes guardar otras configuraciones. **Crear perfil** no cambia el principal. Pulsa **Usar como principal** para aplicar esa configuración; el perfil anterior se conserva. Las automatizaciones necesitan tener su habilidad asignada al nuevo principal.
+
+Puedes eliminar los perfiles adicionales. Para eliminar el principal, elige primero otro perfil como principal. Si quieres desactivar toda la IA, desactiva el plugin de IA en Plugins.
 
 ### Elige un modelo según la tarea
 

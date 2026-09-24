@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
-import { resolveAgentRuntimeSelection } from '../model/agentChatAgentUtils';
+import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 import { isRecord } from '../model/agentChatMessageTypes';
 import { logChatError } from './chatDiagnostics';
 
@@ -26,33 +26,28 @@ export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
 }
 
 interface Options {
-  readonly forcedAgentId: string;
   readonly selectedAgentId: string;
   readonly setSelectedAgentId: Dispatch<SetStateAction<string>>;
 }
-export function useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId }: Options) {
-  const [loadedAgent, setLoadedAgent] = useState<ChatAgentProfile | null>(null);
+export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Options) {
   const [agentList, setAgentList] = useState<ChatAgentProfile[]>([]);
   const loadConfig = useCallback(async () => {
     try {
       const data = await fetchConfiguration();
       const ai = isRecord(data.ai) ? data.ai : {};
-      const agents = enabledChatAgents(ai.agents);
-      setAgentList(agents);
-      const selection = resolveAgentRuntimeSelection(agents, forcedAgentId, selectedAgentId, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
-      if (selection.agent) setLoadedAgent(selection.agent);
-      if (selection.selectedAgentId) setSelectedAgentId(selection.selectedAgentId);
+      const principal = principalAssistant(enabledChatAgents(ai.agents), typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
+      // Chat accepts only the current principal, just like application actions.
+      // Saved or previously selected profiles must not produce a rejected turn.
+      setAgentList(principal ? [principal] : []);
+      setSelectedAgentId(principal?.id || '');
     } catch (error) { logChatError('agent-chat-configuration', error); }
-  }, [forcedAgentId, selectedAgentId, setSelectedAgentId]);
+  }, [setSelectedAgentId]);
   const onConfigChanged = useCallback(() => { void loadConfig(); }, [loadConfig]);
   useConfigChanged(onConfigChanged);
   useEffect(() => {
-    if (!agentList.length) return;
-    const selection = resolveAgentRuntimeSelection(agentList, forcedAgentId, selectedAgentId, '');
-    if (selection.agent) {
-      if (selection.selectedAgentId !== selectedAgentId) setSelectedAgentId(selection.selectedAgentId);
-    }
-  }, [forcedAgentId, selectedAgentId, agentList, setSelectedAgentId]);
-  const agentConfig = resolveAgentRuntimeSelection(agentList, forcedAgentId, selectedAgentId, '').agent || loadedAgent;
+    const principal = agentList[0];
+    if (principal && principal.id !== selectedAgentId) setSelectedAgentId(principal.id);
+  }, [selectedAgentId, agentList, setSelectedAgentId]);
+  const agentConfig = agentList[0] || null;
   return { agentConfig, agentList, loadConfig };
 }

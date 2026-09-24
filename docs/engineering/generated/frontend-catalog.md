@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126321 | 32 |
+| `features` | 1112 | 126322 | 32 |
 | `generated` | 2 | 46949 | 484 |
-| `shared` | 253 | 30715 | 414 |
+| `shared` | 253 | 30716 | 414 |
 
 ## app
 
@@ -122,7 +122,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/agent/chat/useAgentChatController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useAgentChatController.ts) | 294 | `useAgentChatController` | — |
 | [`frontend/src/features/agent/chat/useAgentConfirmations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useAgentConfirmations.ts) | 50 | `useAgentConfirmations` | — |
 | [`frontend/src/features/agent/chat/useChatAttachments.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatAttachments.ts) | 51 | `useChatAttachments` | — |
-| [`frontend/src/features/agent/chat/useChatConfiguration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatConfiguration.ts) | 58 | `enabledChatAgents`, `useChatConfiguration` | — |
+| [`frontend/src/features/agent/chat/useChatConfiguration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatConfiguration.ts) | 53 | `enabledChatAgents`, `useChatConfiguration` | — |
 | [`frontend/src/features/agent/chat/useChatMentions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatMentions.ts) | 52 | `useChatMentions` | — |
 | [`frontend/src/features/agent/chat/useChatMessageActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatMessageActions.ts) | 72 | `useChatMessageActions` | — |
 | [`frontend/src/features/agent/chat/useChatPanelState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatPanelState.ts) | 27 | `chatPanelReducer`, `useChatPanelState` | — |
@@ -607,7 +607,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 183 | `useSettingsLifecycle` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsLoaders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLoaders.ts) | 92 | `useSettingsLoaders` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsMailEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsMailEffects.ts) | 139 | `useSettingsMailEffects` | — |
-| [`frontend/src/features/settings/global-settings/useSettingsModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.ts) | 140 | `useSettingsModels` | — |
+| [`frontend/src/features/settings/global-settings/useSettingsModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.ts) | 146 | `useSettingsModels` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsPersistence.ts) | 232 | `useSettingsPersistence` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsReader.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsReader.ts) | 218 | `useSettingsReader` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsSnippets.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsSnippets.ts) | 35 | `useSettingsSnippets` | — |
@@ -1206,7 +1206,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 7 | `principalAssistant` | — |
+| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 8 | `principalAssistant` | — |
 | [`frontend/src/shared/api/ApiProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ApiProvider.tsx) | 14 | `ApiProvider` | — |
 | [`frontend/src/shared/api/agent-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/agent-context.ts) | 27 | `fetchExternalContextSources`, `fetchInternalContextSources` | `/api/agent/context-sources`, `/api/agent/internal-sources` |
 | [`frontend/src/shared/api/agent-learning.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/agent-learning.ts) | 85 | `bindLearningProject`, `fetchAgentMemories`, `fetchLearningWorkspace`, `fetchSkillPackage`, `prepareLearningDraft`, `removeAgentMemory`, `removeLearningProject`, `runSkillTrial`, `saveAgentMemory`, `saveLearnedSkill`, `saveLearningProject`, `validateSkillPackage` | `/api/ai/agents/{agent_id}/learning`, `/api/ai/agents/{agent_id}/learning/{session_id}`, `/api/ai/agents/{agent_id}/memories`, `/api/ai/agents/{agent_id}/memories/{memory_id}`, `/api/ai/agents/{agent_id}/projects`, `/api/ai/agents/{agent_id}/projects/{project_id}`, `/api/ai/learning/draft`, `/api/ai/learning/package/validate`, `/api/ai/learning/skills`, `/api/ai/learning/trial`, `/api/ai/skills/{skill_id}/package` |

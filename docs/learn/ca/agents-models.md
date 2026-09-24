@@ -1,6 +1,6 @@
-# Configura un agent i un model
+# Configura l’assistent i els seus perfils
 
-El model genera respostes. L’agent combina un model amb instruccions i habilitats; les eines li permeten executar accions concretes.
+L’assistent executa les tasques d’IA de Gnosi. Un perfil en desa la configuració: model, instruccions, fonts i habilitats. El perfil principal és el que utilitzen el xat, les funcions d’IA i les automatitzacions quan s’executen.
 
 ## Abans de començar {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activa la funció d’IA. Un proveïdor al núvol necessita credencials vàlides
 
 1. Obre la configuració de models i proveïdors i configura un proveïdor compatible o un servei local. Desa les credencials a Configuració i selecciona un model disponible.
 
-2. Obre la configuració d’agents, tria’n un o crea’l i assigna-li el model. Selecciona les habilitats necessàries.
+2. Obre Configuració → Plugins → IA → Assistent i prem **Configura l’assistent**. Tria el model, posa nom al perfil i assigna-li les habilitats necessàries.
 
 3. Obre el xat i comprova l’agent i el model seleccionats. Fes una pregunta curta per verificar la connexió.
 
@@ -19,6 +19,12 @@ Activa la funció d’IA. Un proveïdor al núvol necessita credencials vàlides
 5. Si vols que actuï, comprova que el model admet eines i que les habilitats i eines requerides estan disponibles. Revisa les peticions de confirmació abans d’acceptar-les.
 
 6. Inspecciona el resultat i les fonts. Desa les conclusions útils en una pàgina i distingeix la interpretació pròpia del text generat.
+
+### Perfils addicionals
+
+A **Perfils addicionals (avançat)** pots desar altres configuracions. **Crea un perfil** no canvia el principal. Prem **Utilitza com a principal** per aplicar aquella configuració; el perfil anterior es conserva. Les automatitzacions necessiten tenir la seva habilitat assignada al nou principal.
+
+Pots eliminar els perfils addicionals. Per eliminar el principal, tria primer un altre perfil com a principal. Si vols desactivar tota la IA, desactiva el plugin d’IA a Plugins.
 
 ### Tria de model segons la tasca
 

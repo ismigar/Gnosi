@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { AgentModelStrategyFields } from './AgentModelStrategyFields';
 import { readModelStrategy, reconcileModelStrategy } from './agentModelStrategy';
 
-export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
+export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(agent.name || '');
   const [provider, setProvider] = useState(agent.provider || '');
@@ -63,13 +63,13 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
   return (
     <div className={`settings-inline-editor ai-agent-form animate-in ${agent.id ? 'is-attached' : 'is-create'}`}>
       {!agent.id && (
-        <h3 className="ai-agent-form-title">{t('settings.ai.new_agent_title')}</h3>
+        <h3 className="ai-agent-form-title">{t(purpose === 'principal' ? 'settings.ai.assistant.setup' : 'settings.ai.assistant.new_profile')}</h3>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            <FormGroup label={t('settings.ai.agent_name')}>
+            <FormGroup label={t('settings.ai.assistant.profile_name')}>
               <input type="text" className="gnosi-input" value={name} onChange={e => { setName(e.target.value); }} placeholder={t('settings.ai.agent_name_placeholder')} />
             </FormGroup>
           </div>
@@ -200,7 +200,7 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
           style={{ padding: '14px 28px', borderRadius: '18px' }}
         >
           {savingAgent && <Loader2 size={16} className="animate-spin" />}
-          {agent.id ? t('settings.ai.update_agent') : t('settings.ai.create_agent_action')}
+          {t(agent.id ? 'settings.ai.assistant.save_changes' : purpose === 'principal' ? 'settings.ai.assistant.configure_action' : 'settings.ai.assistant.create_profile')}
         </button>
       </div>
       {saveError && <p role="alert">{t('settings.ai.model_strategy.save_error')}</p>}

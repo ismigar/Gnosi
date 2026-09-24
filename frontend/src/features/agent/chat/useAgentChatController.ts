@@ -142,7 +142,7 @@ export function useAgentChatController({
     const { mentionResults, showMentionMenu, setShowMentionMenu, applyMention, loadMentionCatalog } =
         useChatMentions({ inputValue, inputRef, setInputValue, setSelectedMentions });
     const { agentConfig, agentList, loadConfig } =
-        useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId });
+        useChatConfiguration({ selectedAgentId, setSelectedAgentId });
 
     const loadChatResources = useEffectEvent(() => {
         void loadConfig();

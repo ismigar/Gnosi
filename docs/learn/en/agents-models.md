@@ -1,6 +1,6 @@
-# Configure an agent and a model
+# Configure the assistant and its profiles
 
-A model generates responses. An agent combines a model with instructions and assigned skills; tools let it perform specific actions.
+The assistant performs Gnosi’s AI tasks. A profile saves its configuration: model, instructions, sources and skills. The principal profile is used by chat, AI features and automations when they run.
 
 ## Before you begin {#before-you-begin}
 
@@ -10,7 +10,7 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 1. Open the model/provider settings and configure a supported provider or local endpoint. Save its credentials in Settings and select an available model.
 
-2. Open the agent settings, choose or create an agent and assign that model. Select the skills it needs for your task.
+2. Open Settings → Plugins → AI → Assistant and choose **Set up assistant**. Select the model, name the profile and assign the required skills.
 
 3. Open chat and confirm the selected agent and model. Start with a short question to check the connection.
 
@@ -19,6 +19,12 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 5. If you want the agent to act, check that its model supports tools and that the required skills and tools are available. Review any confirmation request before accepting it.
 
 6. Inspect the result and its sources. Save useful conclusions to a page; keep your own interpretation distinct from generated text.
+
+### Additional profiles
+
+Under **Additional profiles (advanced)** you can save other configurations. **Create profile** does not change the principal. Choose **Use as principal** to apply that configuration; the previous profile is kept. Automations need their skill assigned to the new principal.
+
+You can delete additional profiles. To delete the principal, first choose another profile as principal. To turn off all AI, disable the AI plugin in Plugins.
 
 ### Select a model for each task
 

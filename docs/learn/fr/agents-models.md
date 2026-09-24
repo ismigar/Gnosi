@@ -1,6 +1,6 @@
-# Configurer un agent et un modèle
+# Configurer l’assistant et ses profils
 
-Le modèle génère des réponses. L’agent combine modèle, instructions et compétences ; les outils permettent des actions précises.
+L’assistant exécute les tâches d’IA de Gnosi. Un profil enregistre sa configuration : modèle, instructions, sources et compétences. Le profil principal est utilisé par le chat, les fonctions d’IA et les automatisations au moment de leur exécution.
 
 ## Avant de commencer {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 
 1. Ouvrez les paramètres des modèles et fournisseurs et configurez un fournisseur compatible ou un service local. Enregistrez les identifiants dans les paramètres et sélectionnez un modèle disponible.
 
-2. Ouvrez les paramètres des agents, choisissez-en un ou créez-le, puis affectez-lui ce modèle. Sélectionnez les compétences nécessaires.
+2. Ouvrez Paramètres → Plugins → IA → Assistant et choisissez **Configurer l’assistant**. Sélectionnez le modèle, nommez le profil et attribuez les compétences nécessaires.
 
 3. Ouvrez la conversation et vérifiez l’agent et le modèle. Posez une question courte pour tester la connexion.
 
@@ -19,6 +19,12 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 5. Pour agir, le modèle doit prendre en charge les outils et les compétences requises doivent être disponibles. Examinez les demandes de confirmation avant de les accepter.
 
 6. Contrôlez le résultat et ses sources. Enregistrez les conclusions utiles dans une page et distinguez votre interprétation du texte généré.
+
+### Profils supplémentaires
+
+Dans **Profils supplémentaires (avancé)**, vous pouvez enregistrer d’autres configurations. **Créer un profil** ne change pas le profil principal. Choisissez **Utiliser comme profil principal** pour appliquer cette configuration ; le profil précédent est conservé. Les automatisations doivent disposer de leur compétence sur le nouveau profil principal.
+
+Vous pouvez supprimer les profils supplémentaires. Pour supprimer le profil principal, choisissez d’abord un autre profil principal. Pour désactiver toute l’IA, désactivez le plugin d’IA dans Plugins.
 
 ### Choisir un modèle selon la tâche
 

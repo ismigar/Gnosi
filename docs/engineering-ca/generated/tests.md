@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 562 | 2348 |
+| Vitest | 563 | 2358 |
 | pytest | 550 | 3899 |
 
 ## Fitxers
@@ -87,6 +87,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/agent/chat/streamSequence.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/streamSequence.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/submitChatTurn.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/submitChatTurn.test.ts) | 12 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/useChatAttachments.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatAttachments.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/agent/chat/useChatConfiguration.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatConfiguration.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/useChatMessageActions.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatMessageActions.test.tsx) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/chat/useChatPanelState.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatPanelState.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/agent/inbox/BrainInbox.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/inbox/BrainInbox.test.tsx) | 1 | call-pattern estimate |
@@ -241,12 +242,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/aiUsageHistory.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/AgentsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/AgentsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AiPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 18 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 20 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsGraphModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/identity/IdentityProfile.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.test.tsx) | 1 | call-pattern estimate |
@@ -427,7 +428,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/views/viewConstants.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/viewConstants.test.ts) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.test.tsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/shared/ai/assistantProfiles.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/ai/assistantProfiles.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/agent-context.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/agent-context.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/ai.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ai.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/api/analytics.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/analytics.test.ts) | 3 | call-pattern estimate |
