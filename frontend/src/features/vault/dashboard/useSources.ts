@@ -3,6 +3,9 @@ import { useCallback } from 'react';
 import { openDailyNote } from '../../../shared/api/daily-notes';
 import { createVaultPage } from '../../../shared/api/vaults';
 import { fetchVaultPage } from '../../../shared/api/vaults';
+import { uploadVaultInsertFile } from '../../../shared/api/vault-content';
+import { interpolateNamePattern } from '../../../shared/resources/fileResource';
+import { getFieldConfig } from '../../../shared/records/model/schemaUtils';
 import { toast } from '../../../shared/notifications/toast';
 import { selectResourceTemplate } from '../../literature/records/resourceTemplateSelection';
 import type { Metadata } from './types';
@@ -10,10 +13,10 @@ import type { DashboardState } from './useDashboardState';
 import type { useDataLoading } from './useDataLoading';
 import type { usePageLoading } from './usePageLoading';
 import type { useRecordCatalog } from './useRecordCatalog';
-type Context = Pick<DashboardState, 'pages' | 't'> & Pick<ReturnType<typeof useDataLoading>, 'fetchPages'> & Pick<ReturnType<typeof usePageLoading>, 'loadPage'> & Pick<ReturnType<typeof useRecordCatalog>, 'applySchemaDefaults' | 'resolvePageTableId'>;
+type Context = Pick<DashboardState, 'pages' | 't'> & Pick<ReturnType<typeof useDataLoading>, 'fetchPages'> & Pick<ReturnType<typeof usePageLoading>, 'loadPage'> & Pick<ReturnType<typeof useRecordCatalog>, 'applySchemaDefaults' | 'resolvePageTableId' | 'getSchemaFromTableId'>;
 export function useSources(context: Context) {
-    const { applySchemaDefaults, fetchPages, loadPage, pages, resolvePageTableId, t } = context;
-    const handleCreateFromSource = useCallback(async (tableId: string | null, suggested: Metadata) => {
+    const { applySchemaDefaults, fetchPages, getSchemaFromTableId, loadPage, pages, resolvePageTableId, t } = context;
+    const handleCreateFromSource = useCallback(async (tableId: string | null, suggested: Metadata, sourceFile?: File) => {
         if (!tableId)
             return;
         try {
@@ -42,6 +45,25 @@ export function useSources(context: Context) {
                 };
             }
             initialMeta = applySchemaDefaults(tableId, initialMeta, title);
+            if (sourceFile) {
+                const schema = getSchemaFromTableId(tableId);
+                const fileFieldName = Object.entries(schema).find(([, type]) => type === 'files')?.[0];
+                if (!fileFieldName) throw new Error('The target table has no file field configured');
+                const fileConfig = getFieldConfig(schema, fileFieldName);
+                const storageFolder = typeof fileConfig.storage_folder === 'string'
+                    ? fileConfig.storage_folder
+                    : 'assets';
+                const targetName = typeof fileConfig.name_pattern === 'string'
+                    ? interpolateNamePattern(fileConfig.name_pattern, initialMeta)
+                    : '';
+                const uploaded = await uploadVaultInsertFile(sourceFile, {
+                    propertyName: fileFieldName,
+                    storageFolder,
+                    tableId,
+                    targetName,
+                });
+                initialMeta[fileFieldName] = uploaded.url || uploaded.path;
+            }
             const created = await createVaultPage({
                 title,
                 content: initialContent,
@@ -56,7 +78,7 @@ export function useSources(context: Context) {
             console.error("Error creating the record from a source:", err);
             toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }));
         }
-    }, [applySchemaDefaults, fetchPages, loadPage, pages, resolvePageTableId, t]);
+    }, [applySchemaDefaults, fetchPages, getSchemaFromTableId, loadPage, pages, resolvePageTableId, t]);
     const handleOpenDailyNote = useCallback(async (dateStr?: string) => {
         try {
             let date = dateStr;

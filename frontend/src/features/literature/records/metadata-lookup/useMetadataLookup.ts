@@ -84,6 +84,7 @@ export function useMetadataLookup({
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<LookupResult | null>(null);
     const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({});
+    const pdfFileRef = useRef<File | null>(null);
     const firstInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
     const requestRef = useRef<AbortController | null>(null);
@@ -99,6 +100,7 @@ export function useMetadataLookup({
             return;
         }
         const current = currentMetadataRef.current;
+        pdfFileRef.current = null;
         setIdentifiers({
             arxiv: '',
             doi: metadataScalarText(current.DOI).trim(),
@@ -129,7 +131,7 @@ export function useMetadataLookup({
                 }));
                 return;
             }
-            onCreate?.(normalized.suggested);
+            onCreate?.(normalized.suggested, pdfFileRef.current ?? undefined);
             onClose?.();
             return;
         }
@@ -205,6 +207,7 @@ export function useMetadataLookup({
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file) return;
+        pdfFileRef.current = file;
         void execute(
             'metadata-lookup-pdf',
             'metadata_lookup.pdf_failed',
