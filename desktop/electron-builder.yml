@@ -115,6 +115,7 @@ deb:
     provider: github
     owner: ismigar
     repo: Gnosi
+    releaseType: release
 
 win:
   icon: assets/icon.ico

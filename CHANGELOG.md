@@ -1,5 +1,27 @@
 # Gnosi changelog
 
+## Gnosi 3.1.0
+
+_2026-09-23 · Release candidate_
+
+### Highlights
+
+- Chat, application actions and scheduled work now use a shared assistant with its assigned skills, instructions and model policy.
+- Turn conversations into reviewed, reusable skills and manage scoped memories with search, editing, activation and expiry controls.
+- Process sources with contextual reading that preserves structure and references, reviews the document as a whole and can resume interrupted work.
+
+### Improvements
+
+- Choose a fixed model, allowed fallback models or automatic model selection according to the task for each assistant.
+- Inspect AI activity, execution details and progress in one place, with cancellation and resumption where supported.
+- Translate skill instructions on request for reading while keeping the original instructions unchanged for execution.
+- Compare models using clearer filters, refreshed parameter information and your configured currency.
+
+### Fixes
+
+- Assigned skills remain available when several catalog requests arrive during startup.
+- Dimensions searches authenticate the configured API key before requesting results.
+
 ## Gnosi 3.0.4
 
 _2026-09-17 · Release candidate_

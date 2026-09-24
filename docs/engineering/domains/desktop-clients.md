@@ -516,7 +516,7 @@ same-path upgrade; this change also requires a newly built frozen backend.
 
 The `3.0.4` candidate includes the autosave preservation fix merged in PR 96. It supersedes the unpublished `3.0.3` candidate without moving its tag or reusing its acceptance claims. All four version fields are synchronized, dependency locks remain unchanged, and the catalog stays unpublished until newly built installers pass acceptance.
 
-The backend runtime constant `GNOSI_VERSION` also reports `3.0.4`; the health API contract test compares it with all four release manifests.
+The backend runtime constant `GNOSI_VERSION` also reports `3.1.0`; the health API contract test compares it with all four release manifests.
 
 Regenerate the committed OpenAPI document and its SHA-256 after changing the runtime version. For this candidate, the reviewed schema difference is limited to the application version; routes and payloads remain unchanged.
 
@@ -545,3 +545,5 @@ Because frontend lint uses TypeScript type information, any frontend source or l
 PDF annotation composition runs all 57 contracts in each of two isolated import orders. Each group has a bounded 300-second budget covering cold backend imports and the full set of checks. Verbose progress, slowest-test timings and a stack dump after a 60-second individual test stall distinguish slow startup from a blocked test. A group timeout or any child assertion remains fatal and its partial output is included in the failure.
 
 Local pre-PR validation and CI invoke the same `pnpm lint:frontend` entry point. The shared launcher always checks the entire frontend with zero warnings allowed; it adds content-cache options only when `GNOSI_ESLINT_CACHE` is set. Cache paths are passed as literal arguments without a shell, and lint failures remain fatal. The pre-PR parity test still rejects any CI validation missing from the local full plan.
+
+The `3.1.0` candidate packages the shared principal assistant, task-based model selection, scoped memory, reusable learning and contextual source reading. Existing data is preserved through the reviewed migrations. All manifests and `GNOSI_VERSION` match; the regenerated OpenAPI contract changes only its version relative to the prepared source. Both dependency locks remain unchanged. The catalog remains unpublished until source-matched installers pass fresh-install, persistence and upgrade acceptance on all four targets.

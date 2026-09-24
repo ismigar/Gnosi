@@ -6617,6 +6617,23 @@
         "fixes": {
           "autosave_metadata": "Cambiar el título o el favorito de una página ya no sobrescribe el texto guardado automáticamente hace un momento."
         }
+      },
+      "v3_1_0": {
+        "highlights": {
+          "shared_assistant": "El chat, las acciones de la aplicación y las tareas programadas utilizan un asistente compartido con sus habilidades, instrucciones y política de modelos.",
+          "learning_memory": "Convierte conversaciones en habilidades revisadas y reutilizables, y gestiona memorias con un ámbito definido, búsqueda, edición, activación y caducidad.",
+          "contextual_reading": "Procesa fuentes con una lectura contextual que conserva la estructura y las referencias, revisa el documento en conjunto y permite reanudar el trabajo interrumpido."
+        },
+        "improvements": {
+          "task_models": "Elige un modelo fijo, modelos alternativos permitidos o la selección automática según la tarea para cada asistente.",
+          "activity": "Consulta la actividad de IA, los detalles de ejecución y el progreso en un mismo lugar, con cancelación y reanudación cuando la operación lo permita.",
+          "skill_translation": "Traduce las instrucciones de las habilidades cuando lo necesites para leerlas, manteniendo las instrucciones originales intactas para ejecutarlas.",
+          "model_comparison": "Compara modelos con filtros más claros, información de parámetros actualizada y la moneda que tienes configurada."
+        },
+        "fixes": {
+          "skill_startup": "Las habilidades asignadas siguen disponibles cuando llegan varias peticiones del catálogo durante el inicio.",
+          "dimensions_auth": "Las búsquedas en Dimensions autentican la clave de API configurada antes de solicitar los resultados."
+        }
       }
     }
   },

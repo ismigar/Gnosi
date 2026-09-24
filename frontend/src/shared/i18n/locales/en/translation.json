@@ -6566,6 +6566,23 @@
         "fixes": {
           "autosave_metadata": "Changing a page title or favorite no longer overwrites recently autosaved text."
         }
+      },
+      "v3_1_0": {
+        "highlights": {
+          "shared_assistant": "Chat, application actions and scheduled work now use a shared assistant with its assigned skills, instructions and model policy.",
+          "learning_memory": "Turn conversations into reviewed, reusable skills and manage scoped memories with search, editing, activation and expiry controls.",
+          "contextual_reading": "Process sources with contextual reading that preserves structure and references, reviews the document as a whole and can resume interrupted work."
+        },
+        "improvements": {
+          "task_models": "Choose a fixed model, allowed fallback models or automatic model selection according to the task for each assistant.",
+          "activity": "Inspect AI activity, execution details and progress in one place, with cancellation and resumption where supported.",
+          "skill_translation": "Translate skill instructions on request for reading while keeping the original instructions unchanged for execution.",
+          "model_comparison": "Compare models using clearer filters, refreshed parameter information and your configured currency."
+        },
+        "fixes": {
+          "skill_startup": "Assigned skills remain available when several catalog requests arrive during startup.",
+          "dimensions_auth": "Dimensions searches authenticate the configured API key before requesting results."
+        }
       }
     }
   },

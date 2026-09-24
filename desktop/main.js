@@ -336,6 +336,18 @@ function createWindow() {
     backgroundColor: '#f8fafc'
   });
   mainWindows.add(window);
+
+  // A hidden Wayland window may finish loading without receiving a first-paint
+  // notification. Do not leave New Window permanently invisible in that case.
+  let shown = false;
+  const showLoadedWindow = () => {
+    if (shown || !canUseMainWindows() || window.isDestroyed()) return;
+    shown = true;
+    window.show();
+    if (isDev) window.webContents.openDevTools();
+  };
+  window.once('ready-to-show', showLoadedWindow);
+  window.webContents.once('did-finish-load', showLoadedWindow);
   
   if (isDev) {
     window.loadURL(`http://localhost:${FRONTEND_PORT}`);
@@ -346,14 +358,6 @@ function createWindow() {
     // registered in registerAppProtocol().
     window.loadURL('app://gnosi/index.html');
   }
-  
-  window.once('ready-to-show', () => {
-    if (!canUseMainWindows()) return;
-    window.show();
-    if (isDev) {
-      window.webContents.openDevTools();
-    }
-  });
   
   window.on('closed', () => {
     mainWindows.delete(window);
