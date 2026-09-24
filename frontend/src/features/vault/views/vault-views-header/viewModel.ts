@@ -1,18 +1,26 @@
 import {
     isFilterGroup,
+    matchesSearch,
     viewMatchesFilters,
     type FilterItem,
 } from '../../../../shared/filtering/vaultFilters';
 import { isMainView, isViewHidden } from '../viewConstants';
 import type { HeaderTemplate, HeaderView } from './types';
+import { searchesWholeTable, type ViewSearchScope } from '../../../../shared/records/hooks/useViewSearch';
 
 export function activeViewRecordCount(
     notes: readonly FilterItem[],
     views: readonly HeaderView[],
     activeViewId: string | null | undefined,
     recordCount: number,
+    searchTerm = '',
+    searchScope: ViewSearchScope = 'view',
 ): number {
     const activeView = views.find((view) => view.id === activeViewId);
+    if (searchTerm.trim()) {
+        return notes.filter(note => matchesSearch(note, searchTerm)
+            && (searchesWholeTable(searchTerm, searchScope) || viewMatchesFilters(note, activeView))).length;
+    }
     if (!activeView) return recordCount;
     const hasActiveFilter = isFilterGroup(activeView.filterTree)
         ? activeView.filterTree.rules.length > 0

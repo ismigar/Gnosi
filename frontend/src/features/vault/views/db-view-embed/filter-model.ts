@@ -1,4 +1,4 @@
-import { compareFieldValues, matchesRule, normalizeForSearch, type FilterNode, type FilterRule, type FilterValue, type FilterGroup } from '../../../../shared/filtering/vaultFilters';
+import { compareFieldValues, matchesRule, type FilterNode, type FilterRule, type FilterValue, type FilterGroup } from '../../../../shared/filtering/vaultFilters';
 import { isFilterGroup, legacyText } from './decode';
 import type { EmbedRow, Metadata } from './types';
 import type { ViewSort } from '../../view-config/page-view-modal/types';
@@ -70,19 +70,4 @@ export function multiKeySort(rows: readonly EmbedRow[], sorts: readonly ViewSort
 }
 export function countRules(node: FilterGroup): number {
     return node.rules.reduce((count, rule) => count + (isFilterGroup(rule) ? countRules(rule) : 1), 0);
-}
-export function searchRows(allRows: EmbedRow[], searchTerm: string): EmbedRow[] {
-    const q = normalizeForSearch(searchTerm.trim());
-    if (!q) return allRows;
-    // Matching individual concepts keeps searches useful when the user writes a
-    // natural phrase whose words are distributed between the title, tags and body.
-    // It remains completely local: no request, index, or user data leaves the vault.
-    const terms = q.split(/\s+/).filter((term) => term.length > 1);
-    return allRows.map((record) => {
-        const title = normalizeForSearch(record.title || '');
-        const metadata = Object.values(record.metadata).map((value) => Array.isArray(value) ? value.map(item => legacyText(item ?? '')).join(' ') : legacyText(value ?? '')).join(' ');
-        const haystack = `${title} ${normalizeForSearch(metadata)}`;
-        const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0) + (title.includes(term) ? 2 : 0), 0);
-        return { record, score };
-    }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score).map(({ record }) => record);
 }

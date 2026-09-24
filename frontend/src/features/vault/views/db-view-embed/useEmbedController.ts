@@ -1,8 +1,9 @@
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from '../../../../shared/editor/VaultEditorContext';
 import { decodeContext } from './decode';
-import { byTableCache } from './cache';
+import { subscribeAppEvent } from '../../../../shared/platform/app-events';
+import { subscribeWindowEvent } from '../../../../shared/platform/browser-events';
 import { useEmbedState } from './useEmbedState';
 import { useEmbedPreferences } from './useEmbedPreferences';
 import { useEmbedLoad } from './useEmbedLoad';
@@ -21,12 +22,17 @@ export function useEmbedController({ block }: DbViewEmbedProps) {
     const inputs = { ...identity, ...state, ...preferences };
     useEmbedLoad(inputs);
     const derived = useEmbedDerived(inputs);
-    const { view, setReloadKey } = state;
+    const { setReloadKey } = state;
     const reload = useCallback(() => {
-        const id = view?.source_table_id || view?.table_id;
-        if (id) byTableCache.delete(id);
         setReloadKey(k => k + 1);
-    }, [view, setReloadKey]);
+    }, [setReloadKey]);
+    useEffect(() => {
+        const stopSaved = subscribeAppEvent('gnosi:invalidatePreview', ({ pageId }) => {
+            if (pageId !== identity.pageId) reload();
+        });
+        const stopFocus = subscribeWindowEvent('focus', reload);
+        return () => { stopSaved(); stopFocus(); };
+    }, [identity.pageId, reload]);
     const actions = useEmbedRecordActions({ ...inputs, ...derived, reload });
     const tabs = useEmbedTabActions({ ...inputs, ...derived });
     const model = { ...inputs, ...derived, ...actions, ...tabs, reload };

@@ -3,8 +3,12 @@ import { GraphRender } from './GraphRender';
 import { TableBox, FeedFlowBox, ScrollBox } from './ViewContainers';
 import type { EmbedModel } from './useEmbedController';
 import type { EmbedNavigation } from './useEmbedNavigation';
+import { ViewSearchEmptyState } from '../ViewSearchScope';
 export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedModel ;} & Pick<EmbedNavigation, 'registerNavApi' | 'focusShell'>) {
     const { rows, columnsAsKeys, embeddedSchema, ctx, allRows, embeddedView, searchTerm, setSearchTerm, feedGroupMode, block, feedDensity, viewType, templates, reload, table, onEditSchemaAdapter, onCreateRecordAdapter, onDeletePageAdapter, onDeleteSelectedAdapter, onApplyTemplateAdapter, onUpdateViewAdapter, onUpdateNoteAdapter } = model;
+    if (searchTerm.trim() && rows.length === 0 && viewType !== 'genogram') {
+        return <ViewSearchEmptyState scope={model.searchScope} onScopeChange={model.setSearchScope} />;
+    }
 
     const sharedViewProps: VaultViewBodyProps = {
         notes: rows,

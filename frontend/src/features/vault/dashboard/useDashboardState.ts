@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePlugins } from '../../../shared/plugins/usePlugins';
+import { useViewSearch } from '../../../shared/records/hooks/useViewSearch';
 import type { Page, Tab, RecordReturnFocus, View, PromptState, WikiConfig, ResourceJobs, ResourceTarget, ViewMode, Registry, ViewDraft, HistoryEntry, HistoryOperation, PageResponse } from './types';
 import type { ViewUsage } from '../../../shared/api/vault-views';
 import type { ResourceProcessingJob } from '../../../shared/api/resource-processing';
@@ -68,7 +69,7 @@ export function useDashboardState() {
     const [isViewConfigOpen, setIsViewConfigOpen] = useState(false);
     const [viewToConfigure, setViewToConfigure] = useState<ViewDraft | null>(null);
     const [viewConfigTab, setViewConfigTab] = useState('appearance');
-    const [searchTerm, setSearchTerm] = useState('');
+    const { searchTerm, setSearchTerm, searchScope, setSearchScope } = useViewSearch();
     const pageRequestInFlightRef = useRef<Map<string, Promise<PageResponse>>>(new Map());
     const activeLoadAbortRef = useRef<AbortController | null>(null);
     const pageRequestAbortersRef = useRef<Map<string, AbortController>>(new Map());
@@ -163,6 +164,8 @@ export function useDashboardState() {
         resourceToProcess,
         schema,
         searchTerm,
+        searchScope,
+        setSearchScope,
         setActiveTabId,
         setActiveTableId,
         setActiveViewId,

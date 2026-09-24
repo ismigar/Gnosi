@@ -8,7 +8,7 @@ import { readText, writeText, readPresets, encodePresets, importPresets } from '
 import type { QuickPreset } from './types';
 import type { EmbedIdentity } from './identity';
 import type { EmbedState } from './useEmbedState';
-export function useEmbedPreferences({ pageId, viewId, t, searchTerm, activeViewId, setSearchTerm, setShowSearch, setActiveViewId }: EmbedIdentity & EmbedState) {
+export function useEmbedPreferences({ pageId, viewId, t, searchTerm, searchScope, activeViewId, setSearchTerm, setSearchScope, setShowSearch, setActiveViewId }: EmbedIdentity & EmbedState) {
     const mobile = useMediaQuery('(max-width: 768px)');
     const preferenceProfile = mobile ? 'mobile' : 'desktop';
     const densityStorageKey = `gnosi.view.feedDensity.${preferenceProfile}`;
@@ -73,6 +73,7 @@ export function useEmbedPreferences({ pageId, viewId, t, searchTerm, activeViewI
                 id: String(Date.now()),
                 label: t('views_header.quick_view_name', { count: nextNumber }),
                 searchTerm,
+                searchScope,
                 density: feedDensity,
                 groupMode: feedGroupMode,
                 activeViewId: activeViewId || undefined,
@@ -81,11 +82,12 @@ export function useEmbedPreferences({ pageId, viewId, t, searchTerm, activeViewI
             persistQuickPresets(next);
             return next;
         });
-    }, [activeViewId, feedDensity, feedGroupMode, persistQuickPresets, searchTerm, t]);
+    }, [activeViewId, feedDensity, feedGroupMode, persistQuickPresets, searchTerm, searchScope, t]);
     const applyQuickPreset = useCallback((presetId: string) => {
         const preset = quickPresets.find((candidate) => candidate.id === presetId);
         if (!preset) return;
         setSearchTerm(preset.searchTerm || '');
+        setSearchScope(preset.searchTerm?.trim() && preset.searchScope === 'table' ? 'table' : 'view');
         setShowSearch(Boolean(preset.searchTerm));
         if (preset.density) {
             setFeedDensity(preset.density);
@@ -93,7 +95,7 @@ export function useEmbedPreferences({ pageId, viewId, t, searchTerm, activeViewI
         }
         if (preset.groupMode) setFeedGroupMode(preset.groupMode);
         if (preset.activeViewId) setActiveViewId(preset.activeViewId);
-    }, [densityStorageKey, quickPresets, setActiveViewId, setSearchTerm, setShowSearch]);
+    }, [densityStorageKey, quickPresets, setActiveViewId, setSearchTerm, setSearchScope, setShowSearch]);
     const renameQuickPreset = useCallback((presetId: string) => {
         setRenameQuickPresetId(presetId);
     }, []);

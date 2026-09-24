@@ -1,4 +1,5 @@
 import type { CSSProperties, RefObject } from 'react';
+import type { ViewSearchScope } from '../../../../shared/records/hooks/useViewSearch';
 
 import type {
     FilterItem,
@@ -78,6 +79,8 @@ export interface VaultViewsHeaderProps {
     readonly recordCount: number;
     readonly referenceTableId?: string | null;
     readonly searchTerm: string;
+    readonly searchScope?: ViewSearchScope;
+    readonly setSearchScope?: (scope: ViewSearchScope) => void;
     readonly setSearchTerm: (value: string) => unknown;
     readonly tableName: string;
     readonly templates?: readonly HeaderTemplate[];
