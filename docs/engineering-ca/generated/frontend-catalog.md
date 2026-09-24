@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126321 | 32 |
+| `features` | 1112 | 126346 | 32 |
 | `generated` | 2 | 46949 | 484 |
 | `shared` | 253 | 30715 | 414 |
 
@@ -305,7 +305,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupForm.tsx) | 203 | `MetadataLookupForm` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx) | 168 | `MetadataLookupResults` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts) | 154 | `SOURCE_LABELS`, `groupMetadataEntries`, `initialFieldSelection`, `metadataDisplayText`, `metadataScalarText`, `metadataValueIsEmpty`, `normalizeLookupResult`, `resolveZoteroType`, `selectedMetadataPatch`, `zoteroTypeLabel` | — |
-| [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 280 | `useMetadataLookup` | — |
+| [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 283 | `useMetadataLookup` | — |
 | [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 261 | `ProcessResourceModalView` | — |
 | [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
 | [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 162 | `useProcessResourceController` | — |
@@ -709,7 +709,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useRecordCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRecordCatalog.ts) | 144 | `useRecordCatalog` | — |
 | [`frontend/src/features/vault/dashboard/useRelationHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRelationHistory.ts) | 78 | `useRelationHistory` | — |
 | [`frontend/src/features/vault/dashboard/useResourceProcessing.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useResourceProcessing.ts) | 82 | `useResourceProcessing` | — |
-| [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 77 | `useSources` | — |
+| [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 99 | `useSources` | — |
 | [`frontend/src/features/vault/dashboard/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTableNavigation.ts) | 169 | `useTableNavigation` | — |
 | [`frontend/src/features/vault/dashboard/useTemplates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTemplates.ts) | 168 | `useTemplates` | — |
 | [`frontend/src/features/vault/dashboard/useUndoRedo.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useUndoRedo.ts) | 116 | `useUndoRedo` | — |
