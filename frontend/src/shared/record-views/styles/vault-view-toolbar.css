@@ -3,7 +3,9 @@
   min-width: 0;
   position: sticky;
   top: 0;
-  z-index: 25;
+  /* The toolbar owns dropdowns; keep its stacking context above view tabs
+     (z-30) as well as the isolated table/card content below them. */
+  z-index: var(--z-popover);
   min-height: var(--control-height-touch);
   padding-block: 0.25rem;
   background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
