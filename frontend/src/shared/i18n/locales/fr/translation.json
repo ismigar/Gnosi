@@ -6615,7 +6615,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Modifier le titre ou le favori d’une page n’écrase plus le texte récemment enregistré automatiquement."
+          "autosave_metadata": "Modifier le titre ou le favori d’une page n’écrase plus le texte récemment enregistré automatiquement.",
+          "update_notice_background_check": "L’avis de mise à jour du bureau recherche désormais périodiquement les nouvelles releases et permet de réessayer l’action de l’installeur macOS."
         }
       },
       "v3_1_0": {

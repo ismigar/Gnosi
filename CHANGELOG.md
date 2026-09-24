@@ -45,6 +45,7 @@ _2026-09-17 · Release candidate_
 - Microsoft desktop sign-in supports native application registrations and UNED addresses. Institutional accounts may still require administrator approval.
 - Embedded views no longer flicker when saving, and unchanged editor content no longer triggers unnecessary autosaves.
 - Changing a page title or favorite no longer overwrites recently autosaved text.
+- The desktop update notice now checks periodically for newly published releases, and the macOS installer action can be retried.
 
 ## Gnosi 3.0.3
 

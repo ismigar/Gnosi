@@ -491,7 +491,7 @@ function setupAutoUpdater() {
     autoUpdater.checkForUpdates().catch((err) => {
       log('Background update check failed:', err.message);
     });
-  }, 6 * 60 * 60 * 1000);
+  }, 15 * 60 * 1000);
   updateTimer.unref();
 }
 

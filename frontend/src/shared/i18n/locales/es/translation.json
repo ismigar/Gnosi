@@ -6615,7 +6615,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Cambiar el título o el favorito de una página ya no sobrescribe el texto guardado automáticamente hace un momento."
+          "autosave_metadata": "Cambiar el título o el favorito de una página ya no sobrescribe el texto guardado automáticamente hace un momento.",
+          "update_notice_background_check": "El aviso de actualización de escritorio comprueba periódicamente si hay nuevas releases y permite volver a intentar la acción del instalador de macOS."
         }
       },
       "v3_1_0": {

@@ -6564,7 +6564,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Changing a page title or favorite no longer overwrites recently autosaved text."
+          "autosave_metadata": "Changing a page title or favorite no longer overwrites recently autosaved text.",
+          "update_notice_background_check": "The desktop update notice now checks periodically for newly published releases, and the macOS installer action can be retried."
         }
       },
       "v3_1_0": {

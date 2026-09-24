@@ -6615,7 +6615,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Canviar el títol o el favorit d’una pàgina ja no sobreescriu el text desat automàticament fa un moment."
+          "autosave_metadata": "Canviar el títol o el favorit d’una pàgina ja no sobreescriu el text desat automàticament fa un moment.",
+          "update_notice_background_check": "L’avís d’actualització d’escriptori comprova periòdicament si hi ha releases noves i permet tornar a provar l’acció de l’instal·lador de macOS."
         }
       },
       "v3_1_0": {
