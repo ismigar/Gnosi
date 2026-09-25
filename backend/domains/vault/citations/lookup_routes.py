@@ -20,6 +20,7 @@ from backend.domains.vault.citations import pdf_fallback as citation_pdf_fallbac
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations import web_capture as citation_web_capture
 from backend.domains.vault.citations.authors import MetadataKey
+from backend.domains.vault.citations.cover_metadata import add_page_cover
 from backend.domains.vault.citations.request_contracts import (
     MetadataLookupRequest,
     UrlTranslationRequest,
@@ -561,7 +562,13 @@ async def translate_url(
         inject_citation_key=lambda metadata: _vault._inject_citation_key(metadata),
         normalize_item_type=lambda metadata: _vault._normalize_suggested_item_type(metadata),
     )
-    return await citation_web_capture.capture_url(request_payload(payload), dependencies)
+    result = await citation_web_capture.capture_url(request_payload(payload), dependencies)
+    suggested = result.get("suggested")
+    if isinstance(suggested, dict) and suggested:
+        await asyncio.to_thread(
+            add_page_cover, suggested, payload.url, lambda url: _vault._http_get_public(url),
+        )
+    return result
 
 
 def _build_dedup_indexes(v_str: str) -> dict[str, dict[str, str]]:

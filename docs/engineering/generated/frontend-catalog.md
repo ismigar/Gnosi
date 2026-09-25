@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126346 | 32 |
+| `features` | 1112 | 126370 | 32 |
 | `generated` | 2 | 46949 | 484 |
-| `shared` | 253 | 30715 | 414 |
+| `shared` | 254 | 30749 | 414 |
 
 ## app
 
@@ -303,14 +303,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/literature/records/ZoteroExtrasSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/ZoteroExtrasSection.tsx) | 259 | `ZoteroExtrasSection` | — |
 | [`frontend/src/features/literature/records/identifierValidators.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/identifierValidators.ts) | 89 | `isValidArxivId`, `isValidDOI`, `isValidISBN`, `isValidPMID`, `isValidURL`, `validateIdentifier` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupForm.tsx) | 203 | `MetadataLookupForm` | — |
-| [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx) | 168 | `MetadataLookupResults` | — |
+| [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx) | 173 | `MetadataLookupResults` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts) | 154 | `SOURCE_LABELS`, `groupMetadataEntries`, `initialFieldSelection`, `metadataDisplayText`, `metadataScalarText`, `metadataValueIsEmpty`, `normalizeLookupResult`, `resolveZoteroType`, `selectedMetadataPatch`, `zoteroTypeLabel` | — |
-| [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 283 | `useMetadataLookup` | — |
+| [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 286 | `useMetadataLookup` | — |
 | [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 261 | `ProcessResourceModalView` | — |
 | [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
 | [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 162 | `useProcessResourceController` | — |
 | [`frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts) | 27 | `duplicateReferenceBreakdown`, `referenceExportFilename` | — |
-| [`frontend/src/features/literature/records/resourceTemplateSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/resourceTemplateSelection.ts) | 82 | `resolveResourceDocumentType`, `selectResourceTemplate` | — |
+| [`frontend/src/features/literature/records/resourceTemplateSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/resourceTemplateSelection.ts) | 83 | `resolveResourceDocumentType`, `selectResourceTemplate` | — |
 | [`frontend/src/features/literature/settings/ResourcesPluginConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/settings/ResourcesPluginConfig.tsx) | 9 | `ResourcesPluginConfig`, `function` | — |
 | [`frontend/src/features/literature/settings/resources-plugin-config/ResourcesCredentialsSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/settings/resources-plugin-config/ResourcesCredentialsSection.tsx) | 143 | `ResourcesCredentialsSection` | — |
 | [`frontend/src/features/literature/settings/resources-plugin-config/ResourcesPluginConfigView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/settings/resources-plugin-config/ResourcesPluginConfigView.tsx) | 158 | `ResourcesPluginConfigView` | — |
@@ -709,7 +709,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/dashboard/useRecordCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRecordCatalog.ts) | 144 | `useRecordCatalog` | — |
 | [`frontend/src/features/vault/dashboard/useRelationHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRelationHistory.ts) | 78 | `useRelationHistory` | — |
 | [`frontend/src/features/vault/dashboard/useResourceProcessing.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useResourceProcessing.ts) | 82 | `useResourceProcessing` | — |
-| [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 99 | `useSources` | — |
+| [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 114 | `useSources` | — |
 | [`frontend/src/features/vault/dashboard/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTableNavigation.ts) | 169 | `useTableNavigation` | — |
 | [`frontend/src/features/vault/dashboard/useTemplates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTemplates.ts) | 168 | `useTemplates` | — |
 | [`frontend/src/features/vault/dashboard/useUndoRedo.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useUndoRedo.ts) | 116 | `useUndoRedo` | — |
@@ -1426,6 +1426,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/resources/fileResourceNaming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceNaming.ts) | 122 | `interpolateNamePattern`, `parseAuthorsString` | — |
 | [`frontend/src/shared/resources/fileResourceOpen.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceOpen.ts) | 334 | `findCitationAttachment`, `findDocAttachment`, `openCitation`, `openFileResource` | `/api/vault/open-local-path` |
 | [`frontend/src/shared/resources/fileResourcePaths.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourcePaths.ts) | 279 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileResourceString`, `fileTargetKey`, `filenameFromTarget`, `getActiveVaultId`, `getImageSrc`, `isImageFieldName`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/` |
+| [`frontend/src/shared/resources/pdfCover.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/pdfCover.ts) | 34 | `createPdfCover` | — |
 | [`frontend/src/shared/routing/vaultQuickNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultQuickNavigation.ts) | 85 | `isGeneratedIndexNote`, `openVaultNote`, `selectRecentNotes` | — |
 | [`frontend/src/shared/routing/vaultRouting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultRouting.ts) | 196 | `activateVault`, `activateVaultSlug`, `canonicalVaultSwitchPath`, `initializeVaultRouting`, `knowledgeDocumentPath`, `knowledgeDocumentType`, `legacyBrowserPathToCanonical`, `vaultAppFromPath`, `vaultPath` | — |
 | [`frontend/src/shared/schema/fieldOrdering.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/schema/fieldOrdering.ts) | 33 | `sortFieldItems` | — |

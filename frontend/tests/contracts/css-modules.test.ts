@@ -149,10 +149,12 @@ function removeVerifiedResponsiveToolbarRules(root: Root): void {
   expect(alignment).toHaveLength(1);
   const alignmentRule = alignment[0];
   if (!alignmentRule) throw new Error('Missing right-aligned actions');
-  expect(semantic(alignmentRule)).toEqual(semantic(postcss.parse(`
+  const expectedAlignment = postcss.parse(`
 .vault-view-toolbar > div:last-child,
 .vault-view-actions { margin-inline-start: auto; justify-content: flex-end; }
-`).nodes[0]!));
+`).nodes[0];
+  if (!expectedAlignment) throw new Error('Missing expected right-aligned actions');
+  expect(semantic(alignmentRule)).toEqual(semantic(expectedAlignment));
   if (alignmentRule.prev()?.type === 'comment') alignmentRule.prev()?.remove();
   alignmentRule.remove();
   for (const [prop, value] of [['flex-wrap', 'wrap'], ['min-width', '0']] as const) {
