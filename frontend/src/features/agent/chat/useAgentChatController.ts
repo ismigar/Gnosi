@@ -236,7 +236,7 @@ export function useAgentChatController({
     const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const agentHasModel = Boolean(agentConfig?.provider && agentConfig.model);
     const agentModel = agentHasModel
-        ? `${agentConfig?.provider || ''} · ${agentConfig?.model || ''}`
+        ? agentConfig?.modelAlias || agentConfig?.model || ''
         : t('chat.model_not_configured', 'Model not configured');
     const runtimeStatus = deriveAgentRuntimeStatus(agentRuntime, agentHasModel);
     const runtimeLimited = runtimeStatus.limited;

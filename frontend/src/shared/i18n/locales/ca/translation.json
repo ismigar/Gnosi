@@ -5185,6 +5185,12 @@
       "quantization": "Quantització",
       "monthly_cost": "Est. {{symbol}}/mes",
       "available": "Disponible"
+    },
+    "alias": {
+      "label": "Àlies",
+      "placeholder": "Ex.: Ràpid i econòmic",
+      "help": "Als selectors només es mostrarà aquest àlies. Si el deixes buit, es mostrarà el nom del model.",
+      "activation_help": "Assigna un àlies i activa el model quan estiguis a punt."
     }
   },
   "tags": {

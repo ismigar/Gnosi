@@ -5185,6 +5185,12 @@
       "quantization": "Cuantización",
       "monthly_cost": "Est. {{symbol}}/mes",
       "available": "Disponible"
+    },
+    "alias": {
+      "label": "Alias",
+      "placeholder": "Ej.: Rápido y económico",
+      "help": "En los selectores solo se mostrará este alias. Si lo dejas vacío, se mostrará el nombre del modelo.",
+      "activation_help": "Asigna un alias y activa el modelo cuando estés listo."
     }
   },
   "tags": {

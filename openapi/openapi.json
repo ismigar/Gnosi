@@ -22161,6 +22161,17 @@
         "additionalProperties": true,
         "description": "One configured router model, preserving provider-specific JSON metadata.",
         "properties": {
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
           "context_window": {
             "anyOf": [
               {

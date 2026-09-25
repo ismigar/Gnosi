@@ -1,4 +1,5 @@
-import { modelRecommendationLabel, profileDisplayName, profileModelLabel } from '../../../shared/ai/assistantProfiles';
+import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
+import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import type { AgentDraft, SettingsModel } from './types';
 import type { NormalizedSkill, NormalizedTool } from '../AI/aiSettingsUtils';
 import { Activity } from 'lucide-react';
@@ -31,7 +32,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
   const [savingAgent, setSavingAgent] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
-  // Group registry rows by provider for the <select> optgroups. Rows carry
+  // Keep provider/model identities independent from their visible aliases. Rows carry
   // {provider, model_id, ...}; we keep first-seen order of providers.
   const grouped = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -99,20 +100,11 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
               update({ provider: p || '', model: m || '' });
             }}>
             <option value="">{t('settings.ai.select_model_option')}</option>
-            {[...grouped.entries()].map(([prov, modelIds]) => (
-              <optgroup key={prov} label={prov}>
-                {modelIds.map(mid => {
-                  const recommendation = modelRecommendationLabel(
-                    aiRegistry.find(row => row.provider === prov && row.model_id === mid)?.profile, t,
-                  );
-                  return (
-                    <option key={mid} value={`${prov}||${mid}`}>
-                      {profileModelLabel(recommendation, prov, mid)}
-                    </option>
-                  );
-                })}
-              </optgroup>
-            ))}
+            {[...grouped.entries()].flatMap(([prov, modelIds]) => modelIds.map(mid => (
+              <option key={`${prov}||${mid}`} value={`${prov}||${mid}`}>
+                {modelDisplayName(aiRegistry.find(row => row.provider === prov && row.model_id === mid)) || mid}
+              </option>
+            )))}
           </select>
           {registryEmpty && (
             <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: 6 }}>

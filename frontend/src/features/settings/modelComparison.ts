@@ -93,6 +93,7 @@ export type ModelComparisonUiAction =
 
 
 export interface ModelSetupState {
+    readonly alias?: string;
     readonly apiKey: string;
     readonly baseUrl: string;
     readonly error: string;
@@ -359,7 +360,7 @@ export const filteredComparisonModels = (
 
     return [...deduped.values()].filter((model) => (
         (!normalizedQuery
-            || `${model.name} ${model.creator}`
+            || `${model.name} ${model.creator} ${matchingRegistryIndexes(registryModels, model).map(index => registryModels[index]?.alias || '').join(' ')}`
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))

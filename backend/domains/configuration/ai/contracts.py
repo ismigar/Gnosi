@@ -99,6 +99,7 @@ class ModelRegistryEntry(BaseModel):
 
     provider: str
     model_id: str
+    alias: str | None = None
     is_local: bool | None = None
     enabled: bool | None = None
     priority: int | None = None

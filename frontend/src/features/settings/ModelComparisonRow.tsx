@@ -1,3 +1,4 @@
+import { ModelAliasField } from './ModelAliasField';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { Fragment, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -33,6 +34,7 @@ interface ModelComparisonRowProps {
     readonly metricAvailability: MetricAvailability;
     readonly model: AiModelComparisonEntry;
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
+    readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
     readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
     readonly outputTokens: string;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
@@ -69,6 +71,7 @@ export function ModelComparisonRow({
     inputTokens,
     model,
     onBeginActivation,
+    onSaveAlias,
     onDeactivate,
     outputTokens,
     providersById,
@@ -100,7 +103,7 @@ export function ModelComparisonRow({
     const disclosure = modelParameterDisclosure(model);
     const renderCell = (key: ComparisonColumn['key']): ReactNode => {
         switch (key) {
-            case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small></>;
+            case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{onSaveAlias && activeEntries.map(entry => <ModelAliasField key={`${entry.provider}:${entry.model_id}`} entry={entry} onSave={onSaveAlias} disabled={isBusy} />)}</>;
             case 'creator': return model.creator || '—';
             case 'modes': return <div className="model-mode-list">{model.modes.map((mode) => (
                 <span key={mode}>{t(`model_comparison.modes_list.${mode}`)}</span>

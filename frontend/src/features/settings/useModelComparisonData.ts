@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 
 import {
     comparisonRoutesForMode,
@@ -216,6 +216,8 @@ export interface ModelComparisonDataController {
     ) => readonly ResolvedComparisonRoute[];
     readonly saveArtificialAnalysisApiKey: () => Promise<void>;
     readonly setApiKeyInput: (value: string) => void;
+    readonly saveModelAlias: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
+    readonly setSetupAlias: (value: string) => void;
     readonly setSetupApiKey: (value: string) => void;
     readonly setSetupBaseUrl: (value: string) => void;
     readonly state: ModelComparisonDataState;
@@ -226,11 +228,12 @@ export function useModelComparisonData(
     isOpen: boolean,
 ): ModelComparisonDataController {
     const activationVersion = useRef(0);
-    const [activationRequest, requestActivation] = useReducer((value: number) => value + 1, 0);
     const [state, dispatch] = useReducer(
         modelComparisonDataReducer,
         INITIAL_DATA_STATE,
     );
+
+    useEffect(() => () => { activationVersion.current += 1; }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -321,6 +324,7 @@ export function useModelComparisonData(
             ?? null;
         const provider = route ? providersById[route.provider] : null;
         return {
+            alias: state.registry.models.find(entry => entry.provider === route?.provider && entry.model_id === route?.model_id)?.alias || '',
             apiKey: '',
             baseUrl: provider?.base_url ?? provider?.api ?? '',
             error: '',
@@ -363,7 +367,6 @@ export function useModelComparisonData(
     };
     const beginActivation = (model: AiModelComparisonEntry, preferredProvider?: string): void => {
         activationVersion.current += 1;
-        requestActivation();
         dispatch({ message: null, type: 'set-action-message' });
         const mode = preferredProvider && routesForMode(model, 'local').some((route) => route.provider === preferredProvider)
             ? 'local'
@@ -378,7 +381,7 @@ export function useModelComparisonData(
         activationVersion.current += 1;
         if (!state.setup) return;
         dispatch({
-            setup: setupForMode(state.setup.model, mode),
+            setup: { ...setupForMode(state.setup.model, mode), alias: state.setup.alias },
             type: 'set-setup',
         });
     };
@@ -505,7 +508,7 @@ export function useModelComparisonData(
                 && entry.model_id === selectedRoute.model_id
             ));
             const newEntry: AiModelRegistryEntry =
-                comparisonRouteToRegistryEntry(selectedRoute);
+                { ...comparisonRouteToRegistryEntry(selectedRoute), alias: setup.alias?.trim() || '' };
             const models = existingIndex >= 0
                 ? state.registry.models.map((entry, index) => (
                     index === existingIndex
@@ -542,25 +545,17 @@ export function useModelComparisonData(
         }
     };
 
-    const autoActivate = useEffectEvent(() => {
-        void testSetupConnection();
-    });
-    const setupModelId = state.setup?.model.id;
-    const setupMode = state.setup?.mode;
-    const setupProviderId = state.setup?.providerId;
-    const setupApiKey = state.setup?.apiKey;
-    const setupBaseUrl = state.setup?.baseUrl;
-    useEffect(() => {
-        if (!isOpen || !setupModelId) return;
-        // Wait for typing/paste to settle before saving credentials and making a paid probe.
-        const timer = window.setTimeout(() => autoActivate(), setupApiKey?.trim() ? 800 : 0);
-        return () => {
-            window.clearTimeout(timer);
-            activationVersion.current += 1;
-        };
-    }, [isOpen, activationRequest, setupModelId, setupMode, setupProviderId, setupApiKey, setupBaseUrl]);
-
     return {
+        saveModelAlias: async (entry, alias) => {
+            // Read the latest registry so editing a label preserves other configuration.
+            const latest = await fetchAiModels();
+            const models = latest.configured_models.map(row => row.provider === entry.provider && row.model_id === entry.model_id
+                ? { ...row, alias: alias.trim() } : row);
+            await updateAiModels({ models, budget: latest.budget });
+            dispatch({ models, type: 'registry-saved' });
+            emitAppEvent('gnosi-ai-models-changed', { source: 'model-alias' });
+        },
+        setSetupAlias: value => { dispatch({ patch: { alias: value }, type: 'patch-setup' }); },
         beginActivation,
         changeSetupMode,
         changeSetupProvider,

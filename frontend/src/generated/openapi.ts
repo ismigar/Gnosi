@@ -18589,6 +18589,8 @@ export interface components {
          * @description One configured router model, preserving provider-specific JSON metadata.
          */
         ModelRegistryEntry: {
+            /** Alias */
+            alias?: string | null;
             /** Context Window */
             context_window?: number | null;
             /** Cost In */

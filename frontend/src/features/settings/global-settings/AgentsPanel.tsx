@@ -1,3 +1,4 @@
+import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import { configurableGap } from './settingsStyles';
 import { AIAgentForm } from './AIAgentForm';
 import { Bot, Clock3 } from 'lucide-react';
@@ -117,7 +118,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
             {agent.managed_by && <p className="settings-desc">{t('settings.ai.assistant.plugin_owner', { name: t(`settings.plugins.catalog.${agent.managed_by.replace(/^(builtin:|plugin:)/, '')}.name`, { defaultValue: agent.managed_by.replace(/^(builtin:|plugin:)/, '') }) })}</p>}
             {agent.plugin_suspended && <p role="status">{t('settings.ai.assistant.plugin_suspended')}</p>}
             {agent.id === principal?.id && agent.enabled === false && <p role="status">{t('settings.ai.assistant.restore_help')}</p>}
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.model}</div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{modelDisplayName(aiRegistry.find(row => row.provider === agent.provider && row.model_id === agent.model)) || agent.model}</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '5px' }}>
               {t('settings.ai.resources.assigned_skill_count', { count: (agent.skill_ids || []).length })}
             </div>

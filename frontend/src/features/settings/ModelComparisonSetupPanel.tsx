@@ -14,6 +14,7 @@ import type {
 
 interface ModelComparisonSetupPanelProps {
     readonly busyModelId: string;
+    readonly onAliasChange: (value: string) => void;
     readonly onApiKeyChange: (value: string) => void;
     readonly onBaseUrlChange: (value: string) => void;
     readonly onCancel: () => void;
@@ -32,6 +33,7 @@ interface ModelComparisonSetupPanelProps {
 
 export function ModelComparisonSetupPanel({
     busyModelId,
+    onAliasChange,
     onApiKeyChange,
     onBaseUrlChange,
     onCancel,
@@ -65,6 +67,14 @@ export function ModelComparisonSetupPanel({
                 : undefined}
         >
             <div className="model-setup-content">
+                <label className="model-setup-field">
+                    <span>{t('model_comparison.alias.label')}</span>
+                    <input value={setup.alias || ''} maxLength={120}
+                        disabled={setup.connectionStatus === 'testing' || busyModelId === setup.model.id}
+                        placeholder={t('model_comparison.alias.placeholder')}
+                        onChange={event => { onAliasChange(event.target.value); }} />
+                    <small>{t('model_comparison.alias.help')}</small>
+                </label>
                 {modes.length > 1 ? (
                     <fieldset className="model-execution-choice">
                         <legend>{t('model_comparison.setup.execution')}</legend>
@@ -207,22 +217,20 @@ export function ModelComparisonSetupPanel({
             <footer>
                 <span role="status">{setup.connectionStatus === 'testing' || busyModelId === setup.model.id
                     ? <><Loader2 className="animate-spin" size={16} /> {t('model_comparison.setup.auto_checking')}</>
-                    : route ? t('model_comparison.setup.auto_activation_help') : ''}</span>
+                    : route ? t('model_comparison.alias.activation_help') : ''}</span>
                 <div>
-                    {setup.mode === 'remote' && setup.connectionStatus === 'error' && (
-                        <button
-                            className="btn-gnosi-secondary"
-                            disabled={
-                                !provider || !route
-                                || (needsApiKey && !setup.apiKey.trim())
-                                || busyModelId === setup.model.id
-                            }
-                            onClick={() => { void onTestConnection(); }}
-                            type="button"
-                        >
-                            {t('model_comparison.setup.test_connection')}
-                        </button>
-                    )}
+                    <button
+                        className="btn-gnosi-secondary"
+                        disabled={
+                            !provider || !route
+                            || (needsApiKey && !setup.apiKey.trim())
+                            || setup.connectionStatus === 'testing' || busyModelId === setup.model.id
+                        }
+                        onClick={() => { void onTestConnection(); }}
+                        type="button"
+                    >
+                        {t('model_comparison.setup.activate')}
+                    </button>
                     <button
                         className="btn-gnosi-secondary"
                         onClick={onCancel}

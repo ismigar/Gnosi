@@ -6223,6 +6223,12 @@
       "quantization": "Quantization",
       "monthly_cost": "Est. {{symbol}}/month",
       "available": "Available"
+    },
+    "alias": {
+      "label": "Alias",
+      "placeholder": "E.g. Fast and affordable",
+      "help": "Selectors will show only this alias. Leave it blank to use the model name.",
+      "activation_help": "Choose an alias and activate the model when ready."
     }
   },
   "relation_item": {

@@ -746,6 +746,9 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
             "provider": provider,
             "model_id": model_id,
         }
+        alias = candidate.get("alias")
+        if alias is not None and (not isinstance(alias, str) or len(alias.strip()) > 120):
+            raise HTTPException(status_code=400, detail="alias ha de ser un text de fins a 120 caràcters")
         effective = hydrate_registry_metadata(
             [candidate],
             metadata_index,
@@ -755,6 +758,7 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
             {
                 "provider": provider,
                 "model_id": model_id,
+                "alias": alias.strip() if isinstance(alias, str) else "",
                 "is_local": bool(effective.get("is_local", False)),
                 "enabled": bool(effective.get("enabled", True)),
                 "priority": int(effective.get("priority") or 100),

@@ -1,13 +1,15 @@
-import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
+import { subscribeAppEvent } from '../../../shared/platform/app-events';
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
-import { fetchAiModelComparison } from '../../../shared/api/ai';
+import { fetchAiModelComparison, fetchAiModels } from '../../../shared/api/ai';
 import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 import { isRecord } from '../model/agentChatMessageTypes';
 import { logChatError } from './chatDiagnostics';
 
 export interface ChatAgentProfile {
   readonly modelProfile?: string;
+  readonly modelAlias?: string;
   readonly [key: string]: unknown;
   readonly id: string;
   readonly name?: string;
@@ -44,6 +46,12 @@ export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Op
       setDefaultAgentId(principal?.id || '');
       // Only initialize an unbound conversation. Existing histories keep their identity.
       setSelectedAgentId(current => current || principal?.id || '');
+      void fetchAiModels().then(registry => {
+        setAgentList(current => current.map(profile => ({
+          ...profile,
+          modelAlias: registry.configured_models.find(row => row.provider === profile.provider && row.model_id === profile.model)?.alias?.trim() || undefined,
+        })));
+      }).catch(() => {});
       // Catalog labels enrich the selector without delaying the conversation.
       void fetchAiModelComparison().then(comparison => {
         if (!Array.isArray(comparison.models)) return;
@@ -58,6 +66,7 @@ export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Op
   }, [setSelectedAgentId]);
   const onConfigChanged = useCallback(() => { void loadConfig(); }, [loadConfig]);
   useConfigChanged(onConfigChanged);
+  useEffect(() => subscribeAppEvent('gnosi-ai-models-changed', onConfigChanged), [onConfigChanged]);
   const agentConfig = agentList.find(profile => profile.id === selectedAgentId) || null;
   return { agentConfig, agentList, defaultAgentId, loadConfig };
 }

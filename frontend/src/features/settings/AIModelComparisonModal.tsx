@@ -98,6 +98,7 @@ export function AIModelComparisonModal({
     const setupPanel = data.setup ? (
         <ModelComparisonSetupPanel
             busyModelId={data.busyModelId}
+            onAliasChange={controller.setSetupAlias}
             onApiKeyChange={controller.setSetupApiKey}
             onBaseUrlChange={controller.setSetupBaseUrl}
             onCancel={controller.closeSetup}
@@ -183,6 +184,7 @@ export function AIModelComparisonModal({
                                 metricAvailability={metricAvailability}
                                 models={models}
                                 onBeginActivation={(model) => controller.beginActivation(model, ui.provider === 'all' ? undefined : ui.provider)}
+                                onSaveAlias={controller.saveModelAlias}
                                 onDeactivate={controller.deactivateModel}
                                 onScrollbarScroll={onScrollbarScroll}
                                 onSort={(key) => {
