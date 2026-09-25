@@ -32,6 +32,7 @@ export interface RegistryModelEntry {
 export interface ComparisonProvider {
   readonly configured?: unknown;
   readonly connected?: unknown;
+  readonly validated_models?: readonly string[];
   readonly id: string;
   readonly live?: unknown;
   readonly name?: string | null;
@@ -40,6 +41,7 @@ export interface ComparisonProvider {
 
 export interface ResolvedComparisonRoute extends ComparisonRoute {
   readonly provider_connected: boolean;
+  readonly provider_validated: boolean;
   readonly provider_name: string;
 }
 
@@ -126,11 +128,15 @@ export function comparisonRoutesForMode(
         ...route,
         provider_name: provider.name || route.provider_name || provider.id,
         provider_connected: Boolean(provider.connected),
+        provider_validated: (provider.validated_models ?? []).includes(route.model_id),
       });
     }
   }
 
   return [...routesByProvider.values()].sort((first, second) => {
+    if (first.provider_validated !== second.provider_validated) {
+      return Number(second.provider_validated) - Number(first.provider_validated);
+    }
     if (first.provider_connected !== second.provider_connected) {
       return Number(second.provider_connected) - Number(first.provider_connected);
     }

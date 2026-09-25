@@ -11117,6 +11117,8 @@ export interface components {
             models_count: number;
             /** Name */
             name: string;
+            /** Validated Models */
+            validated_models?: string[];
         };
         /**
          * AiUsageHistoryPeriodResponse
@@ -18263,6 +18265,8 @@ export interface components {
             name: string;
             /** Npm */
             npm: string;
+            /** Validated Models */
+            validated_models?: string[];
         } & {
             [key: string]: unknown;
         };

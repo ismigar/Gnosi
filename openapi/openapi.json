@@ -1681,6 +1681,13 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "validated_models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validated Models",
+            "type": "array"
           }
         },
         "required": [
@@ -21435,6 +21442,13 @@
           "npm": {
             "title": "Npm",
             "type": "string"
+          },
+          "validated_models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validated Models",
+            "type": "array"
           }
         },
         "required": [

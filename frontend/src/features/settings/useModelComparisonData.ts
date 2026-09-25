@@ -14,6 +14,7 @@ import {
     setAiProviderCredentials,
     setAiProviderStatus,
     updateAiModels,
+    validateAiProvider,
     type AiModelCatalog,
     type AiModelCatalogProvider,
     type AiModelComparison,
@@ -52,6 +53,7 @@ interface ModelComparisonDataState {
 
 type ModelComparisonDataAction =
     | { readonly type: 'catalog-connected'; readonly providerId: string; readonly savedKey: boolean }
+    | { readonly type: 'provider-model-validation'; readonly providerId: string; readonly validatedModels: readonly string[]; readonly savedKey: boolean }
     | { readonly type: 'configuration-failed' }
     | { readonly type: 'configuration-loaded'; readonly catalog: AiModelCatalog; readonly registry: ModelRegistryState }
     | { readonly type: 'configuration-started' }
@@ -104,6 +106,23 @@ function modelComparisonDataReducer(
                                 ...provider,
                                 connected: true,
                                 enabled: true,
+                                has_api_key: provider.has_api_key || action.savedKey,
+                            }
+                            : provider
+                    )),
+                },
+            };
+        case 'provider-model-validation':
+            if (!state.catalog) return state;
+            return {
+                ...state,
+                catalog: {
+                    ...state.catalog,
+                    providers: state.catalog.providers.map((provider) => (
+                        provider.id === action.providerId
+                            ? {
+                                ...provider,
+                                validated_models: [...action.validatedModels],
                                 has_api_key: provider.has_api_key || action.savedKey,
                             }
                             : provider
@@ -188,6 +207,7 @@ export interface ModelComparisonDataController {
     readonly changeSetupProvider: (providerId: string) => void;
     readonly closeSetup: () => void;
     readonly deactivateModel: (model: AiModelComparisonEntry) => Promise<void>;
+    readonly testSetupConnection: () => Promise<void>;
     readonly dismissFallback: () => void;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
     readonly retry: () => void;
@@ -300,6 +320,8 @@ export function useModelComparisonData(
             apiKey: '',
             baseUrl: provider?.base_url ?? provider?.api ?? '',
             error: '',
+            connectionStatus: route?.provider_validated ? 'connected' : 'untested',
+            connectionError: '',
             mode,
             model,
             providerId: route?.provider ?? '',
@@ -358,6 +380,8 @@ export function useModelComparisonData(
                 apiKey: '',
                 baseUrl: provider?.base_url ?? provider?.api ?? '',
                 error: '',
+                connectionStatus: 'untested',
+                connectionError: '',
                 providerId,
             },
             type: 'patch-setup',
@@ -393,6 +417,50 @@ export function useModelComparisonData(
             dispatch({ modelId: '', type: 'set-busy-model' });
         }
     };
+    const testSetupConnection = async (): Promise<void> => {
+        const setup = state.setup;
+        if (!setup || setup.mode !== 'remote') return;
+        const provider = providersById[setup.providerId];
+        const selectedRoute = routesForMode(setup.model, setup.mode)
+            .find((route) => route.provider === setup.providerId);
+        const needsApiKey = !provider?.has_api_key;
+        if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())) return;
+        dispatch({ patch: { connectionStatus: 'testing', connectionError: '', error: '' }, type: 'patch-setup' });
+        try {
+            if (needsApiKey) {
+                await setAiProviderCredentials(provider.id, {
+                    api_key: setup.apiKey.trim(),
+                    base_url: setup.baseUrl || provider.api || '',
+                });
+            }
+            const result = await validateAiProvider(provider.id, { model: selectedRoute.model_id });
+            const nextValidatedModels = new Set(provider.validated_models ?? []);
+            if (result.success) nextValidatedModels.add(selectedRoute.model_id);
+            else nextValidatedModels.delete(selectedRoute.model_id);
+            dispatch({
+                providerId: provider.id,
+                validatedModels: [...nextValidatedModels],
+                savedKey: needsApiKey,
+                type: 'provider-model-validation',
+            });
+            dispatch({
+                patch: {
+                    connectionStatus: result.success ? 'connected' : 'error',
+                    connectionError: result.success ? '' : result.error || '',
+                },
+                type: 'patch-setup',
+            });
+        } catch (error: unknown) {
+            logError('ai-model-provider-validation', error);
+            dispatch({
+                patch: {
+                    connectionStatus: 'error',
+                    connectionError: error instanceof Error ? error.message : '',
+                },
+                type: 'patch-setup',
+            });
+        }
+    };
     const activateModel = async (): Promise<void> => {
         const setup = state.setup;
         if (!setup) return;
@@ -400,7 +468,8 @@ export function useModelComparisonData(
         const selectedRoute = routesForMode(setup.model, setup.mode)
             .find((route) => route.provider === setup.providerId);
         const needsApiKey = setup.mode === 'remote' && !provider?.has_api_key;
-        if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())) {
+        if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())
+            || (setup.mode === 'remote' && setup.connectionStatus !== 'connected')) {
             return;
         }
         dispatch({ modelId: setup.model.id, type: 'set-busy-model' });
@@ -464,6 +533,7 @@ export function useModelComparisonData(
             dispatch({ setup: null, type: 'set-setup' });
         },
         deactivateModel,
+        testSetupConnection,
         dismissFallback: () => {
             dispatch({ type: 'dismiss-fallback' });
         },
@@ -477,10 +547,10 @@ export function useModelComparisonData(
             dispatch({ type: 'set-api-key-input', value });
         },
         setSetupApiKey: (value) => {
-            dispatch({ patch: { apiKey: value, error: '' }, type: 'patch-setup' });
+            dispatch({ patch: { apiKey: value, error: '', connectionStatus: 'untested', connectionError: '' }, type: 'patch-setup' });
         },
         setSetupBaseUrl: (value) => {
-            dispatch({ patch: { baseUrl: value, error: '' }, type: 'patch-setup' });
+            dispatch({ patch: { baseUrl: value, error: '', connectionStatus: 'untested', connectionError: '' }, type: 'patch-setup' });
         },
         state,
     };

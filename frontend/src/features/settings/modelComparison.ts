@@ -94,6 +94,8 @@ export interface ModelSetupState {
     readonly apiKey: string;
     readonly baseUrl: string;
     readonly error: string;
+    readonly connectionStatus: 'untested' | 'testing' | 'connected' | 'error';
+    readonly connectionError: string;
     readonly mode: ComparisonSetupMode;
     readonly model: AiModelComparisonEntry;
     readonly providerId: string;

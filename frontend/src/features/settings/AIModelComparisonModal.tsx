@@ -97,6 +97,7 @@ export function AIModelComparisonModal({
             onCancel={controller.closeSetup}
             onModeChange={controller.changeSetupMode}
             onProviderChange={controller.changeSetupProvider}
+            onTestConnection={controller.testSetupConnection}
             providersById={controller.providersById}
             routesForMode={controller.routesForMode}
             setup={data.setup}

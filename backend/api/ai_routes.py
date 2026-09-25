@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -38,6 +39,7 @@ from backend.security.ai_credentials import (
     resolve_provider_api_key,
     sanitize_ai_config,
     set_provider_api_key,
+    validated_provider_models,
 )
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
@@ -73,6 +75,29 @@ class ValidatePayload(BaseModel):
     model: str | None = None
 
 
+def _record_provider_model_validation(provider: str, model: str, success: bool) -> None:
+    if not model:
+        return
+    cfg = load_params(strict_env=False)
+    current_config = _load_yaml_mapping(cfg.params_source)
+    ai_cfg = dict(current_config.get("ai") or {})
+    providers = dict(ai_cfg.get("providers") or {})
+    provider_cfg = dict(providers.get(provider) or {})
+    validations = dict(provider_cfg.get("model_validations") or {})
+    if success:
+        validations[model] = time.time()
+    else:
+        validations.pop(model, None)
+    provider_cfg["model_validations"] = validations
+    providers[provider] = provider_cfg
+    ai_cfg["providers"] = providers
+    current_config["ai"] = ai_cfg
+    safe_write_text(
+        cfg.params_source,
+        yaml.safe_dump(current_config, default_flow_style=False, allow_unicode=True, sort_keys=False),
+    )
+
+
 @router.post(
     "/providers/{provider_id}/validate",
     dependencies=[Depends(require_role("admin"))],
@@ -88,6 +113,7 @@ async def validate_provider(
     If api_key is provided in payload, it uses it. Otherwise, it uses the saved one.
     """
     provider = provider_id.lower().strip()
+    record_saved_verification = not payload.api_key and not payload.base_url
 
     # Resolve API Key
     api_key = payload.api_key
@@ -95,6 +121,10 @@ async def validate_provider(
         api_key = resolve_provider_api_key(provider, {})
 
     if not api_key and provider not in ["ollama", "local", "generic"]:
+        if record_saved_verification:
+            await asyncio.to_thread(
+                _record_provider_model_validation, provider, payload.model or "", False,
+            )
         return {
             "success": False,
             "error": f"Falta la clau API per validar el proveïdor {provider.capitalize()}.",
@@ -120,6 +150,13 @@ async def validate_provider(
         target_model = default_models.get(provider)
 
     try:
+        if not payload.base_url:
+            cfg = load_params(strict_env=False)
+            providers_cfg = dict((cfg.get("ai", {}) or {}).get("providers") or {})
+            provider_cfg = dict(providers_cfg.get(provider) or {})
+            saved_base_url = provider_cfg.get("base_url")
+        else:
+            saved_base_url = payload.base_url
         # timeout=10 is applied when building the client (REAL network timeout). It can NOT be
         # passed to .invoke() via config={"timeout":...}: langchain ignores it, and the "validate"
         # would hang if the provider doesn't respond. cf. directive ai_error_handling.md.
@@ -127,11 +164,15 @@ async def validate_provider(
             provider=provider,
             model=target_model,
             api_key=api_key,
-            base_url=payload.base_url,
+            base_url=saved_base_url,
             timeout=10,
         )
 
         if not llm:
+            if record_saved_verification:
+                await asyncio.to_thread(
+                    _record_provider_model_validation, provider, str(target_model or ""), False,
+                )
             return {
                 "success": False,
                 "error": f"Could not instantiate provider {provider}. Check the dependency and API key. Model: {target_model}",
@@ -147,17 +188,26 @@ async def validate_provider(
             provider=provider, model=str(target_model or ""),
         )
 
+        if record_saved_verification:
+            await asyncio.to_thread(
+                _record_provider_model_validation, provider, str(target_model or ""), True,
+            )
+
         return ProviderValidationResponse.model_validate(
             {"success": True, "response": response.content}
         ).model_dump(exclude_unset=True)
     except Exception as e:
+        if record_saved_verification:
+            await asyncio.to_thread(
+                _record_provider_model_validation, provider, str(target_model or ""), False,
+            )
         error_msg = str(e)
         # Groq/OpenAI SDKs raise AuthenticationError/401 without the literal
         # words "API key" — without this match a bad key surfaced as a cryptic
         # "Internal error [hash]" instead of the actionable message.
         if any(
             marker in error_msg
-            for marker in ("API key", "AuthenticationError", "401", "Unauthorized")
+            for marker in ("API key", "AuthenticationError", "401", "Unauthorized", "User not found", "invalid key")
         ):
             return {"success": False, "error": f"Clau API invàlida per a {provider.capitalize()}."}
         return {
@@ -244,6 +294,7 @@ async def set_provider_credentials(
     if payload.base_url is not None:
         provider_cfg["base_url"] = payload.base_url
     providers[provider] = provider_cfg
+    provider_cfg.pop("model_validations", None)
     ai_cfg["providers"] = providers
     _set_provider_disconnected(ai_cfg, provider, False)
 
@@ -497,6 +548,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
             configured = provider_id in providers_cfg
             provider_cfg = providers_cfg.get(provider_id) if configured else None
             connected = is_provider_connected(provider_id, provider_cfg)
+            validated_models = validated_provider_models(provider_cfg)
             has_api_key = (
                 has_provider_api_key(provider_id, provider_cfg)
                 if configured
@@ -506,6 +558,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
                 {
                     **entry,
                     "connected": connected,
+                    "validated_models": validated_models,
                     "configured": configured,
                     "enabled": (provider_cfg or {}).get("enabled", True),
                     "has_api_key": has_api_key,

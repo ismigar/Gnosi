@@ -20,6 +20,7 @@ interface ModelComparisonSetupPanelProps {
     readonly onCancel: () => void;
     readonly onModeChange: (mode: ComparisonSetupMode) => void;
     readonly onProviderChange: (providerId: string) => void;
+    readonly onTestConnection: () => Promise<void>;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
     readonly routesForMode: (
         model: AiModelComparisonEntry,
@@ -38,6 +39,7 @@ export function ModelComparisonSetupPanel({
     onCancel,
     onModeChange,
     onProviderChange,
+    onTestConnection,
     providersById,
     routesForMode,
     setup,
@@ -120,7 +122,7 @@ export function ModelComparisonSetupPanel({
                                             value={candidate.provider}
                                         >
                                             {candidate.provider_name}
-                                            {candidate.provider_connected
+                                            {candidate.provider_validated
                                                 ? ` · ${t('model_comparison.setup.connected')}`
                                                 : ''}
                                         </option>
@@ -129,16 +131,27 @@ export function ModelComparisonSetupPanel({
                             </label>
                         ) : null}
 
-                        {provider && setup.mode === 'remote' && !needsApiKey ? (
+                        {provider && setup.mode === 'remote' && setup.connectionStatus === 'connected' ? (
                             <div className="model-provider-state connected">
                                 <CheckCircle2 size={18} />
                                 <span>
                                     <strong>{t(
-                                        'model_comparison.setup.credentials_ready',
+                                        'model_comparison.setup.connection_verified',
                                     )}</strong>
                                     <small>{t(
-                                        'model_comparison.setup.credentials_ready_help',
+                                        'model_comparison.setup.connection_verified_help',
+                                        { model: route?.model_id },
                                     )}</small>
+                                </span>
+                            </div>
+                        ) : null}
+
+                        {provider && setup.mode === 'remote' && setup.connectionStatus === 'untested' && !needsApiKey ? (
+                            <div className="model-provider-state">
+                                <Server size={18} />
+                                <span>
+                                    <strong>{t('model_comparison.setup.credentials_saved')}</strong>
+                                    <small>{t('model_comparison.setup.connection_unverified')}</small>
                                 </span>
                             </div>
                         ) : null}
@@ -182,11 +195,34 @@ export function ModelComparisonSetupPanel({
                         {t(`model_comparison.errors.${setup.error}`)}
                     </div>
                 ) : null}
+                {setup.connectionStatus === 'error' ? (
+                    <div className="model-setup-error" role="alert">
+                        {setup.connectionError || t('model_comparison.setup.connection_failed')}
+                    </div>
+                ) : null}
             </div>
 
             <footer>
                 <span>{route ? t('model_comparison.setup.router_help') : ''}</span>
                 <div>
+                    {setup.mode === 'remote' && (
+                        <button
+                            className="btn-gnosi-secondary"
+                            disabled={
+                                !provider || !route
+                                || (needsApiKey && !setup.apiKey.trim())
+                                || setup.connectionStatus === 'testing'
+                                || busyModelId === setup.model.id
+                            }
+                            onClick={() => { void onTestConnection(); }}
+                            type="button"
+                        >
+                            {setup.connectionStatus === 'testing' ? (
+                                <Loader2 className="animate-spin" size={16} />
+                            ) : null}
+                            {t('model_comparison.setup.test_connection')}
+                        </button>
+                    )}
                     <button
                         className="btn-gnosi-secondary"
                         onClick={onCancel}
@@ -200,6 +236,7 @@ export function ModelComparisonSetupPanel({
                             !provider
                             || !route
                             || (needsApiKey && !setup.apiKey.trim())
+                            || (setup.mode === 'remote' && setup.connectionStatus !== 'connected')
                             || busyModelId === setup.model.id
                         }
                         onClick={() => {

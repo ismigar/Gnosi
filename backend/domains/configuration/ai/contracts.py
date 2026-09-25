@@ -29,6 +29,7 @@ class AiProviderCatalogEntry(BaseModel):
     credential_ref: str | None
     has_api_key: bool
     connected: bool
+    validated_models: list[str] = Field(default_factory=list)
     configured: bool
     enabled: bool
 
@@ -171,6 +172,7 @@ class ModelCatalogProvider(BaseModel):
     models: list[ModelCatalogModel]
     live: bool | None = None
     connected: bool
+    validated_models: list[str] = Field(default_factory=list)
     configured: bool
     enabled: bool
     has_api_key: bool
