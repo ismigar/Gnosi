@@ -110,6 +110,13 @@ bloque pas la création. Les couvertures en ligne restent des URL externes ;
 celles issues du PDF sont locales. L'enrichissement affiche un aperçu sans
 présélectionner le remplacement d'une couverture existante.
 
+Une seule notification de progression reste visible après la fermeture du
+dialogue de recherche. Elle indique la préparation, le téléversement du PDF,
+la création de la couverture, l’enregistrement et l’ouverture au début de chaque
+étape. Elle confirme la réussite après l’ouverture de la fiche, ou affiche une
+erreur si la création échoue. Les imports par identifiant affichent uniquement
+les étapes applicables.
+
 ## Responsabilité
 
 Ce domaine combine la lecture de flux et de newsletters avec un gestionnaire de références compatible Zotero, le rendu des citations CSL, l'import par identifiant ou depuis le web, la lecture PDF/EPUB et les annotations pouvant servir de preuves citables.

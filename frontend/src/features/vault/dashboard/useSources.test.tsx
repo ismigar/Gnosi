@@ -7,6 +7,7 @@ import { createVaultPage, fetchVaultPage, fetchVaultPagesByTable } from '../../.
 import { uploadVaultInsertFile } from '../../../shared/api/vault-content';
 import { uploadVaultCover } from '../../../shared/api/vault-icons';
 import { createPdfCover } from '../../../shared/resources/pdfCover';
+import { toast } from '../../../shared/notifications/toast';
 import { useSources } from './useSources';
 
 vi.mock('../../../shared/api/vaults');
@@ -14,11 +15,17 @@ vi.mock('../../../shared/api/vault-content');
 vi.mock('../../../shared/api/vault-icons');
 vi.mock('../../../shared/resources/pdfCover', () => ({ createPdfCover: vi.fn() }));
 vi.mock('../../../shared/notifications/toast', () => ({
-    toast: { success: vi.fn(), error: vi.fn() },
+    toast: { loading: vi.fn(), success: vi.fn(), error: vi.fn() },
 }));
 
 let controller: ReturnType<typeof useSources>;
 let dispose: () => void;
+let context: Parameters<typeof useSources>[0];
+function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>(done => { resolve = done; });
+    return { promise, resolve };
+}
 const sourceFile = new File(['pdf'], 'report.pdf', { type: 'application/pdf' });
 const coverFile = new File(['image'], 'cover.jpg', { type: 'image/jpeg' });
 const template = (id: string, type: string) => ({
@@ -31,6 +38,8 @@ beforeEach(async () => {
     vi.resetAllMocks();
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(toast.loading).mockReturnValue('creation-progress');
     vi.mocked(fetchVaultPagesByTable).mockResolvedValue([]);
     vi.mocked(createVaultPage).mockResolvedValue({
         id: 'created', metadata: {}, content: '', folder: '', title: 'Created',
@@ -41,7 +50,7 @@ beforeEach(async () => {
     vi.mocked(uploadVaultCover).mockResolvedValue({ path: 'Assets/Covers/report.jpg', url: '/api/vault/assets/Covers/report.jpg' });
     const i18n = createInstance();
     await i18n.init({ lng: 'en', resources: {}, showSupportNotice: false });
-    const context: Parameters<typeof useSources>[0] = {
+    context = {
         applySchemaDefaults: (_id, metadata) => ({ ...metadata }),
         fetchPages: vi.fn(() => Promise.resolve([])),
         getSchemaFromTableId: () => ({ PDF: 'files' }),
@@ -57,6 +66,62 @@ beforeEach(async () => {
 afterEach(() => { dispose(); });
 
 describe('source resource creation', () => {
+    it('keeps one progress notification through upload, cover generation, saving and opening', async () => {
+        const catalog = deferred<Awaited<ReturnType<typeof fetchVaultPagesByTable>>>();
+        const upload = deferred<Awaited<ReturnType<typeof uploadVaultInsertFile>>>();
+        const cover = deferred<File>();
+        const create = deferred<Awaited<ReturnType<typeof createVaultPage>>>();
+        const refresh = deferred<Awaited<ReturnType<typeof context.fetchPages>>>();
+        const open = deferred<undefined>();
+        vi.mocked(fetchVaultPagesByTable).mockReturnValueOnce(catalog.promise);
+        vi.mocked(uploadVaultInsertFile).mockReturnValueOnce(upload.promise);
+        vi.mocked(createPdfCover).mockReturnValueOnce(cover.promise);
+        vi.mocked(createVaultPage).mockReturnValueOnce(create.promise);
+        vi.mocked(context.fetchPages).mockReturnValueOnce(refresh.promise);
+        vi.mocked(context.loadPage).mockReturnValueOnce(open.promise);
+
+        const creating = controller.handleCreateFromSource('references', { Title: 'Report' }, sourceFile);
+        expect(toast.loading).toHaveBeenLastCalledWith('Preparing the resource…');
+        catalog.resolve([]);
+        await vi.waitFor(() => { expect(toast.loading).toHaveBeenLastCalledWith('Saving the PDF…', { id: 'creation-progress' }); });
+        upload.resolve({ url: 'Assets/Files/report.pdf', path: 'Assets/Files/report.pdf' });
+        await vi.waitFor(() => { expect(createPdfCover).toHaveBeenCalled(); });
+        expect(toast.loading).toHaveBeenLastCalledWith('Creating the cover…', { id: 'creation-progress' });
+        cover.resolve(coverFile);
+        await vi.waitFor(() => { expect(createVaultPage).toHaveBeenCalled(); });
+        expect(toast.loading).toHaveBeenLastCalledWith('Saving the resource…', { id: 'creation-progress' });
+        create.resolve({ id: 'created', metadata: {}, content: '', folder: '', title: 'Report', message: 'Created', status: 'created' });
+        await vi.waitFor(() => { expect(context.fetchPages).toHaveBeenCalled(); });
+        expect(toast.loading).toHaveBeenLastCalledWith('Opening the resource…', { id: 'creation-progress' });
+        expect(toast.success).not.toHaveBeenCalled();
+        refresh.resolve([]);
+        await vi.waitFor(() => { expect(context.loadPage).toHaveBeenCalledWith('created'); });
+        expect(toast.success).not.toHaveBeenCalled();
+        open.resolve(undefined);
+        await creating;
+        expect(toast.success).toHaveBeenCalledWith('success.record_created', { id: 'creation-progress' });
+    });
+
+    it('shows progress for identifier imports without a file', async () => {
+        await controller.handleCreateFromSource('references', { ISBN: '9780140449136', Title: 'Book' });
+        expect(vi.mocked(toast.loading).mock.calls.map(([message]) => message)).toEqual([
+            'Preparing the resource…', 'Saving the resource…', 'Opening the resource…',
+        ]);
+        expect(toast.success).toHaveBeenCalledWith('success.record_created', { id: 'creation-progress' });
+        expect(uploadVaultInsertFile).not.toHaveBeenCalled();
+    });
+
+    it.each(['catalog', 'upload', 'create'])('replaces progress with an error if %s fails', async stage => {
+        const failure = new Error('Unavailable');
+        if (stage === 'catalog') vi.mocked(fetchVaultPagesByTable).mockRejectedValueOnce(failure);
+        if (stage === 'upload') vi.mocked(uploadVaultInsertFile).mockRejectedValueOnce(failure);
+        if (stage === 'create') vi.mocked(createVaultPage).mockRejectedValueOnce(failure);
+        await controller.handleCreateFromSource('references', { Title: 'Report' }, sourceFile);
+        expect(toast.error).toHaveBeenCalledWith('Error creating the record', { id: 'creation-progress' });
+        expect(toast.success).not.toHaveBeenCalled();
+        expect(context.loadPage).not.toHaveBeenCalled();
+    });
+
     it.each([['book', 'Llibre'], ['report', 'Informe'], ['journalArticle', 'Article científic']])(
         'loads and applies the %s template even without cached dashboard pages', async (type, label) => {
             vi.mocked(fetchVaultPagesByTable).mockResolvedValue([

@@ -4441,6 +4441,11 @@
     "type_genogram": "Genograma"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparando el recurso…",
+    "saving_file": "Guardando el PDF…",
+    "creating_cover": "Creando la portada…",
+    "saving_resource": "Guardando el recurso…",
+    "opening_resource": "Abriendo el recurso…",
     "button": "Rellenar",
     "button_title": "Rellenar metadatos desde DOI/ISBN/arXiv/URL",
     "applied_many": "Se han actualizado {{count}} campos",

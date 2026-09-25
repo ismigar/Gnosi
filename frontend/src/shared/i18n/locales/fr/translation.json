@@ -4063,6 +4063,11 @@
     "note_section_placeholder_trans": "Nom de note#Section"
   },
   "metadata_lookup": {
+    "creating_resource": "Préparation de la ressource…",
+    "saving_file": "Enregistrement du PDF…",
+    "creating_cover": "Création de la couverture…",
+    "saving_resource": "Enregistrement de la ressource…",
+    "opening_resource": "Ouverture de la ressource…",
     "button": "Remplir",
     "button_title": "Remplir les métadonnées depuis DOI/ISBN/arXiv/URL",
     "applied_many": "{{count}} champs mis à jour",

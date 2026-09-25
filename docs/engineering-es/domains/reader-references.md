@@ -109,6 +109,12 @@ no impiden la creación. Las portadas en línea son URL externas; las generadas
 del PDF son archivos locales. El enriquecimiento muestra una vista previa y
 no preselecciona sustituir una portada existente.
 
+Un único aviso de progreso permanece visible después de cerrar el diálogo de
+búsqueda. Indica la preparación, la subida del PDF, la generación de la portada,
+el guardado y la apertura al empezar cada etapa. El mismo aviso confirma el
+éxito cuando se ha abierto el registro, o muestra un error si falla la creación.
+Las importaciones por identificador muestran solo las etapas aplicables.
+
 ## Responsabilidad
 
 Este dominio combina la lectura de feeds y boletines con un gestor de referencias compatible con Zotero, renderizado de citas CSL, importación por identificador o desde la web, lectura de PDF/EPUB y anotaciones que pueden convertirse en evidencia citable.

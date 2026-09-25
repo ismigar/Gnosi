@@ -4495,6 +4495,11 @@
     "type_genogram": "Genograma"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparant el recurs…",
+    "saving_file": "Desant el PDF…",
+    "creating_cover": "Creant la portada…",
+    "saving_resource": "Desant el recurs…",
+    "opening_resource": "Obrint el recurs…",
     "button": "Omplir",
     "button_title": "Omplir metadades des de DOI/ISBN/arXiv/URL",
     "applied_many": "S'han actualitzat {{count}} camps",

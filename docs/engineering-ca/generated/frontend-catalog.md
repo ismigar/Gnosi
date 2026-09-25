@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126370 | 32 |
+| `features` | 1112 | 126375 | 32 |
 | `generated` | 2 | 46949 | 484 |
 | `shared` | 254 | 30749 | 414 |
 
@@ -709,7 +709,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useRecordCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRecordCatalog.ts) | 144 | `useRecordCatalog` | — |
 | [`frontend/src/features/vault/dashboard/useRelationHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRelationHistory.ts) | 78 | `useRelationHistory` | — |
 | [`frontend/src/features/vault/dashboard/useResourceProcessing.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useResourceProcessing.ts) | 82 | `useResourceProcessing` | — |
-| [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 114 | `useSources` | — |
+| [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 119 | `useSources` | — |
 | [`frontend/src/features/vault/dashboard/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTableNavigation.ts) | 169 | `useTableNavigation` | — |
 | [`frontend/src/features/vault/dashboard/useTemplates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTemplates.ts) | 168 | `useTemplates` | — |
 | [`frontend/src/features/vault/dashboard/useUndoRedo.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useUndoRedo.ts) | 116 | `useUndoRedo` | — |

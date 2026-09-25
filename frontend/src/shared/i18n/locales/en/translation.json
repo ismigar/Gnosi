@@ -4465,6 +4465,11 @@
     "type_genogram": "Genogram"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparing the resource…",
+    "saving_file": "Saving the PDF…",
+    "creating_cover": "Creating the cover…",
+    "saving_resource": "Saving the resource…",
+    "opening_resource": "Opening the resource…",
     "button": "Fill",
     "button_title": "Fill metadata from DOI/ISBN/arXiv/URL",
     "applied_one": "Updated {{count}} field",

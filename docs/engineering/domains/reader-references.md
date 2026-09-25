@@ -105,6 +105,12 @@ upload failures do not block creation. Online covers remain external URLs;
 PDF-generated covers are local assets. Metadata enrichment previews proposed
 covers and does not preselect replacement of an existing cover.
 
+A single progress notification remains visible after the lookup dialog closes. It
+reports preparation, PDF upload, cover generation, saving, and opening as each
+stage starts. The same notification becomes a success only after the record has
+opened, or an error if creation fails. Identifier imports use the applicable
+stages without showing file or cover progress.
+
 ## Responsibility
 
 This domain combines feed/newsletter reading with a Zotero-compatible reference

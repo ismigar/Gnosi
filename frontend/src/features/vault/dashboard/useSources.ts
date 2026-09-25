@@ -20,6 +20,7 @@ export function useSources(context: Context) {
     const handleCreateFromSource = useCallback(async (tableId: string | null, suggested: Metadata, sourceFile?: File) => {
         if (!tableId)
             return;
+        const progressId = toast.loading(t('metadata_lookup.creating_resource', { defaultValue: 'Preparing the resource…' }));
         try {
             const sug = suggested;
             const title = stringValue(sug.Title || sug.title || t('common.new'));
@@ -62,6 +63,7 @@ export function useSources(context: Context) {
                 const targetName = typeof fileConfig.name_pattern === 'string'
                     ? interpolateNamePattern(fileConfig.name_pattern, initialMeta)
                     : '';
+                toast.loading(t('metadata_lookup.saving_file', { defaultValue: 'Saving the PDF…' }), { id: progressId });
                 const uploaded = await uploadVaultInsertFile(sourceFile, {
                     propertyName: fileFieldName,
                     storageFolder,
@@ -71,6 +73,7 @@ export function useSources(context: Context) {
                 initialMeta[fileFieldName] = uploaded.url || uploaded.path;
                 if (!initialMeta.cover) {
                     try {
+                        toast.loading(t('metadata_lookup.creating_cover', { defaultValue: 'Creating the cover…' }), { id: progressId });
                         const { createPdfCover } = await import('../../../shared/resources/pdfCover');
                         const cover = await uploadVaultCover(await createPdfCover(sourceFile));
                         initialMeta.cover = cover.path;
@@ -79,19 +82,21 @@ export function useSources(context: Context) {
                     }
                 }
             }
+            toast.loading(t('metadata_lookup.saving_resource', { defaultValue: 'Saving the resource…' }), { id: progressId });
             const created = await createVaultPage({
                 title,
                 content: initialContent,
                 is_database: false,
                 metadata: initialMeta,
             });
+            toast.loading(t('metadata_lookup.opening_resource', { defaultValue: 'Opening the resource…' }), { id: progressId });
             await fetchPages();
-            toast.success(t('success.record_created'));
-            void loadPage(created.id);
+            await loadPage(created.id);
+            toast.success(t('success.record_created'), { id: progressId });
         }
         catch (err) {
             console.error("Error creating the record from a source:", err);
-            toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }));
+            toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }), { id: progressId });
         }
     }, [applySchemaDefaults, fetchPages, getSchemaFromTableId, loadPage, t]);
     const handleOpenDailyNote = useCallback(async (dateStr?: string) => {
