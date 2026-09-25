@@ -2736,7 +2736,11 @@
           "plugin_llm_wiki_process_source": "Processa una font del Coneixement",
           "plugin_llm_wiki_process_status": "Consulta el progrés del processament del Coneixement",
           "plugin_llm_wiki_maintain": "Mantén els índexs del Coneixement",
-          "plugin_llm_wiki_propose_connections": "Proposa connexions al Coneixement"
+          "plugin_llm_wiki_propose_connections": "Proposa connexions al Coneixement",
+          "core_gnosi_operation_writing": "Redacció i correcció",
+          "core_gnosi_operation_tables": "Accions de taules",
+          "core_gnosi_operation_knowledge": "Connexions i refinament del coneixement",
+          "core_gnosi_operation_learning": "Aprenentatge i avaluació d’habilitats"
         },
         "tool_names": {
           "add_page_comment": "Afegeix un comentari a una pàgina",
@@ -2923,7 +2927,11 @@
           "core_gnosi_notebooks": "Consulta quaderns i evidències citables; crea i organitza quaderns privats a partir de Recursos existents.",
           "core_gnosi_literature": "Cerca en fonts acadèmiques configurades, consulta resultats i revisions i importa referències a Recursos.",
           "core_gnosi_media": "Localitza fitxers multimèdia i edita’n etiquetes i descripció sense modificar-ne el contingut.",
-          "core_gnosi_activity": "Consulta les teves automatitzacions, els resultats i els serveis programats, sense alterar permisos ni programacions."
+          "core_gnosi_activity": "Consulta les teves automatitzacions, els resultats i els serveis programats, sense alterar permisos ni programacions.",
+          "core_gnosi_operation_writing": "Redacta, resumeix i corregeix textos conservant el significat i el format.",
+          "core_gnosi_operation_tables": "Proposa configuracions i valors de camps a partir de l’esquema i del registre proporcionats.",
+          "core_gnosi_operation_knowledge": "Proposa connexions i reformulacions a partir de les notes i les evidències disponibles, sense desar canvis.",
+          "core_gnosi_operation_learning": "Extreu procediments de les instruccions aprovades i avalua habilitats segons criteris explícits."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara l’agenda, les prioritats i els missatges pendents d’avui.",

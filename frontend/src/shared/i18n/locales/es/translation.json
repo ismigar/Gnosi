@@ -2682,7 +2682,11 @@
           "plugin_llm_wiki_process_source": "Procesa una fuente del Conocimiento",
           "plugin_llm_wiki_process_status": "Consulta el progreso del procesamiento del Conocimiento",
           "plugin_llm_wiki_maintain": "Mantén los índices del Conocimiento",
-          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento"
+          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento",
+          "core_gnosi_operation_writing": "Redacción y corrección",
+          "core_gnosi_operation_tables": "Acciones de tablas",
+          "core_gnosi_operation_knowledge": "Conexiones y refinamiento del conocimiento",
+          "core_gnosi_operation_learning": "Aprendizaje y evaluación de habilidades"
         },
         "tool_names": {
           "add_page_comment": "Añade un comentario a una página",
@@ -2869,7 +2873,11 @@
           "core_gnosi_notebooks": "Consulta cuadernos y evidencias citables; crea y organiza cuadernos privados a partir de Recursos existentes.",
           "core_gnosi_literature": "Busca en fuentes académicas configuradas, consulta resultados y revisiones e importa referencias en Recursos.",
           "core_gnosi_media": "Localiza archivos multimedia y edita sus etiquetas y descripción sin modificar su contenido.",
-          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones."
+          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones.",
+          "core_gnosi_operation_writing": "Redacta, resume y corrige textos conservando el significado y el formato.",
+          "core_gnosi_operation_tables": "Propone configuraciones y valores de campos a partir del esquema y del registro proporcionados.",
+          "core_gnosi_operation_knowledge": "Propone conexiones y reformulaciones a partir de las notas y evidencias disponibles, sin guardar cambios.",
+          "core_gnosi_operation_learning": "Extrae procedimientos de las instrucciones aprobadas y evalúa habilidades según criterios explícitos."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara la agenda, las prioridades y los mensajes pendientes de hoy.",

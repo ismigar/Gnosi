@@ -918,7 +918,11 @@
           "plugin_llm_wiki_process_source": "Traiter une source du Connaissance",
           "plugin_llm_wiki_process_status": "Consulter la progression du traitement du Connaissance",
           "plugin_llm_wiki_maintain": "Entretenir les index du Connaissance",
-          "plugin_llm_wiki_propose_connections": "Proposer des connexions dans le Connaissance"
+          "plugin_llm_wiki_propose_connections": "Proposer des connexions dans le Connaissance",
+          "core_gnosi_operation_writing": "Rédaction et correction",
+          "core_gnosi_operation_tables": "Actions sur les tables",
+          "core_gnosi_operation_knowledge": "Connexions et affinement des connaissances",
+          "core_gnosi_operation_learning": "Apprentissage et évaluation des compétences"
         },
         "tool_names": {
           "add_page_comment": "Ajouter un commentaire à une page",
@@ -1105,7 +1109,11 @@
           "core_gnosi_notebooks": "Consulte les carnets et les preuves citables ; crée et organise des carnets privés à partir de Ressources existantes.",
           "core_gnosi_literature": "Recherche dans les sources scientifiques configurées, consulte les résultats et revues, et importe des références dans Ressources.",
           "core_gnosi_media": "Localise les fichiers multimédias et modifie leurs étiquettes et descriptions sans changer leur contenu.",
-          "core_gnosi_activity": "Consulte vos automatisations, résultats et services planifiés sans modifier les autorisations ni les planifications."
+          "core_gnosi_activity": "Consulte vos automatisations, résultats et services planifiés sans modifier les autorisations ni les planifications.",
+          "core_gnosi_operation_writing": "Rédige, résume et corrige des textes en préservant le sens et la mise en forme.",
+          "core_gnosi_operation_tables": "Propose des configurations et des valeurs de champs à partir du schéma et de l’enregistrement fournis.",
+          "core_gnosi_operation_knowledge": "Propose des connexions et des reformulations à partir des notes et des preuves disponibles, sans enregistrer de modifications.",
+          "core_gnosi_operation_learning": "Extrait des procédures des instructions approuvées et évalue les compétences selon des critères explicites."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prépare l’agenda, les priorités et les messages en attente du jour.",

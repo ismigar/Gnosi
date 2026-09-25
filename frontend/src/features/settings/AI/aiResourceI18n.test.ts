@@ -11,6 +11,7 @@ import {
     skillDisplayDescription,
     skillDisplayInstructions,
     skillDisplayName,
+    skillCategory,
     toolDisplayDescription,
     toolDisplayName,
 } from './aiResourceI18n';
@@ -111,4 +112,19 @@ describe('AI resource presentation localization', () => {
             expect(toolDisplayDescription(t, tool)).toBe(t(`settings.ai.catalog.tool_descriptions.${toolId.replaceAll('-', '_')}`));
         }
     });
+});
+
+it.each(['ca', 'en', 'es', 'fr'])('distinguishes application procedures from Vault tools in %s', async language => {
+    const t = await translator(language);
+    const vault = { id: 'core.gnosi-vault', origin: { type: 'core' } };
+    const names = ['writing', 'tables', 'knowledge', 'learning'].map(operation => {
+        const skill = { id: `core.gnosi-operation-${operation}`, origin: { type: 'core' } };
+        const name = skillDisplayName(t, skill);
+        expect(name).not.toBe(skillDisplayName(t, vault));
+        expect(name).not.toContain('core.');
+        expect(skillDisplayDescription(t, skill)).not.toBe('');
+        expect(skillCategory(skill)).toBe('workflow');
+        return name;
+    });
+    expect(new Set(names).size).toBe(4);
 });

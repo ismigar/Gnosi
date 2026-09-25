@@ -2718,7 +2718,11 @@
           "plugin_llm_wiki_process_source": "Process a Knowledge source",
           "plugin_llm_wiki_process_status": "Check Knowledge processing progress",
           "plugin_llm_wiki_maintain": "Maintain Knowledge indexes",
-          "plugin_llm_wiki_propose_connections": "Propose Knowledge connections"
+          "plugin_llm_wiki_propose_connections": "Propose Knowledge connections",
+          "core_gnosi_operation_writing": "Writing and correction",
+          "core_gnosi_operation_tables": "Table actions",
+          "core_gnosi_operation_knowledge": "Knowledge connections and refinement",
+          "core_gnosi_operation_learning": "Skill learning and evaluation"
         },
         "tool_names": {
           "add_page_comment": "Add a page comment",
@@ -2905,7 +2909,11 @@
           "core_gnosi_notebooks": "Inspect notebooks and citable evidence; create and organize private notebooks from existing Resources.",
           "core_gnosi_literature": "Search configured academic sources, inspect results and reviews, and import references into Resources.",
           "core_gnosi_media": "Find media files and edit their tags and descriptions without changing file contents.",
-          "core_gnosi_activity": "Inspect your automations, results and scheduled services without changing permissions or schedules."
+          "core_gnosi_activity": "Inspect your automations, results and scheduled services without changing permissions or schedules.",
+          "core_gnosi_operation_writing": "Write, summarize and correct text while preserving meaning and formatting.",
+          "core_gnosi_operation_tables": "Propose configurations and field values from the supplied schema and record.",
+          "core_gnosi_operation_knowledge": "Propose connections and reformulations from available notes and evidence, without saving changes.",
+          "core_gnosi_operation_learning": "Extract procedures from approved instructions and evaluate skills against explicit criteria."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepare today’s agenda, priorities and pending messages.",
