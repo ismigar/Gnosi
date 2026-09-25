@@ -2484,6 +2484,8 @@
         "reload": "Refresh catalogs",
         "search_skills": "Search skills…",
         "search_tools": "Search tools…",
+        "active_skills_only": "Only enabled skills",
+        "back_to_profile": "Back to profile",
         "search_assignable_skills": "Search assignable skills…",
         "all_origins": "All origins",
         "all_statuses": "All statuses",

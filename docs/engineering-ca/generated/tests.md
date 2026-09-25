@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 563 | 2361 |
+| Vitest | 563 | 2362 |
 | pytest | 552 | 3909 |
 
 ## Fitxers
@@ -229,7 +229,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/AI/AIActivityPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIOperationsSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIQualitySettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualitySettings.test.tsx) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/AI/AIResourcesSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcesSettings.test.tsx) | 8 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/AI/AIResourcesSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcesSettings.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AgentExecutionHistory.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentExecutionHistory.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/activityHistoryPresentation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/activityHistoryPresentation.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/aiResourceI18n.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceI18n.test.ts) | 1 | call-pattern estimate |

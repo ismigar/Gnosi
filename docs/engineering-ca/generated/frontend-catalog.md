@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126351 | 32 |
+| `features` | 1112 | 126369 | 32 |
 | `generated` | 2 | 46951 | 484 |
 | `shared` | 253 | 30726 | 414 |
 
@@ -510,7 +510,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/reader/zotero/zoteroReaderModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderModel.ts) | 144 | `detectKindFromSrc`, `isUnknownArray`, `isUnknownRecord`, `pdfAnnotationToZotero`, `toFilesystemPath`, `zoteroToPdfAnnotation` | — |
 | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 159 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
 | [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 92 | `AIActivityPanel` | — |
-| [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 183 | `AgentSkillsField` | — |
+| [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 193 | `AgentSkillsField` | — |
 | [`frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx) | 244 | `OperationsHistoryPanel` | — |
 | [`frontend/src/features/settings/AI/AIOperationsSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.tsx) | 388 | `AutomationsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIQualityMemorySection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualityMemorySection.tsx) | 191 | `AIQualityMemorySection` | — |
@@ -563,7 +563,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
 | [`frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx) | 62 | `AgentModelStrategyFields` | — |
 | [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 195 | `AgentsPanel` | — |
-| [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 98 | `AiPanel` | — |
+| [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 106 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |

@@ -37,7 +37,7 @@ it('returns from the linked skill to the unsaved assistant draft', () => {
         click('Open skill');
         expect(host.textContent).toContain('core.example');
         expect(host.querySelector('input')?.closest('[hidden]')).not.toBeNull();
-        click('settings.ai.assistant.title');
+        click('settings.ai.resources.back_to_profile');
         expect(host.querySelector('input')?.value).toBe('Unsaved name');
         expect(host.querySelector('input')?.closest('[hidden]')).toBeNull();
     } finally {

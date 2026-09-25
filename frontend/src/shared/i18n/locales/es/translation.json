@@ -2446,6 +2446,8 @@
         "reload": "Actualizar catálogos",
         "search_skills": "Buscar habilidades…",
         "search_tools": "Buscar herramientas…",
+        "active_skills_only": "Solo habilidades activadas",
+        "back_to_profile": "Volver al perfil",
         "search_assignable_skills": "Buscar habilidades asignables…",
         "all_origins": "Todos los orígenes",
         "all_statuses": "Todos los estados",

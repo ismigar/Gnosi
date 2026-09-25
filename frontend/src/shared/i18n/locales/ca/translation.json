@@ -2500,6 +2500,8 @@
         "reload": "Actualitzar catàlegs",
         "search_skills": "Cerca habilitats…",
         "search_tools": "Cerca eines…",
+        "active_skills_only": "Només habilitats activades",
+        "back_to_profile": "Torna al perfil",
         "search_assignable_skills": "Cerca habilitats assignables…",
         "all_origins": "Tots els orígens",
         "all_statuses": "Tots els estats",

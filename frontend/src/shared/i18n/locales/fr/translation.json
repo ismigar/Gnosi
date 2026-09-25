@@ -682,6 +682,8 @@
         "reload": "Actualiser les catalogues",
         "search_skills": "Rechercher des compétences…",
         "search_tools": "Rechercher des outils…",
+        "active_skills_only": "Uniquement les compétences activées",
+        "back_to_profile": "Retour au profil",
         "search_assignable_skills": "Rechercher des compétences attribuables…",
         "all_origins": "Toutes les origines",
         "all_statuses": "Tous les états",
