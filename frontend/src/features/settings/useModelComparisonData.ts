@@ -201,7 +201,7 @@ const signalIsAborted = (signal: AbortSignal): boolean => signal.aborted;
 
 
 export interface ModelComparisonDataController {
-    readonly beginActivation: (model: AiModelComparisonEntry) => void;
+    readonly beginActivation: (model: AiModelComparisonEntry, preferredProvider?: string) => void;
     readonly changeSetupMode: (mode: ComparisonSetupMode) => void;
     readonly changeSetupProvider: (providerId: string) => void;
     readonly closeSetup: () => void;
@@ -306,10 +306,12 @@ export function useModelComparisonData(
     const setupForMode = (
         model: AiModelComparisonEntry,
         mode: ComparisonSetupMode,
+        preferredProvider?: string,
     ): ModelSetupState => {
         const routes = routesForMode(model, mode);
         const creator = model.creator.toLocaleLowerCase();
-        const route = routes.find((candidate) => providersById[candidate.provider]?.has_api_key)
+        const route = routes.find((candidate) => candidate.provider === preferredProvider)
+            ?? routes.find((candidate) => providersById[candidate.provider]?.has_api_key)
             ?? routes.find((candidate) => candidate.provider_connected)
             ?? routes.find((candidate) => (
                 candidate.provider.toLocaleLowerCase() === creator
@@ -359,16 +361,18 @@ export function useModelComparisonData(
             dispatch({ type: 'set-saving-api-key', value: false });
         }
     };
-    const beginActivation = (model: AiModelComparisonEntry): void => {
+    const beginActivation = (model: AiModelComparisonEntry, preferredProvider?: string): void => {
         activationVersion.current += 1;
         requestActivation();
         dispatch({ message: null, type: 'set-action-message' });
-        const mode = routesForMode(model, 'remote').length > 0
+        const mode = preferredProvider && routesForMode(model, 'local').some((route) => route.provider === preferredProvider)
+            ? 'local'
+            : routesForMode(model, 'remote').length > 0
             ? 'remote'
             : routesForMode(model, 'local').length > 0
                 ? 'local'
                 : 'remote';
-        dispatch({ setup: setupForMode(model, mode), type: 'set-setup' });
+        dispatch({ setup: setupForMode(model, mode, preferredProvider), type: 'set-setup' });
     };
     const changeSetupMode = (mode: ComparisonSetupMode): void => {
         activationVersion.current += 1;

@@ -247,3 +247,13 @@ describe('model comparison domain', () => {
         expect(modelComparisonErrorCode(new Error('boom'))).toBe('network_error');
     });
 });
+
+it('filters by serving provider, including models created by another vendor', () => {
+    const google = comparisonModel({ id: 'google-direct', creator: 'Google', routes: [{ ...comparisonModel({}).routes[0]!, provider: 'google', provider_name: 'Google' }] });
+    const routed = comparisonModel({ id: 'google-routed', creator: 'Google', routes: [{ ...google.routes[0]!, provider: 'openrouter', provider_name: 'OpenRouter' }] });
+    const models = [google, routed];
+    const ui = { ...INITIAL_COMPARISON_UI_STATE, modes: [] as const, minContext: '', maxPrice: '' };
+    expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, provider: 'openrouter' }).map(model => model.id)).toEqual(['google-routed']);
+    expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, provider: 'google' }).map(model => model.id)).toEqual(['google-direct']);
+    expect(filteredComparisonModels({ ...feed, models }, [], ui)).toHaveLength(2);
+});

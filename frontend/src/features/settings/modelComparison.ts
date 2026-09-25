@@ -62,6 +62,7 @@ export interface ModelComparisonUiState {
     readonly minParameters: string;
     readonly maxParameters: string;
     readonly outputTokens: string;
+    readonly provider: string;
     readonly profile: 'all' | ComparisonProfile;
     readonly query: string;
     readonly showIncomplete: boolean;
@@ -78,6 +79,7 @@ export type ModelComparisonUiAction =
     | { readonly type: 'set-min-context'; readonly value: string }
     | { readonly type: 'set-output-tokens'; readonly value: string }
     | { readonly type: 'set-profile'; readonly value: 'all' | ComparisonProfile }
+    | { readonly type: 'set-provider'; readonly value: string }
     | { readonly type: 'set-query'; readonly value: string }
     | { readonly type: 'set-show-incomplete'; readonly value: boolean }
     | { readonly type: 'set-show-profile-help'; readonly value: boolean }
@@ -147,6 +149,7 @@ export const INITIAL_COMPARISON_UI_STATE: ModelComparisonUiState = {
     minParameters: '',
     maxParameters: '',
     outputTokens: '1000000',
+    provider: 'all',
     profile: 'all',
     query: '',
     showIncomplete: false,
@@ -191,6 +194,8 @@ export function modelComparisonUiReducer(
             return { ...state, minContext: action.value };
         case 'set-output-tokens':
             return { ...state, outputTokens: normalizeTokenCountInput(action.value) ?? state.outputTokens };
+        case 'set-provider':
+            return { ...state, provider: action.value };
         case 'set-profile':
             return { ...state, profile: action.value };
         case 'set-query':
@@ -357,6 +362,7 @@ export const filteredComparisonModels = (
             || `${model.name} ${model.creator}`
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
+        && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
         && (ui.profile === 'all' || model.profile === ui.profile)
         && (
             ui.showIncomplete

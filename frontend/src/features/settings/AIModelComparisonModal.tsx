@@ -85,6 +85,13 @@ export function AIModelComparisonModal({
         data.registry.models,
         ui,
     ), [data.feed, data.registry.models, ui]);
+    const providerOptions = useMemo(() => {
+        const providers = new Map<string, string>();
+        for (const model of data.feed?.models ?? []) {
+            for (const route of model.routes) providers.set(route.provider, route.provider_name || route.provider);
+        }
+        return [...providers].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [data.feed]);
     const bodyStyle: FilterHeightStyle = {
         '--filter-sticky-height': `${filterHeight.toString()}px`,
     };
@@ -158,6 +165,7 @@ export function AIModelComparisonModal({
                     {!data.loading && data.feed ? (
                         <>
                             <ModelComparisonToolbar
+                                providers={providerOptions}
                                 currencySymbol={data.feed.currency.symbol || data.feed.currency.code}
                                 dispatch={dispatchUi}
                                 metricAvailability={metricAvailability}
@@ -174,7 +182,7 @@ export function AIModelComparisonModal({
                                 inputTokens={ui.inputTokens}
                                 metricAvailability={metricAvailability}
                                 models={models}
-                                onBeginActivation={controller.beginActivation}
+                                onBeginActivation={(model) => controller.beginActivation(model, ui.provider === 'all' ? undefined : ui.provider)}
                                 onDeactivate={controller.deactivateModel}
                                 onScrollbarScroll={onScrollbarScroll}
                                 onSort={(key) => {
