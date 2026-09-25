@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -254,37 +256,7 @@ ni de un proveedor de nube. Las pruebas inyectan ese mismo mecanismo canónico d
 resolución, y las claves de cifrado de los flujos permanecen en el subdirectorio
 `secrets` del directorio de datos local.
 
-La selección de modelos durante la ejecución pertenece al perfil del agente.
-`pinned` utiliza solo el proveedor y modelo asignados; `resilient` empieza con
-ellos y permite pasar a una alternativa solo ante un error transitorio; y
-`adaptive` puede elegir entre el principal y la lista explícita de modelos
-permitidos del perfil. Cada alternativa debe ser una entrada habilitada del
-registro con la misma condición local o remota; ni las credenciales ni los valores
-predeterminados del catálogo amplían la lista permitida. Los errores de
-autenticación, política o contenido nunca provocan el paso a una alternativa.
-La alternativa seleccionada se indica en los metadatos del mensaje y en el
-comprobante del flujo, de modo que un modelo local no pueda enviar inesperadamente
-contexto privado a un proveedor remoto.
-
-Los perfiles adaptativos pueden definir `decision_engine: jev` manteniendo la
-identidad, memoria y herramientas del asistente. Gnosi filtra el principal y las
-alternativas explícitas por disponibilidad, ventana de contexto, capacidades, cuotas
-y presupuesto antes de que el adaptador las reciba. Los perfiles locales nunca llaman
-a Jev. El adaptador envía solo la petición actual (hasta 12.000 caracteres) y los
-metadatos de candidatos al destino HTTPS fijo de TypeSafe; las credenciales usan el
-almacén seguro existente. Se permite una única consulta limitada, sin redirecciones
-ni reintentos. La distribución validada debe elegir un candidato permitido con
-confianza y probabilidad de al menos 0,75; este umbral es una heurística de selección,
-no una garantía de exactitud. La falta de credenciales, la incertidumbre y los errores
-conservan la selección interna. El uso se añade al registro compartido de gasto, con
-estimaciones conservadoras cuando un tiempo de espera agotado deja la facturación
-incierta. Las operaciones gobernadas reservan una llamada de modelo para la decisión
-y conservan una para la respuesta. Los flujos no fijos se reconstruyen en cada turno
-para que la caché no reutilice la selección de una tarea anterior. La configuración
-expone los tres modos y las credenciales opcionales de TypeSafe; los detalles de la
-respuesta identifican Jev o la selección interna. La cobertura se encuentra en
-`backend/tests/test_agent_model_decisions.py` y
-`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
+Los perfiles usan `pinned`: solo el proveedor y modelo configurados. Las opciones antiguas `resilient`, `adaptive` y `decision_engine: jev` ya no seleccionan alternativas para los perfiles. El formulario guarda un único modelo sin alternativas. Las utilidades antiguas siguen cubiertas en `backend/tests/test_agent_model_decisions.py`; la edición de perfiles se prueba en `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 El cliente MCP por stdio valida los objetos en el límite JSON-RPC, tipa
 explícitamente las peticiones asíncronas pendientes y enruta las herramientas
@@ -770,7 +742,7 @@ que un manejador sea ejecutable.
 
 ## Configuración de LLM Wiki
 
-Conocimiento utiliza siempre el Agente principal. El parámetro histórico `agent_id` se conserva pero no permite seleccionar otro perfil de ejecución. La migración versionada retira el perfil gestionado `llm-wiki`; conserva los perfiles personales y las instrucciones de Conocimiento. Los ajustes enlazan al principal y sus habilidades. Cada ejecución programada toma el principal vigente; las iniciadas conservan su instantánea.
+Conocimiento utiliza su perfil de plugin. El parámetro histórico `agent_id` se conserva pero no sustituye el perfil del plugin. El antiguo perfil gestionado `llm-wiki` sigue retirado; el perfil nuevo conserva las instrucciones complementarias de Conocimiento migradas. La configuración enlaza al perfil del plugin y sus habilidades.
 
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
@@ -1254,6 +1226,20 @@ La acción de traducción utiliza un botón compacto alineado a la derecha. Los 
 
 ## Ejecución del Agente principal
 
-La IA funcional pasa por el ejecutor compartido del Agente principal. Botones, chat y programaciones utilizan habilidades asignadas, la política de modelos del principal, memoria delimitada y un registro común de consumo. Las operaciones estructuradas admiten una única reparación de formato dentro del mismo presupuesto. Las fases largas conservan una instantánea del perfil y reutilizan los puntos de reanudación completados.
+La IA funcional utiliza un ejecutor compartido con perfiles explícitos. Los botones y programaciones de plugins resuelven el perfil del plugin; las conversaciones utilizan el perfil seleccionado. Se mantienen las habilidades, la memoria delimitada, el registro de consumo, la reparación de formato acotada y los puntos de reanudación.
 
 Actividad muestra identificadores de ejecución, cancelación y las reanudaciones compatibles. La migración versionada copia la configuración, retira solo el perfil Brain gestionado, preserva los perfiles personales y traslada las instrucciones de Conocimiento a una habilidad complementaria. Las rutas de Conocimiento y las antiguas comparten implementación y permisos; Notion sigue siendo opcional.
+
+
+## Perfiles y conversaciones
+
+Crea perfiles en **Perfiles adicionales (avanzado)**. En el chat, abre el selector junto al nombre del asistente y elige el **Perfil de la conversación**. El cambio se aplica a las peticiones siguientes y conserva el historial. Cada conversación recuerda su perfil. **Usar por defecto**, en Configuración, establece el perfil para conversaciones nuevas y acciones de la app; no cambia los chats existentes.
+
+Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
+
+
+La identidad del historial se mantiene en `agent_id` y `session_id`. El campo opcional `profile_id` elige el perfil de ejecución, guardado por el navegador como `profileId` por conversación. Cambiar de perfil conserva los mensajes, adjuntos, recuperación del flujo y retroceso vinculados al mismo historial. Los argumentos de confirmación guardados por el servidor conservan el perfil original. Las conversaciones nuevas usan el predeterminado actual; las habilidades programadas usan el perfil de su plugin. Un perfil ausente o desactivado produce un error explícito.
+
+## Perfiles de los plugins
+
+Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus acciones. Configuración → IA → Asistente muestra los perfiles de plugins separados de los personales. Puedes editar el único modelo, las instrucciones, las fuentes y las habilidades asignadas. Los perfiles iniciales copian solo el modelo predeterminado actual; las actualizaciones preservan las ediciones. Desactivar un plugin suspende su perfil sin eliminar la configuración. Si falta el modelo o una habilidad necesaria, la acción falla explícitamente sin recurrir al perfil personal. Las acciones independientes nuevas y las habilidades programadas utilizan el perfil del plugin; los trabajos iniciados conservan su instantánea. El perfil elegido manualmente en una conversación sigue gobernando esa conversación.

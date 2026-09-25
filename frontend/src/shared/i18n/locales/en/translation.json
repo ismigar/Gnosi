@@ -2619,7 +2619,9 @@
         "instructions_translate": "Translate into English",
         "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
         "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved.",
-        "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved."
+        "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved.",
+        "active_skills_only": "Only enabled skills",
+        "back_to_profile": "Back to profile"
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2717,7 +2719,11 @@
           "plugin_llm_wiki_process_source": "Process a Knowledge source",
           "plugin_llm_wiki_process_status": "Check Knowledge processing progress",
           "plugin_llm_wiki_maintain": "Maintain Knowledge indexes",
-          "plugin_llm_wiki_propose_connections": "Propose Knowledge connections"
+          "plugin_llm_wiki_propose_connections": "Propose Knowledge connections",
+          "core_gnosi_operation_writing": "Writing and correction",
+          "core_gnosi_operation_tables": "Table actions",
+          "core_gnosi_operation_knowledge": "Knowledge connections and refinement",
+          "core_gnosi_operation_learning": "Skill learning and evaluation"
         },
         "tool_names": {
           "add_page_comment": "Add a page comment",
@@ -2904,7 +2910,11 @@
           "core_gnosi_notebooks": "Inspect notebooks and citable evidence; create and organize private notebooks from existing Resources.",
           "core_gnosi_literature": "Search configured academic sources, inspect results and reviews, and import references into Resources.",
           "core_gnosi_media": "Find media files and edit their tags and descriptions without changing file contents.",
-          "core_gnosi_activity": "Inspect your automations, results and scheduled services without changing permissions or schedules."
+          "core_gnosi_activity": "Inspect your automations, results and scheduled services without changing permissions or schedules.",
+          "core_gnosi_operation_writing": "Write, summarize and correct text while preserving meaning and formatting.",
+          "core_gnosi_operation_tables": "Propose configurations and field values from the supplied schema and record.",
+          "core_gnosi_operation_knowledge": "Propose connections and reformulations from available notes and evidence, without saving changes.",
+          "core_gnosi_operation_learning": "Extract procedures from approved instructions and evaluate skills against explicit criteria."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepare today’s agenda, priorities and pending messages.",
@@ -3139,20 +3149,47 @@
       },
       "assistant": {
         "title": "Assistant",
-        "principal": "Principal assistant",
-        "help": "Choose the model and general instructions for your assistant.",
+        "principal": "Default assistant",
+        "help": "The assistant uses the profile you choose in each conversation. Each profile stores one model, instructions, sources and skills.",
         "advanced": "Additional profiles (advanced)",
-        "profiles_help": "Create another profile only for a different model, instructions, sources or skills. Changing the principal does not change saved automations.",
+        "profiles_help": "Saved profiles you can choose in chat. Each conversation keeps its own profile and preserves its history when you switch.",
         "create_profile": "Create profile",
         "setup": "Set up assistant",
-        "make_principal": "Make principal",
+        "make_principal": "Use as default",
         "profile": "Assistant profile",
         "other_profile": "Use another profile (advanced)",
-        "automation_help": "Runs the skill with {{name}}. The profile is saved with the automation.",
+        "automation_help": "This skill will use the {{name}} profile. You can edit it in assistant settings.",
         "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them.",
         "builtin_profiles": {
-          "translation": "Translation"
-        }
+          "translation": "Translation",
+          "ai-platform": "Writing and knowledge capture",
+          "feeds-reader": "Feeds and podcasts",
+          "grounded-notebooks": "Grounded notebooks",
+          "resources": "Literature assistance",
+          "mail": "Mail",
+          "social-publishing": "Social publishing",
+          "calendar": "Meetings",
+          "llm-wiki": "Knowledge"
+        },
+        "principal_help": "The default profile is used for new conversations. Plugins use their own profiles. Changing a chat profile does not affect other conversations.",
+        "principal_profile": "Default profile",
+        "additional_profile": "Additional profile",
+        "new_profile": "New profile",
+        "profile_name": "Profile name",
+        "configure_action": "Configure",
+        "save_changes": "Save changes",
+        "configure_profile": "Configure profile {{name}}",
+        "delete_profile": "Delete profile {{name}}",
+        "delete_profile_title": "Delete profile",
+        "delete_profile_message": "Delete the profile “{{name}}” and its configuration? The original models, sources and skills will be kept.",
+        "restore_help": "This profile is disabled. Save its configuration to enable it again.",
+        "conversation_profile": "Conversation profile",
+        "profile_model": "Profile model",
+        "plugin_profiles": "Plugin profiles",
+        "plugin_profile": "Plugin profile",
+        "plugin_owner": "Used by: {{name}}",
+        "plugin_suspended": "Plugin disabled. Your configuration is preserved.",
+        "plugin_profiles_help": "Each plugin uses its own profile for AI actions. You can edit its model, instructions, sources and skills. Plugin updates preserve your changes."
       },
       "model_strategy": {
         "primary": "Primary model",
@@ -6060,7 +6097,6 @@
     "all_providers": "All providers",
     "all_profiles": "All profiles",
     "provider": "Provider",
-    "all_providers": "All providers",
     "frontier_only": "Frontier models only",
     "results_count_one": "{{count}} model shown",
     "results_count_other": "{{count}} models shown",

@@ -108,3 +108,15 @@ it('keeps the previous agent when selection fails and retries the requested sele
     expect(controller.draft.agent_id).toBe('custom');
     expect(controller.error).toBe('');
 });
+
+it('flushes a complete pending edit when the settings close before debounce', async () => {
+    api.savePluginLlmWikiConfig.mockResolvedValue({ config: { brain_table_id: 'brain', source_tables: [] } });
+    act(() => { controller.setDraft(current => ({ ...current, source_tables: [{
+        table_id: 'resources', title_property_id: '', language_property_id: '',
+        relation_property_id: '', include_body: false, attachment_property_ids: [],
+        url_property_ids: [], dimension_mappings: {},
+    }] })); });
+    expect(api.savePluginLlmWikiConfig).not.toHaveBeenCalled();
+    await act(async () => { root.render(null); await Promise.resolve(); });
+    expect(api.savePluginLlmWikiConfig).toHaveBeenCalledTimes(1);
+});

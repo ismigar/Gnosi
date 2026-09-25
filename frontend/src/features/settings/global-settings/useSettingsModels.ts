@@ -10,11 +10,12 @@ import { updateAiModels } from '../../../shared/api/ai';
 import { useEffect, useEffectEvent } from 'react';
 import { subscribeAppEvent } from '../../../shared/platform/app-events';
 import type { SettingsState } from './stateTypes';
+import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 
 type Input = SettingsState;
 
 export function useSettingsModels(state: Input) {
-  const { isOpen, setAiRegistry, setAiUsage, setConfirmConfig, setDraft, setEditingAgent, setEnforceBlock, setMonthlyCostCap, setSavingBudget, t, tn } = state;
+  const { draft, isOpen, setAiRegistry, setAiUsage, setConfirmConfig, setDraft, setEditingAgent, setEnforceBlock, setMonthlyCostCap, setSavingBudget, t } = state;
   const loadAiRegistry = async () => {
     // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
     // model in the registry is not a valid target for a new agent.
@@ -119,18 +120,23 @@ export function useSettingsModels(state: Input) {
   }, [isOpen]);
 
   const handleDeleteAIAgent = (agent: SettingsAgent) => {
+    if (agent.managed_by || principalAssistant(draft.ai.agents, draft.ai.active_agent_id)?.id === agent.id) return;
     setConfirmConfig({
       isOpen: true,
-      title: tn('ai.delete_agent_title'),
-      message: tn('ai.delete_agent_msg', { name: agent.name }),
+      title: t('settings.ai.assistant.delete_profile_title'),
+      message: t('settings.ai.assistant.delete_profile_message', { name: agent.name }),
       onConfirm: () => {
-        setDraft(prev => ({
-          ...prev,
-          ai: {
-            ...prev.ai,
-            agents: prev.ai.agents.filter(item => item.id !== agent.id)
-          }
-        }));
+        setDraft(prev => {
+          if (principalAssistant(prev.ai.agents, prev.ai.active_agent_id)?.id === agent.id
+            || prev.ai.agents.find(item => item.id === agent.id)?.managed_by) return prev;
+          return {
+            ...prev,
+            ai: {
+              ...prev.ai,
+              agents: prev.ai.agents.filter(item => item.id !== agent.id)
+            }
+          };
+        });
         setEditingAgent(current => current?.id === agent.id ? null : current);
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
       }

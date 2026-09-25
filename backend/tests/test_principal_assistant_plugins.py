@@ -1,6 +1,8 @@
-"""Plugin activation contributes capabilities without proliferating profiles."""
+"""Plugin activation contributes capabilities with independent editable profiles."""
 from types import SimpleNamespace
+import pytest
 from backend.services import llm_wiki_agent as profiles
+from backend.services import plugin_agent_profiles
 
 
 def test_activation_does_not_create_or_assign_profiles(tmp_path, monkeypatch):
@@ -9,7 +11,7 @@ def test_activation_does_not_create_or_assign_profiles(tmp_path, monkeypatch):
     monkeypatch.setattr(profiles, "load_params", lambda **_: SimpleNamespace(ai=ai, params_source=path))
     monkeypatch.setattr("backend.services.principal_agent_migration.ensure_migrated", lambda: ai)
     result = profiles.transition_agent(True)
-    assert result == {"agent_id": "main", "agent_changed": False}
+    assert result == {"agent_id": "builtin.llm-wiki.default", "agent_changed": False}
     assert not path.exists()
     assert ai["agents"][0]["skill_ids"] == []
 
@@ -19,18 +21,24 @@ def test_activation_restores_legacy_profiles_without_creating_more():
     suspended, _ = profiles.suspend_agent(original)
     restored, _ = profiles.ensure_agent(suspended, create=False)
     assert len(restored["agents"]) == 2
-    assert profiles.default_plugin_agent_id(restored) == "main"
+    with pytest.raises(RuntimeError, match="plugin_profile_unavailable"):
+        profiles.default_plugin_agent_id(restored)
 
 
-def test_plugin_defaults_preserve_explicit_principal_and_legacy_selection():
+def test_plugin_selection_is_independent_of_the_personal_default():
     ai = {"active_agent_id": "chosen", "agents": [{"id": "first"}, {"id": "chosen"}]}
-    assert profiles.default_plugin_agent_id(ai) == "chosen"
-    legacy, _ = profiles.ensure_agent(ai)
-    assert profiles.default_plugin_agent_id(legacy) == "chosen"
-    assert profiles.default_plugin_agent_id({"agents": [{"id": "off", "enabled": False}, {"id": "on"}]}) == "on"
+    plugin_agent_profiles.reconcile(ai, {"schema_version": 2, "enabled_builtin": ["llm-wiki"]})
+    assert profiles.default_plugin_agent_id(ai) == "builtin.llm-wiki.default"
+    ai["active_agent_id"] = "first"
+    assert profiles.default_plugin_agent_id(ai) == "builtin.llm-wiki.default"
 
 
 def test_activation_and_suspension_leave_user_owned_profile_untouched():
     ai = {"active_agent_id": "llm-wiki", "agents": [{"id": "llm-wiki", "enabled": True}]}
     assert profiles.ensure_agent(ai, create=False) == (ai, False)
     assert profiles.suspend_agent(ai) == (ai, False)
+
+
+def test_transition_does_not_require_a_personal_profile(monkeypatch):
+    monkeypatch.setattr("backend.services.principal_agent_migration.ensure_migrated", lambda: {"agents": []})
+    assert profiles.transition_agent(True)["agent_id"] == "builtin.llm-wiki.default"

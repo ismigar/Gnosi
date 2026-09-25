@@ -88,6 +88,7 @@ def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.mark.parametrize(("incident", "detail"), [
+    ("plugin_profile_unavailable:builtin:mail", "The plugin profile is unavailable"),
     ("principal_agent_unavailable", "No active principal agent is configured"),
     ("principal_agent_model_unavailable", "The selected profile's model is unavailable"),
     ("agent_skill_unavailable:core.gnosi-operation-writing", "missing the required skill: core.gnosi-operation-writing"),

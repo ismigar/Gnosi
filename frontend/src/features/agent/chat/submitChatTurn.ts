@@ -45,7 +45,7 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
     ownedController = new AbortController();
     requestAbortRef.current = ownedController;
     const response = await startChatStream({
-      message: inputValue, agent_id: selectedAgentId, session_id: sessionId,
+      message: inputValue, agent_id: selectedAgentId, profile_id: context.profileId, session_id: sessionId,
       llm_mode: 'agent_default', mentions, attachments: attachmentsPayload,
       context_refs: [...contextRefs], notebook_id: notebookId || undefined, turn_id: turnId,
     }, ownedController.signal);

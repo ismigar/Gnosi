@@ -115,6 +115,7 @@ class TurnContextRef(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(max_length=100_000)
     agent_id: str = "gnosy"  # Default agent
+    profile_id: Optional[str] = Field(default=None, min_length=1, max_length=128)
     session_id: str = "default"
     history: List[Dict[str, Any]] = Field(default_factory=list)
     llm_mode: str = "agent_default"  # auto | manual | agent_default

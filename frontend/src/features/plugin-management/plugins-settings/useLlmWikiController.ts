@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { logError } from '../../../shared/notifications/notifyError';
@@ -34,6 +34,7 @@ export function useLlmWikiController(): LlmWikiController {
     const failedDraftRef = useRef('');
     const latestDraftRef = useRef(draft);
     const failedAgentRef = useRef('');
+    const inFlightSaveRef = useRef<Promise<PluginLlmWikiSettingsResponse> | null>(null);
 
     useEffect(() => {
         latestDraftRef.current = draft;
@@ -70,7 +71,9 @@ export function useLlmWikiController(): LlmWikiController {
         setBusy(true);
         setError('');
         try {
-            const response = await savePluginLlmWikiConfig(payload);
+            const request = savePluginLlmWikiConfig(payload);
+            inFlightSaveRef.current = request;
+            const response = await request;
             failedAgentRef.current = '';
             failedDraftRef.current = '';
             setServerState(response);
@@ -124,8 +127,21 @@ export function useLlmWikiController(): LlmWikiController {
         };
     }, [busy, draft, loading, save]);
 
+    const flushOnClose = useEffectEvent(() => {
+        if (loading) return;
+        void (async () => {
+            await inFlightSaveRef.current?.catch(() => {});
+            const pending = latestDraftRef.current;
+            const signature = JSON.stringify(serializeLlmWikiDraft(pending));
+            if (pending.brain_table_id && pending.source_tables.length > 0
+                && signature !== persistedDraftRef.current && signature !== failedDraftRef.current) {
+                await save(pending);
+            }
+        })();
+    });
     useEffect(() => () => {
         if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+        flushOnClose();
     }, []);
 
     const createBrain = async (): Promise<void> => {

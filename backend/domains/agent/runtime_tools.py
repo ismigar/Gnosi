@@ -290,9 +290,19 @@ def _select_agent_profile(
     ai_cfg: dict[str, Any],
     agent_id: str,
 ) -> dict[str, Any] | None:
-    """Functional entrypoints always use the active principal profile."""
+    """Use an explicit conversation profile, or the default for application actions."""
     from backend.services.principal_agent_migration import principal_profile
-    return principal_profile(ai_cfg)
+    if not agent_id:
+        profile = principal_profile(ai_cfg)
+    else:
+        profile = next((dict(item) for item in ai_cfg.get("agents", [])
+                        if isinstance(item, dict) and item.get("id") == agent_id
+                        and item.get("enabled", True) and not item.get("plugin_suspended") and item.get("managed_by") != "llm-wiki"), None)
+    if profile is not None:
+        # Legacy routing settings cannot silently change a profile's LLM.
+        profile["model_strategy"] = {"schema_version": 1, "mode": "pinned",
+                                     "decision_engine": "rules", "allowed_models": []}
+    return profile
 
 
 def _resolve_runtime_capabilities(

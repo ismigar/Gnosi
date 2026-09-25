@@ -7,13 +7,21 @@ from typing import Any
 from backend.services.agent_operation_catalog import OPERATIONS, skill_id
 from backend.services.builtin_plugins import is_enabled
 
-PROFILE_NAMES = {"translation": "Translation"}
+PROFILE_NAMES = {
+    "ai-platform": "Writing and knowledge capture", "feeds-reader": "Feeds and podcasts",
+    "grounded-notebooks": "Grounded notebooks", "resources": "Literature assistance",
+    "mail": "Mail", "social-publishing": "Social publishing", "calendar": "Meetings",
+    "translation": "Translation", "llm-wiki": "Knowledge",
+}
 
 
 def declarations() -> dict[str, dict[str, Any]]:
     result = {}
     for plugin, name in PROFILE_NAMES.items():
         skills = list(dict.fromkeys(skill_id(key) for key, (owner, _, _) in OPERATIONS.items() if owner == plugin))
+        if plugin == "llm-wiki":
+            from backend.services.llm_wiki_agent import LLM_WIKI_SKILL_IDS
+            skills = list(dict.fromkeys([*skills, *LLM_WIKI_SKILL_IDS]))
         result[plugin] = {"id": f"builtin.{plugin}.default", "name": name,
                           "managed_by": f"builtin:{plugin}", "skill_ids": skills}
     return result
@@ -39,6 +47,9 @@ def reconcile(ai: dict[str, Any], state: dict[str, Any]) -> bool:
                        "provider": default.get("provider", ""), "model": default.get("model", ""),
                        "persona": "", "context": "", "context_refs": [],
                        "model_strategy": {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}}
+            if plugin == "llm-wiki":
+                current["skill_ids"].extend(identifier for identifier in default.get("skill_ids", [])
+                                            if isinstance(identifier, str) and identifier.startswith("user.knowledge-migrated-"))
             agents.append(current)
             changed = True
         if current.get("managed_by") != template["managed_by"]:
@@ -53,6 +64,12 @@ def owner_for_skill(selected: str) -> str:
     for plugin, template in declarations().items():
         if selected in template["skill_ids"]:
             return f"builtin:{plugin}"
+    if selected.startswith("plugin."):
+        # Resolve external ownership from the registered descriptor, never by parsing IDs.
+        from backend.services.agent_skill_catalog import get_skill_catalog
+        for entry in get_skill_catalog().list_entries():
+            if entry.descriptor.id == selected:
+                return f"plugin:{entry.descriptor.origin.id}"
     return ""
 
 

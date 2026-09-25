@@ -38,7 +38,7 @@ export const AliasEditor = ({ aliases, onChange }: { aliases: MailAlias[]; onCha
               type="button"
               title={t('settings.accounts.signature')}
               onClick={() => { setExpandedIdx(expandedIdx === i ? null : i); }}
-              style={{ padding: '6px 8px', border: '1px solid var(--settings-border)', borderRadius: '6px', background: expandedIdx === i ? 'var(--gnosi-blue)' : 'transparent', color: expandedIdx === i ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
+              style={{ padding: '6px 8px', border: '1px solid var(--settings-border)', borderRadius: '6px', background: expandedIdx === i ? 'var(--gnosi-primary)' : 'transparent', color: expandedIdx === i ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
             >
               {t('settings.accounts.sig_abbr')}
             </button>
@@ -65,7 +65,7 @@ export const AliasEditor = ({ aliases, onChange }: { aliases: MailAlias[]; onCha
       <button
         type="button"
         onClick={() => { onChange([...aliases, { email: '', display_name: '', signature: '' }]); }}
-        style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.78rem', border: '1px dashed var(--settings-border)', borderRadius: '8px', background: 'transparent', color: 'var(--gnosi-blue)', cursor: 'pointer', fontWeight: '700' }}
+        style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.78rem', border: '1px dashed var(--settings-border)', borderRadius: '8px', background: 'transparent', color: 'var(--gnosi-primary)', cursor: 'pointer', fontWeight: '700' }}
       >
         {t('settings.accounts.add_alias')}
       </button>

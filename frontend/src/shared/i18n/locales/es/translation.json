@@ -2583,7 +2583,9 @@
         "instructions_translate": "Traducir al español",
         "instructions_translation_readonly": "Traducción de lectura. El asistente sigue utilizando el texto original.",
         "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original.",
-        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original."
+        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
+        "active_skills_only": "Solo habilidades activadas",
+        "back_to_profile": "Volver al perfil"
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2681,7 +2683,11 @@
           "plugin_llm_wiki_process_source": "Procesa una fuente del Conocimiento",
           "plugin_llm_wiki_process_status": "Consulta el progreso del procesamiento del Conocimiento",
           "plugin_llm_wiki_maintain": "Mantén los índices del Conocimiento",
-          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento"
+          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento",
+          "core_gnosi_operation_writing": "Redacción y corrección",
+          "core_gnosi_operation_tables": "Acciones de tablas",
+          "core_gnosi_operation_knowledge": "Conexiones y refinamiento del conocimiento",
+          "core_gnosi_operation_learning": "Aprendizaje y evaluación de habilidades"
         },
         "tool_names": {
           "add_page_comment": "Añade un comentario a una página",
@@ -2868,7 +2874,11 @@
           "core_gnosi_notebooks": "Consulta cuadernos y evidencias citables; crea y organiza cuadernos privados a partir de Recursos existentes.",
           "core_gnosi_literature": "Busca en fuentes académicas configuradas, consulta resultados y revisiones e importa referencias en Recursos.",
           "core_gnosi_media": "Localiza archivos multimedia y edita sus etiquetas y descripción sin modificar su contenido.",
-          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones."
+          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones.",
+          "core_gnosi_operation_writing": "Redacta, resume y corrige textos conservando el significado y el formato.",
+          "core_gnosi_operation_tables": "Propone configuraciones y valores de campos a partir del esquema y del registro proporcionados.",
+          "core_gnosi_operation_knowledge": "Propone conexiones y reformulaciones a partir de las notas y evidencias disponibles, sin guardar cambios.",
+          "core_gnosi_operation_learning": "Extrae procedimientos de las instrucciones aprobadas y evalúa habilidades según criterios explícitos."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara la agenda, las prioridades y los mensajes pendientes de hoy.",
@@ -3104,20 +3114,47 @@
       },
       "assistant": {
         "title": "Asistente",
-        "principal": "Asistente principal",
-        "help": "Elige el modelo y las instrucciones generales de tu asistente.",
+        "principal": "Asistente predeterminado",
+        "help": "El asistente usa el perfil que eliges en cada conversación. Cada perfil guarda un único modelo, instrucciones, fuentes y habilidades.",
         "advanced": "Perfiles adicionales (avanzado)",
-        "profiles_help": "Crea otro perfil solo si necesitas otro modelo, instrucciones, fuentes o habilidades. Cambiar el principal no modifica las automatizaciones guardadas.",
+        "profiles_help": "Perfiles guardados para elegir desde el chat. Cada conversación conserva su perfil y el historial cuando lo cambias.",
         "create_profile": "Crear perfil",
         "setup": "Configurar asistente",
-        "make_principal": "Hacer principal",
+        "make_principal": "Usar por defecto",
         "profile": "Perfil del asistente",
         "other_profile": "Usar otro perfil (avanzado)",
-        "automation_help": "Ejecutará la habilidad con {{name}}. El perfil se guarda con la automatización.",
+        "automation_help": "Esta habilidad utilizará el perfil {{name}}. Puedes editarlo en la configuración del asistente.",
         "no_skills": "Asigna habilidades a este asistente en Configuración → IA → Asistente para programarlas.",
         "builtin_profiles": {
-          "translation": "Traducción"
-        }
+          "translation": "Traducción",
+          "ai-platform": "Escritura y captura de conocimiento",
+          "feeds-reader": "Canales y pódcasts",
+          "grounded-notebooks": "Cuadernos con fuentes",
+          "resources": "Asistencia bibliográfica",
+          "mail": "Correo",
+          "social-publishing": "Publicación social",
+          "calendar": "Reuniones",
+          "llm-wiki": "Conocimiento"
+        },
+        "principal_help": "El perfil predeterminado se utiliza en conversaciones nuevas. Los plugins utilizan sus propios perfiles. Cambiar el perfil de un chat no afecta a otras conversaciones.",
+        "principal_profile": "Perfil predeterminado",
+        "additional_profile": "Perfil adicional",
+        "new_profile": "Nuevo perfil",
+        "profile_name": "Nombre del perfil",
+        "configure_action": "Configurar",
+        "save_changes": "Guardar cambios",
+        "configure_profile": "Configurar el perfil {{name}}",
+        "delete_profile": "Eliminar el perfil {{name}}",
+        "delete_profile_title": "Eliminar el perfil",
+        "delete_profile_message": "¿Quieres eliminar el perfil «{{name}}» y su configuración? Se conservarán los modelos, las fuentes y las habilidades originales.",
+        "restore_help": "Este perfil está desactivado. Guarda su configuración para volver a activarlo.",
+        "conversation_profile": "Perfil de la conversación",
+        "profile_model": "Modelo del perfil",
+        "plugin_profiles": "Perfiles de los plugins",
+        "plugin_profile": "Perfil de plugin",
+        "plugin_owner": "Utilizado por: {{name}}",
+        "plugin_suspended": "Plugin desactivado. Se conserva tu configuración.",
+        "plugin_profiles_help": "Cada plugin utiliza su perfil para las acciones de IA. Puedes editar el modelo, las instrucciones, las fuentes y las habilidades. Las actualizaciones del plugin conservan tus cambios."
       },
       "model_strategy": {
         "primary": "Modelo principal",
@@ -5021,7 +5058,6 @@
     "all_providers": "Todos los proveedores",
     "all_profiles": "Todos los perfiles",
     "provider": "Proveedor",
-    "all_providers": "Todos los proveedores",
     "frontier_only": "Solo modelos frontera",
     "results_count_one": "{{count}} modelo visible",
     "results_count_other": "{{count}} modelos visibles",

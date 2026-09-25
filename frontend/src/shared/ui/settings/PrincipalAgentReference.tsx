@@ -10,7 +10,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-const operationPlugins: Readonly<Record<string, string>> = { translation: 'translation' };
+const operationPlugins: Readonly<Record<string, string>> = {
+    writing: 'ai-platform', tables: 'ai-platform', capture: 'ai-platform', learning: 'ai-platform',
+    reader: 'feeds-reader', podcast: 'feeds-reader', notebook: 'grounded-notebooks',
+    literature: 'resources', mail: 'mail', social: 'social-publishing', meeting: 'calendar',
+    translation: 'translation', knowledge: 'llm-wiki',
+};
 
 /** Show the profile that actually executes this feature. */
 export function PrincipalAgentReference({ operation, profileId }: { readonly operation: string; readonly profileId?: string }) {
@@ -39,7 +44,6 @@ export function PrincipalAgentReference({ operation, profileId }: { readonly ope
     }, [vaultId, operation, profileId]);
     return <div className="settings-desc">
         <p>{t('agent_execution.principal')}: {profile ? profileDisplayName(profile, t) : '—'}</p>
-        <p>{t(`agent_execution.skills.${operation}`)}</p>
         {error && <p role="alert">{error}</p>}
         {openSettings
             ? <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={!profile} onClick={() => { openSettings('agents', profile?.id); }}>{t('agent_execution.configure')}</button>

@@ -361,8 +361,10 @@ async def _run_scoped_automation(automation_id: str, *, manual: bool = False) ->
     status = "completed"
     error_code = ""
     try:
+        from backend.services.agent_execution import prepare_snapshot
+        selected = prepare_snapshot(row["skill_id"])
         _cfg, agent, runtime = prepare_agent_runtime(
-            row["agent_id"],
+            selected.agent_id,
             vault_path=Path(row["vault_path"]),
             active_skill_ids=[row["skill_id"]],
         )

@@ -1,5 +1,5 @@
 import { ProfileSettingsNavigation } from '../../../shared/ui/settings/ProfileSettingsNavigation';
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AppearancePanel } from './AppearancePanel';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 import { Database } from 'lucide-react';
@@ -38,12 +38,31 @@ const TranslationPanel = lazy(settingsPanelLoaders.translate);
 const WorkspacePanel = lazy(settingsPanelLoaders.workspace);
 
 export function GlobalSettingsView({ context }: { context: SettingsController }) {
-  const openPluginAISettings = usePluginAISettingsNavigation(context);
+  const navigateToProfile = usePluginAISettingsNavigation(context);
+  const [profileOrigin, setProfileOrigin] = useState<{ tab: string; scroll: number; id: string } | null>(null);
+  const restoreScroll = useRef<number | null>(null);
   const { activeTab, aiRegistry, confirmConfig, draft, googleCalAuthError, handleClose, initialPluginId, isModelComparisonOpen, isOpen, isUsageHistoryOpen, mailSection, panelRef, pickerField, pickerOpen, setActiveTab, setAddAccountType, setAiSection, setConfirmConfig, setDraft, setIsModelComparisonOpen, setIsUsageHistoryOpen, setMailSection, setPickerOpen, sidebarNavigation, t, tn } = context;
+  useEffect(() => {
+    if (isOpen && activeTab === 'ai') return;
+    const timer = setTimeout(() => { setProfileOrigin(null); }, 0);
+    return () => { clearTimeout(timer); };
+  }, [isOpen, activeTab]);
   const mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (mainRef.current) mainRef.current.scrollTop = 0;
+    if (mainRef.current) mainRef.current.scrollTop = restoreScroll.current ?? 0;
+    restoreScroll.current = null;
   }, [activeTab]);
+  const openPluginAISettings = (section: 'agents' | 'skills', id?: string) => {
+    if (id) setProfileOrigin({ tab: activeTab, scroll: mainRef.current?.scrollTop ?? 0, id });
+    navigateToProfile(section, id);
+  };
+  const backToOrigin = () => {
+    if (!profileOrigin) return;
+    restoreScroll.current = profileOrigin.scroll;
+    setActiveTab(profileOrigin.tab);
+    setProfileOrigin(null);
+  };
+  const pluginTab = activeTab === 'ai' && profileOrigin ? profileOrigin.tab : activeTab;
   return (
     <ProfileSettingsNavigation.Provider value={openPluginAISettings}>
       <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
@@ -67,7 +86,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
           {/* CONTENT AREA */}
           <main ref={mainRef} className="settings-main gnosi-modal-scroll">
             <div className="settings-content-wrap">
-              {pluginForSettingsTab(activeTab) && (
+              {activeTab === 'ai' && profileOrigin ? <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBottom: 16 }} onClick={backToOrigin}>{t('common.back')}</button> : pluginForSettingsTab(activeTab) && (
                 <SettingsBackButton onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
               )}
               <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
@@ -166,7 +185,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
 
                 {/* IA */}
                 {activeTab === 'ai' && (
-                  <AiPanel context={context} />
+                  <AiPanel context={context} focusedProfileId={profileOrigin?.id} />
                 )}
 
 
@@ -178,10 +197,11 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                 )}
 
                 {/* PLUGINS */}
-                {(activeTab === 'plugins' || pluginConfigurationForSettingsTab(activeTab)) && (
+                {(pluginTab === 'plugins' || pluginConfigurationForSettingsTab(pluginTab)) && (
+                  <div hidden={activeTab === 'ai'}>
                   <PluginsSettings
                     onOpenAISettings={openPluginAISettings}
-                    configurationPluginId={pluginConfigurationForSettingsTab(activeTab)}
+                    configurationPluginId={pluginConfigurationForSettingsTab(pluginTab)}
                     initialPluginId={initialPluginId}
                     onOpenSettingsTab={(tab) => {
                       if (tab === 'automations') {
@@ -193,6 +213,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
                       setAddAccountType(null);
                     }}
                   />
+                  </div>
                 )}
 
                 {/* TRANSLATION */}

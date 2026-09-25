@@ -112,6 +112,22 @@ describe('AI resource settings components', () => {
         expect(container.textContent).toContain('settings.ai.resources.input_schema');
     });
 
+    it('filters the profile skills without changing assignments', () => {
+        const onChange = vi.fn();
+        const enabled = normalizeSkill({ id: 'core.enabled', name: 'Enabled skill', origin: 'core' });
+        const disabled = normalizeSkill({ id: 'core.disabled', name: 'Other skill', origin: 'core' });
+        const container = render(<AgentSkillsField agent={{ id: 'agent' }} onChange={onChange}
+            registry={[]} selectedIds={[enabled.id]} skills={[enabled, disabled]} tools={[]} />);
+        const filter = container.querySelector<HTMLElement>('[role="switch"][aria-label="settings.ai.resources.active_skills_only"]');
+        expect(filter).not.toBeNull();
+        act(() => { filter?.click(); });
+        expect(container.textContent).toContain('Enabled skill');
+        expect(container.textContent).not.toContain('Other skill');
+        expect(onChange).not.toHaveBeenCalled();
+        act(() => { filter?.click(); });
+        expect(container.textContent).toContain('Other skill');
+    });
+
     it('opens a skill without changing its assignment', () => {
         const onChange = vi.fn();
         const onSelectSkill = vi.fn();
@@ -123,8 +139,8 @@ describe('AI resource settings components', () => {
         act(() => { link?.click(); });
         expect(onSelectSkill).toHaveBeenCalledWith(skill.id);
         expect(onChange).not.toHaveBeenCalled();
-        expect(container.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
-        act(() => { container.querySelector<HTMLElement>('[role="switch"]')?.click(); });
+        expect(container.querySelector('.ai-agent-skill [role="switch"]')?.getAttribute('aria-checked')).toBe('true');
+        act(() => { container.querySelector<HTMLElement>('.ai-agent-skill [role="switch"]')?.click(); });
         expect(onChange).toHaveBeenCalledWith([]);
     });
 
@@ -172,7 +188,7 @@ describe('AI resource settings components', () => {
             locked?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         });
         expect(onChange).not.toHaveBeenCalled();
-        act(() => { container.querySelector<HTMLElement>('[role="switch"]:not([aria-disabled])')?.click(); });
+        act(() => { container.querySelector<HTMLElement>('.ai-agent-skill [role="switch"]:not([aria-disabled])')?.click(); });
         expect(onChange).toHaveBeenCalledWith(['plugin.llm-wiki.query']);
     });
 

@@ -191,27 +191,19 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
         expect(pluginState.getPluginSettings).not.toHaveBeenCalled();
         expect(pluginState.setPluginSettings).not.toHaveBeenCalled();
         await click(configure);
-        expect(openSettingsTab).toHaveBeenCalledWith('daily-notes', 'daily-notes');
-        expect(row?.querySelector('select')).toBeNull();
-        expect(configure.hasAttribute('aria-expanded')).toBe(false);
-        await act(async () => {
-            root?.render(<PluginsSettings configurationPluginId="daily-notes" onOpenSettingsTab={openSettingsTab} />);
-            await vi.dynamicImportSettled();
-        });
+        expect(openSettingsTab).not.toHaveBeenCalled();
+        await act(async () => { await vi.dynamicImportSettled(); });
+        expect(configure.getAttribute('aria-expanded')).toBe('true');
         expect(fetchVaultTables).toHaveBeenCalledTimes(1);
         expect(pluginState.getPluginSettings).toHaveBeenCalledWith('daily-notes');
-        expect(view.querySelector('#settings-plugin-daily-notes')).toBeNull();
-        expect(view.querySelector('.settings-section-title')?.textContent).toBe('settings.plugins.catalog.daily-notes.name');
         const selector = view.querySelector('select');
         expect(selector).toBeInstanceOf(HTMLSelectElement);
         expect(selector?.disabled).toBe(false);
         expect(pluginState.setPluginSettings).not.toHaveBeenCalled();
         expect(pluginApi.fetchPluginLlmWikiConfig).not.toHaveBeenCalled();
-        await act(async () => {
-            root?.render(<PluginsSettings onOpenSettingsTab={openSettingsTab} />);
-            await settle();
-        });
-        expect(view.querySelector('select')).toBeNull();
+        await click(configure);
+        expect(configure.getAttribute('aria-expanded')).toBe('false');
+        expect(view.querySelector('select')?.closest('[hidden]')).not.toBeNull();
         expect(view.querySelector('#settings-plugin-daily-notes')).not.toBeNull();
     });
 
@@ -319,7 +311,8 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
         const configure = view.querySelector('button[title="settings.plugins.configure"]');
         if (!(configure instanceof HTMLButtonElement)) throw new Error('Missing configure action');
         await click(configure);
-        expect(openSettingsTab).toHaveBeenCalledWith('daily-notes', 'daily-notes');
-        expect(view.textContent).not.toContain('settings.plugins.daily_intro');
+        expect(openSettingsTab).not.toHaveBeenCalled();
+        await act(async () => { await vi.dynamicImportSettled(); });
+        expect(view.textContent).toContain('settings.plugins.daily_intro');
     });
 });

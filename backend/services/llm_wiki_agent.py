@@ -204,14 +204,16 @@ def validate_agent_preserved(current_ai: dict[str, object], requested_ai: dict[s
 
 
 def default_plugin_agent_id(ai_config: dict[str, object] | None = None) -> str:
-    """Compatibility alias: Knowledge always uses the principal."""
-    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+    """Resolve the editable profile owned by the Knowledge plugin."""
+    from backend.services.principal_agent_migration import ensure_migrated
     ai = ensure_migrated() if ai_config is None else ai_config
-    return str(principal_profile(ai)["id"])
+    from backend.services.plugin_agent_profiles import select_profile
+    from backend.services.agent_operation_catalog import skill_id
+    return str(select_profile(ai, skill_id("knowledge"))["id"])
 
 
 def transition_agent(enabled: bool) -> dict[str, object]:
-    """Feature toggles never restore the retired managed profile."""
-    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
-    ai = ensure_migrated()
-    return {"agent_id": str(principal_profile(ai)["id"]), "agent_changed": False}
+    """Migrate legacy settings before the lifecycle reconciles plugin profiles."""
+    from backend.services.principal_agent_migration import ensure_migrated
+    ensure_migrated()
+    return {"agent_id": "builtin.llm-wiki.default", "agent_changed": False}

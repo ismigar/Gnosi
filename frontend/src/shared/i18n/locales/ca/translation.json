@@ -2637,7 +2637,9 @@
         "instructions_translate": "Tradueix al català",
         "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
         "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva.",
-        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva."
+        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva.",
+        "active_skills_only": "Només habilitats activades",
+        "back_to_profile": "Torna al perfil"
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2735,7 +2737,11 @@
           "plugin_llm_wiki_process_source": "Processa una font del Coneixement",
           "plugin_llm_wiki_process_status": "Consulta el progrés del processament del Coneixement",
           "plugin_llm_wiki_maintain": "Mantén els índexs del Coneixement",
-          "plugin_llm_wiki_propose_connections": "Proposa connexions al Coneixement"
+          "plugin_llm_wiki_propose_connections": "Proposa connexions al Coneixement",
+          "core_gnosi_operation_writing": "Redacció i correcció",
+          "core_gnosi_operation_tables": "Accions de taules",
+          "core_gnosi_operation_knowledge": "Connexions i refinament del coneixement",
+          "core_gnosi_operation_learning": "Aprenentatge i avaluació d’habilitats"
         },
         "tool_names": {
           "add_page_comment": "Afegeix un comentari a una pàgina",
@@ -2922,7 +2928,11 @@
           "core_gnosi_notebooks": "Consulta quaderns i evidències citables; crea i organitza quaderns privats a partir de Recursos existents.",
           "core_gnosi_literature": "Cerca en fonts acadèmiques configurades, consulta resultats i revisions i importa referències a Recursos.",
           "core_gnosi_media": "Localitza fitxers multimèdia i edita’n etiquetes i descripció sense modificar-ne el contingut.",
-          "core_gnosi_activity": "Consulta les teves automatitzacions, els resultats i els serveis programats, sense alterar permisos ni programacions."
+          "core_gnosi_activity": "Consulta les teves automatitzacions, els resultats i els serveis programats, sense alterar permisos ni programacions.",
+          "core_gnosi_operation_writing": "Redacta, resumeix i corregeix textos conservant el significat i el format.",
+          "core_gnosi_operation_tables": "Proposa configuracions i valors de camps a partir de l’esquema i del registre proporcionats.",
+          "core_gnosi_operation_knowledge": "Proposa connexions i reformulacions a partir de les notes i les evidències disponibles, sense desar canvis.",
+          "core_gnosi_operation_learning": "Extreu procediments de les instruccions aprovades i avalua habilitats segons criteris explícits."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara l’agenda, les prioritats i els missatges pendents d’avui.",
@@ -3158,20 +3168,47 @@
       },
       "assistant": {
         "title": "Assistent",
-        "principal": "Assistent principal",
-        "help": "Tria el model i les instruccions generals del teu assistent.",
+        "principal": "Assistent predeterminat",
+        "help": "L’assistent fa servir el perfil que tries a cada conversa. Cada perfil guarda un únic model, les instruccions, les fonts i les habilitats.",
         "advanced": "Perfils addicionals (avançat)",
-        "profiles_help": "Crea un altre perfil només si necessites un model, unes instruccions, unes fonts o unes habilitats diferents. Canviar el principal no modifica les automatitzacions desades.",
+        "profiles_help": "Perfils guardats per triar des del xat. Cada conversa conserva el seu perfil i l’historial quan el canvies.",
         "create_profile": "Crea un perfil",
         "setup": "Configura l’assistent",
-        "make_principal": "Fes-lo principal",
+        "make_principal": "Fes servir per defecte",
         "profile": "Perfil de l’assistent",
         "other_profile": "Utilitza un altre perfil (avançat)",
-        "automation_help": "Executarà l’habilitat amb {{name}}. El perfil queda desat amb l’automatització.",
+        "automation_help": "Aquesta habilitat farà servir el perfil {{name}}. Pots editar-lo a la configuració de l’assistent.",
         "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les.",
         "builtin_profiles": {
-          "translation": "Traducció"
-        }
+          "translation": "Traducció",
+          "ai-platform": "Escriptura i captura de coneixement",
+          "feeds-reader": "Canals i podcasts",
+          "grounded-notebooks": "Quaderns amb fonts",
+          "resources": "Assistència bibliogràfica",
+          "mail": "Correu",
+          "social-publishing": "Publicació social",
+          "calendar": "Reunions",
+          "llm-wiki": "Coneixement"
+        },
+        "principal_help": "El perfil predeterminat s’utilitza en converses noves. Els plugins fan servir els seus perfils. Canviar el perfil d’un xat no afecta les altres converses.",
+        "principal_profile": "Perfil predeterminat",
+        "additional_profile": "Perfil addicional",
+        "new_profile": "Nou perfil",
+        "profile_name": "Nom del perfil",
+        "configure_action": "Configura",
+        "save_changes": "Desa els canvis",
+        "configure_profile": "Configura el perfil {{name}}",
+        "delete_profile": "Elimina el perfil {{name}}",
+        "delete_profile_title": "Elimina el perfil",
+        "delete_profile_message": "Vols eliminar el perfil «{{name}}» i la seva configuració? Es conservaran els models, les fonts i les habilitats originals.",
+        "restore_help": "Aquest perfil està desactivat. Desa’n la configuració per tornar-lo a activar.",
+        "conversation_profile": "Perfil de la conversa",
+        "profile_model": "Model del perfil",
+        "plugin_profiles": "Perfils dels plugins",
+        "plugin_profile": "Perfil de plugin",
+        "plugin_owner": "Utilitzat per: {{name}}",
+        "plugin_suspended": "Plugin desactivat. La configuració es conserva.",
+        "plugin_profiles_help": "Cada plugin fa servir el seu perfil per a les accions d’IA. Pots editar-ne el model, les instruccions, les fonts i les habilitats. Les actualitzacions del plugin conserven els teus canvis."
       },
       "model_strategy": {
         "primary": "Model principal",
@@ -5021,7 +5058,6 @@
     "all_providers": "Tots els proveïdors",
     "all_profiles": "Tots els perfils",
     "provider": "Proveïdor",
-    "all_providers": "Tots els proveïdors",
     "frontier_only": "Només models frontera",
     "results_count_one": "{{count}} model visible",
     "results_count_other": "{{count}} models visibles",

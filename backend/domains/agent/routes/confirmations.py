@@ -127,7 +127,7 @@ async def _execute_governed_tool(
     """Re-resolve and execute one exact assigned `confirmation=always` tool."""
     active_skill_ids = list(arguments.get("active_skill_ids") or [])
     _ai_cfg, agent_data, runtime = prepare_agent_runtime(
-        scope["agent_id"],
+        str(arguments.get("profile_id") or scope["agent_id"]),
         vault_path=vault,
         active_skill_ids=active_skill_ids,
     )

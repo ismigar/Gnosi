@@ -108,6 +108,7 @@ def _install_runtime(monkeypatch, tmp_path, state, params):
 def test_reconcile_registers_catalogs_and_preserves_agent_overrides(
     monkeypatch,
     tmp_path,
+    isolated_validation_runtime,
 ):
     state = {
         "disabled": [],

@@ -43,8 +43,8 @@
 }
 
 .ai-resource-search input:focus {
-    border-color: var(--gnosi-blue);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    border-color: var(--gnosi-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-primary) 12%, transparent);
 }
 
 .ai-resource-list {
@@ -61,7 +61,7 @@
 }
 
 .ai-resource-card.is-expanded {
-    border-color: color-mix(in srgb, var(--gnosi-blue) 42%, var(--settings-border));
+    border-color: color-mix(in srgb, var(--gnosi-primary) 42%, var(--settings-border));
 }
 
 .ai-resource-card__main {
@@ -213,8 +213,12 @@
 
 .ai-resource-badge--external_read,
 .ai-resource-badge--personal_data {
-    background: rgba(59, 130, 246, 0.1);
-    color: #1d4ed8;
+    background: color-mix(in srgb, var(--gnosi-primary) 10%, transparent);
+    color: var(--gnosi-primary);
+}
+
+.ai-resource-card > .agent-learning {
+    padding: 0 18px 18px 48px;
 }
 
 .ai-resource-details {

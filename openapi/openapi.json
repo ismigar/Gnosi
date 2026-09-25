@@ -6116,6 +6116,19 @@
             ],
             "title": "Notebook Id"
           },
+          "profile_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          },
           "session_id": {
             "default": "default",
             "title": "Session Id",

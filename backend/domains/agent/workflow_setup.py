@@ -136,6 +136,8 @@ async def prepare_profile(
     agent_data = selected_agent or dependencies.select_agent_profile(ai_cfg, target_id)
     if not agent_data:
         return None
+    agent_data = dict(agent_data)
+    agent_data["model_strategy"] = {"schema_version": 1, "mode": "pinned", "decision_engine": "rules", "allowed_models": []}
     target_id = str(agent_data.get("id") or "")
     if resolved_runtime is None:
         resolved_runtime = dependencies.resolve_runtime_capabilities(
@@ -186,6 +188,8 @@ def _select_model_route(
 
     registry = load_registry()
     configured_strategy = normalize_model_strategy(profile.agent_data)
+    if configured_strategy["mode"] == "pinned":
+        return provider_name, model_name, strategy
     usage, budget = ({}, {}) if configured_strategy["mode"] == "pinned" else current_routing_limits()
     strategy = choose_agent_model(
         user_message,

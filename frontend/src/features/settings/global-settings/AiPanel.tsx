@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Brain } from 'lucide-react';
+import { Activity, ArrowLeft, Brain } from 'lucide-react';
 import { MemorySettings } from '../../agent-learning';
 import { AgentsPanel } from './AgentsPanel';
 import { Bot } from 'lucide-react';
@@ -15,12 +15,13 @@ import { ToolsSettingsPanel } from '../AI/AIResourcesSettings';
 import { Zap } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { context: SettingsController };
+type Props = { context: SettingsController; focusedProfileId?: string };
 
-export function AiPanel({ context }: Props) {
+export function AiPanel({ context, focusedProfileId }: Props) {
   const { aiResources, aiSection, draft, setAiSection, setDraft, setIsModelComparisonOpen, handleClose, t } = context;
   const navigate = useNavigate();
   const [selectedSkill, setSelectedSkill] = useState('');
+  const [returnToProfile, setReturnToProfile] = useState(false);
   const openActivity = (tab = 'schedulers') => { void handleClose().then(() => navigate(`/dashboard?tab=${tab}&kind=personal`)); };
   useEffect(() => {
     if (aiSection === 'automations' || aiSection === 'operations') {
@@ -28,7 +29,7 @@ export function AiPanel({ context }: Props) {
     }
   }, [aiSection, handleClose, navigate]);
   return (<>
-    <SettingsSectionTabs
+    {!focusedProfileId && <SettingsSectionTabs
       ariaLabel={t('settings.ai.resources.sections_label')}
       activeId={aiSection}
       items={[
@@ -39,9 +40,10 @@ export function AiPanel({ context }: Props) {
         { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
       ]}
       onChange={sectionId => {
+        setReturnToProfile(false);
         setAiSection(sectionId);
       }}
-    />
+    />}
 
     {aiSection === 'models' && <div className="ai-comparison-launcher">
       <div>
@@ -63,8 +65,14 @@ export function AiPanel({ context }: Props) {
     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
     <div hidden={aiSection !== 'agents'}>
-      <AgentsPanel context={context} onOpenActivity={() => { openActivity(); }} onSelectSkill={id => { setSelectedSkill(id); setAiSection('skills'); }} />
+      <AgentsPanel focusedProfileId={focusedProfileId} context={context} onOpenActivity={() => { openActivity(); }} onSelectSkill={id => { setReturnToProfile(true); setSelectedSkill(id); setAiSection('skills'); }} />
     </div>
+
+    {aiSection === 'skills' && returnToProfile && <button
+      type="button"
+      className="btn-gnosi btn-gnosi-secondary"
+      onClick={() => { setReturnToProfile(false); setAiSection('agents'); }}
+    ><ArrowLeft size={16} />{t('settings.ai.resources.back_to_profile')}</button>}
 
     {aiSection === 'skills' && (
       <Section title={t('settings.ai.resources.skills_title')} icon={Zap}>

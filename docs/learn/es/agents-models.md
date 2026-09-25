@@ -1,6 +1,6 @@
-# Configura un agente y un modelo
+# Configura el asistente y sus perfiles
 
-El modelo genera respuestas. El agente combina modelo, instrucciones y habilidades; las herramientas permiten ejecutar acciones concretas.
+El perfil predeterminado se usa en conversaciones nuevas y acciones de la app. Cada conversación puede elegir otro perfil sin afectar a las demás.
 
 ## Antes de empezar {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 1. Abre los ajustes de modelos y proveedores y configura uno compatible o un servicio local. Guarda las credenciales en Configuración y selecciona un modelo disponible.
 
-2. Abre los ajustes de agentes, elige uno o créalo y asígnale el modelo. Selecciona las habilidades necesarias.
+2. Abre Configuración → Plugins → IA → Asistente y pulsa **Configurar asistente**. Elige el modelo, pon nombre al perfil y asígnale las habilidades necesarias.
 
 3. Abre el chat y comprueba agente y modelo. Haz una pregunta corta para verificar la conexión.
 
@@ -20,17 +20,13 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 6. Inspecciona resultado y fuentes. Guarda conclusiones útiles en una página y distingue tu interpretación del texto generado.
 
-### Elige un modelo según la tarea
+### Perfiles y conversaciones
 
-La configuración del asistente ofrece tres opciones:
+Crea perfiles en **Perfiles adicionales (avanzado)**. En el chat, abre el selector junto al nombre del asistente y elige el **Perfil de la conversación**. El cambio se aplica a las peticiones siguientes y conserva el historial. Cada conversación recuerda su perfil. **Usar por defecto**, en Configuración, establece el perfil para conversaciones nuevas y acciones de la app; no cambia los chats existentes.
 
-- **Modelo fijo:** utiliza siempre el modelo principal.
-- **Alternativas si falla:** conserva el principal y permite alternativas ante errores temporales o si el principal no está disponible.
-- **Selección automática:** elige un modelo para cada petición según la tarea, las capacidades, la disponibilidad y el presupuesto.
+### Un único modelo por perfil
 
-Activa explícitamente los modelos alternativos que quieras permitir. Deben estar habilitados y ser compatibles; un asistente local solo puede usar alternativas locales. Las instrucciones, la memoria y las habilidades siguen perteneciendo al mismo asistente.
-
-La selección automática puede utilizar el selector interno de Gnosi o **Jev (TypeSafe)**. Para activar Jev, guarda la clave de TypeSafe en el campo correspondiente. Cuando haga falta elegir entre modelos, se enviará el texto de la petición actual; no se añaden automáticamente la memoria ni las fuentes adjuntas. Las consultas cuentan en el gasto. Si falta la clave, el servicio falla o la decisión es incierta, Gnosi hace la selección interna. Los detalles de la respuesta indican qué selector se ha utilizado.
+Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
 
 ## Resultado esperado {#expected-result}
 
@@ -44,3 +40,7 @@ Un modelo puede conversar sin admitir herramientas. Ante errores de autenticaci�
 
 - [Pregunta sobre las fuentes seleccionadas](notebooks.md)
 - [Preguntas frecuentes y recuperación](troubleshooting.md)
+
+## Perfiles de los plugins
+
+Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus acciones. Configuración → IA → Asistente muestra los perfiles de plugins separados de los personales. Puedes editar el único modelo, las instrucciones, las fuentes y las habilidades asignadas. Los perfiles iniciales copian solo el modelo predeterminado actual; las actualizaciones preservan las ediciones. Desactivar un plugin suspende su perfil sin eliminar la configuración. Si falta el modelo o una habilidad necesaria, la acción falla explícitamente sin recurrir al perfil personal. Las acciones independientes nuevas y las habilidades programadas utilizan el perfil del plugin; los trabajos iniciados conservan su instantánea. El perfil elegido manualmente en una conversación sigue gobernando esa conversación.

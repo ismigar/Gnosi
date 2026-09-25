@@ -46,7 +46,7 @@ export function GeneralPanel({ context }: Props) {
               {['personal', 'org'].map(m => (
                 <button key={m} onClick={() => { setDraft({ ...draft, settings: { ...draft.settings, gnosi_mode: m } }); }} style={{
                   flex: 1, padding: '12px', borderRadius: '14px', border: 'none', cursor: 'pointer',
-                  background: draft.settings.gnosi_mode === m ? 'var(--gnosi-blue)' : 'transparent',
+                  background: draft.settings.gnosi_mode === m ? 'var(--gnosi-primary)' : 'transparent',
                   color: draft.settings.gnosi_mode === m ? 'white' : 'var(--text-secondary)',
                   fontWeight: '800', fontSize: '0.95rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>{m === 'personal' ? tn('general.personal_use') : tn('general.organization')}</button>
@@ -55,7 +55,7 @@ export function GeneralPanel({ context }: Props) {
           </FormGroup>
 
           {draft.settings.gnosi_mode === 'org' && (
-            <div className="animate-in" style={{ marginTop: '30px', padding: '30px', borderRadius: '24px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
+            <div className="animate-in" style={{ marginTop: '30px', padding: '30px', borderRadius: '24px', background: 'color-mix(in srgb, var(--gnosi-primary) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--gnosi-primary) 10%, transparent)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 <FormGroup label={tn('general.org_admin_user')}><input type="text" className="gnosi-input" value={draft.settings.org_user} onChange={e => { setDraft({ ...draft, settings: { ...draft.settings, org_user: e.target.value } }); }} /></FormGroup>
                 <FormGroup label={tn('general.org_admin_password')}><PasswordInput value={draft.settings.org_password} onChange={e => { setDraft({ ...draft, settings: { ...draft.settings, org_password: e.target.value } }); }} name="org-admin-password" autoComplete="new-password" /></FormGroup>

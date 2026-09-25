@@ -1,24 +1,24 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
 import { fetchAiModelComparison } from '../../../shared/api/ai';
-import { resolveAgentRuntimeSelection } from '../model/agentChatAgentUtils';
+import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 import { isRecord } from '../model/agentChatMessageTypes';
 import { logChatError } from './chatDiagnostics';
 
 export interface ChatAgentProfile {
+  readonly modelProfile?: string;
   readonly [key: string]: unknown;
   readonly id: string;
   readonly name?: string;
   readonly icon?: string;
   readonly provider?: string;
   readonly model?: string;
-  readonly modelProfile?: string;
 }
 
 export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).flatMap((profile) => profile.enabled === false || typeof profile.id !== 'string' ? [] : [{
+  return value.filter(isRecord).flatMap((profile) => profile.enabled === false || profile.plugin_suspended === true || typeof profile.id !== 'string' ? [] : [{
     ...profile, id: profile.id,
     name: typeof profile.name === 'string' ? profile.name : undefined,
     icon: typeof profile.icon === 'string' ? profile.icon : undefined,
@@ -28,40 +28,31 @@ export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
 }
 
 interface Options {
-  readonly forcedAgentId: string;
   readonly selectedAgentId: string;
   readonly setSelectedAgentId: Dispatch<SetStateAction<string>>;
 }
-export function useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId }: Options) {
-  const [loadedAgent, setLoadedAgent] = useState<ChatAgentProfile | null>(null);
+export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Options) {
   const [agentList, setAgentList] = useState<ChatAgentProfile[]>([]);
+  const [defaultAgentId, setDefaultAgentId] = useState('');
   const loadConfig = useCallback(async () => {
     try {
-      const [data, comparison] = await Promise.all([
-        fetchConfiguration(), fetchAiModelComparison().catch(() => null),
-      ]);
+      const [data, comparison] = await Promise.all([fetchConfiguration(), fetchAiModelComparison().catch(() => null)]);
       const ai = isRecord(data.ai) ? data.ai : {};
-      const agents = enabledChatAgents(ai.agents).map(agent => {
+      const profiles = enabledChatAgents(ai.agents).filter(profile => profile.managed_by !== 'llm-wiki').map(profile => {
         const model = comparison?.models.find(candidate => candidate.routes.some(route =>
-          route.provider === agent.provider && route.model_id === agent.model,
+          route.provider === profile.provider && route.model_id === profile.model,
         ));
-        return { ...agent, modelProfile: model?.profile };
+        return { ...profile, modelProfile: model?.profile };
       });
-      setAgentList(agents);
-      const selection = resolveAgentRuntimeSelection(agents, forcedAgentId, selectedAgentId, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
-      if (selection.agent) setLoadedAgent(selection.agent);
-      if (selection.selectedAgentId) setSelectedAgentId(selection.selectedAgentId);
+      const principal = principalAssistant(profiles, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
+      setAgentList(profiles);
+      setDefaultAgentId(principal?.id || '');
+      // Only initialize an unbound conversation. Existing histories keep their identity.
+      setSelectedAgentId(current => current || principal?.id || '');
     } catch (error) { logChatError('agent-chat-configuration', error); }
-  }, [forcedAgentId, selectedAgentId, setSelectedAgentId]);
+  }, [setSelectedAgentId]);
   const onConfigChanged = useCallback(() => { void loadConfig(); }, [loadConfig]);
   useConfigChanged(onConfigChanged);
-  useEffect(() => {
-    if (!agentList.length) return;
-    const selection = resolveAgentRuntimeSelection(agentList, forcedAgentId, selectedAgentId, '');
-    if (selection.agent) {
-      if (selection.selectedAgentId !== selectedAgentId) setSelectedAgentId(selection.selectedAgentId);
-    }
-  }, [forcedAgentId, selectedAgentId, agentList, setSelectedAgentId]);
-  const agentConfig = resolveAgentRuntimeSelection(agentList, forcedAgentId, selectedAgentId, '').agent || loadedAgent;
-  return { agentConfig, agentList, loadConfig };
+  const agentConfig = agentList.find(profile => profile.id === selectedAgentId) || null;
+  return { agentConfig, agentList, defaultAgentId, loadConfig };
 }

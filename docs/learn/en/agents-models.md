@@ -1,6 +1,6 @@
-# Configure an agent and a model
+# Configure the assistant and its profiles
 
-A model generates responses. An agent combines a model with instructions and assigned skills; tools let it perform specific actions.
+The default profile is used for new conversations. Each conversation can choose another profile without affecting the others.
 
 ## Before you begin {#before-you-begin}
 
@@ -10,7 +10,7 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 1. Open the model/provider settings and configure a supported provider or local endpoint. Save its credentials in Settings and select an available model.
 
-2. Open the agent settings, choose or create an agent and assign that model. Select the skills it needs for your task.
+2. Open Settings → Plugins → AI → Assistant and choose **Set up assistant**. Select the model, name the profile and assign the required skills.
 
 3. Open chat and confirm the selected agent and model. Start with a short question to check the connection.
 
@@ -20,17 +20,13 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 6. Inspect the result and its sources. Save useful conclusions to a page; keep your own interpretation distinct from generated text.
 
-### Select a model for each task
+### Profiles and conversations
 
-The assistant settings offer three choices:
+Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations; it does not change existing chats.
 
-- **Fixed model:** always uses the primary model.
-- **Fallback models:** keeps the primary and allows alternatives for temporary errors or when the primary is unavailable.
-- **Automatic selection:** chooses a model for each request based on the task, capabilities, availability and budget.
+### One model per profile
 
-Explicitly enable the alternative models you want to allow. They must be enabled and compatible; a local assistant can only use local alternatives. Instructions, memory and skills still belong to the same assistant.
-
-Automatic selection can use Gnosi’s internal selector or **Jev (TypeSafe)**. To enable Jev, save your TypeSafe key in the corresponding field. When a choice between models is needed, the current request text is sent to TypeSafe; memory and attached sources are not automatically added. Queries count toward spending. Missing credentials, service errors or uncertain decisions fall back to Gnosi’s internal selection. Response details identify the selector used.
+Each profile has exactly one LLM. To use another model, choose another profile or edit the profile model. There is no automatic model selection or fallback to alternative models. If a profile is deleted or its model becomes unavailable, choose another profile in chat. To delete the default profile, first set another default. Disable the AI plugin to turn off AI.
 
 ## Expected result {#expected-result}
 
@@ -44,3 +40,7 @@ A model may chat successfully while lacking tool support. For authentication, ti
 
 - [Ask questions about selected sources](notebooks.md)
 - [Frequently asked questions and recovery](troubleshooting.md)
+
+## Plugin profiles
+
+Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.

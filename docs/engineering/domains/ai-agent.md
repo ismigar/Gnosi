@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -235,32 +237,11 @@ through `GNOSI_DATA_DIR`; they never derive a location from a Vault or cloud
 provider. Tests inject that same canonical resolver, and encrypted stream keys
 remain in the `secrets` child of the local data directory.
 
-Runtime model selection belongs to the agent profile. `pinned` uses only the
-assigned provider/model, `resilient` starts there and permits failover only on a
-transient error, and `adaptive` may choose from the primary plus the profile's
-explicit allowlist. Every alternative must be an enabled registry row with the
-same local/remote locality; credentials and catalog defaults never expand the
-allowlist. Authentication, policy, and content errors never cause failover.
-The selected fallback is marked in message metadata and in the stream receipt,
-so a local model cannot unexpectedly send private context to a remote provider.
-
-Adaptive profiles may set `decision_engine: jev` while keeping the same assistant
-identity, memory and tools. Gnosi filters the primary and explicit alternatives
-by availability, context window, capabilities, quotas and budget before the
-optional adapter sees them. Local profiles never call Jev. The adapter sends
-only the current request (at most 12,000 characters) and candidate metadata to
-TypeSafe’s fixed HTTPS endpoint; credentials use the existing secure provider
-store. One bounded request is allowed, with no redirects or retries. Validated
-choice distributions must select an allowed candidate with confidence and
-probability at least 0.75; this threshold is a routing heuristic, not an accuracy
-guarantee. Missing credentials, uncertainty and errors retain the internal
-selection. Usage is added to the shared spend ledger, with conservative estimates
-when a timeout leaves billing uncertain. Governed operations reserve a model
-call for the decision while retaining one for the answer. Non-pinned workflows
-are rebuilt each turn so cached graphs cannot reuse an earlier task’s selection.
-The settings expose all three routing modes and optional TypeSafe credentials;
-chat response details identify Jev selection or internal fallback. Coverage lives
-in `backend/tests/test_agent_model_decisions.py` and
+Profile execution uses `pinned`: exactly the configured provider and model.
+Legacy `resilient`, `adaptive`, and `decision_engine: jev` settings no longer
+select alternatives for profiles. The settings form saves one model with no
+fallbacks. Legacy strategy helpers remain covered in
+`backend/tests/test_agent_model_decisions.py`; profile editing is covered in
 `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 The stdio MCP client validates JSON-RPC object boundaries, types pending async
@@ -660,7 +641,7 @@ makes a handler executable.
 
 ## LLM Wiki configuration
 
-Knowledge always uses the principal Agent. The historical `agent_id` setting remains preserved but cannot select a different execution profile. The managed `llm-wiki` profile is retired by the versioned migration; personal profiles and custom Knowledge instructions are preserved. Settings link to the principal and its assigned skills. Each scheduled run resolves the current principal, while existing runs retain their snapshot.
+Knowledge uses its dedicated plugin profile. The historical `agent_id` setting is preserved but does not override the plugin profile. The old managed `llm-wiki` profile remains retired; the new profile retains migrated Knowledge companion instructions. Settings link to the plugin profile and its skills.
 
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
@@ -1073,6 +1054,20 @@ The translation action uses a compact button aligned to the right. Provider rate
 
 ## Principal Agent execution
 
-Functional AI now enters the shared principal Agent executor. Buttons, chat and schedules use assigned skills, the principal’s model policy, scoped memory and common usage accounting. Structured operations permit at most one validated format repair within the same budget. Long-job phases retain a frozen profile and reusable successful checkpoints.
+Functional AI uses a shared executor with explicit profiles. Plugin buttons and schedules resolve the plugin profile; conversations use their selected profile. Skills, scoped memory, usage accounting, bounded format repair and phase checkpoints remain shared.
 
 Activity exposes scoped execution IDs, cancellation and supported resumptions. The versioned migration backs up configuration, retires only the managed Brain profile, preserves personal profiles and moves Knowledge-specific instructions into a companion skill. Knowledge URLs and the historical routes share handlers and permissions; Notion remains optional.
+
+
+## Profiles and conversations
+
+Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations; it does not change existing chats.
+
+Each profile has exactly one LLM. To use another model, choose another profile or edit the profile model. There is no automatic model selection or fallback to alternative models. If a profile is deleted or its model becomes unavailable, choose another profile in chat. To delete the default profile, first set another default. Disable the AI plugin to turn off AI.
+
+
+Conversation checkpoint ownership remains in `agent_id` and `session_id`. The optional `profile_id` selects the execution profile, and the browser persists it as `profileId` per conversation. Switching profiles leaves messages, attachments, stream recovery and rewind attached to the same checkpoint. Server-owned confirmation arguments retain the original execution profile. New conversations use the current default; scheduled plugin skills use their plugin profile. A missing or disabled selected profile fails explicitly.
+
+## Plugin profiles
+
+Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.
