@@ -217,6 +217,10 @@
     color: var(--gnosi-primary);
 }
 
+.ai-resource-card > .agent-learning {
+    padding: 0 18px 18px 48px;
+}
+
 .ai-resource-details {
     display: grid;
     gap: 14px;
