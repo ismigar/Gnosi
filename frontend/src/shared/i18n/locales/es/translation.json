@@ -5096,6 +5096,7 @@
       "connection_failed": "No se pudo verificar la conexión con este modelo.",
       "api_key": "Clave API de {{provider}}",
       "api_key_help": "Solo se solicita porque este proveedor aún no está conectado.",
+      "replace_api_key_help": "Ya hay una clave guardada. Introduce una nueva para sustituirla y pulsa «Probar conexión» para guardarla y comprobarla. Deja el campo vacío para probar la clave actual.",
       "base_url": "URL base",
       "base_url_help": "Se propone el endpoint del catálogo; modifícalo solo si usas un endpoint compatible propio.",
       "no_exact_route": "No se ha encontrado ninguna ruta ejecutable exacta",

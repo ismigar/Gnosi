@@ -5096,6 +5096,7 @@
       "connection_failed": "No s’ha pogut verificar la connexió amb aquest model.",
       "api_key": "Clau API de {{provider}}",
       "api_key_help": "Només es demana perquè aquest proveïdor encara no està connectat.",
+      "replace_api_key_help": "Ja hi ha una clau desada. Introdueix-ne una de nova per substituir-la i prem «Prova la connexió» per desar-la i comprovar-la. Deixa el camp buit per provar la clau actual.",
       "base_url": "URL base",
       "base_url_help": "Es proposa l’endpoint del catàleg; modifica’l només si uses un endpoint compatible propi.",
       "no_exact_route": "No s’ha trobat cap ruta executable exacta",

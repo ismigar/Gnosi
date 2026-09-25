@@ -156,7 +156,7 @@ export function ModelComparisonSetupPanel({
                             </div>
                         ) : null}
 
-                        {needsApiKey && provider ? (
+                        {setup.mode === 'remote' && provider ? (
                             <>
                                 <label className="model-setup-field">
                                     <span>{t('model_comparison.setup.api_key', {
@@ -164,6 +164,7 @@ export function ModelComparisonSetupPanel({
                                     })}</span>
                                     <input
                                         autoComplete="off"
+                                        disabled={setup.connectionStatus === 'testing'}
                                         onChange={(event) => {
                                             onApiKeyChange(event.target.value);
                                         }}
@@ -171,11 +172,14 @@ export function ModelComparisonSetupPanel({
                                         type="password"
                                         value={setup.apiKey}
                                     />
-                                    <small>{t('model_comparison.setup.api_key_help')}</small>
+                                    <small>{t(provider.has_api_key
+                                        ? 'model_comparison.setup.replace_api_key_help'
+                                        : 'model_comparison.setup.api_key_help')}</small>
                                 </label>
                                 <label className="model-setup-field">
                                     <span>{t('model_comparison.setup.base_url')}</span>
                                     <input
+                                        disabled={setup.connectionStatus === 'testing' || !setup.apiKey.trim()}
                                         onChange={(event) => {
                                             onBaseUrlChange(event.target.value);
                                         }}

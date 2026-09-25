@@ -427,20 +427,20 @@ export function useModelComparisonData(
         if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())) return;
         dispatch({ patch: { connectionStatus: 'testing', connectionError: '', error: '' }, type: 'patch-setup' });
         try {
-            if (needsApiKey) {
+            if (setup.apiKey.trim()) {
                 await setAiProviderCredentials(provider.id, {
                     api_key: setup.apiKey.trim(),
                     base_url: setup.baseUrl || provider.api || '',
                 });
             }
             const result = await validateAiProvider(provider.id, { model: selectedRoute.model_id });
-            const nextValidatedModels = new Set(provider.validated_models ?? []);
+            const nextValidatedModels = new Set<string>(setup.apiKey.trim() ? [] : provider.validated_models ?? []);
             if (result.success) nextValidatedModels.add(selectedRoute.model_id);
             else nextValidatedModels.delete(selectedRoute.model_id);
             dispatch({
                 providerId: provider.id,
                 validatedModels: [...nextValidatedModels],
-                savedKey: needsApiKey,
+                savedKey: Boolean(setup.apiKey.trim()),
                 type: 'provider-model-validation',
             });
             dispatch({

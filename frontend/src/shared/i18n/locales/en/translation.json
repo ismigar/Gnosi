@@ -6134,6 +6134,7 @@
       "connection_failed": "The connection to this model could not be verified.",
       "api_key": "{{provider}} API key",
       "api_key_help": "This is only requested because the provider is not connected yet.",
+      "replace_api_key_help": "A key is already saved. Enter a new key to replace it, then select “Test connection” to save and check it. Leave this field empty to test the current key.",
       "base_url": "Base URL",
       "base_url_help": "The catalog endpoint is suggested; only change it when using your own compatible endpoint.",
       "no_exact_route": "No exact executable route was found",
