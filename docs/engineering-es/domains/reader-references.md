@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-24
 source_paths:
+  - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
   - backend/domains/literature/review_logic.py
@@ -35,6 +36,7 @@ tests:
   - backend/tests/test_reference_covers.py
   - frontend/src/features/vault/dashboard/useSources.test.tsx
   - frontend/src/shared/resources/pdfCover.test.ts
+  - frontend/src/features/vault/properties/FileAttachmentField.test.tsx
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -233,6 +235,14 @@ pública e inyecta los puertos de archivos, CSL y procesos.
 El lector Zotero incluido muestra contenido PDF y EPUB. Gnosi posee el puente que localiza archivos, sirve rangos de bytes seguros, recibe anotaciones y enlaza la evidencia seleccionada de nuevo a registros de Vault. Las filas de anotación incluyen URI de origen, página, tipo, geometría, texto, comentario, etiquetas, clave administrada estable y marcas de tiempo.
 
 Los endpoints de archivos validan el confinamiento de rutas y gestionan la hidratación de archivos en la nube. Los identificadores persistentes de anotaciones evitan duplicar una cita generada cada vez que se reabre un documento.
+
+Las propiedades de archivo abren los adjuntos PDF y EPUB en el lector interno
+mediante la acción compartida de apertura. Las rutas relativas al vault se
+convierten en URL de activos servidos; los enlaces locales y los URL externos de
+documentos usan la misma ruta del lector. Si ningún panel gestiona el evento de
+apertura, se navega a la página del lector. Abrir un adjunto no modifica el valor
+guardado de la propiedad. Los activos del lector se compilan con el script
+existente y no se incluyen en el control de versiones.
 
 ## Fuentes y boletines informativos
 

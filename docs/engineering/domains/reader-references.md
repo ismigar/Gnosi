@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-24
 source_paths:
+  - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
   - backend/domains/literature/review_logic.py
@@ -35,6 +36,7 @@ tests:
   - backend/tests/test_reference_covers.py
   - frontend/src/features/vault/dashboard/useSources.test.tsx
   - frontend/src/shared/resources/pdfCover.test.ts
+  - frontend/src/features/vault/properties/FileAttachmentField.test.tsx
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -264,6 +266,13 @@ page, type, geometry, text, comment, tags, stable managed key, and timestamps.
 File endpoints validate containment and handle cloud hydration. Persistent
 annotation identifiers prevent a generated quote from duplicating every time a
 document is reopened.
+
+File properties open PDF and EPUB attachments in the internal reader through
+the shared file-opening action. Vault-relative paths are converted to served
+asset URLs; local links and external document URLs use the same reader route.
+If no dashboard handles the open event, navigation falls back to the reader
+page. Opening an attachment never changes the stored property value. Reader
+assets must be built with the existing runtime script and remain untracked.
 
 ## Feeds and newsletters
 
