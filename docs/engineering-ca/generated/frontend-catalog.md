@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126396 | 32 |
+| `features` | 1112 | 126424 | 32 |
 | `generated` | 2 | 46951 | 484 |
 | `shared` | 254 | 30754 | 414 |
 
@@ -562,13 +562,13 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
 | [`frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx) | 62 | `AgentModelStrategyFields` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 200 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 207 | `AgentsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 106 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 87 | `GeneralPanel` | — |
-| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 250 | `GlobalSettingsView` | — |
+| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 271 | `GlobalSettingsView` | — |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
 | [`frontend/src/features/settings/global-settings/GraphPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphPanel.tsx) | 82 | `GraphPanel` | — |

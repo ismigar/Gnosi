@@ -16,7 +16,7 @@ let host: HTMLDivElement;
 let root: Root;
 const principal = { id: 'brain', name: 'Cervell', model: 'test', enabled: true };
 const deleteProfile = vi.fn();
-function Harness({ editing = false, empty = false, profiles, activeId, onOpenActivity }: { editing?: boolean; empty?: boolean; profiles?: SettingsAgent[]; activeId?: string; onOpenActivity?: () => void }) {
+function Harness({ editing = false, empty = false, profiles, activeId, onOpenActivity, focusedProfileId }: { focusedProfileId?: string; editing?: boolean; empty?: boolean; profiles?: SettingsAgent[]; activeId?: string; onOpenActivity?: () => void }) {
   const [editingAgent, setEditingAgent] = useState<AgentDraft | null>(editing ? principal : null);
   const [agentEditorTarget, setAgentEditorTarget] = useState<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState({ ai: { agents: profiles || (empty ? [] : [principal]), active_agent_id: activeId ?? (empty ? '' : principal.id), providers: {} } });
@@ -26,7 +26,7 @@ function Harness({ editing = false, empty = false, profiles, activeId, onOpenAct
     aiRegistry: [], aiResources: { skills: [], tools: [] },
     t: (key: string, values?: { name?: string }) => values?.name ? `${key}:${values.name}` : key, tn: (key: string) => key,
   } as unknown as ComponentProps<typeof AgentsPanel>['context'];
-  return <><AgentsPanel context={context} onOpenActivity={onOpenActivity} /><output>{JSON.stringify(draft.ai)}</output></>;
+  return <><AgentsPanel focusedProfileId={focusedProfileId} context={context} onOpenActivity={onOpenActivity} /><output>{JSON.stringify(draft.ai)}</output></>;
 }
 function click(key: string) {
   const button = [...host.querySelectorAll('button')].find(item => item.textContent === key);
@@ -162,4 +162,12 @@ it('puts profile edits into the settings autosave draft before collapsing', () =
   act(() => { host.querySelector<HTMLButtonElement>('[aria-expanded="true"][aria-label^="settings.ai.assistant.configure_profile"]')?.click(); });
   expect(host.querySelector('[data-settings-editor-for]')).toBeNull();
   expect(savedAi().agents[0]?.name).toBe('Auto saved');
+});
+
+it('shows only the assigned profile when opened from a plugin', () => {
+  act(() => { root.render(<Harness editing focusedProfileId="brain" profiles={[principal, { ...principal, id: 'other', name: 'Other' }]} />); });
+  expect(host.querySelector('[data-settings-item-id="agent:brain"]')).not.toBeNull();
+  expect(host.querySelector('[data-settings-item-id="agent:other"]')).toBeNull();
+  expect(host.querySelector('[data-settings-editor-for="agent:brain"]')).not.toBeNull();
+  expect(host.textContent).not.toContain('settings.ai.assistant.advanced');
 });

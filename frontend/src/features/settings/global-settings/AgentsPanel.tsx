@@ -14,9 +14,9 @@ import { toast } from '../../../shared/notifications/toast';
 import type { SettingsAgent } from './types';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { onOpenActivity?: () => void; onSelectSkill?: (id: string) => void; context: Pick<SettingsController, 'agentEditorTarget' | 'aiRegistry' | 'aiResources' | 'draft' | 'editingAgent' | 'handleDeleteAIAgent' | 'setAgentEditorTarget' | 'setDraft' | 'setEditingAgent' | 't' | 'tn'> };
+type Props = { focusedProfileId?: string; onOpenActivity?: () => void; onSelectSkill?: (id: string) => void; context: Pick<SettingsController, 'agentEditorTarget' | 'aiRegistry' | 'aiResources' | 'draft' | 'editingAgent' | 'handleDeleteAIAgent' | 'setAgentEditorTarget' | 'setDraft' | 'setEditingAgent' | 't' | 'tn'> };
 
-export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
+export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedProfileId }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
   const [showProfiles, setShowProfiles] = useState(false);
@@ -146,6 +146,13 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
       )}
     </React.Fragment>
   );
+  if (focusedProfileId) {
+    const selected = draft.ai.agents.find(agent => agent.id === focusedProfileId);
+    return <Section title={selected ? profileDisplayName(selected, t) : t('settings.ai.assistant.profile')} icon={Bot}>
+      {selected && renderProfile(selected)}
+      {editor}
+    </Section>;
+  }
   return (<Section
     title={t('settings.ai.assistant.title')}
     icon={Bot}

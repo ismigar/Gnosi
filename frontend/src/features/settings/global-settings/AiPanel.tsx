@@ -15,9 +15,9 @@ import { ToolsSettingsPanel } from '../AI/AIResourcesSettings';
 import { Zap } from 'lucide-react';
 import type { SettingsController } from './useGlobalSettingsController';
 
-type Props = { context: SettingsController };
+type Props = { context: SettingsController; focusedProfileId?: string };
 
-export function AiPanel({ context }: Props) {
+export function AiPanel({ context, focusedProfileId }: Props) {
   const { aiResources, aiSection, draft, setAiSection, setDraft, setIsModelComparisonOpen, handleClose, t } = context;
   const navigate = useNavigate();
   const [selectedSkill, setSelectedSkill] = useState('');
@@ -29,7 +29,7 @@ export function AiPanel({ context }: Props) {
     }
   }, [aiSection, handleClose, navigate]);
   return (<>
-    <SettingsSectionTabs
+    {!focusedProfileId && <SettingsSectionTabs
       ariaLabel={t('settings.ai.resources.sections_label')}
       activeId={aiSection}
       items={[
@@ -43,7 +43,7 @@ export function AiPanel({ context }: Props) {
         setReturnToProfile(false);
         setAiSection(sectionId);
       }}
-    />
+    />}
 
     {aiSection === 'models' && <div className="ai-comparison-launcher">
       <div>
@@ -65,7 +65,7 @@ export function AiPanel({ context }: Props) {
     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
     <div hidden={aiSection !== 'agents'}>
-      <AgentsPanel context={context} onOpenActivity={() => { openActivity(); }} onSelectSkill={id => { setReturnToProfile(true); setSelectedSkill(id); setAiSection('skills'); }} />
+      <AgentsPanel focusedProfileId={focusedProfileId} context={context} onOpenActivity={() => { openActivity(); }} onSelectSkill={id => { setReturnToProfile(true); setSelectedSkill(id); setAiSection('skills'); }} />
     </div>
 
     {aiSection === 'skills' && returnToProfile && <button
