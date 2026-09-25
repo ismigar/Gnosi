@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { principalAssistant } from './assistantProfiles';
+import { principalAssistant, profileDisplayName } from './assistantProfiles';
 describe('principal assistant', () => {
     const profiles = [{ id: 'disabled', enabled: false }, { id: 'first' }, { id: 'chosen', enabled: true }];
     it('uses the configured principal regardless of ordering', () => {
@@ -18,4 +18,12 @@ describe('principal assistant', () => {
         expect(principalAssistant([legacy, { id: 'personal' }])?.id).toBe('personal');
         expect(principalAssistant([legacy], 'llm-wiki')).toBeUndefined();
     });
+});
+
+const t = (key: string) => `translated:${key}`;
+it('translates shipped names but preserves personal, customized and third-party names', () => {
+    expect(profileDisplayName({ name: 'Mail', managed_by: 'builtin:mail' }, t)).toBe('translated:settings.ai.assistant.builtin_profiles.mail');
+    expect(profileDisplayName({ name: 'My mail', managed_by: 'builtin:mail' }, t)).toBe('My mail');
+    expect(profileDisplayName({ name: 'Mail', managed_by: 'plugin:mail' }, t)).toBe('Mail');
+    expect(profileDisplayName({ name: 'Mail' }, t)).toBe('Mail');
 });

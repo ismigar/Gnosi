@@ -3169,7 +3169,18 @@
         "plugin_profile": "Plugin profile",
         "plugin_owner": "Used by: {{name}}",
         "plugin_suspended": "Plugin disabled. Your configuration is preserved.",
-        "plugin_profiles_help": "Each plugin uses its own profile for AI actions. You can edit its model, instructions, sources and skills. Plugin updates preserve your changes."
+        "plugin_profiles_help": "Each plugin uses its own profile for AI actions. You can edit its model, instructions, sources and skills. Plugin updates preserve your changes.",
+        "builtin_profiles": {
+          "ai-platform": "Writing and knowledge capture",
+          "feeds-reader": "Feeds and podcasts",
+          "grounded-notebooks": "Grounded notebooks",
+          "resources": "Literature assistance",
+          "mail": "Mail",
+          "social-publishing": "Social publishing",
+          "calendar": "Meetings",
+          "translation": "Translation",
+          "llm-wiki": "Knowledge"
+        }
       },
       "model_strategy": {
         "primary": "Primary model",

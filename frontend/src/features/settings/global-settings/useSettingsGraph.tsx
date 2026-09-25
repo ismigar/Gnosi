@@ -21,7 +21,7 @@ export function useSettingsGraph(state: Input) {
       id: 'attachments',
       name: tn('graph.entity_attachments'),
       icon: Paperclip,
-      color: '#6366f1',
+      color: 'var(--gnosi-primary)',
       fields: [
         { name: 'mimetype', type: 'select' },
         { name: 'extension', type: 'text' }
@@ -67,7 +67,7 @@ export function useSettingsGraph(state: Input) {
       id: 'mails',
       name: tn('graph.entity_mails'),
       icon: Mail,
-      color: '#3b82f6',
+      color: 'var(--gnosi-primary)',
       subItems: (integrations.mail_accounts || []).map(m => ({ id: m.id ?? "", name: m.email })),
       fields: [
         { name: 'subject', type: 'text' },
@@ -158,7 +158,7 @@ export function useSettingsGraph(state: Input) {
       const checked = defaultVal === 'true';
       return (
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '130px', cursor: 'pointer' }}>
-          <input type="checkbox" checked={checked} onChange={e => { setVal(e.target.checked ? 'true' : ''); }} style={{ accentColor: 'var(--gnosi-blue)', width: '16px', height: '16px' }} />
+          <input type="checkbox" checked={checked} onChange={e => { setVal(e.target.checked ? 'true' : ''); }} style={{ accentColor: 'var(--gnosi-primary)', width: '16px', height: '16px' }} />
           <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{checked ? t('common.yes', 'Sí') : '—'}</span>
         </label>
       );

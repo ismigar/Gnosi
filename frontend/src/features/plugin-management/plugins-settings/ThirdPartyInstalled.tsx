@@ -51,7 +51,7 @@ export function ThirdPartyInstalled({ controller, filter }: ThirdPartyInstalledP
                     return (
                         <div key={manifest.id} style={{ background: 'var(--bg-secondary, #f8fafc)', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 10, padding: '12px 14px' }}>
                             <div style={{ alignItems: 'center', display: 'flex', gap: 12 }}>
-                                <Puzzle size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
+                                <Puzzle size={18} style={{ color: 'var(--gnosi-primary)', flexShrink: 0 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ color: 'var(--text-primary, #0f172a)', fontSize: 14, fontWeight: 600 }}>
                                         {manifest.name} <span style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 11, fontWeight: 400 }}>v{manifest.version}</span>
@@ -65,13 +65,13 @@ export function ThirdPartyInstalled({ controller, filter }: ThirdPartyInstalledP
                                     type="button" role="switch" aria-checked={enabled}
                                     onClick={() => { void controller.toggleThirdParty(manifest.id, !enabled); }}
                                     disabled={controller.lifecycleBusyId === manifest.id}
-                                    style={{ background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)', border: 'none', borderRadius: 999, cursor: 'pointer', flexShrink: 0, height: 24, opacity: controller.lifecycleBusyId === manifest.id ? 0.65 : 1, position: 'relative', width: 42 }}
+                                    style={{ background: enabled ? 'var(--gnosi-primary)' : 'var(--border-primary, #cbd5e1)', border: 'none', borderRadius: 999, cursor: 'pointer', flexShrink: 0, height: 24, opacity: controller.lifecycleBusyId === manifest.id ? 0.65 : 1, position: 'relative', width: 42 }}
                                     title={enabled ? tp('disable') : tp('enable')}
                                 ><span style={{ background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', height: 20, left: enabled ? 20 : 2, position: 'absolute', top: 2, width: 20 }} /></button>
                                 <button type="button" onClick={() => { void controller.exportPackage(manifest.id, manifest.version); }} disabled={controller.busy === `export:${manifest.id}`} aria-label={tp('export_package')} title={tp('export_package')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-secondary)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}>
                                     {controller.busy === `export:${manifest.id}` ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
                                 </button>
-                                <button type="button" onClick={() => { void controller.submitPackage(manifest.id); }} disabled={controller.busy === `submit:${manifest.id}`} aria-label={tp('submit_repository')} title={tp('submit_repository')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: '#6366f1', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}>
+                                <button type="button" onClick={() => { void controller.submitPackage(manifest.id); }} disabled={controller.busy === `submit:${manifest.id}`} aria-label={tp('submit_repository')} title={tp('submit_repository')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--gnosi-primary)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}>
                                     {controller.busy === `submit:${manifest.id}` ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
                                 </button>
                                 <button type="button" onClick={() => { void controller.uninstall(manifest.id); }} disabled={controller.busy === `del:${manifest.id}`} aria-label={tp('uninstall')} title={tp('uninstall')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: '#dc2626', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Trash2 size={15} /></button>

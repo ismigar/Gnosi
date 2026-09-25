@@ -60,7 +60,7 @@ export function ReaderPanel({ context }: Props) {
             ].map(({ v, icon }) => (
               <button key={v} onClick={() => { setNewsletterType(v); setNewsletterStatus(''); setNewsletterAccountStatus(''); }} style={{
                 padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)',
-                background: newsletterType === v ? 'var(--gnosi-blue)' : 'transparent',
+                background: newsletterType === v ? 'var(--gnosi-primary)' : 'transparent',
                 color: newsletterType === v ? 'white' : 'var(--text-secondary)',
                 fontSize: '0.85rem', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em',
                 display: 'inline-flex', alignItems: 'center', gap: '8px'
@@ -90,7 +90,7 @@ export function ReaderPanel({ context }: Props) {
                 </FormGroup>
               </div>
               {newsletterType === 'youtube' && (
-                <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '10px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.4 }}>
+                <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '10px', background: 'color-mix(in srgb, var(--gnosi-primary) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--gnosi-primary) 20%, transparent)', color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.4 }}>
                   {t('subs_form_youtube_help')}
                 </div>
               )}
@@ -181,14 +181,14 @@ export function ReaderPanel({ context }: Props) {
           {newsletterSources.map(s => (
             <div key={s.id} className="account-row hover-scale" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', borderRadius: '24px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '22px', minWidth: 0, flex: 1 }}>
-                <div style={{ width: '56px', height: '56px', background: 'rgba(59,130,246,0.12)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                <div style={{ width: '56px', height: '56px', background: 'color-mix(in srgb, var(--gnosi-primary) 12%, transparent)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
                   {s.type === 'rss' ? '📰' : (s.type === 'youtube' ? '📺' : '📧')}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.05rem' }}>{s.name}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.url}</div>
                   {s.category && s.category !== 'Uncategorized' && (
-                    <div style={{ display: 'inline-block', marginTop: '6px', padding: '3px 10px', borderRadius: '8px', background: 'rgba(59,130,246,0.1)', color: 'var(--gnosi-blue)', fontSize: '0.72rem', fontWeight: 700 }}>{s.category}</div>
+                    <div style={{ display: 'inline-block', marginTop: '6px', padding: '3px 10px', borderRadius: '8px', background: 'color-mix(in srgb, var(--gnosi-primary) 10%, transparent)', color: 'var(--gnosi-primary)', fontSize: '0.72rem', fontWeight: 700 }}>{s.category}</div>
                   )}
                 </div>
               </div>

@@ -89,7 +89,7 @@ export function AIUsageHistoryView({
                 <header className="usage-history-header">
                     <div>
                         <h2 id="usage-history-title">
-                            <BarChart3 size={20} style={{ color: 'var(--gnosi-blue)' }} />
+                            <BarChart3 size={20} style={{ color: 'var(--gnosi-primary)' }} />
                             {t('settings.ai.history_title', 'Històric de consum i despesa d’IA')}
                         </h2>
                         <p>{t(
@@ -213,7 +213,7 @@ export function AIUsageHistoryView({
                                                 <div className="usage-item-identity">
                                                     <ItemIcon
                                                         size={18}
-                                                        style={{ color: 'var(--gnosi-blue)' }}
+                                                        style={{ color: 'var(--gnosi-primary)' }}
                                                     />
                                                     <div>
                                                         <div className="usage-item-name">

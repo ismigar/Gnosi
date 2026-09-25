@@ -1,3 +1,4 @@
+import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import type { AgentDraft, SettingsModel } from './types';
 import type { NormalizedSkill, NormalizedTool } from '../AI/aiSettingsUtils';
 import { Activity } from 'lucide-react';
@@ -17,10 +18,11 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
   const { t } = useTranslation();
   const [form, setForm] = useState({
     ...agent, name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
-    icon: agent.icon || '🤖', persona: agent.persona || '', context: agent.context || '',
+    icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', context: agent.context || '',
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
   });
   const { name, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
+  const [nameEdited, setNameEdited] = useState(false);
   const [savingAgent, setSavingAgent] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -64,7 +66,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
             <FormGroup label={t('settings.ai.assistant.profile_name')}>
-              <input type="text" className="gnosi-input" value={name} onChange={e => { update({ name: e.target.value }); }} placeholder={t('settings.ai.agent_name_placeholder')} />
+              <input type="text" className="gnosi-input" value={nameEdited ? name : profileDisplayName({ ...agent, name }, t)} onChange={e => { setNameEdited(true); update({ name: e.target.value }); }} placeholder={t('settings.ai.agent_name_placeholder')} />
             </FormGroup>
           </div>
           <div style={{ width: '72px' }}>

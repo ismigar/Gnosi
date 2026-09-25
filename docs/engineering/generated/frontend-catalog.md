@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126393 | 32 |
+| `features` | 1112 | 126395 | 32 |
 | `generated` | 2 | 46951 | 484 |
-| `shared` | 253 | 30726 | 414 |
+| `shared` | 253 | 30744 | 414 |
 
 ## app
 
@@ -554,7 +554,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/ModelComparisonTable.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonTable.tsx) | 191 | `ModelComparisonTable` | — |
 | [`frontend/src/features/settings/ModelComparisonToolbar.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonToolbar.tsx) | 321 | `ModelComparisonToolbar` | — |
 | [`frontend/src/features/settings/aiUsageHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.ts) | 208 | `buildModelProfileMap`, `formatUsageCost`, `formatUsageTokens`, `processAiUsageHistory` | — |
-| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 200 | `AIAgentForm` | — |
+| [`frontend/src/features/settings/global-settings/AIAgentForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.tsx) | 202 | `AIAgentForm` | — |
 | [`frontend/src/features/settings/global-settings/AccountEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountEditor.tsx) | 56 | `AccountEditor` | — |
 | [`frontend/src/features/settings/global-settings/AccountList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountList.tsx) | 171 | `AccountList` | — |
 | [`frontend/src/features/settings/global-settings/AccountProviderChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.tsx) | 85 | `AccountProviderChoices` | — |
@@ -1206,7 +1206,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 8 | `principalAssistant` | — |
+| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 26 | `principalAssistant`, `profileDisplayName` | — |
 | [`frontend/src/shared/api/ApiProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ApiProvider.tsx) | 14 | `ApiProvider` | — |
 | [`frontend/src/shared/api/agent-context.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/agent-context.ts) | 27 | `fetchExternalContextSources`, `fetchInternalContextSources` | `/api/agent/context-sources`, `/api/agent/internal-sources` |
 | [`frontend/src/shared/api/agent-learning.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/agent-learning.ts) | 85 | `bindLearningProject`, `fetchAgentMemories`, `fetchLearningWorkspace`, `fetchSkillPackage`, `prepareLearningDraft`, `removeAgentMemory`, `removeLearningProject`, `runSkillTrial`, `saveAgentMemory`, `saveLearnedSkill`, `saveLearningProject`, `validateSkillPackage` | `/api/ai/agents/{agent_id}/learning`, `/api/ai/agents/{agent_id}/learning/{session_id}`, `/api/ai/agents/{agent_id}/memories`, `/api/ai/agents/{agent_id}/memories/{memory_id}`, `/api/ai/agents/{agent_id}/projects`, `/api/ai/agents/{agent_id}/projects/{project_id}`, `/api/ai/learning/draft`, `/api/ai/learning/package/validate`, `/api/ai/learning/skills`, `/api/ai/learning/trial`, `/api/ai/skills/{skill_id}/package` |

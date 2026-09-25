@@ -72,7 +72,7 @@ export function AccountList({ context }: Props) {
                   isEditing={editingAccountId === acc.id}
                   onEdit={() => { handleEditAccount(activeTab, acc); }}
                   onDelete={() => { handleDeleteAccount(activeTab, acc.id); }}
-                  color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
+                  color={activeTab === 'calendar' ? 'var(--gnosi-primary)' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
                 />
                 {editingAccountId === acc.id && (
                   <div
@@ -86,7 +86,7 @@ export function AccountList({ context }: Props) {
 
           {/* Vault tables (Calendar only) */}
           {vaultCalendars.map((tbl, idx) => {
-            const tblColor = integrations.calendar_colors?.[tbl.id] || integrations.calendar_colors?.[tbl.name] || '#6366f1';
+            const tblColor = integrations.calendar_colors?.[tbl.id] || integrations.calendar_colors?.[tbl.name] || 'var(--gnosi-primary)';
             return (
               <React.Fragment key={`vault-${tbl.id || String(idx)}`}>
                 <AccountRow
@@ -127,7 +127,7 @@ export function AccountList({ context }: Props) {
                 data-settings-editor-for={`vault-calendar:${editingTableColor.id}`}
               >
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '25px' }}>
-                  {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
+                  {['var(--gnosi-primary)', '#ef4444', '#10b981', '#f59e0b', 'var(--gnosi-primary)', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
                     <button
                       key={c}
                       onClick={() => { setEditingTableColor({ ...editingTableColor, color: c }); }}

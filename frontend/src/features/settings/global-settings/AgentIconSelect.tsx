@@ -91,8 +91,8 @@ export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noR
         style={{
           width: '72px', height: '48px', padding: '0 10px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderRadius: '14px', border: '1px solid var(--gnosi-blue)',
-          background: 'var(--gnosi-blue)', color: '#fff', cursor: 'pointer'
+          borderRadius: '14px', border: '1px solid var(--gnosi-primary)',
+          background: 'var(--gnosi-primary)', color: '#fff', cursor: 'pointer'
         }}
       >
         {currentIconName
@@ -161,10 +161,10 @@ export const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noR
                     width: '42px', height: '42px', padding: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: '11px',
-                    border: selected ? '2px solid #fff' : '1px solid var(--gnosi-blue)',
-                    background: 'var(--gnosi-blue)',
+                    border: selected ? '2px solid #fff' : '1px solid var(--gnosi-primary)',
+                    background: 'var(--gnosi-primary)',
                     color: '#fff',
-                    boxShadow: selected ? '0 0 0 2px var(--gnosi-blue)' : 'none',
+                    boxShadow: selected ? '0 0 0 2px var(--gnosi-primary)' : 'none',
                     cursor: 'pointer'
                   }}
                 >

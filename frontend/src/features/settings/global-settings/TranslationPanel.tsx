@@ -88,10 +88,10 @@ export function TranslationPanel({ context }: Props) {
 
     <div style={{
       marginTop: '20px', padding: '16px 20px', borderRadius: '14px',
-      background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)',
+      background: 'color-mix(in srgb, var(--gnosi-primary) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--gnosi-primary) 15%, transparent)',
       display: 'flex', gap: '14px', alignItems: 'flex-start'
     }}>
-      <Info size={18} style={{ color: 'var(--gnosi-blue)', flexShrink: 0, marginTop: '2px' }} />
+      <Info size={18} style={{ color: 'var(--gnosi-primary)', flexShrink: 0, marginTop: '2px' }} />
       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
         {t('translate_settings.usage_hint') || "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui."}
       </div>

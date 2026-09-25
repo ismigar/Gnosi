@@ -5,7 +5,7 @@ import { IconRenderer } from '../../../shared/ui/previews/IconRenderer';
 import { InlineEditorPlacement } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Plus } from 'lucide-react';
 import React, { useState } from 'react';
-import { principalAssistant } from '../../../shared/ai/assistantProfiles';
+import { principalAssistant, profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Trash2 } from 'lucide-react';
@@ -86,7 +86,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
         className={`settings-configurable-item ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
         data-settings-item-id={`agent:${agent.id}`}
         onClick={() => { setEditingAgent(current => current?.id === agent.id ? null : agent); }}
-        title={t('settings.ai.assistant.configure_profile', { name: agent.name })}
+        title={t('settings.ai.assistant.configure_profile', { name: profileDisplayName(agent, t) })}
         style={{
           width: '100%', padding: '24px', border: '1px solid var(--settings-border)',
           background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -100,19 +100,19 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
               width: '46px', height: '46px', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: '50%',
-              background: 'var(--gnosi-blue)',
+              background: 'var(--gnosi-primary)',
               color: '#fff',
               filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))'
             }}
           >
             <IconRenderer
-              icon={agent.icon || '🤖'}
+              icon={agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default'}
               size={26}
               color="#fff"
             />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
+            <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{profileDisplayName(agent, t)}</div>
             <strong>{t(agent.managed_by ? 'settings.ai.assistant.plugin_profile' : agent.id === principal?.id ? 'settings.ai.assistant.principal_profile' : 'settings.ai.assistant.additional_profile')}</strong>
             {agent.managed_by && <p className="settings-desc">{t('settings.ai.assistant.plugin_owner', { name: t(`settings.plugins.catalog.${agent.managed_by.replace(/^(builtin:|plugin:)/, '')}.name`, { defaultValue: agent.managed_by.replace(/^(builtin:|plugin:)/, '') }) })}</p>}
             {agent.plugin_suspended && <p role="status">{t('settings.ai.assistant.plugin_suspended')}</p>}
@@ -130,10 +130,10 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
               agents: prev.ai.agents.map(item => item.id === agent.id ? { ...item, enabled: true } : item),
             } }));
           }}>{t('settings.ai.assistant.make_principal')}</button>}
-          <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(current => current?.id === agent.id ? null : agent); }} aria-expanded={editingAgent?.id === agent.id} aria-label={t('settings.ai.assistant.configure_profile', { name: agent.name })} title={t('settings.ai.assistant.configure_profile', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
+          <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(current => current?.id === agent.id ? null : agent); }} aria-expanded={editingAgent?.id === agent.id} aria-label={t('settings.ai.assistant.configure_profile', { name: profileDisplayName(agent, t) })} title={t('settings.ai.assistant.configure_profile', { name: profileDisplayName(agent, t) })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
             <SettingsIcon size={22} />
           </button>
-          {agent.id !== principal?.id && !agent.managed_by && <button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={t('settings.ai.assistant.delete_profile', { name: agent.name })} title={t('settings.ai.assistant.delete_profile', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
+          {agent.id !== principal?.id && !agent.managed_by && <button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={t('settings.ai.assistant.delete_profile', { name: profileDisplayName(agent, t) })} title={t('settings.ai.assistant.delete_profile', { name: profileDisplayName(agent, t) })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
             <Trash2 size={22} />
           </button>}
         </div>
@@ -170,7 +170,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
     </button>}
     {expanded && <div className="ai-resources-panel">
       <p>{t('settings.ai.assistant.profiles_help')}</p>
-      {principal && (!editingAgent || editingAgent.id) && <div>
+      {principal && (!editingAgent || editingAgent.id) && <div style={{ marginBottom: '20px' }}>
         <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
           setAgentEditorTarget(null);
           setEditingAgent({});

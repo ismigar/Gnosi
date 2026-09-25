@@ -143,7 +143,7 @@ export function AgentSkillsField({
                             <span className="ai-agent-skill__copy">
                                 <strong>{onSelectSkill ? <a
                                     href={`#skill-${encodeURIComponent(skill.id)}`}
-                                    className="text-[var(--gnosi-blue)] underline underline-offset-2"
+                                    className="text-[var(--gnosi-primary)] underline underline-offset-2"
                                     title={`${t('common.open')}: ${skillDisplayName(t, skill)}`}
                                     onClick={event => {
                                         event.preventDefault();

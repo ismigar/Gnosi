@@ -64,9 +64,9 @@
 }
 
 .status-badge--api {
-  background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: color-mix(in srgb, var(--gnosi-primary) 10%, transparent);
+  color: var(--gnosi-primary);
+  border: 1px solid color-mix(in srgb, var(--gnosi-primary) 20%, transparent);
 }
 
 .status-badge--custom {

@@ -3188,7 +3188,18 @@
         "plugin_profile": "Perfil de plugin",
         "plugin_owner": "Utilitzat per: {{name}}",
         "plugin_suspended": "Plugin desactivat. La configuració es conserva.",
-        "plugin_profiles_help": "Cada plugin fa servir el seu perfil per a les accions d’IA. Pots editar-ne el model, les instruccions, les fonts i les habilitats. Les actualitzacions del plugin conserven els teus canvis."
+        "plugin_profiles_help": "Cada plugin fa servir el seu perfil per a les accions d’IA. Pots editar-ne el model, les instruccions, les fonts i les habilitats. Les actualitzacions del plugin conserven els teus canvis.",
+        "builtin_profiles": {
+          "ai-platform": "Escriptura i captura de coneixement",
+          "feeds-reader": "Canals i podcasts",
+          "grounded-notebooks": "Quaderns amb fonts",
+          "resources": "Assistència bibliogràfica",
+          "mail": "Correu",
+          "social-publishing": "Publicació social",
+          "calendar": "Reunions",
+          "translation": "Traducció",
+          "llm-wiki": "Coneixement"
+        }
       },
       "model_strategy": {
         "primary": "Model principal",

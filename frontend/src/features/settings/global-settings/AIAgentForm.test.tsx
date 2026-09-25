@@ -83,3 +83,10 @@ it.each(['principal', 'profile'] as const)('distinguishes %s setup from an exist
   await click(purpose === 'principal' ? 'settings.ai.assistant.configure_action' : 'settings.ai.assistant.create_profile');
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: agent.name, model: agent.model }));
 });
+
+it('localizes a shipped profile name without persisting the translation on other edits', () => {
+  render({ ...agent, name: 'Mail', managed_by: 'builtin:mail' });
+  expect(host.querySelector<HTMLInputElement>('input')?.value).toBe('settings.ai.assistant.builtin_profiles.mail');
+  select('profile_model', 'beta||large');
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mail' }));
+});
