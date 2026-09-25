@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GnosiApiError } from '../../shared/api/errors';
 
 import type {
     InstalledPluginsResponse,
@@ -13,6 +14,7 @@ import { notifyError } from '../../shared/notifications/notifyError';
 import { PluginsSettings } from './index';
 
 const pluginState = vi.hoisted(() => ({
+    builtinId: 'daily-notes',
     enabled: new Set<string>(),
     getPluginSettings: vi.fn<(id: string) => unknown>(),
     reload: vi.fn<() => Promise<unknown>>(),
@@ -66,7 +68,7 @@ vi.mock('../../shared/plugins/usePlugins', () => ({
         loadError: false,
         builtins: [{
             description: 'Daily notes', group: 'knowledge', icon: 'CalendarDays',
-            id: 'daily-notes', name: 'Daily notes', requires: [], routes: [],
+            id: pluginState.builtinId, name: 'Daily notes', requires: [], routes: [],
             settingsTab: 'daily-notes',
         }],
         getPluginSettings: pluginState.getPluginSettings,
@@ -88,6 +90,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+    pluginState.builtinId = 'daily-notes';
     pluginState.enabled.clear();
     pluginState.getPluginSettings.mockReturnValue({});
     pluginState.reload.mockResolvedValue({});
@@ -269,9 +272,9 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
 
     it('confirms dependency-aware activation with the exact lifecycle options', async () => {
         pluginState.setPluginEnabled
-            .mockRejectedValueOnce({ response: { data: { detail: {
+            .mockRejectedValueOnce(new GnosiApiError(new Response(null, { status: 409 }), { detail: {
                 code: 'plugin_dependency_confirmation_required', disable: [], enable: ['ai-platform'],
-            } }, status: 409 } })
+            } }))
             .mockResolvedValueOnce({});
         const view = await renderSettings();
         const toggle = view.querySelector('[role="switch"]');
@@ -282,6 +285,42 @@ describe('PluginsSettings lifecycle and marketplace flows', () => {
             ['daily-notes', true],
             ['daily-notes', true, { confirmDependencies: true, confirmDisable: false }],
         ]);
+    });
+
+    it.each([
+        { pluginId: 'ai-platform', disable: ['llm-wiki'] },
+    ])('confirms disabling $pluginId using the API error payload', async ({ pluginId, disable }) => {
+        pluginState.builtinId = pluginId;
+        pluginState.enabled.add(pluginId);
+        pluginState.setPluginEnabled
+            .mockRejectedValueOnce(new GnosiApiError(new Response(null, { status: 409 }), { detail: {
+                code: 'plugin_dependency_confirmation_required', disable, enable: [],
+            } }))
+            .mockResolvedValueOnce({});
+        const view = await renderSettings();
+        const toggle = view.querySelector('[role="switch"]');
+        if (!(toggle instanceof HTMLButtonElement)) throw new Error('Missing lifecycle switch');
+        await click(toggle);
+        expect(view.textContent).toContain('settings.plugins.dependency_disable_message');
+        expect(notifyError).not.toHaveBeenCalled();
+        expect(pluginState.setPluginEnabled).toHaveBeenCalledTimes(1);
+        await click(buttonByText(view, 'settings.plugins.dependency_confirm_action'));
+        expect(pluginState.setPluginEnabled.mock.calls).toEqual([
+            [pluginId, false],
+            [pluginId, false, { confirmDependencies: false, confirmDisable: true }],
+        ]);
+    });
+
+    it('disables Knowledge without opening a dependency confirmation', async () => {
+        pluginState.builtinId = 'llm-wiki';
+        pluginState.enabled.add('llm-wiki');
+        const view = await renderSettings();
+        const toggle = view.querySelector('[role="switch"]');
+        if (!(toggle instanceof HTMLButtonElement)) throw new Error('Missing lifecycle switch');
+        await click(toggle);
+        expect(pluginState.setPluginEnabled.mock.calls).toEqual([['llm-wiki', false]]);
+        expect(view.textContent).not.toContain('settings.plugins.dependency_confirm_action');
+        expect(notifyError).not.toHaveBeenCalled();
     });
 
     it('updates declared permissions and uninstalls the selected plugin', async () => {

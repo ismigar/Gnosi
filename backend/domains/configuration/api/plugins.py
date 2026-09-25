@@ -132,7 +132,7 @@ def _updated_plugin_state(request: PluginsUpdateRequest) -> PluginState:
     if _deps().llm_wiki_enabled(current) != _deps().llm_wiki_enabled(requested_state):
         raise HTTPException(
             status_code=409,
-            detail=("The LLM Wiki plugin must be changed through its confirmed lifecycle."),
+            detail=("The LLM Wiki plugin must be changed through its lifecycle endpoint."),
         )
     current["disabled"] = sorted(requested_disabled)
     current["enabled_builtin"] = requested_state["enabled_builtin"]

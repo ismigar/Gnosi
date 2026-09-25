@@ -77,7 +77,7 @@ def _disable_plugin(
     enabled_builtin: set[str],
 ) -> tuple[PluginState, list[str]]:
     dependents = list(builtin_plugins.dependent_plugins(plugin_id, enabled_builtin))
-    needs_confirmation = bool(dependents) or plugin_id == "llm-wiki"
+    needs_confirmation = bool(dependents)
     if needs_confirmation and not (payload.confirm_dependencies or payload.confirm_disable):
         raise HTTPException(
             status_code=409,
