@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     setCredentials: vi.fn(),
     setStatus: vi.fn(),
     updateModels: vi.fn(),
+    validateProvider: vi.fn(),
 }));
 
 
@@ -35,6 +36,7 @@ vi.mock('../../shared/api/ai', () => ({
     setAiProviderCredentials: mocks.setCredentials,
     setAiProviderStatus: mocks.setStatus,
     updateAiModels: mocks.updateModels,
+    validateAiProvider: mocks.validateProvider,
 }));
 
 
@@ -114,6 +116,8 @@ let latestController: ModelComparisonDataController | null;
 
 beforeEach(() => {
     vi.resetAllMocks();
+    mocks.validateProvider.mockResolvedValue({ success: true });
+    mocks.setCredentials.mockResolvedValue({ status: "success" });
     latestController = null;
     mocks.fetchComparison.mockResolvedValue(FEED);
     mocks.fetchModels.mockResolvedValue({
@@ -158,6 +162,7 @@ afterEach(() => {
         root.unmount();
     });
     container.remove();
+    vi.useRealTimers();
 });
 
 
@@ -206,5 +211,80 @@ describe('useModelComparisonData', () => {
             model: 'Model One',
             type: 'success',
         });
+    });
+});
+
+
+const mountController = async () => {
+    await act(async () => {
+        root.render(<ControllerHarness onController={(controller) => { latestController = controller; }} />);
+    });
+};
+const settleAutosave = async (ms = 0) => {
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+};
+const NEW_MODEL = { ...MODEL, id: 'model-2', routes: [{ ...MODEL.routes[0]!, model_id: 'model-2' }] };
+
+describe('automatic model activation', () => {
+    it('reuses provider credentials and tests the exact new model before activating', async () => {
+        vi.useFakeTimers();
+        await mountController();
+        act(() => currentController().beginActivation(NEW_MODEL));
+        await settleAutosave();
+        expect(mocks.validateProvider).toHaveBeenCalledWith('openai', { model: 'model-2' });
+        expect(mocks.setCredentials).not.toHaveBeenCalled();
+        expect(mocks.updateModels).toHaveBeenCalledOnce();
+        expect(mocks.updateModels.mock.calls[0]![0].models).toEqual(expect.arrayContaining([
+            expect.objectContaining({ provider: 'openai', model_id: 'model-2', enabled: true }),
+        ]));
+        expect(currentController().state.setup).toBeNull();
+    });
+    it('keeps failures open and autosaves a replacement key after typing settles', async () => {
+        vi.useFakeTimers();
+        mocks.validateProvider.mockResolvedValueOnce({ success: false, error: 'Invalid key' });
+        await mountController();
+        act(() => currentController().beginActivation(NEW_MODEL));
+        await settleAutosave();
+        expect(currentController().state.setup?.connectionStatus).toBe('error');
+        expect(mocks.updateModels).not.toHaveBeenCalled();
+        act(() => currentController().setSetupApiKey('partial'));
+        await settleAutosave(400);
+        act(() => currentController().setSetupApiKey('replacement-key'));
+        await settleAutosave(799);
+        expect(mocks.setCredentials).not.toHaveBeenCalled();
+        await settleAutosave(1);
+        expect(mocks.setCredentials).toHaveBeenCalledExactlyOnceWith('openai', {
+            api_key: 'replacement-key', base_url: 'https://api.openai.test/v1',
+        });
+        expect(mocks.validateProvider).toHaveBeenCalledTimes(2);
+        expect(mocks.updateModels).toHaveBeenCalledOnce();
+        expect(currentController().state.setup).toBeNull();
+    });
+    it('waits for missing credentials, then saves and activates automatically', async () => {
+        vi.useFakeTimers();
+        const catalog = await mocks.fetchCatalog();
+        mocks.fetchCatalog.mockResolvedValue({ ...catalog, providers: catalog.providers.map((p: object) => ({ ...p, has_api_key: false, connected: false })) });
+        await mountController();
+        act(() => currentController().beginActivation(NEW_MODEL));
+        await settleAutosave();
+        expect(mocks.validateProvider).not.toHaveBeenCalled();
+        expect(currentController().state.setup).not.toBeNull();
+        act(() => currentController().setSetupApiKey('new-provider-key'));
+        await settleAutosave(800);
+        expect(mocks.setCredentials).toHaveBeenCalledOnce();
+        expect(mocks.validateProvider).toHaveBeenCalledOnce();
+        expect(currentController().state.setup).toBeNull();
+    });
+    it('does not activate after closing during a pending probe', async () => {
+        vi.useFakeTimers();
+        let finish!: (result: { success: boolean }) => void;
+        mocks.validateProvider.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+        await mountController();
+        act(() => currentController().beginActivation(NEW_MODEL));
+        await settleAutosave();
+        act(() => currentController().closeSetup());
+        await act(async () => finish({ success: true }));
+        expect(mocks.updateModels).not.toHaveBeenCalled();
+        expect(currentController().state.setup).toBeNull();
     });
 });

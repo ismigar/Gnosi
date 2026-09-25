@@ -14,7 +14,6 @@ import type {
 
 interface ModelComparisonSetupPanelProps {
     readonly busyModelId: string;
-    readonly onActivate: () => Promise<void>;
     readonly onApiKeyChange: (value: string) => void;
     readonly onBaseUrlChange: (value: string) => void;
     readonly onCancel: () => void;
@@ -33,7 +32,6 @@ interface ModelComparisonSetupPanelProps {
 
 export function ModelComparisonSetupPanel({
     busyModelId,
-    onActivate,
     onApiKeyChange,
     onBaseUrlChange,
     onCancel,
@@ -207,9 +205,11 @@ export function ModelComparisonSetupPanel({
             </div>
 
             <footer>
-                <span>{route ? t('model_comparison.setup.router_help') : ''}</span>
+                <span role="status">{setup.connectionStatus === 'testing' || busyModelId === setup.model.id
+                    ? <><Loader2 className="animate-spin" size={16} /> {t('model_comparison.setup.auto_checking')}</>
+                    : route ? t('model_comparison.setup.auto_activation_help') : ''}</span>
                 <div>
-                    {setup.mode === 'remote' && (
+                    {setup.mode === 'remote' && setup.connectionStatus === 'error' && (
                         <button
                             className="btn-gnosi-secondary"
                             disabled={
@@ -232,27 +232,9 @@ export function ModelComparisonSetupPanel({
                         onClick={onCancel}
                         type="button"
                     >
-                        {t('common.cancel')}
+                        {t('common.close')}
                     </button>
-                    <button
-                        className="btn-gnosi-primary"
-                        disabled={
-                            !provider
-                            || !route
-                            || (needsApiKey && !setup.apiKey.trim())
-                            || (setup.mode === 'remote' && setup.connectionStatus !== 'connected')
-                            || busyModelId === setup.model.id
-                        }
-                        onClick={() => {
-                            void onActivate();
-                        }}
-                        type="button"
-                    >
-                        {busyModelId === setup.model.id ? (
-                            <Loader2 className="animate-spin" size={16} />
-                        ) : null}
-                        {t('model_comparison.setup.activate')}
-                    </button>
+
                 </div>
             </footer>
         </section>

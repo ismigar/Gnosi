@@ -91,7 +91,6 @@ export function AIModelComparisonModal({
     const setupPanel = data.setup ? (
         <ModelComparisonSetupPanel
             busyModelId={data.busyModelId}
-            onActivate={controller.activateModel}
             onApiKeyChange={controller.setSetupApiKey}
             onBaseUrlChange={controller.setSetupBaseUrl}
             onCancel={controller.closeSetup}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useEffectEvent, useMemo, useReducer, useRef } from 'react';
 
 import {
     comparisonRoutesForMode,
@@ -201,7 +201,6 @@ const signalIsAborted = (signal: AbortSignal): boolean => signal.aborted;
 
 
 export interface ModelComparisonDataController {
-    readonly activateModel: () => Promise<void>;
     readonly beginActivation: (model: AiModelComparisonEntry) => void;
     readonly changeSetupMode: (mode: ComparisonSetupMode) => void;
     readonly changeSetupProvider: (providerId: string) => void;
@@ -226,6 +225,8 @@ export interface ModelComparisonDataController {
 export function useModelComparisonData(
     isOpen: boolean,
 ): ModelComparisonDataController {
+    const activationVersion = useRef(0);
+    const [activationRequest, requestActivation] = useReducer((value: number) => value + 1, 0);
     const [state, dispatch] = useReducer(
         modelComparisonDataReducer,
         INITIAL_DATA_STATE,
@@ -308,7 +309,8 @@ export function useModelComparisonData(
     ): ModelSetupState => {
         const routes = routesForMode(model, mode);
         const creator = model.creator.toLocaleLowerCase();
-        const route = routes.find((candidate) => candidate.provider_connected)
+        const route = routes.find((candidate) => providersById[candidate.provider]?.has_api_key)
+            ?? routes.find((candidate) => candidate.provider_connected)
             ?? routes.find((candidate) => (
                 candidate.provider.toLocaleLowerCase() === creator
                 || candidate.provider_name.toLocaleLowerCase().includes(creator)
@@ -320,7 +322,7 @@ export function useModelComparisonData(
             apiKey: '',
             baseUrl: provider?.base_url ?? provider?.api ?? '',
             error: '',
-            connectionStatus: route?.provider_validated ? 'connected' : 'untested',
+            connectionStatus: 'untested',
             connectionError: '',
             mode,
             model,
@@ -358,6 +360,8 @@ export function useModelComparisonData(
         }
     };
     const beginActivation = (model: AiModelComparisonEntry): void => {
+        activationVersion.current += 1;
+        requestActivation();
         dispatch({ message: null, type: 'set-action-message' });
         const mode = routesForMode(model, 'remote').length > 0
             ? 'remote'
@@ -367,6 +371,7 @@ export function useModelComparisonData(
         dispatch({ setup: setupForMode(model, mode), type: 'set-setup' });
     };
     const changeSetupMode = (mode: ComparisonSetupMode): void => {
+        activationVersion.current += 1;
         if (!state.setup) return;
         dispatch({
             setup: setupForMode(state.setup.model, mode),
@@ -374,6 +379,7 @@ export function useModelComparisonData(
         });
     };
     const changeSetupProvider = (providerId: string): void => {
+        activationVersion.current += 1;
         const provider = providersById[providerId];
         dispatch({
             patch: {
@@ -419,7 +425,13 @@ export function useModelComparisonData(
     };
     const testSetupConnection = async (): Promise<void> => {
         const setup = state.setup;
-        if (!setup || setup.mode !== 'remote') return;
+        if (!setup) return;
+        const version = ++activationVersion.current;
+        const isCurrent = () => activationVersion.current === version;
+        if (setup.mode === 'local') {
+            await activateModel(setup, isCurrent);
+            return;
+        }
         const provider = providersById[setup.providerId];
         const selectedRoute = routesForMode(setup.model, setup.mode)
             .find((route) => route.provider === setup.providerId);
@@ -433,7 +445,9 @@ export function useModelComparisonData(
                     base_url: setup.baseUrl || provider.api || '',
                 });
             }
+            if (!isCurrent()) return;
             const result = await validateAiProvider(provider.id, { model: selectedRoute.model_id });
+            if (!isCurrent()) return;
             const nextValidatedModels = new Set<string>(setup.apiKey.trim() ? [] : provider.validated_models ?? []);
             if (result.success) nextValidatedModels.add(selectedRoute.model_id);
             else nextValidatedModels.delete(selectedRoute.model_id);
@@ -450,7 +464,11 @@ export function useModelComparisonData(
                 },
                 type: 'patch-setup',
             });
+            if (result.success && isCurrent()) {
+                await activateModel({ ...setup, connectionStatus: 'connected' }, isCurrent);
+            }
         } catch (error: unknown) {
+            if (!isCurrent()) return;
             logError('ai-model-provider-validation', error);
             dispatch({
                 patch: {
@@ -461,9 +479,8 @@ export function useModelComparisonData(
             });
         }
     };
-    const activateModel = async (): Promise<void> => {
-        const setup = state.setup;
-        if (!setup) return;
+    const activateModel = async (setup: ModelSetupState, isCurrent: () => boolean): Promise<void> => {
+        if (!isCurrent()) return;
         const provider = providersById[setup.providerId];
         const selectedRoute = routesForMode(setup.model, setup.mode)
             .find((route) => route.provider === setup.providerId);
@@ -475,15 +492,10 @@ export function useModelComparisonData(
         dispatch({ modelId: setup.model.id, type: 'set-busy-model' });
         dispatch({ patch: { error: '' }, type: 'patch-setup' });
         try {
-            if (needsApiKey) {
-                await setAiProviderCredentials(provider.id, {
-                    api_key: setup.apiKey.trim(),
-                    base_url: setup.baseUrl || provider.api || '',
-                });
-            }
             if (!provider.enabled || !provider.connected) {
                 await setAiProviderStatus(provider.id, { enabled: true });
             }
+            if (!isCurrent()) return;
             const existingIndex = state.registry.models.findIndex((entry) => (
                 entry.provider === provider.id
                 && entry.model_id === selectedRoute.model_id
@@ -498,6 +510,7 @@ export function useModelComparisonData(
                 ))
                 : [...state.registry.models, newEntry];
             await saveRegistry(models);
+            if (!isCurrent()) return;
             dispatch({
                 providerId: provider.id,
                 savedKey: needsApiKey,
@@ -514,9 +527,10 @@ export function useModelComparisonData(
             });
             dispatch({ setup: null, type: 'set-setup' });
         } catch (error: unknown) {
+            if (!isCurrent()) return;
             logError('ai-model-comparison-enable', error);
             dispatch({
-                patch: { error: 'configuration_save_error' },
+                patch: { error: 'configuration_save_error', connectionStatus: 'error' },
                 type: 'patch-setup',
             });
         } finally {
@@ -524,12 +538,30 @@ export function useModelComparisonData(
         }
     };
 
+    const autoActivate = useEffectEvent(() => {
+        void testSetupConnection();
+    });
+    const setupModelId = state.setup?.model.id;
+    const setupMode = state.setup?.mode;
+    const setupProviderId = state.setup?.providerId;
+    const setupApiKey = state.setup?.apiKey;
+    const setupBaseUrl = state.setup?.baseUrl;
+    useEffect(() => {
+        if (!isOpen || !setupModelId) return;
+        // Wait for typing/paste to settle before saving credentials and making a paid probe.
+        const timer = window.setTimeout(() => autoActivate(), setupApiKey?.trim() ? 800 : 0);
+        return () => {
+            window.clearTimeout(timer);
+            activationVersion.current += 1;
+        };
+    }, [isOpen, activationRequest, setupModelId, setupMode, setupProviderId, setupApiKey, setupBaseUrl]);
+
     return {
-        activateModel,
         beginActivation,
         changeSetupMode,
         changeSetupProvider,
         closeSetup: () => {
+            activationVersion.current += 1;
             dispatch({ setup: null, type: 'set-setup' });
         },
         deactivateModel,
@@ -547,9 +579,11 @@ export function useModelComparisonData(
             dispatch({ type: 'set-api-key-input', value });
         },
         setSetupApiKey: (value) => {
+            activationVersion.current += 1;
             dispatch({ patch: { apiKey: value, error: '', connectionStatus: 'untested', connectionError: '' }, type: 'patch-setup' });
         },
         setSetupBaseUrl: (value) => {
+            activationVersion.current += 1;
             dispatch({ patch: { baseUrl: value, error: '', connectionStatus: 'untested', connectionError: '' }, type: 'patch-setup' });
         },
         state,
