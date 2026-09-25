@@ -24,6 +24,7 @@
     "cancel": "Annuler",
     "close": "Fermer",
     "loading": "Chargement…",
+    "load_error": "Le lecteur PDF n’a pas pu se charger. Mettez Gnosi à jour et réessayez.",
     "add": "Ajouter",
     "create": "Créer",
     "dismiss": "Ignorer",

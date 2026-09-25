@@ -1,8 +1,14 @@
-const { publicKey } = require('./scripts/sparkle-build.cjs');
+const { publicKey, default: prepareSparkle } = require('./scripts/sparkle-build.cjs');
+const verifyFrontendAssets = require('./scripts/verify-frontend-assets.cjs');
+
+async function beforePack(context) {
+  await verifyFrontendAssets(context);
+  prepareSparkle(context);
+}
 
 module.exports = {
   extends: './electron-builder.yml',
-  beforePack: './scripts/sparkle-build.cjs',
+  beforePack,
   afterAllArtifactBuild: './scripts/sparkle-appcast.cjs',
   extraFiles: [{ from: 'native-build/Sparkle.framework', to: 'Frameworks/Sparkle.framework',
     filter: ['**/*', '!**/Headers/**', '!**/Modules/**'] }],
