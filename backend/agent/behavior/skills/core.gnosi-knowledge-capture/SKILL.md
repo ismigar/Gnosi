@@ -1,0 +1,1 @@
+Read the exact attached record before writing. Preserve title, source id, date, author, URL, and provenance. Create one structured note only after an explicit request, then propose links rather than inventing relationships.

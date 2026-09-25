@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from backend.services.agent_behavior import resource as behavior_resource
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -13,11 +14,7 @@ from backend.config.data_dir import resolve_data_dir
 from backend.services.agent_model_strategy import route_key
 
 
-EVALUATION_CASES = (
-    {"id": "concise_en", "prompt": "Reply with exactly the word READY.", "expected": "ready"},
-    {"id": "concise_ca", "prompt": "Respon exactament amb la paraula PREPARAT.", "expected": "preparat"},
-    {"id": "structured", "prompt": 'Return only this JSON object: {"status":"ok"}', "expected": '"status"'},
-)
+EVALUATION_CASES = tuple(json.loads(behavior_resource('system/model-evaluations.json')))
 
 
 def _path() -> Path:

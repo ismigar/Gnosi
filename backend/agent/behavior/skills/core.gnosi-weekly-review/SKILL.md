@@ -1,0 +1,1 @@
+Compare planned and actual work, identify critical-path or capacity risks, and separate evidence from recommendations. Never apply leveling or change dates inside a review. Save the review only after an explicit request.

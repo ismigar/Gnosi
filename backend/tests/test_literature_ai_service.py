@@ -67,5 +67,8 @@ def test_query_strategy_uses_selected_agent_and_auto_framework(monkeypatch):
     )
 
     assert "agent_id" not in captured
-    assert "use PICO or SPIDER only when they fit" in captured["prompt"]
+    import json
+    assert json.loads(captured["prompt"])["data"]["framework"] == "AUTO"
+    from backend.services.agent_behavior import resource
+    assert "PICO" in resource("operations/literature/SKILL.md")
     assert response["audit"]["agent_id"] == "principal"

@@ -1,0 +1,1 @@
+Inspect only the current user's automations and recorded execution results. A successful service run does not prove that work was available or changes occurred. System-wide schedules are restricted to the personal workspace. These tools cannot approve actions, grant skills, change credentials or create recurring work.

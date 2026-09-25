@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+
+from backend.services.agent_execution_trace import record
 from typing import Iterable, Protocol, runtime_checkable
 
 from backend.services.provider_health import (
@@ -98,12 +100,14 @@ class ProviderFallbackModel:
                     }
                 )
                 continue
+            record("provider.request", {"provider": provider, "model": model_name, "messages": input, "binding": getattr(candidate, "kwargs", {})})
             try:
                 response = (
                     candidate.invoke(input, config=config, **kwargs)
                     if config is not None
                     else candidate.invoke(input, **kwargs)
                 )
+                record("provider.response", {"provider": provider, "model": model_name, "response": response})
                 record_success(provider, model_name)
                 if index:
                     metadata = getattr(response, "additional_kwargs", None)
@@ -121,6 +125,7 @@ class ProviderFallbackModel:
                         pass
                 return response
             except Exception as error:  # noqa: BLE001
+                record("provider.error", {"provider": provider, "model": model_name, "type": type(error).__name__, "message": str(error)})
                 last = error
                 retryable = is_retryable_provider_error(error)
                 circuit = record_failure(provider, model_name, error) if retryable else {}
@@ -169,6 +174,7 @@ class ProviderFallbackModel:
                     }
                 )
                 continue
+            record("provider.request", {"provider": provider, "model": model_name, "messages": input, "binding": getattr(candidate, "kwargs", {})})
             try:
                 method = getattr(candidate, "ainvoke", None)
                 if callable(method):
@@ -182,6 +188,7 @@ class ProviderFallbackModel:
                     )
                 else:
                     response = await asyncio.to_thread(candidate.invoke, input, **kwargs)
+                record("provider.response", {"provider": provider, "model": model_name, "response": response})
                 record_success(provider, model_name)
                 if index:
                     metadata = getattr(response, "additional_kwargs", None)
@@ -201,6 +208,7 @@ class ProviderFallbackModel:
             except asyncio.CancelledError:
                 raise
             except Exception as error:  # noqa: BLE001
+                record("provider.error", {"provider": provider, "model": model_name, "type": type(error).__name__, "message": str(error)})
                 last = error
                 retryable = is_retryable_provider_error(error)
                 circuit = record_failure(provider, model_name, error) if retryable else {}

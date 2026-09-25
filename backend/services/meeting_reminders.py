@@ -13,6 +13,8 @@ without an agenda; if events can't be collected, the task doesn't crash.
 """
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import json
 import logging
 import threading
@@ -145,16 +147,8 @@ def _generate_agenda(ev: JsonObject) -> str:
     location = str(ev.get("location") or "").strip()
     who = _attendees_str(ev.get("attendees"))
 
-    prompt = (
-        "You are an assistant who prepares meetings. From the following "
-        "information, propose a brief, actionable AGENDA with 3–6 Markdown "
-        "bullet points. Respond ONLY with the bullet points, in the same "
-        "language as the title, without an introduction.\n\n"
-        f"Title: {title}\n"
-        f"Location: {location or '—'}\n"
-        f"Attendees: {who or '—'}\n"
-        f"Description: {desc or '—'}\n"
-    )
+    prompt = task_input("meeting.agenda", title=title, description=desc,
+                        location=location, attendees=who)
     try:
         from functools import partial
         from backend.services.agent_execution import generate_for

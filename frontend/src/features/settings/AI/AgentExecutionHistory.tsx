@@ -4,6 +4,8 @@ import { fetchAgentRuns, changeAgentRun, type AgentExecutionRun } from '../../..
 import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { operationStatusLabel } from './aiResourceI18n';
+import { AgentTraceDetails } from './AgentTraceDetails';
+import { AgentTraceRetention } from './AgentTraceRetention';
 
 export function AgentExecutionHistory({ canEdit }: { readonly canEdit: boolean }) {
     const { t, i18n } = useTranslation();
@@ -35,6 +37,7 @@ export function AgentExecutionHistory({ canEdit }: { readonly canEdit: boolean }
             <span>{run.usage_available ? t('agent_execution.consumption', { input: run.input_tokens, output: run.output_tokens, calls: run.model_calls }) : t('agent_execution.usage_unavailable')}</span>
         </span></div>
         {run.error && <p role="alert">{run.error}</p>}
+        <AgentTraceDetails key={run.run_id} runId={run.run_id} state={run.trace_state} canDelete={canEdit && !['queued', 'running', 'resuming'].includes(run.status)} />
         {run.result && <details className="ai-resource-details"><summary>{t('activity.result_details')}</summary><pre className="whitespace-pre-wrap">{run.result}</pre></details>}
         {canEdit && ['queued', 'running', 'resuming'].includes(run.status) && <button className="btn-gnosi-secondary" disabled={Boolean(pending)} onClick={() => { void change(run.run_id, 'cancel'); }}>{t('common.cancel')}</button>}
         {canEdit && run.resumable && ['failed', 'cancelled', 'interrupted'].includes(run.status) && <button className="btn-gnosi-secondary" disabled={Boolean(pending)} onClick={() => { void change(run.run_id, 'resume'); }}>{t('agent_execution.resume')}</button>}
@@ -46,6 +49,7 @@ export function AgentExecutionHistory({ canEdit }: { readonly canEdit: boolean }
     return <section className="ai-resources-panel">
         <div className="flex justify-between"><strong>{t('agent_execution.history')}</strong><RefreshButton onClick={() => { setVersion(value => value + 1); }} /></div>
         {error && <p role="alert">{error}</p>}
+        {canEdit && <AgentTraceRetention />}
         <div className="ai-resource-list">{runs.filter(run => !run.parent_run_id || !ids.has(run.parent_run_id)).map(run => renderTree(run))}</div>
     </section>;
 }

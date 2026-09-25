@@ -720,6 +720,9 @@ def resolve_agent_runtime(
     entries_by_id = {
         entry.descriptor.id: entry for entry in catalog.list_entries(vault_path)
     }
+    from backend.services.agent_behavior_bindings import effective_entries
+    resolved_ids, entries_by_id, aliases = effective_entries({**agent_profile, "skill_ids": assigned}, entries_by_id)
+    assigned = tuple(resolved_ids)
     found = tuple(
         entries_by_id[skill_id]
         for skill_id in assigned
@@ -732,7 +735,7 @@ def resolve_agent_runtime(
     explicitly_active = None
     if active_skill_ids is not None:
         explicitly_active = {
-            str(value or "").strip().lower()
+            aliases.get(str(value or "").strip().lower(), str(value or "").strip().lower())
             for value in active_skill_ids
             if str(value or "").strip()
         }

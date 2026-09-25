@@ -16,6 +16,8 @@ Three levels, none of which ever applies input raw:
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import json
 import re
 import threading
@@ -103,15 +105,8 @@ def reformulate(sug: Dict[str, object], language: str = "English") -> List[Dict[
     generate_text = partial(generate_for, "knowledge")
 
     labels = "\n".join(f'- "{lb}"' for lb in VARIANT_LABELS)
-    prompt = f"""You edit a permanent note in a Zettelkasten. The user chooses among
-variants with one click and does not type. Rewrite the DRAFT in {language} as
-{len(VARIANT_LABELS)} variants, one for each editorial angle below, while preserving existing [[wikilinks]]:
-{labels}
-
-{_suggestion_context(sug)}
-
-Return ONLY JSON: {{"variants": [{{"label": "…", "text": "…"}}]}} using exactly
-these labels."""
+    prompt = task_input("knowledge.reformulate", language=language,
+                        labels=list(VARIANT_LABELS), suggestion=sug)
     raw, _model = generate_text(prompt, timeout=90)
     variants = _parse_variants(raw)
     if not variants:
@@ -168,18 +163,8 @@ def correct_dictation(
 PERSONAL GLOSSARY (corrections the user previously confirmed; their speech pattern):
 {pairs}
 """
-    prompt = f"""The user has dysarthria: the automatic dictation transcript is NOISY
-and their pronunciation varies. Do NOT merely clean up phonemes; reconstruct THE INTENT:
-what they meant in {language}, as an edit or addition to a permanent-note draft.
-Use the context (question, draft, and notes) to resolve ambiguities.
-{glossary_block}
-CONTEXT OF THE NOTE BEING EDITED:
-{_suggestion_context(sug)}
-
-RAW DICTATION TRANSCRIPT:
-«{transcript}»
-
-Return ONLY JSON: {{"proposed": "the text the user probably meant, ready to insert"}}"""
+    prompt = task_input("knowledge.dictation", language=language, glossary=glossary,
+                        suggestion=sug, transcript=transcript)
     try:
         from functools import partial
         from backend.services.agent_execution import generate_for

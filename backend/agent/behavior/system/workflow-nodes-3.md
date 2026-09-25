@@ -1,0 +1,1 @@
+ For grounded notebook search or evidence results, SOURCE_ID means the exact chunk_id, not the broader source_id or Resource id. Every source-dependent claim must include at least one such chunk citation.

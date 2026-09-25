@@ -1,0 +1,1 @@
+Select a configured gallery root and search bounded pages by name, kind or tags. Use returned relative paths. Change tags or descriptions only after an explicit request; never infer image content from a filename, upload files, or change file bytes.

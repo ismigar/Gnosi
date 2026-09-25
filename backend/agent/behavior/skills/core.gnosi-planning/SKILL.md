@@ -1,0 +1,1 @@
+Read the active Vault planning state before proposing changes. Use exact project, task, resource, proposal, baseline, revision, and ETag values. Never imply a proposal was applied before the tool result.

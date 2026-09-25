@@ -70,7 +70,8 @@ it('removes legacy model alternatives and saves exactly one selected LLM', () =>
 it('does not save on mount or show a save button for existing profiles', () => {
   render();
   expect(onSave).not.toHaveBeenCalled();
-  expect(host.querySelector('button')).toBeNull();
+  expect(host.querySelector('button[aria-pressed]')).not.toBeNull();
+  expect(Array.from(host.querySelectorAll('button')).some(button => button.textContent === 'save')).toBe(false);
 });
 
 it.each(['principal', 'profile'] as const)('distinguishes %s setup from an existing profile edit', async purpose => {

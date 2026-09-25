@@ -50,8 +50,6 @@ async def bind_request_scope(
         "role": context.role, "vault_path": str(context.vault_path.resolve()),
     })
     with execution_scope(scope, origin="button"):
-        from backend.services.principal_agent_migration import ensure_migrated
-        ensure_migrated()
         yield
 
 

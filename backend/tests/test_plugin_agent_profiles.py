@@ -20,7 +20,8 @@ def test_seed_has_one_model_and_only_declared_skills():
     assert profiles.reconcile(ai, state("mail", "feeds-reader"))
     mail = profiles.select_profile(ai, skill_id("mail"))
     assert (mail["provider"], mail["model"]) == ("test", "small")
-    assert mail["persona"] == ""
+    assert mail["persona"] == profiles.profile_defaults("builtin:mail")
+    assert mail["behavior_migration"]["original"] == mail["persona"]
     assert mail["skill_ids"] == [skill_id("mail")]
     assert mail["model_strategy"]["mode"] == "pinned"
     assert profiles.select_profile(ai, skill_id("reader"))["id"] == profiles.select_profile(ai, skill_id("podcast"))["id"]

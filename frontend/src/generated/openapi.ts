@@ -115,6 +115,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/{run_id}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trace */
+        get: operations["trace_api_agent_runs__run_id__trace_get"];
+        put?: never;
+        post?: never;
+        /** Delete Trace */
+        delete: operations["delete_trace_api_agent_runs__run_id__trace_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/{run_id}/trace/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Trace */
+        get: operations["export_trace_api_agent_runs__run_id__trace_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/bindings/{operation}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Binding */
+        put: operations["update_binding_api_agent_runs_bindings__operation__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_agent_runs_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/trace-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trace Settings */
+        get: operations["trace_settings_api_agent_runs_trace_settings_get"];
+        /** Update Trace Settings */
+        put: operations["update_trace_settings_api_agent_runs_trace_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/agents/{agent_id}/learning": {
         parameters: {
             query?: never;
@@ -10734,6 +10821,8 @@ export interface components {
         AgentRun: {
             /** Agent Id */
             agent_id: string;
+            /** Closed At */
+            closed_at?: number | null;
             /** Created At */
             created_at: number;
             /**
@@ -10796,6 +10885,11 @@ export interface components {
             skill_id: string;
             /** Status */
             status: string;
+            /**
+             * Trace State
+             * @default available
+             */
+            trace_state: string;
             /** Updated At */
             updated_at: number;
             /**
@@ -11724,6 +11818,44 @@ export interface components {
             taskId: string;
             /** Workhoursvariance */
             workHoursVariance: number;
+        };
+        /** BehaviorPreviewRequest */
+        BehaviorPreviewRequest: {
+            /** Active Skill Ids */
+            active_skill_ids?: string[] | null;
+            /** Profile */
+            profile: {
+                [key: string]: unknown;
+            };
+        };
+        /** BehaviorPreviewResponse */
+        BehaviorPreviewResponse: {
+            /** Catalog Revision */
+            catalog_revision: string;
+            /** Context */
+            context: string;
+            /** Instructions */
+            instructions: string;
+            /** Missing Skill Ids */
+            missing_skill_ids: string[];
+            /** Operations */
+            operations: {
+                [key: string]: string;
+            }[];
+            /** Skills */
+            skills: {
+                [key: string]: unknown;
+            }[];
+            /** Sources */
+            sources: {
+                [key: string]: unknown;
+            }[];
+            /** System */
+            system: string;
+            /** System Resources */
+            system_resources: {
+                [key: string]: string;
+            }[];
         };
         /** Body_import_references_api_vault_import_references_post */
         Body_import_references_api_vault_import_references_post: {
@@ -19557,6 +19689,20 @@ export interface components {
             /** Zotero Uri */
             zotero_uri?: string | null;
         };
+        /** OperationBindingRequest */
+        OperationBindingRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Expected Agent Id */
+            expected_agent_id: string;
+        };
+        /** OperationBindingResponse */
+        OperationBindingResponse: {
+            /** Agent Id */
+            agent_id: string;
+            /** Skill Id */
+            skill_id: string;
+        };
         /**
          * OptionCatalogDeleteResponse
          * @description Receipt returned after deleting an unused shared option catalog.
@@ -22727,6 +22873,36 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** TraceEvent */
+        TraceEvent: {
+            /** Created At */
+            created_at: number;
+            /** Digest */
+            digest: string;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Redactions */
+            redactions: string[];
+            /** Value */
+            value: unknown;
+        };
+        /** TracePage */
+        TracePage: {
+            /** Events */
+            events: components["schemas"]["TraceEvent"][];
+            /** Next Cursor */
+            next_cursor: number;
+        };
+        /** TraceRetention */
+        TraceRetention: {
+            /**
+             * Days
+             * @default 30
+             */
+            days: number;
+        };
         /** TranslatePageRequest */
         TranslatePageRequest: {
             /** Button Action */
@@ -23846,6 +24022,283 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trace_api_agent_runs__run_id__trace_get: {
+        parameters: {
+            query?: {
+                after?: number;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TracePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_trace_api_agent_runs__run_id__trace_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_trace_api_agent_runs__run_id__trace_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_binding_api_agent_runs_bindings__operation__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                operation: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperationBindingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationBindingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_agent_runs_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BehaviorPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BehaviorPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trace_settings_api_agent_runs_trace_settings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceRetention"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_trace_settings_api_agent_runs_trace_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TraceRetention"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceRetention"];
                 };
             };
             /** @description Validation Error */

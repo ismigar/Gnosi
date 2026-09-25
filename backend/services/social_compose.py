@@ -8,6 +8,8 @@ it ALWAYS writes in the SAME LANGUAGE as the original content (it never translat
 It doesn't publish anything: it only generates proposals for the user to review/edit.
 The actual publishing is done by `social_clients` via the `/api/social/publish` endpoint.
 """
+
+from backend.services.agent_behavior import task_input
 import re
 import logging
 from typing import Dict, List, Optional, Any
@@ -57,31 +59,10 @@ def build_prompt(
     hint: str,
     variation: int = 0,
 ) -> str:
-    """Builds the prompt for a specific network."""
-    lang_name = LANG_NAMES.get(source_lang, source_lang)
-    parts: List[str] = [
-        f"You are an expert community manager. Write ONE post for {network}.",
-        f"REQUIRED output language: {lang_name} ({source_lang}). Do not translate it into another language; "
-        f"write in the same language as the source content.",
-        f"Strict limit: at most {char_limit} total characters, including hashtags and the link.",
-    ]
-    if tone:
-        parts.append(f"Tone and voice: {tone}.")
-    if hashtags_default:
-        parts.append(f"Include 1–3 relevant hashtags at the end; prioritize these when appropriate: {hashtags_default}.")
-    else:
-        parts.append("Include 1–3 relevant hashtags at the end.")
-    if url:
-        parts.append(f"You may finish with this link: {url}")
-    if hint:
-        parts.append(f"Additional user instruction: {hint}")
-    if variation:
-        parts.append(f"Propose an alternative that is CLEARLY DIFFERENT from the previous ones (variation #{variation}).")
-    parts.append("Return ONLY the final post text, without quotation marks, headings, or explanations.")
-    parts.append("")
-    parts.append(f"TITLE: {title}".strip())
-    parts.append(f"CONTENT:\n{content}".strip())
-    return "\n".join(p for p in parts if p is not None)
+    return task_input("social.compose", content=content, title=title, url=url,
+                      network=network, character_limit=char_limit, tone=tone,
+                      hashtags=hashtags_default, language=source_lang,
+                      request=hint, variation=variation)
 
 
 def _clean_output(raw: str) -> str:

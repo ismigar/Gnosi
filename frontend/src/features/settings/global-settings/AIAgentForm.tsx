@@ -12,6 +12,7 @@ import { findModelFault } from '../AI/modelReliability';
 import { useMemo } from 'react';
 import { useModelReliability } from '../AI/modelReliability';
 import { useState } from 'react';
+import { AgentBehaviorInspection } from '../AI/AgentBehaviorInspection';
 import { useTranslation } from 'react-i18next';
 
 export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
@@ -22,6 +23,10 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
   });
   const { name, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
+  const [section, setSection] = useState('instructions');
+  const migration = agent.behavior_migration && typeof agent.behavior_migration === 'object' ? agent.behavior_migration as Record<string, unknown> : undefined;
+  const originalInstructions = typeof migration?.original === 'string' ? migration.original : '';
+  const availableInstructions = typeof migration?.available_original === 'string' ? migration.available_original : originalInstructions;
   const [nameEdited, setNameEdited] = useState(false);
   const [savingAgent, setSavingAgent] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -135,13 +140,27 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
 
 
 
-        <FormGroup label={t('settings.ai.instructions_label')}
+        <nav className="flex flex-wrap gap-2" aria-label={t('agent_behavior.navigation')}>
+          {['instructions', 'skills', 'context', 'operations', 'preview'].map(key => <button type="button" key={key} className={section === key ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'} aria-pressed={section === key} onClick={() => { setSection(key); }}>{t(`agent_behavior.${key}`)}</button>)}
+        </nav>
+        {section === 'instructions' && <FormGroup label={t('settings.ai.instructions_label')}
           description={t('settings.ai.instructions_desc')}>
           <textarea className="gnosi-input" value={persona} onChange={e => { update({ persona: e.target.value }); }}
             placeholder={t('settings.ai.instructions_placeholder')} rows={4}
             style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
-        </FormGroup>
+          {originalInstructions && <details className="ai-resource-details"><summary>{t('agent_behavior.original')}</summary>
+            <pre className="whitespace-pre-wrap">{originalInstructions}</pre>
+            <button type="button" className="btn-gnosi-secondary" onClick={() => { update({ persona: originalInstructions }); }}>{t('agent_behavior.restore')}</button>
+          </details>}
+          {availableInstructions !== originalInstructions && <details className="ai-resource-details"><summary>{t('agent_behavior.update')}</summary>
+            <pre className="whitespace-pre-wrap">{availableInstructions}</pre>
+            <button type="button" className="btn-gnosi-secondary" onClick={() => { update({ persona: availableInstructions }); }}>{t('agent_behavior.use_update')}</button>
+          </details>}
+          {typeof migration?.legacy_persona === 'string' && migration.legacy_persona && <details className="ai-resource-details"><summary>{t('agent_behavior.legacy')}</summary><pre className="whitespace-pre-wrap">{migration.legacy_persona}</pre></details>}
+        </FormGroup>}
 
+        {section === 'context' && <>
+        {typeof migration?.legacy_context === 'string' && migration.legacy_context && <details className="ai-resource-details"><summary>{t('agent_behavior.legacy')}</summary><pre className="whitespace-pre-wrap">{migration.legacy_context}</pre></details>}
         <FormGroup label={t('settings.ai.context_label')}
           description={t('settings.ai.context_desc')}>
           <textarea className="gnosi-input" value={context} onChange={e => { update({ context: e.target.value }); }}
@@ -154,7 +173,8 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
           <AgentContextSources value={contextRefs} onChange={context_refs => { update({ context_refs }); }} />
         </FormGroup>
 
-        <FormGroup
+        </>}
+        {section === 'skills' && <FormGroup
           label={t('settings.ai.resources.assigned_skills')}
           description={t('settings.ai.resources.assigned_skills_help')}
         >
@@ -167,7 +187,8 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
             onChange={skill_ids => { update({ skill_ids }); }}
             onSelectSkill={onSelectSkill}
           />
-        </FormGroup>
+        </FormGroup>}
+        {(section === 'operations' || section === 'preview') && <AgentBehaviorInspection profile={form} operationsOnly={section === 'operations'} />}
       </div>
       {!agent.id && <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button

@@ -53,8 +53,9 @@ class ContextualReader:
         phase: str,
         payload: dict[str, object],
         validate: Callable[[dict[str, object]], None],
+        contract: dict[str, object] | None = None,
     ) -> dict[str, object]:
-        contract = MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT
+        contract = contract or (MAP_CONTRACT if phase in {"overview", "synthesis"} else NOTE_CONTRACT)
         request = {
             "phase": phase,
             "resource": self.title,
@@ -320,6 +321,9 @@ class ContextualReader:
         return groups
 
     def run(self) -> tuple[dict[str, object], list[str]]:
+        if getattr(self.dependencies, "agent_directed", False):
+            from backend.domains.llm_wiki.directed_reading import run_directed
+            return run_directed(self)
         if not self.chunks:
             raise RuntimeError("No readable source segments were extracted")
         self.phase("overview", 10)

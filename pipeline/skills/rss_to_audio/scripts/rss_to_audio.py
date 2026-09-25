@@ -24,6 +24,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+from backend.services.agent_behavior import task_input  # noqa: E402
 from backend.config.data_dir import resolve_data_dir  # noqa: E402
 from backend.config.env_config import load_env  # noqa: E402
 
@@ -144,7 +145,7 @@ def fetch_rss_24h(feeds: Sequence[Feed]) -> list[Article]:
                             "source": feed["title"],
                             "category": feed["category"],
                             "title": entry["title"],
-                            "content": text_content[:2000],  # Keep the existing per-article limit.
+                            "content": text_content,
                         }
                     )
         except Exception as e:
@@ -159,30 +160,29 @@ def generate_summary(articles: Sequence[Article]) -> str:
     if not articles:
         return "Hello. There are no new articles from the last 24 hours in the selected categories."
 
-    prompt = (
-        "You are a senior editorial assistant. Summarize the following articles for a listener "
-        "with a background in engineering and philosophy. Avoid shallow headlines; focus on "
-        "depth, connections between topics, and ethical implications. Structure the summary "
-        "as a fluid 10–15 minute podcast script. Language: English.\n\nARTICLES:\n"
-    )
-
-    for idx, art in enumerate(articles):
-        article_text = (
-            f"--- Article {idx + 1} ---\nSource: {art['source']} (Category: {art['category']})\n"
-            f"Title: {art['title']}\nContent: {art['content']}\n\n"
-        )
-        if len(prompt) + len(article_text) > 25000:
-            print("Approximate token limit reached. Some articles were skipped for this run.")
-            break
-        prompt += article_text
-
-    from backend.services.agent_execution import generate_for
+    from backend.services.agent_execution import prepare_snapshot, create_job_run, operation_session
+    from backend.services.agent_document_work import synthesize
+    from backend.services.agent_operation_catalog import skill_id
+    from backend.services import agent_execution_store
     from backend.services.agent_execution_scope import personal_scheduler_scope
+    import uuid
 
     print("Preparing the script with the principal agent...")
     with personal_scheduler_scope(origin="worker"):
-        result, _model = generate_for("podcast", prompt)
-    return result
+        run_id = uuid.uuid4().hex
+        snapshot = create_job_run(prepare_snapshot(skill_id("podcast")), run_id, "podcast.legacy-script")
+        with operation_session(snapshot):
+            try:
+                result = synthesize("podcast", [{"id": str(index), "title": str(article["title"]),
+                    "source": article["source"], "text": article["content"]} for index, article in enumerate(articles)],
+                    task_input("podcast.script", language="English"), snapshot=snapshot,
+                    output_schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1}}})
+                text = str(result["result"]["text"])
+                agent_execution_store.update(snapshot.scope, run_id, status="completed", result=text)
+                return text
+            except BaseException as error:
+                agent_execution_store.update(snapshot.scope, run_id, status="failed", error=str(error))
+                raise
 
 
 def text_to_audio(text: str | None, filename: str | Path) -> None:

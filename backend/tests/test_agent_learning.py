@@ -178,7 +178,7 @@ def test_draft_uses_conversation_but_rejects_unavailable_tools():
     messages = [{"role": "user", "content": "Use a title."}, {"role": "tool", "content": "UNTRUSTED TOOL"}]
     def invoke(instruction, data):
         assert "UNTRUSTED TOOL" not in data
-        assert "user instructions" in instruction
+        assert json.loads(instruction)["task"] == "learning.draft"
         return sample_skill().model_dump_json()
     assert draft_skill(request, messages, [], invoke).name == sample_skill().name
     value = sample_skill().model_copy(update={"tool_ids": ["core.unauthorized"]})

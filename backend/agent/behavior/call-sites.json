@@ -1,0 +1,436 @@
+[
+  {
+    "path": "backend/agent/vault_tools.py",
+    "function": "summarize_to_cornell",
+    "call": "generate_for",
+    "operation": "capture",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/llm.py",
+    "function": "generate_text",
+    "call": "generate_for",
+    "operation": "writing",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/operation_graph.py",
+    "function": "execute",
+    "call": "_invoke_agent_model",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/routes/chat_stream_updates.py",
+    "function": "iter_workflow_events",
+    "call": "stream_workflow",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/workflow_nodes.py",
+    "function": "brain_node",
+    "call": "_invoke_agent_model",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/workflow_nodes.py",
+    "function": "coder_node",
+    "call": "_invoke_agent_model",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/workflow_nodes.py",
+    "function": "general_node",
+    "call": "_invoke_agent_model",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/agent/workflow_nodes.py",
+    "function": "supervisor_node",
+    "call": "_invoke_agent_model",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/configuration/ai/content_routes.py",
+    "function": "correct_text",
+    "call": "generate_for",
+    "operation": "writing",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/configuration/ai/content_routes.py",
+    "function": "generate_content",
+    "call": "generate_for",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/configuration/api/plugins.py",
+    "function": "_summarize_with_model",
+    "call": "generate_for",
+    "operation": "writing",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/mail/routes/compose.py",
+    "function": "generate_draft",
+    "call": "generate_for",
+    "operation": "mail",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/mail/services/analysis.py",
+    "function": "_call_provider_blocking",
+    "call": "generate_for",
+    "operation": "mail",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/notebooks/analysis.py",
+    "function": "_model_analysis",
+    "call": "generate_for",
+    "operation": "notebook",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/notebooks/analysis.py",
+    "function": "_run_scoped_analysis",
+    "call": "synthesize",
+    "operation": "notebook",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/reader/analysis.py",
+    "function": "_default_model_call",
+    "call": "generate_for",
+    "operation": "reader",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/reader/service.py",
+    "function": "_run_job",
+    "call": "synthesize",
+    "operation": "reader",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/vault/translation/routes.py",
+    "function": "execute_button_action",
+    "call": "generate_for",
+    "operation": "tables",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/domains/vault/translation/routes.py",
+    "function": "generate_button_action",
+    "call": "generate_for",
+    "operation": "tables",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_diagnostics.py",
+    "function": "invoke_diagnostic",
+    "call": "_invoke_agent_model",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_document_work.py",
+    "function": "synthesize",
+    "call": "AgentOperation",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_document_work.py",
+    "function": "synthesize",
+    "call": "run_sync",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_execution.py",
+    "function": "execute_operation",
+    "call": "stream_workflow",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_execution.py",
+    "function": "generate_for",
+    "call": "generate_result_for",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_execution.py",
+    "function": "generate_result_for",
+    "call": "AgentOperation",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_execution.py",
+    "function": "generate_result_for",
+    "call": "run_sync",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_execution.py",
+    "function": "resume_run",
+    "call": "execute_operation",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_execution.py",
+    "function": "run_sync",
+    "call": "execute_operation",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_learning_generation.py",
+    "function": "structured",
+    "call": "AgentOperation",
+    "operation": "learning.text-trial",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_learning_generation.py",
+    "function": "structured",
+    "call": "run_sync",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_model_decisions.py",
+    "function": "decide_with_jev",
+    "call": "_request_jev",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/agent_specialized_tools.py",
+    "function": "rank_literature",
+    "call": "run_engine",
+    "operation": "semantic-ranking",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/agent_specialized_tools.py",
+    "function": "synthesize_speech",
+    "call": "run_engine",
+    "operation": "speech",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/audio_summarizer.py",
+    "function": "_generate_daily_podcast",
+    "call": "run_engine",
+    "operation": "speech",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/audio_summarizer.py",
+    "function": "_generate_daily_podcast",
+    "call": "synthesize",
+    "operation": "podcast",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/audio_summarizer.py",
+    "function": "_summarize_batch",
+    "call": "AgentOperation",
+    "operation": "podcast.segment",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/audio_summarizer.py",
+    "function": "_summarize_batch",
+    "call": "run_sync",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/capability_automations.py",
+    "function": "_run_scoped_automation",
+    "call": "stream_workflow",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/handwriting.py",
+    "function": "_correct_text",
+    "call": "generate_for",
+    "operation": "writing",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/handwriting.py",
+    "function": "_recognize_engine",
+    "call": "generate",
+    "operation": "dynamic-dispatch",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/handwriting.py",
+    "function": "recognize",
+    "call": "run_engine",
+    "operation": "handwriting",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/literature_ai_service.py",
+    "function": "_local_embedding_rerank",
+    "call": "encode",
+    "operation": "dynamic-dispatch",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/literature_ai_service.py",
+    "function": "run_operation",
+    "call": "generate_result_for",
+    "operation": "literature",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/literature_ai_service.py",
+    "function": "run_operation",
+    "call": "run_engine",
+    "operation": "semantic-ranking",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "backend/services/llm_wiki_assist.py",
+    "function": "correct_dictation",
+    "call": "generate_for",
+    "operation": "knowledge",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_assist.py",
+    "function": "reformulate",
+    "call": "generate_for",
+    "operation": "knowledge",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_generation.py",
+    "function": "generate_text",
+    "call": "generate_for",
+    "operation": "knowledge",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_reading_runtime.py",
+    "function": "generate",
+    "call": "AgentOperation",
+    "operation": "knowledge.process-source.phase",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_reading_runtime.py",
+    "function": "generate",
+    "call": "run_sync",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_reading_runtime.py",
+    "function": "generate_structured",
+    "call": "AgentOperation",
+    "operation": "knowledge.process-source.phase",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_reading_runtime.py",
+    "function": "generate_structured",
+    "call": "run_sync",
+    "operation": "dynamic-dispatch",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/llm_wiki_suggestions.py",
+    "function": "generate_suggestions",
+    "call": "generate_for",
+    "operation": "knowledge",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/meeting_notes.py",
+    "function": "_process_meeting",
+    "call": "generate_for",
+    "operation": "meeting",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/meeting_reminders.py",
+    "function": "_generate_agenda",
+    "call": "generate_for",
+    "operation": "meeting",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/social_compose.py",
+    "function": "compose_one",
+    "call": "generate_for",
+    "operation": "social",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "backend/services/transcription.py",
+    "function": "transcribe",
+    "call": "run_engine",
+    "operation": "transcription",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "pipeline/ai_client.py",
+    "function": "call_ai_client",
+    "call": "generate_for",
+    "operation": "writing",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "pipeline/ai_client.py",
+    "function": "call_ai_with_fallback",
+    "call": "generate_for",
+    "operation": "writing",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "pipeline/skills/rss_to_audio/scripts/rss_to_audio.py",
+    "function": "generate_summary",
+    "call": "synthesize",
+    "operation": "podcast",
+    "classification": "governed-agent"
+  },
+  {
+    "path": "pipeline/skills/rss_to_audio/scripts/rss_to_audio.py",
+    "function": "text_to_audio",
+    "call": "run_engine",
+    "operation": "speech",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "pipeline/skills/technical_documentation/scripts/localize.py",
+    "function": "translate",
+    "call": "generate",
+    "operation": "dynamic-dispatch",
+    "classification": "technical-inference"
+  },
+  {
+    "path": "pipeline/skills/translate_row/scripts/translate_text.py",
+    "function": "translate",
+    "call": "generate_for",
+    "operation": "translation",
+    "classification": "governed-agent"
+  }
+]

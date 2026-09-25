@@ -27,6 +27,10 @@ class ReadingRuntime:
     input_budget: int
     snapshot: AgentExecutionSnapshot
 
+    def count_tokens(self, text: str) -> int:
+        from backend.services.agent_context_budget import count_tokens
+        return count_tokens(text, self.model if self.snapshot.behavior_resources else "").tokens
+
     @property
     def identity(self) -> str:
         payload = [
@@ -55,7 +59,7 @@ class ReadingRuntime:
     ) -> tuple[str, str]:
         from backend.services.agent_execution import run_sync
 
-        if token_bound(prompt) > self.input_budget:
+        if self.count_tokens(prompt) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         result = run_sync(AgentOperation(
             skill_id=SKILL_ID, operation="knowledge.process-source.phase",
@@ -84,19 +88,18 @@ def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
     from backend.services.agent_execution import prepare_snapshot, _snapshot
     from backend.domains.agent.runtime_tools import _model_context_window
 
-    snapshot = _snapshot.get() or prepare_snapshot(SKILL_ID)
+    snapshot = prepare_snapshot(SKILL_ID)
     if SKILL_ID not in snapshot.skill_ids:
         raise PermissionError("agent_execution_skill_unavailable")
     if Path(snapshot.scope.vault_path).resolve() != Path(vault_root).resolve():
         raise PermissionError("agent_execution_vault_mismatch")
     profile = snapshot.profile
     provider, model = str(profile.get("provider") or ""), str(profile.get("model") or "")
-    instructions = "\n\n".join([
-        str(profile.get("persona") or ""), str(profile.get("context") or ""),
-        *snapshot.instructions,
-    ])
+    from backend.services.agent_behavior import snapshot_instruction_text
+    instructions = snapshot_instruction_text(snapshot)
     window = _model_context_window(provider, model)
-    budget = min(96_000, window - max(2_048, window // 4) - token_bound(instructions) - 512)
+    from backend.services.agent_context_budget import count_tokens
+    budget = window - max(2_048, window // 4) - count_tokens(instructions, model if snapshot.behavior_resources else "").tokens - 512
     if budget < 4_000:
         raise RuntimeError("Choose a model with a larger context window for source reading")
     return ReadingRuntime(snapshot.agent_id, provider, model, instructions, budget, snapshot)

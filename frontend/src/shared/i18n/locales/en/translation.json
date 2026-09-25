@@ -7369,5 +7369,31 @@
       "worker": "Phase"
     },
     "usage_unavailable": "Usage not reported by the provider"
+  },
+  "agent_behavior": {
+    "instructions": "Instructions",
+    "skills": "Skills",
+    "context": "Context",
+    "operations": "Operations",
+    "preview": "What the bot receives",
+    "navigation": "Behavior settings",
+    "preview_help": "Composition of saved instructions. Each run records its actual request, including the data and sources it uses.",
+    "system": "System rules",
+    "missing": "Unavailable skills",
+    "trace": "View trace",
+    "more": "Load more",
+    "original": "Bundled original",
+    "restore": "Restore original",
+    "legacy": "Preserved legacy text",
+    "retention": "Keep traces (days after closing)",
+    "export": "Export trace",
+    "delete": "Delete trace",
+    "trace_deleted": "Trace deleted",
+    "trace_expired": "Trace expired",
+    "trace_unavailable": "Trace unavailable",
+    "update": "Updated original",
+    "use_update": "Apply updated original",
+    "executor": "Executing bot",
+    "assign_operation": "Use this bot for this operation"
   }
 }

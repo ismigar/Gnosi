@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import asyncio
 import hashlib
 import logging
@@ -320,12 +322,7 @@ async def fetch_for_ui_plugin(
 
 
 def _summary_prompt(request: VaultSummaryRequest, content: str) -> str:
-    return (
-        "Summarize the following vault record in the requested language. "
-        "Return a concise, factual Markdown summary with a short heading and "
-        "3–5 bullets. Do not invent facts.\n\n"
-        f"Language: {request.language}\n\nRecord:\n{content}"
-    )
+    return task_input("writing.record-summary", text=content, language=request.language)
 
 
 def _summarize_with_model(

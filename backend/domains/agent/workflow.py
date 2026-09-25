@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import resource as behavior_resource
+
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,23 +67,7 @@ MAX_SKILL_INSTRUCTION_CHARS = 24_000
 MAX_SYSTEM_PROMPT_CHARS = 32_000
 
 DEFAULT_SUPERVISOR_PROMPT = (
-    "You are the Gnosi Supervisor.\n"
-    "Your job is to coordinate the expert team and resolve the user's request.\n"
-    "\n"
-    "TEAM MEMBERS:\n"
-    "1. **Coder**: Senior software engineer specializing in Python, Git, testing, "
-    "and file systems.\n"
-    "2. **Brain**: Sovereign knowledge and automation manager specializing in the "
-    "Gnosi Vault and long-term memory.\n"
-    "\n"
-    "ROUTING INSTRUCTIONS:\n"
-    "- Route code-change requests to `Coder`.\n"
-    "- Route personal-information, Gnosi Vault, directive, and procedure requests "
-    "to `Brain`.\n"
-    "- Handle general conversation and simple questions through `General`.\n"
-    "- Return `FINISH` when an agent has completed the work.\n"
-    "\n"
-    "Return ONLY the next worker's name: 'Coder', 'Brain', 'General', or 'FINISH'.\n"
+    behavior_resource('system/workflow-1.md')
 )
 
 
@@ -222,7 +208,7 @@ async def create_agent_workflow(
         default_vault_path=cfg.paths.get("VAULT"),
         max_skill_instruction_chars=MAX_SKILL_INSTRUCTION_CHARS,
         max_system_prompt_chars=MAX_SYSTEM_PROMPT_CHARS,
-        default_supervisor_prompt=DEFAULT_SUPERVISOR_PROMPT,
+        default_supervisor_prompt=behavior_resource('system/workflow-1.md'),
         preserve_instructions=operation_mode,
     )
     if operation_mode:

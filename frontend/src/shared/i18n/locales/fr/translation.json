@@ -7422,5 +7422,31 @@
       "worker": "Phase"
     },
     "usage_unavailable": "Consommation non communiquée par le fournisseur"
+  },
+  "agent_behavior": {
+    "instructions": "Instructions",
+    "skills": "Skills",
+    "context": "Contexte",
+    "operations": "Opérations",
+    "preview": "Ce que reçoit le bot",
+    "navigation": "Configuration du comportement",
+    "preview_help": "Composition des instructions enregistrées. Chaque exécution enregistre la requête effective, avec les données et les sources utilisées.",
+    "system": "Règles du système",
+    "missing": "Skills indisponibles",
+    "trace": "Voir la trace",
+    "more": "Charger plus",
+    "original": "Original fourni",
+    "restore": "Restaurer l’original",
+    "legacy": "Ancien texte conservé",
+    "retention": "Conserver les traces (jours après clôture)",
+    "export": "Exporter la trace",
+    "delete": "Supprimer la trace",
+    "trace_deleted": "Trace supprimée",
+    "trace_expired": "Trace expirée",
+    "trace_unavailable": "Trace indisponible",
+    "update": "Nouvelle version de l’original",
+    "use_update": "Appliquer la nouvelle version",
+    "executor": "Bot exécutant",
+    "assign_operation": "Utiliser ce bot pour cette opération"
   }
 }

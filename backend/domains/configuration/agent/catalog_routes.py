@@ -257,7 +257,7 @@ def create_skill(
             "version": source.descriptor.version, "revision": source.revision,
             "instructions": source.descriptor.instructions,
             "tool_ids": source.descriptor.tool_ids,
-        }}
+        }, **({"learning": source.descriptor.metadata["learning"]} if "learning" in source.descriptor.metadata else {})}
     try:
         descriptor = store.create(
             metadata,
@@ -364,6 +364,10 @@ def clone_skill(
     )
     metadata["name"] = clone_name
     metadata["status"] = CatalogStatus.AVAILABLE
+    metadata["metadata"] = {"derived_from": {"id": descriptor.id, "name": descriptor.name,
+        "version": descriptor.version, "revision": entry.revision, "instructions": descriptor.instructions,
+        "tool_ids": descriptor.tool_ids},
+        **({"learning": descriptor.metadata["learning"]} if "learning" in descriptor.metadata else {})}
     try:
         clone = _store_for(context).create(metadata, descriptor.instructions)
         clone_entry = get_skill_catalog().get_entry(clone.id, Path(context.vault_path))

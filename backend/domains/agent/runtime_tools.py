@@ -292,6 +292,7 @@ def _select_agent_profile(
 ) -> dict[str, Any] | None:
     """Use an explicit conversation profile, or the default for application actions."""
     from backend.services.principal_agent_migration import principal_profile
+    profile: dict[str, Any] | None
     if not agent_id:
         profile = principal_profile(ai_cfg)
     else:
@@ -299,6 +300,8 @@ def _select_agent_profile(
                         if isinstance(item, dict) and item.get("id") == agent_id
                         and item.get("enabled", True) and not item.get("plugin_suspended") and item.get("managed_by") != "llm-wiki"), None)
     if profile is not None:
+        from copy import deepcopy
+        profile["_execution_operation_bindings"] = deepcopy(ai_cfg.get("operation_bindings") or {})
         # Legacy routing settings cannot silently change a profile's LLM.
         profile["model_strategy"] = {"schema_version": 1, "mode": "pinned",
                                      "decision_engine": "rules", "allowed_models": []}

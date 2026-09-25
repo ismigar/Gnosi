@@ -7422,5 +7422,31 @@
       "worker": "Fase"
     },
     "usage_unavailable": "Consum no informat pel proveïdor"
+  },
+  "agent_behavior": {
+    "instructions": "Instruccions",
+    "skills": "Skills",
+    "context": "Context",
+    "operations": "Operacions",
+    "preview": "Què rep el bot",
+    "navigation": "Configuració del comportament",
+    "preview_help": "Composició de les instruccions desades. Cada execució registra la petició efectiva, amb les dades i les fonts que utilitza.",
+    "system": "Regles del sistema",
+    "missing": "Skills no disponibles",
+    "trace": "Veure la traça",
+    "more": "Carregar més",
+    "original": "Original distribuït",
+    "restore": "Restaurar l’original",
+    "legacy": "Text anterior conservat",
+    "retention": "Conservar les traces (dies des del tancament)",
+    "export": "Exportar la traça",
+    "delete": "Eliminar la traça",
+    "trace_deleted": "Traça eliminada",
+    "trace_expired": "Traça caducada",
+    "trace_unavailable": "Traça no disponible",
+    "update": "Nova versió de l’original",
+    "use_update": "Aplicar la nova versió",
+    "executor": "Bot executor",
+    "assign_operation": "Utilitza aquest bot per a aquesta operació"
   }
 }

@@ -53,7 +53,22 @@ def _turn_is_cancelled(state: Any) -> bool:
 def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
     """Invoke a model with request cancellation when the graph has a token."""
     from backend.services.agent_execution import before_model_call, after_model_call
+    from backend.services.agent_execution_trace import record
+    from backend.services.agent_execution import _snapshot
+    snapshot = _snapshot.get()
+    if snapshot is not None and snapshot.behavior_resources:
+        from backend.services.agent_context_budget import messages_budget
+        from backend.domains.agent.runtime_tools import _model_context_window
+        messages = prompt.to_messages() if hasattr(prompt, "to_messages") else prompt
+        if isinstance(messages, list):
+            provider = str(snapshot.profile.get("provider") or "")
+            model_name = str(getattr(model, "model_name", "") or snapshot.profile.get("model") or "")
+            budget = messages_budget(messages, model_name, _model_context_window(provider, model_name), getattr(model, "kwargs", {}).get("tools"))
+            record("context.budget", budget)
+            if not budget["fits"]:
+                raise RuntimeError("agent_model_context_exceeded")
     before_model_call()
+    record("model.request", {"messages": prompt, "model": getattr(model, "model_name", ""), "binding": getattr(model, "kwargs", {})})
     token = state.get("cancel_token", "") if isinstance(state, dict) else ""
     trace_id = state.get("trace_id", "") if isinstance(state, dict) else ""
     with observability_span(
@@ -61,7 +76,12 @@ def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
         trace_id=str(trace_id or ""),
         attributes={"model": getattr(model, "model_name", "") or getattr(model, "model", "")},
     ):
-        response = invoke_cancellable(model, prompt, str(token or ""))
+        try:
+            response = invoke_cancellable(model, prompt, str(token or ""))
+        except BaseException as error:
+            record("model.error", {"type": type(error).__name__, "message": str(error)})
+            raise
+        record("model.response", response)
         after_model_call(response)
         return response
 
@@ -163,6 +183,8 @@ def _execute_policy_tool(
 ) -> Any:
     """Execute one validated tool and update health plus audit metadata."""
     started = time.monotonic()
+    from backend.services.agent_execution_trace import record
+    record("tool.request", {"name": tool_name, "call": tool_call, "definition": policy.get("_descriptor")})
     try:
         from backend.services.agent_execution import before_tool_call
         before_tool_call(tool_name, dynamic_context=bool(getattr(policy.get("_descriptor"), "metadata", {}).get("dynamic_context")))
@@ -178,6 +200,7 @@ def _execute_policy_tool(
                 timeout_seconds=policy.get("timeout_seconds", 120),
             )
     except Exception as error:
+        record("tool.error", {"name": tool_name, "type": type(error).__name__, "message": str(error)})
         duration_ms = int((time.monotonic() - started) * 1000)
         record_capability_failure(
             policy.get("_descriptor"),
@@ -197,6 +220,7 @@ def _execute_policy_tool(
         raise
 
     duration_ms = int((time.monotonic() - started) * 1000)
+    record("tool.response", {"name": tool_name, "result": result})
     failed = getattr(result, "status", "success") == "error"
     if failed:
         record_capability_failure(

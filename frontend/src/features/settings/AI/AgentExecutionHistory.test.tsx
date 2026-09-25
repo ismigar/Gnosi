@@ -5,6 +5,7 @@ import { AgentExecutionHistory } from './AgentExecutionHistory';
 import { changeAgentRun, fetchAgentRuns } from '../../../shared/api/ai-activity';
 
 vi.mock('../../../shared/api/ai-activity', () => ({ fetchAgentRuns: vi.fn(), changeAgentRun: vi.fn() }));
+vi.mock('./AgentTraceRetention', () => ({ AgentTraceRetention: () => null }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => 'vault' }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
@@ -15,7 +16,7 @@ const run = (id: string, parent = '', resumable = false) => ({
     run_id: id, parent_run_id: parent, agent_id: 'personal', skill_id: 'writing',
     operation: id, origin: 'worker', status: 'failed', created_at: 1, updated_at: 1,
     resumable, usage_available: false, model_calls: 0, input_tokens: 0, output_tokens: 0,
-    model: 'model', provider: 'provider', result: '', error: '', execution_revision: '1',
+    model: 'model', provider: 'provider', result: '', error: '', execution_revision: '1', trace_state: 'available',
 });
 
 let root: Root;

@@ -6,6 +6,7 @@ import os
 import sqlite3
 import time
 import uuid
+import hashlib
 from contextlib import contextmanager
 from collections.abc import Iterator
 from typing import Any, cast
@@ -28,6 +29,8 @@ def connect() -> Iterator[sqlite3.Connection]:
             run_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
             vault_path TEXT NOT NULL, payload TEXT NOT NULL, request TEXT NOT NULL,
             snapshot TEXT NOT NULL, cancelled INTEGER NOT NULL DEFAULT 0)""")
+        connection.execute("CREATE TABLE IF NOT EXISTS agent_run_snapshots (digest TEXT PRIMARY KEY, payload TEXT NOT NULL)")
+        connection.execute("CREATE INDEX IF NOT EXISTS agent_runs_scope ON agent_runs(user_id,workspace_id,vault_path)")
         yield connection
         connection.commit()
     finally:
@@ -35,13 +38,28 @@ def connect() -> Iterator[sqlite3.Connection]:
 
 
 def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapshot: dict[str, Any]) -> None:
-    resumable = (request.get("mode") is None and not request.get("resume_requires_parent")) or (request.get("mode") == "job" and request.get("operation") in {"reader.analysis", "notebook.analysis"})
+    resumable = (request.get("mode") is None and not request.get("resume_requires_parent")) or (request.get("mode") == "job" and request.get("operation") in {"reader.analysis", "notebook.analysis", "podcast"})
+    if request.get("operation") == "podcast" and not snapshot.get("behavior_resources"):
+        resumable = False
     run = run.model_copy(update={"resumable": resumable})
     with connect() as db:
+        encoded_snapshot = json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
+        digest = hashlib.sha256(encoded_snapshot.encode()).hexdigest()
+        db.execute("INSERT OR IGNORE INTO agent_run_snapshots VALUES (?,?)", (digest, encoded_snapshot))
         db.execute("INSERT INTO agent_runs VALUES (?,?,?,?,?,?,?,0)", (
             run.run_id, scope.user_id, scope.workspace_id, scope.vault_path,
-            run.model_dump_json(), json.dumps({**request, "_worker_pid": os.getpid(), "_worker_instance": _WORKER_INSTANCE}), json.dumps(snapshot),
+            run.model_dump_json(), json.dumps({**request, "_worker_pid": os.getpid(), "_worker_instance": _WORKER_INSTANCE}), json.dumps({"_snapshot_ref": digest}),
         ))
+
+
+def _saved_snapshot(db: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
+    payload = json.loads(str(row["snapshot"]))
+    if "_snapshot_ref" in payload:
+        saved = db.execute("SELECT payload FROM agent_run_snapshots WHERE digest=?", (payload["_snapshot_ref"],)).fetchone()
+        if saved is None:
+            raise RuntimeError("agent_snapshot_missing")
+        return cast(dict[str, Any], json.loads(saved[0]))
+    return cast(dict[str, Any], payload)
 
 
 def _row(db: sqlite3.Connection, scope: ExecutionScope, run_id: str) -> sqlite3.Row:
@@ -89,14 +107,24 @@ def update(scope: ExecutionScope, run_id: str, **changes: Any) -> AgentRun:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         old = AgentRun.model_validate_json(str(_row(db, scope, run_id)["payload"]))
+        if changes.get("status") in {"completed", "failed", "cancelled"} and old.closed_at is None:
+            changes["closed_at"] = time.time()
+        elif changes.get("status") in {"running", "resuming"}:
+            changes["closed_at"] = None
+            changes["trace_state"] = "available"
         run = AgentRun.model_validate({**old.model_dump(), **changes, "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         if changes.get("status") in {"running", "resuming"}:
             _claim_worker(db, run_id)
-        return run
+    if changes.get("status") in {"running", "resuming"} and old.trace_state in {"expired", "deleted"}:
+        from backend.services.agent_execution_trace import append
+        append(scope, run_id, "trace.restarted", {"previous_trace_state": old.trace_state})
+    return run
 
 
 def list_runs(scope: ExecutionScope, limit: int = 50) -> list[AgentRun]:
+    from backend.services.agent_execution_trace import expire
+    expire(scope)
     with connect() as db:
         rows = db.execute(
             "SELECT run_id FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=? ORDER BY rowid DESC LIMIT ?",
@@ -124,14 +152,14 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         db.execute("BEGIN IMMEDIATE")
         row = _row(db, scope, run_id)
         run = AgentRun.model_validate_json(str(row["payload"]))
-        saved_scope = json.loads(str(row["snapshot"])).get("scope")
-        if saved_scope != scope.model_dump():
-            raise PermissionError("agent_execution_scope_changed")
         request_metadata = json.loads(str(row["request"]))
         if not run.resumable:
             raise ValueError("agent_run_requires_original_entrypoint")
         if run.status not in {"failed", "cancelled", "interrupted"}:
             raise ValueError("agent_run_not_resumable")
+        saved_scope = _saved_snapshot(db, row).get("scope")
+        if saved_scope != scope.model_dump():
+            raise PermissionError("agent_execution_scope_changed")
         run = run.model_copy(update={"status": "resuming", "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET cancelled=0,payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         _claim_worker(db, run_id)
@@ -139,7 +167,7 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         request.pop("_worker_instance", None)
         request.pop("_worker_pid", None)
         request.pop("checkpoint_key", None)
-        return request, json.loads(str(row["snapshot"]))
+        return request, _saved_snapshot(db, row)
 
 
 def aggregate(scope: ExecutionScope, run_id: str) -> None:
@@ -219,3 +247,14 @@ def phase_checkpoint(scope: ExecutionScope, parent_id: str, key: str) -> AgentRu
             AND json_extract(payload,'$.status')='completed' ORDER BY rowid DESC LIMIT 1""",
             (scope.user_id, scope.workspace_id, scope.vault_path, parent_id, key)).fetchone()
         return AgentRun.model_validate_json(row[0]) if row else None
+
+
+def work_checkpoint(scope: ExecutionScope, run_id: str, key: str, value: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Preserve private resumable work independently from expiring trace events."""
+    with connect() as db:
+        _row(db, scope, run_id)
+        db.execute("CREATE TABLE IF NOT EXISTS agent_work_checkpoints (run_id TEXT, checkpoint_key TEXT, payload TEXT NOT NULL, PRIMARY KEY(run_id,checkpoint_key))")
+        if value is not None:
+            db.execute("INSERT OR REPLACE INTO agent_work_checkpoints VALUES (?,?,?)", (run_id, key, json.dumps(value, ensure_ascii=False)))
+        row = db.execute("SELECT payload FROM agent_work_checkpoints WHERE run_id=? AND checkpoint_key=?", (run_id, key)).fetchone()
+        return json.loads(row[0]) if row else None

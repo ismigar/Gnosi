@@ -30,60 +30,10 @@ def build_chunk_prompt(
     locator_label: LocatorLabel,
 ) -> str:
     """Build the frozen JSON-only prompt for one ordered source chunk."""
-    index_lines = (
-        "\n".join(
-            f"- [{item['id']}] {item['title']} ({item['type']})"
-            for item in brain_index
-            if item.get("title")
-        )
-        or "(empty Brain)"
-    )
-    segment_lines = "\n\n".join(
-        f"[SEGMENT {segment['id']} | "
-        f"{locator_label(_mapping(segment.get('locator')))}]\n{segment['text']}"
-        for segment in _mapping_list(chunk.get("segments"))
-    )
-    dimension_lines = (
-        "\n".join(
-            f"- field_id={item['field_id']} name={item['name']} "
-            f"allowed={json.dumps(item['allowed_labels'], ensure_ascii=False)}"
-            for item in ai_dimensions
-        )
-        or "(no AI-classified fields)"
-    )
-    return f"""{INSTRUCTIONS}
-
-Write in {language}.
-
-RESOURCE: {source_title}
-ORIGIN: {chunk.get("origin_label")} ({chunk.get("kind")})
-
-SOURCE SEGMENTS:
-{segment_lines}
-
-OPTIONAL AI DIMENSIONS:
-{dimension_lines}
-
-COMPACT BRAIN INDEX:
-{index_lines}
-
-Return only valid JSON:
-{{
-  "summary": "short chunk summary",
-  "notes": [
-    {{
-      "title": "atomic idea title",
-      "type": "entitat|concepte|resum|síntesi",
-      "body_md": "one-idea markdown body with useful [[wikilinks]]",
-      "tags": ["optional", "tags"],
-      "source_segment_id": "exact SEGMENT id",
-      "dimensions": {{"brain-field-id": ["allowed label"]}},
-      "citations": [
-        {{"segment_id": "exact SEGMENT id", "quote": "verbatim source substring"}}
-      ]
-    }}
-  ]
-}}"""
+    from backend.services.agent_behavior import task_input
+    return task_input("knowledge.process-source.legacy-chunk", chunk=chunk,
+                      resource=source_title, brain_index=brain_index,
+                      language=language, dimensions=ai_dimensions)
 
 
 def parse_plan(text: str, *, logger: logging.Logger) -> dict[str, object]:

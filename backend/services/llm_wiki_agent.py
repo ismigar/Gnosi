@@ -1,6 +1,8 @@
 """Lifecycle and protection rules for the built-in LLM Wiki agent profile."""
 from __future__ import annotations
 
+from backend.services.agent_behavior import resource as behavior_resource
+
 from copy import deepcopy
 import threading
 
@@ -27,9 +29,7 @@ LLM_WIKI_SKILL_IDS = [
 LLM_WIKI_REQUIRED_SKILL_IDS: list[str] = []
 LEGACY_DEFAULT_SKILL_IDS = ["core.legacy-default-v1"]
 
-DEFAULT_PERSONA = """You are Gnosi's Brain agent, a persistent knowledge wiki.
-Use the skills assigned by the LLM Wiki plugin and any profile-specific instructions
-added by the user. Never create permanent notes without human confirmation."""
+DEFAULT_PERSONA = behavior_resource('agents/legacy-knowledge.md')
 
 _config_lock = threading.RLock()
 
