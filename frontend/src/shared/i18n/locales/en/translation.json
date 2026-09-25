@@ -6130,7 +6130,7 @@
       "connection_unverified": "The provider is marked connected only after the selected model responds successfully.",
       "test_connection": "Test connection",
       "connection_verified": "Connected: test succeeded",
-      "connection_verified_help": "Model {{model}} responded. Verification is valid for one hour.",
+      "connection_verified_help": "Model {{model}} responded successfully to the test. The API key expiry depends on the provider settings.",
       "connection_failed": "The connection to this model could not be verified.",
       "api_key": "{{provider}} API key",
       "api_key_help": "This is only requested because the provider is not connected yet.",

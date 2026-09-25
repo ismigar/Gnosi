@@ -5092,7 +5092,7 @@
       "connection_unverified": "Le fournisseur ne sera indiqué comme connecté qu’après une réponse du modèle choisi.",
       "test_connection": "Tester la connexion",
       "connection_verified": "Connecté : le test a réussi",
-      "connection_verified_help": "Le modèle {{model}} a répondu. La vérification est valable une heure.",
+      "connection_verified_help": "Le modèle {{model}} a répondu correctement au test. L’expiration de la clé API dépend des paramètres du fournisseur.",
       "connection_failed": "La connexion à ce modèle n’a pas pu être vérifiée.",
       "api_key": "Clé API {{provider}}",
       "api_key_help": "Elle n’est demandée que parce que ce fournisseur n’est pas encore connecté.",

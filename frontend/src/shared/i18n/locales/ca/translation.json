@@ -5092,7 +5092,7 @@
       "connection_unverified": "Només direm que està connectat quan el model triat respongui correctament.",
       "test_connection": "Prova la connexió",
       "connection_verified": "Connectat: la prova ha funcionat",
-      "connection_verified_help": "El model {{model}} ha respost. La verificació és vàlida durant una hora.",
+      "connection_verified_help": "El model {{model}} ha respost correctament a la prova. La caducitat de la clau API depèn de la configuració del proveïdor.",
       "connection_failed": "No s’ha pogut verificar la connexió amb aquest model.",
       "api_key": "Clau API de {{provider}}",
       "api_key_help": "Només es demana perquè aquest proveïdor encara no està connectat.",
