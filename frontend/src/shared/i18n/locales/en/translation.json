@@ -2620,6 +2620,7 @@
         "instructions_translation_error": "The instructions could not be translated. Showing the saved text.",
         "instructions_translate": "Translate into English",
         "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
+        "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved.",
         "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved."
       },
       "catalog": {

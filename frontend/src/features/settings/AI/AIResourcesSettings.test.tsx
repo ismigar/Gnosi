@@ -7,6 +7,7 @@ import {
     SkillsSettingsPanel,
     ToolsSettingsPanel,
 } from './AIResourcesSettings';
+import { GnosiApiError } from '../../../shared/api/errors';
 import { SkillInstructions } from './SkillInstructions';
 import { generateAiContent } from '../../../shared/api/ai';
 vi.mock('../../../shared/api/ai', () => ({ generateAiContent: vi.fn() }));
@@ -291,4 +292,23 @@ it('explains provider rate limits without replacing the original instructions', 
     await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
     expect(container.textContent).toContain('settings.ai.resources.instructions_translation_rate_limit');
     expect(container.textContent).toContain('Preserve this original.');
+});
+
+
+it.each([401, 403, 503])('explains a rejected provider key (%s) and allows retry after reconnecting', async (status) => {
+    const original = `Original instructions for authentication test ${String(status)}.`;
+    const skill = normalizeSkill({ id: `user.authentication-${String(status)}`, instructions: original });
+    vi.mocked(generateAiContent).mockRejectedValueOnce(new GnosiApiError(
+        new Response(null, { status }),
+        { detail: 'The AI provider rejected the key. Check Settings › AI.' },
+    ));
+    const container = render(<SkillInstructions skill={skill} />);
+    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
+    expect(container.textContent).toContain('settings.ai.resources.instructions_translation_authentication');
+    expect(container.textContent).toContain(original);
+    vi.mocked(generateAiContent).mockResolvedValueOnce({ content: 'Translated instructions.', provider: 'local' });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
+    expect(container.textContent).toContain('Translated instructions.');
+    expect(container.textContent).not.toContain('settings.ai.resources.instructions_translation_authentication');
+    expect(skill.instructions).toBe(original);
 });

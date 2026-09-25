@@ -2638,6 +2638,7 @@
         "instructions_translation_error": "No s’han pogut traduir les instruccions. Es mostra el text desat.",
         "instructions_translate": "Tradueix al català",
         "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
+        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva.",
         "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva."
       },
       "catalog": {

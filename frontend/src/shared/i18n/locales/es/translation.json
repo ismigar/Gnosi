@@ -2584,6 +2584,7 @@
         "instructions_translation_error": "No se han podido traducir las instrucciones. Se muestra el texto guardado.",
         "instructions_translate": "Traducir al español",
         "instructions_translation_readonly": "Traducción de lectura. El asistente sigue utilizando el texto original.",
+        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
         "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original."
       },
       "catalog": {

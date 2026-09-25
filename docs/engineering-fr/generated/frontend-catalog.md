@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126428 | 32 |
+| `features` | 1112 | 126429 | 32 |
 | `generated` | 2 | 46951 | 484 |
 | `shared` | 254 | 30754 | 414 |
 
@@ -539,7 +539,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/AI/aiSchedule.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSchedule.ts) | 9 | `defaultSchedule` | — |
 | [`frontend/src/features/settings/AI/aiSettingsUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.ts) | 422 | `agentSkillWarnings`, `catalogRows`, `cloneSkillPayload`, `groupEnabledModelRoutes`, `modelRouteKey`, `modelToolCompatibility`, `normalizeSkill`, `normalizeTool`, `parseModelRouteKey`, `requiredSkillIdsForAgent`, `skillEffects`, `skillPayload` | — |
 | [`frontend/src/features/settings/AI/modelReliability.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/modelReliability.ts) | 65 | `MODEL_FAULT_REASONS`, `findModelFault`, `useModelReliability` | — |
-| [`frontend/src/features/settings/AI/skillInstructionTranslation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/skillInstructionTranslation.ts) | 52 | `instructionLanguage`, `translateInstructions`, `useSkillInstructions` | — |
+| [`frontend/src/features/settings/AI/skillInstructionTranslation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/skillInstructionTranslation.ts) | 53 | `instructionLanguage`, `translateInstructions`, `useSkillInstructions` | — |
 | [`frontend/src/features/settings/AI/useAIResources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/useAIResources.ts) | 496 | `useAIResources` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/evals/models`, `/api/ai/semantic-associations`, `/api/ai/skills` |
 | [`frontend/src/features/settings/AIActivity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIActivity.ts) | 2 | — | — |
 | [`frontend/src/features/settings/AIModelComparisonModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.tsx) | 202 | `AIModelComparisonModal` | — |

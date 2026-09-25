@@ -29,15 +29,15 @@ export function useSkillInstructions(skill: NormalizedSkill, language?: string) 
     const original = skill.instructions || '';
     const key = JSON.stringify([vault, target, original]);
     const [requested, setRequested] = useState('');
-    const [result, setResult] = useState({ key: '', text: '', error: false, rateLimited: false });
+    const [result, setResult] = useState({ key: '', text: '', error: false, rateLimited: false, authenticationError: false });
     const [attempt, setAttempt] = useState(0);
     useEffect(() => {
         if (requested !== key || !original) return;
         const controller = new AbortController();
         void translateInstructions(original, target, vault, controller.signal).then(text => {
-            if (!controller.signal.aborted) setResult({ key, text, error: false, rateLimited: false });
+            if (!controller.signal.aborted) setResult({ key, text, error: false, rateLimited: false, authenticationError: false });
         }).catch((error: unknown) => {
-            if (!controller.signal.aborted) setResult({ key, text: '', error: true, rateLimited: (error instanceof GnosiApiError && error.status === 429) || (error instanceof Error && /rate.?limit|quota/i.test(error.message)) });
+            if (!controller.signal.aborted) setResult({ key, text: '', error: true, authenticationError: error instanceof GnosiApiError && ([401, 403].includes(error.status) || error.message === 'The AI provider rejected the key. Check Settings › AI.'), rateLimited: (error instanceof GnosiApiError && error.status === 429) || (error instanceof Error && /rate.?limit|quota/i.test(error.message)) });
         });
         return () => { controller.abort(); };
     }, [requested, original, target, vault, key, attempt]);
@@ -47,6 +47,7 @@ export function useSkillInstructions(skill: NormalizedSkill, language?: string) 
         loading: requested === key && !current,
         error: Boolean(current?.error),
         rateLimited: Boolean(current?.rateLimited),
-        translate: () => { setRequested(key); setResult({ key: '', text: '', error: false, rateLimited: false }); setAttempt(value => value + 1); },
+        authenticationError: Boolean(current?.authenticationError),
+        translate: () => { setRequested(key); setResult({ key: '', text: '', error: false, rateLimited: false, authenticationError: false }); setAttempt(value => value + 1); },
     };
 }
