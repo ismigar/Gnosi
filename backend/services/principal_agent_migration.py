@@ -20,9 +20,9 @@ def principal_profile(ai: dict[str, Any]) -> dict[str, Any]:
     agents = [a for a in ai.get("agents", []) if isinstance(a, dict)]
     active = str(ai.get("active_agent_id") or "")
     profile = next((a for a in agents if a.get("id") == active), None) if active else next(
-        (a for a in agents if a.get("enabled", True) and a.get("managed_by") != "llm-wiki"), None,
+        (a for a in agents if a.get("enabled", True) and not a.get("managed_by")), None,
     )
-    if not profile or not profile.get("enabled", True) or profile.get("managed_by") == "llm-wiki":
+    if not profile or not profile.get("enabled", True) or profile.get("managed_by"):
         raise RuntimeError("principal_agent_unavailable")
     return dict(profile)
 

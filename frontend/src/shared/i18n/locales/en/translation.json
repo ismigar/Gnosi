@@ -1587,7 +1587,7 @@
         },
         "translation": {
           "name": "Translation",
-          "description": "Translation providers and publishing-language actions."
+          "description": "Translate rows, pages and skill instructions using the Translation AI profile."
         },
         "contacts": {
           "name": "Contacts",
@@ -2618,7 +2618,8 @@
         "instructions_translation_error": "The instructions could not be translated. Showing the saved text.",
         "instructions_translate": "Translate into English",
         "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
-        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved."
+        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved.",
+        "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -3148,7 +3149,10 @@
         "profile": "Assistant profile",
         "other_profile": "Use another profile (advanced)",
         "automation_help": "Runs the skill with {{name}}. The profile is saved with the automation.",
-        "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them."
+        "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them.",
+        "builtin_profiles": {
+          "translation": "Translation"
+        }
       },
       "model_strategy": {
         "primary": "Primary model",
@@ -3623,7 +3627,7 @@
     "success_page": "Translation started — child pages will appear shortly.",
     "error": "Error starting translation",
     "error_pick_lang": "Pick at least one language.",
-    "provider_hint": "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in secure settings.",
+    "provider_hint": "Translation uses the Translation AI profile’s model. Review the profile and provider connection in the Translation plugin settings.",
     "title_bulk": "Translate {{count}} records",
     "intro_bulk": "Choose target languages. For each selected record and language a subitem will be created (or updated) with the translation of the fields marked as translatable.",
     "success_bulk": "Translation started for {{count}} records.",
@@ -3642,25 +3646,10 @@
     "lang_zh": "Chinese"
   },
   "translate_settings": {
-    "deepl_label": "DeepL — API key",
-    "softcatala_label": "Softcatalà — translator URL",
-    "section_title": "Translation services",
-    "intro": "Configure the providers used by the \"Translate row\" button. DeepL covers most languages; Softcatalà handles Catalan (DeepL doesn't support it).",
-    "deepl_desc": "Stored in the macOS Keychain, not in .env_shared. Get one at deepl.com/pro-api.",
-    "deepl_placeholder": "Paste your DeepL API key…",
-    "deepl_placeholder_replace": "Enter a new key to replace it",
-    "deepl_configured": "API key configured in Keychain",
-    "deepl_saved": "DeepL API key saved to Keychain.",
-    "deepl_save_error": "Couldn't save the DeepL key.",
-    "deepl_deleted": "DeepL API key removed.",
-    "deepl_delete_error": "Couldn't remove the DeepL key.",
-    "error_deepl_required": "Enter an API key.",
-    "softcatala_desc": "Endpoint for Softcatalà's translator (Catalan). Stored in Gnosi's local .env. Empty = use default.",
-    "softcatala_saved": "Softcatalà URL updated.",
-    "softcatala_save_error": "Couldn't save the Softcatalà URL.",
-    "usage_hint": "These values are consumed by the /api/vault/skills/translate-row endpoint. After saving the DeepL key you may need to restart the backend so the Keychain reloads.",
-    "autosaving": "Saving…",
-    "autosaved": "Saved"
+    "section_title": "AI translation",
+    "intro": "The buttons for translating rows, pages and skill instructions use the plugin’s Translation AI profile. Configure its model and check that its provider is connected.",
+    "usage_hint": "Translations requested within a conversation use that conversation’s agent profile. Translating a skill only displays a reading copy: the original instructions are preserved.",
+    "legacy_notice": "DeepL and Softcatalà belong to the previous translation system and are no longer used by this workflow. Previously saved credentials are preserved but unused."
   },
   "mail": {
     "all_accounts": "All accounts",
@@ -7286,8 +7275,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Principal agent",
-    "configure": "Configure the Agent",
+    "principal": "Assistant profile",
+    "configure": "Configure profile",
     "skills": {
       "writing": "Writing and summaries",
       "podcast": "Daily briefing and podcast",

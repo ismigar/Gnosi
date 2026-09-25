@@ -1,4 +1,4 @@
-"""Translate through the principal Agent, preserving the historic callable API."""
+"""Translate through the shared agent executor, preserving the historic callable API."""
 from __future__ import annotations
 
 import argparse
@@ -43,7 +43,7 @@ def translate(
     deepl_api_key: Optional[str] = None,
     softcatala_url: Optional[str] = None,
 ) -> tuple[str, str]:
-    """Compatibility entrypoint; all translation is governed by the principal."""
+    """Compatibility entrypoint; legacy provider arguments are accepted but ignored."""
     if not text or source_lang == target_lang:
         return text, "noop"
     from backend.services.agent_execution import generate_for

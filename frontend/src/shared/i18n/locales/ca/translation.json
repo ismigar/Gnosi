@@ -1602,7 +1602,7 @@
         },
         "translation": {
           "name": "Traducció",
-          "description": "Proveïdors de traducció i accions per a l'idioma de publicació."
+          "description": "Tradueix files, pàgines i instruccions de skills amb el perfil d’IA de Traducció."
         },
         "contacts": {
           "name": "Contactes",
@@ -2636,7 +2636,8 @@
         "instructions_translation_error": "No s’han pogut traduir les instruccions. Es mostra el text desat.",
         "instructions_translate": "Tradueix al català",
         "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
-        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva."
+        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva.",
+        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva."
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -3167,7 +3168,10 @@
         "profile": "Perfil de l’assistent",
         "other_profile": "Utilitza un altre perfil (avançat)",
         "automation_help": "Executarà l’habilitat amb {{name}}. El perfil queda desat amb l’automatització.",
-        "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les."
+        "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les.",
+        "builtin_profiles": {
+          "translation": "Traducció"
+        }
       },
       "model_strategy": {
         "primary": "Model principal",
@@ -3647,7 +3651,7 @@
     "success_page": "Traducció iniciada — les subpàgines es crearan en breu.",
     "error": "Error iniciant la traducció",
     "error_pick_lang": "Selecciona almenys un idioma.",
-    "provider_hint": "El català es tradueix amb Softcatalà; la resta amb DeepL. Configura les credencials als ajustos segurs.",
+    "provider_hint": "La traducció utilitza el model del perfil d’IA «Traducció». Revisa el perfil i la connexió del proveïdor als ajustos del plugin de Traducció.",
     "title_bulk": "Traduir {{count}} registres",
     "intro_bulk": "Tria els idiomes destí. Per cada registre seleccionat i idioma es crearà (o s'actualitzarà) un subitem amb la traducció dels camps marcats com a traduïbles.",
     "success_bulk": "Traducció iniciada per {{count}} registres.",
@@ -3666,25 +3670,10 @@
     "lang_zh": "Xinès"
   },
   "translate_settings": {
-    "deepl_label": "DeepL — API key",
-    "softcatala_label": "Softcatalà — URL del traductor",
-    "section_title": "Serveis de traducció",
-    "intro": "Configura els proveïdors usats pel botó \"Traduir fila\". DeepL cobreix la majoria d'idiomes; Softcatalà s'usa per al català (DeepL no el suporta).",
-    "deepl_desc": "Es desa al Keychain de macOS, no al fitxer .env_shared. Aconsegueix-ne una a deepl.com/pro-api.",
-    "deepl_placeholder": "Enganxa la teva DeepL API key…",
-    "deepl_placeholder_replace": "Introdueix una clau nova per substituir",
-    "deepl_configured": "API key configurada al Keychain",
-    "deepl_saved": "API key de DeepL desada al Keychain.",
-    "deepl_save_error": "No s'ha pogut desar la clau de DeepL.",
-    "deepl_deleted": "API key de DeepL eliminada.",
-    "deepl_delete_error": "No s'ha pogut eliminar la clau de DeepL.",
-    "error_deepl_required": "Introdueix una API key.",
-    "softcatala_desc": "Endpoint del servei de traducció de Softcatalà (català). Es desa al .env local de Gnosi. Buida = usa el valor per defecte.",
-    "softcatala_saved": "URL de Softcatalà actualitzada.",
-    "softcatala_save_error": "No s'ha pogut desar la URL de Softcatalà.",
-    "usage_hint": "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui.",
-    "autosaving": "Desant…",
-    "autosaved": "Desat"
+    "section_title": "Traducció amb IA",
+    "intro": "Els botons de traduir files, pàgines i instruccions de skills utilitzen el perfil d’IA «Traducció» del plugin. Configura-hi el model i comprova que el seu proveïdor estigui connectat.",
+    "usage_hint": "Les traduccions demanades dins d’una conversa utilitzen el perfil de l’agent d’aquella conversa. Traduir una skill només en mostra una versió de lectura: les instruccions originals es conserven.",
+    "legacy_notice": "DeepL i Softcatalà pertanyen a l’antic sistema de traducció i ja no intervenen en aquest circuit. Les credencials antigues desades es conserven, però no s’utilitzen."
   },
   "mail": {
     "all_accounts": "Totes les comptes",
@@ -7339,8 +7328,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Agent principal",
-    "configure": "Configura l’Agent",
+    "principal": "Perfil de l’assistent",
+    "configure": "Configura el perfil",
     "skills": {
       "writing": "Redacció i resums",
       "podcast": "Resum diari i pòdcast",

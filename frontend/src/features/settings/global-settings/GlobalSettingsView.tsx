@@ -1,3 +1,4 @@
+import { ProfileSettingsNavigation } from '../../../shared/ui/settings/ProfileSettingsNavigation';
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { AppearancePanel } from './AppearancePanel';
 import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
@@ -44,7 +45,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [activeTab]);
   return (
-    <>
+    <ProfileSettingsNavigation.Provider value={openPluginAISettings}>
       <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
       <div
         ref={panelRef}
@@ -244,6 +245,6 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
         />}
       </Suspense>
 
-    </>
+    </ProfileSettingsNavigation.Provider>
   );
 }

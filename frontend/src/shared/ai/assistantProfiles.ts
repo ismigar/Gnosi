@@ -2,6 +2,25 @@
 export function principalAssistant<T extends { readonly id: string }>(
     agents: readonly T[], activeId = '',
 ): T | undefined {
-    if (activeId) return agents.find(agent => agent.id === activeId);
-    return agents.find(agent => !('enabled' in agent) || agent.enabled !== false);
+    const personal = agents.filter(agent => !('managed_by' in agent) || !agent.managed_by);
+    if (activeId) return personal.find(agent => agent.id === activeId);
+    return personal.find(agent => !('enabled' in agent) || agent.enabled !== false);
+}
+
+/** Translate shipped profile names without renaming user or third-party profiles. */
+const builtinProfileNames: Readonly<Record<string, string>> = {
+    'ai-platform': 'Writing and knowledge capture', 'feeds-reader': 'Feeds and podcasts',
+    'grounded-notebooks': 'Grounded notebooks', resources: 'Literature assistance',
+    mail: 'Mail', 'social-publishing': 'Social publishing', calendar: 'Meetings',
+    translation: 'Translation', 'llm-wiki': 'Knowledge',
+};
+
+export function profileDisplayName(
+    profile: { name?: string; managed_by?: string },
+    t: (key: string, options: { defaultValue: string }) => string,
+): string {
+    const name = profile.name || '';
+    const owner = profile.managed_by?.startsWith('builtin:') ? profile.managed_by.slice(8) : '';
+    return owner && builtinProfileNames[owner] === name
+        ? t(`settings.ai.assistant.builtin_profiles.${owner}`, { defaultValue: name }) : name;
 }

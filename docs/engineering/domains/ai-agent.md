@@ -301,12 +301,13 @@ and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
 
-The row-translation skill keeps provider routing and local OPUS-MT lifecycle in
-its own consolidated package. External JSON envelopes are narrowed before use,
-language scoring has deterministic typed ordering, and the lazy OPUS cache
-stores only minimal tokenizer/model protocols. Transformers' concrete generic
-types do not leak into the routing contract or alter the established
-Softcatalà, Apertium, OPUS, DeepL and placeholder fallback order.
+Row, page and skill-instruction translations use the shared `translation`
+operation. UI buttons select the Translation plugin's profile; actions within a
+conversation inherit the running agent's profile. That profile governs the
+model, policies and activity records. Translation settings link to this profile.
+Historical DeepL and Softcatalà arguments remain compatible but are ignored;
+there is no language-pair routing or placeholder provider fallback. Translating
+a skill displays a reading copy and preserves its original instructions.
 
 Plugin reconciliation can also run before FastAPI route composition. It derives
 the `.gnosi` directory from the canonical active-Vault context and reads state

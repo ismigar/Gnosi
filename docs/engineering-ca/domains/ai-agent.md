@@ -318,13 +318,14 @@ la compatibilitat i la distinció entre camps gestionats i camps de l’usuari.
 La reconciliació de connectors és idempotent: deshabilitar-ne un suspèn la seva
 aportació gestionada sense eliminar les personalitzacions de l’usuari.
 
-L’habilitat de traducció de files manté l’encaminament de proveïdors i el cicle de
-vida local d’OPUS-MT al seu propi paquet consolidat. Els embolcalls JSON externs
-es delimiten abans d’usar-los; la puntuació de llengües té un ordre tipat
-determinista, i la memòria cau OPUS de càrrega diferida només desa protocols
-mínims de tokenitzador i model. Els tipus genèrics concrets de Transformers no
-s’estenen al contracte d’encaminament ni alteren l’ordre establert
-Softcatalà, Apertium, OPUS, DeepL i alternativa amb marcadors.
+Les traduccions de files, pàgines i instruccions de skills utilitzen l’operació
+compartida `translation`. Els botons de la interfície seleccionen el perfil del
+plugin de Traducció; les accions dins d’una conversa hereten el perfil de l’agent
+en execució. El perfil determina el model, les polítiques i el registre d’activitat.
+El panell de traducció enllaça a aquest perfil. Els arguments històrics de DeepL
+i Softcatalà es mantenen per compatibilitat, però s’ignoren; ja no hi ha
+encaminament per parelles de llengües ni alternativa amb marcadors. Traduir una
+skill només en mostra una còpia de lectura i conserva les instruccions originals.
 
 La reconciliació de connectors també pot executar-se abans de compondre les
 rutes FastAPI. Deriva el directori `.gnosi` del context canònic del Vault

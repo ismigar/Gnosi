@@ -332,14 +332,14 @@ campos gestionados y campos del usuario. La reconciliación de plugins es
 idempotente: desactivar un plugin suspende su contribución gestionada sin
 eliminar las personalizaciones del usuario.
 
-La habilidad de traducción de filas mantiene el enrutamiento de proveedores y
-el ciclo de vida local de OPUS-MT en su propio paquete consolidado. Las estructuras
-JSON externas se restringen antes de usarse, la puntuación de idiomas tiene un
-orden tipado determinista y la caché de carga diferida de OPUS almacena solo
-protocolos mínimos de tokenizador y modelo. Los tipos genéricos concretos de
-Transformers no se propagan al contrato de enrutamiento ni alteran el orden
-establecido de alternativas: Softcatalà, Apertium, OPUS, DeepL y marcadores de
-posición.
+Las traducciones de filas, páginas e instrucciones de skills utilizan la
+operación compartida `translation`. Los botones seleccionan el perfil del plugin
+de Traducción; las acciones dentro de una conversación heredan el perfil del
+agente en ejecución. Este perfil determina el modelo, las políticas y el registro
+de actividad. El panel de traducción enlaza a este perfil. Los argumentos
+históricos de DeepL y Softcatalà se mantienen por compatibilidad, pero se ignoran;
+ya no hay enrutamiento por pares de idiomas ni alternativa con marcadores.
+Traducir una skill muestra una copia de lectura y conserva sus instrucciones.
 
 La reconciliación de plugins también puede ejecutarse antes de componer las
 rutas de FastAPI. Deriva el directorio `.gnosi` del contexto canónico del Vault

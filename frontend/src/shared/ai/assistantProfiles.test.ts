@@ -13,4 +13,9 @@ describe('principal assistant', () => {
         expect(principalAssistant(profiles, 'missing')).toBeUndefined();
         expect(principalAssistant(profiles, 'disabled')?.enabled).toBe(false);
     });
+    it('does not select the retired managed Knowledge profile', () => {
+        const legacy = { id: 'llm-wiki', managed_by: 'llm-wiki' };
+        expect(principalAssistant([legacy, { id: 'personal' }])?.id).toBe('personal');
+        expect(principalAssistant([legacy], 'llm-wiki')).toBeUndefined();
+    });
 });

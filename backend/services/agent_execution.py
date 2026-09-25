@@ -38,14 +38,19 @@ def operation_origin() -> ExecutionOrigin:
 
 def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None = None) -> AgentExecutionSnapshot:
     from backend.services.agent_skill_catalog import resolve_agent_runtime
-    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+    from backend.services.principal_agent_migration import ensure_migrated
 
     inherited = _snapshot.get()
     if inherited is not None and selected_skill:
         return select_snapshot_skill(inherited, selected_skill)
     scope = current_scope()
     ai = ensure_migrated()
-    profile = principal_profile(ai)
+    from backend.services.plugin_ai_contributions import reconcile_plugin_ai_contributions
+    from backend.services.plugin_agent_profiles import select_profile
+    from backend.config.app_config import load_params
+    if reconcile_plugin_ai_contributions().get("agents_changed"):
+        ai = dict(load_params(strict_env=False).ai)
+    profile = select_profile(ai, selected_skill)
     runtime = resolve_agent_runtime(profile, vault_path=Path(scope.vault_path), active_skill_ids=active_skill_ids if active_skill_ids is not None else ([selected_skill] if selected_skill else None))
     if selected_skill and selected_skill not in runtime.active_skill_ids:
         raise RuntimeError(f"agent_skill_unavailable:{selected_skill}")
@@ -149,7 +154,7 @@ def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
         from backend.services.agent_skill_catalog import resolve_agent_runtime
         profiles = load_params(strict_env=False).ai.get("agents", [])
         current = next((item for item in profiles if item.get("id") == snapshot.agent_id), None)
-        if not current or not current.get("enabled", True):
+        if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
             raise PermissionError("agent_execution_profile_revoked")
         runtime = resolve_agent_runtime(current, vault_path=Path(scope.vault_path), active_skill_ids=snapshot.skill_ids)
         if not dynamic_context and tool_name not in {descriptor.name for descriptor in runtime.tool_descriptors}:
@@ -242,7 +247,7 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
         raise PermissionError("agent_execution_scope_or_skill_mismatch")
     ai = dict(load_params(strict_env=False).ai)
     current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
-    if not current or not current.get("enabled", True):
+    if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
         raise RuntimeError("agent_execution_profile_unavailable")
     allowed = resolve_agent_runtime(current, vault_path=Path(snapshot.scope.vault_path), active_skill_ids=snapshot.skill_ids)
     if set(snapshot.skill_ids) != set(allowed.active_skill_ids):

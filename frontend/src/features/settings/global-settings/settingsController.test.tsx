@@ -424,18 +424,11 @@ describe('settings controller persistence contracts', () => {
     expect(writes()).toEqual([{ method: 'POST', path: '/api/mail/sync', search: '?email=legacy%40example.invalid&limit=50', body: null }]);
     expect(snapshot().syncingAccounts['[object Object]']).toBe(false);
   });
-  it('debounces translation changes and never resends the stored credential', async () => {
+  it('opens translation settings without reading or saving retired provider credentials', async () => {
     await mount({ initialTab: 'translate' });
     await advance(1600);
     expect(writes()).toEqual([]);
-    expect(snapshot().translateState.deepl_input).toBe('');
-    act(() => { snapshot().setTranslateState(previous => ({ ...previous, deepl_input: ' fixture-secret ' })); });
-    await advance(1199);
-    expect(writes()).toEqual([]);
-    await advance(1);
-    expect(writes()).toHaveLength(1);
-    expect(writes()[0]).toMatchObject({ method: 'POST', path: '/api/credentials/', body: { key: 'deepl_api_key', value: 'fixture-secret' } });
-    expect(snapshot().translateState.deepl_input).toBe('');
+    expect(requests.some(request => request.path.startsWith('/api/credentials') || request.path === '/api/env')).toBe(false);
   });
   it('validates dynamic documents and preserves plugin and provider extensions', async () => {
     await mount({ isOpen: false });

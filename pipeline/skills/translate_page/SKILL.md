@@ -66,12 +66,11 @@ development directives are not required to use a public checkout.
 
 ## Providers and configuration
 
-Use the same providers as `translate_row`: Softcatalà NMT for `en↔ca`,
-Softcatalà Apertium for Catalan pairs, local OPUS-MT for `es↔fr`, public
-Apertium APy, and DeepL as a configured fallback. Environment variables are
-read from the process, Gnosi's local `.env`, or an explicitly configured
-`GNOSI_SHARED_ENV_FILE`. UI-managed keys use secure storage. Primary pairs
-work without extra configuration.
+Use the same governed translation operation as `translate_row`. Standalone page
+translation uses the plugin's editable Translation AI profile; a nested action
+inherits the running agent's profile. Configure that profile's model and connect
+its provider. Legacy DeepL and Softcatalà settings are ignored. There is no
+pair-specific Apertium or OPUS-MT routing and no placeholder provider fallback.
 
 ## Child page shape
 
@@ -84,7 +83,7 @@ work without extra configuration.
     "translation_lang": "<ISO 639-1 code>",
     "translation_source_lang": "<detected source language>",
     "translation_origin_id": "<source page id>",
-    "translation_provider": "softcatala_nmt | apertium_public | deepl | mixed | ..."
+    "translation_provider": "principal_agent | mixed | noop"
   }
 }
 ```
@@ -97,10 +96,10 @@ location is selected by the page write service. Do not hardcode a folder name.
 - Skip a target identical to the source language.
 - Translate only the title when the page body is empty.
 - V1 does not translate wikilink aliases or image alt text; preserve protected tokens and test enriched Markdown round trips before changing segmentation.
-- The current implementation makes one HTTP request per segment. Long pages
-  can hit public Apertium rate limits; batching is future work.
+- Each translatable segment invokes the shared AI executor. Long pages can
+  consume multiple model calls and hit the configured provider’s limits.
 - Re-running updates existing language children instead of duplicating them. Preserve origin/language metadata, translated content and the `created`, `updated`, `skipped` response groups.
-- Unit tests must fake providers. A real translation can send selected text to external services or download a local model; it is not an incidental documentation check.
+- Unit tests must fake providers. A real translation can send selected text to the configured AI provider; it is not an incidental documentation check.
 
 ## Quick test
 

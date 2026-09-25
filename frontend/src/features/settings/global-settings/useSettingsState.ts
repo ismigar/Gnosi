@@ -65,19 +65,6 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
   const [enforceBlock, setEnforceBlock] = useState(false);
   const [savingBudget, setSavingBudget] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [translateState, setTranslateState] = useState({
-    deepl_has_value: false,    // GET /api/credentials/deepl_api_key.has_value
-    deepl_input: '',           // new value pending save (never pre-populated)
-    softcatala_url: '',        // current value of SOFTCATALA_API_URL in local .env
-    loading: false,
-    saving_deepl: false,
-    saving_softcatala: false,
-    saved_deepl: false,        // transient "saved" indicator after a successful autosave
-    saved_softcatala: false,
-  });
-  const deeplAutoSaveRef = useRef<Timer>(undefined);
-  const softcatalaAutoSaveRef = useRef<Timer>(undefined);
-  const softcatalaBaselineRef = useRef<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerField, setPickerField] = useState<string | null>(null);
   const [, setGoogleAuthConfigured] = useState(false);
@@ -104,7 +91,7 @@ export function useSettingsState(props: GlobalSettingsModalProps) {
     setGraphNodes, graphNodesLoading, setGraphNodesLoading, graphNodesFetchedRef, aiRegistry, setAiRegistry,
     aiUsage, setAiUsage, isUsageHistoryOpen, setIsUsageHistoryOpen, monthlyCostCap, setMonthlyCostCap,
     enforceBlock, setEnforceBlock, savingBudget, setSavingBudget, isSaving, setIsSaving,
-    translateState, setTranslateState, deeplAutoSaveRef, softcatalaAutoSaveRef, softcatalaBaselineRef, pickerOpen,
+    pickerOpen,
     setPickerOpen, pickerField, setPickerField, setGoogleAuthConfigured, googleCalAuthError, setGoogleCalAuthError,
     editingAgent, setEditingAgent, agentEditorTarget, setAgentEditorTarget, isModelComparisonOpen, setIsModelComparisonOpen,
     autoSaveTimeoutRef, lastSavedDataRef, panelRef, setSavingStatus, confirmConfig, setConfirmConfig,
