@@ -23,7 +23,7 @@ export type ContextSourceKind =
 
 export type ContextPickingKind = Extract<
     ContextSourceKind,
-    'internal' | 'page' | 'source' | 'table'
+    'internal' | 'page' | 'source' | 'table' | 'vault'
 >;
 
 
