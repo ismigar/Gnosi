@@ -4659,6 +4659,7 @@
     "folder_empty": "Aquesta carpeta està buida.",
     "load_more": "Carregar-ne més",
     "loading": "Carregant…",
+    "load_error": "No s’ha pogut carregar el lector PDF. Actualitza Gnosi i torna-ho a provar.",
     "count_of": "{{count}} de {{total}}",
     "close_esc": "Tancar (Esc)",
     "stop_slideshow": "Aturar presentació (Espai)",

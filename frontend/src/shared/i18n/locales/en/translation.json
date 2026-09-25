@@ -4573,6 +4573,7 @@
     "folder_empty": "This folder is empty.",
     "load_more": "Load more",
     "loading": "Loading…",
+    "load_error": "The PDF reader could not load. Update Gnosi and try again.",
     "count_of": "{{count}} of {{total}}",
     "close_esc": "Close (Esc)",
     "stop_slideshow": "Stop slideshow (Space)",

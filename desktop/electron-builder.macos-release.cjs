@@ -1,9 +1,17 @@
 // electron-builder 26.x configuration. The base config remains usable for
 // local ad-hoc packages; the release entry point must never silently use it.
+const verifyFrontendAssets = require('./scripts/verify-frontend-assets.cjs');
+const checkSigning = require('./scripts/macos-signing-preflight.cjs');
+
+async function beforePack(context) {
+  await verifyFrontendAssets(context);
+  checkSigning(context);
+}
+
 module.exports = {
   extends: './electron-builder.yml',
   forceCodeSigning: true,
-  beforePack: './scripts/macos-signing-preflight.cjs',
+  beforePack,
   afterSign: './scripts/verify-macos-release.cjs',
   mac: {
     type: 'distribution',

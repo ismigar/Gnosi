@@ -147,6 +147,7 @@
     },
     "open": "Abrir",
     "loading": "Cargando…",
+    "load_error": "No se pudo cargar el lector PDF. Actualiza Gnosi y vuelve a intentarlo.",
     "add": "Añadir",
     "dismiss": "Descartar",
     "close": "Cerrar",

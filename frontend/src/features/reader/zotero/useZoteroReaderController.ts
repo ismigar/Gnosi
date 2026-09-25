@@ -34,6 +34,7 @@ interface ZoteroReaderControllerOptions {
   readonly kind: string;
   readonly language: string;
   readonly location: DocumentLocationEventDetail | null;
+  readonly loadErrorMessage: string;
   readonly noSourceMessage: string;
   readonly rawSrc: string;
 }
@@ -94,6 +95,7 @@ export function useZoteroReaderController({
   kind,
   language,
   location,
+  loadErrorMessage,
   noSourceMessage,
   rawSrc,
 }: ZoteroReaderControllerOptions): ZoteroReaderController {
@@ -166,6 +168,7 @@ export function useZoteroReaderController({
   useEffect(() => {
     annotationsRef.current = [];
     idMapRef.current = new Map();
+    hostReadyRef.current = false;
     initSentRef.current = false;
     if (!rawSrc) return;
     const controller = new AbortController();
@@ -180,6 +183,19 @@ export function useZoteroReaderController({
       controller.abort();
     };
   }, [loadAnnotations, rawSrc]);
+
+  useEffect(() => {
+    if (!rawSrc || readerReady || error) return undefined;
+    const timeout = window.setTimeout(() => {
+      if (!hostReadyRef.current) {
+        setReaderError({
+          source: rawSrc,
+          value: loadErrorMessage,
+        });
+      }
+    }, 12000);
+    return () => window.clearTimeout(timeout);
+  }, [error, loadErrorMessage, rawSrc, readerReady]);
 
   useEffect(() => {
     locationRef.current = location;
