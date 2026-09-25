@@ -35,3 +35,14 @@ export function profileModelLabel(
     if (route && name) return `${name} — ${route}`;
     return route || name || '';
 }
+
+/** Translate a model's catalog recommendation label (distinct from its agent name). */
+export function modelRecommendationLabel(
+    profile: string | undefined,
+    t: (key: string, options?: { defaultValue?: string }) => string,
+): string | undefined {
+    if (!profile) return undefined;
+    const key = `model_comparison.profiles.${profile}`;
+    const label = t(key, { defaultValue: '' });
+    return label && label !== key ? label : undefined;
+}

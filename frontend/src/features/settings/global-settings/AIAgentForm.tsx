@@ -1,5 +1,5 @@
-import { profileDisplayName, profileModelLabel } from '../../../shared/ai/assistantProfiles';
-import type { AgentDraft, SettingsAgent, SettingsModel } from './types';
+import { modelRecommendationLabel, profileDisplayName, profileModelLabel } from '../../../shared/ai/assistantProfiles';
+import type { AgentDraft, SettingsModel } from './types';
 import type { NormalizedSkill, NormalizedTool } from '../AI/aiSettingsUtils';
 import { Activity } from 'lucide-react';
 import AgentContextSources from '../../agent-context/AgentContextSources';
@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { AgentModelStrategyFields } from './AgentModelStrategyFields';
 import { readModelStrategy, reconcileModelStrategy } from './agentModelStrategy';
 
-export function AIAgentForm({ agent, onSave, aiRegistry, profiles = [], skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; profiles?: readonly SettingsAgent[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
+export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(agent.name || '');
   const [provider, setProvider] = useState(agent.provider || '');
@@ -103,14 +103,12 @@ export function AIAgentForm({ agent, onSave, aiRegistry, profiles = [], skills, 
             {[...grouped.entries()].map(([prov, modelIds]) => (
               <optgroup key={prov} label={prov}>
                 {modelIds.map(mid => {
-                  const assignedProfiles = profiles
-                    .filter(profile => profile.provider === prov && profile.model === mid)
-                    .map(profile => profileDisplayName(profile, t))
-                    .filter(Boolean);
-                  const profileNames = [...new Set(assignedProfiles)].join(', ');
+                  const recommendation = modelRecommendationLabel(
+                    aiRegistry.find(row => row.provider === prov && row.model_id === mid)?.profile, t,
+                  );
                   return (
                     <option key={mid} value={`${prov}||${mid}`}>
-                      {profileModelLabel(profileNames || undefined, prov, mid)}
+                      {profileModelLabel(recommendation, prov, mid)}
                     </option>
                   );
                 })}

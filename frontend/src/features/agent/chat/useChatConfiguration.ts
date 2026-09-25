@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
+import { fetchAiModelComparison } from '../../../shared/api/ai';
 import { resolveAgentRuntimeSelection } from '../model/agentChatAgentUtils';
 import { isRecord } from '../model/agentChatMessageTypes';
 import { logChatError } from './chatDiagnostics';
@@ -12,6 +13,7 @@ export interface ChatAgentProfile {
   readonly icon?: string;
   readonly provider?: string;
   readonly model?: string;
+  readonly modelProfile?: string;
 }
 
 export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
@@ -35,9 +37,16 @@ export function useChatConfiguration({ forcedAgentId, selectedAgentId, setSelect
   const [agentList, setAgentList] = useState<ChatAgentProfile[]>([]);
   const loadConfig = useCallback(async () => {
     try {
-      const data = await fetchConfiguration();
+      const [data, comparison] = await Promise.all([
+        fetchConfiguration(), fetchAiModelComparison().catch(() => null),
+      ]);
       const ai = isRecord(data.ai) ? data.ai : {};
-      const agents = enabledChatAgents(ai.agents);
+      const agents = enabledChatAgents(ai.agents).map(agent => {
+        const model = comparison?.models.find(candidate => candidate.routes.some(route =>
+          route.provider === agent.provider && route.model_id === agent.model,
+        ));
+        return { ...agent, modelProfile: model?.profile };
+      });
       setAgentList(agents);
       const selection = resolveAgentRuntimeSelection(agents, forcedAgentId, selectedAgentId, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
       if (selection.agent) setLoadedAgent(selection.agent);
