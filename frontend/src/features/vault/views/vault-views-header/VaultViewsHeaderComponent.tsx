@@ -39,6 +39,8 @@ export function VaultViewsHeader({
     recordCount,
     referenceTableId,
     searchTerm,
+    searchScope = 'view',
+    setSearchScope,
     setSearchTerm,
     tableName,
     templates = [],
@@ -49,7 +51,9 @@ export function VaultViewsHeader({
         views,
         activeViewId,
         recordCount,
-    ), [activeViewId, notes, recordCount, views]);
+        searchTerm,
+        searchScope,
+    ), [activeViewId, notes, recordCount, views, searchTerm, searchScope]);
     const tabViews = useMemo(() => visibleTabViews(views), [views]);
     const handleViewAction = useCallback((
         view: HeaderView,
@@ -91,6 +95,8 @@ export function VaultViewsHeader({
                         <HeaderSearchActions
                             onEditSchema={onEditSchema}
                             searchTerm={searchTerm}
+                            searchScope={searchScope}
+                            setSearchScope={setSearchScope}
                             setSearchTerm={setSearchTerm}
                         />
                         <NewRecordMenu

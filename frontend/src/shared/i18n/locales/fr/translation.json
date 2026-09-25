@@ -3165,6 +3165,12 @@
     "remove_favorite": "Retirer des favoris"
   },
   "views_header": {
+    "search_scope": "Portée de la recherche",
+    "search_scope_view": "Cette vue",
+    "search_scope_table": "Toute la table",
+    "search_entire_table": "Rechercher dans toute la table",
+    "no_search_results_view": "Aucun résultat dans cette vue. Ses filtres restent actifs.",
+    "no_search_results_table": "Aucun résultat dans cette table.",
     "manage_views": "Vues",
     "add_new_view": "Ajouter une nouvelle vue",
     "hide_view": "Masquer la vue",

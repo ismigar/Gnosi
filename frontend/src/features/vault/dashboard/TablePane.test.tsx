@@ -29,6 +29,29 @@ beforeEach(() => {
 afterEach(async () => { await harness?.unmount(); });
 
 describe('dashboard to view data preservation', () => {
+  it.each(['inline', 'tab', 'split'] as const)('searches beyond nested view filters without changing the saved view in %s mode', async mode => {
+    harness = await renderController('table/table/view/main', controller => <TablePane dashboard={controller} tableId="table" mode={mode} />);
+    const filterTree = { conjunction: 'and', rules: [{ field: 'status', operator: 'equals', value: 'Open' }] };
+    const pages: Page[] = [
+      { id: 'open', title: 'Open record', metadata: { table_id: 'table', status: 'Open' } },
+      { id: 'closed', title: 'Target record', metadata: { table_id: 'table', status: 'Closed' } },
+    ];
+    await harness.run(controller => {
+      controller.setRegistry(previous => ({ ...previous, views: [{ id: 'filtered', name: 'Filtered', table_id: 'table', type: 'table', filterTree }] }));
+      controller.setActiveViewId('filtered');
+      controller.setTableNotes(pages);
+      controller.setVisibleTableRecordsById({ table: pages });
+      controller.setSearchTerm('Target');
+    });
+    expect(harness.container.textContent).toContain('No matches in this view. Its filters still apply.');
+    await harness.run(controller => { controller.setSearchScope('table'); });
+    expect(probe.mock.lastCall?.[0]?.activeView?.filterTree).toBeUndefined();
+    expect(probe.mock.lastCall?.[0]?.notes).toEqual(pages);
+    expect(harness.current.registry.views.find(view => view.id === 'filtered')?.filterTree).toEqual(filterTree);
+    await harness.run(controller => { controller.setSearchTerm(''); });
+    expect(harness.current.searchScope).toBe('view');
+    expect(probe.mock.lastCall?.[0]?.activeView?.filterTree).toEqual(filterTree);
+  });
   it.each(['inline', 'tab', 'split'] as const)('preserves original rows and opaque metadata in %s mode', async mode => {
     harness = await renderController('table/table/view/main', controller => (
       <TablePane dashboard={controller} tableId="table" mode={mode} />

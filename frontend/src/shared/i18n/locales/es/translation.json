@@ -1246,6 +1246,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Ámbito de la búsqueda",
+    "search_scope_view": "Esta vista",
+    "search_scope_table": "Toda la tabla",
+    "search_entire_table": "Buscar en toda la tabla",
+    "no_search_results_view": "No hay coincidencias en esta vista. Sus filtros siguen activos.",
+    "no_search_results_table": "No hay coincidencias en esta tabla.",
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloqueada)",
     "more_actions": "Más acciones",

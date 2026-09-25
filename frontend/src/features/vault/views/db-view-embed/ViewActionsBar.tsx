@@ -4,6 +4,7 @@ import { Search, X, SlidersHorizontal, Rows3, LayoutTemplate, Plus } from 'lucid
 import { ViewTools } from './ViewTools';
 import { NewRecordMenu } from './NewRecordMenu';
 import type { ViewActionsProps } from './types';
+import { ViewSearchScopeSelect } from '../ViewSearchScope';
 export function ViewActionsBar(props: ViewActionsProps) {
     const { onAddView, onOpenConfig, searchTerm, setSearchTerm, showSearch, setShowSearch, density, onToggleDensity, activeFilterCount = 0, resultCount = 0, totalCount = 0, presets = [], onSavePreset, onApplyPreset } = props;
     const { t } = useTranslation();
@@ -43,6 +44,7 @@ export function ViewActionsBar(props: ViewActionsProps) {
                 </div>
             )}
             {showSearch ? (
+                <>
                 <div className="flex items-center gap-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1">
                     <Search size={12} className="text-[var(--text-tertiary)]" />
                     <input
@@ -63,6 +65,8 @@ export function ViewActionsBar(props: ViewActionsProps) {
                         <X size={12} />
                     </button>
                 </div>
+                {props.setSearchScope && <ViewSearchScopeSelect scope={props.searchScope ?? 'view'} onScopeChange={props.setSearchScope} />}
+                </>
             ) : (
                 <button
                     type="button"

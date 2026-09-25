@@ -4,6 +4,7 @@ import type { FilterGroup, FilterNode, FilterRule, FilterValue } from '../../../
 import type { TableProperty } from '../../../../shared/records/model/schemaTypes';
 import type { ViewAppearance, ViewColumn, ViewSort } from '../../view-config/page-view-modal/types';
 import type { VaultEditorContextValue } from '../../../../shared/editor/VaultEditorContext';
+import type { ViewSearchScope } from '../../../../shared/records/hooks/useViewSearch';
 
 export type Metadata = Record<string, FilterValue>;
 export interface EmbedRow extends VaultViewPage { title: string; metadata: Metadata; content?: string; }
@@ -19,6 +20,7 @@ export interface QuickPreset {
     id: string;
     label: string;
     searchTerm?: string;
+    searchScope?: ViewSearchScope;
     density?: string;
     groupMode?: string;
     activeViewId?: string;
@@ -83,6 +85,8 @@ export interface ViewActionsProps {
     templates?: readonly EmbedRow[];
     onOpenConfig?: (() => void) | null;
     searchTerm: string;
+    searchScope?: ViewSearchScope;
+    setSearchScope?: (scope: ViewSearchScope) => void;
     setSearchTerm?: (term: string) => void;
     showSearch: boolean;
     setShowSearch?: (value: boolean) => void;
