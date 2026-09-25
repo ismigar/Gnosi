@@ -36,19 +36,24 @@ export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Op
   const [defaultAgentId, setDefaultAgentId] = useState('');
   const loadConfig = useCallback(async () => {
     try {
-      const [data, comparison] = await Promise.all([fetchConfiguration(), fetchAiModelComparison().catch(() => null)]);
+      const data = await fetchConfiguration();
       const ai = isRecord(data.ai) ? data.ai : {};
-      const profiles = enabledChatAgents(ai.agents).filter(profile => profile.managed_by !== 'llm-wiki').map(profile => {
-        const model = comparison?.models.find(candidate => candidate.routes.some(route =>
-          route.provider === profile.provider && route.model_id === profile.model,
-        ));
-        return { ...profile, modelProfile: model?.profile };
-      });
+      const profiles = enabledChatAgents(ai.agents).filter(profile => profile.managed_by !== 'llm-wiki');
       const principal = principalAssistant(profiles, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
       setAgentList(profiles);
       setDefaultAgentId(principal?.id || '');
       // Only initialize an unbound conversation. Existing histories keep their identity.
       setSelectedAgentId(current => current || principal?.id || '');
+      // Catalog labels enrich the selector without delaying the conversation.
+      void fetchAiModelComparison().then(comparison => {
+        if (!Array.isArray(comparison.models)) return;
+        setAgentList(current => current.map(profile => {
+          const model = comparison.models.find(candidate => candidate.routes.some(route =>
+            route.provider === profile.provider && route.model_id === profile.model,
+          ));
+          return { ...profile, modelProfile: model?.profile };
+        }));
+      }).catch(() => {});
     } catch (error) { logChatError('agent-chat-configuration', error); }
   }, [setSelectedAgentId]);
   const onConfigChanged = useCallback(() => { void loadConfig(); }, [loadConfig]);

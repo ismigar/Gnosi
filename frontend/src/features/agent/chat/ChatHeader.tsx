@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Info, X, Minimize2, Maximize2 } from 'lucide-react';
 import { emitAppEvent } from '../../../shared/platform/app-events';
-import { modelRecommendationLabel, profileModelLabel } from '../../../shared/ai/assistantProfiles';
+import { modelRecommendationLabel, profileDisplayName, profileModelLabel } from '../../../shared/ai/assistantProfiles';
 import { ChatIcon } from './ChatIcon';
 import type { ChatAgentProfile } from './useChatConfiguration';
 
@@ -72,7 +72,7 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                         >
                             {!agentList.some(profile => profile.id === selectedAgentId) && <option value={selectedAgentId} disabled>{t('chat.model_not_configured')}</option>}
                             {agentList.map((a) => (
-                                <option key={a.id} value={a.id}>{profileModelLabel(
+                                <option key={a.id} value={a.id}>{profileDisplayName(a, t)} · {profileModelLabel(
                                     modelRecommendationLabel(a.modelProfile, t), a.provider, a.model,
                                 )}</option>
                             ))}

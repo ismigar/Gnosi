@@ -13,6 +13,10 @@ def configuration():
     }]}
 
 
+def translation_settings(ai):
+    return next(profile for profile in ai["agents"] if profile["id"] == "builtin.translation.default")
+
+
 def test_translation_profile_copies_defaults_once_and_preserves_edits():
     ai = configuration()
     assert profiles.reconcile(ai, {})
@@ -20,12 +24,12 @@ def test_translation_profile_copies_defaults_once_and_preserves_edits():
     assert selected["id"] == "builtin.translation.default"
     assert (selected["provider"], selected["model"]) == ("fixture", "first")
     ai["agents"][0]["model"] = "changed-principal"
-    ai["agents"][1].update(model="chosen", persona="Keep me", context_refs=[{"id": "source"}])
+    translation_settings(ai).update(model="chosen", persona="Keep me", context_refs=[{"id": "source"}])
     expected = deepcopy(ai)
     assert not profiles.reconcile(ai, {})
     assert ai == expected
     assert profiles.select_profile(ai, skill_id("translation"))["model"] == "chosen"
-    assert profiles.select_profile(ai, skill_id("writing"))["id"] == "personal"
+    assert profiles.select_profile(ai, skill_id("writing"))["id"] == "builtin.ai-platform.default"
 
 
 def test_disable_and_reenable_preserve_translation_settings():
@@ -43,11 +47,11 @@ def test_unavailable_profile_never_silently_uses_the_principal(change):
     ai = configuration()
     profiles.reconcile(ai, {})
     if change == "missing-skill":
-        ai["agents"][1]["skill_ids"] = []
+        translation_settings(ai)["skill_ids"] = []
     elif change == "disabled":
-        ai["agents"][1]["enabled"] = False
+        translation_settings(ai)["enabled"] = False
     else:
-        ai["agents"].append({**ai["agents"][1], "id": "duplicate"})
+        ai["agents"].append({**profiles.select_profile(ai, skill_id("translation")), "id": "duplicate"})
     with pytest.raises(RuntimeError, match="plugin_profile_unavailable"):
         profiles.select_profile(ai, skill_id("translation"))
 

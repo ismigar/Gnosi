@@ -1,9 +1,11 @@
 import { act, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { fetchAiModelComparison } from '../../../shared/api/ai';
 import { fetchConfiguration } from '../../../shared/api/configuration';
 import { useChatConfiguration } from './useChatConfiguration';
 
+vi.mock('../../../shared/api/ai', () => ({ fetchAiModelComparison: vi.fn().mockResolvedValue({ models: [] }) }));
 vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: vi.fn() }));
 vi.mock('../../../shared/platform/configEvents', () => ({ useConfigChanged: () => undefined }));
 let host: HTMLDivElement;
@@ -21,11 +23,12 @@ function Harness({ initial = 'other' }: { initial?: string }) {
 }
 function current() {
   return JSON.parse(host.querySelector('output')?.textContent || '{}') as {
-    agentConfig: { id: string } | null; agentList: { id: string }[]; selectedAgentId: string;
+    agentConfig: { id: string } | null; agentList: { id: string; modelProfile?: string }[]; selectedAgentId: string;
   };
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(fetchAiModelComparison).mockResolvedValue({ models: [] } as unknown as Awaited<ReturnType<typeof fetchAiModelComparison>>);
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   host = document.createElement('div'); root = createRoot(host);
 });
@@ -57,4 +60,15 @@ it('excludes disabled and retired managed profiles', async () => {
   vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: [profiles[0], { id: 'disabled', enabled: false }, { id: 'wiki', managed_by: 'llm-wiki' }] } });
   await act(async () => { root.render(<Harness />); await Promise.resolve(); });
   expect(current().agentList.map(profile => profile.id)).toEqual(['other']);
+});
+
+it('loads the profile before model labels and then enriches the matching route', async () => {
+  let resolveComparison!: (value: Awaited<ReturnType<typeof fetchAiModelComparison>>) => void;
+  vi.mocked(fetchAiModelComparison).mockReturnValueOnce(new Promise(resolve => { resolveComparison = resolve; }));
+  vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: [{ id: 'principal', name: 'My assistant', provider: 'openrouter', model: 'google/gemini' }], active_agent_id: 'principal' } });
+  await act(async () => { root.render(<Harness initial="" />); });
+  expect(current().agentConfig?.id).toBe('principal');
+  expect(current().agentList[0]?.modelProfile).toBeUndefined();
+  await act(async () => { resolveComparison({ models: [{ profile: 'allround', routes: [{ provider: 'openrouter', model_id: 'google/gemini' }] }] } as Awaited<ReturnType<typeof fetchAiModelComparison>>); });
+  expect(current().agentList[0]?.modelProfile).toBe('allround');
 });

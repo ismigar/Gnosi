@@ -215,15 +215,11 @@ export function ModelComparisonSetupPanel({
                             disabled={
                                 !provider || !route
                                 || (needsApiKey && !setup.apiKey.trim())
-                                || setup.connectionStatus === 'testing'
                                 || busyModelId === setup.model.id
                             }
                             onClick={() => { void onTestConnection(); }}
                             type="button"
                         >
-                            {setup.connectionStatus === 'testing' ? (
-                                <Loader2 className="animate-spin" size={16} />
-                            ) : null}
                             {t('model_comparison.setup.test_connection')}
                         </button>
                     )}
