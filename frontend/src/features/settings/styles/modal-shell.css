@@ -48,6 +48,9 @@
 }
 
 .settings-modal {
+    --gnosi-action-bg: var(--gnosi-primary);
+    --focus-outline-color: var(--gnosi-primary);
+    --focus-ring: 0 0 0 3px var(--gnosi-primary);
     position: fixed;
     top: 50%;
     left: 50%;
@@ -402,4 +405,8 @@
 
 .settings-plugin-item {
     transition: all 0.2s;
+}
+
+.settings-modal :is(.btn-gnosi-primary, .btn-gnosi-primary7) {
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);
 }
