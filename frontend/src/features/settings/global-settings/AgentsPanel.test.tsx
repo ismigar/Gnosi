@@ -11,11 +11,11 @@ vi.mock('../../../shared/ui/previews/IconRenderer', () => ({ IconRenderer: () =>
 let host: HTMLDivElement;
 let root: Root;
 const principal = { id: 'brain', name: 'Cervell', model: 'test', enabled: true };
-function Harness({ editing = false, empty = false, onOpenActivity }: { editing?: boolean; empty?: boolean; onOpenActivity?: () => void }) {
+function Harness({ editing = false, empty = false, onOpenActivity, agents = [principal] }: { agents?: AgentDraft[]; editing?: boolean; empty?: boolean; onOpenActivity?: () => void }) {
   const [editingAgent, setEditingAgent] = useState<AgentDraft | null>(editing ? principal : null);
   const [agentEditorTarget, setAgentEditorTarget] = useState<HTMLDivElement | null>(null);
   const context = {
-    draft: { ai: { agents: empty ? [] : [principal], active_agent_id: empty ? null : principal.id, providers: {} } },
+    draft: { ai: { agents: empty ? [] : agents, active_agent_id: empty ? null : principal.id, providers: {} } },
     editingAgent, setEditingAgent, agentEditorTarget, setAgentEditorTarget,
     aiRegistry: [], aiResources: { skills: [], tools: [] },
     t: (key: string) => key, tn: (key: string) => key,
@@ -58,4 +58,15 @@ it('keeps first-time setup focused and allows cancellation and activity navigati
   expect(host.querySelector('[data-settings-editor-for="agent:new"]')).toBeNull();
   click('activity.open_activity');
   expect(onOpenActivity).toHaveBeenCalledOnce();
+});
+
+it('localizes shipped profile names while preserving custom names', () => {
+  act(() => { root.render(<Harness agents={[principal,
+    { id: 'builtin', name: 'Writing and knowledge capture', managed_by: 'builtin:ai-platform' },
+    { id: 'custom', name: 'My writing assistant', managed_by: 'builtin:ai-platform' },
+  ]} />); });
+  click('settings.ai.assistant.advanced');
+  expect(host.textContent).toContain('settings.ai.assistant.builtin_profiles.ai-platform');
+  expect(host.textContent).not.toContain('Writing and knowledge capture');
+  expect(host.textContent).toContain('My writing assistant');
 });

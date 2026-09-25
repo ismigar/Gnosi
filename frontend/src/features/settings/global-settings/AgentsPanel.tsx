@@ -6,7 +6,7 @@ import { IconRenderer } from '../../../shared/ui/previews/IconRenderer';
 import { InlineEditorPlacement } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Plus } from 'lucide-react';
 import React, { useState } from 'react';
-import { principalAssistant } from '../../../shared/ai/assistantProfiles';
+import { principalAssistant, profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Trash2 } from 'lucide-react';
@@ -31,7 +31,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
   >
     <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>{t('settings.ai.assistant.help')}</p>
     {!principal && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBlock: '16px' }}>
-      <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => { setAgentEditorTarget(null); setEditingAgent(current => current ? null : {}); }}>
+      <button type="button" className="btn-gnosi btn-gnosi-primary" style={{ backgroundColor: 'var(--gnosi-blue)' }} onClick={() => { setAgentEditorTarget(null); setEditingAgent(current => current ? null : {}); }}>
         {editingAgent ? <X size={16} /> : <Plus size={16} />}
         {editingAgent ? t('common.cancel') : t('settings.ai.assistant.setup')}
       </button>
@@ -39,10 +39,10 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
     {principal && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
     </button>}
-    {principal && expanded && <div className="ai-resources-panel">
+    {principal && expanded && <div className="ai-resources-panel" style={{ marginBottom: '20px' }}>
       <p>{t('settings.ai.assistant.profiles_help')}</p>
       {(!editingAgent || editingAgent.id) && <div>
-        <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
+        <button type="button" className="btn-gnosi btn-gnosi-primary" style={{ backgroundColor: 'var(--gnosi-blue)' }} onClick={() => {
           setAgentEditorTarget(null);
           setEditingAgent({});
         }}>
@@ -110,13 +110,15 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
       </InlineEditorPlacement>
     )}
     <div className="settings-configurable-list ai-agent-list" style={{ ...configurableGap('20px') }}>
-      {draft.ai.agents.filter(agent => expanded || agent.id === principal?.id).sort((a, b) => Number(b.id === principal?.id) - Number(a.id === principal?.id)).map(agent => (
+      {draft.ai.agents.filter(agent => expanded || agent.id === principal?.id).sort((a, b) => Number(b.id === principal?.id) - Number(a.id === principal?.id)).map(agent => {
+        const displayName = profileDisplayName(agent, t);
+        return (
         <React.Fragment key={agent.id}>
           <div
             className={`settings-configurable-item ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
             data-settings-item-id={`agent:${agent.id}`}
             onClick={() => { setEditingAgent(agent); }}
-            title={tn('ai.configure_name', { name: agent.name })}
+            title={tn('ai.configure_name', { name: displayName })}
             style={{
               width: '100%', padding: '24px', border: '1px solid var(--settings-border)',
               background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -129,7 +131,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
                 <GnosiToggle
                   active={agent.enabled !== false}
                   display={agent.id === principal?.id && agent.enabled !== false}
-                  label={tn('ai.enable_agent', { name: agent.name })}
+                  label={tn('ai.enable_agent', { name: displayName })}
                   scale={1.1}
                   style={{ marginRight: '10px' }}
                   onChange={() => {
@@ -156,7 +158,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
                 />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
+                <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{displayName}</div>
                 {agent.id === principal?.id && <strong>{t('settings.ai.assistant.principal')}</strong>}
                 {agent.id !== principal?.id && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={agent.enabled === false} onClick={event => { event.stopPropagation(); setDraft(prev => ({ ...prev, ai: { ...prev.ai, active_agent_id: agent.id } })); }}>{t('settings.ai.assistant.make_principal')}</button>}
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.model}</div>
@@ -166,10 +168,10 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
-              <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(agent); }} aria-label={tn('ai.configure_name', { name: agent.name })} title={tn('ai.configure_name', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
+              <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(agent); }} aria-label={tn('ai.configure_name', { name: displayName })} title={tn('ai.configure_name', { name: displayName })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
                 <SettingsIcon size={22} />
               </button>
-              <button type="button" disabled={agent.id === principal?.id || Boolean(agent.managed_by)} onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={tn('ai.delete_name', { name: agent.name })} title={tn('ai.delete_name', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
+              <button type="button" disabled={agent.id === principal?.id || Boolean(agent.managed_by)} onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={tn('ai.delete_name', { name: displayName })} title={tn('ai.delete_name', { name: displayName })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
                 <Trash2 size={22} />
               </button>
             </div>
@@ -181,7 +183,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
             />
           )}
         </React.Fragment>
-      ))}
+      ); })}
     </div>
     {onOpenActivity && <div style={{ marginTop: '24px' }}>
       <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={onOpenActivity}>
