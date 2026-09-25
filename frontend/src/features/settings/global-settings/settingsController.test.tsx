@@ -179,7 +179,7 @@ describe('settings controller persistence contracts', () => {
     act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [...previous.ai.agents, { ...agent, id: 'other-profile', name: 'Other profile' }] } })); });
     expect(container.textContent).toContain('Fixture agent');
     expect(container.textContent).not.toContain('Other profile');
-    const advanced = container.querySelector<HTMLButtonElement>('button[aria-expanded]');
+    const advanced = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')].find(button => button.textContent.includes('assistant.advanced'));
     if (!advanced) throw new Error('Missing advanced profiles control');
     act(() => { advanced.click(); });
     expect(container.textContent).toContain('Other profile');

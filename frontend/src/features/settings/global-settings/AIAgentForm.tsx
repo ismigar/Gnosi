@@ -13,23 +13,14 @@ import { useModelReliability } from '../AI/modelReliability';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
+export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
   const { t } = useTranslation();
-  const [name, setName] = useState(agent.name || '');
-  const [provider, setProvider] = useState(agent.provider || '');
-  const [model, setModel] = useState(agent.model || '');
-  const [icon, setIcon] = useState(agent.icon || '🤖');
-  // Instructions (system prompt → agent.persona) and reference context
-  // (knowledge/notes → agent.context). Distinct concerns: "who you are" vs
-  // "data you must consider". Both optional; backend appends context to the
-  // system message under a "## Context" heading (see factory.py).
-  const [persona, setPersona] = useState(agent.persona || '');
-  const [context, setContext] = useState(agent.context || '');
-  // Attached sources: references (files, pages, databases, the vault), never
-  // their content — the agent reads them on demand through its scoped tools
-  // (directive `agent_context_sources.md`).
-  const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
-  const [selectedSkillIds, setSelectedSkillIds] = useState(agent.skill_ids || []);
+  const [form, setForm] = useState({
+    ...agent, name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
+    icon: agent.icon || '🤖', persona: agent.persona || '', context: agent.context || '',
+    context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
+  });
+  const { name, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
   const [savingAgent, setSavingAgent] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -44,6 +35,13 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
     }
     return map;
   }, [aiRegistry]);
+  const update = (patch: Partial<typeof form>) => {
+    const next = { ...form, ...patch };
+    setForm(next);
+    if (agent.id && next.name.trim() && grouped.get(next.provider)?.includes(next.model)) {
+      onChange?.({ ...next, model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
+    }
+  };
   // Composite value for the single select: "provider||model". The "||" is
   // safe — neither provider ids nor model ids contain that pattern.
   const selectedKey = (provider && model) ? `${provider}||${model}` : '';
@@ -66,14 +64,14 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
             <FormGroup label={t('settings.ai.assistant.profile_name')}>
-              <input type="text" className="gnosi-input" value={name} onChange={e => { setName(e.target.value); }} placeholder={t('settings.ai.agent_name_placeholder')} />
+              <input type="text" className="gnosi-input" value={name} onChange={e => { update({ name: e.target.value }); }} placeholder={t('settings.ai.agent_name_placeholder')} />
             </FormGroup>
           </div>
           <div style={{ width: '72px' }}>
             <FormGroup label={t('settings.ai.icon_label')}>
               <AgentIconSelect
                 value={icon}
-                onChange={setIcon}
+                onChange={icon => { update({ icon }); }}
                 label={t('settings.ai.icon_label')}
                 searchPlaceholder={t('icon_picker.search_placeholder')}
                 noResultsLabel={t('icon_picker.no_icons')}
@@ -91,8 +89,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
           <select className="gnosi-select" value={selectedKey} aria-label={t('settings.ai.assistant.profile_model')}
             onChange={e => {
               const [p, m] = e.target.value.split('||');
-              setProvider(p || '');
-              setModel(m || '');
+              update({ provider: p || '', model: m || '' });
             }}>
             <option value="">{t('settings.ai.select_model_option')}</option>
             {[...grouped.entries()].map(([prov, modelIds]) => (
@@ -131,21 +128,21 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
 
         <FormGroup label={t('settings.ai.instructions_label')}
           description={t('settings.ai.instructions_desc')}>
-          <textarea className="gnosi-input" value={persona} onChange={e => { setPersona(e.target.value); }}
+          <textarea className="gnosi-input" value={persona} onChange={e => { update({ persona: e.target.value }); }}
             placeholder={t('settings.ai.instructions_placeholder')} rows={4}
             style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
         </FormGroup>
 
         <FormGroup label={t('settings.ai.context_label')}
           description={t('settings.ai.context_desc')}>
-          <textarea className="gnosi-input" value={context} onChange={e => { setContext(e.target.value); }}
+          <textarea className="gnosi-input" value={context} onChange={e => { update({ context: e.target.value }); }}
             placeholder={t('settings.ai.context_placeholder')} rows={4}
             style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
         </FormGroup>
 
         <FormGroup label={t('settings.ai.context_sources_label')}
           description={t('settings.ai.context_sources_desc')}>
-          <AgentContextSources value={contextRefs} onChange={setContextRefs} />
+          <AgentContextSources value={contextRefs} onChange={context_refs => { update({ context_refs }); }} />
         </FormGroup>
 
         <FormGroup
@@ -158,12 +155,12 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
             tools={tools}
             registry={aiRegistry}
             selectedIds={selectedSkillIds}
-            onChange={setSelectedSkillIds}
+            onChange={skill_ids => { update({ skill_ids }); }}
             onSelectSkill={onSelectSkill}
           />
         </FormGroup>
       </div>
-      <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+      {!agent.id && <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           className="btn-gnosi-primary"
           disabled={!name || !grouped.get(provider)?.includes(model) || savingAgent}
@@ -196,7 +193,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, aiRegistry, sk
           {savingAgent && <Loader2 size={16} className="animate-spin" />}
           {t(agent.id ? 'settings.ai.assistant.save_changes' : purpose === 'principal' ? 'settings.ai.assistant.configure_action' : 'settings.ai.assistant.create_profile')}
         </button>
-      </div>
+      </div>}
       {saveError && <p role="alert">{t('settings.ai.model_strategy.save_error')}</p>}
     </div>
   );

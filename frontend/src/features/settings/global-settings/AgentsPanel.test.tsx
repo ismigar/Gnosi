@@ -5,8 +5,9 @@ import { AgentsPanel } from './AgentsPanel';
 import type { AgentDraft, SettingsAgent } from './types';
 
 vi.mock('./AIAgentForm', () => ({
-  AIAgentForm: ({ agent, purpose, onSave }: { agent: AgentDraft; purpose: string; onSave: (value: AgentDraft) => Promise<void> }) => <div data-purpose={purpose}>
+  AIAgentForm: ({ agent, purpose, onSave, onChange }: { onChange: (value: AgentDraft) => void; agent: AgentDraft; purpose: string; onSave: (value: AgentDraft) => Promise<void> }) => <div data-purpose={purpose}>
     <input aria-label="Profile name" defaultValue={agent.name || ''} />
+    <button onClick={() => { onChange({ ...agent, name: "Auto saved" }); }}>Edit fixture</button>
     <button onClick={() => { void onSave({ ...agent, name: agent.name || 'New profile', model: 'test' }); }}>Save fixture</button>
   </div>,
 }));
@@ -139,4 +140,26 @@ it('shows editable plugin profiles without making them the personal default', as
   await act(async () => { save?.click(); await Promise.resolve(); });
   expect(savedAi().active_agent_id).toBe(principal.id);
   expect(savedAi().agents.find(agent => agent.id === plugin.id)?.managed_by).toBe('builtin:mail');
+});
+
+it('toggles profile editors and keeps only one open across personal and plugin profiles', () => {
+  const plugin = { id: 'builtin.mail.default', name: 'Mail profile', managed_by: 'builtin:mail' };
+  act(() => { root.render(<Harness profiles={[principal, plugin]} />); });
+  const toggle = (name: string) => { act(() => { host.querySelector<HTMLButtonElement>(`[aria-label="settings.ai.assistant.configure_profile:${name}"]`)?.click(); }); };
+  toggle('Cervell');
+  expect(host.querySelectorAll('[data-settings-editor-for]')).toHaveLength(1);
+  toggle('Mail profile');
+  expect(host.querySelector('[data-settings-editor-for="agent:brain"]')).toBeNull();
+  expect(host.querySelectorAll('[data-settings-editor-for]')).toHaveLength(1);
+  toggle('Mail profile');
+  expect(host.querySelector('[data-settings-editor-for]')).toBeNull();
+});
+
+it('puts profile edits into the settings autosave draft before collapsing', () => {
+  act(() => { root.render(<Harness editing />); });
+  click('Edit fixture');
+  expect(savedAi().agents[0]?.name).toBe('Auto saved');
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-expanded="true"][aria-label^="settings.ai.assistant.configure_profile"]')?.click(); });
+  expect(host.querySelector('[data-settings-editor-for]')).toBeNull();
+  expect(savedAi().agents[0]?.name).toBe('Auto saved');
 });

@@ -31,6 +31,11 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
           key={editingAgent.id || 'new-agent'}
           agent={editingAgent}
           purpose={!editingAgent.managed_by && (!principal || editingAgent.id === principal.id) ? 'principal' : 'profile'}
+          onChange={updated => {
+            setDraft(prev => ({ ...prev, ai: { ...prev.ai,
+              agents: prev.ai.agents.map(item => item.id === updated.id ? { ...item, ...updated, enabled: true } : item),
+            } }));
+          }}
           onSave={async (newAgent) => {
             const isNew = !newAgent.id;
             const id = newAgent.id || `agent_${String(Date.now())}`;
@@ -80,7 +85,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
       <div
         className={`settings-configurable-item ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
         data-settings-item-id={`agent:${agent.id}`}
-        onClick={() => { setEditingAgent(agent); }}
+        onClick={() => { setEditingAgent(current => current?.id === agent.id ? null : agent); }}
         title={t('settings.ai.assistant.configure_profile', { name: agent.name })}
         style={{
           width: '100%', padding: '24px', border: '1px solid var(--settings-border)',
@@ -125,7 +130,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
               agents: prev.ai.agents.map(item => item.id === agent.id ? { ...item, enabled: true } : item),
             } }));
           }}>{t('settings.ai.assistant.make_principal')}</button>}
-          <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(agent); }} aria-label={t('settings.ai.assistant.configure_profile', { name: agent.name })} title={t('settings.ai.assistant.configure_profile', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
+          <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(current => current?.id === agent.id ? null : agent); }} aria-expanded={editingAgent?.id === agent.id} aria-label={t('settings.ai.assistant.configure_profile', { name: agent.name })} title={t('settings.ai.assistant.configure_profile', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
             <SettingsIcon size={22} />
           </button>
           {agent.id !== principal?.id && !agent.managed_by && <button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={t('settings.ai.assistant.delete_profile', { name: agent.name })} title={t('settings.ai.assistant.delete_profile', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
@@ -145,7 +150,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
     title={t('settings.ai.assistant.title')}
     icon={Bot}
     extra={principal && editingAgent && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setEditingAgent(null); }}>
-      <X size={16} />{t('common.cancel')}
+      <X size={16} />{t(editingAgent.id ? 'common.close' : 'common.cancel')}
     </button>}
   >
     <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>{t('settings.ai.assistant.help')}</p>
@@ -159,7 +164,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
     {principal && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
       {renderProfile(principal)}
     </div>}
-    {principal && <p className="settings-desc">{t('settings.ai.assistant.principal_help')}</p>}
+    {principal && <p className="settings-desc" style={{ marginTop: '20px' }}>{t('settings.ai.assistant.principal_help')}</p>}
     {draft.ai.agents.length > 0 && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
     </button>}

@@ -35,7 +35,7 @@ beforeEach(() => {
 afterEach(() => { act(() => { root.unmount(); }); host.remove(); vi.unstubAllGlobals(); });
 
 function Harness({ draft = agent, models = registry, purpose = 'profile' }: { draft?: AgentDraft; models?: SettingsModel[]; purpose?: 'principal' | 'profile' }) {
-  return <AIAgentForm agent={draft} purpose={purpose} aiRegistry={models} skills={[]} tools={[]} onSave={onSave} />;
+  return <AIAgentForm agent={draft} purpose={purpose} aiRegistry={models} skills={[]} tools={[]} onSave={onSave} onChange={value => { void onSave(value); }} />;
 }
 function render(draft = agent, models = registry) {
   act(() => { root.render(<Harness draft={draft} models={models} />); });
@@ -51,34 +51,26 @@ async function click(text: string) {
   await act(async () => { button.click(); await Promise.resolve(); });
 }
 
-it('keeps legacy agents fixed and retains their instructions and capabilities on save', async () => {
+it('keeps legacy agents fixed and retains their instructions and capabilities on save', () => {
   render();
   expect(host.querySelector('select')?.value).toBe('alpha||small');
   expect(host.querySelector('[role="switch"]')).toBeNull();
-  await click('settings.ai.assistant.save_changes');
+  select('profile_model', 'alpha||small');
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ ...agent,
     model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } }));
 });
 
-it('removes legacy model alternatives and saves exactly one selected LLM', async () => {
+it('removes legacy model alternatives and saves exactly one selected LLM', () => {
   render({ ...agent, model_strategy: { schema_version: 1, mode: 'adaptive', decision_engine: 'jev', allowed_models: [{ provider: 'beta', model: 'large' }] } });
   expect(host.querySelectorAll('select')).toHaveLength(1);
   select('profile_model', 'ollama||local');
-  await click('settings.ai.assistant.save_changes');
   expect(onSave.mock.calls[0]?.[0]).toMatchObject({ provider: 'ollama', model: 'local', model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
 });
 
-it('does not allow saving an unavailable primary model', () => {
-  render({ ...agent, model: 'removed' });
-  const button = [...host.querySelectorAll('button')].find(item => item.textContent === 'settings.ai.assistant.save_changes');
-  expect(button?.disabled).toBe(true);
-});
-
-it('reports a failed save', async () => {
-  onSave.mockRejectedValueOnce(new Error('save failed'));
+it('does not save on mount or show a save button for existing profiles', () => {
   render();
-  await click('settings.ai.assistant.save_changes');
-  expect(host.textContent).toContain('settings.ai.model_strategy.save_error');
+  expect(onSave).not.toHaveBeenCalled();
+  expect(host.querySelector('button')).toBeNull();
 });
 
 it.each(['principal', 'profile'] as const)('distinguishes %s setup from an existing profile edit', async purpose => {
