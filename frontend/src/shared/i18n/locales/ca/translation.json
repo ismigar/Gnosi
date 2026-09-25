@@ -4659,7 +4659,6 @@
     "folder_empty": "Aquesta carpeta està buida.",
     "load_more": "Carregar-ne més",
     "loading": "Carregant…",
-    "load_error": "No s’ha pogut carregar el lector PDF. Actualitza Gnosi i torna-ho a provar.",
     "count_of": "{{count}} de {{total}}",
     "close_esc": "Tancar (Esc)",
     "stop_slideshow": "Aturar presentació (Espai)",
@@ -4686,7 +4685,8 @@
     "index_updating": "S’està actualitzant la biblioteca. Pots consultar les fotos disponibles.",
     "index_update_failed": "No s’ha pogut actualitzar la biblioteca. Torna-ho a provar.",
     "index_update_paused": "L’actualització encara no s’ha confirmat. Torna a comprovar-ne l’estat.",
-    "index_retry_wait": "Reintent disponible en uns segons"
+    "index_retry_wait": "Reintent disponible en uns segons",
+    "reader_load_error": "No s’ha pogut carregar el lector PDF. Actualitza Gnosi i torna-ho a provar."
   },
   "tldraw": {
     "untitled_drawing": "Dibuix sense títol",

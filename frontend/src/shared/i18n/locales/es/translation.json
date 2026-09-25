@@ -147,7 +147,6 @@
     },
     "open": "Abrir",
     "loading": "Cargando…",
-    "load_error": "No se pudo cargar el lector PDF. Actualiza Gnosi y vuelve a intentarlo.",
     "add": "Añadir",
     "dismiss": "Descartar",
     "close": "Cerrar",
@@ -4632,7 +4631,8 @@
     "index_updating": "La biblioteca se está actualizando. Puedes consultar las fotos disponibles.",
     "index_update_failed": "No se ha podido actualizar la biblioteca. Vuelve a intentarlo.",
     "index_update_paused": "La actualización aún no se ha confirmado. Comprueba de nuevo su estado.",
-    "index_retry_wait": "Reintento disponible en unos segundos"
+    "index_retry_wait": "Reintento disponible en unos segundos",
+    "reader_load_error": "No se pudo cargar el lector PDF. Actualiza Gnosi y vuelve a intentarlo."
   },
   "tldraw": {
     "untitled_drawing": "Dibujo sin título",

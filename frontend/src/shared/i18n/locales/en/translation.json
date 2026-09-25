@@ -4573,7 +4573,6 @@
     "folder_empty": "This folder is empty.",
     "load_more": "Load more",
     "loading": "Loading…",
-    "load_error": "The PDF reader could not load. Update Gnosi and try again.",
     "count_of": "{{count}} of {{total}}",
     "close_esc": "Close (Esc)",
     "stop_slideshow": "Stop slideshow (Space)",
@@ -4600,7 +4599,8 @@
     "index_updating": "The library is updating. You can browse the available photos.",
     "index_update_failed": "The library could not be updated. Try again.",
     "index_update_paused": "The update has not been confirmed yet. Check its status again.",
-    "index_retry_wait": "Retry available shortly"
+    "index_retry_wait": "Retry available shortly",
+    "reader_load_error": "The PDF reader could not load. Update Gnosi and try again."
   },
   "tldraw": {
     "untitled_drawing": "Untitled drawing",

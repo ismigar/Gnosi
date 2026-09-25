@@ -24,7 +24,6 @@
     "cancel": "Annuler",
     "close": "Fermer",
     "loading": "Chargement…",
-    "load_error": "Le lecteur PDF n’a pas pu se charger. Mettez Gnosi à jour et réessayez.",
     "add": "Ajouter",
     "create": "Créer",
     "dismiss": "Ignorer",
@@ -4525,7 +4524,8 @@
     "index_updating": "La bibliothèque est en cours de mise à jour. Vous pouvez consulter les photos disponibles.",
     "index_update_failed": "La bibliothèque n’a pas pu être mise à jour. Réessayez.",
     "index_update_paused": "La mise à jour n’est pas encore confirmée. Vérifiez à nouveau son état.",
-    "index_retry_wait": "Nouvelle tentative disponible dans quelques secondes"
+    "index_retry_wait": "Nouvelle tentative disponible dans quelques secondes",
+    "reader_load_error": "Le lecteur PDF n’a pas pu se charger. Mettez Gnosi à jour et réessayez."
   },
   "tldraw": {
     "untitled_drawing": "Dessin sans titre",
