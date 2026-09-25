@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Info, X, Minimize2, Maximize2 } from 'lucide-react';
 import { emitAppEvent } from '../../../shared/platform/app-events';
+import { profileDisplayName, profileModelLabel } from '../../../shared/ai/assistantProfiles';
 import { ChatIcon } from './ChatIcon';
 import type { ChatAgentProfile } from './useChatConfiguration';
 
@@ -45,7 +46,7 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                         <ChatIcon icon={agentIcon} size={18} />
                     </div>
                     <div>
-                        {embedded || agentList.length < 2 ? (
+                        {agentList.length < 2 && agentList.some(profile => profile.id === selectedAgentId) ? (
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 {agentName}
                             </div>
@@ -69,8 +70,9 @@ export function ChatHeader({ embedded, isMinimized, isLoading, runtimeLimited, a
                                 cursor: 'pointer'
                             }}
                         >
+                            {!agentList.some(profile => profile.id === selectedAgentId) && <option value={selectedAgentId} disabled>{t('chat.model_not_configured')}</option>}
                             {agentList.map((a) => (
-                                <option key={a.id} value={a.id}>{a.name || a.id}</option>
+                                <option key={a.id} value={a.id}>{profileModelLabel(profileDisplayName(a, t) || a.id, a.provider, a.model)}</option>
                             ))}
                         </select></label></details>}
                         {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>

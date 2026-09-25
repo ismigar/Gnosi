@@ -1,4 +1,5 @@
-import type { AgentDraft, SettingsModel } from './types';
+import { profileDisplayName, profileModelLabel } from '../../../shared/ai/assistantProfiles';
+import type { AgentDraft, SettingsAgent, SettingsModel } from './types';
 import type { NormalizedSkill, NormalizedTool } from '../AI/aiSettingsUtils';
 import { Activity } from 'lucide-react';
 import AgentContextSources from '../../agent-context/AgentContextSources';
@@ -15,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { AgentModelStrategyFields } from './AgentModelStrategyFields';
 import { readModelStrategy, reconcileModelStrategy } from './agentModelStrategy';
 
-export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
+export function AIAgentForm({ agent, onSave, aiRegistry, profiles = [], skills, tools, onSelectSkill, jevConnected = false, onConnectJev = () => {} }: { agent: AgentDraft; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; profiles?: readonly SettingsAgent[]; skills: NormalizedSkill[]; tools: NormalizedTool[]; jevConnected?: boolean; onConnectJev?: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(agent.name || '');
   const [provider, setProvider] = useState(agent.provider || '');
@@ -101,9 +102,18 @@ export function AIAgentForm({ agent, onSave, aiRegistry, skills, tools, onSelect
             <option value="">{t('settings.ai.select_model_option')}</option>
             {[...grouped.entries()].map(([prov, modelIds]) => (
               <optgroup key={prov} label={prov}>
-                {modelIds.map(mid => (
-                  <option key={mid} value={`${prov}||${mid}`}>{mid}</option>
-                ))}
+                {modelIds.map(mid => {
+                  const assignedProfiles = profiles
+                    .filter(profile => profile.provider === prov && profile.model === mid)
+                    .map(profile => profileDisplayName(profile, t))
+                    .filter(Boolean);
+                  const profileNames = [...new Set(assignedProfiles)].join(', ');
+                  return (
+                    <option key={mid} value={`${prov}||${mid}`}>
+                      {profileModelLabel(profileNames || undefined, prov, mid)}
+                    </option>
+                  );
+                })}
               </optgroup>
             ))}
           </select>

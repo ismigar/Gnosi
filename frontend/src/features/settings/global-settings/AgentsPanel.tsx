@@ -60,6 +60,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity }: Props) {
           <AIAgentForm
             key={editingAgent.id || 'new-agent'}
             agent={editingAgent}
+            profiles={draft.ai.agents}
             onSave={async (newAgent) => {
               const isNew = !newAgent.id;
               const id = newAgent.id || `agent_${String(Date.now())}`;

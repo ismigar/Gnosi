@@ -24,3 +24,14 @@ export function profileDisplayName(
     return owner && builtinProfileNames[owner] === name
         ? t(`settings.ai.assistant.builtin_profiles.${owner}`, { defaultValue: name }) : name;
 }
+
+/** Include the assigned route beside a profile wherever users choose it. */
+export function profileModelLabel(
+    name: string | undefined,
+    provider?: string,
+    model?: string,
+): string {
+    const route = [provider, model].filter(Boolean).join('/');
+    if (route && name) return `${name} — ${route}`;
+    return route || name || '';
+}
