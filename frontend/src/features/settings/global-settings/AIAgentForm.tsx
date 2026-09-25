@@ -133,7 +133,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
 
 
         <nav className="flex flex-wrap gap-2" aria-label={t('agent_behavior.navigation')}>
-          {['instructions', 'skills', 'context', 'operations', 'preview'].map(key => <button type="button" key={key} className={section === key ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'} aria-pressed={section === key} onClick={() => { setSection(key); }}>{t(`agent_behavior.${key}`)}</button>)}
+          {['instructions', 'skills', 'context', 'operations', 'preview'].map(key => <button type="button" key={key} className={`btn-gnosi ${section === key ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'}`} aria-pressed={section === key} onClick={() => { setSection(key); }}>{t(`agent_behavior.${key}`)}</button>)}
         </nav>
         {section === 'instructions' && <FormGroup label={t('settings.ai.instructions_label')}
           description={t('settings.ai.instructions_desc')}>
@@ -184,7 +184,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
       </div>
       {!agent.id && <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
-          className="btn-gnosi-primary"
+          className="btn-gnosi btn-gnosi-primary"
           disabled={!name || !grouped.get(provider)?.includes(model) || savingAgent}
           onClick={() => {
             void (async () => {
