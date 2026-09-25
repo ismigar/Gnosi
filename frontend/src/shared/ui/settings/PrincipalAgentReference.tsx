@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { profileDisplayName } from '../../ai/assistantProfiles';
+import { ProfileSettingsNavigation } from './ProfileSettingsNavigation';
+import { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { fetchConfiguration } from '../../api/configuration';
@@ -19,7 +21,8 @@ const operationPlugins: Readonly<Record<string, string>> = {
 export function PrincipalAgentReference({ operation, profileId }: { readonly operation: string; readonly profileId?: string }) {
     const { t } = useTranslation();
     const vaultId = useActiveVaultId();
-    const [name, setName] = useState('');
+    const openSettings = useContext(ProfileSettingsNavigation);
+    const [profile, setProfile] = useState<{ id: string; name: string; managed_by?: string }>();
     const [error, setError] = useState('');
     useEffect(() => {
         let active = true;
@@ -32,14 +35,18 @@ export function PrincipalAgentReference({ operation, profileId }: { readonly ope
             const principal = profiles.find(profile => isRecord(profile) && (profileId
                 ? profile.id === profileId
                 : plugin ? profile.managed_by === `builtin:${plugin}` : profile.id === ai.active_agent_id));
-            setName(isRecord(principal) ? (typeof principal.name === 'string' ? principal.name : typeof principal.id === 'string' ? principal.id : '') : '');
+            setProfile(isRecord(principal) && typeof principal.id === 'string' ? {
+                id: principal.id, name: typeof principal.name === 'string' ? principal.name : principal.id,
+                managed_by: typeof principal.managed_by === 'string' ? principal.managed_by : undefined,
+            } : undefined);
         }).catch((failure: unknown) => { if (active) setError(String(failure)); });
         return () => { active = false; };
     }, [vaultId, operation, profileId]);
     return <div className="settings-desc">
-        <p>{t('agent_execution.principal')}: {name || '—'}</p>
-        <p>{t(`agent_execution.skills.${operation}`)}</p>
+        <p>{t('agent_execution.principal')}: {profile ? profileDisplayName(profile, t) : '—'}</p>
         {error && <p role="alert">{error}</p>}
-        <Link className="btn-gnosi-secondary" to="/settings?tab=ai">{t('agent_execution.configure')}</Link>
+        {openSettings
+            ? <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={!profile} onClick={() => { openSettings('agents', profile?.id); }}>{t('agent_execution.configure')}</button>
+            : <Link className="btn-gnosi btn-gnosi-secondary" to="/settings?tab=ai">{t('agent_execution.configure')}</Link>}
     </div>;
 }

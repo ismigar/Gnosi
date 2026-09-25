@@ -48,9 +48,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126395 | 32 |
+| `features` | 1112 | 126396 | 32 |
 | `generated` | 2 | 46951 | 484 |
-| `shared` | 253 | 30744 | 414 |
+| `shared` | 254 | 30754 | 414 |
 
 ## app
 
@@ -568,7 +568,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 87 | `GeneralPanel` | — |
-| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 249 | `GlobalSettingsView` | — |
+| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 250 | `GlobalSettingsView` | — |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
 | [`frontend/src/features/settings/global-settings/GraphPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphPanel.tsx) | 82 | `GraphPanel` | — |
@@ -1453,7 +1453,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/ui/previews/hoverPreviewLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/hoverPreviewLayout.ts) | 136 | `HOVER_PREVIEW_ARROW_STEP`, `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `isHoverPreviewScrollable`, `positionHoverPreview`, `scrollHoverPreviewByKey` | — |
 | [`frontend/src/shared/ui/previews/viewPopoverLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/previews/viewPopoverLayout.ts) | 75 | `getViewPopoverLayout` | — |
 | [`frontend/src/shared/ui/sections/CollapsibleSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/sections/CollapsibleSection.tsx) | 70 | `CollapsibleSection` | — |
-| [`frontend/src/shared/ui/settings/PrincipalAgentReference.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/PrincipalAgentReference.tsx) | 45 | `PrincipalAgentReference` | — |
+| [`frontend/src/shared/ui/settings/PrincipalAgentReference.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/PrincipalAgentReference.tsx) | 52 | `PrincipalAgentReference` | — |
+| [`frontend/src/shared/ui/settings/ProfileSettingsNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/ProfileSettingsNavigation.ts) | 3 | `ProfileSettingsNavigation` | — |
 | [`frontend/src/shared/ui/settings/SettingsBackButton.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsBackButton.tsx) | 16 | `SettingsBackButton` | — |
 | [`frontend/src/shared/ui/settings/SettingsPrimitives.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsPrimitives.tsx) | 86 | `FormGroup`, `GnosiToggle`, `InlineEditorPlacement`, `Section` | — |
 | [`frontend/src/shared/ui/settings/SettingsSectionTabs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ui/settings/SettingsSectionTabs.tsx) | 43 | `SettingsSectionTabs` | — |
