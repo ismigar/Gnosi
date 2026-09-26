@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import { AgentTeamSetup } from './AgentTeamSetup';
 import { configurableGap } from './settingsStyles';
@@ -7,7 +8,7 @@ import { IconRenderer } from '../../../shared/ui/previews/IconRenderer';
 import { InlineEditorPlacement } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Plus } from 'lucide-react';
 import React, { useState } from 'react';
-import { principalAssistant, profileDisplayName } from '../../../shared/ai/assistantProfiles';
+import { principalAssistant, profileDisplayName, profilesByDisplayName } from '../../../shared/ai/assistantProfiles';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Trash2 } from 'lucide-react';
@@ -20,6 +21,8 @@ type Props = { focusedProfileId?: string; onOpenActivity?: () => void; onSelectS
 
 export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedProfileId }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t } = context;
+  const { i18n } = useTranslation();
+  const sortedAgents = profilesByDisplayName(draft.ai.agents, t, i18n.resolvedLanguage);
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
   const [showProfiles, setShowProfiles] = useState(false);
   const expanded = showProfiles || Boolean(principal && editingAgent && !editingAgent.managed_by && editingAgent.id !== principal.id);
@@ -195,13 +198,13 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
     </div>}
     {principal && !editingAgent?.id && editor}
     {expanded && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
-      {draft.ai.agents.filter(agent => !agent.managed_by && agent.id !== principal?.id).map(renderProfile)}
+      {sortedAgents.filter(agent => !agent.managed_by && agent.id !== principal?.id).map(renderProfile)}
     </div>}
     {draft.ai.agents.some(agent => agent.managed_by) && <section aria-label={t('settings.ai.assistant.plugin_profiles')}>
       <h4>{t('settings.ai.assistant.plugin_profiles')}</h4>
       <p className="settings-desc">{t('settings.ai.assistant.plugin_profiles_help')}</p>
       <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
-        {draft.ai.agents.filter(agent => agent.managed_by).map(renderProfile)}
+        {sortedAgents.filter(agent => agent.managed_by).map(renderProfile)}
       </div>
     </section>}
     {onOpenActivity && <div style={{ marginTop: '24px' }}>

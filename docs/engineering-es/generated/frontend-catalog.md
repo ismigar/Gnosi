@@ -48,9 +48,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1120 | 126664 | 32 |
+| `features` | 1120 | 126667 | 32 |
 | `generated` | 2 | 47613 | 491 |
-| `shared` | 263 | 31339 | 422 |
+| `shared` | 263 | 31351 | 422 |
 
 ## app
 
@@ -572,7 +572,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
 | [`frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx) | 63 | `AgentModelStrategyFields` | — |
 | [`frontend/src/features/settings/global-settings/AgentTeamSetup.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamSetup.tsx) | 99 | `AgentTeamSetup` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 213 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 216 | `AgentsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 106 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
@@ -1215,7 +1215,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Fuente | Líneas | Indicios de exportación | Rutas literales de la API |
 | --- | ---: | --- | --- |
 | [`frontend/src/shared/ai/agentTeams.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/agentTeams.ts) | 27 | `EMPTY_TEAM`, `TEAM_OPERATIONS`, `TEAM_ROLES`, `TEAM_SKILL`, `normalizedTeam`, `withTeam` | — |
-| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 48 | `modelRecommendationLabel`, `principalAssistant`, `profileDisplayName`, `profileModelLabel` | — |
+| [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 60 | `modelRecommendationLabel`, `principalAssistant`, `profileDisplayName`, `profileModelLabel`, `profilesByDisplayName` | — |
 | [`frontend/src/shared/ai/executionUsage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/executionUsage.ts) | 21 | `executionUsage` | — |
 | [`frontend/src/shared/ai/modelDisplayName.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/modelDisplayName.ts) | 8 | `modelDisplayName` | — |
 | [`frontend/src/shared/api/ApiProvider.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/api/ApiProvider.tsx) | 14 | `ApiProvider` | — |

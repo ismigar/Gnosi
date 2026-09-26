@@ -46,3 +46,15 @@ export function modelRecommendationLabel(
     const label = t(key, { defaultValue: '' });
     return label && label !== key ? label : undefined;
 }
+
+/** Sort display lists without changing stored routing priority or profile settings. */
+export function profilesByDisplayName<T extends { id: string; name?: string; managed_by?: string }>(
+    profiles: readonly T[],
+    t: (key: string, options: { defaultValue: string }) => string,
+    locale?: string,
+): T[] {
+    const collator = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
+    return [...profiles].sort((a, b) => collator.compare(
+        profileDisplayName(a, t) || a.id, profileDisplayName(b, t) || b.id,
+    ));
+}

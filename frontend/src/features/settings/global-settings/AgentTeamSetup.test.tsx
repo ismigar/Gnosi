@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AgentTeamSetup } from './AgentTeamSetup';
 import { TEAM_SKILL } from '../../../shared/ai/agentTeams';
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, values?: { name?: string }) => values?.name ? `${key}:${values.name}` : key }) }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { resolvedLanguage: 'ca' }, t: (key: string, values?: { name?: string }) => values?.name ? `${key}:${values.name}` : key }) }));
 let host: HTMLDivElement;
 let root: Root;
 const apply = vi.fn();

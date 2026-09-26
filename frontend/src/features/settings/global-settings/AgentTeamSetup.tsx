@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { profileDisplayName } from '../../../shared/ai/assistantProfiles';
+import { profileDisplayName, profilesByDisplayName } from '../../../shared/ai/assistantProfiles';
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import './AgentTeamSetup.css';
 import { useTranslation } from 'react-i18next';
@@ -16,13 +16,13 @@ interface Props {
 }
 
 export function AgentTeamSetup({ agents, principalId, registry, onApply }: Props) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState(0);
     const current = agents.find(a => a.id === principalId);
     const [team, setTeam] = useState<AgentTeam>(() => normalizedTeam(current?.team, principalId));
     const [initiators, setInitiators] = useState<string[]>([principalId]);
-    const available = agents.filter(a => a.enabled !== false && !a.plugin_suspended);
+    const available = profilesByDisplayName(agents.filter(a => a.enabled !== false && !a.plugin_suspended), t, i18n.resolvedLanguage);
     const agentName = (agent: SettingsAgent) => profileDisplayName(agent, t) || agent.id;
     const agentModel = (agent: SettingsAgent) => modelDisplayName(registry.find(row => row.provider === agent.provider && row.model_id === agent.model)) || agent.model;
     const skills = [...new Set(available.flatMap(a => a.skill_ids ?? []))].filter(s => s !== TEAM_SKILL);
@@ -69,7 +69,7 @@ export function AgentTeamSetup({ agents, principalId, registry, onApply }: Props
                     <select multiple className="gnosi-select" aria-label={operation} value={team.direct_routes.find(r => r.operation === operation)?.agent_ids ?? []} onChange={e => {
                         const ids = Array.from(e.target.selectedOptions, o => o.value);
                         setTeam(v => ({ ...v, direct_routes: [...v.direct_routes.filter(r => r.operation !== operation), ...(ids.length ? [{ operation, agent_ids: ids }] : [])] }));
-                    }}>{team.members.filter(m => m.agent_id !== team.director_id).map(m => <option key={m.agent_id} value={m.agent_id}>{agentName(agents.find(a => a.id === m.agent_id) ?? { id: m.agent_id })}</option>)}</select>
+                    }}>{profilesByDisplayName(team.members.filter(m => m.agent_id !== team.director_id).map(m => agents.find(a => a.id === m.agent_id) ?? { id: m.agent_id }), t, i18n.resolvedLanguage).map(a => <option key={a.id} value={a.id}>{agentName(a)}</option>)}</select>
                 </FormGroup>)}
             </>}
             {step === 2 && <>
