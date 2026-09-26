@@ -13,8 +13,11 @@ export function AgentBehaviorInspection({ profile, operationsOnly = false }: { p
     const serialized = JSON.stringify(profile);
     useEffect(() => {
         const controller = new AbortController();
-        setValue(undefined);
-        void previewAgentBehavior(JSON.parse(serialized) as Record<string, unknown>, controller.signal)
+        void Promise.resolve().then(() => {
+            if (controller.signal.aborted) return undefined;
+            setValue(undefined);
+            return previewAgentBehavior(JSON.parse(serialized) as Record<string, unknown>, controller.signal);
+        })
             .then(result => { if (!controller.signal.aborted) { setValue(result); setError(''); } })
             .catch((failure: unknown) => { if (!controller.signal.aborted) setError(String(failure)); });
         return () => { controller.abort(); };
@@ -24,7 +27,7 @@ export function AgentBehaviorInspection({ profile, operationsOnly = false }: { p
     return <div className="ai-resource-list">
         <p>{t('agent_behavior.preview_help')}</p>
         {operationsOnly ? value.operations.map(operation => <article className="ai-resource-card" key={operation.operation}>
-            <strong>{t(`agent_execution.skills.${operation.operation}`, { defaultValue: operation.name })}</strong>
+            <strong>{t(`agent_execution.skills.${operation.operation ?? ''}`, { defaultValue: operation.name })}</strong>
             <p>{operation.skill_id}</p>
             <p>{t('agent_behavior.executor')}: {operation.agent_id}</p>
             {typeof profile.id === 'string' && operation.agent_id !== profile.id && <button type="button" className="btn-gnosi-secondary" disabled={pending} onClick={() => {

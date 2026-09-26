@@ -18842,6 +18842,8 @@ export interface components {
             default: components["schemas"]["ModelRegistryEntry"][];
             /** Models */
             models: components["schemas"]["ModelRegistryEntry"][];
+            /** Revision */
+            revision?: string | null;
         };
         /**
          * ModelRegistryUpdateResponse
@@ -18900,6 +18902,8 @@ export interface components {
             budget?: {
                 [key: string]: components["schemas"]["JsonValue"];
             } | null;
+            /** Expected Revision */
+            expected_revision?: string | null;
             /** Models */
             models: components["schemas"]["JsonValue"][];
         };
@@ -26463,7 +26467,9 @@ export interface operations {
     };
     get_model_comparison_api_ai_model_comparison_get: {
         parameters: {
-            query?: never;
+            query?: {
+                refresh?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;

@@ -32,6 +32,6 @@ export function comparisonRouteCapabilities(model: AiModelComparisonEntry, provi
     }).sort((a, b) => {
         if (!knownContext(a.context_window)) return knownContext(b.context_window) ? 1 : 0;
         if (!knownContext(b.context_window)) return -1;
-        return a.context_window - b.context_window;
+        return b.context_window - a.context_window;
     });
 }

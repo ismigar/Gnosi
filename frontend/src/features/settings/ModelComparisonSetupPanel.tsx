@@ -1,7 +1,7 @@
 import { CheckCircle2, Cloud, Loader2, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ResolvedComparisonRoute } from './model-comparison/modelComparisonRegistry';
+import { comparisonRouteKey, type ResolvedComparisonRoute } from './model-comparison/modelComparisonRegistry';
 import type {
     AiModelCatalogProvider,
     AiModelComparisonEntry,
@@ -13,6 +13,7 @@ import type {
 
 
 interface ModelComparisonSetupPanelProps {
+    readonly relatedBenchmarks?: readonly string[];
     readonly busyModelId: string;
     readonly onAliasChange: (value: string) => void;
     readonly onApiKeyChange: (value: string) => void;
@@ -32,6 +33,7 @@ interface ModelComparisonSetupPanelProps {
 
 
 export function ModelComparisonSetupPanel({
+    relatedBenchmarks = [],
     busyModelId,
     onAliasChange,
     onApiKeyChange,
@@ -49,7 +51,7 @@ export function ModelComparisonSetupPanel({
     const provider = providersById[setup.providerId];
     const routes = routesForMode(setup.model, setup.mode);
     const route = routes.find((candidate) => (
-        candidate.provider === setup.providerId
+        setup.routeKey ? comparisonRouteKey(candidate) === setup.routeKey : candidate.provider === setup.providerId
     ));
     const modes = (['remote', 'local'] as const).filter((mode) => (
         routesForMode(setup.model, mode).length > 0
@@ -67,6 +69,9 @@ export function ModelComparisonSetupPanel({
                 : undefined}
         >
             <div className="model-setup-content">
+                {relatedBenchmarks.length > 1 && <p className="settings-desc" role="note">
+                    {t('model_comparison.setup.shared_offer_help', { models: relatedBenchmarks.join(', ') })}
+                </p>}
                 <label className="model-setup-field">
                     <span>{t('model_comparison.alias.label')}</span>
                     <input value={setup.alias || ''} maxLength={120}
@@ -122,14 +127,15 @@ export function ModelComparisonSetupPanel({
                                     onChange={(event) => {
                                         onProviderChange(event.target.value);
                                     }}
-                                    value={setup.providerId}
+                                    value={route ? comparisonRouteKey(route) : ''}
                                 >
                                     {routes.map((candidate) => (
                                         <option
-                                            key={candidate.provider}
-                                            value={candidate.provider}
+                                            key={comparisonRouteKey(candidate)}
+                                            value={comparisonRouteKey(candidate)}
                                         >
                                             {candidate.provider_name}
+                                            {` · ${candidate.model_id}`}
                                             {candidate.provider_validated
                                                 ? ` · ${t('model_comparison.setup.connected')}`
                                                 : ''}

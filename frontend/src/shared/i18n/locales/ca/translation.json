@@ -5219,7 +5219,9 @@
       "no_exact_route": "No s’ha trobat cap ruta executable exacta",
       "no_exact_route_help": "Aquest model no es pot activar automàticament perquè el catàleg no ofereix cap ruta compatible verificable.",
       "router_help": "El model quedarà disponible per al router automàtic i també a Models del router.",
-      "activate": "Activa el model"
+      "activate": "Activa el model",
+      "shared_offer_help": "Aquesta oferta és compartida per aquestes variants de la comparativa: {{models}}. L’activació i l’àlies afecten la mateixa oferta. Les variants són informatives: aquesta pantalla no configura el mode de raonament ni garanteix reproduir les condicions de cada avaluació.",
+      "shared_offer_label": "Activació i àlies compartits"
     },
     "profiles": {
       "worker": "Peó",

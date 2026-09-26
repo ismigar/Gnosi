@@ -6297,7 +6297,9 @@
       "no_exact_route": "No exact executable route was found",
       "no_exact_route_help": "This model cannot be enabled automatically because the catalog provides no verifiable compatible route.",
       "router_help": "The model will be available to the automatic router and under Router models.",
-      "activate": "Enable model"
+      "activate": "Enable model",
+      "shared_offer_help": "This offer is shared by these benchmark variants: {{models}}. Activation and aliases apply to the same offer. Variants are informational: this screen does not configure reasoning mode or guarantee the conditions of each benchmark.",
+      "shared_offer_label": "Shared activation and aliases"
     },
     "profiles": {
       "worker": "Worker",

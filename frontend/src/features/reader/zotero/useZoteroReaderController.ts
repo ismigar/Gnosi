@@ -194,7 +194,7 @@ export function useZoteroReaderController({
         });
       }
     }, 12000);
-    return () => window.clearTimeout(timeout);
+    return () => { window.clearTimeout(timeout); };
   }, [error, loadErrorMessage, rawSrc, readerReady]);
 
   useEffect(() => {

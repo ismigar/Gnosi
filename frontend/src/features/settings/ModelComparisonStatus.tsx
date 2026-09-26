@@ -168,7 +168,7 @@ export function ModelComparisonStatus({
                     {actionMessage.type === 'success' ? (
                         <CheckCircle2 size={16} />
                     ) : null}
-                    {t(`model_comparison.${actionMessage.key}`, {
+                    {t(`model_comparison.${actionMessage.type === 'error' ? 'errors.' : ''}${actionMessage.key}`, {
                         model: actionMessage.model,
                         provider: actionMessage.provider,
                     })}

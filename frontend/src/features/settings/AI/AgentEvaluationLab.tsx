@@ -1,7 +1,7 @@
 import './AIResourcesSettings.css';
 import './AgentEvaluationLab.css';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
@@ -14,7 +14,7 @@ export function AgentEvaluationLab({ onComplete }: { onComplete?: () => void }) 
     const { t } = useTranslation();
     const vault = useActiveVaultId();
     const activeVault = useRef(vault);
-    activeVault.current = vault;
+    useLayoutEffect(() => { activeVault.current = vault; }, [vault]);
     const [open, setOpen] = useState(false);
     const [agents, setAgents] = useState<EvaluationAgent[]>([]);
     const [reports, setReports] = useState<RoleEvaluationReport[]>([]);
@@ -28,11 +28,14 @@ export function AgentEvaluationLab({ onComplete }: { onComplete?: () => void }) 
     const [error, setError] = useState('');
     const [revision, setRevision] = useState(0);
     useEffect(() => {
-        setAgents([]); setReports([]); setAuthorized(false);
-        if (!open) return;
         const controller = new AbortController();
-        void Promise.all([fetchEvaluationAgents(controller.signal), fetchRoleEvaluations(controller.signal)]).then(([a, r]) => {
-            if (!controller.signal.aborted) { setAgents(a); setReports(r); setError(''); }
+        const aborted = () => controller.signal.aborted;
+        void Promise.resolve().then(async () => {
+            if (aborted()) return;
+            setAgents([]); setReports([]); setAuthorized(false);
+            if (!open) return;
+            const [a, r] = await Promise.all([fetchEvaluationAgents(controller.signal), fetchRoleEvaluations(controller.signal)]);
+            if (!aborted()) { setAgents(a); setReports(r); setError(''); }
         }).catch(() => { if (!controller.signal.aborted) setError('agent_team.lab_error'); });
         return () => { controller.abort(); };
     }, [open, vault, revision]);
@@ -70,7 +73,7 @@ export function AgentEvaluationLab({ onComplete }: { onComplete?: () => void }) 
                 {report.kind === 'strategies' && <div className="agent-evaluation-lab__results"><table className="model-comparison-table"><thead><tr>{['strategy', 'passed', 'calls', 'director_calls', 'avoidable', 'cost'].map(k => <th key={k}>{t(`agent_team.lab_${k}`)}</th>)}</tr></thead><tbody>{strategies.map(strategy => {
                     const cases = report.cases.filter(c => c.strategy === strategy);
                     const known = cases.every(c => c.cost_usd != null);
-                    return <tr key={strategy}><td>{t(`agent_team.lab_${strategy}`)}</td><td>{cases.filter(c => c.passed).length}/{cases.length}</td><td>{cases.reduce((n, c) => n + c.model_calls, 0)}</td><td>{cases.reduce((n, c) => n + (c.director_calls ?? 0), 0)}</td><td>{cases.reduce((n, c) => n + (c.avoidable_director_calls ?? 0), 0)}</td><td>{known ? `$${cases.reduce((n,c) => n + (c.cost_usd ?? 0),0).toFixed(6)}` : t('model_comparison.unknown_cost')}</td></tr>;
+                    return <tr key={strategy}><td>{t(`agent_team.lab_${strategy}`)}</td><td>{cases.filter(c => c.passed).length}/{cases.length}</td><td>{cases.reduce((n, c) => n + c.model_calls, 0)}</td><td>{cases.reduce((n, c) => n + c.director_calls, 0)}</td><td>{cases.reduce((n, c) => n + c.avoidable_director_calls, 0)}</td><td>{known ? `$${cases.reduce((n,c) => n + (c.cost_usd ?? 0),0).toFixed(6)}` : t('model_comparison.unknown_cost')}</td></tr>;
                 })}</tbody></table></div>}
                 <details><summary>{t('agent_team.evidence')}</summary><ul>{report.cases.map(c => <li key={`${c.strategy}:${c.id}`}>{c.strategy && `${t(`agent_team.lab_${c.strategy}`)} · `}{c.id}: {t(c.passed ? 'agent_team.lab_pass' : 'agent_team.lab_fail')} · {c.model_calls} {t('agent_team.lab_calls')} · {c.latency_ms} ms · {c.cost_usd == null ? t('model_comparison.unknown_cost') : `$${c.cost_usd.toFixed(6)}`}</li>)}</ul></details>
             </article>)}

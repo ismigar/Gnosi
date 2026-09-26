@@ -18,6 +18,7 @@ import { ModelComparisonTable } from './ModelComparisonTable';
 import { ModelComparisonToolbar } from './ModelComparisonToolbar';
 import { useModelComparisonData } from './useModelComparisonData';
 import { useModelComparisonLayout } from './useModelComparisonLayout';
+import { comparisonRouteKey } from './model-comparison/modelComparisonRegistry';
 
 
 export interface AIModelComparisonModalProps {
@@ -98,6 +99,8 @@ export function AIModelComparisonModal({
     };
     const setupPanel = data.setup ? (
         <ModelComparisonSetupPanel
+            relatedBenchmarks={(data.feed?.models ?? []).filter(model => model.routes.some(route =>
+                data.setup?.routeKey === comparisonRouteKey(route))).map(model => model.name)}
             busyModelId={data.busyModelId}
             onAliasChange={controller.setSetupAlias}
             onApiKeyChange={controller.setSetupApiKey}
@@ -176,6 +179,9 @@ export function AIModelComparisonModal({
                                 state={ui}
                                 toolbarRef={toolbarRef}
                             />
+                            <p className="settings-desc" role="status">
+                                {t('model_comparison.results_count', { count: models.length })}
+                            </p>
                             <ModelComparisonTable
                                 onParameterUpdate={controller.retry}
                                 busyModelId={data.busyModelId}
@@ -186,7 +192,7 @@ export function AIModelComparisonModal({
                                 inputTokens={ui.inputTokens}
                                 metricAvailability={metricAvailability}
                                 models={models}
-                                onBeginActivation={(model) => controller.beginActivation(model, ui.provider === 'all' ? undefined : ui.provider)}
+                                onBeginActivation={(model) => { controller.beginActivation(model, ui.provider === 'all' ? undefined : ui.provider); }}
                                 onSaveAlias={controller.saveModelAlias}
                                 onDeactivate={controller.deactivateModel}
                                 onScrollbarScroll={onScrollbarScroll}

@@ -329,6 +329,13 @@ def _merge_cached_metrics(
         previous = _matching_cached_model(model, cached_by_key)
         if previous:
             _restore_cached_metrics(model, previous)
+    from backend.services.model_role_suitability import assess_roles
+
+    models = payload.get("models") or []
+    for model in models:
+        model["role_assessments"] = assess_roles(
+            {**model, "fetched_at": payload.get("fetched_at")}, models,
+        )
     return payload
 
 
@@ -605,12 +612,12 @@ def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict
     return payload
 
 
-def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
+def _fallback_payload(error: ArtificialAnalysisError, *, force_refresh: bool = False) -> Dict[str, Any]:
     cached = _read_cache()
     if cached:
         cached = _enrich_cached_payload(
             cached,
-            load_catalog(force_refresh=False),
+            load_catalog(force_refresh=force_refresh),
         )
         return {
             **cached,
@@ -620,7 +627,7 @@ def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
         }
     if error.code not in _FALLBACK_CODES:
         raise error
-    catalog = load_catalog(force_refresh=False)
+    catalog = load_catalog(force_refresh=force_refresh)
     payload = build_catalog_fallback_payload(catalog, error.code)
     if error.retry_at:
         payload["retry_at"] = error.retry_at
@@ -702,10 +709,10 @@ def _fetch_model_pages(api_key: str) -> tuple[List[Dict[str, Any]], Any]:
     return rows, index_version
 
 
-def fetch_all_models() -> Dict[str, Any]:
+def fetch_all_models(*, force_refresh: bool = False) -> Dict[str, Any]:
     """Fetch every page from Artificial Analysis and build the comparison feed."""
     cached = _read_cache()
-    if cached and _cache_is_fresh(cached):
+    if cached and _cache_is_fresh(cached) and not force_refresh:
         return _enrich_cached_payload(
             cached,
             load_catalog(force_refresh=False),
@@ -713,14 +720,14 @@ def fetch_all_models() -> Dict[str, Any]:
 
     api_key = _configured_api_key()
     if not api_key:
-        return _fallback_payload(ArtificialAnalysisError("api_key_missing", 503))
+        return _fallback_payload(ArtificialAnalysisError("api_key_missing", 503), force_refresh=force_refresh)
 
     try:
         rows, index_version = _fetch_model_pages(api_key)
     except requests.RequestException:
-        return _fallback_payload(ArtificialAnalysisError("network_error", 502))
+        return _fallback_payload(ArtificialAnalysisError("network_error", 502), force_refresh=force_refresh)
     except ArtificialAnalysisError as exc:
-        return _fallback_payload(exc)
+        return _fallback_payload(exc, force_refresh=force_refresh)
 
     # Artificial Analysis is authoritative for benchmark/pricing/performance.
     # models.dev only fills fields omitted by the Free API.

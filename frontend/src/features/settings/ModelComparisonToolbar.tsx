@@ -304,6 +304,15 @@ export function ModelComparisonToolbar({
                 </div>
             ) : null}
 
+            <ModelTokenBudget state={state} dispatch={dispatch} />
+        </>
+    );
+}
+
+
+function ModelTokenBudget({ state, dispatch }: Pick<ModelComparisonToolbarProps, 'state' | 'dispatch'>) {
+    const { t } = useTranslation();
+    return (
             <div className="model-cost-calculator">
                 <label>
                     <ComparisonLabel text={t('model_comparison.compact_filters.input_tokens')} full={t('model_comparison.input_tokens')} />
@@ -334,6 +343,5 @@ export function ModelComparisonToolbar({
                     />
                 </label>
             </div>
-        </>
     );
 }

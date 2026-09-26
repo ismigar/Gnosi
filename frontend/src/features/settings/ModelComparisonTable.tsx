@@ -1,4 +1,5 @@
-import type { ReactNode, RefObject, UIEventHandler } from 'react';
+import { useMemo, type ReactNode, type RefObject, type UIEventHandler } from 'react';
+import { comparisonRouteKey } from './model-comparison/modelComparisonRegistry';
 import {
     ArrowDown,
     ArrowLeftRight,
@@ -36,7 +37,7 @@ interface ModelComparisonTableProps {
     readonly models: readonly AiModelComparisonEntry[];
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
     readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
-    readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
+    readonly onDeactivate: (model: AiModelComparisonEntry, provider?: string) => Promise<void>;
     readonly onScrollbarScroll: UIEventHandler<HTMLDivElement>;
     readonly onSort: (key: ComparisonSortKey) => void;
     readonly selectedProvider?: string;
@@ -95,6 +96,16 @@ export function ModelComparisonTable({
     tableWrapRef,
 }: ModelComparisonTableProps) {
     const { t } = useTranslation();
+    const benchmarkNames = useMemo(() => {
+        const names = new Map<string, Set<string>>();
+        for (const model of feed.models) for (const route of model.routes) {
+            const key = comparisonRouteKey(route);
+            const variants = names.get(key) ?? new Set<string>();
+            variants.add(model.name);
+            names.set(key, variants);
+        }
+        return names;
+    }, [feed]);
     const tableMinWidth = Math.max(960, 468 + ((columns.length - 1) * 100));
 
     return (
@@ -120,6 +131,7 @@ export function ModelComparisonTable({
                         <tr>
                             {columns.map((column) => (
                                 <th
+                                    aria-sort={sort.key === column.key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined}
                                     className={column.key === 'name'
                                         ? 'model-comparison-sticky-start'
                                         : ''}
@@ -150,6 +162,7 @@ export function ModelComparisonTable({
                     <tbody>
                         {models.map((model) => (
                             <ModelComparisonRow
+                                relatedBenchmarks={[...new Set(model.routes.flatMap(route => [...(benchmarkNames.get(comparisonRouteKey(route)) ?? [])]))]}
                                 onParameterUpdate={onParameterUpdate}
                                 busyModelId={busyModelId}
                                 columns={columns}

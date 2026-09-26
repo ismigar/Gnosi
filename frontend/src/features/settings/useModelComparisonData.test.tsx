@@ -306,3 +306,63 @@ describe('explicit model activation', () => {
         expect(currentController().state.setup).toBeNull();
     });
 });
+
+describe('comparison persistence regressions', () => {
+    it('preserves models added elsewhere after opening the comparison', async () => {
+        await mountController();
+        const added={provider:'anthropic',model_id:'claude-other',enabled:true};
+        mocks.fetchModels.mockResolvedValue({configured_models:[{provider:'openai',model_id:'model-1',enabled:true},added],budget:{monthly_usd:77}});
+        await act(async()=>{await currentController().deactivateModel(MODEL);});
+        expect(lastSavedRegistry().models).toContainEqual(added);
+        expect(lastSavedRegistry().budget.monthly_usd).toBe(77);
+    });
+    it('keeps both changes when two active rows are disabled quickly', async () => {
+        const other={...MODEL,id:'different-id',name:'Unrelated',slug:'unrelated',routes:[{...(MODEL.routes[0] ?? (() => { throw new Error('Missing fixture route'); })()),model_id:'unrelated'}]};
+        let saved: AiModelRegistryEntry[] = [{provider:'openai',model_id:'model-1',enabled:true},{provider:'openai',model_id:'unrelated',enabled:true}];
+        mocks.fetchModels.mockImplementation(() => Promise.resolve({configured_models: saved, budget: {monthly_usd:10}}));
+        mocks.updateModels.mockImplementation((payload: { models: AiModelRegistryEntry[] }) => {
+            saved = payload.models;
+            return Promise.resolve({ status: 'success', count: saved.length });
+        });
+        await mountController();
+        await act(async()=>{await Promise.all([currentController().deactivateModel(MODEL),currentController().deactivateModel(other)]);});
+        expect(lastSavedRegistry().models.every((m:AiModelRegistryEntry)=>m.enabled===false)).toBe(true);
+    });
+});
+
+
+it('validates and activates the selected offer among two routes at one provider', async () => {
+    await mountController();
+    const freeRoute = { ...(MODEL.routes[0] ?? (() => { throw new Error('Missing fixture route'); })()), model_id: 'model-1:free', cost_in: 0, cost_out: 0 };
+    const model = { ...MODEL, routes: [...MODEL.routes, freeRoute] };
+    act(() => { currentController().beginActivation(model); });
+    act(() => { currentController().changeSetupProvider(JSON.stringify(['openai', 'model-1:free'])); });
+    await act(async () => { await currentController().testSetupConnection(); });
+    expect(mocks.validateProvider).toHaveBeenCalledWith('openai', { model: 'model-1:free' });
+    expect(lastSavedRegistry().models).toContainEqual(expect.objectContaining({
+        provider: 'openai', model_id: 'model-1:free', enabled: true, cost_in: 0, cost_out: 0,
+    }));
+});
+
+
+it('deactivates only the selected provider offer', async () => {
+    const other = { provider: 'openrouter', model_id: 'vendor/model-1', enabled: true };
+    mocks.fetchModels.mockResolvedValue({configured_models:[{provider:'openai',model_id:'model-1',enabled:true},other],budget:{}});
+    await mountController();
+    await act(async () => { await currentController().deactivateModel({...MODEL,routes:[...MODEL.routes,{...(MODEL.routes[0] ?? (() => { throw new Error('Missing fixture route'); })()),...other}]}, 'openai'); });
+    expect(lastSavedRegistry().models).toContainEqual(other);
+});
+
+it('forces provider and comparison refresh after an explicit retry', async () => {
+    await mountController();
+    await act(async () => { currentController().retry(); await Promise.resolve(); });
+    expect(mocks.fetchComparison).toHaveBeenLastCalledWith(expect.any(AbortSignal), true);
+    expect(mocks.fetchCatalog).toHaveBeenLastCalledWith(true, expect.any(AbortSignal));
+});
+
+
+function lastSavedRegistry(): { models: AiModelRegistryEntry[]; budget: Record<string, number> } {
+    const payload = mocks.updateModels.mock.calls.at(-1)?.[0] as { models: AiModelRegistryEntry[]; budget: Record<string, number> } | undefined;
+    if (!payload) throw new Error('No registry write recorded');
+    return payload;
+}

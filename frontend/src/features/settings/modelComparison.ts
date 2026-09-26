@@ -2,6 +2,7 @@ import { knownContext, selectedRoutes, routeHasModes, routeContextValue, routeMo
 import { routePriceValue, routeHasPrice } from './model-comparison/modelRouteCosts';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { matchingRegistryIndexes } from './model-comparison/modelComparisonRegistry';
+import { routeRoleAssessments } from './model-comparison/routeRoleAssessments';
 import type {
     AiModelCatalog,
     AiModelCatalogProvider,
@@ -98,6 +99,7 @@ export type ModelComparisonUiAction =
 
 
 export interface ModelSetupState {
+    readonly routeKey?: string;
     readonly alias?: string;
     readonly apiKey: string;
     readonly baseUrl: string;
@@ -379,23 +381,31 @@ export const filteredComparisonModels = (
         if (!deduped.has(key)) deduped.set(key, model);
     }
 
-    const hasRouteFilters = ui.maxPrice !== '' || ui.minContext !== '' || ui.modes.length > 0;
+    const requiresTools = ui.profile === 'director' || ui.profile === 'allrounder';
+    const requiresLongContext = ui.profile === 'documentalist';
+    const hasRouteFilters = ui.provider !== 'all' || requiresTools || requiresLongContext || ui.maxPrice !== '' || ui.minContext !== '' || ui.modes.length > 0;
     const matchesRoute = (route: AiModelComparisonEntry['routes'][number]) =>
-        (ui.maxPrice === '' || routeHasPrice(route, priceLimit / (feed?.currency.usd_rate || 1)))
+        (!requiresTools || route.tool_call === true || (ui.showIncomplete && route.tool_call == null))
+        && (!requiresLongContext || (knownContext(route.context_window) ? route.context_window >= 100_000 : ui.showIncomplete))
+        && (ui.maxPrice === '' || routeHasPrice(route, priceLimit / (feed?.currency.usd_rate || 1)))
         && (ui.minContext === '' || (knownContext(route.context_window) && route.context_window >= contextFloor))
         && routeHasModes(route, ui.modes, ui.modeMatch);
     // Display and sort the same offers that satisfied the filters.
-    const candidates = [...deduped.values()].map(model => hasRouteFilters
-        ? { ...model, routes: selectedRoutes(model, ui.provider).filter(matchesRoute) }
-        : model);
+    const candidates = [...deduped.values()].map(model => {
+        const scoped = hasRouteFilters
+            ? { ...model, routes: selectedRoutes(model, ui.provider).filter(matchesRoute) }
+            : model;
+        return model.role_assessments?.length
+            ? { ...scoped, role_assessments: routeRoleAssessments(scoped) } : scoped;
+    });
     return candidates.filter((model) => (
         (!normalizedQuery
-            || `${model.name} ${model.creator} ${matchingRegistryIndexes(registryModels, model).map(index => registryModels[index]?.alias || '').join(' ')}`
+            || `${model.name} ${model.creator} ${model.routes.map(route => `${route.provider} ${route.provider_name} ${route.model_id}`).join(' ')} ${matchingRegistryIndexes(registryModels, model, ui.provider).map(index => registryModels[index]?.alias || '').join(' ')}`
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
         && (ui.profile === 'all' || (model.role_assessments?.length
-            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => !['catalog_compatible', 'tested'].includes(r.status)) : model.role_assessments.some(r => r.role === ui.profile && (['catalog_compatible', 'tested'].includes(r.status) || (ui.showIncomplete && r.status === 'insufficient_data'))))
+            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => r.status === 'insufficient_data' && r.score == null) : model.role_assessments.some(r => r.role === ui.profile && (['catalog_compatible', 'tested'].includes(r.status) || (ui.showIncomplete && r.status === 'insufficient_data'))))
             : model.profile === ui.profile))
         && (
             ui.showIncomplete
@@ -407,16 +417,10 @@ export const filteredComparisonModels = (
                 && selectedRoutes(model, ui.provider).some(route => routeHasPrice(route, Infinity) && knownContext(route.context_window))
             )
             || ui.profile === 'unrated'
-            || normalizedQuery !== ''
-            || ui.maxPrice !== ''
-            || ui.minContext !== ''
-            || ui.parameterStatus !== 'all'
-            || ui.minParameters !== ''
-            || ui.maxParameters !== ''
         )
         && (
             ui.availability === 'all'
-            || matchingRegistryIndexes(registryModels, model)
+            || matchingRegistryIndexes(registryModels, model, ui.provider)
                 .some((index) => registryModels[index]?.enabled !== false)
                 === (ui.availability === 'active')
         )

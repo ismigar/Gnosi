@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, JsonValue
 
 from backend.domains.configuration.ai.budget import sanitize_budget as _sanitize_budget
+from backend.domains.configuration.ai.registry_revision import registry_revision
 from backend.config.app_config import load_params
 from backend.config.env_config import remove_env_keys
 from backend.domains.configuration.ai.contracts import (
@@ -507,6 +508,7 @@ async def get_model_registry() -> JsonObject:
                 strip_legacy_registry_rows(configured_models)
             ),
             "budget": dict(ai_cfg.get("budget") or {}),
+            "revision": registry_revision(ai_cfg),
             "default": DEFAULT_REGISTRY,
             "currency": currency,
         }
@@ -577,7 +579,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
     response_model=ModelComparisonResponse,
     response_model_exclude_unset=True,
 )
-async def get_model_comparison(context: Any = Depends(require_role("viewer"))) -> JsonObject:
+async def get_model_comparison(context: Any = Depends(require_role("viewer")), refresh: bool = False) -> JsonObject:
     """Complete, freshly paginated Artificial Analysis language-model feed."""
     from backend.services.artificial_analysis import (
         ArtificialAnalysisError,
@@ -589,7 +591,7 @@ async def get_model_comparison(context: Any = Depends(require_role("viewer"))) -
         def _load() -> JsonObject:
             from backend.services.model_parameters import enrich_comparison
 
-            res = enrich_comparison(fetch_all_models())
+            res = enrich_comparison(fetch_all_models(force_refresh=True) if refresh else fetch_all_models())
             if context is not None and hasattr(context, "vault_path"):
                 from backend.services.agent_execution_models import ExecutionScope
                 from backend.services.agent_team_store import list_artifacts
@@ -703,10 +705,16 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
     )
     from backend.agent.model_router import hydrate_registry_metadata
 
+    price_index, metadata_index = await asyncio.gather(
+        asyncio.to_thread(catalog_price_index),
+        asyncio.to_thread(catalog_model_metadata_index),
+    )
     cfg = load_params(strict_env=False)
     params_path = cfg.params_source
     current_config = _load_yaml_mapping(params_path)
     ai_cfg = dict(current_config.get("ai") or {})
+    if payload.expected_revision is not None and payload.expected_revision != registry_revision(dict(cfg.get("ai", {}) or {})):
+        raise HTTPException(status_code=409, detail="model_registry_changed")
     current_rows = [dict(row) for row in (ai_cfg.get("models") or []) if isinstance(row, dict)]
     current_by_key = {
         (
@@ -715,11 +723,6 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
         ): row
         for row in current_rows
     }
-    price_index, metadata_index = await asyncio.gather(
-        asyncio.to_thread(catalog_price_index),
-        asyncio.to_thread(catalog_model_metadata_index),
-    )
-
     # Minimal validation of each entry
     cleaned: list[JsonObject] = []
     for m in payload.models:

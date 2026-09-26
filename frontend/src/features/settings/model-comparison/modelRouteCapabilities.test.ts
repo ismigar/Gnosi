@@ -25,7 +25,7 @@ describe('provider capabilities', () => {
     });
     it('retains distinct capabilities, deduplicates equivalents and sorts unknown last', () => {
         const duplicated = { ...model, routes: [...model.routes, route('small', 8000, ['text'], .1), route('small', 16000, ['text'])] };
-        expect(comparisonRouteCapabilities(duplicated, 'all').map(r => r.context_window)).toEqual([8000, 16000, 200000, null]);
+        expect(comparisonRouteCapabilities(duplicated, 'all').map(r => r.context_window)).toEqual([200000, 16000, 8000, null]);
     });
     it('sorts context using the selected provider and places unknown last both ways', () => {
         const bigger = { ...model, id: 'bigger', context_window: 1, routes: [route('small', 32000, ['text'])] };

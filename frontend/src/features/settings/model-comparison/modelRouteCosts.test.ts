@@ -29,3 +29,11 @@ describe('route pricing', () => {
         expect(filteredComparisonModels(feed, [], { ...ui, maxPrice: '.2' }).map(m => m.id)).toEqual(['y']);
     });
 });
+
+
+it('previews the same offer value used to sort each price column', () => {
+    const crossed = { ...model, routes: [route('input-cheap', 1, 100), route('output-cheap', 2, 1)] };
+    expect(comparisonRouteCosts(crossed, 'all', '5000000', '1000000', 'input_price')[0]?.route.cost_in).toBe(1);
+    expect(comparisonRouteCosts(crossed, 'all', '5000000', '1000000', 'output_price')[0]?.route.cost_out).toBe(1);
+    expect(comparisonRouteCosts(crossed, 'all', '5000000', '1000000')[0]?.cost).toBe(11);
+});

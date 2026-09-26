@@ -1,8 +1,10 @@
 import { INITIAL_DATA_STATE, modelComparisonDataReducer, type ModelComparisonDataState } from './model-comparison/modelComparisonDataState';
+import { useRegistryMutation } from './model-comparison/useRegistryMutation';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 
 import {
     comparisonRoutesForMode,
+    comparisonRouteKey,
     comparisonRouteToRegistryEntry,
     matchingRegistryIndexes,
     type ResolvedComparisonRoute,
@@ -14,7 +16,6 @@ import {
     fetchAiModels,
     setAiProviderCredentials,
     setAiProviderStatus,
-    updateAiModels,
     validateAiProvider,
     type AiModelCatalogProvider,
     type AiModelComparisonEntry,
@@ -38,7 +39,7 @@ export interface ModelComparisonDataController {
     readonly changeSetupMode: (mode: ComparisonSetupMode) => void;
     readonly changeSetupProvider: (providerId: string) => void;
     readonly closeSetup: () => void;
-    readonly deactivateModel: (model: AiModelComparisonEntry) => Promise<void>;
+    readonly deactivateModel: (model: AiModelComparisonEntry, provider?: string) => Promise<void>;
     readonly testSetupConnection: () => Promise<void>;
     readonly dismissFallback: () => void;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
@@ -65,6 +66,10 @@ export function useModelComparisonData(
         modelComparisonDataReducer,
         INITIAL_DATA_STATE,
     );
+    const saveRegistry = useRegistryMutation(registry => {
+        dispatch({ registry, type: 'registry-saved' });
+        emitAppEvent('gnosi-ai-models-changed', { source: 'model-comparison' });
+    });
 
     useEffect(() => () => { activationVersion.current += 1; }, [isOpen]);
 
@@ -75,7 +80,7 @@ export function useModelComparisonData(
             if (signalIsAborted(controller.signal)) return;
             dispatch({ type: 'feed-started' });
             try {
-                const feed = await fetchAiModelComparison(controller.signal);
+                const feed = await fetchAiModelComparison(controller.signal, state.requestVersion > 0);
                 if (!signalIsAborted(controller.signal)) {
                     dispatch({ type: 'feed-loaded', feed });
                 }
@@ -103,7 +108,7 @@ export function useModelComparisonData(
             try {
                 const [registryPayload, catalog] = await Promise.all([
                     fetchAiModels(controller.signal),
-                    fetchAiModelCatalog(undefined, controller.signal),
+                    fetchAiModelCatalog(state.requestVersion > 0, controller.signal),
                 ]);
                 if (!signalIsAborted(controller.signal)) {
                     dispatch({
@@ -166,19 +171,8 @@ export function useModelComparisonData(
             mode,
             model,
             providerId: route?.provider ?? '',
+            routeKey: route ? comparisonRouteKey(route) : '',
         };
-    };
-    const saveRegistry = async (
-        models: readonly AiModelRegistryEntry[],
-    ): Promise<void> => {
-        await updateAiModels({
-            budget: { ...state.registry.budget },
-            models: [...models],
-        });
-        dispatch({ models, type: 'registry-saved' });
-        emitAppEvent('gnosi-ai-models-changed', {
-            source: 'model-comparison',
-        });
     };
     const saveArtificialAnalysisApiKey = async (): Promise<void> => {
         const apiKey = state.apiKeyInput.trim();
@@ -218,8 +212,13 @@ export function useModelComparisonData(
             type: 'set-setup',
         });
     };
-    const changeSetupProvider = (providerId: string): void => {
+    const changeSetupProvider = (routeKey: string): void => {
         activationVersion.current += 1;
+        if (!state.setup) return;
+        const route = routesForMode(state.setup.model, state.setup.mode)
+            .find(candidate => comparisonRouteKey(candidate) === routeKey || candidate.provider === routeKey);
+        if (!route) return;
+        const providerId = route.provider;
         const provider = providersById[providerId];
         dispatch({
             patch: {
@@ -229,22 +228,24 @@ export function useModelComparisonData(
                 connectionStatus: 'untested',
                 connectionError: '',
                 providerId,
+                routeKey: comparisonRouteKey(route),
             },
             type: 'patch-setup',
         });
     };
     const deactivateModel = async (
         model: AiModelComparisonEntry,
+        provider = 'all',
     ): Promise<void> => {
-        const indexes = new Set(matchingRegistryIndexes(state.registry.models, model));
-        if (indexes.size === 0) return;
         dispatch({ modelId: model.id, type: 'set-busy-model' });
         dispatch({ message: null, type: 'set-action-message' });
         try {
-            const models = state.registry.models.map((entry, index) => (
-                indexes.has(index) ? { ...entry, enabled: false } : entry
-            ));
-            await saveRegistry(models);
+            await saveRegistry(latest => {
+                const indexes = new Set(matchingRegistryIndexes(latest, model, provider));
+                return latest.map((entry, index) => (
+                    indexes.has(index) ? { ...entry, enabled: false } : entry
+                ));
+            });
             dispatch({
                 message: {
                     key: 'model_disabled',
@@ -274,7 +275,7 @@ export function useModelComparisonData(
         }
         const provider = providersById[setup.providerId];
         const selectedRoute = routesForMode(setup.model, setup.mode)
-            .find((route) => route.provider === setup.providerId);
+            .find((route) => setup.routeKey ? comparisonRouteKey(route) === setup.routeKey : route.provider === setup.providerId);
         const needsApiKey = !provider?.has_api_key;
         if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())) return;
         dispatch({ patch: { connectionStatus: 'testing', connectionError: '', error: '' }, type: 'patch-setup' });
@@ -323,7 +324,7 @@ export function useModelComparisonData(
         if (!isCurrent()) return;
         const provider = providersById[setup.providerId];
         const selectedRoute = routesForMode(setup.model, setup.mode)
-            .find((route) => route.provider === setup.providerId);
+            .find((route) => setup.routeKey ? comparisonRouteKey(route) === setup.routeKey : route.provider === setup.providerId);
         const needsApiKey = setup.mode === 'remote' && !provider?.has_api_key;
         if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())
             || (setup.mode === 'remote' && setup.connectionStatus !== 'connected')) {
@@ -338,18 +339,15 @@ export function useModelComparisonData(
                 await setAiProviderStatus(provider.id, { enabled: true });
             }
             if (!isCurrent()) return;
-            const existingIndex = state.registry.models.findIndex((entry) => (
-                entry.provider === provider.id
-                && entry.model_id === selectedRoute.model_id
-            ));
-            const models = existingIndex >= 0
-                ? state.registry.models.map((entry, index) => (
-                    index === existingIndex
-                        ? { ...entry, ...newEntry, enabled: true }
-                        : entry
-                ))
-                : [...state.registry.models, newEntry];
-            await saveRegistry(models);
+            await saveRegistry(latest => {
+                const existingIndex = latest.findIndex(entry => (
+                    entry.provider === provider.id && entry.model_id === selectedRoute.model_id
+                ));
+                return existingIndex >= 0
+                    ? latest.map((entry, index) => index === existingIndex
+                        ? { ...entry, ...newEntry, enabled: true } : entry)
+                    : [...latest, newEntry];
+            }, isCurrent);
             if (!isCurrent()) return;
             dispatch({
                 providerId: provider.id,
@@ -380,13 +378,8 @@ export function useModelComparisonData(
 
     return {
         saveModelAlias: async (entry, alias) => {
-            // Read the latest registry so editing a label preserves other configuration.
-            const latest = await fetchAiModels();
-            const models = latest.configured_models.map(row => row.provider === entry.provider && row.model_id === entry.model_id
-                ? { ...row, alias: alias.trim() } : row);
-            await updateAiModels({ models, budget: latest.budget });
-            dispatch({ models, type: 'registry-saved' });
-            emitAppEvent('gnosi-ai-models-changed', { source: 'model-alias' });
+            await saveRegistry(latest => latest.map(row => row.provider === entry.provider && row.model_id === entry.model_id
+                ? { ...row, alias: alias.trim() } : row));
         },
         setSetupAlias: value => { dispatch({ patch: { alias: value }, type: 'patch-setup' }); },
         beginActivation,

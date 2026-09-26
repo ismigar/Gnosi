@@ -4,7 +4,7 @@ type Route = AiModelComparisonEntry['routes'][number];
 export const knownPrice = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 /** Provider prices are never substituted with the benchmark vendor's prices. */
-export function comparisonRouteCosts(model: AiModelComparisonEntry, provider: string, inputTokens: string, outputTokens: string) {
+export function comparisonRouteCosts(model: AiModelComparisonEntry, provider: string, inputTokens: string, outputTokens: string, field: 'monthly_cost' | 'input_price' | 'output_price' = 'monthly_cost') {
     const input = Number(inputTokens.replaceAll('.', '')) || 0;
     const output = Number(outputTokens.replaceAll('.', '')) || 0;
     const seen = new Set<string>();
@@ -15,7 +15,12 @@ export function comparisonRouteCosts(model: AiModelComparisonEntry, provider: st
         const cost = knownPrice(route.cost_in) && knownPrice(route.cost_out)
             ? (input * route.cost_in + output * route.cost_out) / 1_000_000 : null;
         return [{ route, cost }];
-    }).sort((a, b) => a.cost === null ? (b.cost === null ? 0 : 1) : b.cost === null ? -1 : a.cost - b.cost);
+    }).sort((a, b) => {
+        const first = field === 'monthly_cost' ? a.cost : a.route[field === 'input_price' ? 'cost_in' : 'cost_out'];
+        const second = field === 'monthly_cost' ? b.cost : b.route[field === 'input_price' ? 'cost_in' : 'cost_out'];
+        if (!knownPrice(first)) return knownPrice(second) ? 1 : 0;
+        return knownPrice(second) ? first - second : -1;
+    });
 }
 
 export function routePriceValue(model: AiModelComparisonEntry, provider: string, field: 'input_price' | 'output_price' | 'monthly_cost', input: string, output: string): number | null {

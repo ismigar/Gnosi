@@ -16,12 +16,14 @@ export function ComparisonDetails({ className = '', preview, summary, children }
     const popup = useRef<HTMLDivElement>(null);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const [open, setOpen] = useState(false);
+    const [portalTarget, setPortalTarget] = useState<Element | null>(null);
     const [position, setPosition] = useState<ReturnType<typeof getViewPopoverLayout> | null>(null);
     const cancelClose = () => { clearTimeout(closeTimer.current); };
     const close = () => { cancelClose(); setOpen(false); };
     const show = () => {
         cancelClose();
         if (anchor.current) {
+            setPortalTarget(anchor.current.closest('.model-comparison-modal') ?? document.body);
             setPosition(getViewPopoverLayout(anchor.current.getBoundingClientRect(), window.innerWidth, window.innerHeight));
             setOpen(true);
         }
@@ -47,9 +49,9 @@ export function ComparisonDetails({ className = '', preview, summary, children }
             onBlur={event => { if (!(event.relatedTarget instanceof Node) || !popup.current?.contains(event.relatedTarget)) close(); }}>
             {summary}
         </button>
-        {open && position && createPortal(<div id={id} ref={popup} className="model-details-popover" style={position}
+        {open && position && portalTarget && createPortal(<div id={id} ref={popup} className="model-details-popover" style={position}
             onMouseEnter={cancelClose} onMouseLeave={leave}>
             {children()}
-        </div>, anchor.current?.closest('.model-comparison-modal') ?? document.body)}
+        </div>, portalTarget)}
     </div>;
 }

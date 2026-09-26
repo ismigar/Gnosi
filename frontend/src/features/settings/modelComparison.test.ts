@@ -1,3 +1,5 @@
+import { routeRoleAssessments } from './model-comparison/routeRoleAssessments';
+import { registryEntryMatchesModel } from './model-comparison/modelComparisonRegistry';
 import { describe, expect, it } from 'vitest';
 
 import type {
@@ -44,7 +46,7 @@ const comparisonModel = (
         is_local: false,
         model_id: 'model-1',
         model_name: 'Model One',
-        provider: 'openai',
+        tool_call: true, provider: 'openai',
         provider_name: 'OpenAI',
         quality: 4,
         tags: ['text'],
@@ -54,6 +56,13 @@ const comparisonModel = (
     tags: ['text'],
     ...overrides,
 });
+
+
+function firstRoute(model: AiModelComparisonEntry) {
+    const route = model.routes[0];
+    if (!route) throw new Error('Missing fixture route');
+    return route;
+}
 
 
 const currency = {
@@ -81,6 +90,7 @@ const feed: AiModelComparison = {
             name: 'Model Two',
             profile: 'expert',
             slug: 'model-two',
+            routes: [{ ...firstRoute(comparisonModel({})), model_id: 'model-2' }],
         }),
         comparisonModel({
             agentic: null,
@@ -120,7 +130,7 @@ describe('model comparison domain', () => {
     });
 
     it('applies the price ceiling in configured currency after USD conversion', () => {
-        const models = [comparisonModel({ input_price: 0, routes: [{ ...comparisonModel({}).routes[0]!, cost_in: 10 }] })];
+        const models = [comparisonModel({ input_price: 0, routes: [{ ...firstRoute(comparisonModel({})), cost_in: 10 }] })];
         for (const [rate, limit, count] of [[0.9, '9', 1], [0.9, '8.99', 0], [150, '1400', 0], [1, '10', 1]] as const) {
             expect(filteredComparisonModels({ ...feed, models, currency: { ...currency, usd_rate: rate } }, [], {
                 ...INITIAL_COMPARISON_UI_STATE, maxPrice: limit,
@@ -130,10 +140,10 @@ describe('model comparison domain', () => {
 
     it('requires every selected mode by default and supports any mode explicitly', () => {
         const models = [
-            comparisonModel({ id: 'text', modes: ['text'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['text'], output_modes: [] }] }),
-            comparisonModel({ id: 'image', modes: ['image'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['image'], output_modes: [] }] }),
-            comparisonModel({ id: 'both', modes: ['text', 'image'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['text', 'image'], output_modes: [] }] }),
-            comparisonModel({ id: 'audio', modes: ['audio'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['audio'], output_modes: [] }] }),
+            comparisonModel({ id: 'text', modes: ['text'], routes: [{ ...firstRoute(comparisonModel({})), input_modes: ['text'], output_modes: [] }] }),
+            comparisonModel({ id: 'image', modes: ['image'], routes: [{ ...firstRoute(comparisonModel({})), input_modes: ['image'], output_modes: [] }] }),
+            comparisonModel({ id: 'both', modes: ['text', 'image'], routes: [{ ...firstRoute(comparisonModel({})), input_modes: ['text', 'image'], output_modes: [] }] }),
+            comparisonModel({ id: 'audio', modes: ['audio'], routes: [{ ...firstRoute(comparisonModel({})), input_modes: ['audio'], output_modes: [] }] }),
         ];
         const ui = { ...INITIAL_COMPARISON_UI_STATE, modes: ['text', 'image'] as const };
         expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['both']);
@@ -181,8 +191,8 @@ describe('model comparison domain', () => {
 
     it('sorts the monthly estimate using the current input and output volumes', () => {
         const models = [
-            comparisonModel({ id: 'input', input_price: 0, output_price: 0, routes: [{ ...comparisonModel({}).routes[0]!, cost_in: 1, cost_out: 20 }] }),
-            comparisonModel({ id: 'output', input_price: 0, output_price: 0, routes: [{ ...comparisonModel({}).routes[0]!, cost_in: 10, cost_out: 2 }] }),
+            comparisonModel({ id: 'input', input_price: 0, output_price: 0, routes: [{ ...firstRoute(comparisonModel({})), cost_in: 1, cost_out: 20 }] }),
+            comparisonModel({ id: 'output', input_price: 0, output_price: 0, routes: [{ ...firstRoute(comparisonModel({})), cost_in: 10, cost_out: 2 }] }),
         ];
         const result = filteredComparisonModels({ ...feed, models }, [], {
             ...INITIAL_COMPARISON_UI_STATE, inputTokens: '0', outputTokens: '1000000',
@@ -253,8 +263,8 @@ describe('model comparison domain', () => {
 });
 
 it('filters by serving provider, including models created by another vendor', () => {
-    const google = comparisonModel({ id: 'google-direct', creator: 'Google', routes: [{ ...comparisonModel({}).routes[0]!, provider: 'google', provider_name: 'Google' }] });
-    const routed = comparisonModel({ id: 'google-routed', creator: 'Google', routes: [{ ...google.routes[0]!, provider: 'openrouter', provider_name: 'OpenRouter' }] });
+    const google = comparisonModel({ id: 'google-direct', creator: 'Google', routes: [{ ...firstRoute(comparisonModel({})), provider: 'google', provider_name: 'Google' }] });
+    const routed = comparisonModel({ id: 'google-routed', creator: 'Google', routes: [{ ...firstRoute(google), provider: 'openrouter', provider_name: 'OpenRouter' }] });
     const models = [google, routed];
     const ui = { ...INITIAL_COMPARISON_UI_STATE, modes: [] as const, minContext: '', maxPrice: '' };
     expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, provider: 'openrouter' }).map(model => model.id)).toEqual(['google-routed']);
@@ -322,4 +332,50 @@ it('does not treat an active worker or its alias as evidence of director suitabi
     expect(filteredComparisonModels({ ...feed, models }, registry, ui)).toEqual([]);
     expect(filteredComparisonModels({ ...feed, models }, registry, { ...ui, showIncomplete: true }).map(m => m.id)).toEqual(['flash-lite']);
     expect(filteredComparisonModels({ ...feed, models }, registry, { ...ui, profile: 'worker' }).map(m => m.id)).toEqual(['flash-lite']);
+});
+
+describe('comparison identity and filter regressions', () => {
+    it('does not match a different model variant through a substring', () => {
+        expect(registryEntryMatchesModel({provider:'openai', model_id:'gpt-4.1-mini'}, {id:'aa-main', slug:'gpt-4.1', name:'GPT-4.1', routes:[{provider:'openai',model_id:'gpt-4.1'}]})).toBe(false);
+    });
+    it('filters active state within the selected provider', () => {
+        const model = comparisonModel({routes:[...comparisonModel({}).routes, {...firstRoute(comparisonModel({})),provider:'openrouter',model_id:'vendor/model-1'}]});
+        const registry=[{provider:'openai',model_id:'model-1',enabled:true}];
+        expect(filteredComparisonModels({...feed,models:[model]}, registry,{...INITIAL_COMPARISON_UI_STATE,provider:'openrouter',availability:'active'})).toEqual([]);
+    });
+    it('keeps incomplete models hidden when entering a search query', () => {
+        const model=comparisonModel({coding:null, agentic:null, profile:'unrated', name:'Unknown Model'});
+        expect(filteredComparisonModels({...feed,models:[model]},[],{...INITIAL_COMPARISON_UI_STATE,query:'Unknown',showIncomplete:false})).toEqual([]);
+    });
+    it('searches the provider advertised by the search placeholder', () => {
+        const model=comparisonModel({routes:[{...firstRoute(comparisonModel({})),provider:'openrouter',provider_name:'OpenRouter'}]});
+        expect(filteredComparisonModels({...feed,models:[model]},[],{...INITIAL_COMPARISON_UI_STATE,query:'OpenRouter',showIncomplete:true})).toHaveLength(1);
+    });
+    it('rejects a director route that explicitly cannot call tools', () => {
+        const model=comparisonModel({role_assessments:[{role:'director',status:'catalog_compatible',score:85,coverage:100,method:'weighted_catalog_v1',source:'catalog'}],routes:[{...firstRoute(comparisonModel({})),tool_call:false}]});
+        expect(filteredComparisonModels({...feed,models:[model]},[],{...INITIAL_COMPARISON_UI_STATE,profile:'director'})).toEqual([]);
+    });
+});
+
+
+it('does not label a low numeric score as unrated', () => {
+    const model = comparisonModel({role_assessments: [{role:'worker',status:'below_threshold',score:35,coverage:100,method:'weighted_catalog_v1',source:'catalog'}]});
+    expect(filteredComparisonModels({...feed,models:[model]},[],{...INITIAL_COMPARISON_UI_STATE,profile:'unrated'})).toEqual([]);
+});
+
+it('requires declared tools for a director unless incomplete routes are requested', () => {
+    const model = comparisonModel({role_assessments: [{role:'director',status:'catalog_compatible',score:85,coverage:100,method:'weighted_catalog_v1',source:'catalog'}], routes:[{...firstRoute(comparisonModel({})),tool_call:null}]});
+    const ui = {...INITIAL_COMPARISON_UI_STATE,profile:'director' as const};
+    expect(filteredComparisonModels({...feed,models:[model]},[],ui)).toEqual([]);
+    expect(filteredComparisonModels({...feed,models:[model]},[],{...ui,showIncomplete:true})).toHaveLength(1);
+});
+
+
+it('replaces global role capability evidence with the visible route limitation', () => {
+    const model = comparisonModel({role_assessments:[{role:'director',status:'catalog_compatible',score:85,coverage:100,method:'weighted_catalog_v1',source:'catalog',proofs:[{metric:'tool_support',source:'declared',value:true}],weights:{tool_support:.2},missing:[]}],routes:[{...firstRoute(comparisonModel({})),tool_call:false}]});
+    const assessment = routeRoleAssessments(model)[0];
+    expect(assessment).toMatchObject({status:'limitation',score:null});
+    expect(assessment?.proofs).toEqual([{metric:'tool_support',source:'declared',value:false}]);
+    const unknown = routeRoleAssessments({...model,routes:[{...firstRoute(model),tool_call:null}]})[0];
+    expect(unknown).toMatchObject({status:'insufficient_data',score:null,coverage:80,missing:['tool_support'],proofs:[]});
 });

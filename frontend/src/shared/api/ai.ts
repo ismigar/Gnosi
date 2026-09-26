@@ -130,9 +130,10 @@ export async function fetchAiModelCatalog(
 
 export async function fetchAiModelComparison(
   signal?: AbortSignal,
+  refresh = false,
 ): Promise<AiModelComparison> {
   return unwrapApiResult<AiModelComparison, unknown>(
-    await apiClient.GET('/api/ai/model-comparison', { signal }),
+    await apiClient.GET('/api/ai/model-comparison', { signal, params: { query: { refresh } } }),
   );
 }
 

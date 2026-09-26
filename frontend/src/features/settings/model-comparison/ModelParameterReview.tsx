@@ -21,11 +21,11 @@ export function ModelParameterReview({ modelId, modelName, onUpdated }: { modelI
             const result = await reviewModelParameters({ model_id: modelId, action, status,
                 total: total === '' ? null : Number(total), active: active === '' ? null : Number(active), source, reviewed });
             setData(result);
-            if (action !== 'inspect' && result.status !== 'pending') {
+            if (result.status !== 'pending') {
                 setSource(result.source || ''); setStatus(result.status as 'known' | 'not_published');
                 setTotal(result.total == null ? '' : String(result.total)); setActive(result.active == null ? '' : String(result.active));
                 setReviewed(false);
-                onUpdated?.();
+                if (action !== 'inspect') onUpdated?.();
             }
         } catch { setError(true); }
         finally { setBusy(false); }
@@ -38,7 +38,7 @@ export function ModelParameterReview({ modelId, modelName, onUpdated }: { modelI
             <div className="flex justify-end"><RefreshButton label={t('model_comparison.review_lookup')} loading={busy} onClick={() => { void request('refresh'); }} /></div>
             <p>{t('model_comparison.review_help')}</p>
             {(data?.source_links ?? []).map((link,i) => <p key={link}><a href={link} target="_blank" rel="noreferrer">{t('model_comparison.review_source_link')} {i+1} ↗</a></p>)}
-            {data && <p role="status">{t(`model_comparison.review_outcomes.${data.outcome}`)}{data.total != null && ` · ${data.total} B`}{data.source && <> · <a href={data.source} target="_blank" rel="noreferrer">{t('model_comparison.parameters_source')}</a></>}</p>}
+            {data && <p role="status">{t(`model_comparison.review_outcomes.${data.outcome}`)}{data.total != null && ` · ${String(data.total)} B`}{data.source && <> · <a href={data.source} target="_blank" rel="noreferrer">{t('model_comparison.parameters_source')}</a></>}</p>}
             <label>{t('model_comparison.review_status')}<select className="gnosi-select" disabled={busy} value={status} onChange={e => { setStatus(e.target.value as 'known' | 'not_published'); setReviewed(false); }}><option value="known">{t('model_comparison.review_known')}</option><option value="not_published">{t('model_comparison.parameters_not_published')}</option></select></label>
             {status === 'known' && <>
                 <label>{t('model_comparison.review_total')}<input className="gnosi-input" disabled={busy} type="number" min="0" step="any" value={total} onChange={e => { setTotal(e.target.value); setReviewed(false); }} /></label>

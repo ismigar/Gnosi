@@ -47,6 +47,9 @@ export interface ResolvedComparisonRoute extends ComparisonRoute {
   readonly provider_name: string;
 }
 
+export const comparisonRouteKey = (route: ComparisonRoute): string =>
+  JSON.stringify([route.provider, route.model_id]);
+
 
 export interface ModelRegistryEntry {
   readonly [key: string]: unknown;
@@ -63,48 +66,24 @@ export interface ModelRegistryEntry {
 }
 
 
-const normalize = (value: ModelScalar): string => (
-  String(value || '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, '')
-);
-
-
-const isProviderQualifiedModelId = (value: ModelScalar): boolean => (
-  String(value || '').includes('/')
-);
-
-
 export function registryEntryMatchesModel(
   entry: RegistryModelEntry | null | undefined,
   comparisonModel: ComparisonModel | null | undefined,
 ): boolean {
-  const exactRoute = (comparisonModel?.routes ?? []).some((route) => (
+  return (comparisonModel?.routes ?? []).some((route) => (
     route.provider === entry?.provider && route.model_id === entry.model_id
   ));
-  if (exactRoute) return true;
-
-  const registryModel = normalize(entry?.model_id);
-  if (!registryModel) return false;
-  return [comparisonModel?.slug, comparisonModel?.name, comparisonModel?.id]
-    .filter((candidate) => (
-      !isProviderQualifiedModelId(entry?.model_id)
-      && !isProviderQualifiedModelId(candidate)
-    ))
-    .map(normalize)
-    .filter(Boolean)
-    .some((candidate) => (
-      candidate === registryModel
-      || registryModel.includes(candidate)
-      || candidate.includes(registryModel)
-    ));
 }
 
 
 export function matchingRegistryIndexes(
   models: readonly RegistryModelEntry[] | null | undefined,
   comparisonModel: ComparisonModel | null | undefined,
+  provider = 'all',
 ): number[] {
   return (models ?? []).reduce<number[]>((indexes, entry, index) => {
-    if (registryEntryMatchesModel(entry, comparisonModel)) indexes.push(index);
+    if ((provider === 'all' || entry.provider === provider)
+      && registryEntryMatchesModel(entry, comparisonModel)) indexes.push(index);
     return indexes;
   }, []);
 }
@@ -119,14 +98,15 @@ export function comparisonRoutesForMode(
   const providersById = new Map(
     (providers ?? []).map((provider) => [provider.id, provider] as const),
   );
-  const routesByProvider = new Map<string, ResolvedComparisonRoute>();
+  const routesByKey = new Map<string, ResolvedComparisonRoute>();
 
   for (const route of comparisonModel?.routes ?? []) {
     const provider = providersById.get(route.provider);
     if (!provider || Boolean(route.is_local) !== isLocal) continue;
     if (isLocal && !provider.live && !provider.configured) continue;
-    if (!routesByProvider.has(provider.id)) {
-      routesByProvider.set(provider.id, {
+    const key = comparisonRouteKey(route);
+    if (!routesByKey.has(key)) {
+      routesByKey.set(key, {
         ...route,
         provider_name: provider.name || route.provider_name || provider.id,
         provider_connected: Boolean(provider.connected),
@@ -135,7 +115,7 @@ export function comparisonRoutesForMode(
     }
   }
 
-  return [...routesByProvider.values()].sort((first, second) => {
+  return [...routesByKey.values()].sort((first, second) => {
     if (first.provider_validated !== second.provider_validated) {
       return Number(second.provider_validated) - Number(first.provider_validated);
     }

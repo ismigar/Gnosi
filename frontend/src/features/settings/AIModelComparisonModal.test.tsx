@@ -300,7 +300,7 @@ describe('AIModelComparisonModal', () => {
         act(() => {
             toggle.click();
         });
-        expect(mocks.deactivateModel).toHaveBeenCalledWith(FEED.models[0]);
+        expect(mocks.deactivateModel).toHaveBeenCalledWith(FEED.models[0], 'all');
 
         const close = container.querySelector<HTMLButtonElement>(
             'button.gnosi-close-btn',
@@ -324,7 +324,7 @@ it('keeps a model with many provider offers compact and reveals the remaining of
     const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
     const base = FEED.models[0];
     if (!base || !base.routes[0]) throw new Error('Missing route fixture');
-    const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${index}`, provider_name: `Provider ${index}`, cost_in: index + 1 }));
+    const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${String(index)}`, provider_name: `Provider ${String(index)}`, cost_in: index + 1 }));
     mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
     const row = container.querySelector('tbody tr');

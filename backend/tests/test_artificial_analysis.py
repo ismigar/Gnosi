@@ -666,3 +666,28 @@ def test_routes_keep_provider_capabilities_without_generic_fallback():
     assert routes['legacy']['context_window'] is None
     assert routes['legacy']['input_modes'] is None
     assert routes['legacy']['tool_call'] is None
+
+
+def test_restored_metrics_recompute_role_assessments():
+    model = {"id": "stable-role", "intelligence": 90, "agentic": None,
+             "context_window": 200000, "input_price": 0, "output_price": 0,
+             "latency": 0, "tags": ["tools"], "modes": ["text"],
+             "role_assessments": [{"role": "director", "status": "insufficient_data"}]}
+    result = aa._merge_cached_metrics(
+        {"models": [model]}, {"models": [{"id": "stable-role", "agentic": 80}]},
+    )
+    assessment = next(row for row in result["models"][0]["role_assessments"] if row["role"] == "director")
+    assert assessment["status"] == "catalog_compatible"
+    assert next(proof["value"] for proof in assessment["proofs"] if proof["metric"] == "agentic") == 80
+
+
+def test_explicit_refresh_bypasses_fresh_comparison_cache(monkeypatch):
+    calls = []
+    monkeypatch.setattr(aa, "_read_cache", lambda: {"models": []})
+    monkeypatch.setattr(aa, "_cache_is_fresh", lambda payload: True)
+    monkeypatch.setattr(aa, "_configured_api_key", lambda: "test-key")
+    monkeypatch.setattr(aa, "_fetch_model_pages", lambda key: (calls.append("upstream") or [], "test"))
+    monkeypatch.setattr(aa, "load_catalog", lambda force_refresh=False: calls.append(force_refresh) or {})
+    monkeypatch.setattr(aa, "_write_cache", lambda payload: None)
+    aa.fetch_all_models(force_refresh=True)
+    assert calls == ["upstream", True]

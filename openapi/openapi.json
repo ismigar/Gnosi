@@ -22644,6 +22644,17 @@
             },
             "title": "Models",
             "type": "array"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
           }
         },
         "required": [
@@ -22770,6 +22781,17 @@
               }
             ],
             "title": "Budget"
+          },
+          "expected_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Revision"
           },
           "models": {
             "items": {
@@ -43675,6 +43697,16 @@
         "description": "Complete, freshly paginated Artificial Analysis language-model feed.",
         "operationId": "get_model_comparison_api_ai_model_comparison_get",
         "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
           {
             "in": "header",
             "name": "x-workspace-id",

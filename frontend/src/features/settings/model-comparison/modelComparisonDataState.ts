@@ -1,4 +1,4 @@
-import type { AiModelCatalog, AiModelComparison, AiModelRegistryEntry } from '../../../shared/api/ai';
+import type { AiModelCatalog, AiModelComparison } from '../../../shared/api/ai';
 import type { ModelActionMessage, ModelRegistryState, ModelSetupState } from '../modelComparison';
 
 export interface ModelComparisonDataState {
@@ -30,7 +30,7 @@ type ModelComparisonDataAction =
     | { readonly type: 'feed-loaded'; readonly feed: AiModelComparison }
     | { readonly type: 'feed-started' }
     | { readonly type: 'patch-setup'; readonly patch: Partial<ModelSetupState> }
-    | { readonly type: 'registry-saved'; readonly models: readonly AiModelRegistryEntry[] }
+    | { readonly type: 'registry-saved'; readonly registry: ModelRegistryState }
     | { readonly type: 'retry' }
     | { readonly type: 'set-action-message'; readonly message: ModelActionMessage | null }
     | { readonly type: 'set-api-key-input'; readonly value: string }
@@ -147,7 +147,7 @@ export function modelComparisonDataReducer(
         case 'registry-saved':
             return {
                 ...state,
-                registry: { ...state.registry, models: action.models },
+                registry: action.registry,
             };
         case 'retry':
             return { ...state, requestVersion: state.requestVersion + 1 };

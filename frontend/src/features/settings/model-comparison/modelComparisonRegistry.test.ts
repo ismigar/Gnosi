@@ -16,15 +16,15 @@ const comparisonModel = {
 
 
 describe('model comparison registry helpers', () => {
-  it('matches exact provider routes and normalized custom ids', () => {
+  it('matches only exact provider routes, never names without a route', () => {
     expect(registryEntryMatchesModel(
       { provider: 'openai', model_id: 'gpt-5.6-sol' },
       comparisonModel,
     )).toBe(true);
     expect(registryEntryMatchesModel(
       { provider: 'custom', model_id: 'GPT 5.6 Sol' },
-      comparisonModel,
-    )).toBe(true);
+      { ...comparisonModel, routes: [] },
+    )).toBe(false);
     expect(registryEntryMatchesModel(
       { provider: 'openai', model_id: 'gpt-5.6-terra' },
       comparisonModel,
@@ -71,7 +71,7 @@ describe('model comparison registry helpers', () => {
     });
   });
 
-  it('returns one exact route per provider and prefers connected providers', () => {
+  it('retains distinct offers at one provider and prefers connected providers', () => {
     const routes = comparisonRoutesForMode({
       routes: [
         { provider: 'gateway', model_id: 'vendor/model-v1', is_local: false },
@@ -86,6 +86,7 @@ describe('model comparison registry helpers', () => {
     expect(routes.map((route) => [route.provider, route.model_id])).toEqual([
       ['direct', 'model'],
       ['gateway', 'vendor/model-v1'],
+      ['gateway', 'vendor/model-v2'],
     ]);
   });
 

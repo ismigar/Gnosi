@@ -5219,7 +5219,9 @@
       "no_exact_route": "Aucune route exécutable exacte n’a été trouvée",
       "no_exact_route_help": "Ce modèle ne peut pas être activé automatiquement car le catalogue ne fournit aucune route compatible vérifiable.",
       "router_help": "Le modèle sera disponible pour le routeur automatique et dans Modèles du routeur.",
-      "activate": "Activer le modèle"
+      "activate": "Activer le modèle",
+      "shared_offer_help": "Cette offre est partagée par ces variantes évaluées : {{models}}. L’activation et les alias concernent la même offre. Les variantes sont informatives : cet écran ne configure pas le mode de raisonnement et ne garantit pas les conditions de chaque évaluation.",
+      "shared_offer_label": "Activation et alias partagés"
     },
     "profiles": {
       "worker": "Exécutant",
