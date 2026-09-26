@@ -13,11 +13,11 @@ import type {
 
 export const COMPARISON_PROFILE_KEYS = [
     'director',
-    'worker',
-    'administrative',
-    'documentalist',
-    'allrounder',
     'expert',
+    'allrounder',
+    'documentalist',
+    'administrative',
+    'worker',
     'unrated',
 ] as const;
 export const COMPARISON_MODE_KEYS = ['text', 'image', 'audio', 'video'] as const;
