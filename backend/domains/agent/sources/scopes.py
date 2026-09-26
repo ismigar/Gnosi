@@ -156,6 +156,23 @@ def _planning_scope(scope: dict[str, Any], limit: int) -> dict[str, Any]:
     }
 
 
+def _mail_folders_by_account(value: Any) -> dict[str, list[str]]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or len(value) > MAX_SCOPE_ITEMS:
+        raise ValueError("Invalid account folder selection.")
+    result: dict[str, list[str]] = {}
+    for raw_account, folders in value.items():
+        account = str(raw_account).strip().lower()
+        if not account or len(account) > 256 or not isinstance(folders, list) or not 1 <= len(folders) <= MAX_SCOPE_ITEMS:
+            raise ValueError("Choose at least one folder per account.")
+        if any(not isinstance(folder, str) or not folder.strip() or len(folder) > 256 or any(char in folder for char in ('\r', '\n', '\x00')) for folder in folders):
+            raise ValueError("Invalid mail folder.")
+        # IMAP folder names can be case-sensitive and contain leading spaces.
+        result[account] = list(dict.fromkeys(folders))
+    return result
+
+
 def _simple_scope(
     source_id: str,
     scope: dict[str, Any],
@@ -165,6 +182,7 @@ def _simple_scope(
         return {
             "accounts": _bounded_strings(scope.get("accounts"), lower=True),
             "folder": str(scope.get("folder") or "INBOX").strip()[:128] or "INBOX",
+            "folders_by_account": _mail_folders_by_account(scope.get("folders_by_account")),
             "limit": limit,
         }
     if source_id == "references":

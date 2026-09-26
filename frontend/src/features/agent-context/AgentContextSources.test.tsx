@@ -11,6 +11,8 @@ const { fetchInternalContextSources } = vi.hoisted(() => ({
 }));
 
 
+vi.mock('../../shared/api/vaults', () => ({ fetchVaultPages: vi.fn().mockResolvedValue([]), fetchVaultTables: vi.fn().mockResolvedValue([]) }));
+
 vi.mock('../../shared/api/agent-context', () => ({
     fetchExternalContextSources: vi.fn(),
     fetchInternalContextSources,
@@ -226,13 +228,13 @@ describe('AgentContextSources internal sources', () => {
         act(() => {
             requiredButton(
                 container,
-                'button[aria-label="Configure source scope"]',
+                'button[aria-label^="Configure source scope:"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
         act(() => {
             requiredInput(
                 container,
-                'input[type="checkbox"]',
+                '[role="switch"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
@@ -258,14 +260,16 @@ describe('AgentContextSources internal sources', () => {
         act(() => {
             requiredButton(
                 container,
-                'button[aria-label="Configure source scope"]',
+                'button[aria-label^="Configure source scope:"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
         expect(container.textContent).toContain('Planning entities');
-        expect(container.textContent).toContain('Launch');
-        expect(container.textContent).toContain('Ada');
-        expect(container.querySelectorAll('select[multiple]')).toHaveLength(3);
+        await act(async () => { await Promise.resolve(); requiredButton(container, '[role="combobox"][aria-label="Projects"]').click(); });
+        expect(document.body.textContent).toContain('Launch');
+        await act(async () => { await Promise.resolve(); requiredButton(container, '[role="combobox"][aria-label="Resources"]').click(); });
+        expect(document.body.textContent).toContain('Ada');
+        expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(3);
     });
 
     it('renders connected Notion scope options', async () => {
@@ -283,12 +287,13 @@ describe('AgentContextSources internal sources', () => {
         act(() => {
             requiredButton(
                 container,
-                'button[aria-label="Configure source scope"]',
+                'button[aria-label^="Configure source scope:"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
         expect(container.textContent).toContain('Object types');
-        expect(container.textContent).toContain('Research');
-        expect(container.querySelectorAll('select[multiple]')).toHaveLength(2);
+        await act(async () => { await Promise.resolve(); requiredButton(container, '[role="combobox"][aria-label="Databases"]').click(); });
+        expect(document.body.textContent).toContain('Research');
+        expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(2);
     });
 });

@@ -164,3 +164,5 @@ export const catalogItems = (values: readonly unknown[]): ContextCatalogItem[] =
 export const newContextRefId = (): string => (
     `ctx-${Math.random().toString(36).slice(2, 10)}`
 );
+
+export const contextReferenceKey = (type: ContextSourceKind, ref: string): string => JSON.stringify([type === 'database' ? 'table' : type, ref]);

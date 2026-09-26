@@ -228,10 +228,12 @@ def _imap_folder_name(imap: Any, folder_type: str) -> Optional[str]:
     from backend.services.imap_mail_sync_service import _FOLDER_TYPE_MAP_REVERSE, _discover_folders
 
     wanted_type = _FOLDER_TYPE_MAP_REVERSE.get(folder_type)
-    if not wanted_type:
-        return "INBOX"
-    for name, ftype in _discover_folders(imap):
-        if ftype == wanted_type:
+    folders = _discover_folders(imap)
+    for name, _ftype in folders:
+        if name == folder_type:
+            return name
+    for name, ftype in folders:
+        if wanted_type and ftype == wanted_type:
             return name
     return None
 

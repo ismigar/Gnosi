@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
+import { foldAccents } from '../../../shared/ui/selection/values';
 import { internalSourceLabel } from './agentContextLabels';
 import type {
     ContextCatalogItem,
@@ -22,6 +24,12 @@ import type {
 
 
 interface ContextPickerProps {
+    readonly totalOptions: number;
+    readonly error: boolean;
+    readonly loading: boolean;
+    readonly onRefresh: () => void;
+    readonly wholeVaultAdded: boolean;
+    readonly vaultAvailable: boolean;
     readonly onAdd: (
         type: ContextSourceKind,
         ref: string,
@@ -52,6 +60,7 @@ const ADD_BUTTON_STYLE: CSSProperties = {
 
 
 export function AgentContextPicker({
+    totalOptions, error, loading, onRefresh, wholeVaultAdded, vaultAvailable,
     onAdd,
     onAddUrl,
     onPickingChange,
@@ -66,12 +75,12 @@ export function AgentContextPicker({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const visibleOptions = useMemo(() => {
         if (options === null) return null;
-        const needle = query.trim().toLowerCase();
+        const needle = foldAccents(query.trim());
         const filtered = needle
-            ? options.filter((item) => item.label.toLowerCase().includes(needle))
+            ? options.filter((item) => foldAccents(picking === 'internal' ? internalSourceLabel(t, item.id, item.label) : item.label).includes(needle))
             : options;
         return filtered.slice(0, 50);
-    }, [options, query]);
+    }, [options, picking, query, t]);
 
     const togglePicker = (kind: ContextPickingKind): void => {
         setUrlDraft(null);
@@ -172,12 +181,12 @@ export function AgentContextPicker({
                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                         {t('settings.ai.context_vault_description', 'Pages and databases in the active vault.')}
                     </span>
-                    <button style={ADD_BUTTON_STYLE} type="button" onClick={() => {
+                    {!wholeVaultAdded ? <button style={ADD_BUTTON_STYLE} type="button" onClick={() => {
                         onAdd('vault', 'active', t('settings.ai.context_whole_vault', 'Entire active vault'));
                     }}>
                         <Layers size={14} />
                         {t('settings.ai.context_whole_vault', 'Entire active vault')}
-                    </button>
+                    </button> : null}
                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                         {t('settings.ai.context_vault_specific', 'Specific pages or databases')}
                     </span>
@@ -204,7 +213,7 @@ export function AgentContextPicker({
                     gap: '8px',
                     padding: '10px',
                 }}>
-                    {picking === 'internal' && (!query.trim() || 'vault'.includes(query.trim().toLowerCase())) ? (
+                    {picking === 'internal' && vaultAvailable && (!query.trim() || 'vault'.includes(foldAccents(query.trim()))) ? (
                         <button style={ADD_BUTTON_STYLE} type="button" onClick={() => { togglePicker('vault'); }}>
                             <Layers size={14} />
                             <span style={{ textAlign: 'left' }}>
@@ -215,12 +224,14 @@ export function AgentContextPicker({
                             </span>
                         </button>
                     ) : null}
+                    <RefreshButton loading={loading} onClick={onRefresh} style={{ alignSelf: 'flex-end' }} />
                     <input
                         autoFocus
                         className="gnosi-input"
                         onChange={(event) => {
                             setQuery(event.target.value);
                         }}
+                        aria-label={t('settings.ai.context_search_placeholder', 'Search...')}
                         placeholder={t('settings.ai.context_search_placeholder', 'Search...')}
                         value={query}
                     />
@@ -230,7 +241,8 @@ export function AgentContextPicker({
                         maxHeight: '180px',
                         overflowY: 'auto',
                     }}>
-                        {visibleOptions === null ? (
+                        {error ? <p role="alert">{t('settings.ai.sources.load_error', 'Could not load options. Try again.')}</p> : null}
+                        {visibleOptions === null && !error ? (
                             <span style={{
                                 color: 'var(--text-tertiary)',
                                 fontSize: '0.82rem',
@@ -239,13 +251,13 @@ export function AgentContextPicker({
                                 {t('common.loading', 'Loading...')}
                             </span>
                         ) : null}
-                        {visibleOptions?.length === 0 && !(picking === 'internal' && (!query.trim() || 'vault'.includes(query.trim().toLowerCase()))) ? (
+                        {visibleOptions?.length === 0 && !(picking === 'internal' && vaultAvailable && (!query.trim() || 'vault'.includes(foldAccents(query.trim())))) ? (
                             <span style={{
                                 color: 'var(--text-tertiary)',
                                 fontSize: '0.82rem',
                                 padding: '10px',
                             }}>
-                                {t('settings.ai.context_no_results', 'No results.')}
+                                {!query.trim() && totalOptions > 0 ? t('settings.ai.sources.all_added', 'You have added all available sources.') : !query.trim() ? t('settings.ai.sources.no_sources', 'No sources available.') : t('settings.ai.context_no_results', 'No results.')}
                             </span>
                         ) : null}
                         {visibleOptions?.map((item) => {

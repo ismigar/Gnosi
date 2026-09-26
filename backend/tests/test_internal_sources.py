@@ -507,7 +507,7 @@ def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
             }],
         }
 
-    async def fake_message(message_id, *, email, folder):
+    def fake_message(email, folder, message_id):
         assert (message_id, email, folder) == (
             "imap_7",
             "allowed@example.test",
@@ -527,7 +527,8 @@ def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
         lambda requested, calendar=False: ["allowed@example.test"],
     )
     monkeypatch.setattr(mail_routes, "get_messages", fake_messages)
-    monkeypatch.setattr(mail_routes, "get_message", fake_message)
+    from backend.domains.agent.sources import mail as mail_sources
+    monkeypatch.setattr(mail_sources, "_read_mail_message", fake_message)
     scope = internal_sources.normalize_internal_scope("mail", {
         "accounts": ["allowed@example.test"],
         "folder": "INBOX",
@@ -538,7 +539,8 @@ def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
     record_id = searched["records"][0]["id"]
     exact = json.loads(internal_sources.read_internal_record("mail", scope, record_id))
 
-    assert record_id == "allowed@example.test::imap_7"
+    assert record_id.startswith("mail:v2:")
+    assert searched["records"][0]["folder"] == "INBOX"
     assert searched["records"][0]["preview"].endswith("Quarterly evidence.")
     assert exact["body"] == "Quarterly evidence."
 

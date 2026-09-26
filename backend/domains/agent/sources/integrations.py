@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Coroutine, Iterable
 from typing import Any, TypeVar
 
+from backend.domains.agent.sources.mail import _mail_read as _mail_read, _mail_search as _mail_search
 from backend.domains.agent.sources.scopes import (
     MAX_EXCERPT_CHARS,
     MAX_RECORD_CHARS,
@@ -36,62 +37,6 @@ def _workspace_id() -> str:
     from backend.agent import internal_sources
 
     return internal_sources._workspace_id()
-
-
-def _mail_search(scope: dict[str, Any], query_text: str) -> dict[str, Any]:
-    from backend.api.mail_routes import get_messages
-
-    accounts = _allowed_accounts(scope["accounts"])
-    rows: list[dict[str, Any]] = []
-    for account in accounts:
-        result = _run_async(
-            get_messages(
-                email=account,
-                folder=scope["folder"],
-                category=None,
-                limit=scope["limit"],
-                offset=0,
-                page_token=None,
-                search=str(query_text or "").strip(),
-                force=False,
-            )
-        )
-        for message in list(result.get("messages") or []):
-            rows.append(
-                {
-                    "id": f"{account}::{message.get('id')}",
-                    "account": account,
-                    "subject": str(message.get("subject") or "")[:500],
-                    "sender": str(message.get("sender") or "")[:500],
-                    "date": str(message.get("date") or "")[:100],
-                    "preview": _plain_text(
-                        message.get("body_text") or message.get("snippet") or "",
-                        MAX_EXCERPT_CHARS,
-                    ),
-                }
-            )
-    rows.sort(key=lambda row: row.get("date") or "", reverse=True)
-    return {"source": "mail", "records": rows[: scope["limit"]]}
-
-
-def _mail_read(scope: dict[str, Any], record_id: str) -> dict[str, Any]:
-    from backend.api.mail_routes import get_message
-
-    if "::" not in record_id:
-        raise ValueError("Mail record ids must come from a previous search.")
-    account, message_id = record_id.split("::", 1)
-    if account not in _allowed_accounts(scope["accounts"]):
-        raise PermissionError("The requested mail account is outside this source scope.")
-    message = _run_async(get_message(message_id, email=account, folder=scope["folder"]))
-    return {
-        "id": record_id,
-        "account": account,
-        "subject": str(message.get("subject") or "")[:500],
-        "sender": str(message.get("sender") or "")[:500],
-        "recipient": str(message.get("recipient") or "")[:500],
-        "date": str(message.get("date") or "")[:100],
-        "body": _plain_text(message.get("body_text") or "", MAX_RECORD_CHARS),
-    }
 
 
 def _calendar_rows(scope: dict[str, Any], query_text: str) -> list[dict[str, Any]]:
