@@ -23,7 +23,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Àrea | Fitxers | Abast funcional |
 | --- | ---: | --- |
 | `backend/` | 1492 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 2041 | React application, UI behavior, state, and browser integrations |
+| `frontend/src/` | 2042 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 116 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 49 | Office, browser, plugin, marketplace, and external-system adapters |
