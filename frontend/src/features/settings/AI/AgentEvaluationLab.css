@@ -1,0 +1,78 @@
+@import "../../../shared/styles/base/buttons.css";
+@import "../styles/settings-controls.css";
+@import "../styles/modal-controls.css";
+
+.agent-evaluation-lab {
+    margin: 16px 0;
+}
+
+.agent-evaluation-lab__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-inline-end: 18px;
+}
+
+.agent-evaluation-lab__header > .ai-resource-card__main {
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+}
+
+.agent-evaluation-lab__header > .ai-resource-card__main:focus-visible {
+    outline: 2px solid var(--gnosi-primary);
+    outline-offset: -3px;
+    border-radius: 12px;
+}
+
+.agent-evaluation-lab__content {
+    border: 0;
+    border-top: 1px solid var(--settings-border);
+    border-radius: 0;
+}
+
+.agent-evaluation-lab__fields {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+
+.agent-evaluation-lab__fields > label,
+.agent-evaluation-lab__fields .gnosi-select {
+    min-width: 0;
+}
+
+.agent-evaluation-lab__fields .gnosi-select {
+    box-sizing: border-box;
+}
+
+.agent-evaluation-lab__content > .settings-desc {
+    margin: 0;
+}
+
+.agent-evaluation-lab__authorization {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--text-secondary);
+    font-size: .85rem;
+    line-height: 1.5;
+}
+
+.agent-evaluation-lab__authorization > .gnosi-toggle {
+    flex-shrink: 0;
+}
+
+.agent-evaluation-lab__report {
+    padding: 16px;
+    font-size: .85rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.agent-evaluation-lab__results {
+    overflow-x: auto;
+}
+
+.agent-evaluation-lab__results .model-comparison-table th {
+    position: static;
+}
