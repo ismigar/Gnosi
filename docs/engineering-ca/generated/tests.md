@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 562 | 2348 |
-| pytest | 550 | 3899 |
+| Vitest | 562 | 2350 |
+| pytest | 551 | 3905 |
 
 ## Fitxers
 
@@ -267,7 +267,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/social/publishing/publish-social/publishSocialModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/social/publishing/publish-social/publishSocialModel.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault-management/VaultSelection.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSelection.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault-management/VaultSwitcher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSwitcher.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/collaboration/collabProvider.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/collaboration/collabProvider.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/collaboration/useYjsCollaboration.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/collaboration/useYjsCollaboration.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/comments/InlineComments.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/comments/InlineComments.test.tsx) | 4 | call-pattern estimate |
@@ -1119,6 +1119,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`desktop/tests/test_backend_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_backend_resources.py) | 33 | Python AST |
 | pytest | [`desktop/tests/test_genogram_resources.py`](https://github.com/ismigar/Gnosi/blob/main/desktop/tests/test_genogram_resources.py) | 1 | Python AST |
 | pytest | [`extensions/examples/test_build_index.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/examples/test_build_index.py) | 3 | Python AST |
+| pytest | [`extensions/marketplace/test_reviewed_templates.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_reviewed_templates.py) | 6 | Python AST |
 | pytest | [`extensions/marketplace/test_signing_policy.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_signing_policy.py) | 5 | Python AST |
 | pytest | [`extensions/marketplace/test_verify_release_candidate.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/marketplace/test_verify_release_candidate.py) | 3 | Python AST |
 | pytest | [`extensions/office/libreoffice-cite/tests/test_doc_traversal.py`](https://github.com/ismigar/Gnosi/blob/main/extensions/office/libreoffice-cite/tests/test_doc_traversal.py) | 9 | Python AST |

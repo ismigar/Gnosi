@@ -30,3 +30,7 @@ A local Vault does not automatically appear on another computer. Workspace membe
 
 - [Install Gnosi and take your first steps](getting-started.md)
 - [Frequently asked questions and recovery](troubleshooting.md)
+
+## Vault template catalog and moderation
+
+In personal mode, Settings → General → File structure → Vaults → From repository opens the verified catalog. Search, category filters and content previews help select a template; installation creates a new Vault. Publish template opens a searchable inventory of included files, exclusions and potential sensitive content. Refreshing the inventory clears the previous acknowledgement.

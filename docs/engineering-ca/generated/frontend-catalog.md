@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2653 | 0 |
-| `features` | 1112 | 126321 | 32 |
+| `features` | 1113 | 126394 | 32 |
 | `generated` | 2 | 46949 | 484 |
 | `shared` | 253 | 30715 | 414 |
 
@@ -1188,7 +1188,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/views/viewConstants.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/viewConstants.ts) | 161 | `MAIN_VIEW_NAME`, `VIEW_TYPES`, `getViewIcon`, `isLockedView`, `isMainView`, `isPageEmbedView`, `isProtectedMainView`, `isViewHidden` | — |
 | [`frontend/src/features/vault-management/VaultMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultMenu.tsx) | 149 | `VaultMenu`, `function` | — |
 | [`frontend/src/features/vault-management/VaultSwitcher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultSwitcher.tsx) | 218 | `VaultSwitcher`, `function` | — |
-| [`frontend/src/features/vault-management/VaultTemplateMarketplace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.tsx) | 369 | `VaultTemplateMarketplace`, `function` | — |
+| [`frontend/src/features/vault-management/VaultTemplateMarketplace.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplateMarketplace.tsx) | 398 | `VaultTemplateMarketplace`, `function` | — |
+| [`frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx) | 44 | `VaultTemplatePrivacyPreview` | — |
 | [`frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.tsx) | 130 | `WorkspaceSwitcher` | — |
 | [`frontend/src/features/workspaces/Workspace/WorkspaceInviteForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Workspace/WorkspaceInviteForm.tsx) | 71 | `WorkspaceInviteForm` | — |
 | [`frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.tsx) | 376 | `WorkspaceMembersPanel` | — |

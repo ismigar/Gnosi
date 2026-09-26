@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-09-26
 source_paths:
+  - extensions/marketplace/build_vault_templates.py
+  - extensions/marketplace/catalog_content.py
+  - extensions/marketplace/reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.tsx
+  - frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -46,6 +51,8 @@ source_paths:
   - frontend/src/features/notion-import
   - frontend/src/features/integrations
 tests:
+  - extensions/marketplace/test_reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
@@ -363,3 +370,11 @@ involontairement des données de production.
 Le [plugin Génogrammes](genograms.md), facultatif par Vault, ajoute des tables familiales liées, des vues SVG et des exports locaux SVG/PNG/PDF, sans service externe ni IA.
 
 Pour l’inscription du courrier Microsoft sur ordinateur et le consentement institutionnel, consultez le [guide de configuration Microsoft](../microsoft-mail-setup.md).
+
+## Catalogue et modération des modèles de Vault
+
+En mode personnel, Paramètres → Général → Structure des fichiers → Vaults → Depuis le dépôt ouvre le catalogue vérifié. La recherche, les filtres par catégorie et les aperçus du contenu aident à choisir un modèle ; l’installation crée un nouveau Vault. Publier un modèle ouvre un inventaire consultable des fichiers inclus, des exclusions et des données potentiellement sensibles. Actualiser l’inventaire efface l’acceptation précédente.
+
+Le générateur prépare Research Starter Workspace 2.1.0, Study Workspace 1.0.0 et Project Workspace 1.0.0 en catalan, anglais, espagnol et français. Les paquets générés ne deviennent disponibles qu’après signature officielle et publication ; installer l’interface ne publie pas les fichiers du catalogue.
+
+Le tableau privé de modération place les envois en quarantaine et enregistre une approbation ou un rejet définitifs. Les modèles de Vault approuvés proposent un reçu lié au ZIP exact par SHA-256 et taille. L’opérateur de publication télécharge les deux depuis le tableau authentifié, exécute `python -m extensions.marketplace.reviewed_templates`, puis transmet `--reviewed-dir` au générateur du catalogue. La validation rejette les archives dangereuses, les identités divergentes, les identifiants secrets et les identités de modèle dupliquées avant de charger la clé officielle. Les reçus sont des traces d’audit, pas des approbations cryptographiques : ils doivent provenir du processus de maintenance de confiance. Approuver ne signe ni ne publie ; les extensions suivent leur propre processus de publication.
