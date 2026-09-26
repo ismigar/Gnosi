@@ -1,3 +1,4 @@
+import { comparisonRouteCosts, knownPrice } from './model-comparison/modelRouteCosts';
 import { ModelParameterReview } from './model-comparison/ModelParameterReview';
 import { ModelAliasField } from './ModelAliasField';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
@@ -17,7 +18,6 @@ import {
     formatComparisonCost,
     formatComparisonMetric,
     isFiniteMetric,
-    modelMonthlyCost,
     PROFILE_ICONS,
     type ComparisonColumn,
     type ComparisonProfile,
@@ -38,6 +38,7 @@ interface ModelComparisonRowProps {
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
     readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
     readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
+    readonly selectedProvider?: string;
     readonly selectedProfile?: 'all' | ComparisonProfile;
     readonly outputTokens: string;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
@@ -55,7 +56,7 @@ function CachedMetricMarker({
     readonly model: AiModelComparisonEntry;
 }) {
     const { t } = useTranslation();
-    if (model.metric_sources?.[field] !== 'artificial_analysis_cache') return null;
+    if (['input_price', 'output_price', 'monthly_cost'].includes(field) || model.metric_sources?.[field] !== 'artificial_analysis_cache') return null;
     const title = t('model_comparison.metric_sources.artificial_analysis_cache');
     return (
         <span aria-label={title} className="metric-cached-marker" title={title}>
@@ -77,6 +78,7 @@ export function ModelComparisonRow({
     onBeginActivation,
     onSaveAlias,
     onDeactivate,
+    selectedProvider = 'all',
     selectedProfile = 'all',
     outputTokens,
     providersById,
@@ -87,7 +89,7 @@ export function ModelComparisonRow({
     const { t } = useTranslation();
     const currencySymbol = feed.currency.symbol || '$';
     const currencyRate = feed.currency.usd_rate || 1;
-    const cost = modelMonthlyCost(model, inputTokens, outputTokens);
+    const routeCosts = comparisonRouteCosts(model, selectedProvider, inputTokens, outputTokens);
     const matchingIndexes = matchingRegistryIndexes(registryModels, model);
     const activeEntries = matchingIndexes
         .map((index) => registryModels[index])
@@ -100,6 +102,7 @@ export function ModelComparisonRow({
     )).filter(Boolean).join(', ');
     const isBusy = busyModelId === model.id;
     const sourceTitle = (field: string): string | undefined => {
+        if (['input_price', 'output_price', 'monthly_cost'].includes(field)) return 'models.dev';
         const source = model.metric_sources?.[field];
         return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
     };
@@ -130,10 +133,15 @@ export function ModelComparisonRow({
             </a> : <ModelParameterReview modelId={model.id} modelName={model.name} onUpdated={onParameterUpdate} />;
             case 'context_window': return formatComparisonContext(model.context_window);
             case 'input_price':
-            case 'output_price': return isFiniteMetric(model[key])
-                ? formatComparisonCost(model[key] * currencyRate, currencySymbol) : '—';
-            case 'monthly_cost': return <strong>{cost === null ? '—'
-                : formatComparisonCost(cost * currencyRate, currencySymbol)}</strong>;
+            case 'output_price':
+            case 'monthly_cost': return routeCosts.length ? routeCosts.map(({ route, cost }, index) => {
+                const value = key === 'monthly_cost' ? cost : route[key === 'input_price' ? 'cost_in' : 'cost_out'];
+                const label = providersById[route.provider]?.name || route.provider_name || route.provider;
+                return <div key={`${route.provider}:${String(index)}`} title={route.model_id}>
+                    {label} — <strong>{knownPrice(value) ? formatComparisonCost(value * currencyRate, currencySymbol) : t('model_comparison.unknown_cost')}</strong>
+                    {route.is_local && <small>{t('model_comparison.local_cost_note')}</small>}
+                </div>;
+            }) : t('model_comparison.unknown_cost');
             case 'speed': return isFiniteMetric(model.speed)
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return isFiniteMetric(model.latency)

@@ -1,3 +1,4 @@
+import { routePriceValue, routeHasPrice } from './model-comparison/modelRouteCosts';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { matchingRegistryIndexes } from './model-comparison/modelComparisonRegistry';
 import type {
@@ -275,6 +276,7 @@ export const formatComparisonCost = (
     digits = 2,
 ): string => {
     if (!isFiniteMetric(value)) return '—';
+    if (value > 0 && value < 10 ** -digits) return `< ${formatComparisonCost(10 ** -digits, symbol, digits)}`;
     const formatted = value.toLocaleString(undefined, {
         maximumFractionDigits: digits,
         minimumFractionDigits: digits,
@@ -411,7 +413,7 @@ export const filteredComparisonModels = (
         )
         && (
             ui.maxPrice === ''
-            || (model.input_price !== null && model.input_price * (feed?.currency.usd_rate || 1) <= priceLimit)
+            || model.routes.some(route => (ui.provider === 'all' || route.provider === ui.provider) && routeHasPrice(route, priceLimit / (feed?.currency.usd_rate || 1)))
         )
         && (
             ui.minContext === ''
@@ -420,11 +422,11 @@ export const filteredComparisonModels = (
         )
         && matchesParameterFilters(model, ui)
     )).sort((left, right) => {
-        const first = ui.sort.key === 'monthly_cost'
-            ? modelMonthlyCost(left, ui.inputTokens, ui.outputTokens)
+        const first = ['monthly_cost', 'input_price', 'output_price'].includes(ui.sort.key)
+            ? routePriceValue(left, ui.provider, ui.sort.key as 'monthly_cost' | 'input_price' | 'output_price', ui.inputTokens, ui.outputTokens)
             : sortableModelValue(left, ui.sort.key, ui.profile);
-        const second = ui.sort.key === 'monthly_cost'
-            ? modelMonthlyCost(right, ui.inputTokens, ui.outputTokens)
+        const second = ['monthly_cost', 'input_price', 'output_price'].includes(ui.sort.key)
+            ? routePriceValue(right, ui.provider, ui.sort.key as 'monthly_cost' | 'input_price' | 'output_price', ui.inputTokens, ui.outputTokens)
             : sortableModelValue(right, ui.sort.key, ui.profile);
         if (first === null && second === null) return 0;
         if (first === null) return 1;

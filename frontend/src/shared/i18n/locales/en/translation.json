@@ -6201,7 +6201,7 @@
     "model_enabled": "{{model}} was enabled with {{provider}}.",
     "model_disabled": "{{model}} was disabled.",
     "no_results": "No models match these filters.",
-    "data_note": "Live benchmark, pricing and performance data. Attribution:",
+    "data_note": "Catalog benchmarks and performance; these may come from cached data. Source:",
     "metric_sources": {
       "models_dev": "Value completed with models.dev",
       "artificial_analysis_cache": "Last available value from the Artificial Analysis cache"
@@ -6217,7 +6217,8 @@
       "configuration_load_error": "The comparison is available, but the current model configuration could not be loaded.",
       "configuration_save_error": "The model configuration could not be saved.",
       "upstream_error": "The current model data could not be loaded.",
-      "help": "Create a free key, paste it below, and Gnosi will store it securely on the backend."
+      "help": "Create a free key, paste it below, and Gnosi will store it securely on the backend.",
+      "unknown_route_price": "The model cannot be activated without known rates. Refresh the catalog and try again; an unknown price will not be saved as zero."
     },
     "setup": {
       "execution": "Execution type",
@@ -6302,7 +6303,10 @@
     "review_manual": "Manually reviewed source",
     "estimated_fit": "Estimated suitability",
     "choice_help": "Choose by estimated suitability, cost and model maker. No tests are required. Candidates with insufficient data appear last when sorting by use; current filters may hide alternatives.",
-    "compare_candidates": "Compare all candidates"
+    "compare_candidates": "Compare all candidates",
+    "unknown_cost": "Unknown cost",
+    "local_cost_note": "No token fee; hardware and energy are not included.",
+    "provider_cost_note": "Estimate using each provider’s rates and the specified tokens, excluding fixed fees and taxes. Options are listed from lowest to highest cost, with unknown costs last. Context, modes, speed and suitability are general model data and may vary by provider."
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

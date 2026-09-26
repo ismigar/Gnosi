@@ -22140,12 +22140,26 @@
             "type": "integer"
           },
           "cost_in": {
-            "title": "Cost In",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost In"
           },
           "cost_out": {
-            "title": "Cost Out",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Out"
           },
           "is_local": {
             "title": "Is Local",

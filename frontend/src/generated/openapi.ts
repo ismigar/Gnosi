@@ -18703,9 +18703,9 @@ export interface components {
             /** Context Window */
             context_window: number;
             /** Cost In */
-            cost_in: number;
+            cost_in: number | null;
             /** Cost Out */
-            cost_out: number;
+            cost_out: number | null;
             /** Is Local */
             is_local: boolean;
             /** Model Id */

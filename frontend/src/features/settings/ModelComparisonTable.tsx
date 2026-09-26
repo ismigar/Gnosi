@@ -39,6 +39,7 @@ interface ModelComparisonTableProps {
     readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
     readonly onScrollbarScroll: UIEventHandler<HTMLDivElement>;
     readonly onSort: (key: ComparisonSortKey) => void;
+    readonly selectedProvider?: string;
     readonly selectedProfile?: 'all' | ComparisonProfile;
     readonly outputTokens: string;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
@@ -81,6 +82,7 @@ export function ModelComparisonTable({
     onDeactivate,
     onScrollbarScroll,
     onSort,
+    selectedProvider = 'all',
     selectedProfile = 'all',
     outputTokens,
     providersById,
@@ -161,6 +163,7 @@ export function ModelComparisonTable({
                                 onBeginActivation={onBeginActivation}
                                 onSaveAlias={onSaveAlias}
                                 onDeactivate={onDeactivate}
+                                selectedProvider={selectedProvider}
                                 selectedProfile={selectedProfile}
                                 outputTokens={outputTokens}
                                 providersById={providersById}
@@ -188,6 +191,7 @@ export function ModelComparisonTable({
                     width: `${Math.max(tableScrollWidth, 1).toString()}px`,
                 }} />
             </div>
+            <p className="model-comparison-note">{t('model_comparison.provider_cost_note')} <a href="https://models.dev" target="_blank" rel="noreferrer">models.dev ↗</a></p>
             <p className="model-comparison-note">{t('model_comparison.selection_help')}</p>
             <p className="model-comparison-note">
                 {t('model_comparison.data_note')}

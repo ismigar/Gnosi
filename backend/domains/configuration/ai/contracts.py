@@ -200,8 +200,8 @@ class ModelComparisonRoute(BaseModel):
     model_id: str
     model_name: str
     is_local: bool
-    cost_in: float
-    cost_out: float
+    cost_in: float | None
+    cost_out: float | None
     context_window: int
     quality: int
     tags: list[str]

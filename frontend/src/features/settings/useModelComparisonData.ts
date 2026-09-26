@@ -324,7 +324,7 @@ export function useModelComparisonData(
             ?? null;
         const provider = route ? providersById[route.provider] : null;
         return {
-            alias: state.registry.models.find(entry => entry.provider === route?.provider && entry.model_id === route?.model_id)?.alias || '',
+            alias: state.registry.models.find(entry => entry.provider === route?.provider && entry.model_id === route.model_id)?.alias || '',
             apiKey: '',
             baseUrl: provider?.base_url ?? provider?.api ?? '',
             error: '',
@@ -499,6 +499,8 @@ export function useModelComparisonData(
         dispatch({ modelId: setup.model.id, type: 'set-busy-model' });
         dispatch({ patch: { error: '' }, type: 'patch-setup' });
         try {
+            const newEntry: AiModelRegistryEntry =
+                { ...comparisonRouteToRegistryEntry(selectedRoute), alias: setup.alias?.trim() || '' };
             if (!provider.enabled || !provider.connected) {
                 await setAiProviderStatus(provider.id, { enabled: true });
             }
@@ -507,8 +509,6 @@ export function useModelComparisonData(
                 entry.provider === provider.id
                 && entry.model_id === selectedRoute.model_id
             ));
-            const newEntry: AiModelRegistryEntry =
-                { ...comparisonRouteToRegistryEntry(selectedRoute), alias: setup.alias?.trim() || '' };
             const models = existingIndex >= 0
                 ? state.registry.models.map((entry, index) => (
                     index === existingIndex
@@ -537,7 +537,7 @@ export function useModelComparisonData(
             if (!isCurrent()) return;
             logError('ai-model-comparison-enable', error);
             dispatch({
-                patch: { error: 'configuration_save_error', connectionStatus: 'error' },
+                patch: { error: error instanceof Error && error.message === 'unknown_route_price' ? 'unknown_route_price' : 'configuration_save_error', connectionStatus: 'error' },
                 type: 'patch-setup',
             });
         } finally {

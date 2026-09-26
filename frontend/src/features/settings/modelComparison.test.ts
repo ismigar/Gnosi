@@ -118,7 +118,7 @@ describe('model comparison domain', () => {
     });
 
     it('applies the price ceiling in configured currency after USD conversion', () => {
-        const models = [comparisonModel({ input_price: 10 })];
+        const models = [comparisonModel({ input_price: 0, routes: [{ ...comparisonModel({}).routes[0]!, cost_in: 10 }] })];
         for (const [rate, limit, count] of [[0.9, '9', 1], [0.9, '8.99', 0], [150, '1400', 0], [1, '10', 1]] as const) {
             expect(filteredComparisonModels({ ...feed, models, currency: { ...currency, usd_rate: rate } }, [], {
                 ...INITIAL_COMPARISON_UI_STATE, maxPrice: limit,
@@ -179,8 +179,8 @@ describe('model comparison domain', () => {
 
     it('sorts the monthly estimate using the current input and output volumes', () => {
         const models = [
-            comparisonModel({ id: 'input', input_price: 1, output_price: 20 }),
-            comparisonModel({ id: 'output', input_price: 10, output_price: 2 }),
+            comparisonModel({ id: 'input', input_price: 0, output_price: 0, routes: [{ ...comparisonModel({}).routes[0]!, cost_in: 1, cost_out: 20 }] }),
+            comparisonModel({ id: 'output', input_price: 0, output_price: 0, routes: [{ ...comparisonModel({}).routes[0]!, cost_in: 10, cost_out: 2 }] }),
         ];
         const result = filteredComparisonModels({ ...feed, models }, [], {
             ...INITIAL_COMPARISON_UI_STATE, inputTokens: '0', outputTokens: '1000000',

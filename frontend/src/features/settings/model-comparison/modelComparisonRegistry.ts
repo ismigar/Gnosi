@@ -1,3 +1,5 @@
+import { knownPrice } from './modelRouteCosts';
+
 type ModelScalar = string | number | boolean | null | undefined;
 
 
@@ -148,14 +150,15 @@ export function comparisonRoutesForMode(
 export function comparisonRouteToRegistryEntry(
   route: ComparisonRoute,
 ): ModelRegistryEntry {
+  if (!knownPrice(route.cost_in) || !knownPrice(route.cost_out)) throw new Error('unknown_route_price');
   return {
     provider: route.provider,
     model_id: route.model_id,
     is_local: Boolean(route.is_local),
     enabled: true,
     priority: 100,
-    cost_in: Number(route.cost_in) || 0,
-    cost_out: Number(route.cost_out) || 0,
+    cost_in: route.cost_in,
+    cost_out: route.cost_out,
     context_window: Number(route.context_window) || 8192,
     quality: Number(route.quality) || 2,
     tags: [...(route.tags ?? [])],

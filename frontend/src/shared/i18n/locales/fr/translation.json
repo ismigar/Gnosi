@@ -5164,7 +5164,7 @@
     "model_enabled": "{{model}} a été activé avec {{provider}}.",
     "model_disabled": "{{model}} a été désactivé.",
     "no_results": "Aucun modèle ne correspond à ces filtres.",
-    "data_note": "Données actives de benchmarks, prix et performances. Attribution :",
+    "data_note": "Benchmarks et performances du catalogue ; ils peuvent provenir de données en cache. Source :",
     "metric_sources": {
       "models_dev": "Valeur complétée avec models.dev",
       "artificial_analysis_cache": "Dernière valeur disponible dans le cache d’Artificial Analysis"
@@ -5180,7 +5180,8 @@
       "configuration_load_error": "Le comparatif est disponible, mais la configuration actuelle des modèles n’a pas pu être chargée.",
       "configuration_save_error": "La configuration du modèle n’a pas pu être enregistrée.",
       "upstream_error": "Impossible de charger les données actuelles des modèles.",
-      "help": "Créez une clé gratuite, collez-la ci-dessous et Gnosi la stockera de manière sécurisée dans le backend."
+      "help": "Créez une clé gratuite, collez-la ci-dessous et Gnosi la stockera de manière sécurisée dans le backend.",
+      "unknown_route_price": "Le modèle ne peut pas être activé sans tarifs connus. Actualisez le catalogue et réessayez ; un prix inconnu ne sera pas enregistré comme zéro."
     },
     "setup": {
       "execution": "Type d’exécution",
@@ -5265,7 +5266,10 @@
     "review_manual": "Source vérifiée manuellement",
     "estimated_fit": "Adéquation estimée",
     "choice_help": "Choisissez selon l’adéquation estimée, le coût et le fabricant. Aucun test n’est nécessaire. Les candidats sans données suffisantes apparaissent en dernier lors du tri par usage ; les filtres actuels peuvent masquer des alternatives.",
-    "compare_candidates": "Comparer tous les candidats"
+    "compare_candidates": "Comparer tous les candidats",
+    "unknown_cost": "Coût inconnu",
+    "local_cost_note": "Sans tarif par token ; matériel et énergie non inclus.",
+    "provider_cost_note": "Estimation selon les tarifs de chaque fournisseur et les tokens indiqués, hors frais fixes et taxes. Les options sont classées par coût croissant, avec les coûts inconnus en dernier. Contexte, modes, vitesse et adéquation sont des données générales du modèle et peuvent varier selon le fournisseur."
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",

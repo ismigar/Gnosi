@@ -1093,3 +1093,9 @@ Implementation: `backend/services/agent_role_evaluations.py` · `backend/service
 For an unresolved parameter count, select **Pending verification** in the Parameters column. **Consult the official source** attempts an exact-version match against supported manufacturer model cards. An unavailable source or no match leaves the value pending. You can instead record total and active billions, or a reviewed non-disclosure, with an HTTPS source and explicit confirmation that you checked the exact model. Manually reviewed values retain their provenance and date; merely failing to find a number never establishes non-disclosure. Supplied links are not fetched by the server.
 
 Selecting a role sorts by estimated suitability. Candidates with insufficient role evidence remain visible, with unknown scores last. Compare all candidates clears optional filters while preserving the role and token budget. Choosing a model does not require running evaluations.
+
+Provider pricing is independent of the benchmark price. The selected provider controls monthly estimates, input/output price columns, price filtering and price sorting. With all providers selected, distinct provider/tariff pairs are listed by increasing monthly token cost; unknown prices appear last. Cached comparison routes are refreshed from the current catalog. Missing tariffs and unverified legacy zeros are unknown, not free. Local token fees exclude hardware and energy; estimates exclude fixed charges and taxes. General model context, modalities, speed and role suitability are not provider-specific guarantees.
+
+Model matching preserves the plus variant and does not remove size suffixes such as mini or small when looking for a provider route.
+
+Activation rejects unknown route tariffs before enabling the provider or saving the registry; refreshing the catalog can resolve missing prices.

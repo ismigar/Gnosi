@@ -613,3 +613,33 @@ def test_missing_key_prefers_last_successful_cache(monkeypatch):
     assert result["fallback"] is True
     assert result["fallback_reason"] == "api_key_missing"
     assert result["stale"] is True
+
+
+def test_route_pricing_distinguishes_unknown_and_confirmed_free():
+    from backend.services.artificial_analysis import _route_price
+    assert _route_price({"cost_in": 0}, "cost_in") is None
+    assert _route_price({"cost_in": 0, "pricing_known": True}, "cost_in") == 0
+    assert _route_price({"cost_in": 1, "pricing_known": False}, "cost_in") is None
+    assert _route_price({"cost_in": 0.3}, "cost_in") == 0.3
+
+
+def test_cached_comparison_replaces_route_prices_with_current_catalog():
+    from backend.services.artificial_analysis import _enrich_cached_payload
+    payload = {"models": [{"id": "x", "name": "X", "routes": [{"provider": "p", "cost_in": 0}]}]}
+    catalog = {"providers": [{"id": "p", "name": "P", "models": [{"id": "x", "name": "X", "cost_in": .3, "cost_out": 1.5}]}]}
+    updated = _enrich_cached_payload(payload, catalog)
+    assert updated["models"][0]["routes"][0]["cost_in"] == .3
+    assert updated["models"][0]["routes"][0]["cost_out"] == 1.5
+
+
+
+def test_plus_and_size_variants_do_not_inherit_another_models_routes():
+    from backend.services.artificial_analysis import _catalog_enrichment_index, _matching_enrichment_entries
+    catalog = {"providers": [{"id": "openrouter", "models": [
+        {"id": "cohere/command-a", "name": "Command A", "cost_in": 2.5, "cost_out": 10},
+        {"id": "cohere/command-a-plus", "name": "Command A+", "cost_in": .3, "cost_out": 1.5},
+    ]}]}
+    index = _catalog_enrichment_index(catalog)
+    matches = _matching_enrichment_entries({"name": "Command A+", "slug": "command-a-plus"}, index)
+    assert [r["model_id"] for m in matches for r in m["routes"]] == ["cohere/command-a-plus"]
+    assert _matching_enrichment_entries({"name": "Command A Mini", "slug": "command-a-mini"}, index) == []

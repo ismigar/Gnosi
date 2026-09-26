@@ -10,7 +10,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Groupe | Modules | Lignes |
 | --- | ---: | ---: |
-| `agent` | 53 | 9447 |
+| `agent` | 53 | 9450 |
 | `api` | 38 | 13256 |
 | `app` | 8 | 801 |
 | `application root` | 2 | 52 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 193 | 41443 |
+| `services` | 193 | 41453 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **864 modules** and **174574 source lines**.
+Total: **864 modules** and **174587 source lines**.
 
 ## agent
 
@@ -68,7 +68,7 @@ Total: **864 modules** and **174574 source lines**.
 | [`backend/agent/mail_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/mail_tools.py) | 164 | 0 | 10 | 8 | 8 | Governed adapters for exact mail reads and mutations. |
 | [`backend/agent/media_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/media_tools.py) | 92 | 0 | 3 | 3 | 3 | Bounded gallery adapters over the existing media endpoints. |
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py) | 192 | 2 | 4 | 0 | 3 | Lazy compatibility stores for legacy Chroma-backed Agent memory. |
-| [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 607 | 0 | 27 | 0 | 22 | Provider → model catalog for the model-comparison activation workflow. |
+| [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 610 | 0 | 27 | 0 | 22 | Provider → model catalog for the model-comparison activation workflow. |
 | [`backend/agent/model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_reliability.py) | 224 | 0 | 10 | 0 | 5 | Why a model call failed, recorded as evidence per provider:model. |
 | [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 553 | 1 | 14 | 0 | 13 | Data-driven, budget-aware model router. |
 | [`backend/agent/notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notebook_tools.py) | 155 | 0 | 10 | 0 | 10 | Assignable notebook lifecycle and evidence tools with workspace ACLs. |
@@ -819,7 +819,7 @@ Total: **864 modules** and **174574 source lines**.
 | [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 438 | 0 | 15 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 131 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
-| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 721 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
+| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 731 | 1 | 31 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 483 | 2 | 15 | 0 | 16 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 213 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |

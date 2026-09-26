@@ -10,10 +10,10 @@ Discovered **125 variables** across **242 source references**.
 
 | Variable | Entorn d’execució | Valor per defecte al codi | Consumidors |
 | --- | --- | --- | --- |
-| `AA_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:618`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L618) |
+| `AA_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:628`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L628) |
 | `ANTHROPIC_API_KEY` | Python | redacted | [`backend/domains/agent/llm.py:175`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py#L175) |
 | `APPIMAGE` | Node.js | runtime-provided | [`desktop/platform-updaters.test.js:27`](https://github.com/ismigar/Gnosi/blob/main/desktop/platform-updaters.test.js#L27)<br>[`desktop/platform-updaters.test.js:28`](https://github.com/ismigar/Gnosi/blob/main/desktop/platform-updaters.test.js#L28)<br>[`desktop/platform-updaters.test.js:31`](https://github.com/ismigar/Gnosi/blob/main/desktop/platform-updaters.test.js#L31) |
-| `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:618`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L618) |
+| `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:628`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py#L628) |
 | `BACKEND_PORT` | Node.js | runtime-provided | [`desktop/backend-process.test.js:142`](https://github.com/ismigar/Gnosi/blob/main/desktop/backend-process.test.js#L142) |
 | `BASE_URL` | Vite | runtime-provided | [`frontend/src/features/vault/editor/spellcheck/nspellManager.ts:140`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/spellcheck/nspellManager.ts#L140) |
 | `COREPACK_ENABLE_NETWORK` | Python | required | [`pipeline/tests/test_native_runtime_wrappers.py:131`](https://github.com/ismigar/Gnosi/blob/main/pipeline/tests/test_native_runtime_wrappers.py#L131) |

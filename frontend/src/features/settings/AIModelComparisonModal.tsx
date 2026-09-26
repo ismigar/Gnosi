@@ -193,6 +193,7 @@ export function AIModelComparisonModal({
                                 onSort={(key) => {
                                     dispatchUi({ key, type: 'change-sort' });
                                 }}
+                                selectedProvider={ui.provider}
                                 selectedProfile={ui.profile}
                                 outputTokens={ui.outputTokens}
                                 providersById={controller.providersById}

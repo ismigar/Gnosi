@@ -135,7 +135,7 @@ def _number(value: Any) -> Optional[float]:
 
 
 def _normalize_name(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
+    return re.sub(r"[^a-z0-9]+", "", (value or "").lower().replace("+", "plus"))
 
 
 def _supported_modes(*values: Any) -> List[str]:
@@ -147,6 +147,14 @@ def _supported_modes(*values: Any) -> List[str]:
         if str(mode).lower() in _SUPPORTED_MODES
     }
     return sorted(modes or {"text"})
+
+
+def _route_price(model: Dict[str, Any], key: str) -> Optional[float]:
+    value = _number(model.get(key))
+    # Older catalogs erased missing prices into zero; do not certify those zeros.
+    if model.get("pricing_known") is False or (value == 0 and model.get("pricing_known") is not True):
+        return None
+    return value
 
 
 def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
@@ -178,8 +186,8 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[st
                 "model_id": str(model.get("id") or ""),
                 "model_name": str(model.get("name") or model.get("id") or ""),
                 "is_local": bool(provider.get("is_local")),
-                "cost_in": _number(model.get("cost_in")) or 0,
-                "cost_out": _number(model.get("cost_out")) or 0,
+                "cost_in": _route_price(model, "cost_in"),
+                "cost_out": _route_price(model, "cost_out"),
                 "context_window": int(model.get("context_window") or 8192),
                 "quality": int(model.get("quality") or 2),
                 "tags": list(model.get("tags") or []),
@@ -228,7 +236,7 @@ def _provider_matches_creator(provider_id: str, creator: str) -> bool:
 # usually lists under the bare base name. Stripped iteratively so composite
 # suffixes (e.g. "deepseek-v4-flash-0420-high") reduce to the catalog entry.
 _EFFORT_SUFFIX_PATTERNS = (
-    re.compile(r"-(xhigh|high|medium|low|max|min|nano|mini|small|large)$", re.I),
+    re.compile(r"-(xhigh|high|medium|low|max|min)$", re.I),
     re.compile(r"-(adaptive|thinking|reasoning|non-reasoning|instruct|chat|base|omni)$", re.I),
     re.compile(r"-(effort|max-effort|high-effort|medium-effort|low-effort)$", re.I),
     re.compile(r"-\d{3,4}$"),  # compact date like 0420
@@ -295,6 +303,7 @@ def _matching_enrichment_entries(
                     continue
                 seen_ids.add(entry_id)
                 matches.append(entry)
+            break
     if creator_name and matches:
         matches.sort(
             key=lambda entry: (
@@ -370,6 +379,7 @@ def _enrich_cached_payload(
             key=lambda item: item.get("context_window") or 0,
             default={},
         )
+        model["routes"] = _routes_for_entries(matches)
         metric_sources = dict(model.get("metric_sources") or {})
         for field in ("input_price", "output_price", "context_window"):
             if model.get(field) is None and match.get(field) is not None:

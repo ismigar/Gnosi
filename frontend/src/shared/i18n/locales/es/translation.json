@@ -5164,7 +5164,7 @@
     "model_enabled": "{{model}} se ha activado con {{provider}}.",
     "model_disabled": "{{model}} se ha desactivado.",
     "no_results": "Ningún modelo coincide con estos filtros.",
-    "data_note": "Datos vivos de benchmarks, precios y rendimiento. Atribución:",
+    "data_note": "Benchmarks y rendimiento del catálogo; pueden proceder de datos guardados. Fuente:",
     "metric_sources": {
       "models_dev": "Valor completado con models.dev",
       "artificial_analysis_cache": "Último valor disponible en la caché de Artificial Analysis"
@@ -5180,7 +5180,8 @@
       "configuration_load_error": "La comparativa está disponible, pero no se ha podido cargar la configuración actual de los modelos.",
       "configuration_save_error": "No se ha podido guardar la configuración del modelo.",
       "upstream_error": "No se han podido cargar los datos actuales de los modelos.",
-      "help": "Crea una clave gratuita, pégala a continuación y Gnosi la guardará de forma segura en el backend."
+      "help": "Crea una clave gratuita, pégala a continuación y Gnosi la guardará de forma segura en el backend.",
+      "unknown_route_price": "No se puede activar el modelo sin tarifas conocidas. Actualiza el catálogo e inténtalo de nuevo; no se guardará un precio desconocido como cero."
     },
     "setup": {
       "execution": "Tipo de ejecución",
@@ -5265,7 +5266,10 @@
     "review_manual": "Fuente revisada manualmente",
     "estimated_fit": "Adecuación estimada",
     "choice_help": "Elige según la adecuación estimada, el coste y el fabricante. No es necesario ejecutar pruebas. Los candidatos sin datos suficientes aparecen al final al ordenar por uso; los filtros actuales pueden ocultar alternativas.",
-    "compare_candidates": "Comparar todos los candidatos"
+    "compare_candidates": "Comparar todos los candidatos",
+    "unknown_cost": "Coste desconocido",
+    "local_cost_note": "Sin tarifa por tokens; hardware y energía no incluidos.",
+    "provider_cost_note": "Estimación según las tarifas de cada proveedor y los tokens indicados, sin cuotas fijas ni impuestos. Las opciones se muestran de menor a mayor coste; los costes desconocidos van al final. Contexto, modos, velocidad y adecuación son datos generales del modelo y pueden variar según el proveedor."
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",

@@ -24,6 +24,7 @@ router registry already stored).
 from __future__ import annotations
 
 import json
+import math
 import logging
 import re
 import threading
@@ -173,6 +174,7 @@ def build_catalog(models_dev: Dict[str, Any]) -> Dict[str, Any]:
             models.append({
                 "id": model["id"],
                 "name": model.get("name") or model["id"],
+                "pricing_known": all(isinstance(cost.get(key), (int, float)) and not isinstance(cost.get(key), bool) and math.isfinite(cost[key]) and cost[key] >= 0 for key in ("input", "output")),
                 "cost_in": round(float(cost.get("input") or 0), 4),
                 "cost_out": round(float(cost.get("output") or 0), 4),
                 "context_window": int((model.get("limit") or {}).get("context") or 8192),
@@ -295,6 +297,7 @@ def _live_ollama_models() -> Optional[List[Dict[str, Any]]]:
         models.append({
             "id": name,
             "name": name,
+            "pricing_known": True,
             "cost_in": 0.0,
             "cost_out": 0.0,
             # /api/tags does not expose the context window; conservative default,

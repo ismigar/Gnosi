@@ -105,3 +105,8 @@ describe('model comparison registry helpers', () => {
     expect(routes.map((route) => route.model_id)).toEqual(['installed']);
   });
 });
+
+
+it('never stores an unknown route tariff as free when activating a model', () => {
+  expect(() => comparisonRouteToRegistryEntry({ provider: 'openrouter', model_id: 'x', cost_in: null, cost_out: 1 })).toThrow('unknown_route_price');
+});

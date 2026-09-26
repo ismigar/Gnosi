@@ -11,8 +11,8 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 573 | 2412 |
-| pytest | 561 | 3992 |
+| Vitest | 574 | 2417 |
+| pytest | 561 | 3995 |
 
 ## Archivos
 
@@ -257,8 +257,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/identity/IdentityProfile.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelParameterReview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.test.tsx) | 1 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.test.ts) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/modelParameters.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelParameters.test.ts) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/model-comparison/modelRouteCosts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelRouteCosts.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/modelComparison.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/modelComparison.test.ts) | 15 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/useModelComparisonData.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/useModelComparisonData.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/sharing/dialogs/ShareModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/dialogs/ShareModal.test.tsx) | 3 | call-pattern estimate |
@@ -670,7 +671,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_app_config_resolution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_config_resolution.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_app_lifespan.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_app_lifespan.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_article_extractor_excerpt.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_article_extractor_excerpt.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_artificial_analysis.py) | 23 | Python AST |
+| pytest | [`backend/tests/test_artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_artificial_analysis.py) | 26 | Python AST |
 | pytest | [`backend/tests/test_async_settings_boundaries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_async_settings_boundaries.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_attachment_name_numbering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_attachment_name_numbering.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_audio_summarizer.py) | 11 | Python AST |

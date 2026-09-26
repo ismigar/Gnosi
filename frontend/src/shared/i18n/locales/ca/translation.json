@@ -5164,7 +5164,7 @@
     "model_enabled": "{{model}} s’ha activat amb {{provider}}.",
     "model_disabled": "{{model}} s’ha desactivat.",
     "no_results": "Cap model coincideix amb aquests filtres.",
-    "data_note": "Dades vives de benchmarks, preus i rendiment. Atribució:",
+    "data_note": "Benchmarks i rendiment del catàleg; poden provenir de dades desades. Font:",
     "metric_sources": {
       "models_dev": "Valor completat amb models.dev",
       "artificial_analysis_cache": "Últim valor disponible a la memòria cau d’Artificial Analysis"
@@ -5180,7 +5180,8 @@
       "configuration_load_error": "La comparativa està disponible, però no s’ha pogut carregar la configuració actual dels models.",
       "configuration_save_error": "No s’ha pogut desar la configuració del model.",
       "upstream_error": "No s’han pogut carregar les dades actuals dels models.",
-      "help": "Crea una clau gratuïta, enganxa-la a continuació i Gnosi la desarà de manera segura al backend."
+      "help": "Crea una clau gratuïta, enganxa-la a continuació i Gnosi la desarà de manera segura al backend.",
+      "unknown_route_price": "No es pot activar el model sense tarifes conegudes. Actualitza el catàleg i torna-ho a provar; no es desarà un preu desconegut com a zero."
     },
     "setup": {
       "execution": "Tipus d’execució",
@@ -5265,7 +5266,10 @@
     "review_manual": "Font revisada manualment",
     "estimated_fit": "Adequació estimada",
     "choice_help": "Tria segons l’adequació estimada, el cost i el fabricant. No cal executar proves. Els candidats sense dades suficients apareixen al final en ordenar per ús; els filtres actuals poden amagar alternatives.",
-    "compare_candidates": "Compara tots els candidats"
+    "compare_candidates": "Compara tots els candidats",
+    "unknown_cost": "Cost desconegut",
+    "local_cost_note": "Sense tarifa per tokens; maquinari i energia no inclosos.",
+    "provider_cost_note": "Estimació segons les tarifes de cada proveïdor i els tokens indicats, sense quotes fixes ni impostos. Les opcions es mostren de menor a major cost; els costos desconeguts van al final. Context, modes, velocitat i adequació són dades generals del model i poden variar segons el proveïdor."
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

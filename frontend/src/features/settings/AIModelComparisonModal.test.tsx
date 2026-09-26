@@ -262,6 +262,7 @@ describe('AIModelComparisonModal', () => {
         expect(cells[4]?.textContent).toContain('85');
         expect(cells[5]?.textContent).toBe('128K');
         expect(cells[2]?.textContent).toContain('9');
+        expect(cells[2]?.textContent).toContain('OpenAI —');
         expect(cells[9]?.textContent).toContain('model_comparison.parameters_missing');
         expect(cells[14]?.textContent).toBe('OpenAI');
         expect(container.textContent).toContain('Model One');
