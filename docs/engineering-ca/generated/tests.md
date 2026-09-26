@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 582 | 2451 |
+| Vitest | 583 | 2456 |
 | pytest | 562 | 4006 |
 
 ## Fitxers
@@ -246,6 +246,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/AIModelComparisonModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AIUsageHistoryModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryModal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AppSidebarSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.test.tsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/ModelComparisonAudit.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonAudit.test.tsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/aiUsageHistory.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx) | 4 | call-pattern estimate |

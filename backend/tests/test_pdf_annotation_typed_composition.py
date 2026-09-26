@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 
 PDF_MODULE = "backend.domains.vault.annotations.pdf_routes"
+COMPOSITION_PROCESS_TIMEOUT = 600
 SOURCE_URI = "file:///synthetic/paper.pdf"
 # Complete PDF-only OpenAPI, including inherited auth headers/cookie, captured
 # before the composition refactor at the supplied 2fc2a799f checkpoint.
@@ -84,9 +85,10 @@ def test_pdf_annotation_typed_composition_in_isolated_subprocess(import_order: s
                  "--basetemp", str(root / "tests"), "-o", "python_functions=check_*",
                  "backend/tests/test_pdf_annotation_typed_composition.py"],
                 cwd=Path(__file__).resolve().parents[2], env=environment,
-                # Budget the cold backend import plus all 57 checks per import
-                # order, rather than treating the entire group as a single test.
-                capture_output=True, text=True, timeout=300, check=False,
+                # Include cold schema imports, all 57 checks and interpreter
+                # teardown on the shared ARM64 runner. CI completed the checks
+                # in 240s but exceeded the old 300s whole-process budget.
+                capture_output=True, text=True, timeout=COMPOSITION_PROCESS_TIMEOUT, check=False,
             )
         except subprocess.TimeoutExpired as error:
             progress = error.stdout or b""
@@ -96,7 +98,7 @@ def test_pdf_annotation_typed_composition_in_isolated_subprocess(import_order: s
             if isinstance(diagnostic, bytes):
                 diagnostic = diagnostic.decode("utf-8", errors="replace")
             pytest.fail(
-                f"PDF composition {import_order!r} exceeded the 300s group budget.\n"
+                f"PDF composition {import_order!r} exceeded the {COMPOSITION_PROCESS_TIMEOUT}s process budget.\n"
                 f"Child progress:\n{progress}\nChild diagnostics:\n{diagnostic}",
                 pytrace=False,
             )

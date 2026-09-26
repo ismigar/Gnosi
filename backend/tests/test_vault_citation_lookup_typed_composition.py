@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from backend.domains.vault.citations.pdf_fallback import PdfFallbackDependencies
 
 ROOT = Path(__file__).resolve().parents[2]
+COMPOSITION_PROCESS_TIMEOUT = 600
 LOOKUP_PATHS = (
     "/lookup-metadata",
     "/generate-citation-key",
@@ -79,7 +80,9 @@ def test_citation_lookup_composition_in_isolated_subprocess(first_module: str) -
             env=environment,
             capture_output=True,
             text=True,
-            timeout=90,
+            # Cold schema imports share the same backend as the PDF group;
+            # budget the entire isolated process rather than a single lookup.
+            timeout=COMPOSITION_PROCESS_TIMEOUT,
             check=False,
         )
         assert result.returncode == 0, result.stdout + result.stderr

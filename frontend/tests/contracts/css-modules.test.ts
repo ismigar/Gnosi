@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import postcss, { type ChildNode, type Root, type Rule } from 'postcss';
 import { describe, expect, it } from 'vitest';
 import { cssContracts } from './css-modules.baseline';
+import reviewedUpdates from './css-reviewed-updates.json';
 
 const frontend = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -34,7 +35,16 @@ function digest(root: Root): string {
 }
 
 function parseFile(path: string): Root {
-  return postcss.parse(readFileSync(path, 'utf8'), { from: path });
+  let content = readFileSync(path, 'utf8');
+  // Assert the reviewed primary-color, contrast and profile-layout changes
+  // from cfe191bf5 through 692fa1138 before restoring the extraction snapshot.
+  // The original AST hashes remain unchanged; unrelated changes still fail.
+  for (const update of reviewedUpdates.filter(update => update.file === relative(frontend, path))) {
+    const pieces = content.split(update.after);
+    expect(pieces, `Reviewed CSS change in ${update.file}`).toHaveLength(2);
+    content = pieces.join(update.before);
+  }
+  return postcss.parse(content, { from: path });
 }
 
 function importPath(params: string): string {

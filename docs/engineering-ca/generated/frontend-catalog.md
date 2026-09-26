@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2655 | 0 |
-| `features` | 1130 | 127177 | 32 |
+| `features` | 1130 | 127178 | 32 |
 | `generated` | 2 | 48074 | 494 |
 | `shared` | 264 | 31384 | 425 |
 
@@ -532,7 +532,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/AI/ActivityJobResult.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityJobResult.tsx) | 31 | `ActivityJobResult` | — |
 | [`frontend/src/features/settings/AI/ActivityRunReference.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityRunReference.tsx) | 25 | `ActivityRunReference` | — |
 | [`frontend/src/features/settings/AI/AgentBehaviorInspection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentBehaviorInspection.tsx) | 54 | `AgentBehaviorInspection` | — |
-| [`frontend/src/features/settings/AI/AgentEvaluationLab.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentEvaluationLab.tsx) | 81 | `AgentEvaluationLab` | — |
+| [`frontend/src/features/settings/AI/AgentEvaluationLab.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentEvaluationLab.tsx) | 82 | `AgentEvaluationLab` | — |
 | [`frontend/src/features/settings/AI/AgentExecutionHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentExecutionHistory.tsx) | 58 | `AgentExecutionHistory` | — |
 | [`frontend/src/features/settings/AI/AgentTeamProposals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTeamProposals.tsx) | 57 | `AgentTeamProposals` | — |
 | [`frontend/src/features/settings/AI/AgentTraceDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTraceDetails.tsx) | 48 | `AgentTraceDetails` | — |
