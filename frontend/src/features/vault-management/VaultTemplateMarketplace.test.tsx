@@ -20,7 +20,7 @@ vi.mock('../../shared/api/vault-templates', () => ({
 const translate = vi.hoisted(() => (
     key: string,
     values: Readonly<Record<string, unknown>> = {},
-) => Object.entries(values).reduce(
+) => key.startsWith('vault_templates.catalog_') && typeof values.defaultValue === 'string' ? values.defaultValue : Object.entries(values).reduce(
     (text, [name, value]) => text.replace(`{{${name}}}`, String(value)),
     key,
 ));
@@ -140,6 +140,13 @@ describe('VaultTemplateMarketplace', () => {
         );
         expect(container.textContent).toContain('vault_templates.included_count');
         expect(container.textContent).toContain('vault_templates.findings_ack');
+        expect(container.textContent).toContain('Wiki/Note.md');
+        expect(container.textContent).toContain('vault_templates.privacy_reason_credential-assignment');
+        const excluded = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('vault_templates.files_excluded'));
+        if (!excluded) throw new Error('Excluded files tab is missing');
+        act(() => { excluded.click(); });
+        expect(container.textContent).toContain('.gnosi/plugins.json');
+        expect(container.textContent).toContain('vault_templates.privacy_reason_private-root');
         const submit = [...container.querySelectorAll('button')]
             .find((button) => button.textContent.includes('vault_templates.submit'));
         if (!(submit instanceof HTMLButtonElement)) {
@@ -175,4 +182,42 @@ describe('VaultTemplateMarketplace', () => {
         expect(download.disabled).toBe(true);
         expect(submit.disabled).toBe(true);
     });
+    it('requires review of findings and clears acknowledgement on refresh', async () => {
+        vi.mocked(fetchVaultTemplateCatalog).mockResolvedValueOnce({ templates: [], submissionConfigured: true });
+        const preview = { included: [{ path: 'Wiki/Settings.md', size: 12 }], excluded: [], findings: [{ path: 'Wiki/Settings.md', kind: 'private-key' }], totalSize: 12 };
+        vi.mocked(fetchVaultTemplateExportPreview).mockResolvedValueOnce(preview).mockResolvedValueOnce(preview);
+        await renderMarketplace({ initialSection: 'publish' });
+        if (!container) throw new Error('Missing dialog');
+        const submit = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('vault_templates.submit'));
+        const toggle = container.querySelector<HTMLElement>('[role="switch"]');
+        if (!submit || !toggle) throw new Error('Missing publishing controls');
+        expect(submit.disabled).toBe(true);
+        act(() => { toggle.click(); });
+        expect(submit.disabled).toBe(false);
+        const refresh = container.querySelector<HTMLButtonElement>('.template-section-heading button');
+        if (!refresh) throw new Error('Missing refresh control');
+        await act(async () => { refresh.click(); await Promise.resolve(); });
+        expect(submit.disabled).toBe(true);
+        expect(fetchVaultTemplateExportPreview).toHaveBeenCalledTimes(2);
+    });
+
+    it('filters the catalog by category and shows signed preview metadata', async () => {
+        vi.mocked(fetchVaultTemplateCatalog).mockResolvedValueOnce({ templates: [
+            { id: 'study-workspace', version: '1.0.0', name: 'Study Workspace', categories: ['study'], languages: ['fr'], preview: 'Concept notes and active recall' },
+            { id: 'project-workspace', version: '1.0.0', name: 'Project Workspace', categories: ['projects'] },
+        ], submissionConfigured: false });
+        await renderMarketplace();
+        if (!container) throw new Error('Missing dialog');
+        const category = container.querySelector('select');
+        if (!category) throw new Error('Missing category filter');
+        act(() => { category.value = 'study'; category.dispatchEvent(new Event('change', { bubbles: true })); });
+        const cards = container.querySelectorAll('button');
+        const study = [...cards].find((button) => button.textContent.includes('Study Workspace'));
+        expect([...cards].some((button) => button.textContent.includes('Project Workspace'))).toBe(false);
+        if (!study) throw new Error('Missing study template');
+        act(() => { study.click(); });
+        expect(container.textContent).toContain('Concept notes and active recall');
+        expect(container.textContent).toContain('FR');
+    });
+
 });
