@@ -278,6 +278,21 @@ describe('role suitability ordering', () => {
         const ui = { ...INITIAL_COMPARISON_UI_STATE, profile: 'worker' as const, sort: { key: 'profile' as const, direction: 'desc' as const } };
         expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['b', 'a', 'c']);
         expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, sort: { ...ui.sort, direction: 'asc' } }).map(m => m.id)).toEqual(['a', 'b', 'c']);
-        expect(modelComparisonColumns(modelMetricAvailability(feed)).slice(0,4).map(c => c.key)).toEqual(['name','profile','monthly_cost','provider']);
+        expect(modelComparisonColumns(modelMetricAvailability(feed)).slice(0,4).map(c => c.key)).toEqual(['name','profile','monthly_cost','creator']);
     });
+});
+
+it('keeps insufficient role evidence visible and sorts it last without requiring evaluations', () => {
+    const role = { role: 'director', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: 85 } as const;
+    const models = [comparisonModel({ id: 'unknown', coding: null, agentic: null, role_assessments: [{ ...role, status: 'insufficient_data', score: null }] }), comparisonModel({ id: 'known', role_assessments: [role] })];
+    const ui = modelComparisonUiReducer(INITIAL_COMPARISON_UI_STATE, { type: 'set-profile', value: 'director' });
+    expect(ui.sort).toEqual({ key: 'profile', direction: 'desc' });
+    expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['known', 'unknown']);
+    const reset = modelComparisonUiReducer({ ...ui, provider: 'openrouter', availability: 'inactive', modes: ['image'], maxPrice: '1', inputTokens: '12' }, { type: 'compare-role-candidates' });
+    expect(reset).toMatchObject({ profile: 'director', provider: 'all', availability: 'all', modes: [], maxPrice: '', inputTokens: '12' });
+});
+
+it('sorts the manufacturer column by creator, independently of hosting routes', () => {
+    const models = [comparisonModel({ id: 'openai', creator: 'OpenAI' }), comparisonModel({ id: 'anthropic', creator: 'Anthropic' })];
+    expect(filteredComparisonModels({ ...feed, models }, [], { ...INITIAL_COMPARISON_UI_STATE, sort: { key: 'creator', direction: 'asc' } }).map(m => m.id)).toEqual(['anthropic', 'openai']);
 });

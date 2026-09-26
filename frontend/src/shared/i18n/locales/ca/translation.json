@@ -5047,7 +5047,7 @@
       "profile": "Ús",
       "coding": "Codi\npunts",
       "agentic": "Agents\npunts",
-      "creator": "Creador",
+      "creator": "Fabricant",
       "provider": "Proveïdor"
     },
     "compact_filters": {
@@ -5222,7 +5222,7 @@
     "columns": {
       "parameters": "Paràmetres (B)",
       "model": "Model",
-      "creator": "Creador",
+      "creator": "Fabricant",
       "provider": "Proveïdor",
       "modes": "Modes compatibles",
       "intelligence": "Intel·ligència (punts)",
@@ -5262,7 +5262,10 @@
       "source_unavailable": "La font no ha respost. Pots tornar-ho a provar.",
       "saved": "Verificació manual desada amb font i data."
     },
-    "review_manual": "Font revisada manualment"
+    "review_manual": "Font revisada manualment",
+    "estimated_fit": "Adequació estimada",
+    "choice_help": "Tria segons l’adequació estimada, el cost i el fabricant. No cal executar proves. Els candidats sense dades suficients apareixen al final en ordenar per ús; els filtres actuals poden amagar alternatives.",
+    "compare_candidates": "Compara tots els candidats"
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

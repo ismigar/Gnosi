@@ -5047,7 +5047,7 @@
       "profile": "Uso",
       "coding": "Código\npuntos",
       "agentic": "Agentes\npuntos",
-      "creator": "Creador",
+      "creator": "Fabricante",
       "provider": "Proveedor"
     },
     "compact_filters": {
@@ -5222,7 +5222,7 @@
     "columns": {
       "parameters": "Parámetros (B)",
       "model": "Modelo",
-      "creator": "Creador",
+      "creator": "Fabricante",
       "provider": "Proveedor",
       "modes": "Modos compatibles",
       "intelligence": "Inteligencia (puntos)",
@@ -5262,7 +5262,10 @@
       "source_unavailable": "La fuente no respondió. Puedes reintentarlo.",
       "saved": "Verificación manual guardada con fuente y fecha."
     },
-    "review_manual": "Fuente revisada manualmente"
+    "review_manual": "Fuente revisada manualmente",
+    "estimated_fit": "Adecuación estimada",
+    "choice_help": "Elige según la adecuación estimada, el coste y el fabricante. No es necesario ejecutar pruebas. Los candidatos sin datos suficientes aparecen al final al ordenar por uso; los filtros actuales pueden ocultar alternativas.",
+    "compare_candidates": "Comparar todos los candidatos"
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",

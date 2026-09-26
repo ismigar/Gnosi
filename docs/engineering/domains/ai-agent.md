@@ -974,7 +974,7 @@ catalogue nor assignments.
 
 ## Model comparison and verified parameter counts
 
-The comparison shows the model and its multi-role assessment first, then estimated monthly cost and provider, followed by intelligence, context, input/output prices, modes, parameter counts, speed, latency and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
+The comparison shows the model and its multi-role assessment first, then estimated monthly cost and model maker, followed by intelligence, context, input/output prices, modes, parameter counts, speed, latency and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
 
 Parameter counts are expressed in billions, distinguishing total and active MoE parameters. Filters support verified/undisclosed/pending status and total-size bounds. Selected modes use explicit AND (default) or OR matching. Static reviewed metadata remains available when the server does not provide enriched data.
 
@@ -1080,7 +1080,7 @@ Guidance, not certification: at least 60/100 and 60% data coverage, with role-sp
 
 Role weights are defined in `backend/services/model_role_suitability.py`. Benchmarks use tie-aware relative ranks in the current unfiltered feed (a singleton receives 0.5); they are not absolute quality probabilities. Required evidence gates are intelligence/agentic/tools for director, intelligence/tools for allrounder, intelligence/context for documentalist (minimum 100k), intelligence for expert, intelligence/tools-or-structured for administrative, and text/price/speed for worker. Unknown inputs are excluded from normalization but reduce coverage; absent requirements prevent a recommendation. Explicit tool limitations override scores. Parameter count is not treated as a proxy for capability. The legacy profile is retained only for older consumers. Catalog refresh recalculates assessments on cached feeds as well as fresh responses.
 
-The Use column shows only the selected role and its percentage; sorting compares that score with unknown values last. Estimated cost and Provider follow it. Without a role filter, Use sorts by each model’s highest available score.
+The Use column shows only the selected role and its percentage; sorting compares that score with unknown values last. Estimated cost and Model maker follow it. Without a role filter, Use sorts by each model’s highest available score.
 
 The comparison’s Role and strategy tests panel lets users select enabled agents and explicitly authorize each run with real usage. Role suites use 2–3 synthetic cases with deterministic validators. Strategy comparison applies the same three cases to an all-rounder, an always-on director and a director with direct routes; these include two known routes and conflicting-source resolution with dependencies. It compares valid contracts, calls, avoidable interventions and cost; missing values do not become zero. This isolated laboratory reuses economic selection without business tools. It does not comprehensively certify language, long-context retrieval or real tool use.
 
@@ -1091,3 +1091,5 @@ Retention proposals show reusable skills, coverage/model differences from existi
 Implementation: `backend/services/agent_role_evaluations.py` · `backend/services/agent_team_retention.py` · `frontend/src/features/settings/AI/AgentEvaluationLab.tsx`
 
 For an unresolved parameter count, select **Pending verification** in the Parameters column. **Consult the official source** attempts an exact-version match against supported manufacturer model cards. An unavailable source or no match leaves the value pending. You can instead record total and active billions, or a reviewed non-disclosure, with an HTTPS source and explicit confirmation that you checked the exact model. Manually reviewed values retain their provenance and date; merely failing to find a number never establishes non-disclosure. Supplied links are not fetched by the server.
+
+Selecting a role sorts by estimated suitability. Candidates with insufficient role evidence remain visible, with unknown scores last. Compare all candidates clears optional filters while preserving the role and token budget. Choosing a model does not require running evaluations.

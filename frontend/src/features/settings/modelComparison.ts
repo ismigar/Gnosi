@@ -74,6 +74,7 @@ export interface ModelComparisonUiState {
 
 
 export type ModelComparisonUiAction =
+    | { readonly type: 'compare-role-candidates' }
     | { readonly type: 'change-sort'; readonly key: ComparisonSortKey }
     | { readonly type: 'set-availability'; readonly value: ComparisonAvailability }
     | { readonly type: 'set-input-tokens'; readonly value: string }
@@ -201,7 +202,9 @@ export function modelComparisonUiReducer(
         case 'set-provider':
             return { ...state, provider: action.value };
         case 'set-profile':
-            return { ...state, profile: action.value };
+            return { ...state, profile: action.value, sort: action.value === 'all' || action.value === 'unrated' ? state.sort : { key: 'profile', direction: 'desc' } };
+        case 'compare-role-candidates':
+            return { ...INITIAL_COMPARISON_UI_STATE, profile: state.profile, inputTokens: state.inputTokens, outputTokens: state.outputTokens, showIncomplete: true, sort: { key: 'profile', direction: 'desc' } };
         case 'set-query':
             return { ...state, query: action.value };
         case 'set-show-incomplete':
@@ -317,7 +320,7 @@ export const modelComparisonColumns = (
     { key: 'name', label: 'model' },
     ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
     { key: 'monthly_cost', label: 'monthly_cost' },
-    { key: 'provider', label: 'provider' },
+    { key: 'creator', label: 'creator' },
     ...(available.intelligence
         ? [{ key: 'intelligence', label: 'intelligence' } as const] : []),
     { key: 'context_window', label: 'context' },
@@ -329,7 +332,6 @@ export const modelComparisonColumns = (
     ...(available.latency ? [{ key: 'latency', label: 'latency' } as const] : []),
     ...(available.coding ? [{ key: 'coding', label: 'coding' } as const] : []),
     ...(available.agentic ? [{ key: 'agentic', label: 'agentic' } as const] : []),
-    { key: 'creator', label: 'creator' },
 ];
 
 
@@ -375,10 +377,11 @@ export const filteredComparisonModels = (
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
         && (ui.profile === 'all' || (model.role_assessments?.length
-            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => !['catalog_compatible', 'tested'].includes(r.status)) : model.role_assessments.some(r => r.role === ui.profile && ['catalog_compatible', 'tested'].includes(r.status)))
+            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => !['catalog_compatible', 'tested'].includes(r.status)) : model.role_assessments.some(r => r.role === ui.profile && ['catalog_compatible', 'tested', 'insufficient_data'].includes(r.status)))
             : model.profile === ui.profile))
         && (
             ui.showIncomplete
+            || (ui.profile !== 'all' && ui.profile !== 'unrated')
             || (
                 (model.role_assessments?.length ? model.role_assessments.some(r => ['catalog_compatible', 'tested'].includes(r.status)) : model.profile !== 'unrated')
                 && model.coding !== null

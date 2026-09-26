@@ -244,6 +244,11 @@ export function ModelComparisonToolbar({
                 </div>
             </div>
 
+            {state.profile !== 'all' && state.profile !== 'unrated' && <div className="model-comparison-note">
+                <p>{t('model_comparison.choice_help')}</p>
+                <button className="btn-gnosi-secondary" type="button" onClick={() => { dispatch({ type: 'compare-role-candidates' }); }}>{t('model_comparison.compare_candidates')}</button>
+            </div>}
+
             {state.showProfileHelp ? (
                 <div className="model-profile-help-backdrop" role="presentation">
                     <section

@@ -138,7 +138,7 @@ export function ModelComparisonRow({
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return isFiniteMetric(model.latency)
                 ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
-            case 'profile': return model.role_assessments?.length ? <details className="model-role-assessments"><summary>{assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${formatComparisonMetric(r.score)}%` : ''}`).join(', ') || t('agent_team.insufficient_data')}</summary>
+            case 'profile': return model.role_assessments?.length ? <><details className="model-role-assessments"><summary>{assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${formatComparisonMetric(r.score)}%` : ''}`).join(', ') || t('agent_team.insufficient_data')}</summary>
                 <div className="model-role-assessments__body"><p className="settings-desc">{t('agent_team.scoring_help')}</p>
                 {assessments.map(r => <p key={r.role}><strong>{t(`model_comparison.profiles.${r.role}`)}</strong>: {t(`agent_team.${r.status}`)}<br />
                     {t('agent_team.role_score')}: {r.score != null ? `${formatComparisonMetric(r.score)}%` : '—'} · {t('agent_team.data_coverage')}: {r.coverage}%<br />
@@ -151,7 +151,7 @@ export function ModelComparisonRow({
                     {t('agent_team.missing')}: {(r.missing ?? []).filter(item => !(item in (r.weights ?? {}))).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}<br />
                     <span className="settings-desc">{t(`agent_team.verify_roles.${r.role}`)} {t('agent_team.verification_pending')}</span>
                 </p>)}</div>
-            </details> : <span className={`model-profile-badge ${model.profile}`}>
+            </details>{selectedProfile !== 'all' && selectedProfile !== 'unrated' && assessments.map(r => <small key={r.role}>{t('model_comparison.estimated_fit')} · {t('agent_team.data_coverage')}: {r.coverage}%</small>)}</> : <span className={`model-profile-badge ${model.profile}`}>
                 {PROFILE_ICONS[model.profile as ComparisonProfile] ?? '⚪'}{' '}
                 {t(`model_comparison.profiles.${model.profile}`)}
             </span>;

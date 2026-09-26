@@ -1082,7 +1082,7 @@ Cancel·lar l’esborrany no modifica ni el catàleg ni les assignacions.
 
 ## Comparativa de models i paràmetres verificats
 
-La comparativa mostra primer el model i la valoració dels seus perfils, seguits del cost mensual estimat i el proveïdor, i després intel·ligència, context, preus d’entrada/sortida, modes, paràmetres, velocitat, latència i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
+La comparativa mostra primer el model i la valoració dels seus perfils, seguits del cost mensual estimat i el fabricant, i després intel·ligència, context, preus d’entrada/sortida, modes, paràmetres, velocitat, latència i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
 
 Els paràmetres s’expressen en mil milions, distingint totals i actius en models MoE. Els filtres admeten estat conegut/no publicat/pendent i límits de mida total. Els modes utilitzen AND explícit per defecte o OR. Les metadades estàtiques revisades continuen disponibles si el servidor no proporciona dades enriquides.
 
@@ -1186,7 +1186,7 @@ Orientació, no certificació: mínim 60/100 i 60% de dades, amb requisits per p
 
 Els pesos són a `backend/services/model_role_suitability.py`. Els benchmarks es comparen dins del catàleg sense filtrar, amb el mateix rang per als empats i 0,5 si només hi ha un model; no són probabilitats de qualitat. Els requisits són intel·ligència, capacitat agentiva i eines per al Directiu; intel·ligència i eines per al Tot terreny; intel·ligència i context per al Documentalista (mínim 100k); intel·ligència per al Perit; intel·ligència i eines o sortida estructurada per a l’Administratiu; text, preu i velocitat per al Peó. Les dades absents redueixen la cobertura i els requisits absents impedeixen recomanar. Una limitació explícita preval sobre la puntuació. La mida del model no s’utilitza com a indicador de capacitat. El perfil antic es conserva per compatibilitat. La recàrrega recalcula també les dades en memòria cau.
 
-La columna Ús mostra només el perfil seleccionat i el seu percentatge; ordenar-la compara aquella puntuació, amb els valors desconeguts al final. Cost estimat i Proveïdor van a continuació. Sense filtre, ordenar Ús compara la millor puntuació disponible de cada model.
+La columna Ús mostra només el perfil seleccionat i el seu percentatge; ordenar-la compara aquella puntuació, amb els valors desconeguts al final. Cost estimat i Fabricant van a continuació. Sense filtre, ordenar Ús compara la millor puntuació disponible de cada model.
 
 El panell Proves de perfils i estratègies de la comparativa permet triar agents habilitats i autoritzar cada execució amb consum real. Les proves per paper utilitzen 2–3 casos sintètics amb validadors deterministes. La comparació aplica els mateixos tres casos a Tot terreny, Directiu sempre actiu i Directiu amb rutes; inclou dues rutes conegudes i una resolució de fonts contradictòries amb dependències. Compara encerts, crides, intervencions evitables i cost; les dades absents no es consideren zero. És un laboratori aïllat que reutilitza l’elecció econòmica, sense eines de negoci. No és una certificació completa de llengua, recuperació extensa ni ús real d’eines.
 
@@ -1197,3 +1197,5 @@ Les propostes de conservació mostren les habilitats reutilitzables, les diferè
 Implementació: `backend/services/agent_role_evaluations.py` · `backend/services/agent_team_retention.py` · `frontend/src/features/settings/AI/AgentEvaluationLab.tsx`
 
 Per resoldre una mida desconeguda, selecciona **Pendent de verificar** a la columna Paràmetres. **Consulta la font oficial** cerca una coincidència de versió exacta a les fitxes dels fabricants compatibles. Si la font no respon o no hi ha coincidència, la dada continua pendent. També pots registrar els milers de milions totals i actius, o una absència de publicació revisada, amb una font HTTPS i la confirmació explícita que has comprovat el model exacte. Les dades revisades manualment conserven la procedència i la data; no trobar una xifra no demostra que no estigui publicada. El servidor no visita els enllaços introduïts.
+
+Seleccionar un perfil ordena per adequació estimada. Els candidats amb dades insuficients continuen visibles, amb les puntuacions desconegudes al final. Compara tots els candidats elimina els filtres opcionals i conserva el perfil i el volum de tokens. No cal executar proves per triar un model.

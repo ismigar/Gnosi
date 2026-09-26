@@ -5047,7 +5047,7 @@
       "profile": "Usage",
       "coding": "Code\npoints",
       "agentic": "Agents\npoints",
-      "creator": "Créateur",
+      "creator": "Fabricant",
       "provider": "Fournisseur"
     },
     "compact_filters": {
@@ -5222,7 +5222,7 @@
     "columns": {
       "parameters": "Paramètres (B)",
       "model": "Modèle",
-      "creator": "Créateur",
+      "creator": "Fabricant",
       "provider": "Fournisseur",
       "modes": "Modes pris en charge",
       "intelligence": "Intelligence (points)",
@@ -5262,7 +5262,10 @@
       "source_unavailable": "La source n’a pas répondu. Vous pouvez réessayer.",
       "saved": "Vérification manuelle enregistrée avec source et date."
     },
-    "review_manual": "Source vérifiée manuellement"
+    "review_manual": "Source vérifiée manuellement",
+    "estimated_fit": "Adéquation estimée",
+    "choice_help": "Choisissez selon l’adéquation estimée, le coût et le fabricant. Aucun test n’est nécessaire. Les candidats sans données suffisantes apparaissent en dernier lors du tri par usage ; les filtres actuels peuvent masquer des alternatives.",
+    "compare_candidates": "Comparer tous les candidats"
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",

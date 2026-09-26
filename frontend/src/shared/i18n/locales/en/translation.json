@@ -6086,7 +6086,7 @@
       "profile": "Use",
       "coding": "Coding\npoints",
       "agentic": "Agents\npoints",
-      "creator": "Creator",
+      "creator": "Model maker",
       "provider": "Provider"
     },
     "compact_filters": {
@@ -6259,7 +6259,7 @@
     "columns": {
       "parameters": "Parameters (B)",
       "model": "Model",
-      "creator": "Creator",
+      "creator": "Model maker",
       "provider": "Provider",
       "modes": "Supported modes",
       "intelligence": "Intelligence (points)",
@@ -6299,7 +6299,10 @@
       "source_unavailable": "The source did not respond. You can retry.",
       "saved": "Manual review saved with source and date."
     },
-    "review_manual": "Manually reviewed source"
+    "review_manual": "Manually reviewed source",
+    "estimated_fit": "Estimated suitability",
+    "choice_help": "Choose by estimated suitability, cost and model maker. No tests are required. Candidates with insufficient data appear last when sorting by use; current filters may hide alternatives.",
+    "compare_candidates": "Compare all candidates"
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

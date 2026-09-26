@@ -221,7 +221,7 @@ describe('AIModelComparisonModal', () => {
         if (!filter) throw new Error('Missing role filter');
         act(() => { filter.value = 'worker'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
         const summaries = [...container.querySelectorAll('details.model-role-assessments summary')];
-        expect(summaries.map(s => s.textContent)).toEqual(['model_comparison.profiles.worker · 65%', 'model_comparison.profiles.worker · 90%']);
+        expect(summaries.map(s => s.textContent)).toEqual(['model_comparison.profiles.worker · 90%', 'model_comparison.profiles.worker · 65%']);
         expect(container.querySelector('details.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
         const sort = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.profile"]');
         act(() => { sort?.click(); });
@@ -254,8 +254,8 @@ describe('AIModelComparisonModal', () => {
 
         const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
         expect(headers).toEqual([
-            'model', 'profile', 'monthly_cost', 'provider', 'intelligence', 'context', 'input_price', 'output_price',
-            'modes', 'parameters', 'speed', 'latency', 'coding', 'agentic', 'creator', 'available',
+            'model', 'profile', 'monthly_cost', 'creator', 'intelligence', 'context', 'input_price', 'output_price',
+            'modes', 'parameters', 'speed', 'latency', 'coding', 'agentic', 'available',
         ].map((key) => `model_comparison.columns.${key}`));
         const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
         expect(cells).toHaveLength(headers.length);
