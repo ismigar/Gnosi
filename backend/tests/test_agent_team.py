@@ -266,7 +266,8 @@ def test_temporary_is_scoped_reused_and_limited(team_runtime, monkeypatch):
     assert all(p["id"] != first["id"] for p in team_runtime[3]["agents"])
 
 
-def test_retention_requires_review_and_preserves_only_reviewed_configuration(team_runtime, monkeypatch):
+@pytest.mark.parametrize("add_to_team", [False, True])
+def test_retention_requires_review_and_preserves_only_reviewed_configuration(team_runtime, monkeypatch, add_to_team):
     import threading
     from backend.config import app_config
     from backend.services import agent_execution_store as store, agent_team_runtime as teams, agent_team_store as artifacts, agent_skill_assignments
@@ -277,15 +278,20 @@ def test_retention_requires_review_and_preserves_only_reviewed_configuration(tea
     monkeypatch.setattr(teams, "validate_temporary", lambda *_: None)
     spec = TemporaryAgentSpec(name="Specialist", instructions="Generic procedure", provider="local", model="cheap", skill_ids=snapshot.skill_ids, acceptance=["Evidence"])
     temporary = teams._temporary(spec, snapshot.profile, "root", scope)
+    store.create(AgentRun(run_id="evidence", parent_run_id="root", agent_id=temporary["id"], skill_id="", operation="team", origin="chat", status="completed", created_at=0, updated_at=0), scope, {}, snapshot.model_dump())
+    monkeypatch.setattr(teams, "_config", lambda: {"agents": []})
     teams._propose(scope, "root", temporary, "evidence")
     proposal = artifacts.list_artifacts(scope, "proposal", "root")[0]
     assert len(config["agents"]) == 2
+    assert "Generic procedure" not in proposal["instructions"]
+    assert proposal["verified_results"][0]["run_id"] == "evidence"
     assignments = SimpleNamespace(_lock=threading.RLock(), _refresh_if_changed=lambda: None, params={"ai": config}, save=lambda: None)
     monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(ai=config, params=assignments.params, params_source="test"))
     monkeypatch.setattr(agent_skill_assignments, "AgentSkillAssignmentStore", lambda *_: assignments)
-    approved = artifacts.retain(scope, "root", proposal["id"], accept=True, instructions="Reviewed reusable procedure")
-    permanent = config["agents"][-1]
+    approved = artifacts.retain(scope, "root", proposal["id"], accept=True, instructions="Reviewed reusable procedure", add_to_team=add_to_team)
+    permanent = assignments.params["ai"]["agents"][-1]
     assert permanent["id"] == approved["permanent_agent_id"]
+    assert any(m["agent_id"] == permanent["id"] for m in config["agents"][0]["team"]["members"]) is add_to_team
     assert permanent["persona"] == "Reviewed reusable procedure"
     assert permanent["context"] == "" and permanent["context_refs"] == []
     assert "history" not in permanent and "memories" not in permanent

@@ -5047,7 +5047,8 @@
       "profile": "Ús",
       "coding": "Codi\npunts",
       "agentic": "Agents\npunts",
-      "creator": "Creador"
+      "creator": "Creador",
+      "provider": "Proveïdor"
     },
     "compact_filters": {
       "profile": "Perfil",
@@ -5243,7 +5244,25 @@
       "placeholder": "Ex.: Ràpid i econòmic",
       "help": "Als selectors només es mostrarà aquest àlies. Si el deixes buit, es mostrarà el nom del model.",
       "activation_help": "Assigna un àlies i activa el model quan estiguis a punt."
-    }
+    },
+    "review_lookup": "Consulta la font oficial",
+    "review_help": "Consulta les fonts del fabricant i comprova la versió exacta. La consulta automàtica busca la fitxa oficial; si no troba una dada explícita, pots contrastar-la i desar-la amb la font. No s’infereix del nom.",
+    "review_source_link": "Obre la font del fabricant",
+    "review_status": "Resultat de la verificació",
+    "review_known": "Mida publicada",
+    "review_total": "Paràmetres totals (B)",
+    "review_active": "Paràmetres actius (B, opcional)",
+    "review_attest": "He comprovat aquesta dada per a la versió exacta en una font oficial",
+    "review_save": "Desa la verificació",
+    "review_error": "No s’ha pogut completar la verificació. Revisa la font, les quantitats i els permisos d’administració.",
+    "review_outcomes": {
+      "loaded": "Tria la consulta automàtica o contrasta la font manualment.",
+      "verified": "Dada oficial trobada i desada.",
+      "needs_review": "La consulta no ha trobat una dada explícita. Encara cal revisar la font; això no vol dir que no estigui publicada.",
+      "source_unavailable": "La font no ha respost. Pots tornar-ho a provar.",
+      "saved": "Verificació manual desada amb font i data."
+    },
+    "review_manual": "Font revisada manualment"
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
@@ -7567,7 +7586,9 @@
       "coding": "Programació",
       "speed": "Velocitat (tokens/s)",
       "latency": "Latència (s)",
-      "token_cost": "Preu ponderat (USD/1M tokens)"
+      "token_cost": "Preu ponderat (USD/1M tokens)",
+      "simulated_tool_selection": "Selecció simulada d’eines",
+      "gap_detection": "Detecció de mancances"
     },
     "sources": {
       "catalog": "Catàleg",
@@ -7585,7 +7606,7 @@
     "scoring_help": "Orientació, no certificació: mínim 60/100 i 60% de dades, amb requisits per paper. Intel·ligència, codi i capacitat agentiva es comparen amb el catàleg actual; context i velocitat saturen a 200.000 tokens i 100 tokens/s. Latència i preu puntuen amb 1/(1+x/2). El preu usa una barreja fixa de 4 tokens d’entrada per 1 de sortida; no és el cost real d’una tasca. No es dedueixen cites, català ni fiabilitat a partir del context.",
     "missing_catalog": "Dades de catàleg absents",
     "obtain_catalog": "Prem Actualitza per tornar a consultar les dades disponibles (es respecta la memòria cau del proveïdor). Si continuen absents, cal que la font publiqui la dada; no s’inventa ni es dedueix del nom o la mida del model.",
-    "verification_pending": "Aquest protocol específic encara no està automatitzat ni vinculat a la valoració. Les proves genèriques no el substitueixen. Cal autoritzar qualsevol prova amb consum real.",
+    "verification_pending": "Pots executar casos sintètics a «Proves de perfils i estratègies». Els resultats es vinculen a la valoració; no substitueixen totes les proves del protocol.",
     "verify_roles": {
       "director": "Com verificar-ho: executar els mateixos casos sintètics amb Tot terreny, Directiu sempre actiu i Directiu amb rutes; validar el pla, els executors triats, les crides evitables i el cost total.",
       "allrounder": "Com verificar-ho: provar instruccions en català i accions amb eines simulades; puntuar la qualitat lingüística, el compliment de les instruccions i el resultat de cada acció.",
@@ -7593,7 +7614,40 @@
       "expert": "Com verificar-ho: resoldre problemes amb solució coneguda i casos sense informació suficient; mesurar encerts, contrast i reconeixement de la incertesa.",
       "administrative": "Com verificar-ho: extreure dades sintètiques amb resultat esperat i validar automàticament el contingut i l’esquema; executar procediments amb passos verificables.",
       "worker": "Com verificar-ho: repetir transformacions amb sortida esperada i registrar encerts, temps i tokens; calcular el cost per tasca correcta, inclosos els reintents."
-    }
+    },
+    "lab_title": "Proves de perfils i estratègies",
+    "lab_help": "Casos sintètics, sense documents ni instruccions particulars. Cada perfil fa 2–3 crides; comparar estratègies fa fins a 17 crides (límit global: 24), amb un màxim de 512 tokens de sortida per crida. Es desen resultats i consum, no les respostes.",
+    "lab_kind": "Tipus de prova",
+    "lab_role": "Verificar un perfil",
+    "lab_strategies": "Comparar tres estratègies",
+    "lab_agent": "Agent que es provarà",
+    "lab_executor": "Executor candidat",
+    "lab_authorize": "Autoritzo les crides i el possible cost d’aquesta prova",
+    "lab_run": "Executa la prova",
+    "lab_running": "Executant…",
+    "lab_error": "No s’ha pogut completar la prova o carregar-ne les dades. Comprova els permisos i els models habilitats.",
+    "lab_limitations": "Proves sintètiques limitades, no una certificació general. La comparació usa els mateixos casos i l’elecció econòmica de Gnosi en un entorn aïllat, sense eines de negoci. No mesura totes les tasques amb dependències ni l’ús real d’eines. Els costos desconeguts continuen desconeguts. No es canvien els models assignats.",
+    "lab_strategy": "Estratègia",
+    "lab_passed": "Casos vàlids",
+    "lab_calls": "Crides",
+    "lab_director_calls": "Crides al Directiu",
+    "lab_avoidable": "Crides evitables",
+    "lab_cost": "Cost (USD)",
+    "lab_allrounder": "Tot terreny",
+    "lab_director_always": "Directiu sempre actiu",
+    "lab_director_routes": "Directiu amb rutes directes",
+    "lab_pass": "Superat",
+    "lab_fail": "No superat",
+    "lab_measured": "Resultat sintètic verificat",
+    "lab_blend": "Valoració: 50% catàleg i 50% prova sintètica. Les mancances generals continuen visibles.",
+    "reuse_specialty": "Especialista reutilitzable en les habilitats indicades. Compara la cobertura i el model amb els agents existents abans de conservar-lo.",
+    "reusable_skills": "Especialitat reutilitzable",
+    "missing_skills": "Habilitats que falten a aquest agent",
+    "same_model": "Mateix model",
+    "different_model": "Model diferent",
+    "completed_execution_only": "Execució completada amb resultat; no certifica tots els criteris",
+    "acceptance_not_certified": "Cal contrastar els criteris particulars. Les instruccions proposades són genèriques i no copien el contingut de la tasca.",
+    "add_to_team": "Incorpora també l’agent a aquest equip"
   },
   "agent_commands": {
     "label": "Comanda",

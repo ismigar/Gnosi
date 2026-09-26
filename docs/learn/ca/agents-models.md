@@ -67,7 +67,6 @@ Orientació, no certificació: mínim 60/100 i 60% de dades, amb requisits per p
 
 Prem Actualitza per tornar a consultar les dades disponibles (es respecta la memòria cau del proveïdor). Si continuen absents, cal que la font publiqui la dada; no s’inventa ni es dedueix del nom o la mida del model.
 
-Aquest protocol específic encara no està automatitzat ni vinculat a la valoració. Les proves genèriques no el substitueixen. Cal autoritzar qualsevol prova amb consum real.
 
 Com verificar-ho: executar els mateixos casos sintètics amb Tot terreny, Directiu sempre actiu i Directiu amb rutes; validar el pla, els executors triats, les crides evitables i el cost total.
 
@@ -80,3 +79,13 @@ Com verificar-ho: resoldre problemes amb solució coneguda i casos sense informa
 Com verificar-ho: extreure dades sintètiques amb resultat esperat i validar automàticament el contingut i l’esquema; executar procediments amb passos verificables.
 
 Com verificar-ho: repetir transformacions amb sortida esperada i registrar encerts, temps i tokens; calcular el cost per tasca correcta, inclosos els reintents.
+
+La columna Ús mostra només el perfil seleccionat i el seu percentatge; ordenar-la compara aquella puntuació, amb els valors desconeguts al final. Cost estimat i Proveïdor van a continuació. Sense filtre, ordenar Ús compara la millor puntuació disponible de cada model.
+
+El panell Proves de perfils i estratègies de la comparativa permet triar agents habilitats i autoritzar cada execució amb consum real. Les proves per paper utilitzen 2–3 casos sintètics amb validadors deterministes. La comparació aplica els mateixos tres casos a Tot terreny, Directiu sempre actiu i Directiu amb rutes; inclou dues rutes conegudes i una resolució de fonts contradictòries amb dependències. Compara encerts, crides, intervencions evitables i cost; les dades absents no es consideren zero. És un laboratori aïllat que reutilitza l’elecció econòmica, sense eines de negoci. No és una certificació completa de llengua, recuperació extensa ni ús real d’eines.
+
+Cada resultat conserva versió, data, model, proveïdor i comprovacions per cas dins de l’usuari i Vault originals. Les valoracions amb prou dades combinen 50% catàleg i 50% prova sintètica; les limitacions i mancances generals continuen visibles. Refresca la comparativa després de consultar els resultats. La prova té un límit global de 24 crides, fins a 512 tokens de sortida per crida; comparar les tres estratègies fa 17 crides. Les traces d’aquestes proves conserven només metadades. Cancel·la-les des d’Activitat. No canvien els models assignats.
+
+Les propostes de conservació mostren les habilitats reutilitzables, les diferències de cobertura i model respecte dels agents existents i les execucions completades. No confonen completar una execució amb verificar tots els criteris particulars. Les instruccions permanents parteixen d’una plantilla d’habilitats registrades, sense copiar l’encàrrec; l’usuari pot revisar-les. Acceptar permet incorporar el nou perfil personal a l’equip. Una configuració equivalent existent evita una proposta duplicada. Rebutjar impedeix repetir la mateixa proposta.
+
+Per resoldre una mida desconeguda, selecciona **Pendent de verificar** a la columna Paràmetres. **Consulta la font oficial** cerca una coincidència de versió exacta a les fitxes dels fabricants compatibles. Si la font no respon o no hi ha coincidència, la dada continua pendent. També pots registrar els milers de milions totals i actius, o una absència de publicació revisada, amb una font HTTPS i la confirmació explícita que has comprovat el model exacte. Les dades revisades manualment conserven la procedència i la data; no trobar una xifra no demostra que no estigui publicada. El servidor no visita els enllaços introduïts.

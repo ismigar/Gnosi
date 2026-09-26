@@ -5047,7 +5047,8 @@
       "profile": "Usage",
       "coding": "Code\npoints",
       "agentic": "Agents\npoints",
-      "creator": "Créateur"
+      "creator": "Créateur",
+      "provider": "Fournisseur"
     },
     "compact_filters": {
       "profile": "Profil",
@@ -5243,7 +5244,25 @@
       "placeholder": "Ex. : Rapide et économique",
       "help": "Les sélecteurs afficheront uniquement cet alias. Laissez-le vide pour utiliser le nom du modèle.",
       "activation_help": "Choisissez un alias puis activez le modèle."
-    }
+    },
+    "review_lookup": "Consulter la source officielle",
+    "review_help": "Consultez les sources du fabricant et vérifiez la version exacte. La recherche automatique consulte la fiche officielle ; sans nombre explicite, vérifiez puis enregistrez la donnée avec sa source. Aucun nombre n’est déduit du nom.",
+    "review_source_link": "Ouvrir la source du fabricant",
+    "review_status": "Résultat de vérification",
+    "review_known": "Taille publiée",
+    "review_total": "Paramètres totaux (B)",
+    "review_active": "Paramètres actifs (B, facultatif)",
+    "review_attest": "J’ai vérifié cette donnée pour la version exacte dans une source officielle",
+    "review_save": "Enregistrer la vérification",
+    "review_error": "Impossible de terminer la vérification. Vérifiez la source, les valeurs et les droits d’administration.",
+    "review_outcomes": {
+      "loaded": "Choisissez la recherche automatique ou vérifiez la source manuellement.",
+      "verified": "Nombre officiel trouvé et enregistré.",
+      "needs_review": "Aucun nombre explicite trouvé. La source doit encore être vérifiée ; cela ne signifie pas que le nombre n’est pas publié.",
+      "source_unavailable": "La source n’a pas répondu. Vous pouvez réessayer.",
+      "saved": "Vérification manuelle enregistrée avec source et date."
+    },
+    "review_manual": "Source vérifiée manuellement"
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
@@ -7567,7 +7586,9 @@
       "coding": "Programmation",
       "speed": "Vitesse (tokens/s)",
       "latency": "Latence (s)",
-      "token_cost": "Prix pondéré (USD/1M tokens)"
+      "token_cost": "Prix pondéré (USD/1M tokens)",
+      "simulated_tool_selection": "Sélection simulée d’outils",
+      "gap_detection": "Détection des lacunes"
     },
     "sources": {
       "catalog": "Catalogue",
@@ -7585,7 +7606,7 @@
     "scoring_help": "Orientation, pas certification : au moins 60/100 et 60 % de données, avec des exigences par rôle. Intelligence, code et capacités agentiques sont classés dans le catalogue actuel ; contexte et vitesse saturent à 200 000 tokens et 100 tokens/s. Latence et prix utilisent 1/(1+x/2). Le prix suppose 4 tokens d’entrée pour 1 de sortie ; ce n’est pas le coût réel d’une tâche. Le contexte ne prouve ni la fidélité des citations, ni le catalan, ni la fiabilité.",
     "missing_catalog": "Données du catalogue absentes",
     "obtain_catalog": "Utilisez Actualiser pour consulter les données disponibles (le cache du fournisseur reste applicable). Si une valeur manque, la source doit la publier ; elle ne se déduit ni du nom ni de la taille du modèle.",
-    "verification_pending": "Ce protocole spécifique n’est pas encore automatisé ni lié à l’évaluation. Les tests génériques ne le remplacent pas. Tout test avec consommation réelle nécessite une autorisation.",
+    "verification_pending": "Exécutez des cas synthétiques dans « Tests des rôles et stratégies ». Les résultats alimentent le score mais ne remplacent pas tous les tests du protocole.",
     "verify_roles": {
       "director": "Comment vérifier : exécuter les mêmes cas synthétiques avec un généraliste, un directeur toujours actif et un directeur avec routage direct ; vérifier plans, exécutants, appels évitables et coût total.",
       "allrounder": "Comment vérifier : tester des instructions en catalan et des outils simulés ; évaluer langue, respect des instructions et résultat de chaque action.",
@@ -7593,7 +7614,40 @@
       "expert": "Comment vérifier : résoudre des problèmes à réponse connue et des cas insuffisamment documentés ; mesurer exactitude, recoupement et reconnaissance de l’incertitude.",
       "administrative": "Comment vérifier : extraire des données synthétiques avec résultats attendus, valider contenu et schéma, puis exécuter des procédures aux étapes vérifiables.",
       "worker": "Comment vérifier : répéter des transformations à résultat connu, relever exactitude, durée et tokens ; calculer le coût par tâche correcte, tentatives incluses."
-    }
+    },
+    "lab_title": "Tests des rôles et stratégies",
+    "lab_help": "Cas synthétiques sans documents privés ni instructions personnelles. Chaque rôle utilise 2–3 appels ; la comparaison jusqu’à 17 (limite globale : 24), avec 512 tokens de sortie maximum par appel. Seuls résultats et consommation sont conservés.",
+    "lab_kind": "Type de test",
+    "lab_role": "Tester un rôle",
+    "lab_strategies": "Comparer trois stratégies",
+    "lab_agent": "Agent à tester",
+    "lab_executor": "Exécutant candidat",
+    "lab_authorize": "J’autorise les appels et le coût éventuel de ce test",
+    "lab_run": "Lancer le test",
+    "lab_running": "En cours…",
+    "lab_error": "Impossible de terminer le test ou charger ses données. Vérifiez les permissions et les modèles activés.",
+    "lab_limitations": "Tests synthétiques limités, sans certification générale. La comparaison utilise les mêmes cas et la sélection économique de Gnosi dans un environnement isolé, sans outils métier. Elle ne mesure pas toutes les tâches dépendantes ni l’usage réel des outils. Les coûts inconnus restent inconnus. Les modèles attribués ne changent pas.",
+    "lab_strategy": "Stratégie",
+    "lab_passed": "Cas valides",
+    "lab_calls": "Appels",
+    "lab_director_calls": "Appels au directeur",
+    "lab_avoidable": "Appels évitables",
+    "lab_cost": "Coût (USD)",
+    "lab_allrounder": "Polyvalent",
+    "lab_director_always": "Directeur toujours actif",
+    "lab_director_routes": "Directeur avec routage direct",
+    "lab_pass": "Réussi",
+    "lab_fail": "Échoué",
+    "lab_measured": "Résultat synthétique validé",
+    "lab_blend": "Score : 50% catalogue et 50% test synthétique. Les lacunes générales restent visibles.",
+    "reuse_specialty": "Spécialiste réutilisable pour les compétences indiquées. Comparez couverture et modèle aux agents existants avant de le conserver.",
+    "reusable_skills": "Spécialité réutilisable",
+    "missing_skills": "Compétences manquantes chez cet agent",
+    "same_model": "Même modèle",
+    "different_model": "Modèle différent",
+    "completed_execution_only": "Exécution terminée avec résultat ; ne certifie pas tous les critères",
+    "acceptance_not_certified": "Les critères particuliers nécessitent une vérification. Les instructions proposées sont génériques et ne copient pas le contenu de la tâche.",
+    "add_to_team": "Ajouter aussi cet agent à cette équipe"
   },
   "agent_commands": {
     "label": "Commande",

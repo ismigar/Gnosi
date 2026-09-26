@@ -266,3 +266,18 @@ it('shows multi-role assessments next to the model even without a legacy profile
     expect(available.profile).toBe(true);
     expect(modelComparisonColumns(available).slice(0, 2).map(c => c.key)).toEqual(['name', 'profile']);
 });
+
+
+describe('role suitability ordering', () => {
+    it('sorts by the selected role score rather than other roles or names', () => {
+        const models = [
+            comparisonModel({ id: 'a', role_assessments: [{ role: 'worker', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: 65 }, { role: 'expert', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: 99 }] }),
+            comparisonModel({ id: 'b', role_assessments: [{ role: 'worker', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: 90 }, { role: 'expert', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: 60 }] }),
+            comparisonModel({ id: 'c', role_assessments: [{ role: 'worker', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: null }] }),
+        ];
+        const ui = { ...INITIAL_COMPARISON_UI_STATE, profile: 'worker' as const, sort: { key: 'profile' as const, direction: 'desc' as const } };
+        expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['b', 'a', 'c']);
+        expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, sort: { ...ui.sort, direction: 'asc' } }).map(m => m.id)).toEqual(['a', 'b', 'c']);
+        expect(modelComparisonColumns(modelMetricAvailability(feed)).slice(0,4).map(c => c.key)).toEqual(['name','profile','monthly_cost','provider']);
+    });
+});

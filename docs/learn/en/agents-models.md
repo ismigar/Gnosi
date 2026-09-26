@@ -67,7 +67,6 @@ Guidance, not certification: at least 60/100 and 60% data coverage, with role-sp
 
 Use Refresh to retrieve available data (provider caching still applies). If a value remains absent, the source must publish it; it is not invented or inferred from model name or size.
 
-This specific protocol is not yet automated or linked to the assessment. Generic tests do not replace it. Any test with real usage requires authorization.
 
 How to verify: run identical synthetic cases with an allrounder, an always-active director and a director with direct routes; validate plans, executor selection, avoidable calls and total cost.
 
@@ -80,3 +79,13 @@ How to verify: solve known-answer problems and cases with insufficient informati
 How to verify: extract synthetic data with expected outputs, validate both content and schema, and execute procedures with verifiable steps.
 
 How to verify: repeat known-output transformations and record accuracy, time and tokens; calculate cost per correct task including retries.
+
+The Use column shows only the selected role and its percentage; sorting compares that score with unknown values last. Estimated cost and Provider follow it. Without a role filter, Use sorts by each model’s highest available score.
+
+The comparison’s Role and strategy tests panel lets users select enabled agents and explicitly authorize each run with real usage. Role suites use 2–3 synthetic cases with deterministic validators. Strategy comparison applies the same three cases to an all-rounder, an always-on director and a director with direct routes; these include two known routes and conflicting-source resolution with dependencies. It compares valid contracts, calls, avoidable interventions and cost; missing values do not become zero. This isolated laboratory reuses economic selection without business tools. It does not comprehensively certify language, long-context retrieval or real tool use.
+
+Each result records version, date, model, provider and per-case checks within its original user and Vault. Assessments with sufficient catalog evidence combine 50% catalog and 50% synthetic results; broader limitations and evidence gaps stay visible. Refresh comparison after reviewing results. The global cap is 24 calls, each capped at 512 output tokens; the three-strategy comparison makes 17 calls. These tests retain metadata-only traces. Cancel from Activity. Assigned models never change.
+
+Retention proposals show reusable skills, coverage/model differences from existing agents and completed executions. Completion does not certify every task-specific acceptance criterion. Permanent instructions start from a registered-skill template without copying the assignment; users can review them. Acceptance can also add the personal profile to the team. An existing equivalent configuration prevents a duplicate proposal. Rejection prevents repeating the same proposal.
+
+For an unresolved parameter count, select **Pending verification** in the Parameters column. **Consult the official source** attempts an exact-version match against supported manufacturer model cards. An unavailable source or no match leaves the value pending. You can instead record total and active billions, or a reviewed non-disclosure, with an HTTPS source and explicit confirmation that you checked the exact model. Manually reviewed values retain their provenance and date; merely failing to find a number never establishes non-disclosure. Supplied links are not fetched by the server.

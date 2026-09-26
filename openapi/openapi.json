@@ -9530,6 +9530,34 @@
         "title": "EnvironmentUpdateResponse",
         "type": "object"
       },
+      "EvaluationAgent": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "model"
+        ],
+        "title": "EvaluationAgent",
+        "type": "object"
+      },
       "EvaluationCandidateResponse": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue"
@@ -9629,6 +9657,177 @@
           "candidates"
         ],
         "title": "EvaluationCandidatesResponse",
+        "type": "object"
+      },
+      "EvaluationCaseResult": {
+        "properties": {
+          "avoidable_director_calls": {
+            "default": 0,
+            "title": "Avoidable Director Calls",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "director_calls": {
+            "default": 0,
+            "title": "Director Calls",
+            "type": "integer"
+          },
+          "executor_id": {
+            "default": "",
+            "title": "Executor Id",
+            "type": "string"
+          },
+          "failure": {
+            "default": "",
+            "title": "Failure",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "model_calls": {
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "planner_valid": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Valid"
+          },
+          "strategy": {
+            "default": "",
+            "title": "Strategy",
+            "type": "string"
+          },
+          "unnecessary_assignments": {
+            "default": 0,
+            "title": "Unnecessary Assignments",
+            "type": "integer"
+          },
+          "unnecessary_assignments_measured": {
+            "default": true,
+            "title": "Unnecessary Assignments Measured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "metric",
+          "passed",
+          "model_calls",
+          "latency_ms"
+        ],
+        "title": "EvaluationCaseResult",
+        "type": "object"
+      },
+      "EvaluationParticipant": {
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_id",
+          "provider",
+          "model",
+          "role"
+        ],
+        "title": "EvaluationParticipant",
+        "type": "object"
+      },
+      "EvaluationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "authorize_model_calls": {
+            "default": false,
+            "title": "Authorize Model Calls",
+            "type": "boolean"
+          },
+          "director_id": {
+            "default": "",
+            "title": "Director Id",
+            "type": "string"
+          },
+          "executor_id": {
+            "default": "",
+            "title": "Executor Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "role",
+            "enum": [
+              "role",
+              "strategies"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "role": {
+            "default": "allrounder",
+            "enum": [
+              "director",
+              "allrounder",
+              "documentalist",
+              "expert",
+              "administrative",
+              "worker"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_id"
+        ],
+        "title": "EvaluationRequest",
         "type": "object"
       },
       "ExecuteButtonActionRequest": {
@@ -22156,6 +22355,17 @@
               }
             ],
             "title": "Total"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification"
           }
         },
         "required": [
@@ -26057,6 +26267,169 @@
         "title": "PageViewsResponse",
         "type": "object"
       },
+      "ParameterReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "default": "inspect",
+            "enum": [
+              "inspect",
+              "refresh",
+              "save"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "model_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "reviewed": {
+            "default": false,
+            "title": "Reviewed",
+            "type": "boolean"
+          },
+          "source": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "default": "known",
+            "enum": [
+              "known",
+              "not_published"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1000000.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "model_id"
+        ],
+        "title": "ParameterReviewRequest",
+        "type": "object"
+      },
+      "ParameterReviewResponse": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "outcome": {
+            "default": "loaded",
+            "enum": [
+              "loaded",
+              "verified",
+              "needs_review",
+              "source_unavailable",
+              "saved"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_links": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Links",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification"
+          }
+        },
+        "required": [
+          "model_id",
+          "status"
+        ],
+        "title": "ParameterReviewResponse",
+        "type": "object"
+      },
       "PdfAnnotationDeletedResponse": {
         "properties": {
           "id": {
@@ -29599,6 +29972,11 @@
             "title": "Accept",
             "type": "boolean"
           },
+          "add_to_team": {
+            "default": false,
+            "title": "Add To Team",
+            "type": "boolean"
+          },
           "instructions": {
             "anyOf": [
               {
@@ -29635,6 +30013,36 @@
             "title": "Acceptance",
             "type": "array"
           },
+          "comparisons": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Comparisons",
+            "type": "array"
+          },
+          "equivalent_agent_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Equivalent Agent Ids",
+            "type": "array"
+          },
           "evidence_run_ids": {
             "items": {
               "type": "string"
@@ -29648,6 +30056,11 @@
           },
           "instructions": {
             "title": "Instructions",
+            "type": "string"
+          },
+          "instructions_origin": {
+            "default": "legacy",
+            "title": "Instructions Origin",
             "type": "string"
           },
           "limitations": {
@@ -29678,6 +30091,13 @@
             "title": "Rationale",
             "type": "string"
           },
+          "reusable_skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reusable Skills",
+            "type": "array"
+          },
           "run_id": {
             "title": "Run Id",
             "type": "string"
@@ -29692,6 +30112,16 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "verified_results": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Verified Results",
+            "type": "array"
           }
         },
         "required": [
@@ -29926,6 +30356,25 @@
             "title": "Coverage",
             "type": "number"
           },
+          "evaluation_cases": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Evaluation Cases",
+            "type": "array"
+          },
+          "evaluation_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Date"
+          },
           "evaluation_id": {
             "anyOf": [
               {
@@ -29936,6 +30385,28 @@
               }
             ],
             "title": "Evaluation Id"
+          },
+          "evaluation_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Run Id"
+          },
+          "evaluation_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Score"
           },
           "evidence": {
             "items": {
@@ -30015,6 +30486,97 @@
           "status"
         ],
         "title": "RoleAssessment",
+        "type": "object"
+      },
+      "RoleEvaluationReport": {
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCaseResult"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "model_calls": {
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationParticipant"
+            },
+            "title": "Participants",
+            "type": "array"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "role",
+          "provider",
+          "model",
+          "agent_id",
+          "version",
+          "created_at",
+          "score",
+          "cases",
+          "model_calls"
+        ],
+        "title": "RoleEvaluationReport",
         "type": "object"
       },
       "RoleEvidence": {
@@ -36485,6 +37047,361 @@
         ]
       }
     },
+    "/api/agent/runs/role-evaluation-agents": {
+      "get": {
+        "operationId": "role_evaluation_agents_api_agent_runs_role_evaluation_agents_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationAgent"
+                  },
+                  "title": "Response Role Evaluation Agents Api Agent Runs Role Evaluation Agents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Role Evaluation Agents",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/role-evaluations": {
+      "get": {
+        "operationId": "role_evaluations_api_agent_runs_role_evaluations_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleEvaluationReport"
+                  },
+                  "title": "Response Role Evaluations Api Agent Runs Role Evaluations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Role Evaluations",
+        "tags": [
+          "Agent runs"
+        ]
+      },
+      "post": {
+        "operationId": "run_role_evaluation_api_agent_runs_role_evaluations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleEvaluationReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Role Evaluation",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
     "/api/agent/runs/team-proposals": {
       "get": {
         "operationId": "team_proposals_api_agent_runs_team_proposals_get",
@@ -42791,6 +43708,130 @@
           }
         },
         "summary": "Get Model Comparison",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
+      }
+    },
+    "/api/ai/model-parameters/review": {
+      "post": {
+        "operationId": "review_model_parameters_api_ai_model_parameters_review_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParameterReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Model Parameters",
         "tags": [
           "AI Settings",
           "AI Settings"

@@ -27,19 +27,86 @@ from backend.services.agent_team_models import RetentionProposal, RetentionDecis
 @router.get("/team-proposals", response_model=list[RetentionProposal])
 def team_proposals() -> list[dict[str, Any]]:
     from backend.services.agent_team_store import list_artifacts
-    return list_artifacts(current_scope(), "proposal")
+    from backend.services.agent_team_retention import reusable_instructions
+    return [{**p, "instructions": reusable_instructions(p["skill_ids"])} if p.get("instructions_origin") != "registered_skills_template_v1" else p
+        for p in list_artifacts(current_scope(), "proposal")]
 
 
 @router.post("/{run_id}/team-proposals/{proposal_id}", response_model=RetentionProposal)
 def decide_team_proposal(run_id: str, proposal_id: str, payload: RetentionDecision) -> dict[str, Any]:
     from backend.services.agent_team_store import retain
     try:
-        return retain(current_scope(), run_id, proposal_id, accept=payload.accept, name=payload.name, instructions=payload.instructions)
+        return retain(current_scope(), run_id, proposal_id, accept=payload.accept, name=payload.name, instructions=payload.instructions, add_to_team=payload.add_to_team)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+from backend.services.agent_role_evaluations import EvaluationRequest, RoleEvaluationReport
+
+
+class EvaluationAgent(BaseModel):
+    id: str
+    name: str
+    provider: str
+    model: str
+
+
+@router.get("/role-evaluation-agents", response_model=list[EvaluationAgent])
+def role_evaluation_agents() -> list[dict[str, str]]:
+    from backend.services.agent_team_runtime import _config
+    from backend.agent.model_router import load_registry
+    if current_scope().role not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="agent_team_admin_required")
+    enabled = {(r.get("provider"), r.get("model_id")) for r in load_registry() if r.get("enabled") is True}
+    return [{k: str(p.get(k) or p.get("id")) for k in ("id", "name", "provider", "model")}
+        for p in _config().get("agents", []) if p.get("enabled", True) and not p.get("plugin_suspended") and (p.get("provider"), p.get("model")) in enabled]
+
+
+@router.get("/role-evaluations", response_model=list[RoleEvaluationReport])
+def role_evaluations() -> list[dict[str, Any]]:
+    from backend.services.agent_team_store import list_artifacts
+    return list_artifacts(current_scope(), "role_evaluation")
+
+
+@router.post("/role-evaluations", response_model=RoleEvaluationReport)
+async def run_role_evaluation(payload: EvaluationRequest) -> dict[str, Any]:
+    import asyncio
+    from backend.services.agent_role_evaluations import run_evaluation, evaluation_parent
+    from backend.services.agent_execution_scope import revalidate_scope
+    from backend.services.agent_team_runtime import _config, _profile
+    from backend.agent.model_router import load_registry
+    from backend.agent.factory import get_llm
+    from backend.services.agent_diagnostics import invoke_diagnostic
+    from backend.security.ai_credentials import resolve_provider_api_key
+    from langchain_core.messages import HumanMessage
+    scope = current_scope()
+    if scope.role not in {"owner", "admin"} or not payload.authorize_model_calls:
+        raise HTTPException(status_code=403, detail="agent_team.evaluation_authorization_required")
+
+    def invoke(profile: dict[str, Any], prompt: str) -> Any:
+        revalidate_scope(scope)
+        current = _profile(profile["id"])
+        if (current.get("provider"), current.get("model")) != (profile["provider"], profile["model"]):
+            raise PermissionError("agent_team_profile_changed")
+        if not any(r.get("enabled") is True and (r.get("provider"), r.get("model_id")) == (profile["provider"], profile["model"]) for r in load_registry()):
+            raise PermissionError("agent_team_model_unavailable")
+        config = _config().get("providers", {}).get(profile["provider"], {})
+        client = get_llm(provider=profile["provider"], model=profile["model"],
+            api_key=resolve_provider_api_key(profile["provider"], config), base_url=config.get("base_url"), timeout=45)
+        if client is None:
+            raise ValueError("agent_team.evaluation_model_unavailable")
+        return invoke_diagnostic(client.bind(max_tokens=512), [HumanMessage(content=prompt)],
+            provider=profile["provider"], model=profile["model"], parent_run_id=evaluation_parent.get(), agent_id=profile["id"], metadata_only=True)
+    try:
+        revalidate_scope(scope)
+        return await asyncio.to_thread(run_evaluation, payload, scope, _config().get("agents", []), load_registry(), invoke)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 

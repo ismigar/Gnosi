@@ -110,6 +110,7 @@ class TeamPlan(BaseModel):
 class RetentionDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
     accept: bool
+    add_to_team: bool = False
     name: str = Field(default="", max_length=120)
     instructions: str | None = Field(default=None, min_length=1, max_length=12000)
 
@@ -129,3 +130,8 @@ class RetentionProposal(BaseModel):
     evidence_run_ids: list[str]
     limitations: list[str]
     permanent_agent_id: str = ""
+    reusable_skills: list[str] = Field(default_factory=list)
+    comparisons: list[dict[str, str | bool | list[str]]] = Field(default_factory=list)
+    equivalent_agent_ids: list[str] = Field(default_factory=list)
+    verified_results: list[dict[str, str]] = Field(default_factory=list)
+    instructions_origin: str = "legacy"

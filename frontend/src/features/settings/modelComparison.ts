@@ -40,6 +40,7 @@ export type ComparisonSortKey =
     | 'name'
     | 'output_price'
     | 'profile'
+    | 'provider'
     | 'speed';
 
 
@@ -315,12 +316,13 @@ export const modelComparisonColumns = (
 ): readonly ComparisonColumn[] => [
     { key: 'name', label: 'model' },
     ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
+    { key: 'monthly_cost', label: 'monthly_cost' },
+    { key: 'provider', label: 'provider' },
     ...(available.intelligence
         ? [{ key: 'intelligence', label: 'intelligence' } as const] : []),
     { key: 'context_window', label: 'context' },
     { key: 'input_price', label: 'input_price' },
     { key: 'output_price', label: 'output_price' },
-    { key: 'monthly_cost', label: 'monthly_cost' },
     { key: 'modes', label: 'modes' },
     { key: 'parameters', label: 'parameters' },
     ...(available.speed ? [{ key: 'speed', label: 'speed' } as const] : []),
@@ -334,9 +336,14 @@ export const modelComparisonColumns = (
 const sortableModelValue = (
     model: AiModelComparisonEntry,
     key: ComparisonSortKey,
+    profile: ModelComparisonUiState['profile'],
 ): number | string | null => {
     if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
-    if (key === 'profile' && model.role_assessments?.length) return model.role_assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => r.role).sort().join(',');
+    if (key === 'provider') return [...new Set(model.routes.map(route => route.provider))].sort().join(', ');
+    if (key === 'profile') {
+        const scores = (model.role_assessments ?? []).filter(r => (profile === 'all' ? ['catalog_compatible', 'tested'].includes(r.status) : r.role === profile)).map(r => r.score).filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
+        return scores.length ? Math.max(...scores) : null;
+    }
     const value = model[key];
     if (Array.isArray(value)) return value.join(',');
     return typeof value === 'number' || typeof value === 'string' ? value : null;
@@ -412,10 +419,10 @@ export const filteredComparisonModels = (
     )).sort((left, right) => {
         const first = ui.sort.key === 'monthly_cost'
             ? modelMonthlyCost(left, ui.inputTokens, ui.outputTokens)
-            : sortableModelValue(left, ui.sort.key);
+            : sortableModelValue(left, ui.sort.key, ui.profile);
         const second = ui.sort.key === 'monthly_cost'
             ? modelMonthlyCost(right, ui.inputTokens, ui.outputTokens)
-            : sortableModelValue(right, ui.sort.key);
+            : sortableModelValue(right, ui.sort.key, ui.profile);
         if (first === null && second === null) return 0;
         if (first === null) return 1;
         if (second === null) return -1;

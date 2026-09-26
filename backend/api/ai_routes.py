@@ -576,7 +576,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
     response_model=ModelComparisonResponse,
     response_model_exclude_unset=True,
 )
-async def get_model_comparison() -> JsonObject:
+async def get_model_comparison(context: Any = Depends(require_role("viewer"))) -> JsonObject:
     """Complete, freshly paginated Artificial Analysis language-model feed."""
     from backend.services.artificial_analysis import (
         ArtificialAnalysisError,
@@ -589,6 +589,13 @@ async def get_model_comparison() -> JsonObject:
             from backend.services.model_parameters import enrich_comparison
 
             res = enrich_comparison(fetch_all_models())
+            if context is not None and hasattr(context, "vault_path"):
+                from backend.services.agent_execution_models import ExecutionScope
+                from backend.services.agent_team_store import list_artifacts
+                from backend.services.agent_role_evaluations import attach_evaluations
+                scope = ExecutionScope(user_id=context.user_id, workspace_id=context.workspace_id,
+                    vault_path=str(context.vault_path.resolve()), role=context.role)
+                res = attach_evaluations(res, list_artifacts(scope, "role_evaluation"))
             cfg = load_params(strict_env=False)
             currency = rate_info(
                 parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))
@@ -792,3 +799,17 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
 
 
 router.include_router(content_router)
+
+
+from backend.services.model_parameter_review import ParameterReviewRequest, ParameterReviewResponse
+
+
+@router.post("/model-parameters/review", response_model=ParameterReviewResponse)
+async def review_model_parameters(payload: ParameterReviewRequest, _context: Any = Depends(require_role("admin"))) -> dict[str, Any]:
+    from backend.services.model_parameter_review import review
+    try:
+        return await asyncio.to_thread(review, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

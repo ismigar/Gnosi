@@ -6086,7 +6086,8 @@
       "profile": "Use",
       "coding": "Coding\npoints",
       "agentic": "Agents\npoints",
-      "creator": "Creator"
+      "creator": "Creator",
+      "provider": "Provider"
     },
     "compact_filters": {
       "profile": "Profile",
@@ -6280,7 +6281,25 @@
       "placeholder": "E.g. Fast and affordable",
       "help": "Selectors will show only this alias. Leave it blank to use the model name.",
       "activation_help": "Choose an alias and activate the model when ready."
-    }
+    },
+    "review_lookup": "Check official source",
+    "review_help": "Consult manufacturer sources and check the exact version. Automatic lookup searches the official model card; if it finds no explicit count, review and save it with a source. Counts are never inferred from names.",
+    "review_source_link": "Open manufacturer source",
+    "review_status": "Review result",
+    "review_known": "Published size",
+    "review_total": "Total parameters (B)",
+    "review_active": "Active parameters (B, optional)",
+    "review_attest": "I checked this disclosure for the exact version in an official source",
+    "review_save": "Save review",
+    "review_error": "Could not complete verification. Check the source, counts and administrator permissions.",
+    "review_outcomes": {
+      "loaded": "Choose automatic lookup or review the source manually.",
+      "verified": "Official count found and saved.",
+      "needs_review": "No explicit count found. Source review is still needed; this does not mean the count is unpublished.",
+      "source_unavailable": "The source did not respond. You can retry.",
+      "saved": "Manual review saved with source and date."
+    },
+    "review_manual": "Manually reviewed source"
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",
@@ -7513,7 +7532,9 @@
       "coding": "Coding",
       "speed": "Speed (tokens/s)",
       "latency": "Latency (s)",
-      "token_cost": "Weighted price (USD/1M tokens)"
+      "token_cost": "Weighted price (USD/1M tokens)",
+      "simulated_tool_selection": "Simulated tool selection",
+      "gap_detection": "Gap detection"
     },
     "sources": {
       "catalog": "Catalog",
@@ -7531,7 +7552,7 @@
     "scoring_help": "Guidance, not certification: at least 60/100 and 60% data coverage, with role-specific requirements. Intelligence, coding and agentic benchmarks are ranked within the current catalog; context and speed saturate at 200,000 tokens and 100 tokens/s. Latency and price use 1/(1+x/2). Price uses a fixed mix of 4 input tokens per output token, not actual task cost. Context does not demonstrate citation fidelity, Catalan quality or reliability.",
     "missing_catalog": "Missing catalog data",
     "obtain_catalog": "Use Refresh to retrieve available data (provider caching still applies). If a value remains absent, the source must publish it; it is not invented or inferred from model name or size.",
-    "verification_pending": "This specific protocol is not yet automated or linked to the assessment. Generic tests do not replace it. Any test with real usage requires authorization.",
+    "verification_pending": "Run synthetic cases in “Role and strategy tests”. Results feed the assessment but do not replace every test in this protocol.",
     "verify_roles": {
       "director": "How to verify: run identical synthetic cases with an allrounder, an always-active director and a director with direct routes; validate plans, executor selection, avoidable calls and total cost.",
       "allrounder": "How to verify: test Catalan instructions and simulated tools; assess language quality, instruction following and each action’s result.",
@@ -7539,7 +7560,40 @@
       "expert": "How to verify: solve known-answer problems and cases with insufficient information; measure accuracy, cross-checking and acknowledged uncertainty.",
       "administrative": "How to verify: extract synthetic data with expected outputs, validate both content and schema, and execute procedures with verifiable steps.",
       "worker": "How to verify: repeat known-output transformations and record accuracy, time and tokens; calculate cost per correct task including retries."
-    }
+    },
+    "lab_title": "Role and strategy tests",
+    "lab_help": "Synthetic cases without private documents or custom instructions. Each role uses 2–3 calls; strategy comparison uses up to 17 (global limit: 24), capped at 512 output tokens per call. Results and usage are saved, not responses.",
+    "lab_kind": "Test type",
+    "lab_role": "Test a role",
+    "lab_strategies": "Compare three strategies",
+    "lab_agent": "Agent to test",
+    "lab_executor": "Candidate executor",
+    "lab_authorize": "I authorize model calls and possible charges for this test",
+    "lab_run": "Run test",
+    "lab_running": "Running…",
+    "lab_error": "Could not complete the test or load its data. Check permissions and enabled models.",
+    "lab_limitations": "Limited synthetic tests, not general certification. Comparison uses identical cases and Gnosi economic selection in an isolated environment without business tools. It does not measure all dependent tasks or real tool use. Unknown costs remain unknown. Assigned models do not change.",
+    "lab_strategy": "Strategy",
+    "lab_passed": "Valid cases",
+    "lab_calls": "Calls",
+    "lab_director_calls": "Director calls",
+    "lab_avoidable": "Avoidable calls",
+    "lab_cost": "Cost (USD)",
+    "lab_allrounder": "All-rounder",
+    "lab_director_always": "Always-on director",
+    "lab_director_routes": "Director with direct routes",
+    "lab_pass": "Passed",
+    "lab_fail": "Failed",
+    "lab_measured": "Validated synthetic result",
+    "lab_blend": "Score: 50% catalog and 50% synthetic test. Broader evidence gaps remain visible.",
+    "reuse_specialty": "Reusable specialist for the listed skills. Compare coverage and model with existing agents before retaining it.",
+    "reusable_skills": "Reusable specialty",
+    "missing_skills": "Skills this agent lacks",
+    "same_model": "Same model",
+    "different_model": "Different model",
+    "completed_execution_only": "Execution completed with a result; does not certify every criterion",
+    "acceptance_not_certified": "Specific acceptance criteria need review. Proposed instructions are generic and do not copy task content.",
+    "add_to_team": "Also add the agent to this team"
   },
   "agent_commands": {
     "label": "Command",

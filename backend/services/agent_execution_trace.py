@@ -189,8 +189,14 @@ def delete(scope: Any, run_id: str) -> None:
         _prune(db)
 
 
+from contextvars import ContextVar
+metadata_only_trace: ContextVar[bool] = ContextVar("metadata_only_trace", default=False)
+
+
 def record(kind: str, payload: Any) -> None:
     from backend.services.agent_execution import _run
     from backend.services.agent_execution_scope import current_scope
     if _run.get():
+        if metadata_only_trace.get():
+            payload = {"metadata_only": True}
         append(current_scope(), _run.get(), kind, payload)

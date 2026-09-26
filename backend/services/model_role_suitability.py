@@ -25,6 +25,10 @@ class RoleAssessment(BaseModel):
     source: str = "catalog"
     checked_at: str | None = None
     evaluation_id: int | None = None
+    evaluation_run_id: str | None = None
+    evaluation_score: float | None = None
+    evaluation_date: str | None = None
+    evaluation_cases: list[dict[str, Any]] = Field(default_factory=list)
     score: float | None = None
     coverage: float = 0
     method: str = "weighted_catalog_v1"

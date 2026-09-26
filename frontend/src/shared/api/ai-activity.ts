@@ -80,8 +80,27 @@ export type AgentTeamProposal = components['schemas']['RetentionProposal'];
 export async function fetchAgentTeamProposals(signal?: AbortSignal): Promise<AgentTeamProposal[]> {
     return unwrapApiResult<AgentTeamProposal[], unknown>(await apiClient.GET('/api/agent/runs/team-proposals', { signal }));
 }
-export async function decideAgentTeamProposal(proposal: AgentTeamProposal, accept: boolean, instructions: string): Promise<AgentTeamProposal> {
+export async function decideAgentTeamProposal(proposal: AgentTeamProposal, accept: boolean, instructions: string, addToTeam = false): Promise<AgentTeamProposal> {
     return unwrapApiResult<AgentTeamProposal, unknown>(await apiClient.POST('/api/agent/runs/{run_id}/team-proposals/{proposal_id}', {
-        params: { path: { run_id: proposal.run_id, proposal_id: proposal.id } }, body: { accept, instructions, name: proposal.name },
+        params: { path: { run_id: proposal.run_id, proposal_id: proposal.id } }, body: { accept, instructions, name: proposal.name, add_to_team: addToTeam },
     }));
+}
+
+export type RoleEvaluationReport = components['schemas']['RoleEvaluationReport'];
+export type EvaluationAgent = components['schemas']['EvaluationAgent'];
+export type EvaluationRequest = components['schemas']['EvaluationRequest'];
+export async function fetchRoleEvaluations(signal?: AbortSignal): Promise<RoleEvaluationReport[]> {
+    return unwrapApiResult<RoleEvaluationReport[], unknown>(await apiClient.GET('/api/agent/runs/role-evaluations', { signal }));
+}
+export async function fetchEvaluationAgents(signal?: AbortSignal): Promise<EvaluationAgent[]> {
+    return unwrapApiResult<EvaluationAgent[], unknown>(await apiClient.GET('/api/agent/runs/role-evaluation-agents', { signal }));
+}
+export async function runRoleEvaluation(body: EvaluationRequest): Promise<RoleEvaluationReport> {
+    return unwrapApiResult<RoleEvaluationReport, unknown>(await apiClient.POST('/api/agent/runs/role-evaluations', { body }));
+}
+
+export type ParameterReviewRequest = components['schemas']['ParameterReviewRequest'];
+export type ParameterReviewResponse = components['schemas']['ParameterReviewResponse'];
+export async function reviewModelParameters(body: ParameterReviewRequest): Promise<ParameterReviewResponse> {
+    return unwrapApiResult<ParameterReviewResponse, unknown>(await apiClient.POST('/api/ai/model-parameters/review', { body }));
 }

@@ -1,3 +1,4 @@
+import { AgentEvaluationLab } from './AI/AgentEvaluationLab';
 import { useMemo, useReducer, type CSSProperties } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -165,6 +166,7 @@ export function AIModelComparisonModal({
 
                     {!data.loading && data.feed ? (
                         <>
+                            <AgentEvaluationLab />
                             <ModelComparisonToolbar
                                 providers={providerOptions}
                                 currencySymbol={data.feed.currency.symbol || data.feed.currency.code}
@@ -175,6 +177,7 @@ export function AIModelComparisonModal({
                                 toolbarRef={toolbarRef}
                             />
                             <ModelComparisonTable
+                                onParameterUpdate={controller.retry}
                                 busyModelId={data.busyModelId}
                                 columns={columns}
                                 configurationError={data.configurationError}
@@ -190,6 +193,7 @@ export function AIModelComparisonModal({
                                 onSort={(key) => {
                                     dispatchUi({ key, type: 'change-sort' });
                                 }}
+                                selectedProfile={ui.profile}
                                 outputTokens={ui.outputTokens}
                                 providersById={controller.providersById}
                                 registryModels={data.registry.models}

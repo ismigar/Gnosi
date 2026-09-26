@@ -61,7 +61,7 @@ def claim_proposal(scope: ExecutionScope, run_id: str, identifier: str, accept: 
         return proposal
 
 
-def retain(scope: ExecutionScope, run_id: str, identifier: str, *, accept: bool, name: str = "", instructions: str | None = None) -> dict[str, Any]:
+def retain(scope: ExecutionScope, run_id: str, identifier: str, *, accept: bool, name: str = "", instructions: str | None = None, add_to_team: bool = False) -> dict[str, Any]:
     """The HTTP administrator action is the only permanent-profile writer."""
     if scope.role not in {"admin", "owner"}:
         raise PermissionError("agent_team_admin_required")
@@ -72,6 +72,9 @@ def retain(scope: ExecutionScope, run_id: str, identifier: str, *, accept: bool,
     proposal = get(scope, run_id, identifier)
     if proposal["status"] == "accepted" and accept:
         return proposal
+    from backend.services.agent_team_retention import reusable_instructions
+    if proposal.get("instructions_origin") != "registered_skills_template_v1":
+        proposal["instructions"] = reusable_instructions(proposal["skill_ids"])
     if instructions is not None:
         proposal["instructions"] = instructions
     if accept:
@@ -94,14 +97,31 @@ def retain(scope: ExecutionScope, run_id: str, identifier: str, *, accept: bool,
         permanent_id = "retained_" + identifier
         with assignments._lock:
             assignments._refresh_if_changed()
-            profiles = assignments.params.setdefault("ai", {}).setdefault("agents", [])
+            import copy
+            ai = assignments.params.setdefault("ai", {})
+            original_profiles = ai.get("agents", [])
+            profiles = copy.deepcopy(original_profiles)
             if not any(p.get("id") == permanent_id for p in profiles):
                 profiles.append({"id": permanent_id, "name": name or proposal["name"],
                     "provider": proposal["provider"], "model": proposal["model"],
                     "persona": proposal["instructions"], "skill_ids": proposal["skill_ids"],
                     "enabled": True, "context": "", "context_refs": [],
                     "team": {"enabled": False}, "retained_from": identifier})
+            if add_to_team:
+                owning_profile = next((p for p in profiles if p.get("id") == owner.agent_id), None)
+                if not owning_profile or not owning_profile.get("team", {}).get("enabled"):
+                    raise PermissionError("agent_team_revoked")
+                members = owning_profile["team"].setdefault("members", [])
+                if not any(m["agent_id"] == permanent_id for m in members):
+                    if len(members) >= 32:
+                        raise ValueError("agent_team_member_limit")
+                    members.append({"agent_id": permanent_id, "roles": []})
+            ai["agents"] = profiles
+            try:
                 assignments.save()
+            except BaseException:
+                ai["agents"] = original_profiles
+                raise
         proposal.update(status="accepted", permanent_agent_id=permanent_id)
     except BaseException:
         proposal["status"] = "pending"

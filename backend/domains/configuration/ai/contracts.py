@@ -215,6 +215,7 @@ class ModelParameterMetadata(BaseModel):
     active: float | None = None
     source: str | None = None
     checked_at: str | None = None
+    verification: str | None = None
 
 
 from backend.services.model_role_suitability import RoleAssessment

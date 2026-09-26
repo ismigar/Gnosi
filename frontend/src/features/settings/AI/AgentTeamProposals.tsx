@@ -1,3 +1,4 @@
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchAgentTeamProposals, decideAgentTeamProposal, type AgentTeamProposal } from '../../../shared/api/ai-activity';
@@ -6,11 +7,12 @@ import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 function Proposal({ proposal, canEdit, onChange }: { proposal: AgentTeamProposal; canEdit: boolean; onChange: () => void }) {
     const { t } = useTranslation();
     const [instructions, setInstructions] = useState(proposal.instructions);
+    const [addToTeam, setAddToTeam] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const decide = async (accept: boolean) => {
         setBusy(true);
-        try { await decideAgentTeamProposal(proposal, accept, instructions); onChange(); }
+        try { await decideAgentTeamProposal(proposal, accept, instructions, addToTeam); onChange(); }
         catch (failure) { setError(String(failure)); }
         finally { setBusy(false); }
     };
@@ -22,8 +24,12 @@ function Proposal({ proposal, canEdit, onChange }: { proposal: AgentTeamProposal
         <details><summary>{t('agent_team.evidence')}</summary>
             <p>{t(proposal.rationale, { defaultValue: proposal.rationale })}</p><p>{proposal.acceptance.join(' · ')}</p><p>{proposal.limitations.map(item => t(item, { defaultValue: item })).join(' · ')}</p>
             <p>{proposal.evidence_run_ids.join(', ')}</p>
+            <p>{t('agent_team.reusable_skills')}: {(proposal.reusable_skills ?? []).join(', ')}</p>
+            <ul>{(proposal.comparisons ?? []).map(item => <li key={String(item.agent_id)}>{String(item.name)} · {t('agent_team.missing_skills')}: {Array.isArray(item.missing_skills) ? item.missing_skills.join(', ') || '—' : '—'} · {t(item.same_model ? 'agent_team.same_model' : 'agent_team.different_model')}</li>)}</ul>
+            <ul>{(proposal.verified_results ?? []).map(item => <li key={item.run_id}>{item.run_id}: {t(item.check || 'agent_team.completed_execution_only')} ({item.status})</li>)}</ul>
         </details>
         <label>{t('agent_team.instructions')}<textarea className="gnosi-input w-full" value={instructions} disabled={!canEdit || busy} onChange={e => { setInstructions(e.target.value); }} /></label>
+        <div className="flex gap-2"><span>{t('agent_team.add_to_team')}</span><GnosiToggle active={addToTeam} onChange={() => { setAddToTeam(v => !v); }} disabled={!canEdit || busy} label={t('agent_team.add_to_team')} /></div>
         {error && <p role="alert">{error}</p>}
         {canEdit && <div className="flex gap-2">
             <button type="button" className="btn-gnosi-primary" disabled={busy || !instructions.trim()} onClick={() => { void decide(true); }}>{t('agent_team.retain')}</button>

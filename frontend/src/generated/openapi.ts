@@ -201,6 +201,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/role-evaluation-agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Role Evaluation Agents */
+        get: operations["role_evaluation_agents_api_agent_runs_role_evaluation_agents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/role-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Role Evaluations */
+        get: operations["role_evaluations_api_agent_runs_role_evaluations_get"];
+        put?: never;
+        /** Run Role Evaluation */
+        post: operations["run_role_evaluation_api_agent_runs_role_evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/team-proposals": {
         parameters: {
             query?: never;
@@ -875,6 +910,23 @@ export interface paths {
         get: operations["get_model_comparison_api_ai_model_comparison_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/model-parameters/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Model Parameters */
+        post: operations["review_model_parameters_api_ai_model_parameters_review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14228,6 +14280,17 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** EvaluationAgent */
+        EvaluationAgent: {
+            /** Id */
+            id: string;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
+        };
         /** EvaluationCandidateResponse */
         EvaluationCandidateResponse: {
             /** First Seen */
@@ -14266,6 +14329,101 @@ export interface components {
         EvaluationCandidatesResponse: {
             /** Candidates */
             candidates: components["schemas"]["EvaluationCandidateResponse"][];
+        };
+        /** EvaluationCaseResult */
+        EvaluationCaseResult: {
+            /**
+             * Avoidable Director Calls
+             * @default 0
+             */
+            avoidable_director_calls: number;
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /**
+             * Director Calls
+             * @default 0
+             */
+            director_calls: number;
+            /**
+             * Executor Id
+             * @default
+             */
+            executor_id: string;
+            /**
+             * Failure
+             * @default
+             */
+            failure: string;
+            /** Id */
+            id: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Metric */
+            metric: string;
+            /** Model Calls */
+            model_calls: number;
+            /** Passed */
+            passed: boolean;
+            /** Planner Valid */
+            planner_valid?: boolean | null;
+            /**
+             * Strategy
+             * @default
+             */
+            strategy: string;
+            /**
+             * Unnecessary Assignments
+             * @default 0
+             */
+            unnecessary_assignments: number;
+            /**
+             * Unnecessary Assignments Measured
+             * @default true
+             */
+            unnecessary_assignments_measured: boolean;
+        };
+        /** EvaluationParticipant */
+        EvaluationParticipant: {
+            /** Agent Id */
+            agent_id: string;
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /** Role */
+            role: string;
+        };
+        /** EvaluationRequest */
+        EvaluationRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Authorize Model Calls
+             * @default false
+             */
+            authorize_model_calls: boolean;
+            /**
+             * Director Id
+             * @default
+             */
+            director_id: string;
+            /**
+             * Executor Id
+             * @default
+             */
+            executor_id: string;
+            /**
+             * Kind
+             * @default role
+             * @enum {string}
+             */
+            kind: "role" | "strategies";
+            /**
+             * Role
+             * @default allrounder
+             * @enum {string}
+             */
+            role: "director" | "allrounder" | "documentalist" | "expert" | "administrative" | "worker";
         };
         /** ExecuteButtonActionRequest */
         ExecuteButtonActionRequest: {
@@ -18619,6 +18777,8 @@ export interface components {
             status: "known" | "not_published" | "pending";
             /** Total */
             total?: number | null;
+            /** Verification */
+            verification?: string | null;
         };
         /**
          * ModelRegistryEntry
@@ -20084,6 +20244,62 @@ export interface components {
             sections: {
                 [key: string]: unknown;
             }[];
+        };
+        /** ParameterReviewRequest */
+        ParameterReviewRequest: {
+            /**
+             * Action
+             * @default inspect
+             * @enum {string}
+             */
+            action: "inspect" | "refresh" | "save";
+            /** Active */
+            active?: number | null;
+            /** Model Id */
+            model_id: string;
+            /**
+             * Reviewed
+             * @default false
+             */
+            reviewed: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Status
+             * @default known
+             * @enum {string}
+             */
+            status: "known" | "not_published";
+            /** Total */
+            total?: number | null;
+        };
+        /** ParameterReviewResponse */
+        ParameterReviewResponse: {
+            /** Active */
+            active?: number | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Model Id */
+            model_id: string;
+            /**
+             * Outcome
+             * @default loaded
+             * @enum {string}
+             */
+            outcome: "loaded" | "verified" | "needs_review" | "source_unavailable" | "saved";
+            /** Source */
+            source?: string | null;
+            /** Source Links */
+            source_links?: string[];
+            /** Status */
+            status: string;
+            /** Total */
+            total?: number | null;
+            /** Verification */
+            verification?: string | null;
         };
         /** PdfAnnotationDeletedResponse */
         PdfAnnotationDeletedResponse: {
@@ -21717,6 +21933,11 @@ export interface components {
         RetentionDecision: {
             /** Accept */
             accept: boolean;
+            /**
+             * Add To Team
+             * @default false
+             */
+            add_to_team: boolean;
             /** Instructions */
             instructions?: string | null;
             /**
@@ -21729,12 +21950,23 @@ export interface components {
         RetentionProposal: {
             /** Acceptance */
             acceptance: string[];
+            /** Comparisons */
+            comparisons?: {
+                [key: string]: string | boolean | string[];
+            }[];
+            /** Equivalent Agent Ids */
+            equivalent_agent_ids?: string[];
             /** Evidence Run Ids */
             evidence_run_ids: string[];
             /** Id */
             id: string;
             /** Instructions */
             instructions: string;
+            /**
+             * Instructions Origin
+             * @default legacy
+             */
+            instructions_origin: string;
             /** Limitations */
             limitations: string[];
             /** Model */
@@ -21750,12 +21982,18 @@ export interface components {
             provider: string;
             /** Rationale */
             rationale: string;
+            /** Reusable Skills */
+            reusable_skills?: string[];
             /** Run Id */
             run_id: string;
             /** Skill Ids */
             skill_ids: string[];
             /** Status */
             status: string;
+            /** Verified Results */
+            verified_results?: {
+                [key: string]: string;
+            }[];
         };
         /** ReviewCreateRequest */
         ReviewCreateRequest: {
@@ -21862,8 +22100,18 @@ export interface components {
              * @default 0
              */
             coverage: number;
+            /** Evaluation Cases */
+            evaluation_cases?: {
+                [key: string]: unknown;
+            }[];
+            /** Evaluation Date */
+            evaluation_date?: string | null;
             /** Evaluation Id */
             evaluation_id?: number | null;
+            /** Evaluation Run Id */
+            evaluation_run_id?: string | null;
+            /** Evaluation Score */
+            evaluation_score?: number | null;
             /** Evidence */
             evidence?: string[];
             /**
@@ -21896,6 +22144,37 @@ export interface components {
             weights?: {
                 [key: string]: number;
             };
+        };
+        /** RoleEvaluationReport */
+        RoleEvaluationReport: {
+            /** Agent Id */
+            agent_id: string;
+            /** Cases */
+            cases: components["schemas"]["EvaluationCaseResult"][];
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Limitations */
+            limitations?: string[];
+            /** Model */
+            model: string;
+            /** Model Calls */
+            model_calls: number;
+            /** Participants */
+            participants?: components["schemas"]["EvaluationParticipant"][];
+            /** Provider */
+            provider: string;
+            /** Role */
+            role: string;
+            /** Score */
+            score: number;
+            /** Version */
+            version: string;
         };
         /** RoleEvidence */
         RoleEvidence: {
@@ -24421,6 +24700,118 @@ export interface operations {
             };
         };
     };
+    role_evaluation_agents_api_agent_runs_role_evaluation_agents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationAgent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    role_evaluations_api_agent_runs_role_evaluations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleEvaluationReport"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_role_evaluation_api_agent_runs_role_evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     team_proposals_api_agent_runs_team_proposals_get: {
         parameters: {
             query?: never;
@@ -26085,6 +26476,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_model_parameters_api_ai_model_parameters_review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParameterReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParameterReviewResponse"];
                 };
             };
             /** @description Validation Error */

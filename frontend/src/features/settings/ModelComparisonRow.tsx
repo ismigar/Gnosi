@@ -1,3 +1,4 @@
+import { ModelParameterReview } from './model-comparison/ModelParameterReview';
 import { ModelAliasField } from './ModelAliasField';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { Fragment, type ReactNode } from 'react';
@@ -25,6 +26,7 @@ import {
 
 
 interface ModelComparisonRowProps {
+    readonly onParameterUpdate?: () => void;
     readonly busyModelId: string;
     readonly columns: readonly ComparisonColumn[];
     readonly configurationError: string;
@@ -36,6 +38,7 @@ interface ModelComparisonRowProps {
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
     readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
     readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
+    readonly selectedProfile?: 'all' | ComparisonProfile;
     readonly outputTokens: string;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
     readonly registryModels: readonly AiModelRegistryEntry[];
@@ -63,6 +66,7 @@ function CachedMetricMarker({
 
 
 export function ModelComparisonRow({
+    onParameterUpdate,
     busyModelId,
     columns,
     configurationError,
@@ -73,6 +77,7 @@ export function ModelComparisonRow({
     onBeginActivation,
     onSaveAlias,
     onDeactivate,
+    selectedProfile = 'all',
     outputTokens,
     providersById,
     registryModels,
@@ -101,16 +106,18 @@ export function ModelComparisonRow({
 
     const parameters = modelParameterMetadata(model);
     const disclosure = modelParameterDisclosure(model);
+    const assessments = (model.role_assessments ?? []).filter(r => selectedProfile === 'all' || selectedProfile === 'unrated' || r.role === selectedProfile);
     const renderCell = (key: ComparisonColumn['key']): ReactNode => {
         switch (key) {
             case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{onSaveAlias && activeEntries.map(entry => <ModelAliasField key={`${entry.provider}:${entry.model_id}`} entry={entry} onSave={onSaveAlias} disabled={isBusy} />)}</>;
+            case 'provider': return [...new Set(model.routes.map(route => providersById[route.provider]?.name || route.provider))].sort().join(', ') || '—';
             case 'creator': return model.creator || '—';
             case 'modes': return <div className="model-mode-list">{model.modes.map((mode) => (
                 <span key={mode}>{t(`model_comparison.modes_list.${mode}`)}</span>
             ))}</div>;
             case 'parameters': return parameters ? <>
                 <a href={parameters.source} rel="noreferrer" target="_blank"
-                    title={`${t('model_comparison.parameters_source')} · ${t('model_comparison.parameters_checked', { date: parameters.checkedAt })}`}>
+                    title={`${t(parameters.verification === 'user_review' ? 'model_comparison.review_manual' : 'model_comparison.parameters_source')} · ${t('model_comparison.parameters_checked', { date: parameters.checkedAt })}`}>
                     {formatComparisonMetric(parameters.total)} B
                 </a>
                 {parameters.active !== undefined && <small>{t('model_comparison.parameters_active', {
@@ -120,9 +127,7 @@ export function ModelComparisonRow({
             </> : disclosure.status === 'not_published' ? <a href={disclosure.source}
                 target="_blank" rel="noreferrer" title={`${t('model_comparison.parameters_not_published_help')} · ${t('model_comparison.parameters_checked', { date: disclosure.checkedAt })}`}>
                 {t('model_comparison.parameters_not_published')}
-            </a> : <span title={t('model_comparison.parameters_missing_help')}>
-                {t('model_comparison.parameters_missing')}
-            </span>;
+            </a> : <ModelParameterReview modelId={model.id} modelName={model.name} onUpdated={onParameterUpdate} />;
             case 'context_window': return formatComparisonContext(model.context_window);
             case 'input_price':
             case 'output_price': return isFiniteMetric(model[key])
@@ -133,10 +138,11 @@ export function ModelComparisonRow({
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return isFiniteMetric(model.latency)
                 ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
-            case 'profile': return model.role_assessments?.length ? <details className="model-role-assessments"><summary>{model.role_assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${String(r.score)}/100` : ''}`).join(', ') || t('agent_team.insufficient_data')}</summary>
+            case 'profile': return model.role_assessments?.length ? <details className="model-role-assessments"><summary>{assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${formatComparisonMetric(r.score)}%` : ''}`).join(', ') || t('agent_team.insufficient_data')}</summary>
                 <div className="model-role-assessments__body"><p className="settings-desc">{t('agent_team.scoring_help')}</p>
-                {model.role_assessments.map(r => <p key={r.role}><strong>{t(`model_comparison.profiles.${r.role}`)}</strong>: {t(`agent_team.${r.status}`)}<br />
-                    {t('agent_team.role_score')}: {r.score != null ? `${String(r.score)}/100` : '—'} · {t('agent_team.data_coverage')}: {r.coverage}%<br />
+                {assessments.map(r => <p key={r.role}><strong>{t(`model_comparison.profiles.${r.role}`)}</strong>: {t(`agent_team.${r.status}`)}<br />
+                    {t('agent_team.role_score')}: {r.score != null ? `${formatComparisonMetric(r.score)}%` : '—'} · {t('agent_team.data_coverage')}: {r.coverage}%<br />
+                    {r.evaluation_score != null && <span>{t('agent_team.lab_measured')}: {r.evaluation_score}% · {r.evaluation_date}<br />{t('agent_team.lab_blend')}<br /></span>}
                     {t('agent_team.source')}: {t(`agent_team.sources.${r.source}`)} · {r.checked_at ?? t('agent_team.unknown_date')}<br />
                     {t('agent_team.evidence')}: {(r.evidence ?? []).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}<br />
                     {(r.proofs ?? []).map(proof => <span key={`${proof.source}:${proof.metric}`}>{t(`agent_team.metrics.${proof.metric}`, { defaultValue: proof.metric })}: {String(proof.value)} ({t(`agent_team.sources.${proof.source}`)}; {t('agent_team.weight')}: {Math.round((r.weights?.[proof.metric] ?? 0) * 100)}%)<br /></span>)}

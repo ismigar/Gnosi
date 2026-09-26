@@ -186,13 +186,21 @@ def _propose(scope: ExecutionScope, root_id: str, profile: dict[str, Any], child
     if any(p["id"] == identifier for p in artifacts.list_artifacts(scope, "proposal")):
         return
     spec = data["spec"]
+    from backend.services.agent_team_retention import retention_details
+    from backend.services.agent_execution_store import read
+    evidence = read(scope, child_run_id)
+    if evidence.parent_run_id != root_id or evidence.agent_id != profile["id"] or evidence.status != "completed":
+        return
+    details = retention_details(spec, _config().get("agents", []), evidence)
+    if details["equivalent_agent_ids"]:
+        return
     artifacts.put(scope, root_id, identifier, "proposal", {
         "id": identifier, "run_id": root_id, "status": "pending", "name": spec["name"],
         "instructions": spec["instructions"], "provider": spec["provider"], "model": spec["model"],
         "skill_ids": spec["skill_ids"], "acceptance": spec["acceptance"],
         "rationale": "agent_team.proposal_rationale",
         "evidence_run_ids": [child_run_id], "limitations": ["agent_team.proposal_limitation"],
-        "permanent_agent_id": "",
+        "permanent_agent_id": "", **details,
     }, create_only=True)
 
 

@@ -67,7 +67,6 @@ Orientation, pas certification : au moins 60/100 et 60 % de données, avec des e
 
 Utilisez Actualiser pour consulter les données disponibles (le cache du fournisseur reste applicable). Si une valeur manque, la source doit la publier ; elle ne se déduit ni du nom ni de la taille du modèle.
 
-Ce protocole spécifique n’est pas encore automatisé ni lié à l’évaluation. Les tests génériques ne le remplacent pas. Tout test avec consommation réelle nécessite une autorisation.
 
 Comment vérifier : exécuter les mêmes cas synthétiques avec un généraliste, un directeur toujours actif et un directeur avec routage direct ; vérifier plans, exécutants, appels évitables et coût total.
 
@@ -80,3 +79,13 @@ Comment vérifier : résoudre des problèmes à réponse connue et des cas insuf
 Comment vérifier : extraire des données synthétiques avec résultats attendus, valider contenu et schéma, puis exécuter des procédures aux étapes vérifiables.
 
 Comment vérifier : répéter des transformations à résultat connu, relever exactitude, durée et tokens ; calculer le coût par tâche correcte, tentatives incluses.
+
+La colonne Usage affiche uniquement le rôle sélectionné et son pourcentage ; le tri compare ce score, avec les valeurs inconnues à la fin. Coût estimé et Fournisseur suivent. Sans filtre de rôle, Usage trie selon le meilleur score disponible de chaque modèle.
+
+Le panneau Tests des rôles et stratégies de la comparaison permet de choisir des agents activés et d’autoriser chaque exécution avec consommation réelle. Les tests par rôle utilisent 2–3 cas synthétiques avec des validateurs déterministes. La comparaison applique les trois mêmes cas à Polyvalent, Directeur toujours actif et Directeur avec routage direct ; elle inclut deux routes connues et une résolution de sources contradictoires avec dépendances. Elle compare réussite, appels, interventions évitables et coût ; les données absentes ne deviennent pas zéro. Ce laboratoire isolé réutilise la sélection économique sans outils métier. Il ne certifie pas entièrement la langue, la récupération en contexte long ni l’utilisation réelle d’outils.
+
+Chaque résultat conserve version, date, modèle, fournisseur et contrôles par cas dans le périmètre de l’utilisateur et du Vault d’origine. Les évaluations disposant de données suffisantes combinent 50% catalogue et 50% tests synthétiques ; les limites générales restent visibles. Actualisez la comparaison après consultation des résultats. La limite globale est de 24 appels, chacun limité à 512 tokens de sortie ; la comparaison des trois stratégies effectue 17 appels. Ces tests conservent uniquement des traces de métadonnées. Annulez depuis Activité. Les modèles attribués ne changent pas.
+
+Les propositions de conservation affichent les compétences réutilisables, les différences de couverture et de modèle avec les agents existants et les exécutions terminées. Terminer ne certifie pas tous les critères particuliers. Les instructions permanentes proviennent d’un modèle de compétences enregistrées sans copier la mission ; l’utilisateur peut les réviser. L’acceptation permet aussi d’ajouter le profil personnel à l’équipe. Une configuration équivalente existante évite une proposition en double. Le rejet empêche de répéter la même proposition.
+
+Pour résoudre une taille inconnue, sélectionnez **À vérifier** dans la colonne Paramètres. **Consulter la source officielle** recherche une correspondance de version exacte dans les fiches des fabricants pris en charge. Si la source est indisponible ou sans correspondance, la donnée reste à vérifier. Vous pouvez aussi enregistrer les milliards totaux et actifs, ou une absence de publication vérifiée, avec une source HTTPS et la confirmation explicite du modèle exact. Les données vérifiées manuellement conservent leur provenance et leur date ; ne pas trouver de chiffre ne prouve pas son absence de publication. Le serveur ne consulte pas les liens saisis.

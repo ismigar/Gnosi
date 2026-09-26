@@ -15,6 +15,7 @@ import type {
 } from '../../shared/api/ai';
 import {
     type ComparisonColumn,
+    type ComparisonProfile,
     type ComparisonSort,
     type ComparisonSortKey,
     type MetricAvailability,
@@ -24,6 +25,7 @@ import { ModelComparisonRow } from './ModelComparisonRow';
 
 
 interface ModelComparisonTableProps {
+    readonly onParameterUpdate?: () => void;
     readonly busyModelId: string;
     readonly columns: readonly ComparisonColumn[];
     readonly configurationError: string;
@@ -37,6 +39,7 @@ interface ModelComparisonTableProps {
     readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
     readonly onScrollbarScroll: UIEventHandler<HTMLDivElement>;
     readonly onSort: (key: ComparisonSortKey) => void;
+    readonly selectedProfile?: 'all' | ComparisonProfile;
     readonly outputTokens: string;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
     readonly registryModels: readonly AiModelRegistryEntry[];
@@ -64,6 +67,7 @@ function SortIcon({
 
 
 export function ModelComparisonTable({
+    onParameterUpdate,
     busyModelId,
     columns,
     configurationError,
@@ -77,6 +81,7 @@ export function ModelComparisonTable({
     onDeactivate,
     onScrollbarScroll,
     onSort,
+    selectedProfile = 'all',
     outputTokens,
     providersById,
     registryModels,
@@ -143,6 +148,7 @@ export function ModelComparisonTable({
                     <tbody>
                         {models.map((model) => (
                             <ModelComparisonRow
+                                onParameterUpdate={onParameterUpdate}
                                 busyModelId={busyModelId}
                                 columns={columns}
                                 configurationError={configurationError}
@@ -155,6 +161,7 @@ export function ModelComparisonTable({
                                 onBeginActivation={onBeginActivation}
                                 onSaveAlias={onSaveAlias}
                                 onDeactivate={onDeactivate}
+                                selectedProfile={selectedProfile}
                                 outputTokens={outputTokens}
                                 providersById={providersById}
                                 registryModels={registryModels}

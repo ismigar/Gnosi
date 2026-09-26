@@ -198,7 +198,7 @@ describe('AIModelComparisonModal', () => {
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         const details = container.querySelector('details.model-role-assessments');
-        expect(details?.querySelector('summary')?.textContent).toContain('75/100');
+        expect(details?.querySelector('summary')?.textContent).toContain('75%');
         expect(details?.textContent).toContain('agent_team.missing_catalog');
         expect(details?.textContent).toContain('agent_team.verify_roles.documentalist');
         expect(details?.textContent).toContain('agent_team.verification_pending');
@@ -206,6 +206,27 @@ describe('AIModelComparisonModal', () => {
         expect(refresh).not.toBeNull();
         act(() => { refresh?.click(); });
         expect(data.retry).toHaveBeenCalledOnce();
+    });
+
+    it('shows only the selected role and orders it by suitability', () => {
+        const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [
+                { ...FEED.models[0], id: 'a', name: 'A', role_assessments: [{ role: 'worker', status: 'catalog_compatible', score: 65 }, { role: 'expert', status: 'catalog_compatible', score: 99 }] },
+                { ...FEED.models[0], id: 'b', name: 'B', role_assessments: [{ role: 'worker', status: 'catalog_compatible', score: 90 }, { role: 'expert', status: 'catalog_compatible', score: 60 }] },
+            ],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const filter = [...container.querySelectorAll('select')].find(s => s.querySelector('option[value="worker"]'));
+        if (!filter) throw new Error('Missing role filter');
+        act(() => { filter.value = 'worker'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
+        const summaries = [...container.querySelectorAll('details.model-role-assessments summary')];
+        expect(summaries.map(s => s.textContent)).toEqual(['model_comparison.profiles.worker · 65%', 'model_comparison.profiles.worker · 90%']);
+        expect(container.querySelector('details.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
+        const sort = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.profile"]');
+        act(() => { sort?.click(); });
+        act(() => { sort?.click(); });
+        expect(container.querySelector('tbody tr:first-child strong')?.textContent).toBe('B');
     });
 
     it.each([
@@ -219,7 +240,7 @@ describe('AIModelComparisonModal', () => {
             ...FEED, models: [{ ...FEED.models[0], name, creator }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const cell = container.querySelectorAll('tbody tr:first-child > td')[8];
+        const cell = container.querySelectorAll('tbody tr:first-child > td')[9];
         expect(cell?.textContent).toContain(label);
         expect(cell?.querySelector('a')?.getAttribute('href')).toBe(source);
         expect(cell?.querySelector('a')?.title).toContain('model_comparison.parameters_checked');
@@ -233,16 +254,16 @@ describe('AIModelComparisonModal', () => {
 
         const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
         expect(headers).toEqual([
-            'model', 'profile', 'intelligence', 'context', 'input_price', 'output_price', 'monthly_cost',
+            'model', 'profile', 'monthly_cost', 'provider', 'intelligence', 'context', 'input_price', 'output_price',
             'modes', 'parameters', 'speed', 'latency', 'coding', 'agentic', 'creator', 'available',
         ].map((key) => `model_comparison.columns.${key}`));
         const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
         expect(cells).toHaveLength(headers.length);
-        expect(cells[2]?.textContent).toContain('85');
-        expect(cells[3]?.textContent).toBe('128K');
-        expect(cells[6]?.textContent).toContain('9');
-        expect(cells[8]?.textContent).toContain('model_comparison.parameters_missing');
-        expect(cells[13]?.textContent).toBe('OpenAI');
+        expect(cells[4]?.textContent).toContain('85');
+        expect(cells[5]?.textContent).toBe('128K');
+        expect(cells[2]?.textContent).toContain('9');
+        expect(cells[9]?.textContent).toContain('model_comparison.parameters_missing');
+        expect(cells[14]?.textContent).toBe('OpenAI');
         expect(container.textContent).toContain('Model One');
         expect(container.textContent).toContain('model_comparison.title');
         const toggle = container.querySelector<HTMLButtonElement>(

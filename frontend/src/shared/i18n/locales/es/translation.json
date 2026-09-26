@@ -5047,7 +5047,8 @@
       "profile": "Uso",
       "coding": "Código\npuntos",
       "agentic": "Agentes\npuntos",
-      "creator": "Creador"
+      "creator": "Creador",
+      "provider": "Proveedor"
     },
     "compact_filters": {
       "profile": "Perfil",
@@ -5243,7 +5244,25 @@
       "placeholder": "Ej.: Rápido y económico",
       "help": "En los selectores solo se mostrará este alias. Si lo dejas vacío, se mostrará el nombre del modelo.",
       "activation_help": "Asigna un alias y activa el modelo cuando estés listo."
-    }
+    },
+    "review_lookup": "Consultar la fuente oficial",
+    "review_help": "Consulta las fuentes del fabricante y comprueba la versión exacta. La consulta automática busca la ficha oficial; si no encuentra un dato explícito, puedes contrastarlo y guardarlo con su fuente. No se infiere del nombre.",
+    "review_source_link": "Abrir fuente del fabricante",
+    "review_status": "Resultado de la verificación",
+    "review_known": "Tamaño publicado",
+    "review_total": "Parámetros totales (B)",
+    "review_active": "Parámetros activos (B, opcional)",
+    "review_attest": "He comprobado este dato para la versión exacta en una fuente oficial",
+    "review_save": "Guardar verificación",
+    "review_error": "No se ha podido completar la verificación. Revisa fuente, cantidades y permisos de administración.",
+    "review_outcomes": {
+      "loaded": "Elige la consulta automática o contrasta la fuente manualmente.",
+      "verified": "Dato oficial encontrado y guardado.",
+      "needs_review": "La consulta no encontró un dato explícito. Aún hay que revisar la fuente; no significa que no esté publicado.",
+      "source_unavailable": "La fuente no respondió. Puedes reintentarlo.",
+      "saved": "Verificación manual guardada con fuente y fecha."
+    },
+    "review_manual": "Fuente revisada manualmente"
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
@@ -7567,7 +7586,9 @@
       "coding": "Programación",
       "speed": "Velocidad (tokens/s)",
       "latency": "Latencia (s)",
-      "token_cost": "Precio ponderado (USD/1M tokens)"
+      "token_cost": "Precio ponderado (USD/1M tokens)",
+      "simulated_tool_selection": "Selección simulada de herramientas",
+      "gap_detection": "Detección de carencias"
     },
     "sources": {
       "catalog": "Catálogo",
@@ -7585,7 +7606,7 @@
     "scoring_help": "Orientación, no certificación: mínimo 60/100 y 60% de datos, con requisitos por rol. Inteligencia, código y capacidad agéntica se comparan con el catálogo actual; contexto y velocidad saturan en 200.000 tokens y 100 tokens/s. Latencia y precio puntúan con 1/(1+x/2). El precio usa una mezcla fija de 4 tokens de entrada por 1 de salida; no es el coste real de una tarea. No se deducen citas, catalán ni fiabilidad a partir del contexto.",
     "missing_catalog": "Datos de catálogo ausentes",
     "obtain_catalog": "Pulsa Actualizar para consultar los datos disponibles (se respeta la caché del proveedor). Si siguen ausentes, la fuente debe publicar el dato; no se inventa ni se deduce del nombre o tamaño del modelo.",
-    "verification_pending": "Este protocolo específico aún no está automatizado ni vinculado a la valoración. Las pruebas genéricas no lo sustituyen. Hay que autorizar cualquier prueba con consumo real.",
+    "verification_pending": "Puedes ejecutar casos sintéticos en «Pruebas de perfiles y estrategias». Los resultados se vinculan a la valoración; no sustituyen todas las pruebas del protocolo.",
     "verify_roles": {
       "director": "Cómo verificarlo: ejecutar los mismos casos sintéticos con Todoterreno, Directivo siempre activo y Directivo con rutas; validar planes, ejecutores, llamadas evitables y coste total.",
       "allrounder": "Cómo verificarlo: probar instrucciones en catalán y herramientas simuladas; puntuar calidad lingüística, seguimiento de instrucciones y resultado de cada acción.",
@@ -7593,7 +7614,40 @@
       "expert": "Cómo verificarlo: resolver problemas con solución conocida y casos sin información suficiente; medir aciertos, contraste y reconocimiento de incertidumbre.",
       "administrative": "Cómo verificarlo: extraer datos sintéticos con resultado esperado y validar contenido y esquema; ejecutar procedimientos con pasos verificables.",
       "worker": "Cómo verificarlo: repetir transformaciones con salida esperada y registrar aciertos, tiempo y tokens; calcular el coste por tarea correcta, incluidos reintentos."
-    }
+    },
+    "lab_title": "Pruebas de perfiles y estrategias",
+    "lab_help": "Casos sintéticos, sin documentos ni instrucciones particulares. Cada perfil usa 2–3 llamadas; comparar estrategias usa hasta 17 (límite global: 24), con un máximo de 512 tokens de salida por llamada. Se guardan resultados y consumo, no respuestas.",
+    "lab_kind": "Tipo de prueba",
+    "lab_role": "Verificar un perfil",
+    "lab_strategies": "Comparar tres estrategias",
+    "lab_agent": "Agente que se probará",
+    "lab_executor": "Ejecutor candidato",
+    "lab_authorize": "Autorizo las llamadas y el posible coste de esta prueba",
+    "lab_run": "Ejecutar prueba",
+    "lab_running": "Ejecutando…",
+    "lab_error": "No se ha podido completar la prueba o cargar los datos. Comprueba permisos y modelos habilitados.",
+    "lab_limitations": "Pruebas sintéticas limitadas, no una certificación general. La comparación usa los mismos casos y la selección económica de Gnosi en un entorno aislado, sin herramientas de negocio. No mide todas las tareas con dependencias ni el uso real de herramientas. Los costes desconocidos siguen desconocidos. No cambia los modelos asignados.",
+    "lab_strategy": "Estrategia",
+    "lab_passed": "Casos válidos",
+    "lab_calls": "Llamadas",
+    "lab_director_calls": "Llamadas al Directivo",
+    "lab_avoidable": "Llamadas evitables",
+    "lab_cost": "Coste (USD)",
+    "lab_allrounder": "Todoterreno",
+    "lab_director_always": "Directivo siempre activo",
+    "lab_director_routes": "Directivo con rutas directas",
+    "lab_pass": "Superado",
+    "lab_fail": "No superado",
+    "lab_measured": "Resultado sintético verificado",
+    "lab_blend": "Valoración: 50% catálogo y 50% prueba sintética. Las carencias generales siguen visibles.",
+    "reuse_specialty": "Especialista reutilizable en las habilidades indicadas. Compara cobertura y modelo con los agentes existentes antes de conservarlo.",
+    "reusable_skills": "Especialidad reutilizable",
+    "missing_skills": "Habilidades que le faltan a este agente",
+    "same_model": "Mismo modelo",
+    "different_model": "Modelo distinto",
+    "completed_execution_only": "Ejecución completada con resultado; no certifica todos los criterios",
+    "acceptance_not_certified": "Hay que contrastar los criterios particulares. Las instrucciones propuestas son genéricas y no copian contenido de la tarea.",
+    "add_to_team": "Incorporar también el agente a este equipo"
   },
   "agent_commands": {
     "label": "Comando",
