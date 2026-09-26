@@ -1169,7 +1169,7 @@ brouillon ne modifie ni le catalogue ni les affectations.
 
 ## Comparaison des modèles et paramètres vérifiés
 
-La comparaison donne priorité à l’intelligence, au contexte, aux prix d’entrée/sortie et au coût mensuel estimé, puis aux modes, paramètres, vitesse, latence, profil et scores spécialisés. Les titres compacts conservent unités et infobulles complètes ; les filtres sont alignés, Modes se ferme en cliquant ailleurs et les tokens mensuels regroupent les milliers. Le pied reste dégagé de la barre horizontale.
+La comparaison présente d’abord le modèle et ses évaluations par rôle, puis intelligence, contexte, prix d’entrée/sortie, coût mensuel estimé, modes, paramètres, vitesse, latence et scores spécialisés. Les titres compacts conservent unités et infobulles complètes ; les filtres sont alignés, Modes se ferme en cliquant ailleurs et les tokens mensuels regroupent les milliers. Le pied reste dégagé de la barre horizontale.
 
 Les paramètres sont exprimés en milliards, avec distinction entre paramètres totaux et actifs des modèles MoE. Les filtres proposent les états connu/non publié/en attente et des limites de taille totale. Les modes utilisent explicitement AND par défaut ou OR. Les métadonnées statiques vérifiées restent disponibles si le serveur ne fournit pas de données enrichies.
 

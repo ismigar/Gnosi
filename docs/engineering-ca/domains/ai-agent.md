@@ -1082,7 +1082,7 @@ Cancel·lar l’esborrany no modifica ni el catàleg ni les assignacions.
 
 ## Comparativa de models i paràmetres verificats
 
-La comparativa prioritza intel·ligència, context, preus d’entrada/sortida i cost mensual estimat, seguits de modes, paràmetres, velocitat, latència, perfil i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
+La comparativa mostra primer el model i la valoració dels seus perfils, seguits d’intel·ligència, context, preus d’entrada/sortida, cost mensual estimat, modes, paràmetres, velocitat, latència i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
 
 Els paràmetres s’expressen en mil milions, distingint totals i actius en models MoE. Els filtres admeten estat conegut/no publicat/pendent i límits de mida total. Els modes utilitzen AND explícit per defecte o OR. Les metadades estàtiques revisades continuen disponibles si el servidor no proporciona dades enriquides.
 

@@ -1149,7 +1149,7 @@ asignado. Cancelar el borrador no modifica el catálogo ni las asignaciones.
 
 ## Comparativa de modelos y parámetros verificados
 
-La comparativa prioriza inteligencia, contexto, precios de entrada/salida y coste mensual estimado, seguidos de modos, parámetros, velocidad, latencia, perfil y puntuaciones especializadas. Los títulos compactos conservan unidades y texto completo emergente; los filtros se alinean con sus campos, Modos se cierra al pulsar fuera y los tokens mensuales separan los miles. El pie queda libre de la barra horizontal.
+La comparativa muestra primero el modelo y la valoración de sus perfiles, seguidos de inteligencia, contexto, precios de entrada/salida, coste mensual estimado, modos, parámetros, velocidad, latencia y puntuaciones especializadas. Los títulos compactos conservan unidades y texto completo emergente; los filtros se alinean con sus campos, Modos se cierra al pulsar fuera y los tokens mensuales separan los miles. El pie queda libre de la barra horizontal.
 
 Los parámetros se expresan en miles de millones, distinguiendo totales y activos en modelos MoE. Los filtros admiten estado conocido/no publicado/pendiente y límites de tamaño total. Los modos usan AND explícito por defecto u OR. Los metadatos estáticos revisados siguen disponibles si el servidor no proporciona datos enriquecidos.
 
