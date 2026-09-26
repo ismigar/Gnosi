@@ -53,7 +53,7 @@ def test_plan_rejects_cycles_and_more_than_four_assignments():
 
 def test_roles_overlap_and_language_and_citations_remain_unverified():
     roles = {r["role"]: r for r in assess_roles({"tags": ["tools", "reasoning"], "context_window": 200000, "modes": ["text"]})}
-    assert roles["director"]["status"] == roles["documentalist"]["status"] == "catalog_compatible"
+    assert roles["director"]["status"] == roles["documentalist"]["status"] == "insufficient_data"
     assert "catalan_quality" in roles["allrounder"]["missing"]
     assert "citation_fidelity" in roles["documentalist"]["missing"]
     assert all(r["status"] != "tested" for r in roles.values())

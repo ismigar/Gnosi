@@ -7561,7 +7561,13 @@
       "extraction_accuracy": "Exactitude de l’extraction",
       "text_support": "Texte",
       "task_accuracy": "Exactitude de la tâche",
-      "measured_task_cost": "Coût mesuré par tâche"
+      "measured_task_cost": "Coût mesuré par tâche",
+      "intelligence": "Intelligence",
+      "agentic": "Capacité agentique",
+      "coding": "Programmation",
+      "speed": "Vitesse (tokens/s)",
+      "latency": "Latence (s)",
+      "token_cost": "Prix pondéré (USD/1M tokens)"
     },
     "sources": {
       "catalog": "Catalogue",
@@ -7571,7 +7577,23 @@
       "mixed": "Sources multiples"
     },
     "proposal_rationale": "Aucun exécutant existant adapté n’était disponible pour cette mission. Vérifiez si les instructions et compétences de l’agent temporaire seront utiles à l’avenir.",
-    "proposal_limitation": "Une mission terminée ne prouve pas une fiabilité générale. Vérifiez le résultat et retirez les informations propres à la tâche avant de conserver cet agent."
+    "proposal_limitation": "Une mission terminée ne prouve pas une fiabilité générale. Vérifiez le résultat et retirez les informations propres à la tâche avant de conserver cet agent.",
+    "below_threshold": "Sous le seuil indicatif",
+    "role_score": "Évaluation indicative",
+    "data_coverage": "Couverture des données",
+    "weight": "Poids",
+    "scoring_help": "Orientation, pas certification : au moins 60/100 et 60 % de données, avec des exigences par rôle. Intelligence, code et capacités agentiques sont classés dans le catalogue actuel ; contexte et vitesse saturent à 200 000 tokens et 100 tokens/s. Latence et prix utilisent 1/(1+x/2). Le prix suppose 4 tokens d’entrée pour 1 de sortie ; ce n’est pas le coût réel d’une tâche. Le contexte ne prouve ni la fidélité des citations, ni le catalan, ni la fiabilité.",
+    "missing_catalog": "Données du catalogue absentes",
+    "obtain_catalog": "Utilisez Actualiser pour consulter les données disponibles (le cache du fournisseur reste applicable). Si une valeur manque, la source doit la publier ; elle ne se déduit ni du nom ni de la taille du modèle.",
+    "verification_pending": "Ce protocole spécifique n’est pas encore automatisé ni lié à l’évaluation. Les tests génériques ne le remplacent pas. Tout test avec consommation réelle nécessite une autorisation.",
+    "verify_roles": {
+      "director": "Comment vérifier : exécuter les mêmes cas synthétiques avec un généraliste, un directeur toujours actif et un directeur avec routage direct ; vérifier plans, exécutants, appels évitables et coût total.",
+      "allrounder": "Comment vérifier : tester des instructions en catalan et des outils simulés ; évaluer langue, respect des instructions et résultat de chaque action.",
+      "documentalist": "Comment vérifier : interroger des documents synthétiques avec passages et réponses connus ; vérifier récupération, citations exactes et couverture des sources.",
+      "expert": "Comment vérifier : résoudre des problèmes à réponse connue et des cas insuffisamment documentés ; mesurer exactitude, recoupement et reconnaissance de l’incertitude.",
+      "administrative": "Comment vérifier : extraire des données synthétiques avec résultats attendus, valider contenu et schéma, puis exécuter des procédures aux étapes vérifiables.",
+      "worker": "Comment vérifier : répéter des transformations à résultat connu, relever exactitude, durée et tokens ; calculer le coût par tâche correcte, tentatives incluses."
+    }
   },
   "agent_commands": {
     "label": "Commande",

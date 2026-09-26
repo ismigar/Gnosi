@@ -178,3 +178,8 @@
 .model-comparison-toolbar .model-show-incomplete-toggle > .model-comparison-label { min-height: auto; }
 
 .model-profile-filter > span { min-height: 32px; justify-content: flex-start; }
+
+.model-role-assessments { width: 260px; white-space: normal; line-height: 1.5; }
+.model-role-assessments > summary { cursor: pointer; color: var(--gnosi-primary); font-weight: 600; }
+.model-role-assessments__body { max-height: 420px; overflow-y: auto; margin-top: 12px; padding: 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--settings-sidebar-bg); }
+.model-role-assessments__body > p + p { padding-top: 12px; border-top: 1px solid var(--settings-border); }

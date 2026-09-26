@@ -303,7 +303,7 @@ export const modelMetricAvailability = (
         intelligence: models.some((model) => model.intelligence !== null),
         latency: models.some((model) => model.latency !== null),
         profile: models.some((model) => (
-            Boolean(model.profile) && model.profile !== 'unrated'
+            Boolean(model.role_assessments?.length) || (Boolean(model.profile) && model.profile !== 'unrated')
         )),
         speed: models.some((model) => model.speed !== null),
     };
@@ -314,6 +314,7 @@ export const modelComparisonColumns = (
     available: MetricAvailability,
 ): readonly ComparisonColumn[] => [
     { key: 'name', label: 'model' },
+    ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
     ...(available.intelligence
         ? [{ key: 'intelligence', label: 'intelligence' } as const] : []),
     { key: 'context_window', label: 'context' },
@@ -324,7 +325,6 @@ export const modelComparisonColumns = (
     { key: 'parameters', label: 'parameters' },
     ...(available.speed ? [{ key: 'speed', label: 'speed' } as const] : []),
     ...(available.latency ? [{ key: 'latency', label: 'latency' } as const] : []),
-    ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
     ...(available.coding ? [{ key: 'coding', label: 'coding' } as const] : []),
     ...(available.agentic ? [{ key: 'agentic', label: 'agentic' } as const] : []),
     { key: 'creator', label: 'creator' },
@@ -336,6 +336,7 @@ const sortableModelValue = (
     key: ComparisonSortKey,
 ): number | string | null => {
     if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
+    if (key === 'profile' && model.role_assessments?.length) return model.role_assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => r.role).sort().join(',');
     const value = model[key];
     if (Array.isArray(value)) return value.join(',');
     return typeof value === 'number' || typeof value === 'string' ? value : null;
@@ -372,7 +373,7 @@ export const filteredComparisonModels = (
         && (
             ui.showIncomplete
             || (
-                model.profile !== 'unrated'
+                (model.role_assessments?.length ? model.role_assessments.some(r => ['catalog_compatible', 'tested'].includes(r.status)) : model.profile !== 'unrated')
                 && model.coding !== null
                 && model.agentic !== null
                 && model.input_price !== null

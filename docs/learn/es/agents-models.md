@@ -60,3 +60,23 @@ Las confirmaciones identifican al ejecutor y no autorizan acciones adicionales. 
 El catálogo muestra valoraciones independientes para Directivo, Todoterreno, Documentalista, Perito, Administrativo y Peón, con evidencias y pruebas pendientes. La compatibilidad declarada no certifica el catalán, las citas ni el coste de delegación. Las etiquetas antiguas se conservan por compatibilidad, sin decidir ejecutores. Las pruebas automáticas usan proveedores simulados y no realizan evaluaciones de pago. Compara calidad y coste total con los mismos casos antes de ampliar las rutas.
 
 El campo opcional **Comando** de cada agente permite asignar un comando único, como `/traductor`. Escribe `/traductor Traduce este texto…` en el chat para enviar ese turno directamente al agente, con su modelo, instrucciones y habilidades, sin pasar por el Directivo. La selección habitual de la conversación no cambia. Los comandos no amplían los permisos y no permiten invocar agentes desactivados. Usa una letra inicial y hasta 32 letras sin acentos, dígitos, guiones o guiones bajos después de `/`; no se distinguen mayúsculas y minúsculas.
+
+## Valoración de perfiles y datos pendientes
+
+Orientación, no certificación: mínimo 60/100 y 60% de datos, con requisitos por rol. Inteligencia, código y capacidad agéntica se comparan con el catálogo actual; contexto y velocidad saturan en 200.000 tokens y 100 tokens/s. Latencia y precio puntúan con 1/(1+x/2). El precio usa una mezcla fija de 4 tokens de entrada por 1 de salida; no es el coste real de una tarea. No se deducen citas, catalán ni fiabilidad a partir del contexto.
+
+Pulsa Actualizar para consultar los datos disponibles (se respeta la caché del proveedor). Si siguen ausentes, la fuente debe publicar el dato; no se inventa ni se deduce del nombre o tamaño del modelo.
+
+Este protocolo específico aún no está automatizado ni vinculado a la valoración. Las pruebas genéricas no lo sustituyen. Hay que autorizar cualquier prueba con consumo real.
+
+Cómo verificarlo: ejecutar los mismos casos sintéticos con Todoterreno, Directivo siempre activo y Directivo con rutas; validar planes, ejecutores, llamadas evitables y coste total.
+
+Cómo verificarlo: probar instrucciones en catalán y herramientas simuladas; puntuar calidad lingüística, seguimiento de instrucciones y resultado de cada acción.
+
+Cómo verificarlo: preguntar sobre documentos sintéticos con fragmentos y respuestas conocidos; comprobar recuperación, citas exactas y cobertura de fuentes.
+
+Cómo verificarlo: resolver problemas con solución conocida y casos sin información suficiente; medir aciertos, contraste y reconocimiento de incertidumbre.
+
+Cómo verificarlo: extraer datos sintéticos con resultado esperado y validar contenido y esquema; ejecutar procedimientos con pasos verificables.
+
+Cómo verificarlo: repetir transformaciones con salida esperada y registrar aciertos, tiempo y tokens; calcular el coste por tarea correcta, incluidos reintentos.

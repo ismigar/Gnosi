@@ -7507,7 +7507,13 @@
       "extraction_accuracy": "Extraction accuracy",
       "text_support": "Text support",
       "task_accuracy": "Task accuracy",
-      "measured_task_cost": "Measured task cost"
+      "measured_task_cost": "Measured task cost",
+      "intelligence": "Intelligence",
+      "agentic": "Agentic capability",
+      "coding": "Coding",
+      "speed": "Speed (tokens/s)",
+      "latency": "Latency (s)",
+      "token_cost": "Weighted price (USD/1M tokens)"
     },
     "sources": {
       "catalog": "Catalog",
@@ -7517,7 +7523,23 @@
       "mixed": "Multiple sources"
     },
     "proposal_rationale": "No suitable existing executor was available for this assignment. Review whether the temporary agent’s instructions and skills are useful for future tasks.",
-    "proposal_limitation": "One completed assignment does not establish general reliability. Review the result and remove task-specific information from the instructions before keeping this agent."
+    "proposal_limitation": "One completed assignment does not establish general reliability. Review the result and remove task-specific information from the instructions before keeping this agent.",
+    "below_threshold": "Below the indicative threshold",
+    "role_score": "Indicative score",
+    "data_coverage": "Data coverage",
+    "weight": "Weight",
+    "scoring_help": "Guidance, not certification: at least 60/100 and 60% data coverage, with role-specific requirements. Intelligence, coding and agentic benchmarks are ranked within the current catalog; context and speed saturate at 200,000 tokens and 100 tokens/s. Latency and price use 1/(1+x/2). Price uses a fixed mix of 4 input tokens per output token, not actual task cost. Context does not demonstrate citation fidelity, Catalan quality or reliability.",
+    "missing_catalog": "Missing catalog data",
+    "obtain_catalog": "Use Refresh to retrieve available data (provider caching still applies). If a value remains absent, the source must publish it; it is not invented or inferred from model name or size.",
+    "verification_pending": "This specific protocol is not yet automated or linked to the assessment. Generic tests do not replace it. Any test with real usage requires authorization.",
+    "verify_roles": {
+      "director": "How to verify: run identical synthetic cases with an allrounder, an always-active director and a director with direct routes; validate plans, executor selection, avoidable calls and total cost.",
+      "allrounder": "How to verify: test Catalan instructions and simulated tools; assess language quality, instruction following and each action’s result.",
+      "documentalist": "How to verify: ask questions over synthetic documents with known passages and answers; check retrieval, exact citations and source coverage.",
+      "expert": "How to verify: solve known-answer problems and cases with insufficient information; measure accuracy, cross-checking and acknowledged uncertainty.",
+      "administrative": "How to verify: extract synthetic data with expected outputs, validate both content and schema, and execute procedures with verifiable steps.",
+      "worker": "How to verify: repeat known-output transformations and record accuracy, time and tokens; calculate cost per correct task including retries."
+    }
   },
   "agent_commands": {
     "label": "Command",

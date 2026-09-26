@@ -379,7 +379,7 @@ def _enrich_cached_payload(
             model["modes"] = _supported_modes(model.get("modes"), match.get("modes"))
         if metric_sources:
             model["metric_sources"] = metric_sources
-        model["role_assessments"] = assess_roles({**model, "fetched_at": payload.get("fetched_at")})
+        model["role_assessments"] = assess_roles({**model, "fetched_at": payload.get("fetched_at")}, payload.get("models") or [])
     return payload
 
 
@@ -530,7 +530,10 @@ def build_comparison_payload(
     intelligence_values = sorted(
         model["intelligence"] for model in models if model["intelligence"] is not None
     )
+    from backend.services.model_role_suitability import assess_roles
+    assessed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for model in models:
+        model["role_assessments"] = assess_roles({**model, "fetched_at": assessed_at}, models)
         model["profile"] = _recommended_profile(model, intelligence_values)
 
     models.sort(

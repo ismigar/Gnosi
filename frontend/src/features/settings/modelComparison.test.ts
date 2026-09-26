@@ -12,6 +12,8 @@ import {
     formatComparisonCost,
     INITIAL_COMPARISON_UI_STATE,
     modelComparisonErrorCode,
+    modelComparisonColumns,
+    modelMetricAvailability,
     modelComparisonUiReducer,
     modelMonthlyCost,
 } from './modelComparison';
@@ -256,4 +258,11 @@ it('filters by serving provider, including models created by another vendor', ()
     expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, provider: 'openrouter' }).map(model => model.id)).toEqual(['google-routed']);
     expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, provider: 'google' }).map(model => model.id)).toEqual(['google-direct']);
     expect(filteredComparisonModels({ ...feed, models }, [], ui)).toHaveLength(2);
+});
+
+it('shows multi-role assessments next to the model even without a legacy profile', () => {
+    const model = comparisonModel({ profile: 'unrated', role_assessments: [{ role: 'documentalist', status: 'insufficient_data', coverage: 0, method: 'weighted_catalog_v1', source: 'catalog' }] });
+    const available = modelMetricAvailability({ models: [model] } as AiModelComparison);
+    expect(available.profile).toBe(true);
+    expect(modelComparisonColumns(available).slice(0, 2).map(c => c.key)).toEqual(['name', 'profile']);
 });

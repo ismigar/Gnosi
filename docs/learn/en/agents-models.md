@@ -60,3 +60,23 @@ Confirmations identify the executor and do not authorize additional actions. Res
 The catalog provides independent assessments for Director, All-rounder, Documentalist, Expert, Administrative and Worker, with evidence and missing tests. Declared compatibility does not certify Catalan, citations or delegation economy. Legacy labels remain for compatibility but do not select executors. Automated tests use simulated providers, with no paid evaluations. Compare quality and total cost on identical cases before expanding routes.
 
 The optional **Command** field in each agent’s settings assigns a unique command such as `/traductor`. Write `/traductor Translate this text…` in chat to send that turn directly to the agent with its own model, instructions and skills, without consulting the Director. The conversation’s usual selection stays unchanged. Commands do not expand permissions or allow disabled agents to run. After `/`, use 1–32 unaccented letters, digits, hyphens or underscores, starting with a letter; commands are case-insensitive.
+
+## Role assessments and missing evidence
+
+Guidance, not certification: at least 60/100 and 60% data coverage, with role-specific requirements. Intelligence, coding and agentic benchmarks are ranked within the current catalog; context and speed saturate at 200,000 tokens and 100 tokens/s. Latency and price use 1/(1+x/2). Price uses a fixed mix of 4 input tokens per output token, not actual task cost. Context does not demonstrate citation fidelity, Catalan quality or reliability.
+
+Use Refresh to retrieve available data (provider caching still applies). If a value remains absent, the source must publish it; it is not invented or inferred from model name or size.
+
+This specific protocol is not yet automated or linked to the assessment. Generic tests do not replace it. Any test with real usage requires authorization.
+
+How to verify: run identical synthetic cases with an allrounder, an always-active director and a director with direct routes; validate plans, executor selection, avoidable calls and total cost.
+
+How to verify: test Catalan instructions and simulated tools; assess language quality, instruction following and each action’s result.
+
+How to verify: ask questions over synthetic documents with known passages and answers; check retrieval, exact citations and source coverage.
+
+How to verify: solve known-answer problems and cases with insufficient information; measure accuracy, cross-checking and acknowledged uncertainty.
+
+How to verify: extract synthetic data with expected outputs, validate both content and schema, and execute procedures with verifiable steps.
+
+How to verify: repeat known-output transformations and record accuracy, time and tokens; calculate cost per correct task including retries.

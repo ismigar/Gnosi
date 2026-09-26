@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 190 | 40954 |
+| `services` | 190 | 41007 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **861 modules** and **173996 source lines**.
+Total: **861 modules** and **174049 source lines**.
 
 ## agent
 
@@ -817,7 +817,7 @@ Total: **861 modules** and **173996 source lines**.
 | [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 430 | 0 | 15 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 111 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
-| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 718 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
+| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 721 | 1 | 30 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 483 | 2 | 15 | 0 | 16 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 213 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
@@ -900,7 +900,7 @@ Total: **861 modules** and **173996 source lines**.
 | [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 503 | 0 | 21 | 0 | 9 | Microsoft Graph API mail service. |
 | [`backend/services/model_parameter_seed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_seed.py) | 201 | 2 | 0 | 0 | 0 | Reviewed manufacturer parameter disclosures; billions (10^9). |
 | [`backend/services/model_parameters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameters.py) | 220 | 0 | 16 | 0 | 1 | Bounded official-source parameter refresh; no guesses from model names. |
-| [`backend/services/model_role_suitability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_role_suitability.py) | 55 | 2 | 1 | 0 | 0 | Independent role assessments with explicit provenance and untested abilities. |
+| [`backend/services/model_role_suitability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_role_suitability.py) | 105 | 2 | 3 | 0 | 0 | Independent role assessments with explicit provenance and untested abilities. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |
 | [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 198 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |
 | [`backend/services/notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_clone.py) | 129 | 0 | 2 | 0 | 1 | Compatibility facade for the typed exact-clone domain. |

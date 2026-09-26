@@ -185,6 +185,29 @@ describe('AIModelComparisonModal', () => {
         expect(container.querySelector<HTMLSelectElement>('.model-modes-menu select')?.value).toBe('any');
     });
 
+    it('explains missing catalog data and verification protocols, and offers refresh', () => {
+        const implementation = mocks.useData.getMockImplementation();
+        if (!implementation) throw new Error('Missing data fixture');
+        const data = implementation() as ReturnType<typeof useModelComparisonData>;
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [{ ...FEED.models[0], role_assessments: [{
+                role: 'documentalist', status: 'catalog_compatible', score: 75, coverage: 80, method: 'weighted_catalog_v1', source: 'mixed',
+                weights: { intelligence: .25, long_context: .45, token_cost: .15, speed: .10, latency: .05 },
+                proofs: [], missing: ['speed', 'citation_fidelity'],
+            }] }],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const details = container.querySelector('details.model-role-assessments');
+        expect(details?.querySelector('summary')?.textContent).toContain('75/100');
+        expect(details?.textContent).toContain('agent_team.missing_catalog');
+        expect(details?.textContent).toContain('agent_team.verify_roles.documentalist');
+        expect(details?.textContent).toContain('agent_team.verification_pending');
+        const refresh = container.querySelector<HTMLButtonElement>('[aria-label="common.refresh"]');
+        expect(refresh).not.toBeNull();
+        act(() => { refresh?.click(); });
+        expect(data.retry).toHaveBeenCalledOnce();
+    });
+
     it.each([
         ['Qwen3 30B A3B (Reasoning)', 'Alibaba', '30.5 B', 'https://huggingface.co/Qwen/Qwen3-30B-A3B'],
         ['GPT-6 Astra (max)', 'OpenAI', 'model_comparison.parameters_not_published', 'https://developers.openai.com/api/docs/models'],
@@ -196,7 +219,7 @@ describe('AIModelComparisonModal', () => {
             ...FEED, models: [{ ...FEED.models[0], name, creator }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const cell = container.querySelectorAll('tbody tr:first-child > td')[7];
+        const cell = container.querySelectorAll('tbody tr:first-child > td')[8];
         expect(cell?.textContent).toContain(label);
         expect(cell?.querySelector('a')?.getAttribute('href')).toBe(source);
         expect(cell?.querySelector('a')?.title).toContain('model_comparison.parameters_checked');
@@ -210,15 +233,15 @@ describe('AIModelComparisonModal', () => {
 
         const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
         expect(headers).toEqual([
-            'model', 'intelligence', 'context', 'input_price', 'output_price', 'monthly_cost',
-            'modes', 'parameters', 'speed', 'latency', 'profile', 'coding', 'agentic', 'creator', 'available',
+            'model', 'profile', 'intelligence', 'context', 'input_price', 'output_price', 'monthly_cost',
+            'modes', 'parameters', 'speed', 'latency', 'coding', 'agentic', 'creator', 'available',
         ].map((key) => `model_comparison.columns.${key}`));
         const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
         expect(cells).toHaveLength(headers.length);
-        expect(cells[1]?.textContent).toContain('85');
-        expect(cells[2]?.textContent).toBe('128K');
-        expect(cells[5]?.textContent).toContain('9');
-        expect(cells[7]?.textContent).toContain('model_comparison.parameters_missing');
+        expect(cells[2]?.textContent).toContain('85');
+        expect(cells[3]?.textContent).toBe('128K');
+        expect(cells[6]?.textContent).toContain('9');
+        expect(cells[8]?.textContent).toContain('model_comparison.parameters_missing');
         expect(cells[13]?.textContent).toBe('OpenAI');
         expect(container.textContent).toContain('Model One');
         expect(container.textContent).toContain('model_comparison.title');

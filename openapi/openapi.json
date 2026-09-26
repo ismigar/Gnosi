@@ -29921,6 +29921,11 @@
             ],
             "title": "Checked At"
           },
+          "coverage": {
+            "default": 0,
+            "title": "Coverage",
+            "type": "number"
+          },
           "evaluation_id": {
             "anyOf": [
               {
@@ -29938,6 +29943,11 @@
             },
             "title": "Evidence",
             "type": "array"
+          },
+          "method": {
+            "default": "weighted_catalog_v1",
+            "title": "Method",
+            "type": "string"
           },
           "missing": {
             "items": {
@@ -29965,6 +29975,17 @@
             "title": "Role",
             "type": "string"
           },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
           "source": {
             "default": "catalog",
             "title": "Source",
@@ -29975,10 +29996,18 @@
               "catalog_compatible",
               "tested",
               "insufficient_data",
-              "limitation"
+              "limitation",
+              "below_threshold"
             ],
             "title": "Status",
             "type": "string"
+          },
+          "weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Weights",
+            "type": "object"
           }
         },
         "required": [

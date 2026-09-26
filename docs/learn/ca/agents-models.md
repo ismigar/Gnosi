@@ -60,3 +60,23 @@ Les confirmacions identifiquen l’executor. Aprovar una acció no autoritza alt
 El catàleg mostra valoracions independents per a Directiu, Tot terreny, Documentalista, Perit, Administratiu i Peó, amb evidències i proves pendents. La compatibilitat declarada no certifica la qualitat del català, les cites ni l’economia de delegació. Les etiquetes antigues es mantenen per compatibilitat, però no decideixen l’executor. Les proves automàtiques utilitzen proveïdors simulats; no executen avaluacions de pagament. Cal comparar qualitat i cost total sobre els mateixos casos abans d’ampliar les rutes.
 
 A la configuració de cada agent, el camp opcional **Comanda** permet assignar una comanda única, com `/traductor`. Escriu `/traductor Tradueix aquest text…` al xat per enviar aquell torn directament a l’agent, amb el seu model, instruccions i habilitats, sense passar pel Directiu. La selecció habitual de la conversa no canvia. Les comandes no amplien els permisos i els agents desactivats no es poden invocar. Fes servir una lletra inicial i fins a 32 lletres sense accents, dígits, guions o guions baixos després de `/`; no es distingeixen majúscules i minúscules.
+
+## Valoració dels perfils i dades pendents
+
+Orientació, no certificació: mínim 60/100 i 60% de dades, amb requisits per paper. Intel·ligència, codi i capacitat agentiva es comparen amb el catàleg actual; context i velocitat saturen a 200.000 tokens i 100 tokens/s. Latència i preu puntuen amb 1/(1+x/2). El preu usa una barreja fixa de 4 tokens d’entrada per 1 de sortida; no és el cost real d’una tasca. No es dedueixen cites, català ni fiabilitat a partir del context.
+
+Prem Actualitza per tornar a consultar les dades disponibles (es respecta la memòria cau del proveïdor). Si continuen absents, cal que la font publiqui la dada; no s’inventa ni es dedueix del nom o la mida del model.
+
+Aquest protocol específic encara no està automatitzat ni vinculat a la valoració. Les proves genèriques no el substitueixen. Cal autoritzar qualsevol prova amb consum real.
+
+Com verificar-ho: executar els mateixos casos sintètics amb Tot terreny, Directiu sempre actiu i Directiu amb rutes; validar el pla, els executors triats, les crides evitables i el cost total.
+
+Com verificar-ho: provar instruccions en català i accions amb eines simulades; puntuar la qualitat lingüística, el compliment de les instruccions i el resultat de cada acció.
+
+Com verificar-ho: fer preguntes sobre documents sintètics amb fragments i respostes coneguts; comprovar recuperació, cites exactes i cobertura de totes les fonts necessàries.
+
+Com verificar-ho: resoldre problemes amb solució coneguda i casos sense informació suficient; mesurar encerts, contrast i reconeixement de la incertesa.
+
+Com verificar-ho: extreure dades sintètiques amb resultat esperat i validar automàticament el contingut i l’esquema; executar procediments amb passos verificables.
+
+Com verificar-ho: repetir transformacions amb sortida esperada i registrar encerts, temps i tokens; calcular el cost per tasca correcta, inclosos els reintents.

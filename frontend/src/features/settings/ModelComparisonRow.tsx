@@ -133,13 +133,18 @@ export function ModelComparisonRow({
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return isFiniteMetric(model.latency)
                 ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
-            case 'profile': return model.role_assessments?.length ? <details><summary>{model.role_assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => t(`model_comparison.profiles.${r.role}`)).join(', ') || t('agent_team.insufficient_data')}</summary>
+            case 'profile': return model.role_assessments?.length ? <details className="model-role-assessments"><summary>{model.role_assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${String(r.score)}/100` : ''}`).join(', ') || t('agent_team.insufficient_data')}</summary>
+                <div className="model-role-assessments__body"><p className="settings-desc">{t('agent_team.scoring_help')}</p>
                 {model.role_assessments.map(r => <p key={r.role}><strong>{t(`model_comparison.profiles.${r.role}`)}</strong>: {t(`agent_team.${r.status}`)}<br />
+                    {t('agent_team.role_score')}: {r.score != null ? `${String(r.score)}/100` : '—'} · {t('agent_team.data_coverage')}: {r.coverage}%<br />
                     {t('agent_team.source')}: {t(`agent_team.sources.${r.source}`)} · {r.checked_at ?? t('agent_team.unknown_date')}<br />
                     {t('agent_team.evidence')}: {(r.evidence ?? []).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}<br />
-                    {(r.proofs ?? []).map(proof => <span key={`${proof.source}:${proof.metric}`}>{t(`agent_team.metrics.${proof.metric}`, { defaultValue: proof.metric })}: {String(proof.value)} ({t(`agent_team.sources.${proof.source}`)})<br /></span>)}
-                    {t('agent_team.missing')}: {(r.missing ?? []).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}
-                </p>)}
+                    {(r.proofs ?? []).map(proof => <span key={`${proof.source}:${proof.metric}`}>{t(`agent_team.metrics.${proof.metric}`, { defaultValue: proof.metric })}: {String(proof.value)} ({t(`agent_team.sources.${proof.source}`)}; {t('agent_team.weight')}: {Math.round((r.weights?.[proof.metric] ?? 0) * 100)}%)<br /></span>)}
+                    {t('agent_team.missing_catalog')}: {(r.missing ?? []).filter(item => item in (r.weights ?? {})).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ') || '—'}<br />
+                    <span className="settings-desc">{t('agent_team.obtain_catalog')}</span><br />
+                    {t('agent_team.missing')}: {(r.missing ?? []).filter(item => !(item in (r.weights ?? {}))).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}<br />
+                    <span className="settings-desc">{t(`agent_team.verify_roles.${r.role}`)} {t('agent_team.verification_pending')}</span>
+                </p>)}</div>
             </details> : <span className={`model-profile-badge ${model.profile}`}>
                 {PROFILE_ICONS[model.profile as ComparisonProfile] ?? '⚪'}{' '}
                 {t(`model_comparison.profiles.${model.profile}`)}

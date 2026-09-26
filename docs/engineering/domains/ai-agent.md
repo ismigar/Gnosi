@@ -974,7 +974,7 @@ catalogue nor assignments.
 
 ## Model comparison and verified parameter counts
 
-The comparison prioritizes intelligence, context, input/output prices and estimated monthly cost, followed by modes, parameter counts, speed, latency, task profile and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
+The comparison shows the model and its multi-role assessment first, then intelligence, context, input/output prices and estimated monthly cost, followed by modes, parameter counts, speed, latency and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
 
 Parameter counts are expressed in billions, distinguishing total and active MoE parameters. Filters support verified/undisclosed/pending status and total-size bounds. Selected modes use explicit AND (default) or OR matching. Static reviewed metadata remains available when the server does not provide enriched data.
 
@@ -1071,3 +1071,14 @@ Conversation checkpoint ownership remains in `agent_id` and `session_id`. The op
 ## Plugin profiles
 
 Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.
+
+
+## Indicative score — weighted_catalog_v1
+
+Guidance, not certification: at least 60/100 and 60% data coverage, with role-specific requirements. Intelligence, coding and agentic benchmarks are ranked within the current catalog; context and speed saturate at 200,000 tokens and 100 tokens/s. Latency and price use 1/(1+x/2). Price uses a fixed mix of 4 input tokens per output token, not actual task cost. Context does not demonstrate citation fidelity, Catalan quality or reliability.
+
+This specific protocol is not yet automated or linked to the assessment. Generic tests do not replace it. Any test with real usage requires authorization.
+
+Role weights are defined in `backend/services/model_role_suitability.py`. Benchmarks use tie-aware relative ranks in the current unfiltered feed (a singleton receives 0.5); they are not absolute quality probabilities. Required evidence gates are intelligence/agentic/tools for director, intelligence/tools for allrounder, intelligence/context for documentalist (minimum 100k), intelligence for expert, intelligence/tools-or-structured for administrative, and text/price/speed for worker. Unknown inputs are excluded from normalization but reduce coverage; absent requirements prevent a recommendation. Explicit tool limitations override scores. Parameter count is not treated as a proxy for capability. The legacy profile is retained only for older consumers. Catalog refresh recalculates assessments on cached feeds as well as fresh responses.
+
+Remaining original-plan work: connect role-specific synthetic evaluations and their per-case provenance to the comparison; replace generic temporary-retention rationale with evaluated reusable value and differences from existing profiles; add a user-facing same-case comparison of allrounder, always-on director and direct routing (the measurement helper and mocked acceptance cases exist). The current generic model evaluation has three cases, not a comprehensive language, citation or coordination benchmark. User review of reusable instructions remains necessary; the retention endpoint does not automatically remove task-specific details from proposed instructions. Real-provider validation has not been run in this change.

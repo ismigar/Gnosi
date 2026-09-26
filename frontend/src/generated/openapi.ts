@@ -21857,10 +21857,20 @@ export interface components {
         RoleAssessment: {
             /** Checked At */
             checked_at?: string | null;
+            /**
+             * Coverage
+             * @default 0
+             */
+            coverage: number;
             /** Evaluation Id */
             evaluation_id?: number | null;
             /** Evidence */
             evidence?: string[];
+            /**
+             * Method
+             * @default weighted_catalog_v1
+             */
+            method: string;
             /** Missing */
             missing?: string[];
             /** Proofs */
@@ -21870,6 +21880,8 @@ export interface components {
              * @enum {string}
              */
             role: "director" | "allrounder" | "documentalist" | "expert" | "administrative" | "worker";
+            /** Score */
+            score?: number | null;
             /**
              * Source
              * @default catalog
@@ -21879,7 +21891,11 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "catalog_compatible" | "tested" | "insufficient_data" | "limitation";
+            status: "catalog_compatible" | "tested" | "insufficient_data" | "limitation" | "below_threshold";
+            /** Weights */
+            weights?: {
+                [key: string]: number;
+            };
         };
         /** RoleEvidence */
         RoleEvidence: {

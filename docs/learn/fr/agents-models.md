@@ -60,3 +60,23 @@ Les confirmations identifient l’exécutant sans autoriser d’autres actions. 
 Le catalogue présente des évaluations indépendantes pour Directeur, Polyvalent, Documentaliste, Expert, Administratif et Ouvrier, avec éléments probants et tests manquants. La compatibilité déclarée ne certifie ni le catalan, ni les citations, ni l’économie de délégation. Les anciennes étiquettes restent compatibles mais ne choisissent pas les exécutants. Les tests automatiques utilisent des fournisseurs simulés, sans évaluation payante. Comparez qualité et coût total sur les mêmes cas avant d’élargir les routes.
 
 Le champ facultatif **Commande** de chaque agent permet de définir une commande unique, comme `/traductor`. Écrivez `/traductor Traduis ce texte…` dans le chat pour envoyer ce tour directement à cet agent, avec son modèle, ses instructions et ses compétences, sans consulter le Directeur. La sélection habituelle de la conversation reste inchangée. Les commandes ne modifient pas les permissions et ne permettent pas d’appeler un agent désactivé. Après `/`, utilisez de 1 à 32 lettres sans accent, chiffres, tirets ou traits de soulignement, en commençant par une lettre ; la casse est ignorée.
+
+## Évaluation des rôles et données manquantes
+
+Orientation, pas certification : au moins 60/100 et 60 % de données, avec des exigences par rôle. Intelligence, code et capacités agentiques sont classés dans le catalogue actuel ; contexte et vitesse saturent à 200 000 tokens et 100 tokens/s. Latence et prix utilisent 1/(1+x/2). Le prix suppose 4 tokens d’entrée pour 1 de sortie ; ce n’est pas le coût réel d’une tâche. Le contexte ne prouve ni la fidélité des citations, ni le catalan, ni la fiabilité.
+
+Utilisez Actualiser pour consulter les données disponibles (le cache du fournisseur reste applicable). Si une valeur manque, la source doit la publier ; elle ne se déduit ni du nom ni de la taille du modèle.
+
+Ce protocole spécifique n’est pas encore automatisé ni lié à l’évaluation. Les tests génériques ne le remplacent pas. Tout test avec consommation réelle nécessite une autorisation.
+
+Comment vérifier : exécuter les mêmes cas synthétiques avec un généraliste, un directeur toujours actif et un directeur avec routage direct ; vérifier plans, exécutants, appels évitables et coût total.
+
+Comment vérifier : tester des instructions en catalan et des outils simulés ; évaluer langue, respect des instructions et résultat de chaque action.
+
+Comment vérifier : interroger des documents synthétiques avec passages et réponses connus ; vérifier récupération, citations exactes et couverture des sources.
+
+Comment vérifier : résoudre des problèmes à réponse connue et des cas insuffisamment documentés ; mesurer exactitude, recoupement et reconnaissance de l’incertitude.
+
+Comment vérifier : extraire des données synthétiques avec résultats attendus, valider contenu et schéma, puis exécuter des procédures aux étapes vérifiables.
+
+Comment vérifier : répéter des transformations à résultat connu, relever exactitude, durée et tokens ; calculer le coût par tâche correcte, tentatives incluses.

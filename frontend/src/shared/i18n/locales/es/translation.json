@@ -7561,7 +7561,13 @@
       "extraction_accuracy": "Exactitud de extracción",
       "text_support": "Texto",
       "task_accuracy": "Exactitud de la tarea",
-      "measured_task_cost": "Coste medido por tarea"
+      "measured_task_cost": "Coste medido por tarea",
+      "intelligence": "Inteligencia",
+      "agentic": "Capacidad agéntica",
+      "coding": "Programación",
+      "speed": "Velocidad (tokens/s)",
+      "latency": "Latencia (s)",
+      "token_cost": "Precio ponderado (USD/1M tokens)"
     },
     "sources": {
       "catalog": "Catálogo",
@@ -7571,7 +7577,23 @@
       "mixed": "Fuentes diversas"
     },
     "proposal_rationale": "No había un ejecutor existente adecuado y disponible para este encargo. Revisa si las instrucciones y habilidades del temporal son útiles para futuras tareas.",
-    "proposal_limitation": "Un encargo completado no acredita fiabilidad general. Revisa el resultado y elimina datos particulares de las instrucciones antes de conservarlo."
+    "proposal_limitation": "Un encargo completado no acredita fiabilidad general. Revisa el resultado y elimina datos particulares de las instrucciones antes de conservarlo.",
+    "below_threshold": "Por debajo del umbral orientativo",
+    "role_score": "Valoración orientativa",
+    "data_coverage": "Cobertura de datos",
+    "weight": "Peso",
+    "scoring_help": "Orientación, no certificación: mínimo 60/100 y 60% de datos, con requisitos por rol. Inteligencia, código y capacidad agéntica se comparan con el catálogo actual; contexto y velocidad saturan en 200.000 tokens y 100 tokens/s. Latencia y precio puntúan con 1/(1+x/2). El precio usa una mezcla fija de 4 tokens de entrada por 1 de salida; no es el coste real de una tarea. No se deducen citas, catalán ni fiabilidad a partir del contexto.",
+    "missing_catalog": "Datos de catálogo ausentes",
+    "obtain_catalog": "Pulsa Actualizar para consultar los datos disponibles (se respeta la caché del proveedor). Si siguen ausentes, la fuente debe publicar el dato; no se inventa ni se deduce del nombre o tamaño del modelo.",
+    "verification_pending": "Este protocolo específico aún no está automatizado ni vinculado a la valoración. Las pruebas genéricas no lo sustituyen. Hay que autorizar cualquier prueba con consumo real.",
+    "verify_roles": {
+      "director": "Cómo verificarlo: ejecutar los mismos casos sintéticos con Todoterreno, Directivo siempre activo y Directivo con rutas; validar planes, ejecutores, llamadas evitables y coste total.",
+      "allrounder": "Cómo verificarlo: probar instrucciones en catalán y herramientas simuladas; puntuar calidad lingüística, seguimiento de instrucciones y resultado de cada acción.",
+      "documentalist": "Cómo verificarlo: preguntar sobre documentos sintéticos con fragmentos y respuestas conocidos; comprobar recuperación, citas exactas y cobertura de fuentes.",
+      "expert": "Cómo verificarlo: resolver problemas con solución conocida y casos sin información suficiente; medir aciertos, contraste y reconocimiento de incertidumbre.",
+      "administrative": "Cómo verificarlo: extraer datos sintéticos con resultado esperado y validar contenido y esquema; ejecutar procedimientos con pasos verificables.",
+      "worker": "Cómo verificarlo: repetir transformaciones con salida esperada y registrar aciertos, tiempo y tokens; calcular el coste por tarea correcta, incluidos reintentos."
+    }
   },
   "agent_commands": {
     "label": "Comando",
