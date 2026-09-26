@@ -47,6 +47,7 @@ export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Op
       // Only initialize an unbound conversation. Existing histories keep their identity.
       setSelectedAgentId(current => current || principal?.id || '');
       void fetchAiModels().then(registry => {
+        if (!Array.isArray(registry.configured_models)) return;
         setAgentList(current => current.map(profile => ({
           ...profile,
           modelAlias: registry.configured_models.find(row => row.provider === profile.provider && row.model_id === profile.model)?.alias?.trim() || undefined,

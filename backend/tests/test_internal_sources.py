@@ -708,8 +708,9 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
 
     def model_call(prompt, _user_message):
         prompts.append(prompt)
-        if "BATCH ANALYSES" in prompt:
-            supplied = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
+        payload = json.loads(prompt)
+        if payload["task"] == "reader.topic":
+            supplied = payload["data"]["analyses"]
             ids = [identifier for item in supplied for identifier in item["article_ids"]]
             return json.dumps({
                 "topic": supplied[0]["topic"],
@@ -717,8 +718,8 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
                 "turning_points": [],
                 "article_ids": ids,
             })
-        article_lines = prompt.split("ARTICLES:\n", 1)[1].splitlines()
-        articles = [json.loads(line) for line in article_lines]
+        assert payload["task"] == "reader.batch"
+        articles = payload["data"]["articles"]
         return json.dumps({
             "topic": articles[0]["category"],
             "period_start": articles[0]["published_at"],
@@ -879,18 +880,17 @@ def test_reader_analysis_retries_transient_failure_with_persisted_budget(
         calls += 1
         if calls == 1:
             raise TimeoutError("temporary provider timeout")
-        if "BATCH ANALYSES:\n" in prompt:
-            summaries = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
+        payload = json.loads(prompt)
+        if payload["task"] == "reader.topic":
+            summaries = payload["data"]["analyses"]
             return json.dumps({
                 "topic": "Research",
                 "evolution": "Recovered",
                 "turning_points": [],
                 "article_ids": summaries[0]["article_ids"],
             })
-        articles = [
-            json.loads(line)
-            for line in prompt.split("ARTICLES:\n", 1)[1].splitlines()
-        ]
+        assert payload["task"] == "reader.batch"
+        articles = payload["data"]["articles"]
         return json.dumps({
             "topic": "Research",
             "period_start": articles[0]["published_at"],

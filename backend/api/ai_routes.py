@@ -8,6 +8,7 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, JsonValue
 
+from backend.domains.configuration.ai.budget import sanitize_budget as _sanitize_budget
 from backend.config.app_config import load_params
 from backend.config.env_config import remove_env_keys
 from backend.domains.configuration.ai.contracts import (
@@ -678,27 +679,6 @@ async def get_ai_usage_history() -> JsonObject:
         }
 
     return await asyncio.to_thread(_history)
-
-
-def _sanitize_budget(raw: JsonObject) -> JsonObject:
-    """Keep only known budget keys, safely typed; drop everything else."""
-    budget: JsonObject = {
-        "prefer_local": bool(raw.get("prefer_local")),
-        "prefer_local_below": int(raw.get("prefer_local_below") or 0),
-        "enforce_block": bool(raw.get("enforce_block")),
-    }
-    if raw.get("remaining_tokens") not in (None, ""):
-        try:
-            budget["remaining_tokens"] = int(raw["remaining_tokens"])
-        except (TypeError, ValueError):
-            pass
-    try:
-        cap = float(raw.get("monthly_cost_cap") or 0)
-        if cap > 0:
-            budget["monthly_cost_cap"] = round(cap, 2)
-    except (TypeError, ValueError):
-        pass
-    return budget
 
 
 @router.put(

@@ -125,6 +125,7 @@ async def _execute_governed_tool(
     vault: Path,
 ) -> Dict[str, Any]:
     """Re-resolve and execute one exact assigned `confirmation=always` tool."""
+    agent_data: dict[str, Any] | None
     active_skill_ids = list(arguments.get("active_skill_ids") or [])
     if arguments.get("team_run_id"):
         from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope

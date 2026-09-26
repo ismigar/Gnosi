@@ -62,45 +62,9 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         record("reading.action", {"step": state["step"], **answer})
         result: Any = {}
         try:
-            if action == "index":
-                offset = max(0, int(args.get("offset", 0)))
-                limit = max(1, min(100, int(args.get("limit", 100))))
-                keys = list(chunks)[offset:offset + limit]
-                result = {"chunks": [{"id": key, "read": key in state["read"], "saved": key in state["plans"]} for key in keys], "next_offset": offset + len(keys), "total": len(chunks)}
-            elif action == "read":
-                key = str(args["chunk_id"])
-                result = chunks[key]
-                if key not in state["read"]:
-                    state["read"].append(key)
-            elif action == "search":
-                query = str(args["query"]).casefold()
-                if not query.strip():
-                    raise ValueError("query_required")
-                found = [key for key, chunk in chunks.items() if any(query in str(segment.get("text", "")).casefold() for segment in records(chunk.get("segments")))]
-                offset = max(0, int(args.get("offset", 0)))
-                result = {"chunk_ids": found[offset:offset + 100], "total": len(found), "next_offset": offset + min(100, len(found[offset:]))}
-            elif action == "remember":
-                memory = str(args["text"])
-                if deps.count_tokens(memory) > reader.budget // 8:
-                    raise ValueError("memory_budget_exceeded")
-                state["memory"] = memory
-                result = {"saved": True}
-            elif action == "recall":
-                result = state["plans"][str(args["chunk_id"]) ]
-            elif action == "save_plan":
-                key = str(args["chunk_id"])
-                if key not in state["read"]:
-                    raise ValueError("read_original_before_saving")
-                plan = args["plan"]
-                if not isinstance(plan, dict) or "requests" in plan:
-                    raise ValueError("plan_required")
-                evidence = [segment for chunk_id in state["read"] for segment in records(chunks[chunk_id].get("segments"))]
-                validate_notes(plan, records(chunks[key].get("segments")), evidence)
-                if deps.count_tokens(encoded(plan)) > reader.budget // 3:
-                    raise ValueError("plan_budget_exceeded")
-                state["plans"][key] = plan
-                result = {"saved": key, "remaining": len(chunks) - len(state["plans"])}
-            elif action == "finish":
+            if action != "finish":
+                result = _apply_action(reader, state, chunks, action, args)
+            else:
                 if set(state["plans"]) != set(chunks) or set(state["read"]) != set(chunks):
                     raise ValueError("source_coverage_incomplete")
                 evidence = [segment for key in state["read"] for segment in records(chunks[key].get("segments"))]
@@ -120,3 +84,47 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         state["step"] += 1
         checkpoint()
     raise RuntimeError("agent_reading_incomplete_resume_required")
+
+
+def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], action: str, args: dict[str, Any]) -> Any:
+    deps = reader.dependencies
+    result: Any = {}
+    if action == "index":
+        offset = max(0, int(args.get("offset", 0)))
+        limit = max(1, min(100, int(args.get("limit", 100))))
+        keys = list(chunks)[offset:offset + limit]
+        result = {"chunks": [{"id": key, "read": key in state["read"], "saved": key in state["plans"]} for key in keys], "next_offset": offset + len(keys), "total": len(chunks)}
+    elif action == "read":
+        key = str(args["chunk_id"])
+        result = chunks[key]
+        if key not in state["read"]:
+            state["read"].append(key)
+    elif action == "search":
+        query = str(args["query"]).casefold()
+        if not query.strip():
+            raise ValueError("query_required")
+        found = [key for key, chunk in chunks.items() if any(query in str(segment.get("text", "")).casefold() for segment in records(chunk.get("segments")))]
+        offset = max(0, int(args.get("offset", 0)))
+        result = {"chunk_ids": found[offset:offset + 100], "total": len(found), "next_offset": offset + min(100, len(found[offset:]))}
+    elif action == "remember":
+        memory = str(args["text"])
+        if deps.count_tokens(memory) > reader.budget // 8:
+            raise ValueError("memory_budget_exceeded")
+        state["memory"] = memory
+        result = {"saved": True}
+    elif action == "recall":
+        result = state["plans"][str(args["chunk_id"]) ]
+    elif action == "save_plan":
+        key = str(args["chunk_id"])
+        if key not in state["read"]:
+            raise ValueError("read_original_before_saving")
+        plan = args["plan"]
+        if not isinstance(plan, dict) or "requests" in plan:
+            raise ValueError("plan_required")
+        evidence = [segment for chunk_id in state["read"] for segment in records(chunks[chunk_id].get("segments"))]
+        validate_notes(plan, records(chunks[key].get("segments")), evidence)
+        if deps.count_tokens(encoded(plan)) > reader.budget // 3:
+            raise ValueError("plan_budget_exceeded")
+        state["plans"][key] = plan
+        result = {"saved": key, "remaining": len(chunks) - len(state["plans"])}
+    return result

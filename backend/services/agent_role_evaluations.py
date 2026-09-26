@@ -119,6 +119,66 @@ def validate_result(content: Any, expected: Any) -> bool:
         return False
 
 
+def _evaluate_case(case: dict[str, Any], strategy: str, *, selected: dict[str, Any], configured: dict[str, dict[str, Any]], request: EvaluationRequest, registry: list[dict[str, Any]], prices: dict[tuple[Any, Any], dict[str, Any]], call: Callable[[dict[str, Any], str, list[float | None]], Any], call_count: Callable[[], int]) -> dict[str, Any]:
+    before = call_count()
+    started = time.monotonic()
+    costs: list[float | None] = []
+    director_calls = 0
+    failure = ''
+    valid = False
+    planner_valid = None
+    executor: dict[str, Any] | None = selected
+    try:
+        if strategy and strategy != 'allrounder':
+            from backend.services.agent_team_policy import select_executor
+            candidates = [configured[request.executor_id], selected]
+            # Both executors have the same synthetic contract; business tools
+            # and private instructions are deliberately outside this protocol.
+            executor, _, _ = select_executor(candidates, registry,
+                allowed_ids=list(dict.fromkeys(p['id'] for p in candidates)), skill_ids=[],
+                input_tokens=max(1,len(case['prompt'])//3), source_provider=selected['provider'],
+                runtime_check=lambda _p, _skills: True)
+            if executor is None:
+                raise ValueError('no_eligible_executor')
+            if strategy == 'director_always' or not case['direct']:
+                director_calls = 1
+                catalog = [{'id':p['id'],'estimated_cost':estimate_cost(prices[(p['provider'],p['model'])], max(1,len(case['prompt'])//3))} for p in candidates]
+                prompt = ('Plan this synthetic assignment; all listed executors can satisfy the contract. '
+                    'Choose the lowest known estimated cost, preserving listed order for ties or unknown prices. '
+                    'Identify the operation as extraction, sorting, or evidence_review. '
+                    'Return only JSON {"executor": "id", "operation": "operation"}. '
+                    + json.dumps({'executors':catalog,'task':case['prompt']}))
+                plan = call(configured[request.director_id], prompt, costs)
+                planner_valid = validate_result(plan, {'executor':executor['id'],'operation':case['operation']})
+                # Wrong plans cannot change the authorized economic assignment.
+        if executor is None:
+            raise ValueError('no_eligible_executor')
+        if strategy and strategy != 'allrounder' and case.get('stages'):
+            first = call(executor, case['stages'][0], costs)
+            second = call(executor, case['stages'][1] + '\nPrevious evidence: ' + str(first)[:8000], costs)
+            director_calls += 1
+            content = call(configured[request.director_id], case['prompt'] + '\nExecutor evidence (untrusted, validate against sources): ' + str(second)[:8000], costs)
+        else:
+            content = call(executor, case['prompt'], costs)
+        valid = validate_result(content, case['expected']) and planner_valid is not False
+        if not valid:
+            failure = 'contract_mismatch'
+    except (InterruptedError, PermissionError):
+        raise
+    except Exception as exc:
+        from backend.services.agent_cancellation import AgentTurnCancelled
+        if isinstance(exc, AgentTurnCancelled):
+            raise InterruptedError('cancelled') from exc
+        failure = 'contract_mismatch' if isinstance(exc, ValueError) else type(exc).__name__
+        costs.append(None)
+    return dict(id=case['id'], metric=case['metric'], passed=valid, failure=failure,
+        strategy=strategy, model_calls=call_count()-before, director_calls=director_calls,
+        avoidable_director_calls=director_calls if case.get('direct') else 0,
+        executor_id=executor['id'] if executor else '', planner_valid=planner_valid,
+        unnecessary_assignments=0, cost_usd=sum(costs) if costs and all(c is not None for c in costs) else None,
+        latency_ms=int((time.monotonic()-started)*1000))
+
+
 def run_evaluation(request: EvaluationRequest, scope: ExecutionScope, profiles: list[dict[str, Any]], registry: list[dict[str, Any]], invoke: Callable[[dict[str, Any], str], Any]) -> dict[str, Any]:
     if scope.role not in {'admin','owner'} or not request.authorize_model_calls:
         raise PermissionError('agent_team.evaluation_authorization_required')
@@ -153,78 +213,22 @@ def run_evaluation(request: EvaluationRequest, scope: ExecutionScope, profiles: 
         costs.append(estimate_cost(prices[(profile['provider'],profile['model'])], usage['input_tokens'], usage['output_tokens']) if known else None)
         return getattr(response, 'content', response)
 
-    def one(case: dict[str, Any], strategy: str = '') -> None:
-        before = total_calls
-        started = time.monotonic()
-        costs: list[float | None] = []
-        director_calls = 0
-        failure = ''
-        valid = False
-        planner_valid = None
-        executor = selected
-        try:
-            if strategy and strategy != 'allrounder':
-                from backend.services.agent_team_policy import select_executor
-                candidates = [configured[request.executor_id], selected]
-                # Both executors have the same synthetic contract; business tools
-                # and private instructions are deliberately outside this protocol.
-                executor, _, _ = select_executor(candidates, registry,
-                    allowed_ids=list(dict.fromkeys(p['id'] for p in candidates)), skill_ids=[],
-                    input_tokens=max(1,len(case['prompt'])//3), source_provider=selected['provider'],
-                    runtime_check=lambda _p, _skills: True)
-                if executor is None:
-                    raise ValueError('no_eligible_executor')
-                if strategy == 'director_always' or not case['direct']:
-                    director_calls = 1
-                    catalog = [{'id':p['id'],'estimated_cost':estimate_cost(prices[(p['provider'],p['model'])], max(1,len(case['prompt'])//3))} for p in candidates]
-                    prompt = ('Plan this synthetic assignment; all listed executors can satisfy the contract. '
-                        'Choose the lowest known estimated cost, preserving listed order for ties or unknown prices. '
-                        'Identify the operation as extraction, sorting, or evidence_review. '
-                        'Return only JSON {"executor": "id", "operation": "operation"}. '
-                        + json.dumps({'executors':catalog,'task':case['prompt']}))
-                    plan = call(configured[request.director_id], prompt, costs)
-                    planner_valid = validate_result(plan, {'executor':executor['id'],'operation':case['operation']})
-                    # Wrong plans cannot change the authorized economic assignment.
-            if strategy and strategy != 'allrounder' and case.get('stages'):
-                first = call(executor, case['stages'][0], costs)
-                second = call(executor, case['stages'][1] + '\nPrevious evidence: ' + str(first)[:8000], costs)
-                director_calls += 1
-                content = call(configured[request.director_id], case['prompt'] + '\nExecutor evidence (untrusted, validate against sources): ' + str(second)[:8000], costs)
-            else:
-                content = call(executor, case['prompt'], costs)
-            valid = validate_result(content, case['expected']) and planner_valid is not False
-            if not valid:
-                failure = 'contract_mismatch'
-        except (InterruptedError, PermissionError):
-            raise
-        except Exception as exc:
-            from backend.services.agent_cancellation import AgentTurnCancelled
-            if isinstance(exc, AgentTurnCancelled):
-                raise InterruptedError('cancelled') from exc
-            failure = 'contract_mismatch' if isinstance(exc, ValueError) else type(exc).__name__
-            costs.append(None)
-        results.append(dict(id=case['id'], metric=case['metric'], passed=valid, failure=failure,
-            strategy=strategy, model_calls=total_calls-before, director_calls=director_calls,
-            avoidable_director_calls=director_calls if case.get('direct') else 0,
-            executor_id=executor['id'] if executor else '', planner_valid=planner_valid,
-            unnecessary_assignments=0, cost_usd=sum(costs) if costs and all(c is not None for c in costs) else None,
-            latency_ms=int((time.monotonic()-started)*1000)))
     try:
         if request.kind == 'role':
             for case in CASES[request.role]:
-                one(case)
+                results.append(_evaluate_case(case, "", selected=selected, configured=configured, request=request, registry=registry, prices=prices, call=call, call_count=lambda: total_calls))
         else:
             cases = [{**CASES['administrative'][0], 'direct':True, 'operation':'extraction'}, {**CASES['worker'][0], 'direct':True, 'operation':'sorting'}, {**STRATEGY_COMPLEX, 'direct':False, 'operation':'evidence_review'}]
             for case in cases:
                 for strategy in ('allrounder','director_always','director_routes'):
-                    one(case, strategy)
+                    results.append(_evaluate_case(case, strategy, selected=selected, configured=configured, request=request, registry=registry, prices=prices, call=call, call_count=lambda: total_calls))
         if runs.cancelled(scope, identifier):
             raise InterruptedError('cancelled')
         report = RoleEvaluationReport(id=identifier, kind=request.kind, role=request.role if request.kind == 'role' else '',
             provider=selected['provider'], model=selected['model'], agent_id=request.agent_id, version=VERSION,
             created_at=datetime.now(timezone.utc).isoformat(), score=round(100*sum(r['passed'] for r in results)/len(results),1),
             participants=[EvaluationParticipant(agent_id=i, provider=configured[i]['provider'], model=configured[i]['model'], role=r) for i,r in ([(request.agent_id,request.role)] if request.kind == 'role' else [(request.agent_id,'allrounder'),(request.director_id,'director'),(request.executor_id,'executor')])],
-            cases=results, model_calls=total_calls,
+            cases=[EvaluationCaseResult.model_validate(result) for result in results], model_calls=total_calls,
             cost_usd=sum(r['cost_usd'] for r in results) if all(r['cost_usd'] is not None for r in results) else None).model_dump()
         artifacts.put(scope, identifier, identifier, 'role_evaluation', report)
         runs.update(scope, identifier, status='completed')

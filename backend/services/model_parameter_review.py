@@ -6,6 +6,8 @@ from typing import Any, Literal
 from urllib.parse import urlsplit, quote
 from pydantic import BaseModel, ConfigDict, Field
 from backend.services import model_parameters as parameters
+from backend.services.model_parameter_seed import PUBLISHED, UNDISCLOSED
+from requests import RequestException
 
 _lock = threading.RLock()
 
@@ -21,6 +23,9 @@ class ParameterReviewRequest(BaseModel):
     reviewed: bool = False
 
 
+ReviewOutcome = Literal['loaded','verified','needs_review','source_unavailable','saved']
+
+
 class ParameterReviewResponse(BaseModel):
     model_id: str
     status: str
@@ -30,7 +35,7 @@ class ParameterReviewResponse(BaseModel):
     checked_at: str | None = None
     verification: str | None = None
     source_links: list[str] = Field(default_factory=list)
-    outcome: Literal['loaded','verified','needs_review','source_unavailable','saved'] = 'loaded'
+    outcome: ReviewOutcome = 'loaded'
 
 
 def review(payload: ParameterReviewRequest, *, model: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -45,12 +50,12 @@ def review(payload: ParameterReviewRequest, *, model: dict[str, Any] | None = No
     links = []
     if author:
         links.append(f'https://huggingface.co/{author}?search={quote(parameters.base_name(str(model.get("name",""))))}')
-    for seed in [*parameters.PUBLISHED, *parameters.UNDISCLOSED]:
+    for seed in [*PUBLISHED, *UNDISCLOSED]:
         if parameters.creator_key(seed['creator']) == parameters.creator_key(str(model.get('creator',''))) and seed['source'] not in links:
             links.append(seed['source'])
             break
-    outcome = 'loaded'
-    value = None
+    outcome: ReviewOutcome = 'loaded'
+    value: dict[str, Any] | None = None
     if payload.action == 'save':
         url = urlsplit(payload.source)
         if not payload.reviewed or url.scheme != 'https' or not url.hostname or url.username or url.password or url.port not in {None,443}:
@@ -69,7 +74,7 @@ def review(payload: ParameterReviewRequest, *, model: dict[str, Any] | None = No
                 outcome = 'verified'
             else:
                 outcome = 'needs_review'
-        except (parameters.requests.RequestException, ValueError, KeyError, TypeError):
+        except (RequestException, ValueError, KeyError, TypeError):
             outcome = 'source_unavailable'
     with _lock:
         cache = parameters.read_cache()

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from backend.services import agent_execution_store as runs
 from backend.services.agent_execution_models import ExecutionScope
@@ -32,7 +32,7 @@ def get(scope: ExecutionScope, run_id: str, identifier: str) -> dict[str, Any]:
         row = db.execute("SELECT payload FROM agent_team_artifacts WHERE run_id=? AND id=?", (run_id, identifier)).fetchone()
         if row is None:
             raise LookupError("agent_team_artifact_not_found")
-        return json.loads(row[0])
+        return cast(dict[str, Any], json.loads(row[0]))
 
 
 def list_artifacts(scope: ExecutionScope, kind: str, run_id: str = "") -> list[dict[str, Any]]:
@@ -53,7 +53,7 @@ def claim_proposal(scope: ExecutionScope, run_id: str, identifier: str, accept: 
         row = db.execute("SELECT payload FROM agent_team_artifacts WHERE run_id=? AND id=? AND kind='proposal'", (run_id, identifier)).fetchone()
         if row is None:
             raise LookupError("agent_team_proposal_not_found")
-        proposal = json.loads(row[0])
+        proposal = cast(dict[str, Any], json.loads(row[0]))
         if proposal["status"] != "pending":
             raise ValueError("agent_team_proposal_already_reviewed")
         proposal["status"] = "accepting" if accept else "rejected"

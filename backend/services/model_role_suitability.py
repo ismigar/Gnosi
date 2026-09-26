@@ -16,9 +16,12 @@ class RoleEvidence(BaseModel):
     test_id: str | None = None
 
 
+RoleStatus = Literal["catalog_compatible", "tested", "insufficient_data", "limitation", "below_threshold"]
+
+
 class RoleAssessment(BaseModel):
     role: TeamRole
-    status: Literal["catalog_compatible", "tested", "insufficient_data", "limitation", "below_threshold"]
+    status: RoleStatus
     evidence: list[str] = Field(default_factory=list)
     proofs: list[RoleEvidence] = Field(default_factory=list)
     missing: list[str] = Field(default_factory=list)
@@ -36,7 +39,7 @@ class RoleAssessment(BaseModel):
 
 
 # Versioned recommendation heuristics, not measured task quality. Weights sum to 1.
-ROLE_WEIGHTS = {
+ROLE_WEIGHTS: dict[TeamRole, dict[str, float]] = {
     "director": {"intelligence": .30, "agentic": .25, "tool_support": .20, "long_context": .10, "token_cost": .10, "latency": .05},
     "allrounder": {"intelligence": .30, "tool_support": .25, "long_context": .10, "speed": .10, "latency": .10, "token_cost": .15},
     "documentalist": {"long_context": .45, "intelligence": .25, "token_cost": .15, "speed": .10, "latency": .05},
@@ -101,8 +104,8 @@ def assess_roles(model: dict[str, Any], peers: list[dict[str, Any]] | None = Non
                     "administrative": ["intelligence", "tool_or_structured_support"], "worker": ["text_support", "token_cost", "speed"]}[role]
         limitation = (tools is False and role in {"director", "allrounder"}) or (procedure is False and role == "administrative") or (role == "documentalist" and raw["long_context"] is not None and raw["long_context"] < 100_000) or (role == "worker" and raw["text_support"] is False)
         enough = coverage >= .6 and all(key in normalized for key in required)
-        status = "limitation" if limitation else "insufficient_data" if not enough else "catalog_compatible" if score is not None and score >= 60 else "below_threshold"
-        proofs = [RoleEvidence(metric=key, source="benchmark" if key in {"intelligence", "coding", "agentic", "speed", "latency"} else "declared", value=raw[key], checked_at=model.get("fetched_at")) for key in weights if raw[key] is not None]
+        status: RoleStatus = "limitation" if limitation else "insufficient_data" if not enough else "catalog_compatible" if score is not None and score >= 60 else "below_threshold"
+        proofs = [RoleEvidence(metric=key, source="benchmark" if key in {"intelligence", "coding", "agentic", "speed", "latency"} else "declared", value=value, checked_at=model.get("fetched_at")) for key in weights if (value := raw[key]) is not None]
         result.append(RoleAssessment(role=role, status=status, score=score if enough else None, coverage=round(coverage * 100, 1), weights=weights,
             evidence=[p.metric for p in proofs], proofs=proofs, missing=[key for key in weights if key not in normalized] + PENDING[role],
             source="mixed" if len({p.source for p in proofs}) > 1 else proofs[0].source if proofs else "catalog", checked_at=model.get("fetched_at")).model_dump())

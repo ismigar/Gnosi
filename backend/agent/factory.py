@@ -230,3 +230,15 @@ async def create_agent_workflow(
         dependencies=dependencies,
     )
     return workflow, dict(metadata)
+
+
+def build_diagnostic_client(provider: str, model: str, provider_config: dict[str, Any]) -> Any:
+    """Construct the bounded client used by the audited diagnostic transport."""
+    client = get_llm(
+        provider=provider, model=model,
+        api_key=resolve_provider_api_key(provider, provider_config),
+        base_url=provider_config.get("base_url"), timeout=45,
+    )
+    if client is None:
+        raise ValueError("agent_team.evaluation_model_unavailable")
+    return client.bind(max_tokens=512)

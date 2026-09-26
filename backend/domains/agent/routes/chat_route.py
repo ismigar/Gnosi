@@ -318,6 +318,10 @@ async def chat_endpoint(
             turn_context_refs = merge_context_refs(project_refs, turn_context_refs)
         if notebook_turn:
             turn_context_refs = notebook_turn["contexts"]
+        workflow_options: dict[str, Any] = {
+            **({"direct_agent": True} if command_selected else {}),
+            **({"memory_project_id": learning_project_id} if learning_project_id else {}),
+        }
         workflow, llm_selection = await get_agent_workflow(
             request,
             profile_id,
@@ -328,8 +332,7 @@ async def chat_endpoint(
             active_skill_ids=requested_skill_ids,
             turn_context_refs=turn_context_refs,
             memory_user_id=workspace_context.user_id,
-            **({"direct_agent": True} if command_selected else {}),
-            **({"memory_project_id": learning_project_id} if learning_project_id else {}),
+            **workflow_options,
         )
         workflow_ready_at = time.monotonic()
         cancel_token = create_cancel_token()

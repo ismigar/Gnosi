@@ -79,9 +79,8 @@ async def run_role_evaluation(payload: EvaluationRequest) -> dict[str, Any]:
     from backend.services.agent_execution_scope import revalidate_scope
     from backend.services.agent_team_runtime import _config, _profile
     from backend.agent.model_router import load_registry
-    from backend.agent.factory import get_llm
+    from backend.agent.factory import build_diagnostic_client
     from backend.services.agent_diagnostics import invoke_diagnostic
-    from backend.security.ai_credentials import resolve_provider_api_key
     from langchain_core.messages import HumanMessage
     scope = current_scope()
     if scope.role not in {"owner", "admin"} or not payload.authorize_model_calls:
@@ -95,11 +94,8 @@ async def run_role_evaluation(payload: EvaluationRequest) -> dict[str, Any]:
         if not any(r.get("enabled") is True and (r.get("provider"), r.get("model_id")) == (profile["provider"], profile["model"]) for r in load_registry()):
             raise PermissionError("agent_team_model_unavailable")
         config = _config().get("providers", {}).get(profile["provider"], {})
-        client = get_llm(provider=profile["provider"], model=profile["model"],
-            api_key=resolve_provider_api_key(profile["provider"], config), base_url=config.get("base_url"), timeout=45)
-        if client is None:
-            raise ValueError("agent_team.evaluation_model_unavailable")
-        return invoke_diagnostic(client.bind(max_tokens=512), [HumanMessage(content=prompt)],
+        client = build_diagnostic_client(profile["provider"], profile["model"], config)
+        return invoke_diagnostic(client, [HumanMessage(content=prompt)],
             provider=profile["provider"], model=profile["model"], parent_run_id=evaluation_parent.get(), agent_id=profile["id"], metadata_only=True)
     try:
         revalidate_scope(scope)

@@ -9,7 +9,7 @@ import uuid
 from contextvars import ContextVar
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, messages_to_dict
 from langgraph.graph import END, START, StateGraph
@@ -87,7 +87,7 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
         data = artifacts.get(snapshot.scope, root_id, snapshot.agent_id)
         spec = TemporaryAgentSpec.model_validate(data["spec"])
         validate_temporary(spec, owner, snapshot.scope)
-        return data["profile"]
+        return cast(dict[str, Any], data["profile"])
     allowed = {team.director_id, *(m.agent_id for m in team.members)}
     if snapshot.agent_id not in allowed:
         raise PermissionError("agent_team_member_revoked")
@@ -169,7 +169,7 @@ def _temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], root_id: str, sc
     fingerprint = revision(spec.model_dump())
     existing = next((p for p in current if p["fingerprint"] == fingerprint), None)
     if existing:
-        return existing["profile"]
+        return cast(dict[str, Any], existing["profile"])
     if len(current) >= 2:
         raise RuntimeError("agent_team_temporary_limit")
     identifier = "temporary_" + uuid.uuid4().hex
@@ -204,9 +204,47 @@ def _propose(scope: ExecutionScope, root_id: str, profile: dict[str, Any], child
     }, create_only=True)
 
 
+def _resume_cached_task(cached: dict[str, Any], scope: ExecutionScope, root_id: str, key: str) -> dict[str, Any]:
+    execution_profile(AgentExecutionSnapshot.model_validate(cached["snapshot"]))
+    if cached["status"] == "awaiting_confirmation":
+        from backend.agent.action_confirmations import get_confirmation_status
+        approvals = [get_confirmation_status(m["confirmation_id"], cached["confirmation_scope"]) for m in cached["confirmations"]]
+        if all(a["status"] == "completed" for a in approvals):
+            cached.update(status="completed", confirmations=[], result=json.dumps({"completed_actions": approvals}, ensure_ascii=False))
+            artifacts.put(scope, root_id, key, "task", cached)
+        elif any(a["status"] not in {"pending", "executing", "completed"} for a in approvals):
+            raise RuntimeError("agent_team_confirmation_requires_review")
+    if cached["status"] in {"completed", "awaiting_confirmation"}:
+        return cached
+    raise RuntimeError("agent_team_task_requires_review_before_retry")
+
+
+def _validate_temporary_runtime(selected: dict[str, Any], text: str, runtime: Any, operation_mode: bool) -> None:
+    from backend.agent.model_router import load_registry
+    from backend.domains.agent.llm import _provider_is_available
+    model = next((m for m in load_registry() if m.get("provider") == selected["provider"] and m.get("model_id") == selected["model"] and m.get("enabled") is True), {})
+    if not _provider_is_available(selected["provider"], _config().get("providers", {}).get(selected["provider"], {})):
+        raise RuntimeError("agent_team_model_unavailable")
+    if len(text.encode()) + len(str(selected.get("persona", "")).encode()) + 1024 > int(model.get("context_window") or 0):
+        raise RuntimeError("agent_team_temporary_context_insufficient")
+    if runtime.unavailable_tool_ids or (not operation_mode and runtime.tools and "tools" not in (model.get("tags") or [])):
+        raise RuntimeError("agent_team_temporary_tools_unavailable")
+
+
+def _collect_task_event(event: dict[str, Any], outcome: dict[str, Any]) -> None:
+    from backend.agent.action_confirmations import confirmation_event
+    for update in event.values():
+        for message in update.get("messages", []):
+            marker = confirmation_event(getattr(message, "content", None))
+            if marker:
+                outcome["confirmations"].append(marker)
+            if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
+                outcome["result"] = str(message.content)
+
+
 async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, scope: ExecutionScope, state: dict[str, Any], original: str, results: dict[str, Any], *, operation_mode: bool, refs: list[dict[str, Any]], allowed_ids: list[str] | None = None) -> dict[str, Any]:
     from backend.agent.factory import create_agent_workflow
-    from backend.agent.action_confirmations import confirmation_context, current_confirmation_scope, confirmation_event
+    from backend.agent.action_confirmations import confirmation_context, current_confirmation_scope
     from backend.services.agent_execution import stream_workflow
     from backend.services.agent_execution_trace import record
     team = team_for(owner)
@@ -226,31 +264,12 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
     key = revision({"task": task.model_dump(), "original": original})
     cached = next((r for r in artifacts.list_artifacts(scope, "task", root_id) if r["key"] == key), None)
     if cached:
-        execution_profile(AgentExecutionSnapshot.model_validate(cached["snapshot"]))
-        if cached["status"] == "awaiting_confirmation":
-            from backend.agent.action_confirmations import get_confirmation_status
-            approvals = [get_confirmation_status(m["confirmation_id"], cached["confirmation_scope"]) for m in cached["confirmations"]]
-            if all(a["status"] == "completed" for a in approvals):
-                cached.update(status="completed", confirmations=[], result=json.dumps({"completed_actions": approvals}, ensure_ascii=False))
-                artifacts.put(scope, root_id, key, "task", cached)
-            elif any(a["status"] not in {"pending", "executing", "completed"} for a in approvals):
-                raise RuntimeError("agent_team_confirmation_requires_review")
-        if cached["status"] in {"completed", "awaiting_confirmation"}:
-            return cached
-        raise RuntimeError("agent_team_task_requires_review_before_retry")
+        return _resume_cached_task(cached, scope, root_id, key)
     if len(artifacts.list_artifacts(scope, "task", root_id)) >= 4:
         raise RuntimeError("agent_team_task_limit")
     snapshot, runtime = _snapshot(selected, owner, root_id, scope, task.skill_ids, refs, read_only=task.read_only or operation_mode, temporary=temporary)
     if temporary:
-        from backend.agent.model_router import load_registry
-        from backend.domains.agent.llm import _provider_is_available
-        model = next((m for m in load_registry() if m.get("provider") == selected["provider"] and m.get("model_id") == selected["model"] and m.get("enabled") is True), {})
-        if not _provider_is_available(selected["provider"], _config().get("providers", {}).get(selected["provider"], {})):
-            raise RuntimeError("agent_team_model_unavailable")
-        if len(text.encode()) + len(str(selected.get("persona", "")).encode()) + 1024 > int(model.get("context_window") or 0):
-            raise RuntimeError("agent_team_temporary_context_insufficient")
-        if runtime.unavailable_tool_ids or (not operation_mode and runtime.tools and "tools" not in (model.get("tags") or [])):
-            raise RuntimeError("agent_team_temporary_tools_unavailable")
+        _validate_temporary_runtime(selected, text, runtime, operation_mode)
     child_id = uuid.uuid4().hex
     outcome = {"key": key, "task_id": task.id, "run_id": child_id, "agent_id": selected["id"], "status": "running", "result": "", "confirmations": [], "snapshot": snapshot.model_dump()}
     artifacts.put(scope, root_id, key, "task", outcome, create_only=True)
@@ -277,13 +296,7 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
         with confirmation_context(**confirmation_scope):
             async for event in stream_workflow(workflow.compile(), child_state, config={"recursion_limit": 12},
                     origin=snapshot.origin, selection=selection, snapshot=snapshot, max_calls=8):
-                for update in event.values():
-                    for message in update.get("messages", []):
-                        marker = confirmation_event(getattr(message, "content", None))
-                        if marker:
-                            outcome["confirmations"].append(marker)
-                        if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
-                            outcome["result"] = str(message.content)
+                _collect_task_event(event, outcome)
         if not outcome["result"].strip() and not outcome["confirmations"]:
             raise RuntimeError("agent_team_empty_result")
         outcome["status"] = "awaiting_confirmation" if outcome["confirmations"] else "completed"
@@ -380,8 +393,8 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             return {"messages": [AIMessage(content=json.dumps(marker, ensure_ascii=False)) for marker in confirmations]}
     result = results[plan.result_task]["result"]
     if plan.synthesize:
-        evidence = {identifier: {key: value.get(key) for key in ("agent_id", "run_id", "status", "result")} for identifier, value in results.items()}
-        result = await _phase(owner, root_id, scope, json.dumps({"request": original, "results": evidence,
+        synthesis_evidence = {identifier: {key: value.get(key) for key in ("agent_id", "run_id", "status", "result")} for identifier, value in results.items()}
+        result = await _phase(owner, root_id, scope, json.dumps({"request": original, "results": synthesis_evidence,
             "phase": "synthesize the completed evidence; do not plan or execute actions"}, ensure_ascii=False),
             request_data.get("output_schema"), "team.synthesis")
     return {"messages": [AIMessage(content=result)]}

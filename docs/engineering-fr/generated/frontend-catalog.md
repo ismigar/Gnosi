@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2655 | 0 |
-| `features` | 1127 | 127082 | 32 |
+| `features` | 1128 | 127081 | 32 |
 | `generated` | 2 | 48068 | 494 |
 | `shared` | 264 | 31383 | 425 |
 
@@ -122,7 +122,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/agent/chat/useAgentChatController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useAgentChatController.ts) | 299 | `useAgentChatController` | — |
 | [`frontend/src/features/agent/chat/useAgentConfirmations.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useAgentConfirmations.ts) | 50 | `useAgentConfirmations` | — |
 | [`frontend/src/features/agent/chat/useChatAttachments.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatAttachments.ts) | 51 | `useChatAttachments` | — |
-| [`frontend/src/features/agent/chat/useChatConfiguration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatConfiguration.ts) | 72 | `enabledChatAgents`, `useChatConfiguration` | — |
+| [`frontend/src/features/agent/chat/useChatConfiguration.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatConfiguration.ts) | 73 | `enabledChatAgents`, `useChatConfiguration` | — |
 | [`frontend/src/features/agent/chat/useChatMentions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatMentions.ts) | 52 | `useChatMentions` | — |
 | [`frontend/src/features/agent/chat/useChatMessageActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatMessageActions.ts) | 72 | `useChatMessageActions` | — |
 | [`frontend/src/features/agent/chat/useChatPanelState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent/chat/useChatPanelState.ts) | 27 | `chatPanelReducer`, `useChatPanelState` | — |
@@ -627,12 +627,13 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/model-comparison/ComparisonDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ComparisonDetails.tsx) | 55 | `ComparisonDetails` | — |
 | [`frontend/src/features/settings/model-comparison/ModelOfferList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.tsx) | 18 | `ModelOfferList` | — |
 | [`frontend/src/features/settings/model-comparison/ModelParameterReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.tsx) | 53 | `ModelParameterReview` | — |
+| [`frontend/src/features/settings/model-comparison/modelComparisonDataState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonDataState.ts) | 165 | `INITIAL_DATA_STATE`, `modelComparisonDataReducer` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts) | 166 | `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
 | [`frontend/src/features/settings/model-comparison/modelParameters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelParameters.ts) | 149 | `modelParameterDisclosure`, `modelParameterMetadata` | — |
 | [`frontend/src/features/settings/model-comparison/modelRouteCapabilities.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelRouteCapabilities.ts) | 37 | `comparisonRouteCapabilities`, `knownContext`, `routeContextValue`, `routeHasModes`, `routeModes`, `selectedRoutes` | — |
 | [`frontend/src/features/settings/model-comparison/modelRouteCosts.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelRouteCosts.ts) | 30 | `comparisonRouteCosts`, `knownPrice`, `routeHasPrice`, `routePriceValue` | — |
 | [`frontend/src/features/settings/modelComparison.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/modelComparison.ts) | 490 | `COMPARISON_MODE_KEYS`, `COMPARISON_PROFILE_KEYS`, `INITIAL_COMPARISON_UI_STATE`, `PROFILE_ICONS`, `comparisonProvidersById`, `filteredComparisonModels`, `formatComparisonContext`, `formatComparisonCost`, `formatComparisonMetric`, `formatTokenCountInput`, `isAbortError`, `isFiniteMetric`, `modelComparisonColumns`, `modelComparisonErrorCode`, `modelComparisonUiReducer`, `modelMetricAvailability`, `modelMonthlyCost`, `normalizeTokenCountInput`, `parseNonNegativeNumber` | — |
-| [`frontend/src/features/settings/useModelComparisonData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/useModelComparisonData.ts) | 590 | `useModelComparisonData` | — |
+| [`frontend/src/features/settings/useModelComparisonData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/useModelComparisonData.ts) | 423 | `useModelComparisonData` | — |
 | [`frontend/src/features/settings/useModelComparisonLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/useModelComparisonLayout.ts) | 141 | `useModelComparisonLayout` | — |
 | [`frontend/src/features/sharing/SharedPage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/SharedPage.tsx) | 96 | `SharedPage`, `function` | — |
 | [`frontend/src/features/sharing/dialogs/ShareModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/sharing/dialogs/ShareModal.tsx) | 215 | `ShareModal` | — |

@@ -32,18 +32,7 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
     budget = window - max(2048, window // 4) - count(instructions) - 2048
     if budget < 2000:
         raise RuntimeError("agent_document_context_insufficient")
-    parts: dict[str, dict[str, Any]] = {}
-    for source in sources:
-        identifier = str(source["id"])
-        if not str(source.get("text") or "").strip():
-            raise ValueError(f"agent_document_source_unreadable:{identifier}")
-        for index, part in enumerate(split_segment({**source, "text": str(source.get("text") or "")}, budget // 3, count)):
-            key = f"{identifier}:{index}"
-            if key in parts:
-                raise ValueError("agent_document_duplicate_source")
-            parts[key] = {**part, "part_id": key, "source_id": identifier}
-    if not parts:
-        raise ValueError("agent_document_sources_empty")
+    parts = _document_parts(sources, budget, count)
     read: set[str] = set()
     memory = ""
     result: Any = {"parts": [{"part_id": key, "source_id": part["source_id"]} for key, part in list(parts.items())[:100]], "total": len(parts)}
@@ -75,39 +64,10 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
         args = answer["arguments"]
         record("document.action", {"operation": operation, "step": step, **answer})
         try:
-            if answer["action"] == "index":
-                offset = max(0, int(args.get("offset", 0)))
-                result = {"parts": [{"part_id": key, "read": key in read} for key in list(parts)[offset:offset + 100]], "total": len(parts), "next_offset": offset + 100}
-            elif answer["action"] == "read":
-                key = str(args["part_id"])
-                result = parts[key]
-                read.add(key)
-            elif answer["action"] == "search":
-                query = str(args["query"]).casefold()
-                if not query.strip():
-                    raise ValueError("query_required")
-                matches = [key for key, part in parts.items() if query in str(part["text"]).casefold()]
-                offset = max(0, int(args.get("offset", 0)))
-                result = {"part_ids": matches[offset:offset + 100], "total": len(matches), "next_offset": offset + 100}
-            elif answer["action"] == "remember":
-                replacement = str(args["text"])
-                if count(replacement) > budget // 6:
-                    raise ValueError("memory_budget_exceeded")
-                memory, result = replacement, {"saved": True}
-            elif answer["action"] == "finish":
-                if read != set(parts):
-                    raise ValueError("source_coverage_incomplete")
-                final = args["result"]
-                jsonschema.validate(final, output_schema)
-                citations = args.get("citations")
-                if not isinstance(citations, list) or not citations or args.get("reviewed") is not True:
-                    raise ValueError("review_and_original_citations_required")
-                for citation in citations:
-                    if not isinstance(citation, dict) or not str(citation.get("quote") or "").strip() or not any(
-                        citation.get("source_id") == part["source_id"] and str(citation["quote"]) in part["text"] for part in parts.values()
-                    ):
-                        raise ValueError("citation_not_in_original")
-                completed = {"result": final, "citations": citations, "read_parts": sorted(read), "coverage_complete": True}
+            if answer["action"] != "finish":
+                result, memory = _document_action(answer["action"], args, parts, read, memory, budget, count)
+            else:
+                completed = _finish_document(args, read, parts, output_schema)
                 if parent:
                     work_checkpoint(snapshot.scope, parent, checkpoint_key, {"completed": completed})
                 record("document.result", completed)
@@ -120,3 +80,60 @@ def synthesize(operation: str, sources: list[dict[str, Any]], request: str, *, s
         if parent:
             work_checkpoint(snapshot.scope, parent, checkpoint_key, {"read": sorted(read), "memory": memory, "result": result, "step": step + 1})
     raise RuntimeError("agent_document_incomplete_resume_required")
+
+
+def _document_parts(sources: list[dict[str, Any]], budget: int, count: Callable[[str], int]) -> dict[str, dict[str, Any]]:
+    parts: dict[str, dict[str, Any]] = {}
+    for source in sources:
+        identifier = str(source["id"])
+        if not str(source.get("text") or "").strip():
+            raise ValueError(f"agent_document_source_unreadable:{identifier}")
+        for index, part in enumerate(split_segment({**source, "text": str(source.get("text") or "")}, budget // 3, count)):
+            key = f"{identifier}:{index}"
+            if key in parts:
+                raise ValueError("agent_document_duplicate_source")
+            parts[key] = {**part, "part_id": key, "source_id": identifier}
+    if not parts:
+        raise ValueError("agent_document_sources_empty")
+    return parts
+
+
+def _finish_document(args: dict[str, Any], read: set[str], parts: dict[str, dict[str, Any]], output_schema: dict[str, Any]) -> dict[str, Any]:
+    if read != set(parts):
+        raise ValueError("source_coverage_incomplete")
+    final = args["result"]
+    jsonschema.validate(final, output_schema)
+    citations = args.get("citations")
+    if not isinstance(citations, list) or not citations or args.get("reviewed") is not True:
+        raise ValueError("review_and_original_citations_required")
+    for citation in citations:
+        if not isinstance(citation, dict) or not str(citation.get("quote") or "").strip() or not any(
+            citation.get("source_id") == part["source_id"] and str(citation["quote"]) in part["text"] for part in parts.values()
+        ):
+            raise ValueError("citation_not_in_original")
+    completed = {"result": final, "citations": citations, "read_parts": sorted(read), "coverage_complete": True}
+    return completed
+
+
+def _document_action(action: str, args: dict[str, Any], parts: dict[str, dict[str, Any]], read: set[str], memory: str, budget: int, count: Callable[[str], int]) -> tuple[Any, str]:
+    result: Any = {}
+    if action == "index":
+        offset = max(0, int(args.get("offset", 0)))
+        result = {"parts": [{"part_id": key, "read": key in read} for key in list(parts)[offset:offset + 100]], "total": len(parts), "next_offset": offset + 100}
+    elif action == "read":
+        key = str(args["part_id"])
+        result = parts[key]
+        read.add(key)
+    elif action == "search":
+        query = str(args["query"]).casefold()
+        if not query.strip():
+            raise ValueError("query_required")
+        matches = [key for key, part in parts.items() if query in str(part["text"]).casefold()]
+        offset = max(0, int(args.get("offset", 0)))
+        result = {"part_ids": matches[offset:offset + 100], "total": len(matches), "next_offset": offset + 100}
+    elif action == "remember":
+        replacement = str(args["text"])
+        if count(replacement) > budget // 6:
+            raise ValueError("memory_budget_exceeded")
+        memory, result = replacement, {"saved": True}
+    return result, memory
