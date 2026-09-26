@@ -8,6 +8,7 @@
 
 .agent-team-setup > .btn-gnosi {
     align-self: flex-start;
+    margin-top: 16px;
 }
 
 .agent-team-setup__wizard {
