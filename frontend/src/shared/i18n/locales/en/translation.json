@@ -6057,6 +6057,8 @@
     }
   },
   "model_comparison": {
+    "additional_offers_one": "{{count}} more offer",
+    "additional_offers_other": "{{count}} more offers",
     "parameters_missing": "Pending verification",
     "parameters_missing_help": "We have not yet verified this model’s size against an official source.",
     "parameters_active": "{{value}} B active / token",

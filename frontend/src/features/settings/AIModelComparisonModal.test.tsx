@@ -221,11 +221,13 @@ describe('AIModelComparisonModal', () => {
             }] }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const details = container.querySelector('details.model-role-assessments');
-        expect(details?.querySelector('summary')?.textContent).toContain('75%');
-        expect(details?.textContent).toContain('agent_team.missing_catalog');
-        expect(details?.textContent).toContain('agent_team.verify_roles.documentalist');
-        expect(details?.textContent).toContain('agent_team.verification_pending');
+        const details = container.querySelector('.model-role-assessments');
+        expect(details?.querySelector('button')?.textContent).toContain('75%');
+        expect(details?.querySelector('.model-role-assessments__body')).toBeNull();
+        act(() => { details?.querySelector<HTMLButtonElement>('button')?.click(); });
+        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.missing_catalog');
+        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verify_roles.documentalist');
+        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verification_pending');
         const refresh = container.querySelector<HTMLButtonElement>('[aria-label="common.refresh"]');
         expect(refresh).not.toBeNull();
         act(() => { refresh?.click(); });
@@ -244,9 +246,9 @@ describe('AIModelComparisonModal', () => {
         const filter = [...container.querySelectorAll('select')].find(s => s.querySelector('option[value="worker"]'));
         if (!filter) throw new Error('Missing role filter');
         act(() => { filter.value = 'worker'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
-        const summaries = [...container.querySelectorAll('details.model-role-assessments summary')];
+        const summaries = [...container.querySelectorAll('.model-role-assessments > .model-details-trigger')];
         expect(summaries.map(s => s.textContent)).toEqual(['model_comparison.profiles.worker · 90%', 'model_comparison.profiles.worker · 65%']);
-        expect(container.querySelector('details.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
+        expect(container.querySelector('.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
         const sort = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.profile"]');
         act(() => { sort?.click(); });
         act(() => { sort?.click(); });
@@ -316,4 +318,28 @@ describe('AIModelComparisonModal', () => {
         });
         expect(container.textContent).toBe('');
     });
+});
+
+it('keeps a model with many provider offers compact and reveals the remaining offers on demand', () => {
+    const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+    const base = FEED.models[0];
+    const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${index}`, provider_name: `Provider ${index}`, cost_in: index + 1 }));
+    mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes }] } } });
+    act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+    const row = container.querySelector('tbody tr');
+    expect(row?.textContent).toContain('Model One');
+    const offerLists = [...container.querySelectorAll('.model-offer-list')];
+    expect(offerLists).toHaveLength(5);
+    for (const list of offerLists) {
+        expect(list.querySelectorAll(':scope > div')).toHaveLength(1);
+        expect(list.querySelector('.model-offer-list__details')).toBeNull();
+    }
+    const offers = offerLists[0].querySelector<HTMLButtonElement>('button');
+    act(() => { offers?.click(); });
+    expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
+    expect(container.querySelector('.model-details-popover')?.textContent).toContain('Provider 23');
+    act(() => { offers?.click(); });
+    expect(container.querySelector('.model-offer-list__details')).toBeNull();
+    act(() => { offerLists[0].dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
 });

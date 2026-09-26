@@ -87,7 +87,7 @@
 .model-comparison-table th:first-child, .model-comparison-table td:first-child { width: 1%; min-width: 220px; white-space: nowrap; }
 .model-comparison-table th > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 12px 10px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 900; cursor: pointer; }
 .model-comparison-table th:not(:has(button)) { padding: 14px 0 14px 8px; color: var(--text-secondary); }
-.model-comparison-table td { padding: 15px 0 15px 8px; border-bottom: 1px solid var(--settings-border); white-space: nowrap; }
+.model-comparison-table td { vertical-align: top; padding: 15px 0 15px 8px; border-bottom: 1px solid var(--settings-border); white-space: nowrap; }
 .model-comparison-table th:not(.model-comparison-sticky-start):not(.model-comparison-sticky-end),
 .model-comparison-table td:not(.model-comparison-sticky-start):not(.model-comparison-sticky-end):not(.model-setup-cell) { transform: translateX(calc(-1 * var(--model-table-scroll-left))); }
 .model-comparison-table td small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: .7rem; font-weight: 500; }
@@ -180,6 +180,18 @@
 .model-profile-filter > span { min-height: 32px; justify-content: flex-start; }
 
 .model-role-assessments { width: 260px; white-space: normal; line-height: 1.5; }
-.model-role-assessments > summary { cursor: pointer; color: var(--gnosi-primary); font-weight: 600; }
+.model-role-assessments > summary, .model-role-assessments > .model-details-trigger { cursor: pointer; color: var(--gnosi-primary); font-weight: 600; }
 .model-role-assessments__body { max-height: 420px; overflow-y: auto; margin-top: 12px; padding: 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--settings-sidebar-bg); }
 .model-role-assessments__body > p + p { padding-top: 12px; border-top: 1px solid var(--settings-border); }
+
+.model-offer-list { width: 230px; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+.model-offer-list__details { max-height: 320px; overflow-y: auto; margin-top: 8px; }
+.model-offer-list__details > div + div { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--settings-border); }
+
+.model-details-trigger { display: block; padding: 0; border: 0; background: transparent; color: var(--gnosi-primary); font: inherit; text-align: start; cursor: pointer; }
+.model-offer-list > .model-details-trigger { margin-top: 8px; font-size: .75rem; font-weight: 600; }
+.model-details-trigger:focus-visible { outline: 2px solid var(--gnosi-primary); outline-offset: 3px; border-radius: 4px; }
+.model-details-popover { position: fixed; z-index: calc(var(--z-modal) + 30); box-sizing: border-box; overflow: auto; padding: 14px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--settings-bg); color: var(--text-primary); box-shadow: 0 12px 30px rgba(0,0,0,.22); font-size: .82rem; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+.model-details-popover small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: .7rem; }
+.model-details-popover .model-role-assessments__body { max-height: none; overflow: visible; padding: 0; margin: 0; border: 0; background: transparent; }
+.model-details-popover .model-offer-list__details { max-height: none; overflow: visible; margin: 0; }

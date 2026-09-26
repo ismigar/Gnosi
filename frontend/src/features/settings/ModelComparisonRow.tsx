@@ -4,6 +4,8 @@ import { ModelParameterReview } from './model-comparison/ModelParameterReview';
 import { ModelAliasField } from './ModelAliasField';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { Fragment, type ReactNode } from 'react';
+import { ComparisonDetails } from './model-comparison/ComparisonDetails';
+import { ModelOfferList } from './model-comparison/ModelOfferList';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -117,7 +119,7 @@ export function ModelComparisonRow({
             case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{onSaveAlias && activeEntries.map(entry => <ModelAliasField key={`${entry.provider}:${entry.model_id}`} entry={entry} onSave={onSaveAlias} disabled={isBusy} />)}</>;
             case 'provider': return [...new Set(model.routes.map(route => providersById[route.provider]?.name || route.provider))].sort().join(', ') || '—';
             case 'creator': return model.creator || '—';
-            case 'modes': return routeCapabilities.length ? routeCapabilities.map((route, index) => <div key={index} title={route.model_id}>
+            case 'modes': return routeCapabilities.length ? <ModelOfferList offers={routeCapabilities} renderOffer={(route, index) => <div key={index} title={route.model_id}>
                 <strong>{providersById[route.provider]?.name || route.provider_name || route.provider}</strong>
                 {(['input_modes', 'output_modes'] as const).map(direction => <small key={direction}>
                     {t(`model_comparison.${direction}`)} — {route[direction]?.length ? route[direction].map(mode => t(`model_comparison.modes_list.${mode}`, { defaultValue: mode })).join(', ') : t('model_comparison.unknown_capability')}
@@ -125,7 +127,7 @@ export function ModelComparisonRow({
                 {(['tool_call', 'reasoning'] as const).map(capability => <small key={capability}>
                     {t(`model_comparison.${capability}`)} — {t(`model_comparison.${route[capability] == null ? 'unknown_capability' : route[capability] ? 'supported' : 'unsupported'}`)}
                 </small>)}
-            </div>) : t('model_comparison.unknown_capability');
+            </div>} /> : t('model_comparison.unknown_capability');
             case 'parameters': return parameters ? <>
                 <a href={parameters.source} rel="noreferrer" target="_blank"
                     title={`${t(parameters.verification === 'user_review' ? 'model_comparison.review_manual' : 'model_comparison.parameters_source')} · ${t('model_comparison.parameters_checked', { date: parameters.checkedAt })}`}>
@@ -139,23 +141,23 @@ export function ModelComparisonRow({
                 target="_blank" rel="noreferrer" title={`${t('model_comparison.parameters_not_published_help')} · ${t('model_comparison.parameters_checked', { date: disclosure.checkedAt })}`}>
                 {t('model_comparison.parameters_not_published')}
             </a> : <ModelParameterReview modelId={model.id} modelName={model.name} onUpdated={onParameterUpdate} />;
-            case 'context_window': return routeCapabilities.length ? routeCapabilities.map((route, index) => <div key={index} title={route.model_id}>{providersById[route.provider]?.name || route.provider_name || route.provider} — <strong>{knownContext(route.context_window) ? formatComparisonContext(route.context_window) : t('model_comparison.unknown_capability')}</strong></div>) : t('model_comparison.unknown_capability');
+            case 'context_window': return routeCapabilities.length ? <ModelOfferList offers={routeCapabilities} renderOffer={(route, index) => <div key={index} title={route.model_id}>{providersById[route.provider]?.name || route.provider_name || route.provider} — <strong>{knownContext(route.context_window) ? formatComparisonContext(route.context_window) : t('model_comparison.unknown_capability')}</strong></div>} /> : t('model_comparison.unknown_capability');
             case 'input_price':
             case 'output_price':
-            case 'monthly_cost': return routeCosts.length ? routeCosts.map(({ route, cost }, index) => {
+            case 'monthly_cost': return routeCosts.length ? <ModelOfferList offers={routeCosts} renderOffer={({ route, cost }, index) => {
                 const value = key === 'monthly_cost' ? cost : route[key === 'input_price' ? 'cost_in' : 'cost_out'];
                 const label = providersById[route.provider]?.name || route.provider_name || route.provider;
                 return <div key={`${route.provider}:${String(index)}`} title={route.model_id}>
                     {label} — <strong>{knownPrice(value) ? formatComparisonCost(value * currencyRate, currencySymbol) : t('model_comparison.unknown_cost')}</strong>
                     {route.is_local && <small>{t('model_comparison.local_cost_note')}</small>}
                 </div>;
-            }) : t('model_comparison.unknown_cost');
+            }} /> : t('model_comparison.unknown_cost');
             case 'speed': return isFiniteMetric(model.speed)
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return isFiniteMetric(model.latency)
                 ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
-            case 'profile': return model.role_assessments?.length ? <><details className="model-role-assessments"><summary>{assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${formatComparisonMetric(r.score)}%` : ''}`).join(', ') || t('agent_team.insufficient_data')}</summary>
-                <div className="model-role-assessments__body"><p className="settings-desc">{t('agent_team.scoring_help')}</p>
+            case 'profile': return model.role_assessments?.length ? <><ComparisonDetails className="model-role-assessments" summary={<>{assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => `${t(`model_comparison.profiles.${r.role}`)}${r.score != null ? ` · ${formatComparisonMetric(r.score)}%` : ''}`).join(', ') || t('agent_team.insufficient_data')}</>}>
+                {() => <div className="model-role-assessments__body"><p className="settings-desc">{t('agent_team.scoring_help')}</p>
                 {assessments.map(r => <p key={r.role}><strong>{t(`model_comparison.profiles.${r.role}`)}</strong>: {t(`agent_team.${r.status}`)}<br />
                     {t('agent_team.role_score')}: {r.score != null ? `${formatComparisonMetric(r.score)}%` : '—'} · {t('agent_team.data_coverage')}: {r.coverage}%<br />
                     {r.evaluation_score != null && <span>{t('agent_team.lab_measured')}: {r.evaluation_score}% · {r.evaluation_date}<br />{t('agent_team.lab_blend')}<br /></span>}
@@ -166,8 +168,8 @@ export function ModelComparisonRow({
                     <span className="settings-desc">{t('agent_team.obtain_catalog')}</span><br />
                     {t('agent_team.missing')}: {(r.missing ?? []).filter(item => !(item in (r.weights ?? {}))).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}<br />
                     <span className="settings-desc">{t(`agent_team.verify_roles.${r.role}`)} {t('agent_team.verification_pending')}</span>
-                </p>)}</div>
-            </details>{selectedProfile !== 'all' && selectedProfile !== 'unrated' && assessments.map(r => <small key={r.role}>{t('model_comparison.estimated_fit')} · {t('agent_team.data_coverage')}: {r.coverage}%</small>)}</> : <span className={`model-profile-badge ${model.profile}`}>
+                </p>)}</div>}
+            </ComparisonDetails>{selectedProfile !== 'all' && selectedProfile !== 'unrated' && assessments.map(r => <small key={r.role}>{t('model_comparison.estimated_fit')} · {t('agent_team.data_coverage')}: {r.coverage}%</small>)}</> : <span className={`model-profile-badge ${model.profile}`}>
                 {PROFILE_ICONS[model.profile as ComparisonProfile] ?? '⚪'}{' '}
                 {t(`model_comparison.profiles.${model.profile}`)}
             </span>;

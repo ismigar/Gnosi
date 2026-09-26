@@ -5018,6 +5018,9 @@
     }
   },
   "model_comparison": {
+    "additional_offers_one": "{{count}} oferta más",
+    "additional_offers_other": "{{count}} ofertas más",
+    "additional_offers_many": "{{count}} ofertas más",
     "parameters_missing": "Pendiente de verificar",
     "parameters_missing_help": "Todavía no hemos verificado el tamaño de este modelo con una fuente oficial.",
     "parameters_active": "{{value}} B activos / token",

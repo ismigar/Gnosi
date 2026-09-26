@@ -5018,6 +5018,9 @@
     }
   },
   "model_comparison": {
+    "additional_offers_one": "{{count}} oferta més",
+    "additional_offers_other": "{{count}} ofertes més",
+    "additional_offers_many": "{{count}} ofertes més",
     "parameters_missing": "Pendent de verificar",
     "parameters_missing_help": "Encara no hem verificat la mida d’aquest model amb una font oficial.",
     "parameters_active": "{{value}} B actius / token",
