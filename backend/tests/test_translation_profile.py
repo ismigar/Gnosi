@@ -52,6 +52,7 @@ def test_unavailable_profile_never_silently_uses_the_principal(change):
         translation_settings(ai)["enabled"] = False
     else:
         ai["agents"].append({**profiles.select_profile(ai, skill_id("translation")), "id": "duplicate"})
+        ai["operation_bindings"].pop("translation")
     with pytest.raises(RuntimeError, match="plugin_profile_unavailable"):
         profiles.select_profile(ai, skill_id("translation"))
 
@@ -63,8 +64,14 @@ def test_translation_profile_cannot_be_deleted_through_settings():
         profiles.validate_preserved(ai, configuration())
 
 
-def test_conversation_translation_keeps_the_running_snapshot(monkeypatch):
-    inherited = object()
+def test_conversation_translation_keeps_the_running_snapshot(monkeypatch, tmp_path):
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    inherited = AgentExecutionSnapshot(
+        scope=ExecutionScope(user_id="u", workspace_id="w", vault_path=str(tmp_path), role="owner"),
+        agent_id="conversation", profile={"_execution_operation_bindings": {
+            "translation": {"agent_id": "conversation", "skill_id": skill_id("translation")},
+        }}, skill_ids=[skill_id("translation")], instructions=[], catalog_revision="1", revision="1",
+    )
     selected = object()
     observed = []
     monkeypatch.setattr(agent_execution, "select_snapshot_skill", lambda snapshot, skill: (
@@ -76,3 +83,12 @@ def test_conversation_translation_keeps_the_running_snapshot(monkeypatch):
         assert observed == [(inherited, skill_id("translation"))]
     finally:
         agent_execution._snapshot.reset(token)
+
+
+def test_explicit_translation_binding_selects_one_profile_among_same_owner():
+    ai = configuration()
+    profiles.reconcile(ai, {})
+    ai["agents"].append({**translation_settings(ai), "id": "duplicate", "model": "second"})
+    assert profiles.select_profile(ai, skill_id("translation"))["id"] == "builtin.translation.default"
+    ai["operation_bindings"]["translation"]["agent_id"] = "duplicate"
+    assert profiles.select_profile(ai, skill_id("translation"))["model"] == "second"

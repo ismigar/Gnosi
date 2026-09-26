@@ -12,7 +12,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 583 | 2457 |
-| pytest | 562 | 4006 |
+| pytest | 562 | 4007 |
 
 ## Fichiers
 
@@ -1047,7 +1047,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | pytest | [`backend/tests/test_translation_open_helpers_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_helpers_contract.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_translation_open_io_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_io_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_translation_open_services_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_open_services_contract.py) | 9 | Python AST |
-| pytest | [`backend/tests/test_translation_profile.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_profile.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_translation_profile.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_profile.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_translation_provider_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_provider_contracts.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_translation_request_validation_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_translation_request_validation_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_truthy_checkbox_parity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_truthy_checkbox_parity.py) | 3 | Python AST |

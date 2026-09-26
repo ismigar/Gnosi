@@ -120,6 +120,7 @@ __all__ = [
     "_vault_context_is_relevant",
     "build_agent_turn_plan",
     "build_context_tools",
+    "build_diagnostic_client",
     "create_agent_workflow",
     "generate_text",
     "get_default_llm_with_meta",

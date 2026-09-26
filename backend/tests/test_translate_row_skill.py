@@ -1,4 +1,6 @@
 """Functional translations use the principal, never another provider."""
+import json
+
 import pytest
 from pipeline.skills.translate_row.scripts import translate_text
 
@@ -16,7 +18,11 @@ def test_all_language_pairs_use_translation_skill(monkeypatch, source, target):
         return "translated API", "principal-model"
     monkeypatch.setattr("backend.services.agent_execution.generate_for", generate)
     assert translate_text.translate("Source API", source, target, deepl_api_key="ignored", softcatala_url="ignored") == ("translated API", "principal_agent")
-    assert calls == [("translation", f"Source language: {source}\nTarget language: {target}\n\nSource API")]
+    assert len(calls) == 1
+    assert calls[0][0] == "translation"
+    assert json.loads(calls[0][1]) == {"task": "translation.text", "data": {
+        "text": "Source API", "source_language": source, "language": target,
+    }}
 
 
 def test_unavailable_principal_never_returns_a_fake_translation(monkeypatch):

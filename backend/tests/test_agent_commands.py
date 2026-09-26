@@ -82,11 +82,11 @@ def test_direct_workflow_disables_team_only_for_this_turn(monkeypatch):
     profile = {'id': 'translator', 'model': 'fixed', 'provider': 'fake', 'team': {'enabled': True}, 'skill_ids': ['translate']}
     monkeypatch.setattr(workflow, 'prepare_agent_runtime', lambda *args, **kwargs: ({}, profile, SimpleNamespace()))
     monkeypatch.setattr(mcp_tool_contributions, 'refresh_mcp_tool_contributions', lambda *args: None)
-    factory = AsyncMock(return_value=(object(), {}))
-    monkeypatch.setattr(workflow, 'create_agent_workflow', factory)
+    workflow_factory = AsyncMock(return_value=(object(), {}))
+    monkeypatch.setattr(workflow, 'create_agent_workflow', workflow_factory)
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     asyncio.run(workflow.get_agent_workflow(request, 'translator', direct_agent=True))
-    prepared = factory.call_args.kwargs['prepared_agent_data']
+    prepared = workflow_factory.call_args.kwargs['prepared_agent_data']
     assert prepared == {**profile, 'team': {'enabled': False}}
     assert profile['team']['enabled'] is True
     assert request.app.state.agent_cache == {}
