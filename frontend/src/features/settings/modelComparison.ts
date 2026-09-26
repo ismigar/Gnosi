@@ -395,7 +395,7 @@ export const filteredComparisonModels = (
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
         && (ui.profile === 'all' || (model.role_assessments?.length
-            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => !['catalog_compatible', 'tested'].includes(r.status)) : model.role_assessments.some(r => r.role === ui.profile && ['catalog_compatible', 'tested', 'insufficient_data'].includes(r.status)))
+            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => !['catalog_compatible', 'tested'].includes(r.status)) : model.role_assessments.some(r => r.role === ui.profile && (['catalog_compatible', 'tested'].includes(r.status) || (ui.showIncomplete && r.status === 'insufficient_data'))))
             : model.profile === ui.profile))
         && (
             ui.showIncomplete

@@ -6353,7 +6353,7 @@
     },
     "review_manual": "Manually reviewed source",
     "estimated_fit": "Estimated suitability",
-    "choice_help": "Choose by estimated suitability, cost and model maker. No tests are required. Candidates with insufficient data appear last when sorting by use; current filters may hide alternatives.",
+    "choice_help": "Choose by estimated suitability, cost and model maker. The profile filters models with estimated suitability for that task. Enable “Include incomplete” to also see candidates with insufficient data; this does not confirm their suitability. Current filters may hide alternatives.",
     "compare_candidates": "Compare all candidates",
     "unknown_cost": "Unknown cost",
     "local_cost_note": "No token fee; hardware and energy are not included.",

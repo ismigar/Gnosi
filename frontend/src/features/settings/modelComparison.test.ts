@@ -284,14 +284,16 @@ describe('role suitability ordering', () => {
     });
 });
 
-it('keeps insufficient role evidence visible and sorts it last without requiring evaluations', () => {
+it('only includes insufficient role evidence when incomplete models are explicitly enabled', () => {
     const role = { role: 'director', status: 'catalog_compatible', coverage: 80, method: 'weighted_catalog_v1', source: 'catalog', score: 85 } as const;
     const models = [comparisonModel({ id: 'unknown', coding: null, agentic: null, role_assessments: [{ ...role, status: 'insufficient_data', score: null }] }), comparisonModel({ id: 'known', role_assessments: [role] })];
     const ui = modelComparisonUiReducer(INITIAL_COMPARISON_UI_STATE, { type: 'set-profile', value: 'director' });
     expect(ui.sort).toEqual({ key: 'profile', direction: 'desc' });
-    expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['known', 'unknown']);
+    expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['known']);
+    expect(filteredComparisonModels({ ...feed, models }, [], { ...ui, showIncomplete: true }).map(m => m.id)).toEqual(['known', 'unknown']);
     const reset = modelComparisonUiReducer({ ...ui, provider: 'openrouter', availability: 'inactive', modes: ['image'], maxPrice: '1', inputTokens: '12' }, { type: 'compare-role-candidates' });
-    expect(reset).toMatchObject({ profile: 'director', provider: 'all', availability: 'all', modes: [], maxPrice: '', inputTokens: '12' });
+    expect(reset).toMatchObject({ profile: 'director', provider: 'all', availability: 'all', modes: [], maxPrice: '', inputTokens: '12', showIncomplete: true });
+    expect(filteredComparisonModels({ ...feed, models }, [], reset).map(m => m.id)).toEqual(['known', 'unknown']);
 });
 
 it('sorts the manufacturer column by creator, independently of hosting routes', () => {
@@ -303,4 +305,21 @@ it('sorts the manufacturer column by creator, independently of hosting routes', 
     const model = comparisonModel({ routes: comparisonModel({}).routes.map(route => ({ ...route, input_modes: undefined, output_modes: undefined })) });
     expect(filteredComparisonModels({ ...feed, models: [model] }, [], INITIAL_COMPARISON_UI_STATE)).toHaveLength(1);
     expect(filteredComparisonModels({ ...feed, models: [model] }, [], { ...INITIAL_COMPARISON_UI_STATE, modes: ['image'] })).toHaveLength(0);
+});
+
+
+it('does not treat an active worker or its alias as evidence of director suitability', () => {
+    const assessment = { coverage: 75, method: 'weighted_catalog_v1', source: 'catalog' } as const;
+    const models = [comparisonModel({
+        id: 'flash-lite', name: 'Gemini Flash-Lite',
+        role_assessments: [
+            { ...assessment, role: 'worker', status: 'catalog_compatible', score: 90 },
+            { ...assessment, role: 'director', status: 'insufficient_data', score: null },
+        ],
+    })];
+    const registry = [{ provider: 'openai', model_id: 'model-1', enabled: true, alias: 'Peó - multimode' }];
+    const ui = { ...INITIAL_COMPARISON_UI_STATE, profile: 'director' as const, availability: 'active' as const };
+    expect(filteredComparisonModels({ ...feed, models }, registry, ui)).toEqual([]);
+    expect(filteredComparisonModels({ ...feed, models }, registry, { ...ui, showIncomplete: true }).map(m => m.id)).toEqual(['flash-lite']);
+    expect(filteredComparisonModels({ ...feed, models }, registry, { ...ui, profile: 'worker' }).map(m => m.id)).toEqual(['flash-lite']);
 });

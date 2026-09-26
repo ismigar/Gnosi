@@ -5275,7 +5275,7 @@
     },
     "review_manual": "Source vérifiée manuellement",
     "estimated_fit": "Adéquation estimée",
-    "choice_help": "Choisissez selon l’adéquation estimée, le coût et le fabricant. Aucun test n’est nécessaire. Les candidats sans données suffisantes apparaissent en dernier lors du tri par usage ; les filtres actuels peuvent masquer des alternatives.",
+    "choice_help": "Choisissez selon l’adéquation estimée, le coût et le fabricant. Le profil filtre les modèles dont l’adéquation est estimée pour cette tâche. Activez « Inclure les incomplets » pour voir aussi les candidats sans données suffisantes ; cela ne confirme pas leur adéquation. Les filtres actuels peuvent masquer des alternatives.",
     "compare_candidates": "Comparer tous les candidats",
     "unknown_cost": "Coût inconnu",
     "local_cost_note": "Sans tarif par token ; matériel et énergie non inclus.",

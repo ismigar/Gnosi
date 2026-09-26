@@ -5275,7 +5275,7 @@
     },
     "review_manual": "Font revisada manualment",
     "estimated_fit": "Adequació estimada",
-    "choice_help": "Tria segons l’adequació estimada, el cost i el fabricant. No cal executar proves. Els candidats sense dades suficients apareixen al final en ordenar per ús; els filtres actuals poden amagar alternatives.",
+    "choice_help": "Tria segons l’adequació estimada, el cost i el fabricant. El perfil filtra els models amb adequació estimada per a aquella tasca. Activa «Inclou incomplets» per veure també candidats sense dades suficients; això no confirma que siguin adequats. Els filtres actuals poden amagar alternatives.",
     "compare_candidates": "Compara tots els candidats",
     "unknown_cost": "Cost desconegut",
     "local_cost_note": "Sense tarifa per tokens; maquinari i energia no inclosos.",
