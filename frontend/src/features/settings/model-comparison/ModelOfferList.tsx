@@ -9,7 +9,7 @@ export function ModelOfferList<T>({ offers, renderOffer }: {
 }) {
     const { t } = useTranslation();
     if (!offers.length) return null;
-    const preview = renderOffer(offers[0], 0);
+    const preview = offers.slice(0, 1).map(renderOffer);
     if (offers.length === 1) return <div className="model-offer-list">{preview}</div>;
     return <ComparisonDetails className="model-offer-list" preview={preview}
         summary={t('model_comparison.additional_offers', { count: offers.length - 1 })}>

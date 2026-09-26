@@ -323,6 +323,7 @@ describe('AIModelComparisonModal', () => {
 it('keeps a model with many provider offers compact and reveals the remaining offers on demand', () => {
     const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
     const base = FEED.models[0];
+    if (!base || !base.routes[0]) throw new Error('Missing route fixture');
     const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${index}`, provider_name: `Provider ${index}`, cost_in: index + 1 }));
     mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
@@ -334,12 +335,14 @@ it('keeps a model with many provider offers compact and reveals the remaining of
         expect(list.querySelectorAll(':scope > div')).toHaveLength(1);
         expect(list.querySelector('.model-offer-list__details')).toBeNull();
     }
-    const offers = offerLists[0].querySelector<HTMLButtonElement>('button');
+    const firstList = offerLists[0];
+    if (!firstList) throw new Error('Missing offers');
+    const offers = firstList.querySelector<HTMLButtonElement>('button');
     act(() => { offers?.click(); });
     expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
     expect(container.querySelector('.model-details-popover')?.textContent).toContain('Provider 23');
     act(() => { offers?.click(); });
     expect(container.querySelector('.model-offer-list__details')).toBeNull();
-    act(() => { offerLists[0].dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    act(() => { firstList.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
     expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
 });
