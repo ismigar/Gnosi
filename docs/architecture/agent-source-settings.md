@@ -18,6 +18,7 @@ Regression coverage includes source add/remove/exhaustion, translated searches, 
 
 - 73 frontend regression tests and 75 backend source/contract tests passed; 22 Vite configuration tests passed separately.
 - Frontend TypeScript, scoped ESLint, strict Python typing for the four affected adapter/service modules, Ruff, four-locale validation, generated API client validation, API boundary checks, production build and bundle budgets passed.
+- Regenerated the engineering source catalogs in all four languages; the complete pre-PR documentation gate passed, including 260 tooling tests and four strict portal builds.
 - Browser checks covered real rendered components with synthetic data, keyboard selection, accent-insensitive search, modal dropdown stacking and 390px layouts without horizontal overflow, in both themes.
 - Existing baseline failures were reproduced at source commit `67e4f66a5`: two Reader analysis tests expect an obsolete prompt marker; frontend architecture checks flag `useModelComparisonData.ts`; backend source guardrails flag `directed_reading.py`, `agent_document_work.py`, `agent_skill_catalog.py` and `plugin_agent_profiles.py`. These files were not changed by this revision.
-- No installed application or live account data was modified. Implementation is on the local `fix/agent-source-settings` branch, based on the installed application's recorded source revision.
+- The build is based on `67e4f66a5` and retains all six source revisions recorded by the installed application's provenance manifest, including the changes from PRs #112–#120. The source-settings changes are included in integration PR #120.

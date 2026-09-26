@@ -8,12 +8,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Domini | Estat | Guia | Fitxers font | Fitxers de proves | Directives trobades |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 686 | 235 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 696 | 236 | 0 |
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1002 | 266 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 444 | 112 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 130 | 52 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 229 | 83 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 240 | 87 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 97 | 48 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 82 | 33 | 0 |
@@ -22,7 +22,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 147 | 46 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 41 | 28 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 138 | 44 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 139 | 44 | 0 |
 
 ## Platform foundation and runtime
 
