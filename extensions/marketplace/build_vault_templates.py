@@ -12,6 +12,13 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from backend.services.vault_templates import validate_package
+from extensions.marketplace.catalog_content import (
+    LANGUAGES,
+    additional_templates,
+    french_research_notes,
+)
+from extensions.marketplace.reviewed_templates import reviewed_packages
 from extensions.marketplace.signing_policy import (
     OFFICIAL_PUBLIC_KEY_B64,
     load_official_private_key,
@@ -223,6 +230,9 @@ def _starter_package() -> tuple[bytes, dict]:
             "Un flujo de investigación soberano debe preservar tanto los archivos abiertos como el camino que lleva desde la interpretación hasta la evidencia [@gnosi2026].\n"
         ),
     }
+    payloads.update(french_research_notes())
+    for filename in ["Wiki/Start here.md", "Wiki/Comença aquí.md", "Wiki/Empieza aquí.md"]:
+        payloads[filename] = payloads[filename].rstrip() + " · [[Commencez ici]]\n"
     encoded_payloads = {
         path: content.encode("utf-8") for path, content in payloads.items()
     }
@@ -236,7 +246,7 @@ def _starter_package() -> tuple[bytes, dict]:
     ]
     manifest = {
         "id": "starter-vault",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "schemaVersion": SCHEMA_VERSION,
         "name": "Research Starter Workspace",
         "description": (
@@ -247,9 +257,9 @@ def _starter_package() -> tuple[bytes, dict]:
         "license": "CC-BY-4.0",
         "minGnosiVersion": "1.0.0",
         "categories": ["starter", "research", "writing"],
-        "languages": ["ca", "en", "es"],
+        "languages": LANGUAGES,
         "recommendedPlugins": [],
-        "preview": "",
+        "preview": "Sources table · Reading notes · Connected synthesis · Manuscript examples · CA / EN / ES / FR",
         "files": files,
     }
     buffer = io.BytesIO()
@@ -264,42 +274,67 @@ def _starter_package() -> tuple[bytes, dict]:
     return buffer.getvalue(), manifest
 
 
+def _additional_packages() -> list[tuple[bytes, dict]]:
+    result = []
+    for metadata, payloads in additional_templates():
+        encoded = {path: content.encode("utf-8") for path, content in payloads.items()}
+        manifest = {**metadata, "files": [
+            {"path": path, "sha256": hashlib.sha256(content).hexdigest(), "size": len(content)}
+            for path, content in sorted(encoded.items())
+        ]}
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            _write(archive, "template.json", json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode())
+            for path, content in sorted(encoded.items()):
+                _write(archive, f"vault/{path}", content)
+        result.append((buffer.getvalue(), manifest))
+    return result
+
+
 def build(
     out: Path,
     base_url: str,
     *,
     expected_public_key: str = OFFICIAL_PUBLIC_KEY_B64,
+    reviewed_dir: Path | None = None,
 ) -> dict:
-    """Write the starter package, signed index, and detached index signature."""
-
+    """Validate every input, then sign the complete official and reviewed catalog."""
+    packages = [_starter_package(), *_additional_packages()]
+    if reviewed_dir is not None:
+        packages.extend(reviewed_packages(reviewed_dir))
+    identities = set()
+    for package, manifest in packages:
+        validate_package(package)
+        if manifest["id"] in identities:
+            raise ValueError(f"Duplicate template identity: {manifest['id']}")
+        identities.add(manifest["id"])
+    if out.exists() and any(out.iterdir()):
+        raise ValueError("Template output directory must be empty")
     key = _private_key(expected_public_key)
     out.mkdir(parents=True, exist_ok=True)
-    package, manifest = _starter_package()
-    package_name = f"{manifest['id']}-{manifest['version']}.gnosi-vault.zip"
-    (out / package_name).write_bytes(package)
-    entry = {
-        key: manifest[key]
-        for key in (
+    entries = []
+    package_names = []
+    for package, manifest in packages:
+        package_name = f"{manifest['id']}-{manifest['version']}.gnosi-vault.zip"
+        (out / package_name).write_bytes(package)
+        package_names.append(package_name)
+        entry = {field: manifest[field] for field in (
             "id", "version", "name", "description", "author", "license",
             "categories", "languages", "recommendedPlugins", "preview",
-        )
-    }
-    entry.update({
-        "url": f"{base_url.rstrip('/')}/{package_name}",
-        "sha256": hashlib.sha256(package).hexdigest(),
-        "signature": _sign(key, package),
-        "size": len(package),
-    })
-    index = {
-        "schemaVersion": 1,
-        "vaultTemplates": [entry],
-    }
+        )}
+        entry.update({
+            "url": f"{base_url.rstrip('/')}/{package_name}",
+            "sha256": hashlib.sha256(package).hexdigest(),
+            "signature": _sign(key, package), "size": len(package),
+        })
+        entries.append(entry)
     index_bytes = json.dumps(
-        index, indent=2, ensure_ascii=False, sort_keys=True
+        {"schemaVersion": 1, "vaultTemplates": entries},
+        indent=2, ensure_ascii=False, sort_keys=True,
     ).encode("utf-8")
     (out / "vault-templates-index.json").write_bytes(index_bytes)
     (out / "vault-templates-index.sig").write_text(_sign(key, index_bytes), encoding="ascii")
-    return {"templates": 1, "package": package_name, "out": str(out)}
+    return {"templates": len(entries), "package": package_names[0], "packages": package_names, "out": str(out)}
 
 
 def main() -> int:
@@ -309,8 +344,9 @@ def main() -> int:
         "--base-url",
         default="https://github.com/ismigar/Gnosi/releases/latest/download",
     )
+    parser.add_argument("--reviewed-dir", type=Path, help="Private, validated packages and review receipts")
     args = parser.parse_args()
-    result = build(Path(args.out), args.base_url)
+    result = build(Path(args.out), args.base_url, reviewed_dir=args.reviewed_dir)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
