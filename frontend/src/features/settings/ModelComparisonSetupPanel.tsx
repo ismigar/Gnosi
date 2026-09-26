@@ -1,7 +1,7 @@
 import { CheckCircle2, Cloud, Loader2, Server } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { ResolvedComparisonRoute } from './model-comparison/modelComparisonRegistry';
+import { comparisonRouteKey, type ResolvedComparisonRoute } from './model-comparison/modelComparisonRegistry';
 import type {
     AiModelCatalogProvider,
     AiModelComparisonEntry,
@@ -13,13 +13,15 @@ import type {
 
 
 interface ModelComparisonSetupPanelProps {
+    readonly relatedBenchmarks?: readonly string[];
     readonly busyModelId: string;
-    readonly onActivate: () => Promise<void>;
+    readonly onAliasChange: (value: string) => void;
     readonly onApiKeyChange: (value: string) => void;
     readonly onBaseUrlChange: (value: string) => void;
     readonly onCancel: () => void;
     readonly onModeChange: (mode: ComparisonSetupMode) => void;
     readonly onProviderChange: (providerId: string) => void;
+    readonly onTestConnection: () => Promise<void>;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
     readonly routesForMode: (
         model: AiModelComparisonEntry,
@@ -31,13 +33,15 @@ interface ModelComparisonSetupPanelProps {
 
 
 export function ModelComparisonSetupPanel({
+    relatedBenchmarks = [],
     busyModelId,
-    onActivate,
+    onAliasChange,
     onApiKeyChange,
     onBaseUrlChange,
     onCancel,
     onModeChange,
     onProviderChange,
+    onTestConnection,
     providersById,
     routesForMode,
     setup,
@@ -47,7 +51,7 @@ export function ModelComparisonSetupPanel({
     const provider = providersById[setup.providerId];
     const routes = routesForMode(setup.model, setup.mode);
     const route = routes.find((candidate) => (
-        candidate.provider === setup.providerId
+        setup.routeKey ? comparisonRouteKey(candidate) === setup.routeKey : candidate.provider === setup.providerId
     ));
     const modes = (['remote', 'local'] as const).filter((mode) => (
         routesForMode(setup.model, mode).length > 0
@@ -65,6 +69,17 @@ export function ModelComparisonSetupPanel({
                 : undefined}
         >
             <div className="model-setup-content">
+                {relatedBenchmarks.length > 1 && <p className="settings-desc" role="note">
+                    {t('model_comparison.setup.shared_offer_help', { models: relatedBenchmarks.join(', ') })}
+                </p>}
+                <label className="model-setup-field">
+                    <span>{t('model_comparison.alias.label')}</span>
+                    <input value={setup.alias || ''} maxLength={120}
+                        disabled={setup.connectionStatus === 'testing' || busyModelId === setup.model.id}
+                        placeholder={t('model_comparison.alias.placeholder')}
+                        onChange={event => { onAliasChange(event.target.value); }} />
+                    <small>{t('model_comparison.alias.help')}</small>
+                </label>
                 {modes.length > 1 ? (
                     <fieldset className="model-execution-choice">
                         <legend>{t('model_comparison.setup.execution')}</legend>
@@ -112,15 +127,16 @@ export function ModelComparisonSetupPanel({
                                     onChange={(event) => {
                                         onProviderChange(event.target.value);
                                     }}
-                                    value={setup.providerId}
+                                    value={route ? comparisonRouteKey(route) : ''}
                                 >
                                     {routes.map((candidate) => (
                                         <option
-                                            key={candidate.provider}
-                                            value={candidate.provider}
+                                            key={comparisonRouteKey(candidate)}
+                                            value={comparisonRouteKey(candidate)}
                                         >
                                             {candidate.provider_name}
-                                            {candidate.provider_connected
+                                            {` · ${candidate.model_id}`}
+                                            {candidate.provider_validated
                                                 ? ` · ${t('model_comparison.setup.connected')}`
                                                 : ''}
                                         </option>
@@ -129,21 +145,32 @@ export function ModelComparisonSetupPanel({
                             </label>
                         ) : null}
 
-                        {provider && setup.mode === 'remote' && !needsApiKey ? (
+                        {provider && setup.mode === 'remote' && setup.connectionStatus === 'connected' ? (
                             <div className="model-provider-state connected">
                                 <CheckCircle2 size={18} />
                                 <span>
                                     <strong>{t(
-                                        'model_comparison.setup.credentials_ready',
+                                        'model_comparison.setup.connection_verified',
                                     )}</strong>
                                     <small>{t(
-                                        'model_comparison.setup.credentials_ready_help',
+                                        'model_comparison.setup.connection_verified_help',
+                                        { model: route?.model_id },
                                     )}</small>
                                 </span>
                             </div>
                         ) : null}
 
-                        {needsApiKey && provider ? (
+                        {provider && setup.mode === 'remote' && setup.connectionStatus === 'untested' && !needsApiKey ? (
+                            <div className="model-provider-state">
+                                <Server size={18} />
+                                <span>
+                                    <strong>{t('model_comparison.setup.credentials_saved')}</strong>
+                                    <small>{t('model_comparison.setup.connection_unverified')}</small>
+                                </span>
+                            </div>
+                        ) : null}
+
+                        {setup.mode === 'remote' && provider ? (
                             <>
                                 <label className="model-setup-field">
                                     <span>{t('model_comparison.setup.api_key', {
@@ -151,6 +178,7 @@ export function ModelComparisonSetupPanel({
                                     })}</span>
                                     <input
                                         autoComplete="off"
+                                        disabled={setup.connectionStatus === 'testing'}
                                         onChange={(event) => {
                                             onApiKeyChange(event.target.value);
                                         }}
@@ -158,11 +186,14 @@ export function ModelComparisonSetupPanel({
                                         type="password"
                                         value={setup.apiKey}
                                     />
-                                    <small>{t('model_comparison.setup.api_key_help')}</small>
+                                    <small>{t(provider.has_api_key
+                                        ? 'model_comparison.setup.replace_api_key_help'
+                                        : 'model_comparison.setup.api_key_help')}</small>
                                 </label>
                                 <label className="model-setup-field">
                                     <span>{t('model_comparison.setup.base_url')}</span>
                                     <input
+                                        disabled={setup.connectionStatus === 'testing' || !setup.apiKey.trim()}
                                         onChange={(event) => {
                                             onBaseUrlChange(event.target.value);
                                         }}
@@ -182,36 +213,38 @@ export function ModelComparisonSetupPanel({
                         {t(`model_comparison.errors.${setup.error}`)}
                     </div>
                 ) : null}
+                {setup.connectionStatus === 'error' ? (
+                    <div className="model-setup-error" role="alert">
+                        {setup.connectionError || t('model_comparison.setup.connection_failed')}
+                    </div>
+                ) : null}
             </div>
 
             <footer>
-                <span>{route ? t('model_comparison.setup.router_help') : ''}</span>
+                <span role="status">{setup.connectionStatus === 'testing' || busyModelId === setup.model.id
+                    ? <><Loader2 className="animate-spin" size={16} /> {t('model_comparison.setup.auto_checking')}</>
+                    : route ? t('model_comparison.alias.activation_help') : ''}</span>
                 <div>
+                    <button
+                        className="btn-gnosi-secondary"
+                        disabled={
+                            !provider || !route
+                            || (needsApiKey && !setup.apiKey.trim())
+                            || setup.connectionStatus === 'testing' || busyModelId === setup.model.id
+                        }
+                        onClick={() => { void onTestConnection(); }}
+                        type="button"
+                    >
+                        {t('model_comparison.setup.activate')}
+                    </button>
                     <button
                         className="btn-gnosi-secondary"
                         onClick={onCancel}
                         type="button"
                     >
-                        {t('common.cancel')}
+                        {t('common.close')}
                     </button>
-                    <button
-                        className="btn-gnosi-primary"
-                        disabled={
-                            !provider
-                            || !route
-                            || (needsApiKey && !setup.apiKey.trim())
-                            || busyModelId === setup.model.id
-                        }
-                        onClick={() => {
-                            void onActivate();
-                        }}
-                        type="button"
-                    >
-                        {busyModelId === setup.model.id ? (
-                            <Loader2 className="animate-spin" size={16} />
-                        ) : null}
-                        {t('model_comparison.setup.activate')}
-                    </button>
+
                 </div>
             </footer>
         </section>

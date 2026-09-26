@@ -507,7 +507,7 @@ def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
             }],
         }
 
-    async def fake_message(message_id, *, email, folder):
+    def fake_message(email, folder, message_id):
         assert (message_id, email, folder) == (
             "imap_7",
             "allowed@example.test",
@@ -527,7 +527,8 @@ def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
         lambda requested, calendar=False: ["allowed@example.test"],
     )
     monkeypatch.setattr(mail_routes, "get_messages", fake_messages)
-    monkeypatch.setattr(mail_routes, "get_message", fake_message)
+    from backend.domains.agent.sources import mail as mail_sources
+    monkeypatch.setattr(mail_sources, "_read_mail_message", fake_message)
     scope = internal_sources.normalize_internal_scope("mail", {
         "accounts": ["allowed@example.test"],
         "folder": "INBOX",
@@ -538,7 +539,8 @@ def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
     record_id = searched["records"][0]["id"]
     exact = json.loads(internal_sources.read_internal_record("mail", scope, record_id))
 
-    assert record_id == "allowed@example.test::imap_7"
+    assert record_id.startswith("mail:v2:")
+    assert searched["records"][0]["folder"] == "INBOX"
     assert searched["records"][0]["preview"].endswith("Quarterly evidence.")
     assert exact["body"] == "Quarterly evidence."
 
@@ -706,8 +708,9 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
 
     def model_call(prompt, _user_message):
         prompts.append(prompt)
-        if "BATCH ANALYSES" in prompt:
-            supplied = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
+        payload = json.loads(prompt)
+        if payload["task"] == "reader.topic":
+            supplied = payload["data"]["analyses"]
             ids = [identifier for item in supplied for identifier in item["article_ids"]]
             return json.dumps({
                 "topic": supplied[0]["topic"],
@@ -715,8 +718,8 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
                 "turning_points": [],
                 "article_ids": ids,
             })
-        article_lines = prompt.split("ARTICLES:\n", 1)[1].splitlines()
-        articles = [json.loads(line) for line in article_lines]
+        assert payload["task"] == "reader.batch"
+        articles = payload["data"]["articles"]
         return json.dumps({
             "topic": articles[0]["category"],
             "period_start": articles[0]["published_at"],
@@ -877,18 +880,17 @@ def test_reader_analysis_retries_transient_failure_with_persisted_budget(
         calls += 1
         if calls == 1:
             raise TimeoutError("temporary provider timeout")
-        if "BATCH ANALYSES:\n" in prompt:
-            summaries = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
+        payload = json.loads(prompt)
+        if payload["task"] == "reader.topic":
+            summaries = payload["data"]["analyses"]
             return json.dumps({
                 "topic": "Research",
                 "evolution": "Recovered",
                 "turning_points": [],
                 "article_ids": summaries[0]["article_ids"],
             })
-        articles = [
-            json.loads(line)
-            for line in prompt.split("ARTICLES:\n", 1)[1].splitlines()
-        ]
+        assert payload["task"] == "reader.batch"
+        articles = payload["data"]["articles"]
         return json.dumps({
             "topic": "Research",
             "period_start": articles[0]["published_at"],

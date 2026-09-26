@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-09-24
 source_paths:
+  - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
   - backend/domains/literature/review_logic.py
@@ -12,6 +13,10 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
   - backend/domains/vault/citations/normalizers
+  - backend/domains/vault/citations/cover_metadata.py
+  - backend/domains/vault/citations/metadata_lookup.py
+  - frontend/src/features/vault/dashboard/useSources.ts
+  - frontend/src/shared/resources/pdfCover.ts
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
@@ -28,6 +33,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reference_covers.py
+  - frontend/src/features/vault/dashboard/useSources.test.tsx
+  - frontend/src/shared/resources/pdfCover.test.ts
+  - frontend/src/features/vault/properties/FileAttachmentField.test.tsx
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -82,6 +91,33 @@ Les routes HTTP, les modèles canoniques et les services de revue systématique
 sont strictement typés. Le comptage PRISMA, les transitions de sélection, les
 preuves d'accès ouvert et les exports CSV/JSON/Markdown/SVG résident dans le
 domaine pur `review_logic.py` ; les fonctions historiques restent des façades.
+
+## Couvertures automatiques et modèles de ressources
+
+La création depuis une source charge les modèles de la table avant de comparer
+le type Zotero détecté, y compris ses libellés traduits. Le modèle correspondant
+fournit le contenu et les valeurs initiales ; les métadonnées importées ont
+priorité, mais une couverture existante du modèle est conservée. Sans
+correspondance, le modèle par défaut est utilisé. Les nouveaux enregistrements
+n'héritent pas des indicateurs de modèle.
+
+La recherche ISBN conserve la couverture de l'édition fournie par Open Library.
+Les recherches DOI et web utilisent l'image déclarée par l'éditeur via la
+consultation existante des URL publiques. La couverture reste facultative et
+ne conditionne pas les métadonnées. Si le PDF importé n'a aucune couverture
+proposée ou issue du modèle, le navigateur produit un JPEG borné de sa première
+page et l'enregistre dans Assets/Covers avant de créer la ressource. Le PDF
+original reste joint. Un échec de génération ou d'envoi de la couverture ne
+bloque pas la création. Les couvertures en ligne restent des URL externes ;
+celles issues du PDF sont locales. L'enrichissement affiche un aperçu sans
+présélectionner le remplacement d'une couverture existante.
+
+Une seule notification de progression reste visible après la fermeture du
+dialogue de recherche. Elle indique la préparation, le téléversement du PDF,
+la création de la couverture, l’enregistrement et l’ouverture au début de chaque
+étape. Elle confirme la réussite après l’ouverture de la fiche, ou affiche une
+erreur si la création échoue. Les imports par identifiant affichent uniquement
+les étapes applicables.
 
 ## Responsabilité
 
@@ -228,6 +264,14 @@ sa signature publique et injecte les ports de fichiers, CSL et processus.
 Le lecteur Zotero intégré affiche les PDF et EPUB. Gnosi gère le pont qui localise les fichiers, sert des plages d'octets sûres, reçoit les annotations et relie les preuves sélectionnées aux enregistrements du vault. Les annotations contiennent l'URI source, la page, le type, la géométrie, le texte, le commentaire, les étiquettes, une clé gérée stable et les horodatages.
 
 Les endpoints de fichiers vérifient le confinement et gèrent l'hydratation cloud. Les identifiants persistants des annotations empêchent de dupliquer une citation générée à chaque réouverture du document.
+
+Les propriétés de fichier ouvrent les pièces jointes PDF et EPUB dans le lecteur
+interne avec l’action partagée d’ouverture. Les chemins relatifs au vault sont
+convertis en URL de ressources servies ; les liens locaux et les URL externes de
+documents utilisent la même route du lecteur. Si aucun tableau de bord ne traite
+l’événement, la navigation ouvre la page du lecteur. Ouvrir une pièce jointe ne
+modifie pas la valeur enregistrée. Les ressources du lecteur sont compilées avec
+le script existant et restent hors du contrôle de version.
 
 ## Flux et newsletters
 

@@ -1,0 +1,1 @@
+Consult the compiled Brain first for knowledge that has already been processed. Preserve citations and provenance, distinguish reading notes from permanent notes, and open raw source material only when evidence must be verified.

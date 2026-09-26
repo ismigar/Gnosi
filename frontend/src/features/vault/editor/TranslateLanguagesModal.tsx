@@ -188,7 +188,7 @@ function TranslateLanguagesModalContent({
                     })}
                 </p> : null}
                 <p className="text-[10px] text-[var(--text-secondary)]/60">
-                    {t('translate.provider_hint', 'Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in secure settings.')}
+                    {t('translate.provider_hint')}
                 </p>
             </div>
 

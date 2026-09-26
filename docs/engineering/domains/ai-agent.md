@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -235,32 +237,11 @@ through `GNOSI_DATA_DIR`; they never derive a location from a Vault or cloud
 provider. Tests inject that same canonical resolver, and encrypted stream keys
 remain in the `secrets` child of the local data directory.
 
-Runtime model selection belongs to the agent profile. `pinned` uses only the
-assigned provider/model, `resilient` starts there and permits failover only on a
-transient error, and `adaptive` may choose from the primary plus the profile's
-explicit allowlist. Every alternative must be an enabled registry row with the
-same local/remote locality; credentials and catalog defaults never expand the
-allowlist. Authentication, policy, and content errors never cause failover.
-The selected fallback is marked in message metadata and in the stream receipt,
-so a local model cannot unexpectedly send private context to a remote provider.
-
-Adaptive profiles may set `decision_engine: jev` while keeping the same assistant
-identity, memory and tools. Gnosi filters the primary and explicit alternatives
-by availability, context window, capabilities, quotas and budget before the
-optional adapter sees them. Local profiles never call Jev. The adapter sends
-only the current request (at most 12,000 characters) and candidate metadata to
-TypeSafe’s fixed HTTPS endpoint; credentials use the existing secure provider
-store. One bounded request is allowed, with no redirects or retries. Validated
-choice distributions must select an allowed candidate with confidence and
-probability at least 0.75; this threshold is a routing heuristic, not an accuracy
-guarantee. Missing credentials, uncertainty and errors retain the internal
-selection. Usage is added to the shared spend ledger, with conservative estimates
-when a timeout leaves billing uncertain. Governed operations reserve a model
-call for the decision while retaining one for the answer. Non-pinned workflows
-are rebuilt each turn so cached graphs cannot reuse an earlier task’s selection.
-The settings expose all three routing modes and optional TypeSafe credentials;
-chat response details identify Jev selection or internal fallback. Coverage lives
-in `backend/tests/test_agent_model_decisions.py` and
+Profile execution uses `pinned`: exactly the configured provider and model.
+Legacy `resilient`, `adaptive`, and `decision_engine: jev` settings no longer
+select alternatives for profiles. The settings form saves one model with no
+fallbacks. Legacy strategy helpers remain covered in
+`backend/tests/test_agent_model_decisions.py`; profile editing is covered in
 `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 The stdio MCP client validates JSON-RPC object boundaries, types pending async
@@ -301,12 +282,13 @@ and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
 
-The row-translation skill keeps provider routing and local OPUS-MT lifecycle in
-its own consolidated package. External JSON envelopes are narrowed before use,
-language scoring has deterministic typed ordering, and the lazy OPUS cache
-stores only minimal tokenizer/model protocols. Transformers' concrete generic
-types do not leak into the routing contract or alter the established
-Softcatalà, Apertium, OPUS, DeepL and placeholder fallback order.
+Row, page and skill-instruction translations use the shared `translation`
+operation. UI buttons select the Translation plugin's profile; actions within a
+conversation inherit the running agent's profile. That profile governs the
+model, policies and activity records. Translation settings link to this profile.
+Historical DeepL and Softcatalà arguments remain compatible but are ignored;
+there is no language-pair routing or placeholder provider fallback. Translating
+a skill displays a reading copy and preserves its original instructions.
 
 Plugin reconciliation can also run before FastAPI route composition. It derives
 the `.gnosi` directory from the canonical active-Vault context and reads state
@@ -659,7 +641,7 @@ makes a handler executable.
 
 ## LLM Wiki configuration
 
-Knowledge always uses the principal Agent. The historical `agent_id` setting remains preserved but cannot select a different execution profile. The managed `llm-wiki` profile is retired by the versioned migration; personal profiles and custom Knowledge instructions are preserved. Settings link to the principal and its assigned skills. Each scheduled run resolves the current principal, while existing runs retain their snapshot.
+Knowledge uses its dedicated plugin profile. The historical `agent_id` setting is preserved but does not override the plugin profile. The old managed `llm-wiki` profile remains retired; the new profile retains migrated Knowledge companion instructions. Settings link to the plugin profile and its skills.
 
 The secondary Brain tools menu lives in the Brain table header, including
 embedded tables. It offers deterministic review with an in-view report and AI
@@ -992,7 +974,7 @@ catalogue nor assignments.
 
 ## Model comparison and verified parameter counts
 
-The comparison prioritizes intelligence, context, input/output prices and estimated monthly cost, followed by modes, parameter counts, speed, latency, task profile and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
+The comparison shows the model and its multi-role assessment first, then estimated monthly cost and model maker, followed by intelligence, context, input/output prices, modes, parameter counts, speed, latency and specialist scores. Compact headings retain units and full tooltips; filters align with their fields, mode menus close on outside pointer input, and monthly token inputs use grouped thousands. The footer remains clear of the horizontal scrollbar.
 
 Parameter counts are expressed in billions, distinguishing total and active MoE parameters. Filters support verified/undisclosed/pending status and total-size bounds. Selected modes use explicit AND (default) or OR matching. Static reviewed metadata remains available when the server does not provide enriched data.
 
@@ -1072,6 +1054,55 @@ The translation action uses a compact button aligned to the right. Provider rate
 
 ## Principal Agent execution
 
-Functional AI now enters the shared principal Agent executor. Buttons, chat and schedules use assigned skills, the principal’s model policy, scoped memory and common usage accounting. Structured operations permit at most one validated format repair within the same budget. Long-job phases retain a frozen profile and reusable successful checkpoints.
+Functional AI uses a shared executor with explicit profiles. Plugin buttons and schedules resolve the plugin profile; conversations use their selected profile. Skills, scoped memory, usage accounting, bounded format repair and phase checkpoints remain shared.
 
 Activity exposes scoped execution IDs, cancellation and supported resumptions. The versioned migration backs up configuration, retires only the managed Brain profile, preserves personal profiles and moves Knowledge-specific instructions into a companion skill. Knowledge URLs and the historical routes share handlers and permissions; Notion remains optional.
+
+
+## Profiles and conversations
+
+Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations; it does not change existing chats.
+
+Each profile has exactly one LLM. To use another model, choose another profile or edit the profile model. There is no automatic model selection or fallback to alternative models. If a profile is deleted or its model becomes unavailable, choose another profile in chat. To delete the default profile, first set another default. Disable the AI plugin to turn off AI.
+
+
+Conversation checkpoint ownership remains in `agent_id` and `session_id`. The optional `profile_id` selects the execution profile, and the browser persists it as `profileId` per conversation. Switching profiles leaves messages, attachments, stream recovery and rewind attached to the same checkpoint. Server-owned confirmation arguments retain the original execution profile. New conversations use the current default; scheduled plugin skills use their plugin profile. A missing or disabled selected profile fails explicitly.
+
+## Plugin profiles
+
+Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.
+
+
+## Indicative score — weighted_catalog_v1
+
+Guidance, not certification: at least 60/100 and 60% data coverage, with role-specific requirements. Intelligence, coding and agentic benchmarks are ranked within the current catalog; context and speed saturate at 200,000 tokens and 100 tokens/s. Latency and price use 1/(1+x/2). Price uses a fixed mix of 4 input tokens per output token, not actual task cost. Context does not demonstrate citation fidelity, Catalan quality or reliability.
+
+
+Role weights are defined in `backend/services/model_role_suitability.py`. Benchmarks use tie-aware relative ranks in the current unfiltered feed (a singleton receives 0.5); they are not absolute quality probabilities. Required evidence gates are intelligence/agentic/tools for director, intelligence/tools for allrounder, intelligence/context for documentalist (minimum 100k), intelligence for expert, intelligence/tools-or-structured for administrative, and text/price/speed for worker. Unknown inputs are excluded from normalization but reduce coverage; absent requirements prevent a recommendation. Explicit tool limitations override scores. Parameter count is not treated as a proxy for capability. The legacy profile is retained only for older consumers. Catalog refresh recalculates assessments on cached feeds as well as fresh responses.
+
+The Use column shows only the selected role and its percentage; sorting compares that score with unknown values last. Estimated cost and Model maker follow it. Without a role filter, Use sorts by each model’s highest available score.
+
+The comparison’s Role and strategy tests panel lets users select enabled agents and explicitly authorize each run with real usage. Role suites use 2–3 synthetic cases with deterministic validators. Strategy comparison applies the same three cases to an all-rounder, an always-on director and a director with direct routes; these include two known routes and conflicting-source resolution with dependencies. It compares valid contracts, calls, avoidable interventions and cost; missing values do not become zero. This isolated laboratory reuses economic selection without business tools. It does not comprehensively certify language, long-context retrieval or real tool use.
+
+Each result records version, date, model, provider and per-case checks within its original user and Vault. Assessments with sufficient catalog evidence combine 50% catalog and 50% synthetic results; broader limitations and evidence gaps stay visible. Refresh comparison after reviewing results. The global cap is 24 calls, each capped at 512 output tokens; the three-strategy comparison makes 17 calls. These tests retain metadata-only traces. Cancel from Activity. Assigned models never change.
+
+Retention proposals show reusable skills, coverage/model differences from existing agents and completed executions. Completion does not certify every task-specific acceptance criterion. Permanent instructions start from a registered-skill template without copying the assignment; users can review them. Acceptance can also add the personal profile to the team. An existing equivalent configuration prevents a duplicate proposal. Rejection prevents repeating the same proposal.
+
+Implementation: `backend/services/agent_role_evaluations.py` · `backend/services/agent_team_retention.py` · `frontend/src/features/settings/AI/AgentEvaluationLab.tsx`
+
+For an unresolved parameter count, select **Pending verification** in the Parameters column. **Consult the official source** attempts an exact-version match against supported manufacturer model cards. An unavailable source or no match leaves the value pending. You can instead record total and active billions, or a reviewed non-disclosure, with an HTTPS source and explicit confirmation that you checked the exact model. Manually reviewed values retain their provenance and date; merely failing to find a number never establishes non-disclosure. Supplied links are not fetched by the server.
+
+Selecting a role sorts by estimated suitability. Candidates with insufficient evidence appear only with Include incomplete enabled; searching or changing other filters does not enable that option. Compare all candidates explicitly enables incomplete candidates while preserving the role and token budget. Choosing a model does not require running evaluations.
+
+Provider pricing is independent of the benchmark price. The selected provider controls monthly estimates, input/output price columns, price filtering and price sorting. With all providers selected, distinct provider/tariff pairs are listed by increasing monthly token cost; unknown prices appear last. Cached comparison routes are refreshed from the current catalog. Missing tariffs and unverified legacy zeros are unknown, not free. Local token fees exclude hardware and energy; estimates exclude fixed charges and taxes. Speed and role suitability remain general model data.
+
+Model matching preserves the plus variant and does not remove size suffixes such as mini or small when looking for a provider route.
+
+Activation rejects unknown route tariffs before enabling the provider or saving the registry; refreshing the catalog can resolve missing prices.
+
+
+Provider context and capabilities are displayed per route, including input/output modalities, tool use and reasoning. Unknown declarations stay unknown, including legacy default context values. Provider filters, context sorting and combined price/context/mode filters use route data; one route must satisfy all constraints. Context sorting uses the highest known matching-provider window, with unknowns last. The general benchmark and role assessments remain model-level evidence.
+
+Registry matching uses exact provider/model routes, never names or substrings. Active-state filtering and aliases respect the selected provider. Director and all-rounder filters exclude routes declaring no tool support. Activation retains every distinct provider/model offer and probes the selected route. Comparison edits are serialized and re-read the persisted registry before saving, preserving intervening model and budget changes. Restoring cached metrics recalculates role assessments against the restored feed.
+
+Comparison writes include an optimistic registry revision; a stale writer receives HTTP 409 instead of overwriting another window’s changes. Explicit Refresh bypasses the benchmark and provider catalog caches, retaining fallback provenance on failure. Benchmark variants sharing an executable route remain informative views of one offer: activation and aliases apply to the shared offer, and the setup explains that it does not configure reasoning options or reproduce benchmark conditions. Unrated means no numeric role score; known limitations and below-threshold scores retain distinct labels. Compact context previews show the largest window; each price preview shows the minimum for that column, matching sorting. Sort headers expose aria-sort, filtered result counts are announced, and parameter inspection prepopulates existing evidence without reporting a saved change.

@@ -13,7 +13,6 @@ import { useSettingsReader } from './useSettingsReader';
 import { useSettingsSnippets } from './useSettingsSnippets';
 import { useSettingsSocial } from './useSettingsSocial';
 import { useSettingsState } from './useSettingsState';
-import { useSettingsTranslation } from './useSettingsTranslation';
 import type { GlobalSettingsModalProps } from './types';
 
 export function useGlobalSettingsController(props: GlobalSettingsModalProps) {
@@ -26,7 +25,6 @@ export function useGlobalSettingsController(props: GlobalSettingsModalProps) {
   const loaders = useSettingsLoaders(state);
   const models = useSettingsModels(state);
   const reader = useSettingsReader(state);
-  const translation = useSettingsTranslation(state);
   const accounts = useSettingsAccounts({ ...state, ...loaders });
   const mail = useSettingsMailEffects(state);
   const persistence = useSettingsPersistence({ ...state, ...mail });
@@ -34,6 +32,6 @@ export function useGlobalSettingsController(props: GlobalSettingsModalProps) {
   const podcastProvider = draft.settings.reader?.podcast?.provider || '';
   const podcastModelId = draft.settings.reader?.podcast?.model || '';
   const podcastModelRoutes = useMemo(() => groupEnabledModelRoutes(aiRegistry, { provider: podcastProvider, model: podcastModelId }), [aiRegistry, podcastProvider, podcastModelId]);
-  return { ...state, ...graph, ...social, ...snippets, ...loaders, ...models, ...reader, ...translation, ...accounts, ...mail, ...persistence, aiResources, podcastModelRoutes };
+  return { ...state, ...graph, ...social, ...snippets, ...loaders, ...models, ...reader, ...accounts, ...mail, ...persistence, aiResources, podcastModelRoutes };
 }
 export type SettingsController = ReturnType<typeof useGlobalSettingsController>;

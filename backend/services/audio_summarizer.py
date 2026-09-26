@@ -1,5 +1,7 @@
 """Generate the daily Reader podcast script and publish its audio atomically."""
 
+from backend.services.agent_behavior import task_input
+
 import io
 import os
 import re
@@ -8,7 +10,7 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from gtts import gTTS  # type: ignore[import-untyped]
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation
@@ -48,20 +50,6 @@ MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
 MAX_BATCHES = 5  # Max batches (avoid >5 min wait)
 MAX_TTS_WORKERS = 4  # Bounded parallelism for independent sentence requests
-
-LANGUAGE_REQUIREMENT_TEMPLATE = (
-    "OUTPUT LANGUAGE REQUIREMENT: Write the entire response in {language_name}. "
-    "Translate all source material into {language_name}, regardless of the "
-    "language used by the articles or these instructions. Do not write in "
-    "English unless {language_name} is English; only proper names and "
-    "unavoidable literal terms may remain in their original language."
-)
-
-SYSTEM_PROMPT_TEMPLATE = (
-    "You are an intelligent podcast assistant. "
-    "Write exclusively the text that will be read literally out loud, "
-    "without adding notes, section titles, or meta-comments. " + LANGUAGE_REQUIREMENT_TEMPLATE
-)
 
 PODCAST_LANGUAGES = {
     "ca": "Catalan",
@@ -140,7 +128,7 @@ def _resolve_podcast_llm() -> tuple[AgentExecutionSnapshot, str, str]:
     from backend.services.agent_execution import prepare_snapshot, _snapshot
     from backend.services.agent_operation_catalog import skill_id
 
-    snapshot = _snapshot.get() or prepare_snapshot(skill_id("podcast"))
+    snapshot = prepare_snapshot(skill_id("podcast"))
     return snapshot, str(snapshot.profile.get("provider") or ""), str(snapshot.profile.get("model") or "")
 
 
@@ -154,27 +142,10 @@ def _summarize_batch(
     language_name: str,
 ) -> str:
     """Send one article batch to the configured LLM and return its script."""
-    joined = "\n".join(batch_texts)
-    num_articles = len(batch_texts)
-    language_requirement = LANGUAGE_REQUIREMENT_TEMPLATE.format(language_name=language_name)
 
-    if total_batches == 1:
-        user_prompt = (
-            f"{language_requirement}\n\n"
-            "Summarize the following articles for a listener with a background in engineering and philosophy. "
-            "Don't look for the easy headline; search for depth, connection between topics, and ethical implications. "
-            "Structure the summary as a fluid 10-15 minute podcast script.\n\n"
-            f"ARTICLES:\n{joined}"
-        )
-    else:
-        user_prompt = (
-            f"{language_requirement}\n\n"
-            f"Summarize the following {num_articles} articles as segment {batch_num} of {total_batches} "
-            f"of a daily podcast. Make a fluid and deep narrative. "
-            f"Do not add opening or closing phrases for the podcast, "
-            f"because this segment will be joined with others.\n\n"
-            f"ARTICLES:\n{joined}"
-        )
+    user_prompt = task_input("podcast.segment", articles=batch_texts,
+                             segment=batch_num, total_segments=total_batches,
+                             language=language_name)
 
     from backend.services.agent_execution import run_sync
     from backend.services.agent_operation_catalog import skill_id
@@ -302,13 +273,22 @@ def _generate_daily_podcast() -> str | None:
     db: Session = next(db_gen)
 
     try:
+        llm, provider, model = _resolve_podcast_llm()
+        from backend.services.agent_execution_store import work_checkpoint
+        podcast_input = work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input") if llm.parent_run_id else None
+        articles: list[Any]
         # 1. Unread articles from the last 24h
         target_time = datetime.now(timezone.utc) - timedelta(hours=24)
-        articles = (
-            db.query(Article)
-            .filter(Article.is_read == False, Article.published_at > target_time)
-            .all()
-        )
+        if podcast_input is not None:
+            from types import SimpleNamespace
+            articles = [SimpleNamespace(**{**row, "source": SimpleNamespace(name=row["source"])}) for row in podcast_input["articles"]]
+        else:
+            articles = (
+                db.query(Article)
+                .filter(Article.is_read == False, Article.published_at > target_time)
+                .all()
+            )
+
 
         if not articles:
             log.info("No new articles to summarize today.")
@@ -328,40 +308,58 @@ def _generate_daily_podcast() -> str | None:
         )
 
         # 3. Resolve the model from the latest Settings state.
-        llm, provider, model = _resolve_podcast_llm()
         language_code, language_name = _resolve_podcast_language()
+        if podcast_input is not None:
+            language_code, language_name = podcast_input["language_code"], podcast_input["language_name"]
+        elif llm.parent_run_id and llm.behavior_resources:
+            podcast_input = {"articles": [{"id": str(article.id), "title": str(article.title or ""),
+                "full_content": str(article.full_content or ""), "content": str(article.content or ""),
+                "source": str(article.source.name if article.source else "")} for article in articles],
+                "language_code": language_code, "language_name": language_name,
+                "audio_filename": f"daily_podcast_{datetime.now().strftime('%Y_%m_%d')}.mp3"}
+            work_checkpoint(llm.scope, llm.parent_run_id, "podcast-input", podcast_input)
         model_label = f"{provider}/{model}"
         all_summaries: list[str] = []
 
-        for i, batch in enumerate(batches):
-            batch_num = i + 1
-            generation_status["progress"] = (
-                f"Batch {batch_num}/{total_batches}: calling {model_label}..."
-            )
-            log.info(
-                "Batch %s/%s: %s articles, calling %s.",
-                batch_num,
-                total_batches,
-                len(batch),
-                model_label,
-            )
-
-            try:
-                summary = _summarize_batch(
-                    llm,
-                    batch,
+        if llm.behavior_resources:
+            from backend.services.agent_document_work import synthesize
+            from backend.domains.reader.analysis import _article_text
+            outcome = synthesize("podcast", [
+                {"id": str(article.id), "title": str(article.title or ""), "text": _article_text(article)}
+                for article in articles
+            ], task_input("podcast.script", language=language_name), snapshot=llm,
+                output_schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 1}}})
+            all_summaries.append(outcome["result"]["text"])
+        else:
+            for i, batch in enumerate(batches):
+                batch_num = i + 1
+                generation_status["progress"] = (
+                    f"Batch {batch_num}/{total_batches}: calling {model_label}..."
+                )
+                log.info(
+                    "Batch %s/%s: %s articles, calling %s.",
                     batch_num,
                     total_batches,
-                    provider,
-                    model,
-                    language_name,
+                    len(batch),
+                    model_label,
                 )
-                all_summaries.append(summary)
-                log.info(f"Batch {batch_num} completed ({len(summary)} chars).")
-            except Exception as e:
-                log.error(f"Error in batch {batch_num}: {e}")
-                generation_status["progress"] = f"Error in batch {batch_num}: {e}"
-                raise  # A partial episode must not be reported as complete.
+
+                try:
+                    summary = _summarize_batch(
+                        llm,
+                        batch,
+                        batch_num,
+                        total_batches,
+                        provider,
+                        model,
+                        language_name,
+                    )
+                    all_summaries.append(summary)
+                    log.info(f"Batch {batch_num} completed ({len(summary)} chars).")
+                except Exception as e:
+                    log.error(f"Error in batch {batch_num}: {e}")
+                    generation_status["progress"] = f"Error in batch {batch_num}: {e}"
+                    raise  # A partial episode must not be reported as complete.
 
         if not all_summaries:
             log.error("No summaries generated. All calls failed.")
@@ -375,7 +373,7 @@ def _generate_daily_podcast() -> str | None:
 
         # 5. Generate audio
         today_str = datetime.now().strftime("%Y_%m_%d")
-        audio_filename = f"daily_podcast_{today_str}.mp3"
+        audio_filename = str(podcast_input["audio_filename"]) if podcast_input else f"daily_podcast_{today_str}.mp3"
         audio_output_dir = str(get_podcast_output_dir())
         os.makedirs(audio_output_dir, exist_ok=True)
         audio_path = os.path.join(audio_output_dir, audio_filename)
@@ -383,7 +381,26 @@ def _generate_daily_podcast() -> str | None:
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
             from backend.services.agent_specialized_tools import run_engine
-            run_engine("speech", audio_filename, lambda: _generate_tts_atomically(full_script, audio_path, language_code))
+            def publish_audio() -> None:
+                if not llm.behavior_resources:
+                    _generate_tts_atomically(full_script, audio_path, language_code)
+                    return
+                import hashlib
+                import shutil
+                import tempfile
+                digest = hashlib.sha256((language_code + "\0" + full_script).encode()).hexdigest()
+                cached = Path(audio_output_dir) / ".generated" / f"{digest}.mp3"
+                cached.parent.mkdir(parents=True, exist_ok=True)
+                if not cached.is_file():
+                    _generate_tts_atomically(full_script, cached, language_code)
+                with tempfile.NamedTemporaryFile(dir=audio_output_dir, suffix=".tmp", delete=False) as temporary:
+                    temporary_path = Path(temporary.name)
+                try:
+                    shutil.copyfile(cached, temporary_path)
+                    os.replace(temporary_path, audio_path)
+                finally:
+                    temporary_path.unlink(missing_ok=True)
+            run_engine("speech", audio_filename, publish_audio)
             log.info(f"Podcast generated successfully: {audio_filename}")
             generation_status["result_filename"] = audio_filename
             generation_status["progress"] = "Completed!"
@@ -441,3 +458,26 @@ def start_generation_async(vault_path: str | Path | None = None) -> bool:
 
 if __name__ == "__main__":
     generate_daily_podcast()
+
+
+def resume_podcast(snapshot: AgentExecutionSnapshot) -> None:
+    """Continue the same authorized source snapshot and private work state."""
+    from backend.services.agent_execution import operation_session
+    from backend.services import agent_execution_store as store
+    with _generation_lock:
+        if generation_status["running"]:
+            raise RuntimeError("podcast_generation_already_running")
+        generation_status["running"] = True
+    def worker() -> None:
+        try:
+            with operation_session(snapshot):
+                store.update(snapshot.scope, snapshot.parent_run_id, status="running")
+                result = _generate_daily_podcast()
+                store.update(snapshot.scope, snapshot.parent_run_id,
+                    status="failed" if generation_status["error"] else "completed",
+                    result=result or "", error=generation_status["error"] or "")
+        except BaseException as error:
+            store.update(snapshot.scope, snapshot.parent_run_id, status="failed", error=str(error))
+        finally:
+            generation_status["running"] = False
+    threading.Thread(target=worker, name="podcast-resume", daemon=True).start()

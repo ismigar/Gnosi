@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import asyncio
 import hashlib
 import logging
@@ -132,7 +134,7 @@ def _updated_plugin_state(request: PluginsUpdateRequest) -> PluginState:
     if _deps().llm_wiki_enabled(current) != _deps().llm_wiki_enabled(requested_state):
         raise HTTPException(
             status_code=409,
-            detail=("The LLM Wiki plugin must be changed through its confirmed lifecycle."),
+            detail=("The LLM Wiki plugin must be changed through its lifecycle endpoint."),
         )
     current["disabled"] = sorted(requested_disabled)
     current["enabled_builtin"] = requested_state["enabled_builtin"]
@@ -320,12 +322,7 @@ async def fetch_for_ui_plugin(
 
 
 def _summary_prompt(request: VaultSummaryRequest, content: str) -> str:
-    return (
-        "Summarize the following vault record in the requested language. "
-        "Return a concise, factual Markdown summary with a short heading and "
-        "3–5 bullets. Do not invent facts.\n\n"
-        f"Language: {request.language}\n\nRecord:\n{content}"
-    )
+    return task_input("writing.record-summary", text=content, language=request.language)
 
 
 def _summarize_with_model(

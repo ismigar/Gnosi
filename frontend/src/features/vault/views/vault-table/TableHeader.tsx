@@ -29,6 +29,7 @@ export function TableHeader({ model }: { model: TableController; }) {
           <label className="cursor-pointer inline-flex items-center" onClick={(e) => { e.stopPropagation(); }}>
             <input
               type="checkbox"
+              aria-label={t('table.select_all_rows')}
               checked={selectedIds.size === sortedNotes.length && sortedNotes.length > 0}
               ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < sortedNotes.length; }}
               onChange={(e) => {

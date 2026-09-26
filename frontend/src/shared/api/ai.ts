@@ -27,6 +27,7 @@ export type AiGenerateInput = components['schemas']['GeneratePayload'];
 export type AiGenerateResult = components['schemas']['GenerateContentResponse'];
 export type AiCorrectionInput = components['schemas']['CorrectPayload'];
 export type AiCorrectionResult = components['schemas']['CorrectTextResponse'];
+export type AiProviderValidationResult = components['schemas']['ProviderValidationResponse'];
 
 
 export async function generateAiContent(
@@ -87,6 +88,20 @@ export async function setAiProviderCredentials(
   );
 }
 
+export async function validateAiProvider(
+  providerId: string,
+  payload: components['schemas']['ValidatePayload'],
+  signal?: AbortSignal,
+): Promise<AiProviderValidationResult> {
+  return unwrapApiResult<AiProviderValidationResult, unknown>(
+    await apiClient.POST('/api/ai/providers/{provider_id}/validate', {
+      body: payload,
+      params: { path: { provider_id: providerId } },
+      signal,
+    }),
+  );
+}
+
 export async function setAiProviderStatus(
   providerId: string,
   payload: AiProviderStatusInput,
@@ -115,9 +130,10 @@ export async function fetchAiModelCatalog(
 
 export async function fetchAiModelComparison(
   signal?: AbortSignal,
+  refresh = false,
 ): Promise<AiModelComparison> {
   return unwrapApiResult<AiModelComparison, unknown>(
-    await apiClient.GET('/api/ai/model-comparison', { signal }),
+    await apiClient.GET('/api/ai/model-comparison', { signal, params: { query: { refresh } } }),
   );
 }
 

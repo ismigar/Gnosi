@@ -30,3 +30,7 @@ Un Vault local no apareix automàticament en un altre ordinador. La pertinença 
 
 - [Instal·la Gnosi i fes els primers passos](getting-started.md)
 - [Preguntes freqüents i recuperació](troubleshooting.md)
+
+## Catàleg i moderació de plantilles de Vault
+
+En mode personal, Configuració → General → Estructura de fitxers → Vaults → Des del repositori obre el catàleg verificat. La cerca, els filtres per categoria i les previsualitzacions de contingut ajuden a triar una plantilla; la instal·lació crea un Vault nou. Publicar plantilla obre un inventari cercable dels fitxers inclosos, les exclusions i les possibles dades sensibles. Refrescar l’inventari esborra l’acceptació anterior.

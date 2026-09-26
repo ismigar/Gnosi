@@ -1,5 +1,7 @@
 """Catalogue coverage for newer first-party application features."""
 
+from backend.services.agent_behavior import resource as behavior_resource
+
 from typing import Any
 
 from langchain_core.tools import StructuredTool
@@ -25,19 +27,19 @@ from backend.models.agent_skills import (
 FEATURE_DOMAINS = {
     "notebooks": (
         "Gnosi Notebooks",
-        "List accessible notebooks, read their status, and select exact source IDs. Search the recorded revision before citing evidence. Create private notebooks or alter owned notebooks only after an explicit request. Indexing is asynchronous; report queued, running and completed states accurately. Attached-notebook context tools remain available for narrower source selections.",
+        behavior_resource('skills/core.gnosi-notebooks/SKILL.md'),
     ),
     "literature": (
         "Gnosi Literature",
-        "List configured academic sources first. Search only explicitly selected enabled sources and poll the returned search ID. Read exact result IDs before importing a Resource and preserve duplicate checks. Imports and systematic-review inspection currently require the personal primary Vault; do not cross this scope. Report evidence and uncertainty without inventing publication metadata.",
+        behavior_resource('skills/core.gnosi-literature/SKILL.md'),
     ),
     "media": (
         "Gnosi Media",
-        "Select a configured gallery root and search bounded pages by name, kind or tags. Use returned relative paths. Change tags or descriptions only after an explicit request; never infer image content from a filename, upload files, or change file bytes.",
+        behavior_resource('skills/core.gnosi-media/SKILL.md'),
     ),
     "activity": (
         "Gnosi Activity",
-        "Inspect only the current user's automations and recorded execution results. A successful service run does not prove that work was available or changes occurred. System-wide schedules are restricted to the personal workspace. These tools cannot approve actions, grant skills, change credentials or create recurring work.",
+        behavior_resource('skills/core.gnosi-activity/SKILL.md'),
     ),
 }
 

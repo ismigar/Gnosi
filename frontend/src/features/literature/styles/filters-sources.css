@@ -106,7 +106,7 @@
 }
 
 .literature-source-queries summary {
-    color: var(--gnosi-blue);
+    color: var(--gnosi-link);
     font-weight: 700;
     cursor: pointer;
 }
@@ -175,7 +175,7 @@
 .literature-source-chip.is-selected {
     border-color: color-mix(in srgb, var(--gnosi-blue) 45%, var(--border-primary));
     background: color-mix(in srgb, var(--gnosi-blue) 8%, var(--bg-primary));
-    color: var(--gnosi-blue);
+    color: var(--gnosi-link);
 }
 
 .literature-source-chip.is-unavailable {

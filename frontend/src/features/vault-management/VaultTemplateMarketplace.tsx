@@ -6,7 +6,13 @@ import {
     type CSSProperties,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import '../settings/styles/settings-controls.css';
+import '../../shared/styles/base/buttons.css';
+import { SettingsSectionTabs } from '../../shared/ui/settings/SettingsSectionTabs';
 import './VaultTemplateMarketplace.css';
+import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
+import { GnosiToggle } from '../../shared/ui/settings/SettingsPrimitives';
+import { VaultTemplatePrivacyPreview } from './VaultTemplatePrivacyPreview';
 import {
     AlertTriangle, CheckCircle2, Download, FileArchive, Loader,
     PackagePlus, Send, ShieldCheck, Store, X,
@@ -37,6 +43,9 @@ interface MarketplaceVault {
 
 interface CatalogTemplate {
     readonly author?: string;
+    readonly categories: readonly string[];
+    readonly languages: readonly string[];
+    readonly preview: string;
     readonly description: string;
     readonly id: string;
     readonly name: string;
@@ -67,6 +76,9 @@ function catalogTemplates(values: readonly unknown[]): CatalogTemplate[] {
             || typeof value.name !== 'string'
             || typeof value.version !== 'string') return [];
         const item: CatalogTemplate = {
+            categories: Array.isArray(value.categories) ? value.categories.filter((v): v is string => typeof v === 'string') : [],
+            languages: Array.isArray(value.languages) ? value.languages.filter((v): v is string => typeof v === 'string') : [],
+            preview: typeof value.preview === 'string' ? value.preview : '',
             description: typeof value.description === 'string' ? value.description : '',
             id: value.id,
             name: value.name,
@@ -117,9 +129,19 @@ export default function VaultTemplateMarketplace({
     onCreated,
 }: VaultTemplateMarketplaceProps) {
     const { t } = useTranslation();
+    const localized = (item: CatalogTemplate, field: 'name' | 'description' | 'preview'): string =>
+        t(`vault_templates.catalog_${item.id}_${field}`, { defaultValue: item[field] });
     const [section, setSection] = useState(initialSection);
     const [catalog, setCatalog] = useState<CatalogTemplate[]>([]);
     const [catalogError, setCatalogError] = useState('');
+    const [catalogRevision, setCatalogRevision] = useState(0);
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const [query, setQuery] = useState('');
+    const [category, setCategory] = useState('');
+    const [previewRevision, setPreviewRevision] = useState(0);
+    const categories = [...new Set(catalog.flatMap((item) => item.categories))].sort();
+    const visibleCatalog = catalog.filter((item) => (!category || item.categories.includes(category))
+        && `${localized(item, 'name')} ${localized(item, 'description')} ${item.languages.join(' ')}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
     const [submissionConfigured, setSubmissionConfigured] = useState(false);
     const [selected, setSelected] = useState<CatalogTemplate | null>(null);
     const [newName, setNewName] = useState('');
@@ -148,16 +170,18 @@ export default function VaultTemplateMarketplace({
 
     useEffect(() => {
         let cancelled = false;
-        fetchVaultTemplateCatalog().then((data) => {
+        const controller = new AbortController();
+        fetchVaultTemplateCatalog(controller.signal).then((data) => {
             if (cancelled) return;
             setCatalog(catalogTemplates(data.templates));
             setCatalogError(data.unavailable || '');
             setSubmissionConfigured(data.submissionConfigured);
+            setSelected(null);
         }).catch((requestError: unknown) => {
             if (!cancelled) setCatalogError(requestErrorMessage(requestError, t('vault_templates.catalog_unavailable')));
-        });
-        return () => { cancelled = true; };
-    }, [t]);
+        }).finally(() => { if (!cancelled) setCatalogLoading(false); });
+        return () => { cancelled = true; controller.abort(); };
+    }, [catalogRevision, t]);
 
     useEffect(() => {
         if (section !== 'publish' || !activeVault || preview) return;
@@ -172,6 +196,7 @@ export default function VaultTemplateMarketplace({
                     activeVault.id,
                     controller.signal,
                 );
+                if (isCancelled()) return;
                 setPreview(data);
             } catch (requestError) {
                 if (isCancelled()) return;
@@ -187,7 +212,7 @@ export default function VaultTemplateMarketplace({
         return () => {
             controller.abort();
         };
-    }, [activeVault, preview, section, t]);
+    }, [activeVault, preview, previewRevision, section, t]);
 
     const createFromTemplate = async (): Promise<void> => {
         if (!selected || !newName.trim()) return;
@@ -251,18 +276,12 @@ export default function VaultTemplateMarketplace({
                     <button type="button" onClick={onClose} aria-label={t('common.close')} className="vault-template-modal__close" data-autofocus><X size={18} /></button>
                 </div>
 
-                <div className="settings-filter-tabs" role="tablist" style={{ marginBottom: 18 }}>
-                    <button type="button" role="tab" aria-selected={section === 'catalog'} className={section === 'catalog' ? 'is-active' : ''} onClick={() => {
-                        setSection('catalog');
-                    }}>
-                        <Store size={14} /> {t('vault_templates.catalog_tab')}
-                    </button>
-                    <button type="button" role="tab" aria-selected={section === 'publish'} className={section === 'publish' ? 'is-active' : ''} onClick={() => {
-                        setSection('publish');
-                    }}>
-                        <PackagePlus size={14} /> {t('vault_templates.publish_tab')}
-                    </button>
-                </div>
+                <SettingsSectionTabs ariaLabel={t('vault_templates.title')} activeId={section}
+                    items={[
+                        { id: 'catalog', icon: Store, label: t('vault_templates.catalog_tab') },
+                        { id: 'publish', icon: PackagePlus, label: t('vault_templates.publish_tab') },
+                    ]}
+                    onChange={(id) => { if (id === 'catalog' || id === 'publish') setSection(id); }} />
 
                 {error && <div className="vault-template-notice is-error">{error}</div>}
                 {success && <div className="vault-template-notice is-success"><CheckCircle2 size={15} /> {success}</div>}
@@ -271,30 +290,41 @@ export default function VaultTemplateMarketplace({
                     <div>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 0 }}>{t('vault_templates.catalog_description')}</p>
                         {catalogError && <div className="vault-template-notice"><AlertTriangle size={15} /> {catalogError}</div>}
-                        {!catalogError && catalog.length === 0 && <div style={{ color: 'var(--text-tertiary)', padding: 20 }}>{t('vault_templates.catalog_empty')}</div>}
+                        <div className="template-catalog-tools">
+                            <label className="template-search"><span className="settings-label">{t('vault_templates.search_catalog')}</span><input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setSelected(null); }} /></label>
+                            <label className="template-search"><span className="settings-label">{t('vault_templates.category')}</span><select value={category} onChange={(event) => { setCategory(event.target.value); setSelected(null); }}><option value="">{t('vault_templates.all_categories')}</option>{categories.map((value) => <option key={value} value={value}>{t(`vault_templates.category_${value}`, { defaultValue: value })}</option>)}</select></label>
+                            <RefreshButton loading={catalogLoading} onClick={() => { setCatalogLoading(true); setCatalogRevision((value) => value + 1); }} />
+                        </div>
+                        {catalogLoading && <p role="status">{t('vault_templates.loading_catalog')}</p>}
+                        {!catalogLoading && !catalogError && visibleCatalog.length === 0 && <div style={{ color: 'var(--text-tertiary)', padding: 20 }}>{t(catalog.length ? 'vault_templates.no_matching_templates' : 'vault_templates.catalog_empty')}</div>}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
-                            {catalog.map((item) => (
-                                <button key={`${item.id}:${item.version}`} type="button" onClick={() => { setSelected(item); setNewName(item.name); }}
+                            {visibleCatalog.map((item) => (
+                                <button key={`${item.id}:${item.version}`} type="button" onClick={() => { setSelected(item); setNewName(localized(item, 'name')); }}
                                     style={{ textAlign: 'left', padding: 14, borderRadius: 12, cursor: 'pointer', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: `1px solid ${selected?.id === item.id ? 'var(--gnosi-primary)' : 'var(--settings-border)'}` }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontWeight: 750 }}>
-                                        <FileArchive size={17} /> {item.name}
+                                        <FileArchive size={17} /> {localized(item, 'name')}
                                         <ShieldCheck size={14} style={{ marginLeft: 'auto', color: '#16a34a' }} />
                                     </div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 5 }}>{item.description}</div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 5 }}>{localized(item, 'description')}</div>
+                                    {item.preview && <div className="template-card-preview" aria-label={t('vault_templates.contents_preview')}>{localized(item, 'preview').split(' · ').slice(0, 4).map((line) => <div key={line}><FileArchive size={12} aria-hidden="true" /><span>{line}</span></div>)}</div>}
+                                    <div className="template-catalog-tags">{item.languages.map((language) => <span key={language}>{language.toUpperCase()}</span>)}</div>
                                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 8 }}>v{item.version}{item.author ? ` · ${item.author}` : ''}</div>
                                 </button>
                             ))}
                         </div>
                         {selected && (
+                            <div className="template-selection">
+                            {selected.preview && <div className="template-content-preview"><h3>{t('vault_templates.contents_preview')}</h3><p>{localized(selected, 'preview')}</p></div>}
                             <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginTop: 18 }}>
                                 <label style={{ flex: 1 }}><span className="settings-label">{t('vault_templates.new_name')}</span><input style={inputStyle} value={newName} onChange={(event) => {
                                     setNewName(event.target.value);
                                 }} /></label>
-                                <button type="button" className="btn-gnosi-primary" onClick={() => {
+                                <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
                                     void createFromTemplate();
                                 }} disabled={!newName.trim() || busy === 'create'}>
                                     {busy === 'create' ? <Loader size={14} className="animate-spin" /> : <PackagePlus size={14} />} {t('vault_templates.create')}
                                 </button>
+                            </div>
                             </div>
                         )}
                     </div>
@@ -328,7 +358,7 @@ export default function VaultTemplateMarketplace({
                                 </div>
 
                                 <div style={{ marginTop: 16, padding: 12, border: '1px solid var(--settings-border)', borderRadius: 10 }}>
-                                    <div style={{ fontWeight: 700, marginBottom: 6 }}>{t('vault_templates.privacy_preview')}</div>
+                                    <div className="template-section-heading"><strong>{t('vault_templates.privacy_preview')}</strong><RefreshButton disabled={Boolean(busy)} onClick={() => { setPreview(null); setError(''); update('acknowledgeFindings', false); setPreviewRevision((value) => value + 1); }} /></div>
                                     {busy === 'preview' && <Loader size={16} className="animate-spin" />}
                                     {preview && (
                                         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -337,23 +367,22 @@ export default function VaultTemplateMarketplace({
                                             <span>{t('vault_templates.size', { size: (preview.totalSize / 1024 / 1024).toFixed(1) })}</span>
                                         </div>
                                     )}
+                                    {preview && <VaultTemplatePrivacyPreview key={`${activeVault.id}:${String(previewRevision)}`} preview={preview} />}
                                     {preview && preview.findings.length > 0 && (
-                                        <label style={{ display: 'flex', alignItems: 'start', gap: 8, marginTop: 10, color: '#b45309', fontSize: 12 }}>
-                                            <input type="checkbox" checked={form.acknowledgeFindings} onChange={(event) => {
-                                                update('acknowledgeFindings', event.target.checked);
-                                            }} />
+                                        <div className="template-findings-ack">
+                                            <GnosiToggle active={form.acknowledgeFindings} onChange={() => { update('acknowledgeFindings', !form.acknowledgeFindings); }} label={t('vault_templates.findings_ack', { count: preview.findings.length })} />
                                             <span>{t('vault_templates.findings_ack', { count: preview.findings.length })}</span>
-                                        </label>
+                                        </div>
                                     )}
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                                    <button type="button" className="btn-gnosi-secondary" onClick={() => {
+                                    <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => {
                                         void exportTemplate();
                                     }} disabled={!preview || Boolean(busy) || findingsBlocked}>
                                         {busy === 'export' ? <Loader size={14} className="animate-spin" /> : <Download size={14} />} {t('vault_templates.download_package')}
                                     </button>
-                                    <button type="button" className="btn-gnosi-primary" onClick={() => {
+                                    <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
                                         void submitTemplate();
                                     }} disabled={!preview || Boolean(busy) || findingsBlocked || !submissionConfigured} title={!submissionConfigured ? t('vault_templates.submission_not_configured') : ''}>
                                         {busy === 'submit' ? <Loader size={14} className="animate-spin" /> : <Send size={14} />} {t('vault_templates.submit')}

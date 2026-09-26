@@ -24,6 +24,7 @@ router registry already stored).
 from __future__ import annotations
 
 import json
+import math
 import logging
 import re
 import threading
@@ -40,7 +41,7 @@ MODELS_DEV_URL = "https://models.dev/api.json"
 # Bump when the compact schema gains fields: caches with an older schema are
 # treated as stale so the new fields appear right after a deploy, without
 # waiting out the TTL.
-CATALOG_SCHEMA = 3
+CATALOG_SCHEMA = 4
 _CACHE_TTL = 24 * 3600  # refresh the remote snapshot at most once a day
 _REMOTE_TIMEOUT = 8     # seconds; UI must never hang on models.dev
 _OLLAMA_TIMEOUT = 1.5   # seconds; local daemon answers instantly or not at all
@@ -173,9 +174,15 @@ def build_catalog(models_dev: Dict[str, Any]) -> Dict[str, Any]:
             models.append({
                 "id": model["id"],
                 "name": model.get("name") or model["id"],
+                "pricing_known": all(isinstance(cost.get(key), (int, float)) and not isinstance(cost.get(key), bool) and math.isfinite(cost[key]) and cost[key] >= 0 for key in ("input", "output")),
                 "cost_in": round(float(cost.get("input") or 0), 4),
                 "cost_out": round(float(cost.get("output") or 0), 4),
                 "context_window": int((model.get("limit") or {}).get("context") or 8192),
+                "context_known": isinstance((model.get("limit") or {}).get("context"), int) and not isinstance((model.get("limit") or {}).get("context"), bool) and (model.get("limit") or {})["context"] > 0,
+                "input_modes": (model.get("modalities") or {}).get("input"),
+                "output_modes": (model.get("modalities") or {}).get("output"),
+                "tool_call": model.get("tool_call") if isinstance(model.get("tool_call"), bool) else None,
+                "reasoning": model.get("reasoning") if isinstance(model.get("reasoning"), bool) else None,
                 "modes": _supported_modes(model),
                 "tags": _infer_tags(model),
                 "quality": _infer_quality(model),
@@ -295,11 +302,13 @@ def _live_ollama_models() -> Optional[List[Dict[str, Any]]]:
         models.append({
             "id": name,
             "name": name,
+            "pricing_known": True,
             "cost_in": 0.0,
             "cost_out": 0.0,
             # /api/tags does not expose the context window; conservative default,
             # editable in the UI.
             "context_window": 8192,
+            "context_known": False,
             "tags": ["fast"] if _FAST_NAME_RE.search(name) else [],
             "quality": 1,
             "release_date": "",

@@ -26,7 +26,8 @@ export interface RestoreSessionOptions {
 export function restoreChatSessions(options: RestoreSessionOptions): { sessions: StoredChatSession[]; active: StoredChatSession; evicted: ChatSessionIdentity[] } {
   const { defaultTitle, agentId, activeId, legacyId, forcedSessionId, embedded } = options;
   let values = options.value;
-  if (embedded && forcedSessionId) values = [createChatSession(defaultTitle, agentId, { randomId: () => forcedSessionId })];
+  if (embedded && forcedSessionId) values = [boundedChatSessions(values).find(session => session.id === forcedSessionId)
+    ?? createChatSession(defaultTitle, agentId, { randomId: () => forcedSessionId })];
   else if (!Array.isArray(values) || !values.length) values = [createChatSession(defaultTitle, agentId)];
   const retained = boundedChatSessions(values);
   const retainedIds = new Set(retained.map((session) => session.id));
@@ -43,6 +44,6 @@ export function restoreChatSessions(options: RestoreSessionOptions): { sessions:
     agentSessions.push(first);
   }
   const targetId = activeId || legacyId || first.id;
-  const active = agentSessions.find((session) => session.id === targetId) || agentSessions.find((session) => !session.archived) || first;
+  const active = sessions.find((session) => session.id === targetId) || agentSessions.find((session) => !session.archived) || first;
   return { sessions, active, evicted };
 }

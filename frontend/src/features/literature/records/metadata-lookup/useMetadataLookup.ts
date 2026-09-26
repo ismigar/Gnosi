@@ -49,7 +49,7 @@ interface UseMetadataLookupOptions {
     readonly mode: MetadataLookupMode;
     readonly onApply?: (patch: Record<string, unknown>) => void;
     readonly onClose?: () => void;
-    readonly onCreate?: (metadata: MetadataRecord) => void;
+    readonly onCreate?: (metadata: MetadataRecord, sourceFile?: File) => void;
 }
 
 
@@ -84,6 +84,7 @@ export function useMetadataLookup({
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<LookupResult | null>(null);
     const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({});
+    const pdfFileRef = useRef<File | null>(null);
     const firstInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
     const requestRef = useRef<AbortController | null>(null);
@@ -99,6 +100,7 @@ export function useMetadataLookup({
             return;
         }
         const current = currentMetadataRef.current;
+        pdfFileRef.current = null;
         setIdentifiers({
             arxiv: '',
             doi: metadataScalarText(current.DOI).trim(),
@@ -129,7 +131,8 @@ export function useMetadataLookup({
                 }));
                 return;
             }
-            onCreate?.(normalized.suggested);
+            if (pdfFileRef.current) onCreate?.(normalized.suggested, pdfFileRef.current);
+            else onCreate?.(normalized.suggested);
             onClose?.();
             return;
         }
@@ -152,7 +155,8 @@ export function useMetadataLookup({
         requestRef.current = controller;
         setLoading(true);
         try {
-            populate(await request(controller.signal));
+            const response = await request(controller.signal);
+            if (!controller.signal.aborted) populate(response);
         } catch (error: unknown) {
             if (!controller.signal.aborted) {
                 logError(operation, error);
@@ -180,6 +184,7 @@ export function useMetadataLookup({
             }));
             return;
         }
+        pdfFileRef.current = null;
         await execute(
             'metadata-lookup-search',
             'metadata_lookup.fetch_failed',
@@ -205,6 +210,7 @@ export function useMetadataLookup({
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file) return;
+        pdfFileRef.current = file;
         void execute(
             'metadata-lookup-pdf',
             'metadata_lookup.pdf_failed',

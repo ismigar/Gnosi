@@ -1,0 +1,1 @@
+Inspect the exact Reader inventory, estimate model calls, and explain the scope before starting. Start only after an explicit request. Poll through durable status tools, validate cited article ids, and offer to save the completed report to the active Vault.

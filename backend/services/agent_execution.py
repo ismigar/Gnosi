@@ -22,6 +22,7 @@ from backend.services.agent_run_middleware import report_run
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, AgentRun, ExecutionOrigin
 from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
 from backend.services.agent_operation_catalog import skill_id
+from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
 
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
@@ -38,24 +39,58 @@ def operation_origin() -> ExecutionOrigin:
 
 def prepare_snapshot(selected_skill: str, *, active_skill_ids: list[str] | None = None) -> AgentExecutionSnapshot:
     from backend.services.agent_skill_catalog import resolve_agent_runtime
-    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+    from backend.services.principal_agent_migration import ensure_migrated
+
+    requested_skill = selected_skill
+    if selected_skill.startswith("user."):
+        from backend.services.agent_skill_catalog import get_skill_catalog
+        from backend.services.agent_behavior_bindings import canonical_id
+        entries = {entry.descriptor.id: entry for entry in get_skill_catalog().list_entries(Path(current_scope().vault_path))}
+        selected_skill = canonical_id(selected_skill, entries)
 
     inherited = _snapshot.get()
     if inherited is not None and selected_skill:
-        return select_snapshot_skill(inherited, selected_skill)
+        from backend.services.plugin_agent_profiles import owner_for_skill
+        owner = owner_for_skill(selected_skill)
+        binding = next((value for value in inherited.profile.get("_execution_operation_bindings", {}).values() if value.get("skill_id") == selected_skill), None)
+        same_bot = binding.get("agent_id") == inherited.agent_id if binding else owner == inherited.profile.get("managed_by")
+        if not owner or same_bot:
+            if requested_skill != selected_skill and requested_skill not in inherited.profile.get("skill_ids", []):
+                raise PermissionError("agent_skill_override_unassigned")
+            return select_snapshot_skill(inherited, selected_skill)
+        if selected_skill not in inherited.skill_instructions and selected_skill not in inherited.skill_ids:
+            raise PermissionError("agent_execution_scope_or_skill_mismatch")
     scope = current_scope()
     ai = ensure_migrated()
-    profile = principal_profile(ai)
+    from backend.services.plugin_ai_contributions import reconcile_plugin_ai_contributions
+    from backend.services.plugin_agent_profiles import select_profile
+    from backend.config.app_config import load_params
+    if reconcile_plugin_ai_contributions().get("agents_changed"):
+        ai = dict(load_params(strict_env=False).ai)
+    profile = select_profile(ai, selected_skill)
     runtime = resolve_agent_runtime(profile, vault_path=Path(scope.vault_path), active_skill_ids=active_skill_ids if active_skill_ids is not None else ([selected_skill] if selected_skill else None))
     if selected_skill and selected_skill not in runtime.active_skill_ids:
         raise RuntimeError(f"agent_skill_unavailable:{selected_skill}")
-    return snapshot_from_runtime(scope, profile, runtime)
+    if requested_skill != selected_skill and not any(entry.descriptor.metadata.get("effective_skill_id") == requested_skill for entry in runtime.skills):
+        raise RuntimeError(f"agent_skill_override_unassigned:{requested_skill}")
+    snapshot = snapshot_from_runtime(scope, profile, runtime)
+    if inherited is not None:
+        snapshot = snapshot.model_copy(update={"parent_run_id": _run.get() or inherited.parent_run_id})
+    return snapshot
 
 
 def snapshot_from_runtime(scope: Any, profile: dict[str, Any], runtime: Any) -> AgentExecutionSnapshot:
     """Freeze the actual graph inputs rather than re-reading settings at stream time."""
     import copy
     profile = copy.deepcopy(profile)
+    if "_execution_reviewed_memory" not in profile:
+        from backend.config.data_dir import resolve_data_dir
+        from backend.services.agent_personal_memory import search_memories
+        memory_file = resolve_data_dir(create=False) / "agent_personal_memory.sqlite"
+        profile["_execution_reviewed_memory"] = search_memories(
+            scope.vault_path, str(profile["id"]), "", user_id=scope.user_id,
+            skill_ids=tuple(getattr(runtime, "active_skill_ids", ())), limit=20,
+        ) if memory_file.is_file() else []
     if "_execution_detailed_persona" not in profile:
         from backend.domains.agent.workflow import INSTRUCTIONS_DIR
         from backend.domains.agent.workflow_setup import _detailed_persona
@@ -63,14 +98,17 @@ def snapshot_from_runtime(scope: Any, profile: dict[str, Any], runtime: Any) -> 
     instructions = list(getattr(runtime, "instructions", ()))
     skills = list(getattr(runtime, "active_skill_ids", ()))
     entries = [entry for entry in getattr(runtime, "skills", []) if entry.available]
-    skill_instructions = {entry.descriptor.id: entry.descriptor.instructions for entry in entries}
+    from backend.services.agent_learning_packages import runtime_instructions
+    skill_instructions = {entry.descriptor.id: runtime_instructions(entry.descriptor) for entry in entries}
     companions = {entry.descriptor.id: entry.descriptor.metadata.get("companion_for", []) for entry in entries}
-    payload = {"profile": profile, "instructions": instructions, "skills": skills, "assigned_instructions": skill_instructions}
+    resources = {item["path"]: resource(item["path"]) for item in inventory() if item["path"].startswith("system/")}
+    profile["_execution_data_boundary"] = resources["system/data-boundary.md"]
+    payload = {"profile": profile, "instructions": instructions, "skills": skills, "assigned_instructions": skill_instructions, "behavior_resources": resources}
     revision = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
     return AgentExecutionSnapshot(scope=scope, origin=operation_origin(), agent_id=str(profile["id"]), profile=profile,
         skill_ids=skills, instructions=instructions, catalog_revision=str(getattr(runtime, "catalog_revision", "")), revision=revision,
         skill_versions={entry.descriptor.id: entry.descriptor.version for entry in entries},
-        skill_instructions=skill_instructions, skill_companions=companions)
+        skill_instructions=skill_instructions, skill_companions=companions, behavior_resources=resources)
 
 
 def select_snapshot_skill(snapshot: AgentExecutionSnapshot, selected: str) -> AgentExecutionSnapshot:
@@ -91,12 +129,14 @@ def select_snapshot_skill(snapshot: AgentExecutionSnapshot, selected: str) -> Ag
 @contextmanager
 def operation_session(snapshot: AgentExecutionSnapshot) -> Iterator[None]:
     token = _snapshot.set(snapshot)
+    resource_token = frozen_resources.set(snapshot.behavior_resources)
     parent_token = _run.set(snapshot.parent_run_id) if snapshot.parent_run_id else None
     with execution_scope(snapshot.scope, origin=snapshot.origin):
         try:
             yield
         finally:
             _snapshot.reset(token)
+            frozen_resources.reset(resource_token)
             if parent_token is not None:
                 _run.reset(parent_token)
 
@@ -107,6 +147,10 @@ def before_model_call() -> None:
         return
     scope = current_scope()
     revalidate_scope(scope)
+    active_snapshot = _snapshot.get()
+    if active_snapshot is not None and active_snapshot.profile.get("_team_execution"):
+        from backend.services.agent_team_runtime import execution_profile
+        execution_profile(active_snapshot)
     if store.cancelled(scope, run_id):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
@@ -149,9 +193,14 @@ def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
         from backend.services.agent_skill_catalog import resolve_agent_runtime
         profiles = load_params(strict_env=False).ai.get("agents", [])
         current = next((item for item in profiles if item.get("id") == snapshot.agent_id), None)
-        if not current or not current.get("enabled", True):
+        if snapshot.profile.get("_team_execution"):
+            from backend.services.agent_team_runtime import execution_profile, _filter_runtime
+            current = execution_profile(snapshot)
+        if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
             raise PermissionError("agent_execution_profile_revoked")
         runtime = resolve_agent_runtime(current, vault_path=Path(scope.vault_path), active_skill_ids=snapshot.skill_ids)
+        if snapshot.profile.get("_team_execution", {}).get("read_only"):
+            runtime = _filter_runtime(runtime, read_only=True)
         if not dynamic_context and tool_name not in {descriptor.name for descriptor in runtime.tool_descriptors}:
             raise PermissionError("agent_execution_tool_revoked")
 
@@ -186,7 +235,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
     snapshot = snapshot.model_copy(update={"origin": origin})
     run_id = str(inputs.get("trace_id") or uuid.uuid4().hex)
     selection = selection or {}
-    row = AgentRun(run_id=run_id, agent_id=snapshot.agent_id,
+    row = AgentRun(run_id=run_id, parent_run_id=snapshot.parent_run_id, agent_id=snapshot.agent_id,
         skill_id=",".join(snapshot.skill_ids), operation="conversation", origin=origin,
         status="running", created_at=time.time(), updated_at=time.time(),
         provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""),
@@ -195,6 +244,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
     report_run(run_id)
     token = _run.set(run_id)
     snapshot_token = _snapshot.set(snapshot)
+    resource_token = frozen_resources.set(snapshot.behavior_resources)
     limit = _call_limit.set(max_calls)
     if inputs.get("cancel_token"):
         _tokens[run_id] = inputs["cancel_token"]
@@ -206,7 +256,8 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
                     if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
                         result = str(message.content)
             yield event
-        store.update(scope, run_id, status="completed", result=result)
+        status = store.read(scope, run_id).status
+        store.update(scope, run_id, status="awaiting_confirmation" if status == "awaiting_confirmation" else "completed", result=result)
     except BaseException as error:
         from backend.services.agent_cancellation import AgentTurnCancelled
         status = "cancelled" if isinstance(error, (AgentTurnCancelled, asyncio.CancelledError)) else "failed"
@@ -216,6 +267,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
         _tokens.pop(run_id, None)
         _call_limit.reset(limit)
         _snapshot.reset(snapshot_token)
+        frozen_resources.reset(resource_token)
         _run.reset(token)
 
 
@@ -236,13 +288,16 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
     from backend.config.app_config import load_params
     from backend.services.agent_skill_catalog import resolve_agent_runtime
     revalidate_scope(current_scope())
-    snapshot = snapshot or _snapshot.get() or prepare_snapshot(request.skill_id)
+    snapshot = snapshot or prepare_snapshot(request.skill_id)
     snapshot = select_snapshot_skill(snapshot, request.skill_id)
     if snapshot.scope != current_scope() or request.skill_id not in snapshot.skill_ids:
         raise PermissionError("agent_execution_scope_or_skill_mismatch")
     ai = dict(load_params(strict_env=False).ai)
     current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
-    if not current or not current.get("enabled", True):
+    if snapshot.profile.get("_team_execution"):
+        from backend.services.agent_team_runtime import execution_profile
+        current = execution_profile(snapshot)
+    if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
         raise RuntimeError("agent_execution_profile_unavailable")
     allowed = resolve_agent_runtime(current, vault_path=Path(snapshot.scope.vault_path), active_skill_ids=snapshot.skill_ids)
     if set(snapshot.skill_ids) != set(allowed.active_skill_ids):
@@ -276,16 +331,19 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
                    execution_revision=snapshot.revision)
-    store.create(row, snapshot.scope, {**request.model_dump(), "checkpoint_key": checkpoint_key}, snapshot.model_dump())
+    team_enabled = bool(snapshot.profile.get("team", {}).get("enabled"))
+    store.create(row, snapshot.scope, {**request.model_dump(), "checkpoint_key": checkpoint_key,
+        **({"max_calls": 8} if team_enabled else {})}, snapshot.model_dump())
     report_run(run_id)
     run_token = _run.set(run_id)
     snapshot_token = _snapshot.set(snapshot)
-    call_limit_token = _call_limit.set(request.max_model_calls)
+    resource_token = frozen_resources.set(snapshot.behavior_resources)
+    call_limit_token = _call_limit.set(8 if team_enabled else request.max_model_calls)
     cancel_token = create_cancel_token()
     _tokens[run_id] = cancel_token
     try:
         workflow, selection = await create_agent_workflow(
-            [], None, agent_id=snapshot.agent_id, user_message=request.input,
+            [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
             timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
             vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
             prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
@@ -294,24 +352,26 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         if workflow is None:
             raise RuntimeError("principal_agent_model_unavailable")
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
-        framing = f"Operation: {request.operation}\nLanguage: {request.language or 'preserve input language'}\n"
-        framing += "Evidence references (provenance; only supplied content is evidence): " + json.dumps(request.context_refs, ensure_ascii=False) + "\n"
-        if request.output_schema is not None:
-            framing += "Return JSON matching: " + json.dumps(request.output_schema) + "\n"
-        messages: list[BaseMessage] = [HumanMessage(content=framing + request.input)]
+        messages: list[BaseMessage] = [HumanMessage(content=operation_input(request))]
         application = workflow.compile()
         deadline = time.monotonic() + request.timeout_seconds
+        text = ""
         for attempt in range(request.max_model_calls):
+            previous_text = text if attempt else ""
             text = ""
             inputs = {"messages": messages, "cancel_token": cancel_token, "trace_id": run_id,
                       "active_skill_ids": snapshot.skill_ids, "current_user_role": snapshot.scope.role,
                       "turn_authorized_tool_names": []}
             async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
-                    for update in event.values():
-                        for message in update.get("messages", []):
-                            if getattr(message, "type", "") == "ai":
-                                text = str(message.content)
+                if team_enabled and attempt:
+                    from backend.services.agent_team_runtime import repair_output
+                    text = await repair_output(run_id, snapshot.scope, previous_text, str(messages[-1].content), request)
+                else:
+                    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
+                        for update in event.values():
+                            for message in update.get("messages", []):
+                                if getattr(message, "type", "") == "ai":
+                                    text = str(message.content)
             try:
                 text = _validate_output(text, request.output_schema)
                 if output_validator is not None:
@@ -323,7 +383,8 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             except (ValueError, jsonschema.ValidationError) as validation_error:
                 if attempt + 1 >= request.max_model_calls:
                     raise
-                messages = [*messages, AIMessage(content=text), HumanMessage(content="The previous answer did not satisfy the output contract: " + str(validation_error)[:400] + ". Produce a valid complete answer. Do not execute any actions.")]
+                repair = snapshot.behavior_resources.get("system/repair.md", resource("system/repair.md"))
+                messages = [*messages, AIMessage(content=text), HumanMessage(content=repair + "\n" + json.dumps({"validation_error": str(validation_error)}, ensure_ascii=False))]
         raise RuntimeError("agent_invalid_result")
     except BaseException as error:
         cancel(cancel_token)
@@ -337,6 +398,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         release(cancel_token)
         _call_limit.reset(call_limit_token)
         _snapshot.reset(snapshot_token)
+        frozen_resources.reset(resource_token)
         _run.reset(run_token)
 
 
@@ -352,8 +414,15 @@ def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None
 def generate_result_for(operation: str, prompt: str, user_message: str = "", *, timeout: int = 120, agent_id: str = "", output_schema: dict[str, Any] | None = None) -> AgentRun:
     if agent_id and prepare_snapshot(skill_id(operation)).agent_id != agent_id:
         raise ValueError("Models are managed by the principal agent")
+    try:
+        envelope = json.loads(prompt)
+    except (TypeError, ValueError):
+        envelope = None
+    structured = isinstance(envelope, dict) and isinstance(envelope.get("task"), str) and isinstance(envelope.get("data"), dict)
     result = run_sync(AgentOperation(skill_id=skill_id(operation), operation=operation, origin=operation_origin(),
-                                   input=prompt + ("\n\nRequest context:\n" + user_message if user_message and user_message not in prompt else ""), timeout_seconds=timeout, output_schema=output_schema))
+                                   input="" if structured else prompt,
+                                   data={**envelope, "request_context": user_message} if structured else {"request_context": user_message},
+                                   timeout_seconds=timeout, output_schema=output_schema))
     return result
 
 
@@ -390,6 +459,9 @@ async def resume_run(run_id: str) -> AgentRun:
     scope = current_scope()
     revalidate_scope(scope)
     request_data, snapshot_data = store.resume_data(scope, run_id)
+    if snapshot_data.get("profile", {}).get("team", {}).get("enabled"):
+        from backend.services.agent_team_resume import resume_team
+        return await resume_team(run_id, request_data, AgentExecutionSnapshot.model_validate(snapshot_data))
     if request_data.get("mode") == "job":
         try:
             operation = request_data.get("operation")
@@ -401,6 +473,10 @@ async def resume_run(run_id: str) -> AgentRun:
                 from backend.domains.notebooks.analysis import launch_analysis
                 durable_job_queue.requeue(run_id)
                 launch_analysis(Path(scope.vault_path), run_id)
+            elif operation == "podcast":
+                from backend.services.audio_summarizer import resume_podcast
+                resumed_snapshot = AgentExecutionSnapshot.model_validate(snapshot_data).model_copy(update={"parent_run_id": run_id})
+                resume_podcast(resumed_snapshot)
             else:
                 raise ValueError("use_job_resume")
         except BaseException as error:

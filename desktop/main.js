@@ -117,8 +117,9 @@ function mimeFor(filePath) {
 
 // Resolves an `app://gnosi/<path>` request to a file under `frontend/dist`.
 // `gnosi` is the scheme host, so the pathname already starts at the asset root
-// (e.g. `/assets/index.js`, `/favicon.svg`). SPA fallback: extensionless or
-// missing paths return index.html so BrowserRouter can handle them.
+// (e.g. `/assets/index.js`, `/favicon.svg`). Only extensionless paths use the
+// SPA fallback. A missing file-like asset must stay a 404: returning index.html
+// for a missing embedded reader host renders the application inside its iframe.
 function resolveAssetPath(urlStr) {
   let urlPath = '/';
   try {
@@ -137,8 +138,8 @@ function resolveAssetPath(urlStr) {
   }
   // Files with an extension are served if present; extensionless paths fall
   // back to the SPA entry (BrowserRouter history routing).
-  if (path.extname(absPath) && fs.existsSync(absPath) && fs.statSync(absPath).isFile()) {
-    return absPath;
+  if (path.extname(absPath)) {
+    return fs.existsSync(absPath) && fs.statSync(absPath).isFile() ? absPath : null;
   }
   return path.join(distRoot, 'index.html');
 }
@@ -191,6 +192,12 @@ function registerAppProtocol() {
 
     // Static asset from frontend/dist.
     const filePath = resolveAssetPath(request.url);
+    if (!filePath) {
+      return new Response('Application asset not found', {
+        status: 404,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
     try {
       const data = await fs.promises.readFile(filePath);
       return new Response(data, {
@@ -491,7 +498,7 @@ function setupAutoUpdater() {
     autoUpdater.checkForUpdates().catch((err) => {
       log('Background update check failed:', err.message);
     });
-  }, 6 * 60 * 60 * 1000);
+  }, 15 * 60 * 1000);
   updateTimer.unref();
 }
 

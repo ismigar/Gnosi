@@ -32,7 +32,7 @@ export function PluginUpdates({ controller }: PluginUpdatesProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {updates.map((entry) => (
                     <div key={entry.id} style={{ alignItems: 'center', border: '1px solid var(--border-primary)', borderRadius: 10, display: 'flex', gap: 12, padding: '12px 14px' }}>
-                        <RefreshCw size={17} style={{ color: '#6366f1' }} />
+                        <RefreshCw size={17} style={{ color: 'var(--gnosi-primary)' }} />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 14, fontWeight: 700 }}>{entry.name}</div>
                             <div style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>v{installedVersions.get(entry.id)} → v{entry.version}</div>

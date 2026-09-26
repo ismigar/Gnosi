@@ -60,6 +60,7 @@ export function ZoteroReaderTab({
     kind,
     language: zoteroLanguage,
     location: locationProp,
+    loadErrorMessage: t('media.reader_load_error', 'The PDF reader could not load. Update Gnosi and try again.'),
     noSourceMessage: t('pdf.no_src', { defaultValue: 'There is no PDF to display' }),
     rawSrc,
   });

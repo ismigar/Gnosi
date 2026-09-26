@@ -13,6 +13,7 @@ export async function selectChatSession(context: ChatSessionController, nextId: 
   historyHydrationRef.current = hydrationId;
   setAgentRuntime(null);
   setChatSessions((previous) => previous.map((session) => session.id === nextId ? { ...session, archived: false, updatedAt: Date.now() } : session));
+  context.setSelectedAgentId(target.agentId);
   setSessionId(target.id);
   setMessages(target.messages);
   setShowSessionsView(false);
@@ -35,8 +36,9 @@ export function archiveChatSession(context: ChatSessionController): void {
 export function createNewChatSession(context: ChatSessionController): void {
   if (context.isLoading) return;
   context.historyHydrationRef.current += 1;
-  const next = createChatSession(context.defaultSessionTitle, context.selectedAgentId);
+  const next = createChatSession(context.defaultSessionTitle, context.defaultAgentId ?? context.selectedAgentId);
   context.setChatSessions((previous) => [next, ...previous.map((session) => session.id === context.sessionId ? { ...session, archived: true, updatedAt: Date.now() } : session)]);
+  context.setSelectedAgentId(next.agentId);
   context.setSessionId(next.id);
   context.setMessages([]);
   context.setAgentRuntime(null);
@@ -52,11 +54,15 @@ export async function deleteChatSession(context: ChatSessionController, targetId
   try { await deleteChatSessionCheckpoint(target); }
   catch (error) { logError('agent-chat-delete-checkpoint', error); return; }
   const remaining = context.chatSessions.filter((session) => session.id !== targetId);
-  const remainingForAgent = remaining.filter((session) => session.agentId === context.selectedAgentId);
-  const nextSession = remainingForAgent[0];
+  if (targetId !== context.sessionId) {
+    context.setChatSessions(remaining);
+    return;
+  }
+  const nextSession = remaining[0];
   if (!nextSession) {
-    const fresh = createChatSession(context.defaultSessionTitle, context.selectedAgentId);
+    const fresh = createChatSession(context.defaultSessionTitle, context.defaultAgentId ?? context.selectedAgentId);
     context.setChatSessions([fresh, ...remaining]);
+    context.setSelectedAgentId(fresh.agentId);
     context.setSessionId(fresh.id);
     context.setMessages([]);
     context.setInputValue('');
@@ -65,6 +71,7 @@ export async function deleteChatSession(context: ChatSessionController, targetId
   }
   context.setChatSessions(remaining);
   if (targetId === context.sessionId) {
+    context.setSelectedAgentId(nextSession.agentId);
     context.setSessionId(nextSession.id);
     context.setMessages(nextSession.messages);
   }

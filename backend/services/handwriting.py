@@ -20,6 +20,8 @@ Warmup: `warmup()` preloads the model in the background (daemon thread) so that
 the first real recognition call doesn't have to wait for the load. The frontend
 calls it when the canvas is opened.
 """
+
+from backend.services.agent_behavior import task_input
 import io
 import logging
 import os
@@ -156,13 +158,7 @@ def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
     lang_note = ""
     if language and language in _LANG_LABELS:
         lang_note = f" The text is in {_LANG_LABELS[language]}."
-    prompt = (
-        "You are a spelling corrector for handwritten text recognized by OCR."
-        f"{lang_note} Correct accents, digraphs, and obvious spelling errors"
-        " while preserving the original meaning and wording. Do not add or remove"
-        " content and do not comment on it. Return ONLY the corrected text:\n\n"
-        f"{text}"
-    )
+    prompt = task_input("writing.ocr-correct", text=text, language=language or "")
     try:
         content, _provider = generate_text(prompt, text[:200], timeout=30)
         corrected = (content or "").strip()

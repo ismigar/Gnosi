@@ -32,6 +32,7 @@ function scrollTarget(container: HTMLElement) {
     clientHeight: { value: 100 }, scrollHeight: { value: 500 },
     scrollBy: { value: scrollBy }, scrollTo: { value: scrollTo },
   });
+  target.focus();
   return { target, scrollBy, scrollTo };
 }
 

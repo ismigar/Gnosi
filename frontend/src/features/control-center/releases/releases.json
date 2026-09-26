@@ -42,7 +42,8 @@
         "release_notes.entries.v3_0_3.fixes.google_sign_in",
         "release_notes.entries.v3_0_3.fixes.microsoft_sign_in",
         "release_notes.entries.v3_0_3.fixes.embedded_autosave",
-        "release_notes.entries.v3_0_4.fixes.autosave_metadata"
+        "release_notes.entries.v3_0_4.fixes.autosave_metadata",
+        "release_notes.entries.v3_0_4.fixes.update_notice_background_check"
       ]
     }
   },

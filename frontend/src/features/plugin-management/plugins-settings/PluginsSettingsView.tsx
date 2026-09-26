@@ -71,6 +71,8 @@ export function PluginsSettingsView({
         normalizeBuiltinPlugins(builtins.length > 0 ? builtins : BUILTIN_PLUGINS),
         pluginName, i18n.resolvedLanguage ?? i18n.language,
     );
+    const [openedPluginIds, setOpenedPluginIds] = useState<ReadonlySet<string>>(() => new Set());
+    const [expandedPluginId, setExpandedPluginId] = useState<string | null>(null);
     const [section, setSection] = useState<PluginSection>('installed');
     const [installedFilter, setInstalledFilter] = useState<InstalledFilter>('all');
     const [pendingLifecycle, setPendingLifecycle] = useState<PendingLifecycle | null>(null);
@@ -199,21 +201,25 @@ export function PluginsSettingsView({
                         {catalog.filter((plugin) => installedFilter === 'all' || (installedFilter === 'enabled' ? isEnabled(plugin.id) : !isEnabled(plugin.id))).map((plugin) => {
                             const Icon = ICONS[plugin.icon] ?? Puzzle;
                             const enabled = isEnabled(plugin.id);
+                            const InlineConfiguration = CONFIGS[plugin.id];
                             return (
                                 <div key={plugin.id} id={`settings-plugin-${plugin.id}`} className="settings-plugin-item" style={{ background: 'var(--bg-secondary, #f8fafc)', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 0, padding: '12px 14px' }}>
                                     <div style={{ alignItems: 'center', display: 'flex', gap: 12 }}>
-                                        <Icon size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
+                                        <Icon size={18} style={{ color: 'var(--gnosi-primary)', flexShrink: 0 }} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ color: 'var(--text-primary, #0f172a)', fontSize: 14, fontWeight: 600 }}>{pluginName(plugin)}</div>
                                             <div style={{ color: 'var(--text-tertiary, #94a3b8)', fontSize: 12 }}>{tp(`catalog.${plugin.id}.description`)}</div>
                                         </div>
                                         {plugin.settingsTab && enabled && (
-                                            <button type="button" onPointerEnter={() => { preloadPluginConfiguration(plugin.id); }} onFocus={() => { preloadPluginConfiguration(plugin.id); }} onTouchStart={() => { preloadPluginConfiguration(plugin.id); }} onClick={() => { if (plugin.settingsTab) onOpenSettingsTab(plugin.settingsTab, plugin.id); }} aria-label={tp('configure')} title={tp('configure')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-tertiary, #94a3b8)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Settings size={16} /></button>
+                                            <button type="button" onPointerEnter={() => { preloadPluginConfiguration(plugin.id); }} onFocus={() => { preloadPluginConfiguration(plugin.id); }} onTouchStart={() => { preloadPluginConfiguration(plugin.id); }} onClick={() => { if (InlineConfiguration) { setOpenedPluginIds(current => new Set([...current, plugin.id])); setExpandedPluginId(current => current === plugin.id ? null : plugin.id); } else if (plugin.settingsTab) onOpenSettingsTab(plugin.settingsTab, plugin.id); }} aria-expanded={InlineConfiguration ? expandedPluginId === plugin.id : undefined} aria-label={tp('configure')} title={tp('configure')} style={{ alignItems: 'center', background: 'transparent', border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, color: 'var(--text-tertiary, #94a3b8)', display: 'flex', flexShrink: 0, height: 30, justifyContent: 'center', width: 30 }}><Settings size={16} /></button>
                                         )}
-                                        <button type="button" role="switch" aria-checked={enabled} onClick={() => { void togglePlugin(plugin.id, !enabled); }} disabled={busyPluginIds.has(plugin.id)} style={{ background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)', border: 'none', borderRadius: 999, cursor: 'pointer', flexShrink: 0, height: 24, opacity: busyPluginIds.has(plugin.id) ? 0.65 : 1, position: 'relative', transition: 'background 0.15s', width: 42 }} title={enabled ? tp('disable') : tp('enable')}>
+                                        <button type="button" role="switch" aria-checked={enabled} onClick={() => { void togglePlugin(plugin.id, !enabled); }} disabled={busyPluginIds.has(plugin.id)} style={{ background: enabled ? 'var(--gnosi-primary)' : 'var(--border-primary, #cbd5e1)', border: 'none', borderRadius: 999, cursor: 'pointer', flexShrink: 0, height: 24, opacity: busyPluginIds.has(plugin.id) ? 0.65 : 1, position: 'relative', transition: 'background 0.15s', width: 42 }} title={enabled ? tp('disable') : tp('enable')}>
                                             <span style={{ background: '#fff', borderRadius: '50%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', height: 20, left: enabled ? 20 : 2, position: 'absolute', top: 2, transition: 'left 0.15s', width: 20 }} />
                                         </button>
                                     </div>
+                                    {enabled && openedPluginIds.has(plugin.id) && InlineConfiguration && <div hidden={expandedPluginId !== plugin.id}><Suspense fallback={<div role="status">{t('common.loading')}</div>}>
+                                        <InlineConfiguration key={plugin.id} onOpenAISettings={onOpenAISettings} />
+                                    </Suspense></div>}
                                 </div>
                             );
                         })}

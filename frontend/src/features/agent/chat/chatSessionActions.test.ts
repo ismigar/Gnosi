@@ -62,15 +62,14 @@ describe('session selection and deletion', () => {
     expect(state.sessions().map((session) => session.id)).toEqual(['two']);
     expect(state.sessionId()).toBe('two');
   });
-  it('creates an empty session when deleting the last one for the selected agent', async () => {
+  it('selects a remaining conversation even when it uses another profile', async () => {
     const state = setup([createChatSession('One', 'agent', { randomId: () => 'one' }), createChatSession('Other', 'foreign', { randomId: () => 'foreign' })]);
     api.remove.mockResolvedValue(true);
     await deleteChatSession(state.context, 'one');
-    expect(state.sessions()).toHaveLength(2);
-    expect(state.sessions()[0]?.agentId).toBe('agent');
-    expect(state.sessions()[1]?.id).toBe('foreign');
-    expect(state.messages()).toEqual([]);
-    expect(state.context.clearDraftMentions).toHaveBeenCalledOnce();
+    expect(state.sessions()).toHaveLength(1);
+    expect(state.sessions()[0]?.id).toBe('foreign');
+    expect(state.sessionId()).toBe('foreign');
+    expect(state.context.setSelectedAgentId).toHaveBeenCalledWith('foreign');
   });
   it('archives the current session and starts a new one without deleting history', () => {
     const state = setup();
@@ -93,4 +92,22 @@ describe('session selection and deletion', () => {
     expect(api.remove).not.toHaveBeenCalled();
     expect(api.history).not.toHaveBeenCalled();
   });
+});
+
+it('starts new conversations with the default while preserving the previous profile', () => {
+  const old = { ...createChatSession('Old', 'owner', { randomId: () => 'one' }), profileId: 'other', messages: [{ role: 'user', content: 'Keep me' }] };
+  const state = setup([old]);
+  createNewChatSession({ ...state.context, defaultAgentId: 'default' });
+  expect(state.sessions()[0]?.agentId).toBe('default');
+  expect(state.sessions()[1]).toMatchObject({ profileId: 'other', messages: old.messages });
+  expect(state.context.setSelectedAgentId).toHaveBeenCalledWith('default');
+});
+
+it('deleting a different conversation leaves the current conversation untouched', async () => {
+  const state = setup([createChatSession('One', 'agent', { randomId: () => 'one' }), createChatSession('Other', 'other', { randomId: () => 'other' })]);
+  api.remove.mockResolvedValue(true);
+  await deleteChatSession(state.context, 'other');
+  expect(state.sessionId()).toBe('one');
+  expect(state.messages()[0]?.content).toBe('current');
+  expect(state.context.setSelectedAgentId).not.toHaveBeenCalled();
 });

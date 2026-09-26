@@ -7,6 +7,7 @@ directories:
   buildResources: assets
 
 afterPack: scripts/after-pack.cjs
+beforePack: scripts/verify-frontend-assets.cjs
 
 # A solid background keeps Finder's window at the configured logical size.
 dmg:

@@ -6,6 +6,7 @@ interface ParameterMetadata {
     readonly active?: number;
     readonly source: string;
     readonly checkedAt: string;
+    readonly verification?: string;
 }
 
 interface PublishedParameters extends Omit<ParameterMetadata, 'checkedAt'> {
@@ -105,9 +106,10 @@ export function modelParameterMetadata(model: AiModelComparisonEntry): Parameter
     const remote = model.parameter_metadata;
     if (remote?.status === 'known' && typeof remote.total === 'number' && remote.source) {
         return { total: remote.total, ...(typeof remote.active === 'number' ? { active: remote.active } : {}),
-            source: remote.source, checkedAt: remote.checked_at ?? '' };
+            source: remote.source, checkedAt: remote.checked_at ?? '', verification: remote.verification ?? undefined };
     }
 
+    if (remote?.status === 'not_published') return null;
     const names = [model.name, model.slug].map((name) => normalize(baseName(name)));
     const entry = PUBLISHED_PARAMETERS.find((entry) => (
         creatorKey(entry.creator) === creatorKey(model.creator)

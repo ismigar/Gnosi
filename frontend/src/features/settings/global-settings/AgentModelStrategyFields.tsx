@@ -1,3 +1,4 @@
+import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import { useTranslation } from 'react-i18next';
 import { FormGroup, GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import type { SettingsModel } from './types';
@@ -32,8 +33,8 @@ export function AgentModelStrategyFields({ strategy, onChange, provider, model, 
           const key = modelRouteKey(route);
           const active = strategy.allowed_models.some(item => modelRouteKey(item) === key);
           return <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-            <span style={{ overflowWrap: 'anywhere', minWidth: 0 }}>{row.model_id} · {row.provider}</span>
-            <GnosiToggle active={active} label={`${row.model_id} · ${row.provider}`}
+            <span style={{ overflowWrap: 'anywhere', minWidth: 0 }}>{modelDisplayName(row)}</span>
+            <GnosiToggle active={active} label={modelDisplayName(row)}
               disabled={!active && strategy.allowed_models.length >= MAX_ALTERNATIVES}
               onChange={() => { onChange({ ...strategy, allowed_models: active
                 ? strategy.allowed_models.filter(item => modelRouteKey(item) !== key)

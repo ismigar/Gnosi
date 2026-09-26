@@ -32,7 +32,7 @@ export function useChatSessionPersistence(context: ChatSessionController): void 
       forcedSessionId, embedded,
     });
     restored.evicted.forEach(evictCheckpoint);
-    setSelectedAgentId(agentId);
+    setSelectedAgentId(restored.active.agentId);
     removeChatStorage(scopedStorageKey('agent_selected_llm'));
     setChatSessions(restored.sessions);
     setMessages(restored.active.messages);

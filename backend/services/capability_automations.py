@@ -361,19 +361,29 @@ async def _run_scoped_automation(automation_id: str, *, manual: bool = False) ->
     status = "completed"
     error_code = ""
     try:
+        from backend.services.agent_execution import prepare_snapshot, snapshot_from_runtime
+        from backend.services.agent_behavior_bindings import canonical_id
+        from backend.services.agent_skill_catalog import get_skill_catalog
+        from backend.services.plugin_agent_profiles import owner_for_skill
+        from backend.services.agent_execution_scope import current_scope
+        entries = {entry.descriptor.id: entry for entry in get_skill_catalog().list_entries(Path(row["vault_path"]))}
+        canonical = canonical_id(row["skill_id"], entries)
+        selected = prepare_snapshot(row["skill_id"]) if owner_for_skill(canonical) else None
         _cfg, agent, runtime = prepare_agent_runtime(
-            row["agent_id"],
+            selected.agent_id if selected else row["agent_id"],
             vault_path=Path(row["vault_path"]),
-            active_skill_ids=[row["skill_id"]],
+            active_skill_ids=selected.skill_ids if selected else [row["skill_id"]],
         )
+        if selected is None and agent is not None and runtime is not None:
+            selected = snapshot_from_runtime(current_scope(), agent, runtime)
         active_ids = set(getattr(runtime, "active_skill_ids", ()) or ()) if runtime else set()
-        if agent is None or row["skill_id"] not in active_ids:
+        if agent is None or selected is None or not set(selected.skill_ids).issubset(active_ids):
             raise PermissionError("Automation skill is not assigned and active.")
         workflow, _selection = await create_agent_workflow(
             [], None,
             agent_id=str(agent["id"]),
             user_message=row["instruction"],
-            active_skill_ids=[row["skill_id"]],
+            active_skill_ids=selected.skill_ids,
             vault_path=Path(row["vault_path"]),
             prepared_ai_cfg=_cfg,
             prepared_agent_data=agent,
@@ -388,7 +398,7 @@ async def _run_scoped_automation(automation_id: str, *, manual: bool = False) ->
             "messages": [HumanMessage(content=row["instruction"])],
             "trace_id": run_id,
             "turn_authorized_tool_names": [],
-            "active_skill_ids": [row["skill_id"]],
+            "active_skill_ids": selected.skill_ids,
             "current_user_role": row["role"],
         }
         from backend.services.agent_execution import stream_workflow

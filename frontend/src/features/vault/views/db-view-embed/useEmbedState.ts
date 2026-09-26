@@ -3,9 +3,11 @@ import type { ViewUsage } from '../../../../shared/api/vault-views';
 import type { EmbedIdentity } from './identity';
 import type { EmbedRow, EmbedView } from './types';
 import { readPinned } from './preferences';
+import { useViewSearch } from '../../../../shared/records/hooks/useViewSearch';
 export function useEmbedState({ pageId, viewId, block, t }: EmbedIdentity) {
     const [view, setView] = useState<EmbedView | null>(null);          // the embedded SECTION (anchor: table + `this`)
     const [rawRecords, setRawRecords] = useState<EmbedRow[]>([]); // non-template records WITHOUT filtering
+    const [tableRecords, setTableRecords] = useState<EmbedRow[]>([]); // base table, before joins
     const [templates, setTemplates] = useState<EmbedRow[]>([]);  // separate templates
     // PHASE 3: view tabs. List of the table's views (registry.views)
     // and which one is active. By default, the block's section view.
@@ -18,7 +20,7 @@ export function useEmbedState({ pageId, viewId, block, t }: EmbedIdentity) {
         return '';
     });
     const [reloadKey, setReloadKey] = useState(0);
-    const [searchTerm, setSearchTerm] = useState('');
+    const search = useViewSearch();
     const [showSearch, setShowSearch] = useState(false);
     const [loadDuration, setLoadDuration] = useState<number | null>(null);
     const [tabMenuFor, setTabMenuFor] = useState<string | null | undefined>(null);     // id of the view with its (remove/delete) menu open
@@ -31,6 +33,6 @@ export function useEmbedState({ pageId, viewId, block, t }: EmbedIdentity) {
         try { const r = e.currentTarget.getBoundingClientRect(); setMenuUp(window.innerHeight - r.bottom < 300); } catch { setMenuUp(false); }
     };
     const [pinnedViewIds, setPinnedViewIds] = useState(() => readPinned(pageId, viewId));
-    return { view, setView, rawRecords, setRawRecords, templates, setTemplates, tableViews, setTableViews, activeViewId, setActiveViewId, loading, setLoading, error, setError, reloadKey, setReloadKey, searchTerm, setSearchTerm, showSearch, setShowSearch, loadDuration, setLoadDuration, tabMenuFor, setTabMenuFor, menuUp, setMenuUp, confirmDeleteView, setConfirmDeleteView, deleteViewUsage, setDeleteViewUsage, renameView, setRenameView, decideMenuDir, pinnedViewIds, setPinnedViewIds };
+    return { view, setView, rawRecords, setRawRecords, tableRecords, setTableRecords, templates, setTemplates, tableViews, setTableViews, activeViewId, setActiveViewId, loading, setLoading, error, setError, reloadKey, setReloadKey, ...search, showSearch, setShowSearch, loadDuration, setLoadDuration, tabMenuFor, setTabMenuFor, menuUp, setMenuUp, confirmDeleteView, setConfirmDeleteView, deleteViewUsage, setDeleteViewUsage, renameView, setRenameView, decideMenuDir, pinnedViewIds, setPinnedViewIds };
 }
 export type EmbedState = ReturnType<typeof useEmbedState>;

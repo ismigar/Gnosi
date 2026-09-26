@@ -1,0 +1,1 @@
+Use the existing idempotent page and row translation workflows. Preserve structured Markdown and provenance, cap bulk selections, and report created, updated, skipped, and failed translations exactly.

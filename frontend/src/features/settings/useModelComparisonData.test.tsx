@@ -3,6 +3,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
+    AiModelCatalog,
+    AiModelRegistryEntry,
     AiModelComparison,
     AiModelComparisonEntry,
 } from '../../shared/api/ai';
@@ -21,6 +23,7 @@ const mocks = vi.hoisted(() => ({
     setCredentials: vi.fn(),
     setStatus: vi.fn(),
     updateModels: vi.fn(),
+    validateProvider: vi.fn(),
 }));
 
 
@@ -35,6 +38,7 @@ vi.mock('../../shared/api/ai', () => ({
     setAiProviderCredentials: mocks.setCredentials,
     setAiProviderStatus: mocks.setStatus,
     updateAiModels: mocks.updateModels,
+    validateAiProvider: mocks.validateProvider,
 }));
 
 
@@ -114,6 +118,8 @@ let latestController: ModelComparisonDataController | null;
 
 beforeEach(() => {
     vi.resetAllMocks();
+    mocks.validateProvider.mockResolvedValue({ success: true });
+    mocks.setCredentials.mockResolvedValue({ status: "success" });
     latestController = null;
     mocks.fetchComparison.mockResolvedValue(FEED);
     mocks.fetchModels.mockResolvedValue({
@@ -158,6 +164,7 @@ afterEach(() => {
         root.unmount();
     });
     container.remove();
+    vi.useRealTimers();
 });
 
 
@@ -208,3 +215,154 @@ describe('useModelComparisonData', () => {
         });
     });
 });
+
+
+const mountController = async () => {
+    await act(async () => {
+        root.render(<ControllerHarness onController={(controller) => { latestController = controller; }} />);
+        await Promise.resolve();
+    });
+};
+const settleAutosave = async (ms = 0) => {
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+};
+const NEW_MODEL = { ...MODEL, id: 'model-2', routes: MODEL.routes.map(route => ({ ...route, model_id: 'model-2' })) };
+
+describe('explicit model activation', () => {
+    it('preserves the chosen alias and validates the exact model on activation', async () => {
+        vi.useFakeTimers();
+        await mountController();
+        act(() => { currentController().beginActivation(NEW_MODEL); });
+        await settleAutosave();
+        expect(mocks.validateProvider).not.toHaveBeenCalled();
+        act(() => { currentController().setSetupAlias('  Research model  '); });
+        expect(mocks.updateModels).not.toHaveBeenCalled();
+        await act(async () => { await currentController().testSetupConnection(); });
+        expect(mocks.validateProvider).toHaveBeenCalledWith('openai', { model: 'model-2' });
+        expect(mocks.setCredentials).not.toHaveBeenCalled();
+        expect(mocks.updateModels).toHaveBeenCalledOnce();
+        const saved = mocks.updateModels.mock.lastCall?.[0] as { models: AiModelRegistryEntry[] };
+        expect(saved.models).toEqual(expect.arrayContaining([
+            expect.objectContaining({ provider: 'openai', model_id: 'model-2', enabled: true, alias: 'Research model' }),
+        ]));
+        expect(currentController().state.setup).toBeNull();
+    });
+    it('keeps failures open and saves a replacement key only on activation', async () => {
+        vi.useFakeTimers();
+        mocks.validateProvider.mockResolvedValueOnce({ success: false, error: 'Invalid key' });
+        await mountController();
+        act(() => { currentController().beginActivation(NEW_MODEL); });
+        await settleAutosave();
+        expect(mocks.validateProvider).not.toHaveBeenCalled();
+        await act(async () => { void currentController().testSetupConnection(); await Promise.resolve(); });
+        expect(currentController().state.setup?.connectionStatus).toBe('error');
+        expect(mocks.updateModels).not.toHaveBeenCalled();
+        act(() => { currentController().setSetupApiKey('partial'); });
+        await settleAutosave(400);
+        act(() => { currentController().setSetupApiKey('replacement-key'); });
+        await settleAutosave(799);
+        expect(mocks.setCredentials).not.toHaveBeenCalled();
+        await settleAutosave(1);
+        expect(mocks.setCredentials).not.toHaveBeenCalled();
+        await act(async () => { await currentController().testSetupConnection(); });
+        expect(mocks.setCredentials).toHaveBeenCalledExactlyOnceWith('openai', {
+            api_key: 'replacement-key', base_url: 'https://api.openai.test/v1',
+        });
+        expect(mocks.validateProvider).toHaveBeenCalledTimes(2);
+        expect(mocks.updateModels).toHaveBeenCalledOnce();
+        expect(currentController().state.setup).toBeNull();
+    });
+    it('waits for missing credentials and explicit activation', async () => {
+        vi.useFakeTimers();
+        const catalog = await mocks.fetchCatalog() as AiModelCatalog;
+        mocks.fetchCatalog.mockResolvedValue({ ...catalog, providers: catalog.providers.map((p: object) => ({ ...p, has_api_key: false, connected: false })) });
+        await mountController();
+        act(() => { currentController().beginActivation(NEW_MODEL); });
+        await settleAutosave();
+        expect(mocks.validateProvider).not.toHaveBeenCalled();
+        await act(async () => { void currentController().testSetupConnection(); await Promise.resolve(); });
+        expect(mocks.validateProvider).not.toHaveBeenCalled();
+        expect(currentController().state.setup).not.toBeNull();
+        act(() => { currentController().setSetupApiKey('new-provider-key'); });
+        await settleAutosave(800);
+        expect(mocks.setCredentials).not.toHaveBeenCalled();
+        await act(async () => { await currentController().testSetupConnection(); });
+        expect(mocks.setCredentials).toHaveBeenCalledOnce();
+        expect(mocks.validateProvider).toHaveBeenCalledOnce();
+        expect(currentController().state.setup).toBeNull();
+    });
+    it('does not activate after closing during a pending probe', async () => {
+        vi.useFakeTimers();
+        let finish!: (result: { success: boolean }) => void;
+        mocks.validateProvider.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+        await mountController();
+        act(() => { currentController().beginActivation(NEW_MODEL); });
+        await settleAutosave();
+        expect(mocks.validateProvider).not.toHaveBeenCalled();
+        await act(async () => { void currentController().testSetupConnection(); await Promise.resolve(); });
+        act(() => { currentController().closeSetup(); });
+        await act(async () => { finish({ success: true }); await Promise.resolve(); });
+        expect(mocks.updateModels).not.toHaveBeenCalled();
+        expect(currentController().state.setup).toBeNull();
+    });
+});
+
+describe('comparison persistence regressions', () => {
+    it('preserves models added elsewhere after opening the comparison', async () => {
+        await mountController();
+        const added={provider:'anthropic',model_id:'claude-other',enabled:true};
+        mocks.fetchModels.mockResolvedValue({configured_models:[{provider:'openai',model_id:'model-1',enabled:true},added],budget:{monthly_usd:77}});
+        await act(async()=>{await currentController().deactivateModel(MODEL);});
+        expect(lastSavedRegistry().models).toContainEqual(added);
+        expect(lastSavedRegistry().budget.monthly_usd).toBe(77);
+    });
+    it('keeps both changes when two active rows are disabled quickly', async () => {
+        const other={...MODEL,id:'different-id',name:'Unrelated',slug:'unrelated',routes:[{...(MODEL.routes[0] ?? (() => { throw new Error('Missing fixture route'); })()),model_id:'unrelated'}]};
+        let saved: AiModelRegistryEntry[] = [{provider:'openai',model_id:'model-1',enabled:true},{provider:'openai',model_id:'unrelated',enabled:true}];
+        mocks.fetchModels.mockImplementation(() => Promise.resolve({configured_models: saved, budget: {monthly_usd:10}}));
+        mocks.updateModels.mockImplementation((payload: { models: AiModelRegistryEntry[] }) => {
+            saved = payload.models;
+            return Promise.resolve({ status: 'success', count: saved.length });
+        });
+        await mountController();
+        await act(async()=>{await Promise.all([currentController().deactivateModel(MODEL),currentController().deactivateModel(other)]);});
+        expect(lastSavedRegistry().models.every((m:AiModelRegistryEntry)=>m.enabled===false)).toBe(true);
+    });
+});
+
+
+it('validates and activates the selected offer among two routes at one provider', async () => {
+    await mountController();
+    const freeRoute = { ...(MODEL.routes[0] ?? (() => { throw new Error('Missing fixture route'); })()), model_id: 'model-1:free', cost_in: 0, cost_out: 0 };
+    const model = { ...MODEL, routes: [...MODEL.routes, freeRoute] };
+    act(() => { currentController().beginActivation(model); });
+    act(() => { currentController().changeSetupProvider(JSON.stringify(['openai', 'model-1:free'])); });
+    await act(async () => { await currentController().testSetupConnection(); });
+    expect(mocks.validateProvider).toHaveBeenCalledWith('openai', { model: 'model-1:free' });
+    expect(lastSavedRegistry().models).toContainEqual(expect.objectContaining({
+        provider: 'openai', model_id: 'model-1:free', enabled: true, cost_in: 0, cost_out: 0,
+    }));
+});
+
+
+it('deactivates only the selected provider offer', async () => {
+    const other = { provider: 'openrouter', model_id: 'vendor/model-1', enabled: true };
+    mocks.fetchModels.mockResolvedValue({configured_models:[{provider:'openai',model_id:'model-1',enabled:true},other],budget:{}});
+    await mountController();
+    await act(async () => { await currentController().deactivateModel({...MODEL,routes:[...MODEL.routes,{...(MODEL.routes[0] ?? (() => { throw new Error('Missing fixture route'); })()),...other}]}, 'openai'); });
+    expect(lastSavedRegistry().models).toContainEqual(other);
+});
+
+it('forces provider and comparison refresh after an explicit retry', async () => {
+    await mountController();
+    await act(async () => { currentController().retry(); await Promise.resolve(); });
+    expect(mocks.fetchComparison).toHaveBeenLastCalledWith(expect.any(AbortSignal), true);
+    expect(mocks.fetchCatalog).toHaveBeenLastCalledWith(true, expect.any(AbortSignal));
+});
+
+
+function lastSavedRegistry(): { models: AiModelRegistryEntry[]; budget: Record<string, number> } {
+    const payload = mocks.updateModels.mock.calls.at(-1)?.[0] as { models: AiModelRegistryEntry[]; budget: Record<string, number> } | undefined;
+    if (!payload) throw new Error('No registry write recorded');
+    return payload;
+}

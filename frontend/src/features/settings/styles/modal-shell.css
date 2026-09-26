@@ -110,13 +110,13 @@
 .settings-brand-icon-wrap {
     width: 36px;
     height: 36px;
-    background: var(--gnosi-blue);
+    background: var(--gnosi-primary);
     color: white;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);
 }
 
 .settings-sidebar-title {
@@ -208,10 +208,10 @@
 }
 
 .settings-section-icon-wrap {
-    color: var(--gnosi-blue);
+    color: var(--gnosi-primary);
     display: flex;
     padding: 10px;
-    background: rgba(59, 130, 246, 0.08);
+    background: color-mix(in srgb, var(--gnosi-primary) 8%, transparent);
     border-radius: 14px;
 }
 
@@ -248,9 +248,9 @@
 }
 
 .settings-filter-tabs button.is-active {
-    border-color: var(--gnosi-blue);
-    background: rgba(59, 130, 246, 0.1);
-    color: var(--gnosi-blue);
+    border-color: var(--gnosi-primary);
+    background: color-mix(in srgb, var(--gnosi-primary) 10%, transparent);
+    color: var(--gnosi-primary);
 }
 
 .social-network-tabs {
@@ -277,18 +277,18 @@
 
 .social-network-tab:hover,
 .social-network-tab:focus-visible {
-    border-color: var(--gnosi-blue);
+    border-color: var(--gnosi-primary);
     color: var(--text-primary);
     outline: none;
 }
 
 .social-network-tab:focus-visible {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);
 }
 
 .social-network-tab.is-enabled {
-    background: color-mix(in srgb, var(--gnosi-blue) 12%, var(--settings-sidebar-bg));
-    border-color: var(--gnosi-blue);
+    background: color-mix(in srgb, var(--gnosi-primary) 12%, var(--settings-sidebar-bg));
+    border-color: var(--gnosi-primary);
     color: var(--text-primary);
 }
 
@@ -307,7 +307,7 @@
 }
 
 .settings-configurable-item.is-editing {
-    border-color: var(--gnosi-blue) !important;
+    border-color: var(--gnosi-primary) !important;
     border-bottom-width: 0 !important;
     border-radius: 24px 24px 0 0 !important;
 }
@@ -324,7 +324,7 @@
 .settings-hover-card:hover {
     transform: scale(1.01) translateY(-2px);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-    border-color: rgba(59, 130, 246, 0.3) !important;
+    border-color: color-mix(in srgb, var(--gnosi-primary) 30%, transparent) !important;
 }
 
 .settings-hover-card {
@@ -332,7 +332,7 @@
 }
 
 .settings-hover-card.is-selected:hover {
-    border-color: var(--gnosi-blue) !important;
+    border-color: var(--gnosi-primary) !important;
 }
 
 .settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
@@ -342,7 +342,7 @@
 .settings-inline-editor {
     box-sizing: border-box;
     padding: 28px;
-    border: 1px solid var(--gnosi-blue);
+    border: 1px solid var(--gnosi-primary);
     border-radius: 24px;
     background: var(--bg-primary);
 }
@@ -362,7 +362,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    color: var(--gnosi-blue);
+    color: var(--gnosi-primary);
     font-size: 0.85rem;
     font-weight: 900;
     letter-spacing: 0.08em;
@@ -397,9 +397,13 @@
 }
 
 .settings-plugin-item.is-expanded {
-    border-color: var(--gnosi-blue) !important;
+    border-color: var(--gnosi-primary) !important;
 }
 
 .settings-plugin-item {
     transition: all 0.2s;
+}
+
+.settings-modal :is(.btn-gnosi-primary, .btn-gnosi-primary7) {
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);
 }

@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-09-15
+last_verified: 2026-09-24
 source_paths:
+  - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
   - backend/domains/literature/review_logic.py
@@ -12,6 +13,10 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/domains/vault/citations/exporting.py
   - backend/domains/vault/citations/normalizers
+  - backend/domains/vault/citations/cover_metadata.py
+  - backend/domains/vault/citations/metadata_lookup.py
+  - frontend/src/features/vault/dashboard/useSources.ts
+  - frontend/src/shared/resources/pdfCover.ts
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
@@ -28,6 +33,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_reference_covers.py
+  - frontend/src/features/vault/dashboard/useSources.test.tsx
+  - frontend/src/shared/resources/pdfCover.test.ts
+  - frontend/src/features/vault/properties/FileAttachmentField.test.tsx
   - backend/tests/test_reader_analysis_domain.py
   - backend/tests/test_pr6_domain_facades.py
   - backend/tests/test_vault_export_domain_contract.py
@@ -79,6 +88,30 @@ Literature HTTP routes, canonical models, and systematic-review services are
 strictly typed. PRISMA counting, screening transitions, open-access evidence,
 and CSV/JSON/Markdown/SVG exports live in the pure `review_logic.py` domain;
 the historical service functions remain compatibility facades.
+
+## Automatic covers and resource templates
+
+Creating a resource from a source loads the target table's templates before
+matching the detected Zotero item type, including translated type labels. The
+matching template supplies content and defaults; imported metadata takes
+precedence, while an existing template cover is preserved. An unmatched type
+uses the table default template. New records never inherit template flags.
+
+ISBN lookups retain the edition cover supplied by Open Library. DOI and other
+web lookups use the publisher's declared image through the existing public-URL
+fetch boundary. Covers are optional: missing images never discard reference
+metadata. If an uploaded PDF has no proposed or template cover, the browser
+renders its first page to a bounded JPEG and uploads it to Assets/Covers before
+creating the resource. The original PDF remains attached. Rendering or cover
+upload failures do not block creation. Online covers remain external URLs;
+PDF-generated covers are local assets. Metadata enrichment previews proposed
+covers and does not preselect replacement of an existing cover.
+
+A single progress notification remains visible after the lookup dialog closes. It
+reports preparation, PDF upload, cover generation, saving, and opening as each
+stage starts. The same notification becomes a success only after the record has
+opened, or an error if creation fails. Identifier imports use the applicable
+stages without showing file or cover progress.
 
 ## Responsibility
 
@@ -233,6 +266,13 @@ page, type, geometry, text, comment, tags, stable managed key, and timestamps.
 File endpoints validate containment and handle cloud hydration. Persistent
 annotation identifiers prevent a generated quote from duplicating every time a
 document is reopened.
+
+File properties open PDF and EPUB attachments in the internal reader through
+the shared file-opening action. Vault-relative paths are converted to served
+asset URLs; local links and external document URLs use the same reader route.
+If no dashboard handles the open event, navigation falls back to the reader
+page. Opening an attachment never changes the stored property value. Reader
+assets must be built with the existing runtime script and remain untracked.
 
 ## Feeds and newsletters
 

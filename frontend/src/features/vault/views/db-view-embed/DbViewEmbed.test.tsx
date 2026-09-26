@@ -9,7 +9,6 @@ import { emitAppEvent } from './events';
 import { subscribeAppEvent } from '../../../../shared/platform/app-events';
 import { dispatchWindowEvent } from '../../../../shared/platform/browser-events';
 import * as api from './api';
-import { byTableCache } from './cache';
 import { readText, writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedBlock, EmbedView, NavApi } from './types';
 
@@ -34,7 +33,12 @@ vi.mock('../VaultViewBody', () => ({
         return <div data-testid="body" data-type={props.type}>{props.notes?.map(note => <button key={note.id} onClick={() => { props.onNoteSelect?.(note.id); }}>{note.title}</button>)}</div>;
     }
 }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, fallback?: unknown) => typeof fallback === 'string' ? fallback : key }) }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, fallback?: unknown) => {
+    if (key === 'views_header.filtered_records_count' && fallback && typeof fallback === 'object' && 'count' in fallback && 'total' in fallback) {
+        return `${String(fallback.count)} of ${String(fallback.total)} records`;
+    }
+    return typeof fallback === 'string' ? fallback : key;
+} }) }));
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const anchor: EmbedView = { id: 'anchor', name: 'Main', table_id: 'books', type: 'table', visibleProperties: ['title'], tabs: ['other'] };
@@ -51,7 +55,7 @@ let mounted = false;
 let context: VaultEditorContextValue;
 
 beforeEach(() => {
-    vi.resetAllMocks(); byTableCache.clear(); fixture.body = undefined;
+    vi.resetAllMocks(); fixture.body = undefined;
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => window.setTimeout(() => { callback(0); }, 0));
     vi.stubGlobal('cancelAnimationFrame', (id: number) => { window.clearTimeout(id); });
     vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [section] });
@@ -72,7 +76,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
     if (mounted) await act(async () => { await Promise.resolve(); root.unmount(); });
-    container.remove(); byTableCache.clear(); vi.unstubAllGlobals();
+    container.remove(); vi.unstubAllGlobals();
     for (const key of [pinnedKey('page', 'anchor'), selectedKey('page', 'anchor'), 'gnosi.view.quickPresets.desktop.page.anchor', 'gnosi.view.lastLoad.page.anchor']) removeStorage(defineStorageKey(key, stringStorageCodec));
 });
 async function render(value: EmbedBlock = block): Promise<void> {
@@ -119,7 +123,7 @@ describe('embedded view data and editor navigation', () => {
         await render();
         expect(container.querySelector('[data-testid="brain-tools"]')).toBeNull();
     });
-    it('loads records, keeps templates out, reuses cache and restores the selected tab', async () => {
+    it('loads fresh records, keeps templates out and restores the selected tab', async () => {
         writeText(selectedKey('page', 'anchor'), 'other');
         await render();
         expect(container.textContent).toContain('Library');
@@ -127,7 +131,7 @@ describe('embedded view data and editor navigation', () => {
         expect(fixture.body?.templates).toHaveLength(1);
         await click(button('Beta')); expect(openPage).toHaveBeenCalledWith('b');
         context = { ...context, viewSectionNonce: 1 }; await render();
-        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(1); expect(api.fetchPageViews).toHaveBeenCalledTimes(2);
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2); expect(api.fetchPageViews).toHaveBeenCalledTimes(2);
     });
     it('supports inline config, registry fallback and a recoverable missing-view error', async () => {
         vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [] });
@@ -182,6 +186,97 @@ describe('embedded view data and editor navigation', () => {
 });
 
 describe('embedded record and view actions', () => {
+    it.each(['table', 'gallery', 'feed'])('expands an empty %s search to the whole table and restores filters on clear', async type => {
+        writeText(selectedKey('page', 'anchor'), 'other');
+        context = { ...context, registry: { ...context.registry, views: [anchor, { ...other, type }] } };
+        await render();
+        await click(button('Search'));
+        const scope = container.querySelector<HTMLSelectElement>('select[aria-label="Search in"]');
+        expect(scope?.value).toBe('view');
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), 'Alpha');
+        expect(container.querySelector('[data-testid="body"]')).toBeNull();
+        expect(container.textContent).toContain('No matches in this view. Its filters still apply.');
+        expect(container.querySelector('[role="status"]')?.textContent).toContain('0 of 2 records');
+        await click(button('Search the entire table'));
+        expect(scope?.value).toBe('table');
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['a']);
+        expect(fixture.body?.activeView?.id).toBe('other');
+        expect(container.querySelector('[role="status"]')?.textContent).toContain('1 of 2 records');
+        expect(api.updateVaultView).not.toHaveBeenCalled();
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), '');
+        expect(scope?.value).toBe('view');
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['b']);
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(1);
+    });
+    it('searches the base table even when the view has an inner join', async () => {
+        vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [{ ...section,
+            joins: [{ tableId: 'joined', leftField: 'key', rightField: 'key' }],
+        }] });
+        vi.mocked(api.fetchVaultPagesByTable).mockImplementation(id => Promise.resolve(id === 'books'
+            ? [{ id: 'a', title: 'Alpha', metadata: { key: 'missing' } }]
+            : [{ id: 'linked', title: 'Linked', metadata: { key: 'other' } }]));
+        await render();
+        await click(button('Search'));
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), 'Alpha');
+        expect(container.querySelector('[data-testid="body"]')).toBeNull();
+        await click(button('Search the entire table'));
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['a']);
+    });
+    it.each([
+        ['DESDE EL REINO DE LOS SUEÑOS', ['dreams']],
+        ['desde%Suenos', ['dreams']],
+        ['/reino.*suenos$/i', ['dreams']],
+        ['tomas halik', ['dreams']],
+        ['x', ['single']],
+        ['missing title', []],
+    ])('keeps the count and renderer consistent for search %s', async (query, expected) => {
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([
+            { id: 'dreams', title: 'DESDE EL REINO DE LOS SUEÑOS', metadata: { Autoría: [{ nom: 'Tomás', cognom1: 'Halík', cognom2: '' }] } },
+            { id: 'partial', title: 'Desde otra perspectiva', metadata: {} },
+            { id: 'single', title: 'X', metadata: {} },
+        ]);
+        await render();
+        await click(button('Search'));
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), query);
+        if (expected.length) {
+            expect(fixture.body?.notes?.map(note => note.id)).toEqual(expected);
+            expect(fixture.body?.searchTerm).toBe(query);
+        } else {
+            expect(container.querySelector('[data-testid="body"]')).toBeNull();
+            expect(button('Search the entire table')).toBeDefined();
+        }
+        expect(container.querySelector('[role="status"]')?.textContent).toContain(`${String(expected.length)} of 3 records`);
+    });
+    it('finds a saved title immediately when returning to an embedded view', async () => {
+        await render();
+        await act(async () => { root.render(null); await Promise.resolve(); });
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([
+            { id: 'a', title: 'A newly saved title', metadata: { table_id: 'books' } },
+        ]);
+        await render();
+        await click(button('Search'));
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), 'newly saved title');
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['a']);
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+    });
+    it('refreshes a visible embed after a record is saved without clearing its search', async () => {
+        await render();
+        await click(button('Search'));
+        await inputValue(container.querySelector('input[placeholder="Search..."]'), 'new title');
+        const searchInput = container.querySelector<HTMLInputElement>('input[placeholder="Search..."]');
+        expect(document.activeElement).toBe(searchInput);
+        expect(container.querySelector('[data-testid="body"]')).toBeNull();
+        vi.mocked(api.fetchVaultPagesByTable).mockResolvedValue([
+            { id: 'a', title: 'New title', metadata: { table_id: 'books' } },
+        ]);
+        await act(async () => { emitAppEvent('gnosi:invalidatePreview', { pageId: 'a' }); await Promise.resolve(); });
+        expect(fixture.body?.notes?.map(note => note.id)).toEqual(['a']);
+        expect(container.querySelector<HTMLInputElement>('input[placeholder="Search..."]')?.value).toBe('new title');
+        expect(document.activeElement).toBe(searchInput);
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+        await act(async () => { emitAppEvent('gnosi:invalidatePreview', { pageId: 'page' }); await Promise.resolve(); });
+        expect(api.fetchVaultPagesByTable).toHaveBeenCalledTimes(2);
+    });
     it('keeps source/template creation callbacks and pins a newly configured view', async () => {
         const createTemplate = vi.fn<(id: string) => void>();
         const createFromSource = vi.fn<(id: string) => void>();

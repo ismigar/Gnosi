@@ -93,10 +93,10 @@ export function BrowseDialogs(dashboard: DashboardController) {
       isOpen={!!createSourceTableId}
       mode="create"
       onClose={() => { setCreateSourceTableId(null); }}
-      onCreate={(suggested) => {
+      onCreate={(suggested, sourceFile) => {
         const tid = createSourceTableId;
         setCreateSourceTableId(null);
-        void handleCreateFromSource(tid, suggested);
+        void handleCreateFromSource(tid, suggested, sourceFile);
       }}
     />
 

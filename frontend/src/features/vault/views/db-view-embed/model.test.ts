@@ -1,15 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defineStorageKey, removeStorage, stringStorageCodec } from '../../../../shared/platform/browser-storage';
-import { applyFilterNode, metaValueForField, multiKeySort, searchRows } from './filter-model';
+import { applyFilterNode, metaValueForField, multiKeySort } from './filter-model';
 import { applyClientJoins, normalizeVisibleColumns } from './joins';
-import { byTableCache, byTableGet, byTableSet } from './cache';
 import { decodeRow, decodeView } from './decode';
 import { encodePresets, importPresets, pinnedKey, readPinned, readPresets, selectedKey, writeText } from './preferences';
 import type { EmbedRow } from './types';
 
 const row = (id: string, metadata: EmbedRow['metadata'] = {}, title = id): EmbedRow => ({ id, title, metadata });
 afterEach(() => {
-    byTableCache.clear();
     vi.useRealTimers();
     for (const key of [pinnedKey('page', 'anchor'), 'test-presets']) removeStorage(defineStorageKey(key, stringStorageCodec));
 });
@@ -32,13 +30,6 @@ describe('embed filtering and stable ordering', () => {
         expect(multiKeySort(rows, [{ field: 'score' }, { field: 'title' }]).map(r => r.id)).toEqual(['a', 'b', 'z', 'empty']);
         expect(rows[0]?.id).toBe('z');
         expect(multiKeySort(rows, []).map(r => r.id)).toEqual(['a', 'b', 'empty', 'z']);
-    });
-    it('searches all metadata with accent-insensitive weighted concepts', () => {
-        const rows = [row('tag', { tags: ['Mercè', null, 'poesia'] }, 'Notes'), row('title', { hidden: 'poesia' }, 'Mercè'), row('none')];
-        expect(searchRows(rows, 'merce poesia').map(r => r.id)).toEqual(['title', 'tag']);
-        expect(searchRows(rows, '')).toBe(rows);
-        expect(searchRows(rows, 'null')).toEqual([]);
-        expect(searchRows(rows, 'a')).toEqual([]);
     });
 });
 
@@ -71,7 +62,7 @@ describe('multi-table joins', () => {
     });
 });
 
-describe('portable preferences and caches', () => {
+describe('portable preferences', () => {
     it('keeps exact keys, tolerates corrupt JSON and decodes pinned ids', () => {
         expect(selectedKey('page', 'anchor')).toBe('gnosi_embed_view_page_anchor');
         writeText(pinnedKey('page', 'anchor'), '{broken');
@@ -88,17 +79,6 @@ describe('portable preferences and caches', () => {
         expect(importPresets(url, 42)).toEqual(presets.slice(1).map((preset, i) => ({ ...preset, id: `42-${String(i)}` })));
         expect(importPresets(JSON.stringify(presets), 42)).toHaveLength(5);
         expect(() => importPresets('{}')).toThrow('invalid preset payload');
-    });
-    it('expires after five minutes, bounds the cache and refreshes FIFO insertion', () => {
-        vi.useFakeTimers(); vi.setSystemTime(1000);
-        const rows = [row('a')]; byTableSet('a', rows);
-        expect(byTableGet('a')).toBe(rows);
-        vi.setSystemTime(301000); expect(byTableGet('a')).toBe(rows);
-        vi.setSystemTime(301001); expect(byTableGet('a')).toBeNull();
-        for (let i = 0;i < 32;i++) byTableSet(String(i), rows);
-        byTableSet('0', rows); byTableSet('32', rows);
-        expect(byTableCache.size).toBe(32);
-        expect(byTableGet('1')).toBeNull(); expect(byTableGet('0')).toBe(rows);
     });
     it('retains plugin data, legacy aliases, joins without type and nested filters', () => {
         const value = decodeView({ id: 'view', plugin: { token: 'fake' }, row_height: 'tall', visible_properties: [{ tableId: 't', fieldKey: 'title' }], joins: [{ tableId: 't', leftField: 'x', rightField: 'y' }], filterTree: { conjunction: 'or', rules: [{ field: 'title', value: 'x' }] } });

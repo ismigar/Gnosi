@@ -98,7 +98,8 @@ def test_summarize_batch_uses_shared_executor_and_preserves_language(monkeypatch
     assert request.skill_id == "core.gnosi-daily-briefing"
     assert request.language == "Catalan"
     assert "News evidence" in request.input
-    assert "Write the entire response in Catalan" in request.input
+    import json
+    assert json.loads(request.input)["data"]["language"] == "Catalan"
 
 
 def test_generate_tts_uses_selected_language(monkeypatch, tmp_path):

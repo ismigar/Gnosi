@@ -7,6 +7,8 @@ fails (invalid keys), the page is still saved with the transcription + a warning
 Single-job global state, `audio_summarizer.generation_status`-style (queried
 from `GET /api/meetings/status`).
 """
+
+from backend.services.agent_behavior import task_input
 import asyncio
 import logging
 import os
@@ -34,19 +36,7 @@ def get_status() -> dict[str, Any]:
 
 
 def _build_acta_prompt(title: str, transcript: str) -> str:
-    return (
-        "You are an assistant who writes MEETING MINUTES. From the TRANSCRIPT, "
-        "write clear, structured Markdown minutes in the SAME language as the "
-        "transcript. Use EXACTLY these sections, translated into that language:\n"
-        "## Summary\n(2–4 sentences)\n\n"
-        "## Topics discussed\n(bullet points)\n\n"
-        "## Decisions\n(bullet points; if there are none, write “No decisions recorded”)\n\n"
-        "## Tasks and agreements\n(bullet points with owner and date when stated: "
-        "`- [ ] Task — Owner (date)`)\n\n"
-        "## Next steps\n(bullet points)\n\n"
-        "Do NOT include the transcript or anything outside these sections.\n\n"
-        f"Meeting title: {title}\n\n--- TRANSCRIPT ---\n{transcript}"
-    )
+    return task_input("meeting.minutes", title=title, transcript=transcript)
 
 
 def _acta_page_markdown(acta_md: str, transcript: str, meta_line: str) -> str:

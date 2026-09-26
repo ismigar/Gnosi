@@ -644,7 +644,11 @@
     "reprocess_resource": "Reprocess resource (processed on {{date}})",
     "process_resource_running": "Processing…",
     "reprocess_resource_error": "Resume interrupted processing",
-    "process_resource_no_source": "This resource has no configured attachment or URL"
+    "process_resource_no_source": "This resource has no configured attachment or URL",
+    "select_all_rows": "Select all rows",
+    "select_row": "Select {{title}}",
+    "aggregate_column": "Aggregation for {{column}}",
+    "modified_column": "Last modified"
   },
   "dashboard": {
     "status_title": "System Status",
@@ -1233,7 +1237,8 @@
     "date_reminder_tooltip": "Reminder: {{date}} at {{time}}",
     "date_reminder_label": "Reminder (optional)",
     "date_reminder_clear": "Clear",
-    "note_section_placeholder_trans": "Note name#Section"
+    "note_section_placeholder_trans": "Note name#Section",
+    "content_label": "Page content"
   },
   "view_config": {
     "title": "Configure View",
@@ -1287,6 +1292,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Search in",
+    "search_scope_view": "This view",
+    "search_scope_table": "Entire table",
+    "search_entire_table": "Search the entire table",
+    "no_search_results_view": "No matches in this view. Its filters still apply.",
+    "no_search_results_table": "No matches in this table.",
     "main_view": "Main view",
     "main_view_locked": "Main view (locked)",
     "more_actions": "More actions",
@@ -1587,7 +1598,7 @@
         },
         "translation": {
           "name": "Translation",
-          "description": "Translation providers and publishing-language actions."
+          "description": "Translate rows, pages and skill instructions using the Translation AI profile."
         },
         "contacts": {
           "name": "Contacts",
@@ -2192,7 +2203,10 @@
       "context_add_page": "Page",
       "context_add_file": "File",
       "context_add_vault": "Whole vault",
-      "context_whole_vault": "Whole vault",
+      "context_whole_vault": "Entire active vault",
+      "context_back_sources": "Back to Gnosi sources",
+      "context_vault_description": "Pages and databases in the active vault.",
+      "context_vault_specific": "Specific pages or databases",
       "context_remove_source": "Remove from context",
       "context_configure_source": "Configure source scope",
       "context_add_internal": "Gnosi source",
@@ -2618,7 +2632,10 @@
         "instructions_translation_error": "The instructions could not be translated. Showing the saved text.",
         "instructions_translate": "Translate into English",
         "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
-        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved."
+        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved.",
+        "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved.",
+        "active_skills_only": "Only enabled skills",
+        "back_to_profile": "Back to profile"
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2716,7 +2733,11 @@
           "plugin_llm_wiki_process_source": "Process a Knowledge source",
           "plugin_llm_wiki_process_status": "Check Knowledge processing progress",
           "plugin_llm_wiki_maintain": "Maintain Knowledge indexes",
-          "plugin_llm_wiki_propose_connections": "Propose Knowledge connections"
+          "plugin_llm_wiki_propose_connections": "Propose Knowledge connections",
+          "core_gnosi_operation_writing": "Writing and correction",
+          "core_gnosi_operation_tables": "Table actions",
+          "core_gnosi_operation_knowledge": "Knowledge connections and refinement",
+          "core_gnosi_operation_learning": "Skill learning and evaluation"
         },
         "tool_names": {
           "add_page_comment": "Add a page comment",
@@ -2903,7 +2924,11 @@
           "core_gnosi_notebooks": "Inspect notebooks and citable evidence; create and organize private notebooks from existing Resources.",
           "core_gnosi_literature": "Search configured academic sources, inspect results and reviews, and import references into Resources.",
           "core_gnosi_media": "Find media files and edit their tags and descriptions without changing file contents.",
-          "core_gnosi_activity": "Inspect your automations, results and scheduled services without changing permissions or schedules."
+          "core_gnosi_activity": "Inspect your automations, results and scheduled services without changing permissions or schedules.",
+          "core_gnosi_operation_writing": "Write, summarize and correct text while preserving meaning and formatting.",
+          "core_gnosi_operation_tables": "Propose configurations and field values from the supplied schema and record.",
+          "core_gnosi_operation_knowledge": "Propose connections and reformulations from available notes and evidence, without saving changes.",
+          "core_gnosi_operation_learning": "Extract procedures from approved instructions and evaluate skills against explicit criteria."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepare today’s agenda, priorities and pending messages.",
@@ -3138,17 +3163,47 @@
       },
       "assistant": {
         "title": "Assistant",
-        "principal": "Principal assistant",
-        "help": "Choose the model and general instructions for your assistant.",
+        "principal": "Default assistant",
+        "help": "The assistant uses the profile you choose in each conversation. Each profile stores one model, instructions, sources and skills.",
         "advanced": "Additional profiles (advanced)",
-        "profiles_help": "Create another profile only for a different model, instructions, sources or skills. Changing the principal does not change saved automations.",
+        "profiles_help": "Saved profiles you can choose in chat. Each conversation keeps its own profile and preserves its history when you switch.",
         "create_profile": "Create profile",
         "setup": "Set up assistant",
-        "make_principal": "Make principal",
+        "make_principal": "Use as default",
         "profile": "Assistant profile",
         "other_profile": "Use another profile (advanced)",
-        "automation_help": "Runs the skill with {{name}}. The profile is saved with the automation.",
-        "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them."
+        "automation_help": "This skill will use the {{name}} profile. You can edit it in assistant settings.",
+        "no_skills": "Assign skills to this assistant in Settings → AI → Assistant to schedule them.",
+        "builtin_profiles": {
+          "translation": "Translation",
+          "ai-platform": "Writing and knowledge capture",
+          "feeds-reader": "Feeds and podcasts",
+          "grounded-notebooks": "Grounded notebooks",
+          "resources": "Literature assistance",
+          "mail": "Mail",
+          "social-publishing": "Social publishing",
+          "calendar": "Meetings",
+          "llm-wiki": "Knowledge"
+        },
+        "principal_help": "The default profile is used for new conversations. Plugins use their own profiles. Changing a chat profile does not affect other conversations.",
+        "principal_profile": "Default profile",
+        "additional_profile": "Additional profile",
+        "new_profile": "New profile",
+        "profile_name": "Profile name",
+        "configure_action": "Configure",
+        "save_changes": "Save changes",
+        "configure_profile": "Configure profile {{name}}",
+        "delete_profile": "Delete profile {{name}}",
+        "delete_profile_title": "Delete profile",
+        "delete_profile_message": "Delete the profile “{{name}}” and its configuration? The original models, sources and skills will be kept.",
+        "restore_help": "This profile is disabled. Save its configuration to enable it again.",
+        "conversation_profile": "Conversation profile",
+        "profile_model": "Profile model",
+        "plugin_profiles": "Plugin profiles",
+        "plugin_profile": "Plugin profile",
+        "plugin_owner": "Used by: {{name}}",
+        "plugin_suspended": "Plugin disabled. Your configuration is preserved.",
+        "plugin_profiles_help": "Each plugin uses its own profile for AI actions. You can edit its model, instructions, sources and skills. Plugin updates preserve your changes."
       },
       "model_strategy": {
         "primary": "Primary model",
@@ -3175,6 +3230,52 @@
         "save_error": "Could not save the assistant. Please try again.",
         "decision_selected": "Model selected with Jev",
         "decision_fallback": "Gnosi’s internal selection: Jev did not provide a usable decision."
+      },
+      "sources": {
+        "all": "All",
+        "unavailable": "Unavailable",
+        "no_options": "No options available.",
+        "no_more_matches": "No more matching options.",
+        "all_added": "You have added all available sources.",
+        "no_sources": "No sources available.",
+        "load_error": "Could not load options. Try again.",
+        "mail_folders": "Folders",
+        "mail_minimum": "Choose at least one folder per account. New accounts use the default folder.",
+        "no_accounts": "No connected accounts available.",
+        "folder_count": "{{count}} folders",
+        "folder_count_one": "{{count}} folder",
+        "folder_count_other": "{{count}} folders",
+        "calendar_default": "Default dates: 30 days ago to 90 days ahead.",
+        "days_ago": "30 days ago",
+        "days_ahead": "90 days ahead",
+        "all_articles": "All articles",
+        "options": {
+          "project": "Projects",
+          "task": "Tasks",
+          "resource": "Resources",
+          "assignment": "Assignments",
+          "calendar": "Calendars",
+          "recurrence": "Recurrences",
+          "page": "Pages",
+          "database": "Databases",
+          "local": "Local",
+          "google": "Google",
+          "apple": "Apple",
+          "personal": "Personal",
+          "b2b": "Business",
+          "esborrany": "Draft",
+          "programada": "Scheduled",
+          "publicant": "Publishing",
+          "publicada": "Published",
+          "parcial": "Partial",
+          "error": "Error",
+          "cancelada": "Cancelled",
+          "mastodon": "Mastodon",
+          "bluesky": "Bluesky",
+          "linkedin": "LinkedIn",
+          "facebook": "Facebook",
+          "telegram": "Telegram"
+        }
       }
     },
     "footer": {
@@ -3623,7 +3724,7 @@
     "success_page": "Translation started — child pages will appear shortly.",
     "error": "Error starting translation",
     "error_pick_lang": "Pick at least one language.",
-    "provider_hint": "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in secure settings.",
+    "provider_hint": "Translation uses the Translation AI profile’s model. Review the profile and provider connection in the Translation plugin settings.",
     "title_bulk": "Translate {{count}} records",
     "intro_bulk": "Choose target languages. For each selected record and language a subitem will be created (or updated) with the translation of the fields marked as translatable.",
     "success_bulk": "Translation started for {{count}} records.",
@@ -3642,25 +3743,10 @@
     "lang_zh": "Chinese"
   },
   "translate_settings": {
-    "deepl_label": "DeepL — API key",
-    "softcatala_label": "Softcatalà — translator URL",
-    "section_title": "Translation services",
-    "intro": "Configure the providers used by the \"Translate row\" button. DeepL covers most languages; Softcatalà handles Catalan (DeepL doesn't support it).",
-    "deepl_desc": "Stored in the macOS Keychain, not in .env_shared. Get one at deepl.com/pro-api.",
-    "deepl_placeholder": "Paste your DeepL API key…",
-    "deepl_placeholder_replace": "Enter a new key to replace it",
-    "deepl_configured": "API key configured in Keychain",
-    "deepl_saved": "DeepL API key saved to Keychain.",
-    "deepl_save_error": "Couldn't save the DeepL key.",
-    "deepl_deleted": "DeepL API key removed.",
-    "deepl_delete_error": "Couldn't remove the DeepL key.",
-    "error_deepl_required": "Enter an API key.",
-    "softcatala_desc": "Endpoint for Softcatalà's translator (Catalan). Stored in Gnosi's local .env. Empty = use default.",
-    "softcatala_saved": "Softcatalà URL updated.",
-    "softcatala_save_error": "Couldn't save the Softcatalà URL.",
-    "usage_hint": "These values are consumed by the /api/vault/skills/translate-row endpoint. After saving the DeepL key you may need to restart the backend so the Keychain reloads.",
-    "autosaving": "Saving…",
-    "autosaved": "Saved"
+    "section_title": "AI translation",
+    "intro": "The buttons for translating rows, pages and skill instructions use the plugin’s Translation AI profile. Configure its model and check that its provider is connected.",
+    "usage_hint": "Translations requested within a conversation use that conversation’s agent profile. Translating a skill only displays a reading copy: the original instructions are preserved.",
+    "legacy_notice": "DeepL and Softcatalà belong to the previous translation system and are no longer used by this workflow. Previously saved credentials are preserved but unused."
   },
   "mail": {
     "all_accounts": "All accounts",
@@ -4430,6 +4516,11 @@
     "type_genogram": "Genogram"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparing the resource…",
+    "saving_file": "Saving the PDF…",
+    "creating_cover": "Creating the cover…",
+    "saving_resource": "Saving the resource…",
+    "opening_resource": "Opening the resource…",
     "button": "Fill",
     "button_title": "Fill metadata from DOI/ISBN/arXiv/URL",
     "applied_one": "Updated {{count}} field",
@@ -4559,7 +4650,10 @@
     "index_updating": "The library is updating. You can browse the available photos.",
     "index_update_failed": "The library could not be updated. Try again.",
     "index_update_paused": "The update has not been confirmed yet. Check its status again.",
-    "index_retry_wait": "Retry available shortly"
+    "index_retry_wait": "Retry available shortly",
+    "reader_load_error": "The PDF reader could not load. Update Gnosi and try again.",
+    "grid_view": "Grid view",
+    "list_view": "List view"
   },
   "tldraw": {
     "untitled_drawing": "Untitled drawing",
@@ -5208,7 +5302,9 @@
     "module_media_desc": "Explore your media library.",
     "module_dashboard_title": "Control Center",
     "module_dashboard_desc": "Monitor system status and approve tools.",
-    "module_settings_desc": "Manage your ecosystem's settings."
+    "module_settings_desc": "Manage your ecosystem's settings.",
+    "module_planning_desc": "Plan projects, dependencies, resources, and work calendars.",
+    "module_notebooks_desc": "Ask questions grounded in selected reference sources."
   },
   "composer": {
     "title": "Composer",
@@ -5876,7 +5972,47 @@
     "submit": "Submit for review",
     "submitted": "Template submitted for moderation.",
     "submit_error": "The template could not be submitted.",
-    "submission_not_configured": "This installation has no marketplace submission service configured."
+    "submission_not_configured": "This installation has no marketplace submission service configured.",
+    "privacy_help": "Review the files and warnings before sharing. Warnings identify possible credentials; detected values are never displayed.",
+    "files_findings": "Warnings",
+    "files_included": "Included files",
+    "files_excluded": "Excluded files",
+    "search_files": "Search files",
+    "no_files": "No files match this selection.",
+    "show_more": "Show more",
+    "search_catalog": "Search templates",
+    "category": "Category",
+    "all_categories": "All categories",
+    "loading_catalog": "Loading catalog…",
+    "contents_preview": "What’s included",
+    "category_starter": "Getting started",
+    "category_research": "Research",
+    "category_writing": "Writing",
+    "category_study": "Study",
+    "category_projects": "Projects",
+    "privacy_reason_private-root": "Private application data",
+    "privacy_reason_environment-file": "Environment configuration file",
+    "privacy_reason_executable-content": "Executable content",
+    "privacy_reason_symlink": "Symbolic link",
+    "privacy_reason_file-too-large": "File too large",
+    "privacy_reason_unreadable": "Cannot read file",
+    "privacy_reason_private-key": "Possible private key",
+    "privacy_reason_aws-access-key": "Possible AWS access key",
+    "privacy_reason_oauth-refresh-token": "Possible OAuth access token",
+    "privacy_reason_credential-assignment": "Possible password or credential",
+    "privacy_reason_unknown": "Needs review",
+    "catalog_starter-vault_name": "Research Starter Workspace",
+    "catalog_starter-vault_description": "From sources to manuscript: reading notes, synthesis and citation examples.",
+    "catalog_starter-vault_preview": "Sources table · Reading notes · Connected synthesis · First paragraph",
+    "catalog_study-workspace_name": "Study Workspace",
+    "catalog_study-workspace_description": "Plan a course, develop concepts and check what you remember.",
+    "catalog_study-workspace_preview": "Weekly plan · Concept note · Active recall · Getting started",
+    "catalog_project-workspace_name": "Project Workspace",
+    "catalog_project-workspace_description": "Define a project, track tasks and keep the reasons behind decisions.",
+    "catalog_project-workspace_preview": "Project brief · Tasks · Decision log · Getting started",
+    "no_matching_templates": "No templates match your search or category.",
+    "findings_ack_one": "One possible sensitive item was detected. I reviewed the source file and agree to include it.",
+    "findings_ack_other": "{{count}} possible sensitive items were detected. I reviewed the source files and agree to include them."
   },
   "shared_page": {
     "link_invalid": "This link is invalid or has expired.",
@@ -5970,6 +6106,8 @@
     }
   },
   "model_comparison": {
+    "additional_offers_one": "{{count}} more offer",
+    "additional_offers_other": "{{count}} more offers",
     "parameters_missing": "Pending verification",
     "parameters_missing_help": "We have not yet verified this model’s size against an official source.",
     "parameters_active": "{{value}} B active / token",
@@ -5999,7 +6137,8 @@
       "profile": "Use",
       "coding": "Coding\npoints",
       "agentic": "Agents\npoints",
-      "creator": "Creator"
+      "creator": "Model maker",
+      "provider": "Provider"
     },
     "compact_filters": {
       "profile": "Profile",
@@ -6039,10 +6178,10 @@
     "profile": "Task profile",
     "profile_help_open": "Show profile explanations",
     "profile_help_title": "AI work-team profiles",
-    "profile_help_intro": "Choose a profile based on task complexity, volume, and cost.",
+    "profile_help_intro": "A model can suit several roles. Review evidence, missing tests and total cost; labels do not certify specialization.",
     "profile_help": {
       "worker": {
-        "objective": "Massive, simple, very low-cost tasks.",
+        "objective": "Simple, repetitive tasks; check accuracy, speed and cost.",
         "examples": "Classify emails, fix spelling, or translate short labels."
       },
       "administrative": {
@@ -6062,15 +6201,19 @@
         "examples": "Debug code, analyze risks, or solve advanced mathematics."
       },
       "unrated": {
-        "objective": "Models without a comparable intelligence benchmark.",
+        "objective": "There is not enough evidence yet to assess its roles.",
         "examples": "Review the other metrics before assigning them a task."
+      },
+      "director": {
+        "objective": "Plan complex tasks, select executors and integrate evidence.",
+        "examples": "Identify missing specialists, resolve conflicting results and avoid unnecessary calls."
       }
     },
     "profile_help_flow_title": "Recommended workflow",
-    "profile_help_flow": "Documentalist extracts key points → Expert decides the strategy → All-rounder writes → Worker or Administrative translates and formats.",
+    "profile_help_flow": "Known tasks go directly to a suitable executor. The Director intervenes when planning or integration is needed.",
+    "all_providers": "All providers",
     "all_profiles": "All profiles",
     "provider": "Provider",
-    "all_providers": "All providers",
     "frontier_only": "Frontier models only",
     "results_count_one": "{{count}} model shown",
     "results_count_other": "{{count}} models shown",
@@ -6109,7 +6252,7 @@
     "model_enabled": "{{model}} was enabled with {{provider}}.",
     "model_disabled": "{{model}} was disabled.",
     "no_results": "No models match these filters.",
-    "data_note": "Live benchmark, pricing and performance data. Attribution:",
+    "data_note": "Catalog benchmarks and performance; these may come from cached data. Source:",
     "metric_sources": {
       "models_dev": "Value completed with models.dev",
       "artificial_analysis_cache": "Last available value from the Artificial Analysis cache"
@@ -6125,7 +6268,8 @@
       "configuration_load_error": "The comparison is available, but the current model configuration could not be loaded.",
       "configuration_save_error": "The model configuration could not be saved.",
       "upstream_error": "The current model data could not be loaded.",
-      "help": "Create a free key, paste it below, and Gnosi will store it securely on the backend."
+      "help": "Create a free key, paste it below, and Gnosi will store it securely on the backend.",
+      "unknown_route_price": "The model cannot be activated without known rates. Refresh the catalog and try again; an unknown price will not be saved as zero."
     },
     "setup": {
       "execution": "Execution type",
@@ -6137,27 +6281,39 @@
       "connected": "connected",
       "credentials_ready": "Credentials ready",
       "credentials_ready_help": "Gnosi will reuse your existing secure connection.",
+      "credentials_saved": "Credentials saved; connection not tested",
+      "connection_unverified": "The provider is marked connected only after the selected model responds successfully.",
+      "test_connection": "Test connection",
+      "connection_verified": "Connected: test succeeded",
+      "auto_activation_help": "Changes are saved automatically. When the connection succeeds, the model will activate and this form will close.",
+      "auto_checking": "Checking the connection and activating the model…",
+      "connection_verified_help": "Model {{model}} responded successfully to the test. The API key expiry depends on the provider settings.",
+      "connection_failed": "The connection to this model could not be verified.",
       "api_key": "{{provider}} API key",
-      "api_key_help": "This is only requested because the provider is not connected yet.",
+      "api_key_help": "Paste the provider key. It will be saved and checked automatically when you stop typing.",
+      "replace_api_key_help": "A key is already saved. Entering a new key replaces it and checks it automatically.",
       "base_url": "Base URL",
       "base_url_help": "The catalog endpoint is suggested; only change it when using your own compatible endpoint.",
       "no_exact_route": "No exact executable route was found",
       "no_exact_route_help": "This model cannot be enabled automatically because the catalog provides no verifiable compatible route.",
       "router_help": "The model will be available to the automatic router and under Router models.",
-      "activate": "Enable model"
+      "activate": "Enable model",
+      "shared_offer_help": "This offer is shared by these benchmark variants: {{models}}. Activation and aliases apply to the same offer. Variants are informational: this screen does not configure reasoning mode or guarantee the conditions of each benchmark.",
+      "shared_offer_label": "Shared activation and aliases"
     },
     "profiles": {
       "worker": "Worker",
       "administrative": "Administrative",
       "documentalist": "Documentalist",
       "allrounder": "All-rounder",
-      "expert": "Expert / Director",
-      "unrated": "Unrated"
+      "expert": "Expert",
+      "unrated": "Unrated",
+      "director": "Director"
     },
     "columns": {
       "parameters": "Parameters (B)",
       "model": "Model",
-      "creator": "Creator",
+      "creator": "Model maker",
       "provider": "Provider",
       "modes": "Supported modes",
       "intelligence": "Intelligence (points)",
@@ -6173,7 +6329,44 @@
       "quantization": "Quantization",
       "monthly_cost": "Est. {{symbol}}/month",
       "available": "Available"
-    }
+    },
+    "alias": {
+      "label": "Alias",
+      "placeholder": "E.g. Fast and affordable",
+      "help": "Selectors will show only this alias. Leave it blank to use the model name.",
+      "activation_help": "Choose an alias and activate the model when ready."
+    },
+    "review_lookup": "Check official source",
+    "review_help": "Consult manufacturer sources and check the exact version. Automatic lookup searches the official model card; if it finds no explicit count, review and save it with a source. Counts are never inferred from names.",
+    "review_source_link": "Open manufacturer source",
+    "review_status": "Review result",
+    "review_known": "Published size",
+    "review_total": "Total parameters (B)",
+    "review_active": "Active parameters (B, optional)",
+    "review_attest": "I checked this disclosure for the exact version in an official source",
+    "review_save": "Save review",
+    "review_error": "Could not complete verification. Check the source, counts and administrator permissions.",
+    "review_outcomes": {
+      "loaded": "Choose automatic lookup or review the source manually.",
+      "verified": "Official count found and saved.",
+      "needs_review": "No explicit count found. Source review is still needed; this does not mean the count is unpublished.",
+      "source_unavailable": "The source did not respond. You can retry.",
+      "saved": "Manual review saved with source and date."
+    },
+    "review_manual": "Manually reviewed source",
+    "estimated_fit": "Estimated suitability",
+    "choice_help": "Choose by estimated suitability, cost and model maker. The profile filters models with estimated suitability for that task. Enable “Include incomplete” to also see candidates with insufficient data; this does not confirm their suitability. Current filters may hide alternatives.",
+    "compare_candidates": "Compare all candidates",
+    "unknown_cost": "Unknown cost",
+    "local_cost_note": "No token fee; hardware and energy are not included.",
+    "provider_cost_note": "Estimate using each provider’s rates and the specified tokens, excluding fixed fees and taxes. Costs run from lowest to highest, with unknown costs last. Context, modes and capabilities come from each provider’s catalog entry; missing values never inherit general model data. Filters must match the same offer. Context sorting uses the highest known window among the selected provider’s offers. Speed and suitability remain general model data.",
+    "input_modes": "Input",
+    "output_modes": "Output",
+    "tool_call": "Tools",
+    "reasoning": "Reasoning",
+    "unknown_capability": "Unknown",
+    "supported": "Yes",
+    "unsupported": "No"
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",
@@ -6564,7 +6757,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Changing a page title or favorite no longer overwrites recently autosaved text."
+          "autosave_metadata": "Changing a page title or favorite no longer overwrites recently autosaved text.",
+          "update_notice_background_check": "The desktop update notice now checks periodically for newly published releases, and the macOS installer action can be retried."
         }
       },
       "v3_1_0": {
@@ -7285,8 +7479,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Principal agent",
-    "configure": "Configure the Agent",
+    "principal": "Assistant profile",
+    "configure": "Configure profile",
     "skills": {
       "writing": "Writing and summaries",
       "podcast": "Daily briefing and podcast",
@@ -7319,5 +7513,166 @@
       "worker": "Phase"
     },
     "usage_unavailable": "Usage not reported by the provider"
+  },
+  "agent_behavior": {
+    "instructions": "Instructions",
+    "skills": "Skills",
+    "context": "Context",
+    "operations": "Operations",
+    "preview": "What the bot receives",
+    "navigation": "Behavior settings",
+    "preview_help": "Composition of saved instructions. Each run records its actual request, including the data and sources it uses.",
+    "system": "System rules",
+    "missing": "Unavailable skills",
+    "trace": "View trace",
+    "more": "Load more",
+    "original": "Bundled original",
+    "restore": "Restore original",
+    "legacy": "Preserved legacy text",
+    "retention": "Keep traces (days after closing)",
+    "export": "Export trace",
+    "delete": "Delete trace",
+    "trace_deleted": "Trace deleted",
+    "trace_expired": "Trace expired",
+    "trace_unavailable": "Trace unavailable",
+    "update": "Updated original",
+    "use_update": "Apply updated original",
+    "executor": "Executing bot",
+    "assign_operation": "Use this bot for this operation"
+  },
+  "agent_team": {
+    "setup": "Configure team",
+    "help": "Choose the Director and agents that can receive assignments. Each agent keeps its model and instructions.",
+    "step": "Step {{current}} of {{total}}",
+    "director": "Director",
+    "choose": "Select an agent",
+    "member": "Include {{name}} in the team",
+    "entrypoints": "Profiles allowed to use this team",
+    "initiator": "Allow {{name}} to delegate",
+    "routes_help": "Select executors for known operations. The lowest estimated cost among suitable candidates wins; unknown cost is not treated as zero.",
+    "temporary": "Allow temporary specialists",
+    "allowed_models": "Allowed models",
+    "allowed_skills": "Allowed skills",
+    "review_help": "Review before applying. This takes effect when you save your changes.",
+    "skill_addition": "This skill will be added to the Director:",
+    "limits": "Limits: four assignments, two temporary agents and two simultaneous reading tasks. Keeping a temporary agent requires accepting a proposal.",
+    "back": "Back",
+    "next": "Continue",
+    "apply": "Apply to settings",
+    "disable": "Disable this team",
+    "insufficient_data": "Insufficient data",
+    "catalog_compatible": "Compatible according to catalog",
+    "tested": "Evaluated with tests",
+    "limitation": "Known limitation",
+    "proposals": "Permanent agent proposals",
+    "retain": "Keep agent",
+    "reject": "Reject",
+    "instructions": "Reusable instructions",
+    "review_proposal": "Review and remove any task-specific information before keeping this agent. A personal profile will be created without history or memories; you can add it to your team in settings.",
+    "unknown_date": "Unknown date",
+    "source": "Source",
+    "evidence": "Evidence",
+    "missing": "Missing tests",
+    "metrics": {
+      "tool_support": "Tool support",
+      "reasoning": "Reasoning",
+      "planning_quality": "Planning quality",
+      "executor_selection": "Executor selection",
+      "delegation_cost": "Delegation cost",
+      "catalan_quality": "Catalan quality",
+      "instruction_following": "Instruction following",
+      "tool_reliability": "Tool reliability",
+      "long_context": "Long context",
+      "citation_fidelity": "Citation fidelity",
+      "passage_retrieval": "Passage retrieval",
+      "coverage": "Coverage",
+      "complex_reasoning": "Complex reasoning",
+      "uncertainty_calibration": "Uncertainty calibration",
+      "tool_or_structured_support": "Tools or structured output",
+      "schema_accuracy": "Schema accuracy",
+      "extraction_accuracy": "Extraction accuracy",
+      "text_support": "Text support",
+      "task_accuracy": "Task accuracy",
+      "measured_task_cost": "Measured task cost",
+      "intelligence": "Intelligence",
+      "agentic": "Agentic capability",
+      "coding": "Coding",
+      "speed": "Speed (tokens/s)",
+      "latency": "Latency (s)",
+      "token_cost": "Weighted price (USD/1M tokens)",
+      "simulated_tool_selection": "Simulated tool selection",
+      "gap_detection": "Gap detection"
+    },
+    "sources": {
+      "catalog": "Catalog",
+      "declared": "Declared capability",
+      "benchmark": "Benchmark",
+      "gnosi": "Gnosi tests",
+      "mixed": "Multiple sources"
+    },
+    "proposal_rationale": "No suitable existing executor was available for this assignment. Review whether the temporary agent’s instructions and skills are useful for future tasks.",
+    "proposal_limitation": "One completed assignment does not establish general reliability. Review the result and remove task-specific information from the instructions before keeping this agent.",
+    "below_threshold": "Below the indicative threshold",
+    "role_score": "Indicative score",
+    "data_coverage": "Data coverage",
+    "weight": "Weight",
+    "scoring_help": "Guidance, not certification: at least 60/100 and 60% data coverage, with role-specific requirements. Intelligence, coding and agentic benchmarks are ranked within the current catalog; context and speed saturate at 200,000 tokens and 100 tokens/s. Latency and price use 1/(1+x/2). Price uses a fixed mix of 4 input tokens per output token, not actual task cost. Context does not demonstrate citation fidelity, Catalan quality or reliability.",
+    "missing_catalog": "Missing catalog data",
+    "obtain_catalog": "Use Refresh to retrieve available data (provider caching still applies). If a value remains absent, the source must publish it; it is not invented or inferred from model name or size.",
+    "verification_pending": "Run synthetic cases in “Role and strategy tests”. Results feed the assessment but do not replace every test in this protocol.",
+    "verify_roles": {
+      "director": "How to verify: run identical synthetic cases with an allrounder, an always-active director and a director with direct routes; validate plans, executor selection, avoidable calls and total cost.",
+      "allrounder": "How to verify: test Catalan instructions and simulated tools; assess language quality, instruction following and each action’s result.",
+      "documentalist": "How to verify: ask questions over synthetic documents with known passages and answers; check retrieval, exact citations and source coverage.",
+      "expert": "How to verify: solve known-answer problems and cases with insufficient information; measure accuracy, cross-checking and acknowledged uncertainty.",
+      "administrative": "How to verify: extract synthetic data with expected outputs, validate both content and schema, and execute procedures with verifiable steps.",
+      "worker": "How to verify: repeat known-output transformations and record accuracy, time and tokens; calculate cost per correct task including retries."
+    },
+    "lab_title": "Role and strategy tests",
+    "lab_help": "Synthetic cases without private documents or custom instructions. Each role uses 2–3 calls; strategy comparison uses up to 17 (global limit: 24), capped at 512 output tokens per call. Results and usage are saved, not responses.",
+    "lab_kind": "Test type",
+    "lab_role": "Test a role",
+    "lab_strategies": "Compare three strategies",
+    "lab_agent": "Agent to test",
+    "lab_executor": "Candidate executor",
+    "lab_authorize": "I authorize model calls and possible charges for this test",
+    "lab_run": "Run test",
+    "lab_running": "Running…",
+    "lab_error": "Could not complete the test or load its data. Check permissions and enabled models.",
+    "lab_limitations": "Limited synthetic tests, not general certification. Comparison uses identical cases and Gnosi economic selection in an isolated environment without business tools. It does not measure all dependent tasks or real tool use. Unknown costs remain unknown. Assigned models do not change.",
+    "lab_strategy": "Strategy",
+    "lab_passed": "Valid cases",
+    "lab_calls": "Calls",
+    "lab_director_calls": "Director calls",
+    "lab_avoidable": "Avoidable calls",
+    "lab_cost": "Cost (USD)",
+    "lab_allrounder": "All-rounder",
+    "lab_director_always": "Always-on director",
+    "lab_director_routes": "Director with direct routes",
+    "lab_pass": "Passed",
+    "lab_fail": "Failed",
+    "lab_measured": "Validated synthetic result",
+    "lab_blend": "Score: 50% catalog and 50% synthetic test. Broader evidence gaps remain visible.",
+    "reuse_specialty": "Reusable specialist for the listed skills. Compare coverage and model with existing agents before retaining it.",
+    "reusable_skills": "Reusable specialty",
+    "missing_skills": "Skills this agent lacks",
+    "same_model": "Same model",
+    "different_model": "Different model",
+    "completed_execution_only": "Execution completed with a result; does not certify every criterion",
+    "acceptance_not_certified": "Specific acceptance criteria need review. Proposed instructions are generic and do not copy task content.",
+    "add_to_team": "Also add the agent to this team"
+  },
+  "agent_commands": {
+    "label": "Command",
+    "help": "Optional. Start a message with /traductor to call this agent for that turn only. Each command must be unique.",
+    "agent_command_invalid": "Use / followed by 1–32 unaccented letters, digits, hyphens or underscores, starting with a letter.",
+    "agent_command_duplicate": "This command already belongs to another agent.",
+    "agent_command_unknown": "Unknown command. Check the command configured for the agent.",
+    "agent_command_unavailable": "This agent is unavailable. Check its configuration.",
+    "agent_command_request_required": "Write your request after the command."
+  },
+  "accessibility": {
+    "skip_to_content": "Skip to main content",
+    "route_loaded": "{{page}} loaded"
   }
 }

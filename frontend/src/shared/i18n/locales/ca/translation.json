@@ -477,7 +477,7 @@
     "trash": "Paperera",
     "wiki_lock": "Bloqueja l'arrossegament",
     "wiki_unlock": "Desbloqueja per reordenar (drag&drop)",
-    "toggle_navigation": "Toggle navigation",
+    "toggle_navigation": "Mostra o amaga la navegació",
     "logged_out": "Sessió tancada.",
     "logout_tooltip_title": "{{user}} — Tancar sessió",
     "logout_tooltip_label": "Tancar sessió ({{user}})",
@@ -600,7 +600,11 @@
     "reprocess_resource": "Reprocessar recurs (processat el {{date}})",
     "process_resource_running": "En procés…",
     "reprocess_resource_error": "Reprendre el processament interromput",
-    "process_resource_no_source": "Aquest recurs no té cap adjunt ni URL configurats"
+    "process_resource_no_source": "Aquest recurs no té cap adjunt ni URL configurats",
+    "select_all_rows": "Selecciona totes les files",
+    "select_row": "Selecciona {{title}}",
+    "aggregate_column": "Agregació de {{column}}",
+    "modified_column": "Última modificació"
   },
   "dashboard": {
     "status_title": "Estat del Sistema",
@@ -1192,7 +1196,8 @@
     "date_reminder_tooltip": "Recordatori: {{date}} a les {{time}}",
     "date_reminder_label": "Recordatori (opcional)",
     "date_reminder_clear": "Treu",
-    "note_section_placeholder_trans": "Nom de nota#Apartat"
+    "note_section_placeholder_trans": "Nom de nota#Apartat",
+    "content_label": "Contingut de la pàgina"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -1246,6 +1251,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Àmbit de la cerca",
+    "search_scope_view": "Aquesta vista",
+    "search_scope_table": "Tota la taula",
+    "search_entire_table": "Cerca a tota la taula",
+    "no_search_results_view": "No hi ha coincidències en aquesta vista. Els seus filtres continuen actius.",
+    "no_search_results_table": "No hi ha coincidències en aquesta taula.",
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloquejada)",
     "more_actions": "Més accions",
@@ -1383,7 +1394,7 @@
     "up": "Amunt",
     "shortcuts": "Dreceres:",
     "vault": "Vault",
-    "home": "Home",
+    "home": "Inici",
     "root": "Root (/)",
     "search_folders_placeholder": "Cerca carpetes a tot l'ordinador (≥2 caràcters)...",
     "search_placeholder": "Cerca a tot l'ordinador (≥2 caràcters)...",
@@ -1602,7 +1613,7 @@
         },
         "translation": {
           "name": "Traducció",
-          "description": "Proveïdors de traducció i accions per a l'idioma de publicació."
+          "description": "Tradueix files, pàgines i instruccions de skills amb el perfil d’IA de Traducció."
         },
         "contacts": {
           "name": "Contactes",
@@ -2205,7 +2216,10 @@
       "context_add_page": "Pàgina",
       "context_add_file": "Fitxer",
       "context_add_vault": "Tot el vault",
-      "context_whole_vault": "Tot el vault",
+      "context_whole_vault": "Tot el vault actiu",
+      "context_back_sources": "Tornar a les fonts de Gnosi",
+      "context_vault_description": "Pàgines i bases de dades del vault actiu.",
+      "context_vault_specific": "Pàgines o bases de dades concretes",
       "context_remove_source": "Treure del context",
       "context_configure_source": "Configurar l’àmbit de la font",
       "context_add_internal": "Font de Gnosi",
@@ -2636,7 +2650,10 @@
         "instructions_translation_error": "No s’han pogut traduir les instruccions. Es mostra el text desat.",
         "instructions_translate": "Tradueix al català",
         "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
-        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva."
+        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva.",
+        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva.",
+        "active_skills_only": "Només habilitats activades",
+        "back_to_profile": "Torna al perfil"
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2734,7 +2751,11 @@
           "plugin_llm_wiki_process_source": "Processa una font del Coneixement",
           "plugin_llm_wiki_process_status": "Consulta el progrés del processament del Coneixement",
           "plugin_llm_wiki_maintain": "Mantén els índexs del Coneixement",
-          "plugin_llm_wiki_propose_connections": "Proposa connexions al Coneixement"
+          "plugin_llm_wiki_propose_connections": "Proposa connexions al Coneixement",
+          "core_gnosi_operation_writing": "Redacció i correcció",
+          "core_gnosi_operation_tables": "Accions de taules",
+          "core_gnosi_operation_knowledge": "Connexions i refinament del coneixement",
+          "core_gnosi_operation_learning": "Aprenentatge i avaluació d’habilitats"
         },
         "tool_names": {
           "add_page_comment": "Afegeix un comentari a una pàgina",
@@ -2921,7 +2942,11 @@
           "core_gnosi_notebooks": "Consulta quaderns i evidències citables; crea i organitza quaderns privats a partir de Recursos existents.",
           "core_gnosi_literature": "Cerca en fonts acadèmiques configurades, consulta resultats i revisions i importa referències a Recursos.",
           "core_gnosi_media": "Localitza fitxers multimèdia i edita’n etiquetes i descripció sense modificar-ne el contingut.",
-          "core_gnosi_activity": "Consulta les teves automatitzacions, els resultats i els serveis programats, sense alterar permisos ni programacions."
+          "core_gnosi_activity": "Consulta les teves automatitzacions, els resultats i els serveis programats, sense alterar permisos ni programacions.",
+          "core_gnosi_operation_writing": "Redacta, resumeix i corregeix textos conservant el significat i el format.",
+          "core_gnosi_operation_tables": "Proposa configuracions i valors de camps a partir de l’esquema i del registre proporcionats.",
+          "core_gnosi_operation_knowledge": "Proposa connexions i reformulacions a partir de les notes i les evidències disponibles, sense desar canvis.",
+          "core_gnosi_operation_learning": "Extreu procediments de les instruccions aprovades i avalua habilitats segons criteris explícits."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara l’agenda, les prioritats i els missatges pendents d’avui.",
@@ -3157,17 +3182,47 @@
       },
       "assistant": {
         "title": "Assistent",
-        "principal": "Assistent principal",
-        "help": "Tria el model i les instruccions generals del teu assistent.",
+        "principal": "Assistent predeterminat",
+        "help": "L’assistent fa servir el perfil que tries a cada conversa. Cada perfil guarda un únic model, les instruccions, les fonts i les habilitats.",
         "advanced": "Perfils addicionals (avançat)",
-        "profiles_help": "Crea un altre perfil només si necessites un model, unes instruccions, unes fonts o unes habilitats diferents. Canviar el principal no modifica les automatitzacions desades.",
+        "profiles_help": "Perfils guardats per triar des del xat. Cada conversa conserva el seu perfil i l’historial quan el canvies.",
         "create_profile": "Crea un perfil",
         "setup": "Configura l’assistent",
-        "make_principal": "Fes-lo principal",
+        "make_principal": "Fes servir per defecte",
         "profile": "Perfil de l’assistent",
         "other_profile": "Utilitza un altre perfil (avançat)",
-        "automation_help": "Executarà l’habilitat amb {{name}}. El perfil queda desat amb l’automatització.",
-        "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les."
+        "automation_help": "Aquesta habilitat farà servir el perfil {{name}}. Pots editar-lo a la configuració de l’assistent.",
+        "no_skills": "Assigna habilitats a aquest assistent a Configuració → IA → Assistent per poder programar-les.",
+        "builtin_profiles": {
+          "translation": "Traducció",
+          "ai-platform": "Escriptura i captura de coneixement",
+          "feeds-reader": "Canals i podcasts",
+          "grounded-notebooks": "Quaderns amb fonts",
+          "resources": "Assistència bibliogràfica",
+          "mail": "Correu",
+          "social-publishing": "Publicació social",
+          "calendar": "Reunions",
+          "llm-wiki": "Coneixement"
+        },
+        "principal_help": "El perfil predeterminat s’utilitza en converses noves. Els plugins fan servir els seus perfils. Canviar el perfil d’un xat no afecta les altres converses.",
+        "principal_profile": "Perfil predeterminat",
+        "additional_profile": "Perfil addicional",
+        "new_profile": "Nou perfil",
+        "profile_name": "Nom del perfil",
+        "configure_action": "Configura",
+        "save_changes": "Desa els canvis",
+        "configure_profile": "Configura el perfil {{name}}",
+        "delete_profile": "Elimina el perfil {{name}}",
+        "delete_profile_title": "Elimina el perfil",
+        "delete_profile_message": "Vols eliminar el perfil «{{name}}» i la seva configuració? Es conservaran els models, les fonts i les habilitats originals.",
+        "restore_help": "Aquest perfil està desactivat. Desa’n la configuració per tornar-lo a activar.",
+        "conversation_profile": "Perfil de la conversa",
+        "profile_model": "Model del perfil",
+        "plugin_profiles": "Perfils dels plugins",
+        "plugin_profile": "Perfil de plugin",
+        "plugin_owner": "Utilitzat per: {{name}}",
+        "plugin_suspended": "Plugin desactivat. La configuració es conserva.",
+        "plugin_profiles_help": "Cada plugin fa servir el seu perfil per a les accions d’IA. Pots editar-ne el model, les instruccions, les fonts i les habilitats. Les actualitzacions del plugin conserven els teus canvis."
       },
       "model_strategy": {
         "primary": "Model principal",
@@ -3194,6 +3249,53 @@
         "save_error": "No s’ha pogut desar l’assistent. Torna-ho a provar.",
         "decision_selected": "Model seleccionat amb Jev",
         "decision_fallback": "Selecció interna de Gnosi: Jev no ha aportat una decisió utilitzable."
+      },
+      "sources": {
+        "all": "Tots",
+        "unavailable": "No disponible",
+        "no_options": "No hi ha opcions disponibles.",
+        "no_more_matches": "No hi ha més opcions coincidents.",
+        "all_added": "Ja has afegit totes les fonts disponibles.",
+        "no_sources": "No hi ha fonts disponibles.",
+        "load_error": "No s’han pogut carregar les opcions. Torna-ho a provar.",
+        "mail_folders": "Carpetes",
+        "mail_minimum": "Tria almenys una carpeta per compte. Els comptes nous utilitzen la carpeta predeterminada.",
+        "no_accounts": "No hi ha comptes connectats disponibles.",
+        "folder_count": "{{count}} carpetes",
+        "folder_count_one": "{{count}} carpeta",
+        "folder_count_other": "{{count}} carpetes",
+        "calendar_default": "Dates predeterminades: des de fa 30 dies fins d’aquí a 90 dies.",
+        "days_ago": "Fa 30 dies",
+        "days_ahead": "D’aquí a 90 dies",
+        "all_articles": "Tots els articles",
+        "options": {
+          "project": "Projectes",
+          "task": "Tasques",
+          "resource": "Recursos",
+          "assignment": "Assignacions",
+          "calendar": "Calendaris",
+          "recurrence": "Recurrències",
+          "page": "Pàgines",
+          "database": "Bases de dades",
+          "local": "Local",
+          "google": "Google",
+          "apple": "Apple",
+          "personal": "Personals",
+          "b2b": "Professionals",
+          "esborrany": "Esborrany",
+          "programada": "Programada",
+          "publicant": "Publicant",
+          "publicada": "Publicada",
+          "parcial": "Parcial",
+          "error": "Error",
+          "cancelada": "Cancel·lada",
+          "mastodon": "Mastodon",
+          "bluesky": "Bluesky",
+          "linkedin": "LinkedIn",
+          "facebook": "Facebook",
+          "telegram": "Telegram"
+        },
+        "folder_count_many": "{{count}} carpetes"
       }
     },
     "footer": {
@@ -3647,7 +3749,7 @@
     "success_page": "Traducció iniciada — les subpàgines es crearan en breu.",
     "error": "Error iniciant la traducció",
     "error_pick_lang": "Selecciona almenys un idioma.",
-    "provider_hint": "El català es tradueix amb Softcatalà; la resta amb DeepL. Configura les credencials als ajustos segurs.",
+    "provider_hint": "La traducció utilitza el model del perfil d’IA «Traducció». Revisa el perfil i la connexió del proveïdor als ajustos del plugin de Traducció.",
     "title_bulk": "Traduir {{count}} registres",
     "intro_bulk": "Tria els idiomes destí. Per cada registre seleccionat i idioma es crearà (o s'actualitzarà) un subitem amb la traducció dels camps marcats com a traduïbles.",
     "success_bulk": "Traducció iniciada per {{count}} registres.",
@@ -3666,25 +3768,10 @@
     "lang_zh": "Xinès"
   },
   "translate_settings": {
-    "deepl_label": "DeepL — API key",
-    "softcatala_label": "Softcatalà — URL del traductor",
-    "section_title": "Serveis de traducció",
-    "intro": "Configura els proveïdors usats pel botó \"Traduir fila\". DeepL cobreix la majoria d'idiomes; Softcatalà s'usa per al català (DeepL no el suporta).",
-    "deepl_desc": "Es desa al Keychain de macOS, no al fitxer .env_shared. Aconsegueix-ne una a deepl.com/pro-api.",
-    "deepl_placeholder": "Enganxa la teva DeepL API key…",
-    "deepl_placeholder_replace": "Introdueix una clau nova per substituir",
-    "deepl_configured": "API key configurada al Keychain",
-    "deepl_saved": "API key de DeepL desada al Keychain.",
-    "deepl_save_error": "No s'ha pogut desar la clau de DeepL.",
-    "deepl_deleted": "API key de DeepL eliminada.",
-    "deepl_delete_error": "No s'ha pogut eliminar la clau de DeepL.",
-    "error_deepl_required": "Introdueix una API key.",
-    "softcatala_desc": "Endpoint del servei de traducció de Softcatalà (català). Es desa al .env local de Gnosi. Buida = usa el valor per defecte.",
-    "softcatala_saved": "URL de Softcatalà actualitzada.",
-    "softcatala_save_error": "No s'ha pogut desar la URL de Softcatalà.",
-    "usage_hint": "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui.",
-    "autosaving": "Desant…",
-    "autosaved": "Desat"
+    "section_title": "Traducció amb IA",
+    "intro": "Els botons de traduir files, pàgines i instruccions de skills utilitzen el perfil d’IA «Traducció» del plugin. Configura-hi el model i comprova que el seu proveïdor estigui connectat.",
+    "usage_hint": "Les traduccions demanades dins d’una conversa utilitzen el perfil de l’agent d’aquella conversa. Traduir una skill només en mostra una versió de lectura: les instruccions originals es conserven.",
+    "legacy_notice": "DeepL i Softcatalà pertanyen a l’antic sistema de traducció i ja no intervenen en aquest circuit. Les credencials antigues desades es conserven, però no s’utilitzen."
   },
   "mail": {
     "all_accounts": "Totes les comptes",
@@ -4460,6 +4547,11 @@
     "type_genogram": "Genograma"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparant el recurs…",
+    "saving_file": "Desant el PDF…",
+    "creating_cover": "Creant la portada…",
+    "saving_resource": "Desant el recurs…",
+    "opening_resource": "Obrint el recurs…",
     "button": "Omplir",
     "button_title": "Omplir metadades des de DOI/ISBN/arXiv/URL",
     "applied_many": "S'han actualitzat {{count}} camps",
@@ -4645,7 +4737,10 @@
     "index_updating": "S’està actualitzant la biblioteca. Pots consultar les fotos disponibles.",
     "index_update_failed": "No s’ha pogut actualitzar la biblioteca. Torna-ho a provar.",
     "index_update_paused": "L’actualització encara no s’ha confirmat. Torna a comprovar-ne l’estat.",
-    "index_retry_wait": "Reintent disponible en uns segons"
+    "index_retry_wait": "Reintent disponible en uns segons",
+    "reader_load_error": "No s’ha pogut carregar el lector PDF. Actualitza Gnosi i torna-ho a provar.",
+    "grid_view": "Vista de quadrícula",
+    "list_view": "Vista de llista"
   },
   "tldraw": {
     "untitled_drawing": "Dibuix sense títol",
@@ -4930,6 +5025,9 @@
     }
   },
   "model_comparison": {
+    "additional_offers_one": "{{count}} oferta més",
+    "additional_offers_other": "{{count}} ofertes més",
+    "additional_offers_many": "{{count}} ofertes més",
     "parameters_missing": "Pendent de verificar",
     "parameters_missing_help": "Encara no hem verificat la mida d’aquest model amb una font oficial.",
     "parameters_active": "{{value}} B actius / token",
@@ -4959,7 +5057,8 @@
       "profile": "Ús",
       "coding": "Codi\npunts",
       "agentic": "Agents\npunts",
-      "creator": "Creador"
+      "creator": "Fabricant",
+      "provider": "Proveïdor"
     },
     "compact_filters": {
       "profile": "Perfil",
@@ -5000,10 +5099,10 @@
     "profile": "Perfil de tasca",
     "profile_help_open": "Mostra l'explicació dels perfils",
     "profile_help_title": "Perfils de l’equip de treball",
-    "profile_help_intro": "Tria el perfil segons la complexitat, el volum i el cost de la tasca.",
+    "profile_help_intro": "Un model pot servir per a diversos papers. Revisa les evidències, les proves pendents i el cost total; les etiquetes no certifiquen l’especialització.",
     "profile_help": {
       "worker": {
-        "objective": "Tasques massives, senzilles i molt barates.",
+        "objective": "Tasques senzilles i repetitives; comprova’n l’exactitud, la velocitat i el cost.",
         "examples": "Classificar correus, corregir ortografia o traduir etiquetes curtes."
       },
       "administrative": {
@@ -5023,15 +5122,19 @@
         "examples": "Depurar codi, analitzar riscos i resoldre matemàtiques avançades."
       },
       "unrated": {
-        "objective": "Models sense benchmark d’intel·ligència comparable.",
+        "objective": "Encara no hi ha prou evidències per valorar-ne els papers.",
         "examples": "Consulta les altres mètriques abans d’assignar-los una tasca."
+      },
+      "director": {
+        "objective": "Planificar tasques complexes, seleccionar executors i integrar evidències.",
+        "examples": "Detectar un especialista absent, resoldre resultats contradictoris i evitar crides innecessàries."
       }
     },
     "profile_help_flow_title": "Combinació recomanada",
-    "profile_help_flow": "Documentalista extreu els punts clau → Perit decideix l’estratègia → Totterreny redacta → Peó o Administratiu tradueix i formata.",
+    "profile_help_flow": "Les tasques conegudes van directament a un executor adequat. El Directiu intervé quan cal planificar o integrar conclusions.",
+    "all_providers": "Tots els proveïdors",
     "all_profiles": "Tots els perfils",
     "provider": "Proveïdor",
-    "all_providers": "Tots els proveïdors",
     "frontier_only": "Només models frontera",
     "results_count_one": "{{count}} model visible",
     "results_count_other": "{{count}} models visibles",
@@ -5071,7 +5174,7 @@
     "model_enabled": "{{model}} s’ha activat amb {{provider}}.",
     "model_disabled": "{{model}} s’ha desactivat.",
     "no_results": "Cap model coincideix amb aquests filtres.",
-    "data_note": "Dades vives de benchmarks, preus i rendiment. Atribució:",
+    "data_note": "Benchmarks i rendiment del catàleg; poden provenir de dades desades. Font:",
     "metric_sources": {
       "models_dev": "Valor completat amb models.dev",
       "artificial_analysis_cache": "Últim valor disponible a la memòria cau d’Artificial Analysis"
@@ -5087,7 +5190,8 @@
       "configuration_load_error": "La comparativa està disponible, però no s’ha pogut carregar la configuració actual dels models.",
       "configuration_save_error": "No s’ha pogut desar la configuració del model.",
       "upstream_error": "No s’han pogut carregar les dades actuals dels models.",
-      "help": "Crea una clau gratuïta, enganxa-la a continuació i Gnosi la desarà de manera segura al backend."
+      "help": "Crea una clau gratuïta, enganxa-la a continuació i Gnosi la desarà de manera segura al backend.",
+      "unknown_route_price": "No es pot activar el model sense tarifes conegudes. Actualitza el catàleg i torna-ho a provar; no es desarà un preu desconegut com a zero."
     },
     "setup": {
       "execution": "Tipus d’execució",
@@ -5099,27 +5203,39 @@
       "connected": "connectat",
       "credentials_ready": "Credencials preparades",
       "credentials_ready_help": "Gnosi reutilitzarà la connexió segura que ja tens configurada.",
+      "credentials_saved": "Credencials desades; connexió pendent de provar",
+      "connection_unverified": "Només direm que està connectat quan el model triat respongui correctament.",
+      "test_connection": "Prova la connexió",
+      "connection_verified": "Connectat: la prova ha funcionat",
+      "auto_activation_help": "Els canvis es desen automàticament. Quan la connexió funcioni, el model s’activarà i aquest formulari es tancarà.",
+      "auto_checking": "Comprovant la connexió i activant el model…",
+      "connection_verified_help": "El model {{model}} ha respost correctament a la prova. La caducitat de la clau API depèn de la configuració del proveïdor.",
+      "connection_failed": "No s’ha pogut verificar la connexió amb aquest model.",
       "api_key": "Clau API de {{provider}}",
-      "api_key_help": "Només es demana perquè aquest proveïdor encara no està connectat.",
+      "api_key_help": "Enganxa la clau del proveïdor. Es desarà i es comprovarà automàticament quan deixis d’escriure.",
+      "replace_api_key_help": "Ja hi ha una clau desada. Si n’introdueixes una de nova, se substituirà i es comprovarà automàticament.",
       "base_url": "URL base",
       "base_url_help": "Es proposa l’endpoint del catàleg; modifica’l només si uses un endpoint compatible propi.",
       "no_exact_route": "No s’ha trobat cap ruta executable exacta",
       "no_exact_route_help": "Aquest model no es pot activar automàticament perquè el catàleg no ofereix cap ruta compatible verificable.",
       "router_help": "El model quedarà disponible per al router automàtic i també a Models del router.",
-      "activate": "Activa el model"
+      "activate": "Activa el model",
+      "shared_offer_help": "Aquesta oferta és compartida per aquestes variants de la comparativa: {{models}}. L’activació i l’àlies afecten la mateixa oferta. Les variants són informatives: aquesta pantalla no configura el mode de raonament ni garanteix reproduir les condicions de cada avaluació.",
+      "shared_offer_label": "Activació i àlies compartits"
     },
     "profiles": {
       "worker": "Peó",
       "administrative": "Administratiu",
       "documentalist": "Documentalista",
-      "allrounder": "Totterreny",
-      "expert": "Perit / Director",
-      "unrated": "Sense puntuació"
+      "allrounder": "Tot terreny",
+      "expert": "Perit",
+      "unrated": "Sense puntuació",
+      "director": "Directiu"
     },
     "columns": {
       "parameters": "Paràmetres (B)",
       "model": "Model",
-      "creator": "Creador",
+      "creator": "Fabricant",
       "provider": "Proveïdor",
       "modes": "Modes compatibles",
       "intelligence": "Intel·ligència (punts)",
@@ -5135,7 +5251,44 @@
       "quantization": "Quantització",
       "monthly_cost": "Est. {{symbol}}/mes",
       "available": "Disponible"
-    }
+    },
+    "alias": {
+      "label": "Àlies",
+      "placeholder": "Ex.: Ràpid i econòmic",
+      "help": "Als selectors només es mostrarà aquest àlies. Si el deixes buit, es mostrarà el nom del model.",
+      "activation_help": "Assigna un àlies i activa el model quan estiguis a punt."
+    },
+    "review_lookup": "Consulta la font oficial",
+    "review_help": "Consulta les fonts del fabricant i comprova la versió exacta. La consulta automàtica busca la fitxa oficial; si no troba una dada explícita, pots contrastar-la i desar-la amb la font. No s’infereix del nom.",
+    "review_source_link": "Obre la font del fabricant",
+    "review_status": "Resultat de la verificació",
+    "review_known": "Mida publicada",
+    "review_total": "Paràmetres totals (B)",
+    "review_active": "Paràmetres actius (B, opcional)",
+    "review_attest": "He comprovat aquesta dada per a la versió exacta en una font oficial",
+    "review_save": "Desa la verificació",
+    "review_error": "No s’ha pogut completar la verificació. Revisa la font, les quantitats i els permisos d’administració.",
+    "review_outcomes": {
+      "loaded": "Tria la consulta automàtica o contrasta la font manualment.",
+      "verified": "Dada oficial trobada i desada.",
+      "needs_review": "La consulta no ha trobat una dada explícita. Encara cal revisar la font; això no vol dir que no estigui publicada.",
+      "source_unavailable": "La font no ha respost. Pots tornar-ho a provar.",
+      "saved": "Verificació manual desada amb font i data."
+    },
+    "review_manual": "Font revisada manualment",
+    "estimated_fit": "Adequació estimada",
+    "choice_help": "Tria segons l’adequació estimada, el cost i el fabricant. El perfil filtra els models amb adequació estimada per a aquella tasca. Activa «Inclou incomplets» per veure també candidats sense dades suficients; això no confirma que siguin adequats. Els filtres actuals poden amagar alternatives.",
+    "compare_candidates": "Compara tots els candidats",
+    "unknown_cost": "Cost desconegut",
+    "local_cost_note": "Sense tarifa per tokens; maquinari i energia no inclosos.",
+    "provider_cost_note": "Estimació amb les tarifes de cada proveïdor i els tokens indicats; exclou quotes fixes i impostos. Els costos es mostren de menor a major, amb els desconeguts al final. Context, modes i capacitats corresponen a cada proveïdor segons el catàleg, sense substituir dades absents per les generals del model. Els filtres han de coincidir en una mateixa oferta. El context s’ordena pel màxim conegut entre les ofertes del proveïdor seleccionat. Velocitat i adequació continuen sent dades generals del model.",
+    "input_modes": "Entrada",
+    "output_modes": "Sortida",
+    "tool_call": "Eines",
+    "reasoning": "Raonament",
+    "unknown_capability": "Desconegut",
+    "supported": "Sí",
+    "unsupported": "No"
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
@@ -5450,9 +5603,11 @@
     "module_social_desc": "Gestiona les teves xarxes socials des d'un sol lloc.",
     "module_media_title": "Fotos i Media",
     "module_media_desc": "Explora la teva biblioteca de mitjans.",
-    "module_dashboard_title": "Control Center",
+    "module_dashboard_title": "Centre de control",
     "module_dashboard_desc": "Monitoritza l'estat del sistema i aprova eines.",
-    "module_settings_desc": "Gestiona els paràmetres del teu ecosistema."
+    "module_settings_desc": "Gestiona els paràmetres del teu ecosistema.",
+    "module_planning_desc": "Planifica projectes, dependències, recursos i calendaris de treball.",
+    "module_notebooks_desc": "Fes preguntes basades en les fonts de referència seleccionades."
   },
   "composer": {
     "title": "Composer",
@@ -6131,7 +6286,48 @@
     "submit": "Enviar a revisió",
     "submitted": "Plantilla enviada a moderació.",
     "submit_error": "No s’ha pogut enviar la plantilla.",
-    "submission_not_configured": "Aquesta instal·lació no té configurat cap servei de submissions del marketplace."
+    "submission_not_configured": "Aquesta instal·lació no té configurat cap servei de submissions del marketplace.",
+    "privacy_help": "Revisa els fitxers i les alertes abans de compartir. Les alertes indiquen possibles credencials; no es mostren els valors detectats.",
+    "files_findings": "Alertes",
+    "files_included": "Fitxers inclosos",
+    "files_excluded": "Fitxers exclosos",
+    "search_files": "Cerca un fitxer",
+    "no_files": "Cap fitxer coincideix amb aquesta selecció.",
+    "show_more": "Mostra’n més",
+    "search_catalog": "Cerca plantilles",
+    "category": "Categoria",
+    "all_categories": "Totes les categories",
+    "loading_catalog": "Carregant el catàleg…",
+    "contents_preview": "Què inclou",
+    "category_starter": "Inici",
+    "category_research": "Recerca",
+    "category_writing": "Escriptura",
+    "category_study": "Estudi",
+    "category_projects": "Projectes",
+    "privacy_reason_private-root": "Dades privades de l’aplicació",
+    "privacy_reason_environment-file": "Fitxer de configuració amb variables d’entorn",
+    "privacy_reason_executable-content": "Contingut executable",
+    "privacy_reason_symlink": "Enllaç simbòlic",
+    "privacy_reason_file-too-large": "Fitxer massa gran",
+    "privacy_reason_unreadable": "No es pot llegir",
+    "privacy_reason_private-key": "Possible clau privada",
+    "privacy_reason_aws-access-key": "Possible clau d’accés AWS",
+    "privacy_reason_oauth-refresh-token": "Possible token d’accés OAuth",
+    "privacy_reason_credential-assignment": "Possible contrasenya o credencial",
+    "privacy_reason_unknown": "Requereix revisió",
+    "catalog_starter-vault_name": "Espai de recerca",
+    "catalog_starter-vault_description": "De les fonts al manuscrit: notes de lectura, síntesi i exemples amb cites.",
+    "catalog_starter-vault_preview": "Taula de fonts · Notes de lectura · Síntesi connectada · Primer paràgraf",
+    "catalog_study-workspace_name": "Espai d’estudi",
+    "catalog_study-workspace_description": "Planifica una assignatura, desenvolupa conceptes i comprova què recordes.",
+    "catalog_study-workspace_preview": "Pla setmanal · Fitxa de concepte · Repàs actiu · Guia per començar",
+    "catalog_project-workspace_name": "Espai de projectes",
+    "catalog_project-workspace_description": "Defineix un projecte, segueix les tasques i conserva els motius de les decisions.",
+    "catalog_project-workspace_preview": "Fitxa de projecte · Tasques · Registre de decisions · Guia per començar",
+    "no_matching_templates": "Cap plantilla coincideix amb la cerca o la categoria.",
+    "findings_ack_one": "S’ha detectat una possible dada sensible. He revisat el fitxer d’origen i accepto incloure-la.",
+    "findings_ack_other": "S’han detectat {{count}} possibles dades sensibles. He revisat els fitxers d’origen i accepto incloure-les.",
+    "findings_ack_many": "S’han detectat {{count}} possibles dades sensibles. He revisat els fitxers d’origen i accepto incloure-les."
   },
   "shared_page": {
     "link_invalid": "Aquest enllaç no és vàlid o ha caducat.",
@@ -6615,7 +6811,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Canviar el títol o el favorit d’una pàgina ja no sobreescriu el text desat automàticament fa un moment."
+          "autosave_metadata": "Canviar el títol o el favorit d’una pàgina ja no sobreescriu el text desat automàticament fa un moment.",
+          "update_notice_background_check": "L’avís d’actualització d’escriptori comprova periòdicament si hi ha releases noves i permet tornar a provar l’acció de l’instal·lador de macOS."
         }
       },
       "v3_1_0": {
@@ -7338,8 +7535,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Agent principal",
-    "configure": "Configura l’Agent",
+    "principal": "Perfil de l’assistent",
+    "configure": "Configura el perfil",
     "skills": {
       "writing": "Redacció i resums",
       "podcast": "Resum diari i pòdcast",
@@ -7372,5 +7569,166 @@
       "worker": "Fase"
     },
     "usage_unavailable": "Consum no informat pel proveïdor"
+  },
+  "agent_behavior": {
+    "instructions": "Instruccions",
+    "skills": "Skills",
+    "context": "Context",
+    "operations": "Operacions",
+    "preview": "Què rep el bot",
+    "navigation": "Configuració del comportament",
+    "preview_help": "Composició de les instruccions desades. Cada execució registra la petició efectiva, amb les dades i les fonts que utilitza.",
+    "system": "Regles del sistema",
+    "missing": "Skills no disponibles",
+    "trace": "Veure la traça",
+    "more": "Carregar més",
+    "original": "Original distribuït",
+    "restore": "Restaurar l’original",
+    "legacy": "Text anterior conservat",
+    "retention": "Conservar les traces (dies des del tancament)",
+    "export": "Exportar la traça",
+    "delete": "Eliminar la traça",
+    "trace_deleted": "Traça eliminada",
+    "trace_expired": "Traça caducada",
+    "trace_unavailable": "Traça no disponible",
+    "update": "Nova versió de l’original",
+    "use_update": "Aplicar la nova versió",
+    "executor": "Bot executor",
+    "assign_operation": "Utilitza aquest bot per a aquesta operació"
+  },
+  "agent_team": {
+    "setup": "Configura l’equip",
+    "help": "Tria el Directiu i els agents que podran rebre encàrrecs. Cada agent conserva el seu model i les seves instruccions.",
+    "step": "Pas {{current}} de {{total}}",
+    "director": "Directiu",
+    "choose": "Selecciona un agent",
+    "member": "Inclou {{name}} a l’equip",
+    "entrypoints": "Perfils que poden utilitzar aquest equip",
+    "initiator": "Permet delegar a {{name}}",
+    "routes_help": "Selecciona executors per a operacions conegudes. Es triarà el de menor cost estimat entre els adequats; el cost desconegut no es considerarà zero.",
+    "temporary": "Permet especialistes temporals",
+    "allowed_models": "Models autoritzats",
+    "allowed_skills": "Habilitats autoritzades",
+    "review_help": "Revisa la configuració abans d’aplicar-la. Entrarà en vigor quan desis els canvis.",
+    "skill_addition": "S’afegirà aquesta habilitat al Directiu:",
+    "limits": "Límits: quatre encàrrecs, dos temporals i dos treballs de lectura simultanis. Conservar un temporal requerirà acceptar una proposta.",
+    "back": "Enrere",
+    "next": "Continua",
+    "apply": "Aplica a la configuració",
+    "disable": "Desactiva aquest equip",
+    "insufficient_data": "Dades insuficients",
+    "catalog_compatible": "Compatible segons el catàleg",
+    "tested": "Avaluat amb proves",
+    "limitation": "Limitació coneguda",
+    "proposals": "Propostes d’agents permanents",
+    "retain": "Conserva l’agent",
+    "reject": "Rebutja",
+    "instructions": "Instruccions reutilitzables",
+    "review_proposal": "Revisa i elimina qualsevol dada particular de la tasca abans de conservar l’agent. Es crearà un perfil personal sense historial ni memòries; el podràs incorporar a l’equip des de la configuració.",
+    "unknown_date": "Data desconeguda",
+    "source": "Procedència",
+    "evidence": "Evidències",
+    "missing": "Proves pendents",
+    "metrics": {
+      "tool_support": "Ús d’eines",
+      "reasoning": "Raonament",
+      "planning_quality": "Qualitat de planificació",
+      "executor_selection": "Selecció d’executors",
+      "delegation_cost": "Cost de delegació",
+      "catalan_quality": "Qualitat del català",
+      "instruction_following": "Seguiment d’instruccions",
+      "tool_reliability": "Fiabilitat d’eines",
+      "long_context": "Context extens",
+      "citation_fidelity": "Fidelitat de cites",
+      "passage_retrieval": "Recuperació de fragments",
+      "coverage": "Cobertura",
+      "complex_reasoning": "Raonament complex",
+      "uncertainty_calibration": "Gestió de la incertesa",
+      "tool_or_structured_support": "Eines o sortida estructurada",
+      "schema_accuracy": "Exactitud dels esquemes",
+      "extraction_accuracy": "Exactitud d’extracció",
+      "text_support": "Text",
+      "task_accuracy": "Exactitud de la tasca",
+      "measured_task_cost": "Cost mesurat per tasca",
+      "intelligence": "Intel·ligència",
+      "agentic": "Capacitat agentiva",
+      "coding": "Programació",
+      "speed": "Velocitat (tokens/s)",
+      "latency": "Latència (s)",
+      "token_cost": "Preu ponderat (USD/1M tokens)",
+      "simulated_tool_selection": "Selecció simulada d’eines",
+      "gap_detection": "Detecció de mancances"
+    },
+    "sources": {
+      "catalog": "Catàleg",
+      "declared": "Capacitat declarada",
+      "benchmark": "Benchmark",
+      "gnosi": "Proves de Gnosi",
+      "mixed": "Fonts diverses"
+    },
+    "proposal_rationale": "No hi havia cap executor existent adequat i disponible per a aquest encàrrec. Revisa si les instruccions i habilitats del temporal són útils per a futures tasques.",
+    "proposal_limitation": "Un encàrrec completat no acredita fiabilitat general. Revisa el resultat i elimina dades particulars de les instruccions abans de conservar-lo.",
+    "below_threshold": "Per sota del llindar orientatiu",
+    "role_score": "Valoració orientativa",
+    "data_coverage": "Cobertura de dades",
+    "weight": "Pes",
+    "scoring_help": "Orientació, no certificació: mínim 60/100 i 60% de dades, amb requisits per paper. Intel·ligència, codi i capacitat agentiva es comparen amb el catàleg actual; context i velocitat saturen a 200.000 tokens i 100 tokens/s. Latència i preu puntuen amb 1/(1+x/2). El preu usa una barreja fixa de 4 tokens d’entrada per 1 de sortida; no és el cost real d’una tasca. No es dedueixen cites, català ni fiabilitat a partir del context.",
+    "missing_catalog": "Dades de catàleg absents",
+    "obtain_catalog": "Prem Actualitza per tornar a consultar les dades disponibles (es respecta la memòria cau del proveïdor). Si continuen absents, cal que la font publiqui la dada; no s’inventa ni es dedueix del nom o la mida del model.",
+    "verification_pending": "Pots executar casos sintètics a «Proves de perfils i estratègies». Els resultats es vinculen a la valoració; no substitueixen totes les proves del protocol.",
+    "verify_roles": {
+      "director": "Com verificar-ho: executar els mateixos casos sintètics amb Tot terreny, Directiu sempre actiu i Directiu amb rutes; validar el pla, els executors triats, les crides evitables i el cost total.",
+      "allrounder": "Com verificar-ho: provar instruccions en català i accions amb eines simulades; puntuar la qualitat lingüística, el compliment de les instruccions i el resultat de cada acció.",
+      "documentalist": "Com verificar-ho: fer preguntes sobre documents sintètics amb fragments i respostes coneguts; comprovar recuperació, cites exactes i cobertura de totes les fonts necessàries.",
+      "expert": "Com verificar-ho: resoldre problemes amb solució coneguda i casos sense informació suficient; mesurar encerts, contrast i reconeixement de la incertesa.",
+      "administrative": "Com verificar-ho: extreure dades sintètiques amb resultat esperat i validar automàticament el contingut i l’esquema; executar procediments amb passos verificables.",
+      "worker": "Com verificar-ho: repetir transformacions amb sortida esperada i registrar encerts, temps i tokens; calcular el cost per tasca correcta, inclosos els reintents."
+    },
+    "lab_title": "Proves de perfils i estratègies",
+    "lab_help": "Casos sintètics, sense documents ni instruccions particulars. Cada perfil fa 2–3 crides; comparar estratègies fa fins a 17 crides (límit global: 24), amb un màxim de 512 tokens de sortida per crida. Es desen resultats i consum, no les respostes.",
+    "lab_kind": "Tipus de prova",
+    "lab_role": "Verificar un perfil",
+    "lab_strategies": "Comparar tres estratègies",
+    "lab_agent": "Agent que es provarà",
+    "lab_executor": "Executor candidat",
+    "lab_authorize": "Autoritzo les crides i el possible cost d’aquesta prova",
+    "lab_run": "Executa la prova",
+    "lab_running": "Executant…",
+    "lab_error": "No s’ha pogut completar la prova o carregar-ne les dades. Comprova els permisos i els models habilitats.",
+    "lab_limitations": "Proves sintètiques limitades, no una certificació general. La comparació usa els mateixos casos i l’elecció econòmica de Gnosi en un entorn aïllat, sense eines de negoci. No mesura totes les tasques amb dependències ni l’ús real d’eines. Els costos desconeguts continuen desconeguts. No es canvien els models assignats.",
+    "lab_strategy": "Estratègia",
+    "lab_passed": "Casos vàlids",
+    "lab_calls": "Crides",
+    "lab_director_calls": "Crides al Directiu",
+    "lab_avoidable": "Crides evitables",
+    "lab_cost": "Cost (USD)",
+    "lab_allrounder": "Tot terreny",
+    "lab_director_always": "Directiu sempre actiu",
+    "lab_director_routes": "Directiu amb rutes directes",
+    "lab_pass": "Superat",
+    "lab_fail": "No superat",
+    "lab_measured": "Resultat sintètic verificat",
+    "lab_blend": "Valoració: 50% catàleg i 50% prova sintètica. Les mancances generals continuen visibles.",
+    "reuse_specialty": "Especialista reutilitzable en les habilitats indicades. Compara la cobertura i el model amb els agents existents abans de conservar-lo.",
+    "reusable_skills": "Especialitat reutilitzable",
+    "missing_skills": "Habilitats que falten a aquest agent",
+    "same_model": "Mateix model",
+    "different_model": "Model diferent",
+    "completed_execution_only": "Execució completada amb resultat; no certifica tots els criteris",
+    "acceptance_not_certified": "Cal contrastar els criteris particulars. Les instruccions proposades són genèriques i no copien el contingut de la tasca.",
+    "add_to_team": "Incorpora també l’agent a aquest equip"
+  },
+  "agent_commands": {
+    "label": "Comanda",
+    "help": "Opcional. Escriu /traductor al començament del missatge per cridar aquest agent només en aquell torn. Cada comanda ha de ser única.",
+    "agent_command_invalid": "Fes servir / i entre 1 i 32 lletres sense accents, dígits, guions o guions baixos, començant per una lletra.",
+    "agent_command_duplicate": "Aquesta comanda ja pertany a un altre agent.",
+    "agent_command_unknown": "Comanda desconeguda. Revisa la comanda configurada a l’agent.",
+    "agent_command_unavailable": "Aquest agent no està disponible. Revisa’n la configuració.",
+    "agent_command_request_required": "Escriu la petició després de la comanda."
+  },
+  "accessibility": {
+    "skip_to_content": "Salta al contingut principal",
+    "route_loaded": "S’ha carregat {{page}}"
   }
 }

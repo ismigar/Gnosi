@@ -29,6 +29,7 @@ class AiProviderCatalogEntry(BaseModel):
     credential_ref: str | None
     has_api_key: bool
     connected: bool
+    validated_models: list[str] = Field(default_factory=list)
     configured: bool
     enabled: bool
 
@@ -98,6 +99,7 @@ class ModelRegistryEntry(BaseModel):
 
     provider: str
     model_id: str
+    alias: str | None = None
     is_local: bool | None = None
     enabled: bool | None = None
     priority: int | None = None
@@ -121,6 +123,7 @@ class ModelsPayload(BaseModel):
 
     models: list[JsonValue]
     budget: dict[str, JsonValue] | None = None
+    expected_revision: str | None = None
 
 
 class ModelRegistryResponse(BaseModel):
@@ -131,6 +134,7 @@ class ModelRegistryResponse(BaseModel):
     budget: dict[str, JsonValue]
     default: list[ModelRegistryEntry]
     currency: CurrencyInfoResponse
+    revision: str | None = None
 
 
 class ModelRegistryUpdateResponse(BaseModel):
@@ -171,6 +175,7 @@ class ModelCatalogProvider(BaseModel):
     models: list[ModelCatalogModel]
     live: bool | None = None
     connected: bool
+    validated_models: list[str] = Field(default_factory=list)
     configured: bool
     enabled: bool
     has_api_key: bool
@@ -197,9 +202,13 @@ class ModelComparisonRoute(BaseModel):
     model_id: str
     model_name: str
     is_local: bool
-    cost_in: float
-    cost_out: float
-    context_window: int
+    cost_in: float | None
+    cost_out: float | None
+    context_window: int | None
+    input_modes: list[str] | None = None
+    output_modes: list[str] | None = None
+    tool_call: bool | None = None
+    reasoning: bool | None = None
     quality: int
     tags: list[str]
 
@@ -212,6 +221,10 @@ class ModelParameterMetadata(BaseModel):
     active: float | None = None
     source: str | None = None
     checked_at: str | None = None
+    verification: str | None = None
+
+
+from backend.services.model_role_suitability import RoleAssessment
 
 
 class ModelComparisonEntry(BaseModel):
@@ -238,6 +251,7 @@ class ModelComparisonEntry(BaseModel):
     parameter_metadata: ModelParameterMetadata | None = None
     metric_sources: dict[str, str] | None = None
     profile: str
+    role_assessments: list[RoleAssessment] = Field(default_factory=list)
 
 
 class ModelComparisonResponse(BaseModel):

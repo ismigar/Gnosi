@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import asyncio
 import json
 import logging
@@ -707,10 +709,7 @@ async def generate_draft(payload: mail_schemas.MailGenerateDraftRequest) -> Any:
 
     context = payload.context
     instruction = payload.prompt
-    ai_prompt = (
-        f"Context: {context}\nInstruction: {instruction}\n"
-        "Respond only with the email body in the language requested or used by the user."
-    )
+    ai_prompt = task_input("mail.draft", context=context, request=instruction)
     try:
         content, provider = await asyncio.to_thread(partial(generate_for, "mail"), ai_prompt)
     except Exception as error:

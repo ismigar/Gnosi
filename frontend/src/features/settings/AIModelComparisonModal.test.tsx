@@ -69,6 +69,8 @@ const FEED: AiModelComparison = {
         release_date: '2026-08-01',
         routes: [{
             context_window: 128_000,
+            input_modes: ['text'],
+            output_modes: ['text'],
             cost_in: 1,
             cost_out: 4,
             is_local: false,
@@ -185,6 +187,74 @@ describe('AIModelComparisonModal', () => {
         expect(container.querySelector<HTMLSelectElement>('.model-modes-menu select')?.value).toBe('any');
     });
 
+    it('shows provider context and directional capabilities instead of general model claims', () => {
+        const implementation = mocks.useData.getMockImplementation();
+        if (!implementation) throw new Error('Missing data fixture');
+        const data = implementation() as ReturnType<typeof useModelComparisonData>;
+        const base = FEED.models[0];
+        if (!base || !base.routes[0]) throw new Error('Missing model fixture');
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [{ ...base, context_window: 1000000, modes: ['video'], routes: [{
+                ...base.routes[0], context_window: 8000, input_modes: ['text', 'image'],
+                output_modes: ['text'], tool_call: false, reasoning: null,
+            }] }],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const row = container.querySelector('tbody tr');
+        expect(row?.textContent).toContain('OpenAI — 8K');
+        expect(row?.textContent).not.toContain('1M');
+        expect(row?.textContent).toContain('model_comparison.input_modes — model_comparison.modes_list.text, model_comparison.modes_list.image');
+        expect(row?.textContent).toContain('model_comparison.output_modes — model_comparison.modes_list.text');
+        expect(row?.textContent).toContain('model_comparison.tool_call — model_comparison.unsupported');
+        expect(row?.textContent).toContain('model_comparison.reasoning — model_comparison.unknown_capability');
+    });
+
+    it('explains missing catalog data and verification protocols, and offers refresh', () => {
+        const implementation = mocks.useData.getMockImplementation();
+        if (!implementation) throw new Error('Missing data fixture');
+        const data = implementation() as ReturnType<typeof useModelComparisonData>;
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [{ ...FEED.models[0], role_assessments: [{
+                role: 'documentalist', status: 'catalog_compatible', score: 75, coverage: 80, method: 'weighted_catalog_v1', source: 'mixed',
+                weights: { intelligence: .25, long_context: .45, token_cost: .15, speed: .10, latency: .05 },
+                proofs: [], missing: ['speed', 'citation_fidelity'],
+            }] }],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const details = container.querySelector('.model-role-assessments');
+        expect(details?.querySelector('button')?.textContent).toContain('75%');
+        expect(details?.querySelector('.model-role-assessments__body')).toBeNull();
+        act(() => { details?.querySelector<HTMLButtonElement>('button')?.click(); });
+        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.missing_catalog');
+        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verify_roles.documentalist');
+        expect(container.querySelector('.model-role-assessments__body')?.textContent).toContain('agent_team.verification_pending');
+        const refresh = container.querySelector<HTMLButtonElement>('[aria-label="common.refresh"]');
+        expect(refresh).not.toBeNull();
+        act(() => { refresh?.click(); });
+        expect(data.retry).toHaveBeenCalledOnce();
+    });
+
+    it('shows only the selected role and orders it by suitability', () => {
+        const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [
+                { ...FEED.models[0], id: 'a', name: 'A', role_assessments: [{ role: 'worker', status: 'catalog_compatible', score: 65 }, { role: 'expert', status: 'catalog_compatible', score: 99 }] },
+                { ...FEED.models[0], id: 'b', name: 'B', role_assessments: [{ role: 'worker', status: 'catalog_compatible', score: 90 }, { role: 'expert', status: 'catalog_compatible', score: 60 }] },
+            ],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const filter = [...container.querySelectorAll('select')].find(s => s.querySelector('option[value="worker"]'));
+        if (!filter) throw new Error('Missing role filter');
+        act(() => { filter.value = 'worker'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
+        const summaries = [...container.querySelectorAll('.model-role-assessments > .model-details-trigger')];
+        expect(summaries.map(s => s.textContent)).toEqual(['model_comparison.profiles.worker · 90%', 'model_comparison.profiles.worker · 65%']);
+        expect(container.querySelector('.model-role-assessments')?.textContent).not.toContain('model_comparison.profiles.expert');
+        const sort = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.profile"]');
+        act(() => { sort?.click(); });
+        act(() => { sort?.click(); });
+        expect(container.querySelector('tbody tr:first-child strong')?.textContent).toBe('B');
+    });
+
     it.each([
         ['Qwen3 30B A3B (Reasoning)', 'Alibaba', '30.5 B', 'https://huggingface.co/Qwen/Qwen3-30B-A3B'],
         ['GPT-6 Astra (max)', 'OpenAI', 'model_comparison.parameters_not_published', 'https://developers.openai.com/api/docs/models'],
@@ -196,7 +266,7 @@ describe('AIModelComparisonModal', () => {
             ...FEED, models: [{ ...FEED.models[0], name, creator }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
-        const cell = container.querySelectorAll('tbody tr:first-child > td')[7];
+        const cell = container.querySelectorAll('tbody tr:first-child > td')[9];
         expect(cell?.textContent).toContain(label);
         expect(cell?.querySelector('a')?.getAttribute('href')).toBe(source);
         expect(cell?.querySelector('a')?.title).toContain('model_comparison.parameters_checked');
@@ -210,16 +280,17 @@ describe('AIModelComparisonModal', () => {
 
         const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
         expect(headers).toEqual([
-            'model', 'intelligence', 'context', 'input_price', 'output_price', 'monthly_cost',
-            'modes', 'parameters', 'speed', 'latency', 'profile', 'coding', 'agentic', 'creator', 'available',
+            'model', 'profile', 'monthly_cost', 'creator', 'intelligence', 'context', 'input_price', 'output_price',
+            'modes', 'parameters', 'speed', 'latency', 'coding', 'agentic', 'available',
         ].map((key) => `model_comparison.columns.${key}`));
         const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
         expect(cells).toHaveLength(headers.length);
-        expect(cells[1]?.textContent).toContain('85');
-        expect(cells[2]?.textContent).toBe('128K');
-        expect(cells[5]?.textContent).toContain('9');
-        expect(cells[7]?.textContent).toContain('model_comparison.parameters_missing');
-        expect(cells[13]?.textContent).toBe('OpenAI');
+        expect(cells[4]?.textContent).toContain('85');
+        expect(cells[5]?.textContent).toBe('OpenAI — 128K');
+        expect(cells[2]?.textContent).toContain('9');
+        expect(cells[2]?.textContent).toContain('OpenAI —');
+        expect(cells[9]?.textContent).toContain('model_comparison.parameters_missing');
+        expect(cells[14]?.textContent).toBe('OpenAI');
         expect(container.textContent).toContain('Model One');
         expect(container.textContent).toContain('model_comparison.title');
         const toggle = container.querySelector<HTMLButtonElement>(
@@ -229,7 +300,7 @@ describe('AIModelComparisonModal', () => {
         act(() => {
             toggle.click();
         });
-        expect(mocks.deactivateModel).toHaveBeenCalledWith(FEED.models[0]);
+        expect(mocks.deactivateModel).toHaveBeenCalledWith(FEED.models[0], 'all');
 
         const close = container.querySelector<HTMLButtonElement>(
             'button.gnosi-close-btn',
@@ -247,4 +318,31 @@ describe('AIModelComparisonModal', () => {
         });
         expect(container.textContent).toBe('');
     });
+});
+
+it('keeps a model with many provider offers compact and reveals the remaining offers on demand', () => {
+    const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+    const base = FEED.models[0];
+    if (!base || !base.routes[0]) throw new Error('Missing route fixture');
+    const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${String(index)}`, provider_name: `Provider ${String(index)}`, cost_in: index + 1 }));
+    mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes }] } } });
+    act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+    const row = container.querySelector('tbody tr');
+    expect(row?.textContent).toContain('Model One');
+    const offerLists = [...container.querySelectorAll('.model-offer-list')];
+    expect(offerLists).toHaveLength(5);
+    for (const list of offerLists) {
+        expect(list.querySelectorAll(':scope > div')).toHaveLength(1);
+        expect(list.querySelector('.model-offer-list__details')).toBeNull();
+    }
+    const firstList = offerLists[0];
+    if (!firstList) throw new Error('Missing offers');
+    const offers = firstList.querySelector<HTMLButtonElement>('button');
+    act(() => { offers?.click(); });
+    expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
+    expect(container.querySelector('.model-details-popover')?.textContent).toContain('Provider 23');
+    act(() => { offers?.click(); });
+    expect(container.querySelector('.model-offer-list__details')).toBeNull();
+    act(() => { firstList.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
 });

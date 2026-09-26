@@ -1,6 +1,8 @@
 """Lifecycle and protection rules for the built-in LLM Wiki agent profile."""
 from __future__ import annotations
 
+from backend.services.agent_behavior import resource as behavior_resource
+
 from copy import deepcopy
 import threading
 
@@ -27,9 +29,7 @@ LLM_WIKI_SKILL_IDS = [
 LLM_WIKI_REQUIRED_SKILL_IDS: list[str] = []
 LEGACY_DEFAULT_SKILL_IDS = ["core.legacy-default-v1"]
 
-DEFAULT_PERSONA = """You are Gnosi's Brain agent, a persistent knowledge wiki.
-Use the skills assigned by the LLM Wiki plugin and any profile-specific instructions
-added by the user. Never create permanent notes without human confirmation."""
+DEFAULT_PERSONA = behavior_resource('agents/legacy-knowledge.md')
 
 _config_lock = threading.RLock()
 
@@ -204,14 +204,16 @@ def validate_agent_preserved(current_ai: dict[str, object], requested_ai: dict[s
 
 
 def default_plugin_agent_id(ai_config: dict[str, object] | None = None) -> str:
-    """Compatibility alias: Knowledge always uses the principal."""
-    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
+    """Resolve the editable profile owned by the Knowledge plugin."""
+    from backend.services.principal_agent_migration import ensure_migrated
     ai = ensure_migrated() if ai_config is None else ai_config
-    return str(principal_profile(ai)["id"])
+    from backend.services.plugin_agent_profiles import select_profile
+    from backend.services.agent_operation_catalog import skill_id
+    return str(select_profile(ai, skill_id("knowledge"))["id"])
 
 
 def transition_agent(enabled: bool) -> dict[str, object]:
-    """Feature toggles never restore the retired managed profile."""
-    from backend.services.principal_agent_migration import ensure_migrated, principal_profile
-    ai = ensure_migrated()
-    return {"agent_id": str(principal_profile(ai)["id"]), "agent_changed": False}
+    """Migrate legacy settings before the lifecycle reconciles plugin profiles."""
+    from backend.services.principal_agent_migration import ensure_migrated
+    ensure_migrated()
+    return {"agent_id": "builtin.llm-wiki.default", "agent_changed": False}

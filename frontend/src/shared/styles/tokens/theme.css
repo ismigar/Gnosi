@@ -13,6 +13,7 @@
   --border-primary: #e5e7eb;
   --gnosi-blue: #3b82f6;
   --gnosi-action-bg: #1d4ed8;
+  --gnosi-link: var(--focus-outline-color);
   --gnosi-action-rgb: 29, 78, 216;
   --accent-primary: var(--gnosi-blue);
   --border-color: var(--border-primary);
@@ -59,7 +60,7 @@
   --settings-border: #e5e7eb;
   --settings-title: #111827;
   --settings-sidebar-active: rgba(59, 130, 246, 0.1);
-  --settings-sidebar-active-text: #3b82f6;
+  --settings-sidebar-active-text: var(--gnosi-link);
   --settings-input-bg: #ffffff;
   --settings-btn-bg: #f3f4f6;
 
@@ -71,6 +72,7 @@
   /* Status Colors Light */
   --status-success: #10b981;
   --status-error: #ef4444;
+  --status-error-text: #b91c1c;
   --status-warning: #f59e0b;
   --status-info: #3b82f6;
 
@@ -155,6 +157,7 @@
   /* Status Colors Dark */
   --status-success: #059669;
   --status-error: #dc2626;
+  --status-error-text: #fca5a5;
   --status-warning: #d97706;
   --status-info: #2563eb;
 

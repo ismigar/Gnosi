@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import resource as behavior_resource, frozen_resources
+
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -152,6 +154,8 @@ class AgentWorkflowNodes:
         """Route a turn deterministically before consulting the supervisor model."""
         if _turn_is_cancelled(state):
             return {"next": "FINISH"}
+        if frozen_resources.get():
+            return {"next": "Brain" if self.brain_tools else "General"}
         messages = state["messages"]
         latest_user = self._latest_user(messages)
         request_mode = _request_mode(latest_user)
@@ -304,6 +308,11 @@ class AgentWorkflowNodes:
         request_mode = _request_mode(latest_user)
         authorized_names = _turn_authorized_tool_names(state)
         route = self._context_route(messages, latest_user, request_mode)
+        directed = bool(frozen_resources.get())
+        if directed:
+            route = ContextRoute(reader_message=latest_user,
+                                 has_notebook=any(ref.get("type") == "notebook" for ref in self.context_refs),
+                                 has_vault=any(ref.get("type") in {"page", "table", "database", "vault"} for ref in self.context_refs))
         required_reads = {route.required_tool} if route.required_tool else set()
         turn_plan = build_agent_turn_plan(
             latest_user,
@@ -319,15 +328,15 @@ class AgentWorkflowNodes:
             self.runtime_tool_metadata,
             authorized_names,
             user_message=latest_user,
-            narrow_passive_reads=self.legacy_bundle_active,
+            narrow_passive_reads=self.legacy_bundle_active and not directed,
             required_read_tool_names=required_reads,
         )
         planned_names = set(turn_plan.get("allowed_tool_names") or ())
-        tools = [tool for tool in tools if _tool_name(tool) in planned_names]
-        if request_mode == "conversation" and not authorized_names and not route.has_notebook:
+        tools = tools if directed else [tool for tool in tools if _tool_name(tool) in planned_names]
+        if not directed and request_mode == "conversation" and not authorized_names and not route.has_notebook:
             tools = []
         elif (
-            route.has_vault
+            not directed and route.has_vault
             and not route.required_tool
             and not _vault_context_is_relevant(latest_user)
         ):
@@ -353,18 +362,11 @@ class AgentWorkflowNodes:
         ):
             return ""
         prompt = (
-            "\nWhen a successful tool result supplies canonical source ids, append "
-            "[[cite:SOURCE_ID]] to every factual sentence supported by that source. "
-            "Use only exact ids present in this turn's tool results, place the marker "
-            "before the sentence-ending punctuation, and cite multiple ids when a "
-            "claim combines sources. The server validates and removes these markers "
-            "before display. Never invent a source id."
+            behavior_resource('system/workflow-nodes-1.md')
         )
         if turn.context_route.has_notebook:
             prompt += (
-                " For grounded notebook search or evidence results, SOURCE_ID means "
-                "the exact chunk_id, not the broader source_id or Resource id. Every "
-                "source-dependent claim must include at least one such chunk citation."
+                behavior_resource('system/workflow-nodes-3.md')
             )
         return prompt
 
@@ -379,8 +381,7 @@ class AgentWorkflowNodes:
         prompt = ""
         if always_confirmed:
             prompt += (
-                "\nThese tools only prepare a pending review and never perform their "
-                "consequential action inside the model loop: "
+                behavior_resource('system/workflow-nodes-7.md')
                 + ", ".join(sorted(always_confirmed))
                 + ". Never claim they completed until Gnosi reports the "
                 "post-confirmation result."
@@ -395,21 +396,17 @@ class AgentWorkflowNodes:
                 "\nThe current user message explicitly authorizes only these guarded "
                 "tools for this turn: "
                 + ", ".join(sorted(authorized_guarded))
-                + ". Use them only to fulfill that explicit request. All other writes "
-                "remain prohibited. Confirm the actual tool result."
+                + behavior_resource('system/workflow-nodes-6.md')
             )
             if confirmation_only:
                 prompt += (
                     "\nThese consequential tools only prepare a pending action: "
                     + ", ".join(sorted(confirmation_only))
-                    + ". Never claim the action has happened. It executes only after "
-                    "the user confirms the exact preview in Gnosi."
+                    + behavior_resource('system/workflow-nodes-8.md')
                 )
         if self.guarded_tool_names and not authorized_guarded:
             prompt += (
-                "\nNo guarded tool is authorized for this turn. Calls to write, "
-                "destructive, external, code-execution, or cost-bearing tools will be "
-                "denied by policy."
+                behavior_resource('system/workflow-nodes-4.md')
             )
         return prompt
 
@@ -417,22 +414,11 @@ class AgentWorkflowNodes:
         """Describe available tools plus server-owned bulk replacement behavior."""
         if not turn.tools:
             return (
-                "\nNo tools are available for this model. Answer only from the "
-                "conversation context and state clearly when external data cannot be "
-                "checked."
+                behavior_resource('system/workflow-nodes-5.md')
             )
         prompt = "\nYou may use only these tools: " + ", ".join(sorted(turn.bound_tool_names))
         prompt += (
-            ".\nFor requests to inspect or replace table-row titles or properties "
-            "that contain reference ids, use replace_reference_ids_in_titles with "
-            "the source table and a label-to-reference-table mapping. Gnosi scans "
-            "every row and calculates the complete plan on the server. Never enumerate "
-            "or submit a partial model-authored sample. Do not claim that the Vault is "
-            "inaccessible when these tools are available. When the current turn "
-            "authorizes a bulk replacement, you MUST call "
-            "replace_reference_ids_in_titles. Do not merely describe a planned update, "
-            "say that you are awaiting confirmation, or send a final text response "
-            "instead: only the tool call creates the required Gnosi review card."
+            behavior_resource('system/workflow-nodes-2.md')
         )
         return prompt + self._tool_policy_prompt(turn)
 
@@ -458,8 +444,7 @@ class AgentWorkflowNodes:
         prompt += self._tool_access_prompt(turn)
         if self.rejected_mcp_names:
             prompt += (
-                "\nThese integration tools are unavailable because their connector "
-                "did not declare read-only safety metadata: "
+                behavior_resource('system/workflow-nodes-9.md')
                 + ", ".join(self.rejected_mcp_names)
                 + ". Explain this limitation if the request depends on one of them."
             )
@@ -604,23 +589,17 @@ class AgentWorkflowNodes:
         ):
             self._force_synthesis(
                 turn,
-                "\nThe turn has entered its reserved synthesis window. Answer now from "
-                "the available evidence and do not call another tool. If the requested "
-                "work is incomplete, say so and identify the safe next step.",
+                behavior_resource('system/workflow-nodes-10.md'),
             )
         elif progress.tool_budget_reached or progress.read_budget_reached:
             self._force_synthesis(
                 turn,
-                "\nThe bounded tool-read budget for this turn is complete. Answer "
-                "directly from the tool evidence already present now. Do not call "
-                "another tool, repeat a query, or ask to continue.",
+                behavior_resource('system/workflow-nodes-11.md'),
             )
         elif progress.model_budget_reached:
             self._force_synthesis(
                 turn,
-                "\nThe bounded model-call budget for this turn is nearly complete. "
-                "Synthesize the best supported answer now and do not call another tool. "
-                "State any limitation instead of retrying.",
+                behavior_resource('system/workflow-nodes-12.md'),
             )
         elif (
             progress.remaining_steps
@@ -629,8 +608,7 @@ class AgentWorkflowNodes:
         ):
             self._force_synthesis(
                 turn,
-                "\nThe graph is at its final safe synthesis step. Answer now from the "
-                "available evidence and do not call another tool.",
+                behavior_resource('system/workflow-nodes-13.md'),
             )
         elif turn.context_route.required_tool and not progress.latest_context_tool:
             deterministic = self._deterministic_context_result(turn)
@@ -651,9 +629,7 @@ class AgentWorkflowNodes:
         ):
             self._force_synthesis(
                 turn,
-                "\nThe exact table-query result is already present in this turn. Answer "
-                "directly from it now. Do not call another tool, repeat the query, or "
-                "claim that the attached table is unavailable.",
+                behavior_resource('system/workflow-nodes-14.md'),
             )
         return None
 
@@ -662,12 +638,14 @@ class AgentWorkflowNodes:
         if _turn_is_cancelled(state):
             return {"next": "FINISH"}
         turn = self._prepare_brain_turn(state)
-        turn.system_prompt = self._brain_system_prompt(turn)
+        turn.system_prompt = (self.combined_persona + self._citation_prompt(turn) + self._tool_access_prompt(turn)) if frozen_resources.get() else self._brain_system_prompt(turn)
         progress = self._brain_progress(turn)
-        deterministic = self._deterministic_brain_result(turn, progress)
+        if frozen_resources.get() and (progress.repeated_tool_name or progress.tool_budget_reached or progress.read_budget_reached or progress.model_budget_reached or progress.soft_deadline_reached):
+            raise RuntimeError("agent_turn_incomplete_limit_reached")
+        deterministic = None if frozen_resources.get() else self._deterministic_brain_result(turn, progress)
         if deterministic is not None:
             return deterministic
-        controlled = self._apply_brain_control(turn, progress)
+        controlled = None if frozen_resources.get() else self._apply_brain_control(turn, progress)
         if controlled is not None:
             return controlled
         try:

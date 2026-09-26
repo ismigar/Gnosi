@@ -112,9 +112,9 @@
 }
 
 .segmented-control button.active {
-    background: var(--gnosi-blue, #3b82f6);
+    background: var(--gnosi-primary);
     color: #fff;
-    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--gnosi-primary) 30%, transparent);
 }
 
 .segmented-control button:hover:not(.active) {
@@ -153,7 +153,7 @@
 }
 
 .kpi-value.primary {
-    color: var(--gnosi-blue, #3b82f6);
+    color: var(--gnosi-primary);
 }
 
 .kpi-meta {
@@ -198,7 +198,7 @@
 }
 
 .usage-item-card:hover {
-    border-color: var(--gnosi-blue, #3b82f6);
+    border-color: var(--gnosi-primary);
 }
 
 .usage-item-header {
@@ -241,7 +241,7 @@
 
 .usage-item-percent {
     font-size: 0.75rem;
-    color: var(--gnosi-blue, #3b82f6);
+    color: var(--gnosi-primary);
     font-weight: 700;
 }
 
@@ -255,7 +255,7 @@
 
 .usage-item-bar {
     height: 100%;
-    background: var(--gnosi-blue, #3b82f6);
+    background: var(--gnosi-primary);
     border-radius: 3px;
     transition: width 0.3s ease;
 }

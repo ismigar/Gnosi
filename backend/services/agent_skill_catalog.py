@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Tuple, Union
 
@@ -21,6 +20,10 @@ from backend.models.agent_skills import (
     ToolDescriptor,
 )
 from backend.services.agent_capability_contract import validate_versioned_capability
+from backend.services.agent_catalog_models import (
+    AgentRuntimeCapabilities as AgentRuntimeCapabilities,
+    ToolRegistration as ToolRegistration,
+)
 
 
 class CatalogConflictError(ValueError):
@@ -29,29 +32,6 @@ class CatalogConflictError(ValueError):
 
 class CatalogProviderError(ValueError):
     """Raised when a provider publishes an invalid contribution."""
-
-
-@dataclass(frozen=True)
-class ToolRegistration:
-    """A serializable descriptor paired with an in-process runtime adapter."""
-
-    descriptor: ToolDescriptor
-    handler: Any = None
-
-
-@dataclass(frozen=True)
-class AgentRuntimeCapabilities:
-    """Exact skills and tools made eligible for a compiled runtime."""
-
-    assigned_skill_ids: Tuple[str, ...]
-    active_skill_ids: Tuple[str, ...]
-    instructions: Tuple[str, ...]
-    tools: Tuple[Any, ...]
-    tool_descriptors: Tuple[ToolDescriptor, ...]
-    skills: Tuple[SkillCatalogEntry, ...]
-    missing_skill_ids: Tuple[str, ...]
-    unavailable_tool_ids: Tuple[str, ...]
-    catalog_revision: str
 
 
 SkillProvider = Callable[[], Iterable[Union[SkillDescriptor, Mapping[str, Any]]]]
@@ -489,6 +469,14 @@ _BUILTIN_PROVIDERS_REGISTERING = False
 
 
 def _register_builtin_gnosi_catalog() -> None:
+    from backend.services.agent_behavior import skill_instructions
+    _SKILL_CATALOG.register_core(SkillDescriptor(
+        id="core.gnosi-coordination", name="Team coordination",
+        description="Plan bounded assignments, select economical specialists and propose reusable agents.",
+        origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"), kind=SkillKind.AGENT,
+        activation=SkillActivation.EXPLICIT,
+        instructions=skill_instructions("core.gnosi-coordination"),
+    ))
     from backend.services.gnosi_ai_contributions import (
         core_gnosi_registrations,
         core_gnosi_skill_descriptors,
@@ -720,6 +708,9 @@ def resolve_agent_runtime(
     entries_by_id = {
         entry.descriptor.id: entry for entry in catalog.list_entries(vault_path)
     }
+    from backend.services.agent_behavior_bindings import effective_entries
+    resolved_ids, entries_by_id, aliases = effective_entries({**agent_profile, "skill_ids": assigned}, entries_by_id)
+    assigned = tuple(resolved_ids)
     found = tuple(
         entries_by_id[skill_id]
         for skill_id in assigned
@@ -732,7 +723,7 @@ def resolve_agent_runtime(
     explicitly_active = None
     if active_skill_ids is not None:
         explicitly_active = {
-            str(value or "").strip().lower()
+            aliases.get(str(value or "").strip().lower(), str(value or "").strip().lower())
             for value in active_skill_ids
             if str(value or "").strip()
         }

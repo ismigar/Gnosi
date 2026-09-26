@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from backend.services.agent_behavior import resource as behavior_resource
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -13,11 +14,7 @@ from backend.config.data_dir import resolve_data_dir
 from backend.services.agent_model_strategy import route_key
 
 
-EVALUATION_CASES = (
-    {"id": "concise_en", "prompt": "Reply with exactly the word READY.", "expected": "ready"},
-    {"id": "concise_ca", "prompt": "Respon exactament amb la paraula PREPARAT.", "expected": "preparat"},
-    {"id": "structured", "prompt": 'Return only this JSON object: {"status":"ok"}', "expected": '"status"'},
-)
+EVALUATION_CASES = tuple(json.loads(behavior_resource('system/model-evaluations.json')))
 
 
 def _path() -> Path:
@@ -61,7 +58,14 @@ def evaluate_with_invoker(
             usage = getattr(response, "usage_metadata", None) or {}
             input_tokens += int(usage.get("input_tokens") or 0)
             output_tokens += int(usage.get("output_tokens") or 0)
-            if case["expected"] in content:
+            expected = case["expected"]
+            if case["id"] == "structured":
+                valid = json.loads(content) == {"status": "ok"}
+            elif case.get("validator") == "json_equal":
+                valid = json.loads(content) == json.loads(expected)
+            else:
+                valid = content == expected.strip().lower()
+            if valid:
                 passed += 1
             else:
                 failures.append(f"{case['id']}:contract_mismatch")

@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -247,35 +249,7 @@ mai no deriven la ubicació d’un Vault ni d’un proveïdor de núvol. Les pro
 injecten aquest mateix resolutor canònic, i les claus de xifratge del flux
 romanen al subdirectori `secrets` del directori de dades local.
 
-La selecció de model en execució pertany al perfil de l’agent. `pinned` només
-usa el proveïdor i model assignats; `resilient` comença amb aquests i només
-permet alternatives davant d’un error transitori; `adaptive` pot triar entre
-el principal i la llista explícita d’alternatives permeses del perfil. Cada
-alternativa ha de ser una entrada habilitada del registre amb la mateixa
-localitat, local o remota; les credencials i els valors per defecte del catàleg
-mai no amplien la llista. Els errors d’autenticació, política i contingut mai no
-activen alternatives. L’alternativa seleccionada queda marcada a les metadades
-del missatge i al comprovant del flux, de manera que un model local no pugui
-enviar inesperadament context privat a un proveïdor remot.
-
-Els perfils adaptatius poden definir `decision_engine: jev` mantenint la identitat,
-la memòria i les eines de l’assistent. Gnosi filtra el principal i les alternatives
-explícites per disponibilitat, finestra de context, capacitats, quotes i pressupost
-abans que l’adaptador les rebi. Els perfils locals mai no criden Jev. L’adaptador
-envia només la petició actual (fins a 12.000 caràcters) i les metadades dels candidats
-al punt HTTPS fix de TypeSafe; les credencials fan servir el magatzem segur existent.
-Es permet una única consulta limitada, sense redireccions ni reintents. La distribució
-validada ha de triar un candidat permès amb confiança i probabilitat d’almenys 0,75;
-aquest llindar és una heurística de selecció, no una garantia d’exactitud. Si falten
-credencials, hi ha incertesa o errors, es conserva la selecció interna. L’ús s’afegeix
-al registre compartit de despesa, amb estimacions conservadores quan un temps d’espera
-esgotat deixa la facturació incerta. Les operacions governades reserven una crida de
-model per a la decisió i en conserven una per a la resposta. Els fluxos no fixos es
-reconstrueixen a cada torn perquè la memòria cau no reutilitzi la selecció anterior.
-La configuració mostra els tres modes i les credencials opcionals de TypeSafe;
-els detalls de resposta indiquen Jev o la selecció interna. La cobertura es troba a
-`backend/tests/test_agent_model_decisions.py` i
-`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
+Els perfils utilitzen `pinned`: només el proveïdor i model configurats. Les opcions antigues `resilient`, `adaptive` i `decision_engine: jev` ja no seleccionen alternatives per als perfils. El formulari desa un únic model sense alternatives. Les utilitats antigues continuen cobertes a `backend/tests/test_agent_model_decisions.py`; l’edició de perfils es comprova a `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 El client MCP per stdio valida els objectes JSON-RPC, tipa explícitament les
 peticions asíncrones pendents i encamina eines a través d’una memòria cau que
@@ -318,13 +292,14 @@ la compatibilitat i la distinció entre camps gestionats i camps de l’usuari.
 La reconciliació de connectors és idempotent: deshabilitar-ne un suspèn la seva
 aportació gestionada sense eliminar les personalitzacions de l’usuari.
 
-L’habilitat de traducció de files manté l’encaminament de proveïdors i el cicle de
-vida local d’OPUS-MT al seu propi paquet consolidat. Els embolcalls JSON externs
-es delimiten abans d’usar-los; la puntuació de llengües té un ordre tipat
-determinista, i la memòria cau OPUS de càrrega diferida només desa protocols
-mínims de tokenitzador i model. Els tipus genèrics concrets de Transformers no
-s’estenen al contracte d’encaminament ni alteren l’ordre establert
-Softcatalà, Apertium, OPUS, DeepL i alternativa amb marcadors.
+Les traduccions de files, pàgines i instruccions de skills utilitzen l’operació
+compartida `translation`. Els botons de la interfície seleccionen el perfil del
+plugin de Traducció; les accions dins d’una conversa hereten el perfil de l’agent
+en execució. El perfil determina el model, les polítiques i el registre d’activitat.
+El panell de traducció enllaça a aquest perfil. Els arguments històrics de DeepL
+i Softcatalà es mantenen per compatibilitat, però s’ignoren; ja no hi ha
+encaminament per parelles de llengües ni alternativa amb marcadors. Traduir una
+skill només en mostra una còpia de lectura i conserva les instruccions originals.
 
 La reconciliació de connectors també pot executar-se abans de compondre les
 rutes FastAPI. Deriva el directori `.gnosi` del context canònic del Vault
@@ -714,7 +689,7 @@ conformitat mai no fan executable un gestor.
 
 ## Configuració de LLM Wiki
 
-Coneixement utilitza sempre l’Agent principal. El paràmetre històric `agent_id` es conserva però no pot seleccionar un altre perfil d’execució. La migració versionada retira el perfil gestionat `llm-wiki`; es preserven els perfils personals i les instruccions de Coneixement. Els ajustos enllacen al principal i a les seves habilitats. Cada execució programada pren el principal vigent, mentre que les iniciades conserven la seva instantània.
+Coneixement utilitza el seu perfil de plugin. El paràmetre històric `agent_id` es conserva però no substitueix el perfil del plugin. L’antic perfil gestionat `llm-wiki` continua retirat; el perfil nou conserva les instruccions complementàries de Coneixement migrades. La configuració enllaça al perfil del plugin i a les seves habilitats.
 
 El menú secundari Eines del Cervell és a la capçalera de la taula del Cervell,
 incloses les taules dins de pàgines. Ofereix la revisió determinista amb el
@@ -1107,7 +1082,7 @@ Cancel·lar l’esborrany no modifica ni el catàleg ni les assignacions.
 
 ## Comparativa de models i paràmetres verificats
 
-La comparativa prioritza intel·ligència, context, preus d’entrada/sortida i cost mensual estimat, seguits de modes, paràmetres, velocitat, latència, perfil i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
+La comparativa mostra primer el model i la valoració dels seus perfils, seguits del cost mensual estimat i el fabricant, i després intel·ligència, context, preus d’entrada/sortida, modes, paràmetres, velocitat, latència i puntuacions especialitzades. Els títols compactes conserven unitats i text complet emergent; els filtres s’alineen amb els camps, Modes es tanca en clicar fora i els tokens mensuals separen els milers. El peu queda lliure de la barra horitzontal.
 
 Els paràmetres s’expressen en mil milions, distingint totals i actius en models MoE. Els filtres admeten estat conegut/no publicat/pendent i límits de mida total. Els modes utilitzen AND explícit per defecte o OR. Les metadades estàtiques revisades continuen disponibles si el servidor no proporciona dades enriquides.
 
@@ -1185,6 +1160,55 @@ L’acció de traducció utilitza un botó compacte alineat a la dreta. Els erro
 
 ## Execució de l’Agent principal
 
-La IA funcional passa per l’executor compartit de l’Agent principal. Botons, xat i programacions utilitzen habilitats assignades, la política de models del principal, memòria delimitada i un registre comú de consum. Les operacions estructurades admeten una única reparació de format dins del mateix pressupost. Les fases llargues conserven una instantània del perfil i reutilitzen els punts de represa completats.
+La IA funcional utilitza un executor compartit amb perfils explícits. Els botons i programacions dels plugins resolen el perfil del plugin; les converses utilitzen el perfil seleccionat. Es mantenen les habilitats, la memòria delimitada, el registre de consum, la reparació de format acotada i els punts de represa.
 
 Activitat mostra identificadors d’execució, cancel·lació i les represes compatibles. La migració versionada copia la configuració, retira només el perfil Brain gestionat, preserva els perfils personals i trasllada les instruccions de Coneixement a una habilitat complementària. Les rutes de Coneixement i les antigues comparteixen implementació i permisos; Notion continua sent opcional.
+
+
+## Perfils i converses
+
+Crea perfils des de **Perfils addicionals (avançat)**. Al xat, obre el selector del nom de l’assistent i tria el **Perfil de la conversa**. El canvi s’aplica a les peticions següents i conserva l’historial. Cada conversa recorda el seu perfil. **Fes servir per defecte**, a Configuració, estableix el perfil per a converses noves; no canvia els xats existents.
+
+Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfil o edita el model del perfil. No hi ha selecció automàtica ni models alternatius en cas de fallada. Si el perfil s’elimina o el model no està disponible, tria un altre perfil des del xat. Per eliminar el predeterminat, primer estableix-ne un altre. Per desactivar la IA, desactiva el plugin.
+
+
+La identitat de l’historial es manté a `agent_id` i `session_id`. El camp opcional `profile_id` tria el perfil d’execució, que el navegador desa com a `profileId` per conversa. Canviar de perfil manté els missatges, adjunts, recuperació del flux i retrocés vinculats al mateix historial. Els arguments de confirmació desats pel servidor conserven el perfil original. Les converses noves utilitzen el predeterminat actual; les habilitats programades utilitzen el perfil del seu plugin. Un perfil absent o desactivat produeix un error explícit.
+
+## Perfils dels plugins
+
+Cada plugin d’IA declara un perfil editable i les habilitats que utilitzen les seves accions. Configuració → IA → Assistent mostra els perfils dels plugins separats dels personals. Hi pots editar l’únic model, les instruccions, les fonts i les habilitats assignades. Els perfils inicials copien només el model predeterminat actual; les actualitzacions preserven les edicions. Desactivar un plugin suspèn el seu perfil sense eliminar la configuració. Si falta el model o una habilitat necessària, l’acció falla explícitament sense recórrer al perfil personal. Les accions independents noves i les habilitats programades utilitzen el perfil del plugin; els treballs iniciats conserven la seva instantània. El perfil triat manualment en una conversa continua governant aquella conversa.
+
+
+## Valoració orientativa — weighted_catalog_v1
+
+Orientació, no certificació: mínim 60/100 i 60% de dades, amb requisits per paper. Intel·ligència, codi i capacitat agentiva es comparen amb el catàleg actual; context i velocitat saturen a 200.000 tokens i 100 tokens/s. Latència i preu puntuen amb 1/(1+x/2). El preu usa una barreja fixa de 4 tokens d’entrada per 1 de sortida; no és el cost real d’una tasca. No es dedueixen cites, català ni fiabilitat a partir del context.
+
+
+Els pesos són a `backend/services/model_role_suitability.py`. Els benchmarks es comparen dins del catàleg sense filtrar, amb el mateix rang per als empats i 0,5 si només hi ha un model; no són probabilitats de qualitat. Els requisits són intel·ligència, capacitat agentiva i eines per al Directiu; intel·ligència i eines per al Tot terreny; intel·ligència i context per al Documentalista (mínim 100k); intel·ligència per al Perit; intel·ligència i eines o sortida estructurada per a l’Administratiu; text, preu i velocitat per al Peó. Les dades absents redueixen la cobertura i els requisits absents impedeixen recomanar. Una limitació explícita preval sobre la puntuació. La mida del model no s’utilitza com a indicador de capacitat. El perfil antic es conserva per compatibilitat. La recàrrega recalcula també les dades en memòria cau.
+
+La columna Ús mostra només el perfil seleccionat i el seu percentatge; ordenar-la compara aquella puntuació, amb els valors desconeguts al final. Cost estimat i Fabricant van a continuació. Sense filtre, ordenar Ús compara la millor puntuació disponible de cada model.
+
+El panell Proves de perfils i estratègies de la comparativa permet triar agents habilitats i autoritzar cada execució amb consum real. Les proves per paper utilitzen 2–3 casos sintètics amb validadors deterministes. La comparació aplica els mateixos tres casos a Tot terreny, Directiu sempre actiu i Directiu amb rutes; inclou dues rutes conegudes i una resolució de fonts contradictòries amb dependències. Compara encerts, crides, intervencions evitables i cost; les dades absents no es consideren zero. És un laboratori aïllat que reutilitza l’elecció econòmica, sense eines de negoci. No és una certificació completa de llengua, recuperació extensa ni ús real d’eines.
+
+Cada resultat conserva versió, data, model, proveïdor i comprovacions per cas dins de l’usuari i Vault originals. Les valoracions amb prou dades combinen 50% catàleg i 50% prova sintètica; les limitacions i mancances generals continuen visibles. Refresca la comparativa després de consultar els resultats. La prova té un límit global de 24 crides, fins a 512 tokens de sortida per crida; comparar les tres estratègies fa 17 crides. Les traces d’aquestes proves conserven només metadades. Cancel·la-les des d’Activitat. No canvien els models assignats.
+
+Les propostes de conservació mostren les habilitats reutilitzables, les diferències de cobertura i model respecte dels agents existents i les execucions completades. No confonen completar una execució amb verificar tots els criteris particulars. Les instruccions permanents parteixen d’una plantilla d’habilitats registrades, sense copiar l’encàrrec; l’usuari pot revisar-les. Acceptar permet incorporar el nou perfil personal a l’equip. Una configuració equivalent existent evita una proposta duplicada. Rebutjar impedeix repetir la mateixa proposta.
+
+Implementació: `backend/services/agent_role_evaluations.py` · `backend/services/agent_team_retention.py` · `frontend/src/features/settings/AI/AgentEvaluationLab.tsx`
+
+Per resoldre una mida desconeguda, selecciona **Pendent de verificar** a la columna Paràmetres. **Consulta la font oficial** cerca una coincidència de versió exacta a les fitxes dels fabricants compatibles. Si la font no respon o no hi ha coincidència, la dada continua pendent. També pots registrar els milers de milions totals i actius, o una absència de publicació revisada, amb una font HTTPS i la confirmació explícita que has comprovat el model exacte. Les dades revisades manualment conserven la procedència i la data; no trobar una xifra no demostra que no estigui publicada. El servidor no visita els enllaços introduïts.
+
+Seleccionar un perfil ordena per adequació estimada. Els candidats amb dades insuficients només apareixen amb Inclou incomplets activat; la cerca i els altres filtres no activen aquesta opció. Comparar tots els candidats activa explícitament els incomplets i conserva el perfil i el volum de tokens. No cal executar proves per triar un model.
+
+Els preus per proveïdor són independents del preu del benchmark. El proveïdor seleccionat determina l’estimació mensual, les columnes de preu d’entrada/sortida, el filtre de preu i l’ordenació. Amb tots els proveïdors, cada parell diferent de proveïdor i tarifa apareix per cost mensual de tokens creixent; els desconeguts van al final. Les rutes de la comparativa en memòria cau s’actualitzen amb el catàleg actual. Les tarifes absents i els zeros antics no verificats són desconeguts, no gratuïts. El cost local per tokens exclou maquinari i energia; les estimacions exclouen quotes fixes i impostos. La velocitat i l’adequació continuen sent dades generals del model.
+
+La coincidència de models conserva la variant plus i no elimina sufixos de mida com mini o small per trobar una ruta de proveïdor.
+
+L’activació rebutja tarifes desconegudes abans d’habilitar el proveïdor o desar el registre; actualitzar el catàleg pot resoldre els preus absents.
+
+
+El context i les capacitats es mostren per proveïdor, incloent modes d’entrada i sortida, ús d’eines i raonament. Les declaracions absents queden desconegudes, també els valors de context antics per defecte. Els filtres de proveïdor, l’ordenació de context i els filtres combinats de preu, context i modes fan servir dades de l’oferta; una mateixa oferta ha de complir totes les condicions. El context s’ordena pel màxim conegut del proveïdor seleccionat, amb els desconeguts al final. Els benchmarks i les valoracions de papers continuen sent evidències generals del model.
+
+La coincidència del registre utilitza rutes exactes de proveïdor/model, mai noms ni fragments. El filtre d’activació i els àlies respecten el proveïdor seleccionat. Els filtres Directiu i Polivalent exclouen les rutes que declaren no admetre eines. L’activació conserva cada oferta de proveïdor/model i verifica la ruta seleccionada. Els canvis de la comparativa es desen en sèrie i rellegeixen el registre persistent abans de desar, preservant els canvis intermedis de models i pressupost. Recuperar mètriques de la memòria cau recalcula les valoracions de rol amb les dades recuperades.
+
+Els desaments de la comparativa inclouen una revisió optimista del registre: un desament obsolet rep HTTP 409 en lloc de sobreescriure els canvis d’una altra finestra. Refrescar evita les memòries cau dels benchmarks i del catàleg de proveïdors, i conserva la procedència alternativa si falla. Les variants que comparteixen una ruta executable són vistes informatives d’una única oferta: l’activació i els àlies afecten l’oferta compartida, i el formulari explica que no configura el raonament ni reprodueix les condicions de les avaluacions. Sense puntuació significa que no hi ha cap puntuació numèrica de rol; les limitacions i puntuacions baixes tenen etiquetes diferenciades. La vista compacta mostra el context màxim i el preu mínim de cada columna, igual que l’ordenació. Les capçaleres exposen aria-sort, s’anuncia el recompte filtrat i la inspecció de paràmetres preomple les dades existents sense indicar un desament.

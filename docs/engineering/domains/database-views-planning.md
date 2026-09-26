@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - frontend/src/shared/records/hooks/useViewSearch.ts
+  - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
   - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
   - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
@@ -36,6 +38,8 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
@@ -196,6 +200,19 @@ enabled functionalities through `VaultViewBody` to `VaultTable`. The table tab,
 standalone table, split pane, and embedded view therefore expose the same
 configured row actions. Omitting that prop chain hides an action even when the
 registry and API correctly report it as enabled.
+
+## Search scope
+
+Table searches default to the current view. The search scope selector can widen
+a nonempty query to the entire source table, including records excluded by view
+filters or joins, without changing the saved view. Clearing the query restores
+the current view's scope and filters. An empty result explains the active scope
+and offers an action to search the entire table.
+
+Embedded views use the shared record matcher for both rows and counts. They
+reload through the shared vault API when another page is saved or the window
+regains focus, keeping the search mounted during refreshes instead of reusing a
+separate five-minute table cache.
 
 ## Schema evolution and concurrency
 

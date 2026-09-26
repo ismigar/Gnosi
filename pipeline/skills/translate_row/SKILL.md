@@ -45,80 +45,38 @@ The skill implementation in `scripts/translate_text.py` exposes:
 The backend imports the skill lazily through the translation adapter. Preserve
 that callable contract instead of introducing a subprocess for every field.
 
-## Translation providers
+## Translation profile and configuration
 
-The existing provider routing is shown below. This describes implementation
-choices, not a live availability or translation-quality certification. Tests
-must inject fake providers; real translation requires the user's requested
-operation and can transmit selected text to external services.
+All language pairs call `backend.services.agent_execution.generate_for("translation", ...)`
+with the `core.gnosi-translation-workflow` skill. Standalone UI actions use the
+editable profile owned by `builtin:translation` (default ID
+`builtin.translation.default`). Nested actions inherit the running agent's
+snapshot and must have the translation skill assigned.
 
-| Pair | Provider | Runtime | Quality |
-|------|----------|---------|---------|
-| `en↔ca` | Softcatalà NMT | public online service | neural |
-| `ca↔{es, fr, it, pt, ro, oc, …}` | Softcatalà Apertium plus acronym protection | public online service | rule-based |
-| `es↔fr`, `fr↔es` | OPUS-MT (Helsinki-NLP) | local, loaded lazily | neural |
-| Other non-Catalan pairs, such as `es↔en` | Apertium APy plus acronym protection | public online service | rule-based |
-| Fallback | DeepL | online, when configured | neural |
-| Last resort | `[lang] {text}` placeholder | local | visible fallback |
+Configure the model in the Translation plugin's profile and connect its AI
+provider. Execution applies that profile's model policy, budgets and activity
+tracking. A newly created plugin profile initially copies the principal's
+provider and model; later principal changes do not overwrite the plugin profile.
 
-The implementation's default public endpoints (no key is passed by these adapters):
+DeepL, Softcatalà, Apertium and OPUS-MT routing has been retired. The historic
+`deepl_api_key` and `softcatala_url` keyword arguments remain accepted for caller
+compatibility but are ignored. Existing saved credentials are preserved. There
+is no provider-specific environment configuration or placeholder fallback in
+`translate_text.py`. Its `principal_agent` provider label is a legacy marker for
+the shared executor; the activity record identifies the actual profile and model.
 
-- Softcatalà NMT:
-  `https://www.softcatala.org/sc/v2/api/nmt-engcat/translate`
-- Softcatalà Apertium:
-  `https://www.softcatala.org/apertium/json/translate`
-- Apertium APy: `https://apertium.org/apy/translate`
+The skill-instruction reading translation also uses this operation, through
+`/api/ai/generate` with `mode="translate_instructions"`. It treats the supplied
+instructions as text, preserves protected literals and leaves the original skill
+unchanged. Failed calls remain retryable.
 
-### Why local OPUS-MT is limited to `es↔fr`
-
-The routing reserves OPUS-MT for this pair based on earlier observed translation
-quality. Do not expand model loading or change routing during a structural
-refactor; measure quality separately if the user requests a provider change.
-
-Models:
-
-- `Helsinki-NLP/opus-mt-es-fr`
-- `Helsinki-NLP/opus-mt-fr-es`
-
-### Acronym protection
-
-Apertium translates uppercase acronyms as ordinary words, for example
-`API` to a food name, or lowercases `JSON`. Before calling Apertium, wrap
-`[A-Z][A-Z0-9-]{1,5}` acronyms in neutral `XACRN###ZZZ` tokens and restore
-them afterward.
-
-## OPUS-MT memory and cache
-
-- The module does not preload a model; models are loaded on first use. Memory
-  use depends on the runtime and loaded model, so do not promise zero process
-  memory or a fixed amount per direction.
-- Auto-unload: `_purge_idle_opus` unloads a model on the next call after
-  `OPUS_IDLE_TIMEOUT_S`, default 300 seconds, without use.
-- Disk: Hugging Face cache under `$HF_HOME` or `~/.cache/huggingface/`.
-  Keep caches on local per-device storage, outside synchronized vault folders.
-  Loading time depends on download state and the machine.
-
-## Environment
-
-All defaults are public. Optional variables:
-
-```bash
-DEEPL_API_KEY=<key>            # only for pairs not adequately covered elsewhere
-DEEPL_API_URL=...              # override the DeepL endpoint
-SOFTCATALA_API_URL=...         # override both Softcatalà endpoints
-APERTIUM_PUBLIC_API_URL=...    # override Apertium APy
-OPUS_IDLE_TIMEOUT_S=300        # idle seconds before local model unload
-HF_HOME=${HOME}/.cache/huggingface  # local per-device model cache
-```
-
-UI-managed DeepL keys use the system secret-store adapter through Settings.
-The callable also supports an explicit key and an environment fallback; do not
-write to a shared environment file from the application.
+Tests must fake the executor. Live translation can send the selected text to the
+configured AI provider and incur usage costs.
 
 ## Restrictions and edge cases
 
-- Missing optional credentials retain the existing visible `[<lang>] ...`
-  fallback. A placeholder proves fallback behavior, not a successful translation.
+- Provider or profile failures propagate from the translation callable; no fake
+  `[<lang>] ...` translation is returned.
 - Skip a target identical to the detected source language.
 - Skip empty fields. Skip a language child when both translated fields and
   translated Markdown are empty.
@@ -128,15 +86,6 @@ write to a shared environment file from the application.
 - Return HTTP 400 when the schema has no translatable fields.
 - Preserve the existing single-row and batch routes; the single-row modal is
   not evidence that batch translation is unavailable.
-- Treat Softcatalà, Apertium and DeepL response bodies as unknown objects and
-  narrow their envelope before reading translated text.
-- Keep cached OPUS-MT entries behind the minimal tokenizer/model protocols in
-  `translate_text.py`. Do not type the cache as generic `object` or leak
-  Transformers' incomplete concrete generics into translation routing.
-- Note: Do not add translation routing fixtures without running Ruff formatting
-  on the exact test file; multiline response envelopes may be collapsed by the
-  formatter even when lint and behavior already pass.
-
 ## Child item shape
 
 ```json
@@ -163,11 +112,13 @@ Keep response groups `created`, `updated`, and `skipped` distinct.
 
 ## Explicit live invocation
 
-This sends the supplied text to the selected provider; it is not an offline QA
-check. For structural changes, run synthetic backend translation tests instead.
+Use the Translate row action in an open Vault. The shared executor requires an
+authenticated Vault execution scope; running the historic command-line wrapper
+without that scope does not establish one. Live translation sends the supplied
+text to the configured provider and can incur usage costs.
+
+For offline verification, run the synthetic translation tests:
 
 ```bash
-cd Gnosi
-python3 -m pipeline.skills.translate_row.scripts.translate_text \
-    --text "Hello, how are you?" --source en --target ca
+python3 -m pytest backend/tests/test_translate_row_skill.py
 ```

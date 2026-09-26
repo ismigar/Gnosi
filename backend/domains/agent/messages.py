@@ -179,6 +179,25 @@ def _bounded_model_messages(
     The current turn keeps complete assistant/tool protocol groups.
     """
     all_messages = list(messages)
+    from backend.services.agent_behavior import frozen_resources
+    if frozen_resources.get():
+        units = _protocol_units(all_messages)
+        latest = _latest_human_unit_index(units)
+        current = [message for index, unit in enumerate(units) if latest is None or index >= latest for message in unit]
+        size = sum(len(_content_text(message)) for message in current)
+        if size > max_chars:
+            raise RuntimeError("agent_current_turn_context_exceeded")
+        history = [message for index, unit in enumerate(units) if latest is not None and index < latest for message in unit]
+        selected: list[BaseMessage] = []
+        for unit in reversed(units[:latest] if latest is not None else []):
+            length = sum(len(_content_text(message)) for message in unit)
+            if size + length > max_chars:
+                break
+            selected = [*unit, *selected]
+            size += length
+        from backend.services.agent_execution_trace import record
+        record("context.projection", {"current_messages": len(current), "history_included": len(selected), "history_omitted": len(history) - len(selected)})
+        return [*selected, *current]
     dropped_messages = all_messages[:-MAX_MODEL_MESSAGE_COUNT]
     units = _protocol_units(all_messages[-MAX_MODEL_MESSAGE_COUNT:])
     latest_human_unit = _latest_human_unit_index(units)
