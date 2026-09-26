@@ -69,6 +69,8 @@ const FEED: AiModelComparison = {
         release_date: '2026-08-01',
         routes: [{
             context_window: 128_000,
+            input_modes: ['text'],
+            output_modes: ['text'],
             cost_in: 1,
             cost_out: 4,
             is_local: false,
@@ -185,6 +187,28 @@ describe('AIModelComparisonModal', () => {
         expect(container.querySelector<HTMLSelectElement>('.model-modes-menu select')?.value).toBe('any');
     });
 
+    it('shows provider context and directional capabilities instead of general model claims', () => {
+        const implementation = mocks.useData.getMockImplementation();
+        if (!implementation) throw new Error('Missing data fixture');
+        const data = implementation() as ReturnType<typeof useModelComparisonData>;
+        const base = FEED.models[0];
+        if (!base || !base.routes[0]) throw new Error('Missing model fixture');
+        mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: {
+            ...FEED, models: [{ ...base, context_window: 1000000, modes: ['video'], routes: [{
+                ...base.routes[0], context_window: 8000, input_modes: ['text', 'image'],
+                output_modes: ['text'], tool_call: false, reasoning: null,
+            }] }],
+        } } });
+        act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        const row = container.querySelector('tbody tr');
+        expect(row?.textContent).toContain('OpenAI — 8K');
+        expect(row?.textContent).not.toContain('1M');
+        expect(row?.textContent).toContain('model_comparison.input_modes — model_comparison.modes_list.text, model_comparison.modes_list.image');
+        expect(row?.textContent).toContain('model_comparison.output_modes — model_comparison.modes_list.text');
+        expect(row?.textContent).toContain('model_comparison.tool_call — model_comparison.unsupported');
+        expect(row?.textContent).toContain('model_comparison.reasoning — model_comparison.unknown_capability');
+    });
+
     it('explains missing catalog data and verification protocols, and offers refresh', () => {
         const implementation = mocks.useData.getMockImplementation();
         if (!implementation) throw new Error('Missing data fixture');
@@ -260,7 +284,7 @@ describe('AIModelComparisonModal', () => {
         const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
         expect(cells).toHaveLength(headers.length);
         expect(cells[4]?.textContent).toContain('85');
-        expect(cells[5]?.textContent).toBe('128K');
+        expect(cells[5]?.textContent).toBe('OpenAI — 128K');
         expect(cells[2]?.textContent).toContain('9');
         expect(cells[2]?.textContent).toContain('OpenAI —');
         expect(cells[9]?.textContent).toContain('model_comparison.parameters_missing');

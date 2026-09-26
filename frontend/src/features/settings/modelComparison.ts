@@ -1,3 +1,4 @@
+import { knownContext, selectedRoutes, routeHasModes, routeContextValue, routeModes } from './model-comparison/modelRouteCapabilities';
 import { routePriceValue, routeHasPrice } from './model-comparison/modelRouteCosts';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { matchingRegistryIndexes } from './model-comparison/modelComparisonRegistry';
@@ -341,7 +342,13 @@ const sortableModelValue = (
     model: AiModelComparisonEntry,
     key: ComparisonSortKey,
     profile: ModelComparisonUiState['profile'],
+    provider: string,
 ): number | string | null => {
+    if (key === 'context_window') return routeContextValue(model, provider);
+    if (key === 'modes') {
+        const modes = selectedRoutes(model, provider).map(routeModes).filter(value => value !== null).flat();
+        return modes.length ? [...new Set(modes)].sort().join(',') : null;
+    }
     if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
     if (key === 'provider') return [...new Set(model.routes.map(route => route.provider))].sort().join(', ');
     if (key === 'profile') {
@@ -372,7 +379,16 @@ export const filteredComparisonModels = (
         if (!deduped.has(key)) deduped.set(key, model);
     }
 
-    return [...deduped.values()].filter((model) => (
+    const hasRouteFilters = ui.maxPrice !== '' || ui.minContext !== '' || ui.modes.length > 0;
+    const matchesRoute = (route: AiModelComparisonEntry['routes'][number]) =>
+        (ui.maxPrice === '' || routeHasPrice(route, priceLimit / (feed?.currency.usd_rate || 1)))
+        && (ui.minContext === '' || (knownContext(route.context_window) && route.context_window >= contextFloor))
+        && routeHasModes(route, ui.modes, ui.modeMatch);
+    // Display and sort the same offers that satisfied the filters.
+    const candidates = [...deduped.values()].map(model => hasRouteFilters
+        ? { ...model, routes: selectedRoutes(model, ui.provider).filter(matchesRoute) }
+        : model);
+    return candidates.filter((model) => (
         (!normalizedQuery
             || `${model.name} ${model.creator} ${matchingRegistryIndexes(registryModels, model).map(index => registryModels[index]?.alias || '').join(' ')}`
                 .toLocaleLowerCase()
@@ -388,8 +404,7 @@ export const filteredComparisonModels = (
                 (model.role_assessments?.length ? model.role_assessments.some(r => ['catalog_compatible', 'tested'].includes(r.status)) : model.profile !== 'unrated')
                 && model.coding !== null
                 && model.agentic !== null
-                && model.input_price !== null
-                && model.context_window !== null
+                && selectedRoutes(model, ui.provider).some(route => routeHasPrice(route, Infinity) && knownContext(route.context_window) && routeModes(route) !== null)
             )
             || ui.profile === 'unrated'
             || normalizedQuery !== ''
@@ -400,34 +415,20 @@ export const filteredComparisonModels = (
             || ui.maxParameters !== ''
         )
         && (
-            ui.modes.length === 0
-            || (ui.modeMatch === 'all'
-                ? ui.modes.every((mode) => model.modes.includes(mode))
-                : ui.modes.some((mode) => model.modes.includes(mode)))
-        )
-        && (
             ui.availability === 'all'
             || matchingRegistryIndexes(registryModels, model)
                 .some((index) => registryModels[index]?.enabled !== false)
                 === (ui.availability === 'active')
         )
-        && (
-            ui.maxPrice === ''
-            || model.routes.some(route => (ui.provider === 'all' || route.provider === ui.provider) && routeHasPrice(route, priceLimit / (feed?.currency.usd_rate || 1)))
-        )
-        && (
-            ui.minContext === ''
-            || (model.context_window !== null
-                && model.context_window >= contextFloor)
-        )
+        && (!hasRouteFilters || model.routes.length > 0)
         && matchesParameterFilters(model, ui)
     )).sort((left, right) => {
         const first = ['monthly_cost', 'input_price', 'output_price'].includes(ui.sort.key)
             ? routePriceValue(left, ui.provider, ui.sort.key as 'monthly_cost' | 'input_price' | 'output_price', ui.inputTokens, ui.outputTokens)
-            : sortableModelValue(left, ui.sort.key, ui.profile);
+            : sortableModelValue(left, ui.sort.key, ui.profile, ui.provider);
         const second = ['monthly_cost', 'input_price', 'output_price'].includes(ui.sort.key)
             ? routePriceValue(right, ui.provider, ui.sort.key as 'monthly_cost' | 'input_price' | 'output_price', ui.inputTokens, ui.outputTokens)
-            : sortableModelValue(right, ui.sort.key, ui.profile);
+            : sortableModelValue(right, ui.sort.key, ui.profile, ui.provider);
         if (first === null && second === null) return 0;
         if (first === null) return 1;
         if (second === null) return -1;

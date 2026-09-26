@@ -188,7 +188,11 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[st
                 "is_local": bool(provider.get("is_local")),
                 "cost_in": _route_price(model, "cost_in"),
                 "cost_out": _route_price(model, "cost_out"),
-                "context_window": int(model.get("context_window") or 8192),
+                "context_window": int(model["context_window"]) if model.get("context_known") is True else None,
+                "input_modes": model.get("input_modes"),
+                "output_modes": model.get("output_modes"),
+                "tool_call": model.get("tool_call"),
+                "reasoning": model.get("reasoning"),
                 "quality": int(model.get("quality") or 2),
                 "tags": list(model.get("tags") or []),
             }

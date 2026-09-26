@@ -5269,7 +5269,14 @@
     "compare_candidates": "Comparar todos los candidatos",
     "unknown_cost": "Coste desconocido",
     "local_cost_note": "Sin tarifa por tokens; hardware y energía no incluidos.",
-    "provider_cost_note": "Estimación según las tarifas de cada proveedor y los tokens indicados, sin cuotas fijas ni impuestos. Las opciones se muestran de menor a mayor coste; los costes desconocidos van al final. Contexto, modos, velocidad y adecuación son datos generales del modelo y pueden variar según el proveedor."
+    "provider_cost_note": "Estimación con las tarifas de cada proveedor y los tokens indicados; excluye cuotas fijas e impuestos. Los costes se muestran de menor a mayor, con los desconocidos al final. Contexto, modos y capacidades corresponden a cada proveedor según el catálogo, sin sustituir datos ausentes por los generales del modelo. Los filtros deben coincidir en una misma oferta. El contexto se ordena por el máximo conocido entre las ofertas del proveedor seleccionado. Velocidad y adecuación siguen siendo datos generales del modelo.",
+    "input_modes": "Entrada",
+    "output_modes": "Salida",
+    "tool_call": "Herramientas",
+    "reasoning": "Razonamiento",
+    "unknown_capability": "Desconocido",
+    "supported": "Sí",
+    "unsupported": "No"
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",

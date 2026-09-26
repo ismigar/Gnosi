@@ -180,3 +180,21 @@ def test_build_model_metadata_index_keeps_runtime_capabilities():
         "quality": 1,
         "tags": ["fast", "long", "tools"],
     }
+
+
+def test_catalog_preserves_declared_capabilities_and_missing_values():
+    catalog = build_catalog({'test': {'models': {
+        'known': {'id': 'known', 'limit': {'context': 12000},
+                  'modalities': {'input': ['text', 'image'], 'output': ['text']},
+                  'tool_call': False, 'reasoning': True},
+        'unknown': {'id': 'unknown'},
+    }}})
+    models = {m['id']: m for m in catalog['providers'][0]['models']}
+    assert models['known']['context_known'] is True
+    assert models['known']['input_modes'] == ['text', 'image']
+    assert models['known']['output_modes'] == ['text']
+    assert models['known']['tool_call'] is False
+    assert models['known']['reasoning'] is True
+    assert models['unknown']['context_known'] is False
+    assert models['unknown']['input_modes'] is None
+    assert models['unknown']['tool_call'] is None

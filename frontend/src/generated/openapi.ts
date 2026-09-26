@@ -18701,25 +18701,33 @@ export interface components {
          */
         ModelComparisonRoute: {
             /** Context Window */
-            context_window: number;
+            context_window: number | null;
             /** Cost In */
             cost_in: number | null;
             /** Cost Out */
             cost_out: number | null;
+            /** Input Modes */
+            input_modes?: string[] | null;
             /** Is Local */
             is_local: boolean;
             /** Model Id */
             model_id: string;
             /** Model Name */
             model_name: string;
+            /** Output Modes */
+            output_modes?: string[] | null;
             /** Provider */
             provider: string;
             /** Provider Name */
             provider_name: string;
             /** Quality */
             quality: number;
+            /** Reasoning */
+            reasoning?: boolean | null;
             /** Tags */
             tags: string[];
+            /** Tool Call */
+            tool_call?: boolean | null;
         };
         /** ModelEvaluationResponse */
         ModelEvaluationResponse: {

@@ -307,6 +307,7 @@ def test_build_payload_enriches_context_from_models_dev():
         "cost_in": 1,
         "cost_out": 2,
         "context_window": 1_000_000,
+        "context_known": True,
         "tags": ["long"],
         "modes": ["text", "image"],
         "quality": 3,
@@ -327,6 +328,10 @@ def test_build_payload_enriches_context_from_models_dev():
         "cost_in": 1.0,
         "cost_out": 2.0,
         "context_window": 1_000_000,
+        "input_modes": None,
+        "output_modes": None,
+        "tool_call": None,
+        "reasoning": None,
         "quality": 3,
         "tags": ["long"],
     }]
@@ -643,3 +648,21 @@ def test_plus_and_size_variants_do_not_inherit_another_models_routes():
     matches = _matching_enrichment_entries({"name": "Command A+", "slug": "command-a-plus"}, index)
     assert [r["model_id"] for m in matches for r in m["routes"]] == ["cohere/command-a-plus"]
     assert _matching_enrichment_entries({"name": "Command A Mini", "slug": "command-a-mini"}, index) == []
+
+
+def test_routes_keep_provider_capabilities_without_generic_fallback():
+    catalog = {'providers': [{'id': provider, 'models': [model]} for provider, model in [
+        ('small', {'id': 'x', 'context_window': 8000, 'context_known': True,
+                   'input_modes': ['text'], 'output_modes': ['text'], 'tool_call': False}),
+        ('large', {'id': 'x', 'context_window': 200000, 'context_known': True,
+                   'input_modes': ['text', 'image'], 'output_modes': ['text'], 'tool_call': True}),
+        ('legacy', {'id': 'x', 'context_window': 8192, 'modes': ['text'], 'tags': ['tools']}),
+    ]]}
+    routes = {r['provider']: r for r in aa._routes_for_entries(aa._catalog_enrichment_index(catalog)['x'])}
+    assert routes['small']['context_window'] == 8000
+    assert routes['large']['input_modes'] == ['text', 'image']
+    assert routes['small']['tool_call'] is False
+    assert routes['large']['tool_call'] is True
+    assert routes['legacy']['context_window'] is None
+    assert routes['legacy']['input_modes'] is None
+    assert routes['legacy']['tool_call'] is None

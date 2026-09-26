@@ -10,13 +10,13 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
-| `agent` | 53 | 9450 |
+| `agent` | 53 | 9456 |
 | `api` | 38 | 13256 |
 | `app` | 8 | 801 |
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 465 | 99585 |
+| `domains` | 465 | 99589 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 193 | 41453 |
+| `services` | 193 | 41457 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **864 modules** and **174587 source lines**.
+Total: **864 modules** and **174601 source lines**.
 
 ## agent
 
@@ -68,7 +68,7 @@ Total: **864 modules** and **174587 source lines**.
 | [`backend/agent/mail_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/mail_tools.py) | 164 | 0 | 10 | 8 | 8 | Governed adapters for exact mail reads and mutations. |
 | [`backend/agent/media_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/media_tools.py) | 92 | 0 | 3 | 3 | 3 | Bounded gallery adapters over the existing media endpoints. |
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py) | 192 | 2 | 4 | 0 | 3 | Lazy compatibility stores for legacy Chroma-backed Agent memory. |
-| [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 610 | 0 | 27 | 0 | 22 | Provider → model catalog for the model-comparison activation workflow. |
+| [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 616 | 0 | 27 | 0 | 22 | Provider → model catalog for the model-comparison activation workflow. |
 | [`backend/agent/model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_reliability.py) | 224 | 0 | 10 | 0 | 5 | Why a model call failed, recorded as evidence per provider:model. |
 | [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 553 | 1 | 14 | 0 | 13 | Data-driven, budget-aware model router. |
 | [`backend/agent/notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notebook_tools.py) | 155 | 0 | 10 | 0 | 10 | Assignable notebook lifecycle and evidence tools with workspace ACLs. |
@@ -267,7 +267,7 @@ Total: **864 modules** and **174587 source lines**.
 | [`backend/domains/configuration/agent/router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/router.py) | 5 | 0 | 0 | 0 | 0 | Shared router singleton for governed agent configuration APIs. |
 | [`backend/domains/configuration/ai/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/__init__.py) | 1 | 0 | 0 | 0 | 0 | AI configuration domain routes and contracts. |
 | [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py) | 171 | 4 | 5 | 2 | 3 | Typed AI content-generation routes used by the Vault editor. |
-| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 315 | 24 | 0 | 0 | 24 | Public request and response contracts for AI registry and usage APIs. |
+| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 319 | 24 | 0 | 0 | 24 | Public request and response contracts for AI registry and usage APIs. |
 | [`backend/domains/configuration/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration HTTP APIs. |
 | [`backend/domains/configuration/api/credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/credentials.py) | 216 | 0 | 5 | 5 | 5 | No module docstring |
 | [`backend/domains/configuration/api/environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/environment.py) | 182 | 0 | 4 | 2 | 4 | No module docstring |
@@ -819,7 +819,7 @@ Total: **864 modules** and **174587 source lines**.
 | [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 438 | 0 | 15 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 131 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
-| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 731 | 1 | 31 | 0 | 27 | Artificial Analysis model-comparison feed. |
+| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 735 | 1 | 31 | 0 | 27 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 483 | 2 | 15 | 0 | 16 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 213 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |

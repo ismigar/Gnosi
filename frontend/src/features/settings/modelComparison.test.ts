@@ -37,6 +37,8 @@ const comparisonModel = (
     release_date: '2026-08-01',
     routes: [{
         context_window: 128_000,
+        input_modes: ['text'],
+        output_modes: ['text'],
         cost_in: 1,
         cost_out: 4,
         is_local: false,
@@ -128,10 +130,10 @@ describe('model comparison domain', () => {
 
     it('requires every selected mode by default and supports any mode explicitly', () => {
         const models = [
-            comparisonModel({ id: 'text', modes: ['text'] }),
-            comparisonModel({ id: 'image', modes: ['image'] }),
-            comparisonModel({ id: 'both', modes: ['text', 'image'] }),
-            comparisonModel({ id: 'audio', modes: ['audio'] }),
+            comparisonModel({ id: 'text', modes: ['text'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['text'], output_modes: [] }] }),
+            comparisonModel({ id: 'image', modes: ['image'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['image'], output_modes: [] }] }),
+            comparisonModel({ id: 'both', modes: ['text', 'image'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['text', 'image'], output_modes: [] }] }),
+            comparisonModel({ id: 'audio', modes: ['audio'], routes: [{ ...comparisonModel({}).routes[0]!, input_modes: ['audio'], output_modes: [] }] }),
         ];
         const ui = { ...INITIAL_COMPARISON_UI_STATE, modes: ['text', 'image'] as const };
         expect(filteredComparisonModels({ ...feed, models }, [], ui).map(m => m.id)).toEqual(['both']);

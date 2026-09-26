@@ -1094,8 +1094,11 @@ For an unresolved parameter count, select **Pending verification** in the Parame
 
 Selecting a role sorts by estimated suitability. Candidates with insufficient role evidence remain visible, with unknown scores last. Compare all candidates clears optional filters while preserving the role and token budget. Choosing a model does not require running evaluations.
 
-Provider pricing is independent of the benchmark price. The selected provider controls monthly estimates, input/output price columns, price filtering and price sorting. With all providers selected, distinct provider/tariff pairs are listed by increasing monthly token cost; unknown prices appear last. Cached comparison routes are refreshed from the current catalog. Missing tariffs and unverified legacy zeros are unknown, not free. Local token fees exclude hardware and energy; estimates exclude fixed charges and taxes. General model context, modalities, speed and role suitability are not provider-specific guarantees.
+Provider pricing is independent of the benchmark price. The selected provider controls monthly estimates, input/output price columns, price filtering and price sorting. With all providers selected, distinct provider/tariff pairs are listed by increasing monthly token cost; unknown prices appear last. Cached comparison routes are refreshed from the current catalog. Missing tariffs and unverified legacy zeros are unknown, not free. Local token fees exclude hardware and energy; estimates exclude fixed charges and taxes. Speed and role suitability remain general model data.
 
 Model matching preserves the plus variant and does not remove size suffixes such as mini or small when looking for a provider route.
 
 Activation rejects unknown route tariffs before enabling the provider or saving the registry; refreshing the catalog can resolve missing prices.
+
+
+Provider context and capabilities are displayed per route, including input/output modalities, tool use and reasoning. Unknown declarations stay unknown, including legacy default context values. Provider filters, context sorting and combined price/context/mode filters use route data; one route must satisfy all constraints. Context sorting uses the highest known matching-provider window, with unknowns last. The general benchmark and role assessments remain model-level evidence.

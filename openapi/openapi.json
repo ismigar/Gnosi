@@ -22136,8 +22136,15 @@
         "description": "One usable Gnosi route for an externally benchmarked model.",
         "properties": {
           "context_window": {
-            "title": "Context Window",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Window"
           },
           "cost_in": {
             "anyOf": [
@@ -22161,6 +22168,20 @@
             ],
             "title": "Cost Out"
           },
+          "input_modes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Modes"
+          },
           "is_local": {
             "title": "Is Local",
             "type": "boolean"
@@ -22172,6 +22193,20 @@
           "model_name": {
             "title": "Model Name",
             "type": "string"
+          },
+          "output_modes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Modes"
           },
           "provider": {
             "title": "Provider",
@@ -22185,12 +22220,34 @@
             "title": "Quality",
             "type": "integer"
           },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
           "tags": {
             "items": {
               "type": "string"
             },
             "title": "Tags",
             "type": "array"
+          },
+          "tool_call": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call"
           }
         },
         "required": [

@@ -6306,7 +6306,14 @@
     "compare_candidates": "Compare all candidates",
     "unknown_cost": "Unknown cost",
     "local_cost_note": "No token fee; hardware and energy are not included.",
-    "provider_cost_note": "Estimate using each provider’s rates and the specified tokens, excluding fixed fees and taxes. Options are listed from lowest to highest cost, with unknown costs last. Context, modes, speed and suitability are general model data and may vary by provider."
+    "provider_cost_note": "Estimate using each provider’s rates and the specified tokens, excluding fixed fees and taxes. Costs run from lowest to highest, with unknown costs last. Context, modes and capabilities come from each provider’s catalog entry; missing values never inherit general model data. Filters must match the same offer. Context sorting uses the highest known window among the selected provider’s offers. Speed and suitability remain general model data.",
+    "input_modes": "Input",
+    "output_modes": "Output",
+    "tool_call": "Tools",
+    "reasoning": "Reasoning",
+    "unknown_capability": "Unknown",
+    "supported": "Yes",
+    "unsupported": "No"
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

@@ -5269,7 +5269,14 @@
     "compare_candidates": "Compara tots els candidats",
     "unknown_cost": "Cost desconegut",
     "local_cost_note": "Sense tarifa per tokens; maquinari i energia no inclosos.",
-    "provider_cost_note": "Estimació segons les tarifes de cada proveïdor i els tokens indicats, sense quotes fixes ni impostos. Les opcions es mostren de menor a major cost; els costos desconeguts van al final. Context, modes, velocitat i adequació són dades generals del model i poden variar segons el proveïdor."
+    "provider_cost_note": "Estimació amb les tarifes de cada proveïdor i els tokens indicats; exclou quotes fixes i impostos. Els costos es mostren de menor a major, amb els desconeguts al final. Context, modes i capacitats corresponen a cada proveïdor segons el catàleg, sense substituir dades absents per les generals del model. Els filtres han de coincidir en una mateixa oferta. El context s’ordena pel màxim conegut entre les ofertes del proveïdor seleccionat. Velocitat i adequació continuen sent dades generals del model.",
+    "input_modes": "Entrada",
+    "output_modes": "Sortida",
+    "tool_call": "Eines",
+    "reasoning": "Raonament",
+    "unknown_capability": "Desconegut",
+    "supported": "Sí",
+    "unsupported": "No"
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

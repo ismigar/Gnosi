@@ -202,7 +202,11 @@ class ModelComparisonRoute(BaseModel):
     is_local: bool
     cost_in: float | None
     cost_out: float | None
-    context_window: int
+    context_window: int | None
+    input_modes: list[str] | None = None
+    output_modes: list[str] | None = None
+    tool_call: bool | None = None
+    reasoning: bool | None = None
     quality: int
     tags: list[str]
 

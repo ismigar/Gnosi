@@ -1,3 +1,4 @@
+import { comparisonRouteCapabilities, knownContext } from './model-comparison/modelRouteCapabilities';
 import { comparisonRouteCosts, knownPrice } from './model-comparison/modelRouteCosts';
 import { ModelParameterReview } from './model-comparison/ModelParameterReview';
 import { ModelAliasField } from './ModelAliasField';
@@ -56,7 +57,7 @@ function CachedMetricMarker({
     readonly model: AiModelComparisonEntry;
 }) {
     const { t } = useTranslation();
-    if (['input_price', 'output_price', 'monthly_cost'].includes(field) || model.metric_sources?.[field] !== 'artificial_analysis_cache') return null;
+    if (['input_price', 'output_price', 'monthly_cost', 'context_window', 'modes'].includes(field) || model.metric_sources?.[field] !== 'artificial_analysis_cache') return null;
     const title = t('model_comparison.metric_sources.artificial_analysis_cache');
     return (
         <span aria-label={title} className="metric-cached-marker" title={title}>
@@ -89,6 +90,7 @@ export function ModelComparisonRow({
     const { t } = useTranslation();
     const currencySymbol = feed.currency.symbol || '$';
     const currencyRate = feed.currency.usd_rate || 1;
+    const routeCapabilities = comparisonRouteCapabilities(model, selectedProvider);
     const routeCosts = comparisonRouteCosts(model, selectedProvider, inputTokens, outputTokens);
     const matchingIndexes = matchingRegistryIndexes(registryModels, model);
     const activeEntries = matchingIndexes
@@ -102,7 +104,7 @@ export function ModelComparisonRow({
     )).filter(Boolean).join(', ');
     const isBusy = busyModelId === model.id;
     const sourceTitle = (field: string): string | undefined => {
-        if (['input_price', 'output_price', 'monthly_cost'].includes(field)) return 'models.dev';
+        if (['input_price', 'output_price', 'monthly_cost', 'context_window', 'modes'].includes(field)) return 'models.dev';
         const source = model.metric_sources?.[field];
         return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
     };
@@ -115,9 +117,15 @@ export function ModelComparisonRow({
             case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{onSaveAlias && activeEntries.map(entry => <ModelAliasField key={`${entry.provider}:${entry.model_id}`} entry={entry} onSave={onSaveAlias} disabled={isBusy} />)}</>;
             case 'provider': return [...new Set(model.routes.map(route => providersById[route.provider]?.name || route.provider))].sort().join(', ') || '—';
             case 'creator': return model.creator || '—';
-            case 'modes': return <div className="model-mode-list">{model.modes.map((mode) => (
-                <span key={mode}>{t(`model_comparison.modes_list.${mode}`)}</span>
-            ))}</div>;
+            case 'modes': return routeCapabilities.length ? routeCapabilities.map((route, index) => <div key={index} title={route.model_id}>
+                <strong>{providersById[route.provider]?.name || route.provider_name || route.provider}</strong>
+                {(['input_modes', 'output_modes'] as const).map(direction => <small key={direction}>
+                    {t(`model_comparison.${direction}`)} — {route[direction]?.length ? route[direction].map(mode => t(`model_comparison.modes_list.${mode}`, { defaultValue: mode })).join(', ') : t('model_comparison.unknown_capability')}
+                </small>)}
+                {(['tool_call', 'reasoning'] as const).map(capability => <small key={capability}>
+                    {t(`model_comparison.${capability}`)} — {t(`model_comparison.${route[capability] == null ? 'unknown_capability' : route[capability] ? 'supported' : 'unsupported'}`)}
+                </small>)}
+            </div>) : t('model_comparison.unknown_capability');
             case 'parameters': return parameters ? <>
                 <a href={parameters.source} rel="noreferrer" target="_blank"
                     title={`${t(parameters.verification === 'user_review' ? 'model_comparison.review_manual' : 'model_comparison.parameters_source')} · ${t('model_comparison.parameters_checked', { date: parameters.checkedAt })}`}>
@@ -131,7 +139,7 @@ export function ModelComparisonRow({
                 target="_blank" rel="noreferrer" title={`${t('model_comparison.parameters_not_published_help')} · ${t('model_comparison.parameters_checked', { date: disclosure.checkedAt })}`}>
                 {t('model_comparison.parameters_not_published')}
             </a> : <ModelParameterReview modelId={model.id} modelName={model.name} onUpdated={onParameterUpdate} />;
-            case 'context_window': return formatComparisonContext(model.context_window);
+            case 'context_window': return routeCapabilities.length ? routeCapabilities.map((route, index) => <div key={index} title={route.model_id}>{providersById[route.provider]?.name || route.provider_name || route.provider} — <strong>{knownContext(route.context_window) ? formatComparisonContext(route.context_window) : t('model_comparison.unknown_capability')}</strong></div>) : t('model_comparison.unknown_capability');
             case 'input_price':
             case 'output_price':
             case 'monthly_cost': return routeCosts.length ? routeCosts.map(({ route, cost }, index) => {
