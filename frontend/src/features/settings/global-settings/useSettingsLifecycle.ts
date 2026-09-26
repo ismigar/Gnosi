@@ -1,3 +1,4 @@
+import { canKeyboardScroll } from '../../../shared/hooks/keyboardScroll';
 import { useEffect, useEffectEvent, useRef } from 'react';
 import { subscribeDocumentEvent, subscribeWindowEvent } from '../../../shared/platform/browser-events';
 import type { SettingsState } from './stateTypes';
@@ -147,6 +148,8 @@ export function useSettingsLifecycle(state: Input) {
         scrollTarget = sidebar;
       }
 
+      if (!(scrollTarget instanceof HTMLElement) || !canKeyboardScroll(e, scrollTarget)) return;
+
       const step = 40;
       const pageStep = scrollTarget.clientHeight - 40;
 
@@ -172,7 +175,7 @@ export function useSettingsLifecycle(state: Input) {
     };
 
     const stopWheel = subscribeDocumentEvent('wheel', wheelHandler, { passive: false, capture: true });
-    const stopKeys = subscribeWindowEvent('keydown', keyScrollHandler, { capture: true });
+    const stopKeys = subscribeWindowEvent('keydown', keyScrollHandler);
 
     return () => {
       stopWheel();

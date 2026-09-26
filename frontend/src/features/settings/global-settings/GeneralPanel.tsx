@@ -46,7 +46,7 @@ export function GeneralPanel({ context }: Props) {
               {['personal', 'org'].map(m => (
                 <button key={m} onClick={() => { setDraft({ ...draft, settings: { ...draft.settings, gnosi_mode: m } }); }} style={{
                   flex: 1, padding: '12px', borderRadius: '14px', border: 'none', cursor: 'pointer',
-                  background: draft.settings.gnosi_mode === m ? 'var(--gnosi-primary)' : 'transparent',
+                  background: draft.settings.gnosi_mode === m ? 'var(--gnosi-action-bg)' : 'transparent',
                   color: draft.settings.gnosi_mode === m ? 'white' : 'var(--text-secondary)',
                   fontWeight: '800', fontSize: '0.95rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>{m === 'personal' ? tn('general.personal_use') : tn('general.organization')}</button>

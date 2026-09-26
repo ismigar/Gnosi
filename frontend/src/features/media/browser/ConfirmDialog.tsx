@@ -1,3 +1,5 @@
+import {useId, useRef} from 'react';
+import {useModalKeyboard} from '../../../shared/hooks/useModalKeyboard';
 import {useTranslation} from 'react-i18next';
 import {AlertCircle, type LucideIcon} from 'lucide-react';
 export interface ConfirmDialogProps {
@@ -17,23 +19,26 @@ export function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useModalKeyboard({isOpen: open, onClose: onCancel, containerRef: panelRef, trapFocus: true});
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onCancel} />
       <div
         className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
-          if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
-        }}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         tabIndex={-1}
       >
         <div className="flex items-center gap-3 mb-3">
           <div className={`p-2 rounded-lg ${danger ? 'bg-red-500/10 text-red-500' : 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'}`}>
             <Icon size={20} />
           </div>
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">{title}</h3>
+          <h3 id={titleId} className="text-lg font-bold text-[var(--text-primary)]">{title || t('media.confirm_ok')}</h3>
         </div>
         {message && (
           <p className="text-sm text-[var(--text-secondary)] mb-5">{message}</p>
@@ -49,11 +54,10 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            autoFocus
             className={`px-4 py-2 rounded-lg text-white text-sm font-bold transition-all ${
               danger
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90'
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-[var(--gnosi-action-bg)] hover:brightness-95'
             }`}
           >
             {confirmLabel || t('media.confirm_ok')}

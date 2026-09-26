@@ -644,7 +644,11 @@
     "reprocess_resource": "Reprocess resource (processed on {{date}})",
     "process_resource_running": "Processing…",
     "reprocess_resource_error": "Resume interrupted processing",
-    "process_resource_no_source": "This resource has no configured attachment or URL"
+    "process_resource_no_source": "This resource has no configured attachment or URL",
+    "select_all_rows": "Select all rows",
+    "select_row": "Select {{title}}",
+    "aggregate_column": "Aggregation for {{column}}",
+    "modified_column": "Last modified"
   },
   "dashboard": {
     "status_title": "System Status",
@@ -1233,7 +1237,8 @@
     "date_reminder_tooltip": "Reminder: {{date}} at {{time}}",
     "date_reminder_label": "Reminder (optional)",
     "date_reminder_clear": "Clear",
-    "note_section_placeholder_trans": "Note name#Section"
+    "note_section_placeholder_trans": "Note name#Section",
+    "content_label": "Page content"
   },
   "view_config": {
     "title": "Configure View",
@@ -4646,7 +4651,9 @@
     "index_update_failed": "The library could not be updated. Try again.",
     "index_update_paused": "The update has not been confirmed yet. Check its status again.",
     "index_retry_wait": "Retry available shortly",
-    "reader_load_error": "The PDF reader could not load. Update Gnosi and try again."
+    "reader_load_error": "The PDF reader could not load. Update Gnosi and try again.",
+    "grid_view": "Grid view",
+    "list_view": "List view"
   },
   "tldraw": {
     "untitled_drawing": "Untitled drawing",
@@ -5295,7 +5302,9 @@
     "module_media_desc": "Explore your media library.",
     "module_dashboard_title": "Control Center",
     "module_dashboard_desc": "Monitor system status and approve tools.",
-    "module_settings_desc": "Manage your ecosystem's settings."
+    "module_settings_desc": "Manage your ecosystem's settings.",
+    "module_planning_desc": "Plan projects, dependencies, resources, and work calendars.",
+    "module_notebooks_desc": "Ask questions grounded in selected reference sources."
   },
   "composer": {
     "title": "Composer",
@@ -7619,5 +7628,9 @@
     "agent_command_unknown": "Unknown command. Check the command configured for the agent.",
     "agent_command_unavailable": "This agent is unavailable. Check its configuration.",
     "agent_command_request_required": "Write your request after the command."
+  },
+  "accessibility": {
+    "skip_to_content": "Skip to main content",
+    "route_loaded": "{{page}} loaded"
   }
 }

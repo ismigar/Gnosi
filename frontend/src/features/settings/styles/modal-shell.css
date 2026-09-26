@@ -48,9 +48,6 @@
 }
 
 .settings-modal {
-    --gnosi-action-bg: var(--gnosi-primary);
-    --focus-outline-color: var(--gnosi-primary);
-    --focus-ring: 0 0 0 3px var(--gnosi-primary);
     position: fixed;
     top: 50%;
     left: 50%;

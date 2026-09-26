@@ -238,7 +238,7 @@
     "up": "Haut",
     "shortcuts": "Raccourcis :",
     "vault": "Vault",
-    "home": "Home",
+    "home": "Accueil",
     "root": "Root (/)",
     "search_folders_placeholder": "Rechercher des dossiers sur tout l'ordinateur (≥2 caractères)...",
     "search_placeholder": "Rechercher sur tout l'ordinateur (≥2 caractères)...",
@@ -3010,7 +3010,11 @@
     "reprocess_resource": "Retraiter la ressource (traitée le {{date}})",
     "process_resource_running": "Traitement en cours…",
     "reprocess_resource_error": "Reprendre le traitement interrompu",
-    "process_resource_no_source": "Cette ressource ne contient aucune pièce jointe ni URL configurée"
+    "process_resource_no_source": "Cette ressource ne contient aucune pièce jointe ni URL configurée",
+    "select_all_rows": "Sélectionner toutes les lignes",
+    "select_row": "Sélectionner {{title}}",
+    "aggregate_column": "Agrégation de {{column}}",
+    "modified_column": "Dernière modification"
   },
   "feed": {
     "updated_at": "Mis à jour le {{date}}",
@@ -3159,7 +3163,7 @@
     "trash": "Corbeille",
     "wiki_lock": "Verrouiller le glisser-déposer",
     "wiki_unlock": "Déverrouiller pour réorganiser (drag&drop)",
-    "toggle_navigation": "Basculer la navigation",
+    "toggle_navigation": "Afficher ou masquer la navigation",
     "logged_out": "Session fermée.",
     "logout_tooltip_title": "{{user}} — Se déconnecter",
     "logout_tooltip_label": "Se déconnecter ({{user}})",
@@ -4107,7 +4111,8 @@
     "date_reminder_tooltip": "Rappel : {{date}} à {{time}}",
     "date_reminder_label": "Rappel (facultatif)",
     "date_reminder_clear": "Retirer",
-    "note_section_placeholder_trans": "Nom de note#Section"
+    "note_section_placeholder_trans": "Nom de note#Section",
+    "content_label": "Contenu de la page"
   },
   "metadata_lookup": {
     "creating_resource": "Préparation de la ressource…",
@@ -4572,7 +4577,9 @@
     "index_update_failed": "La bibliothèque n’a pas pu être mise à jour. Réessayez.",
     "index_update_paused": "La mise à jour n’est pas encore confirmée. Vérifiez à nouveau son état.",
     "index_retry_wait": "Nouvelle tentative disponible dans quelques secondes",
-    "reader_load_error": "Le lecteur PDF n’a pas pu se charger. Mettez Gnosi à jour et réessayez."
+    "reader_load_error": "Le lecteur PDF n’a pas pu se charger. Mettez Gnosi à jour et réessayez.",
+    "grid_view": "Vue en grille",
+    "list_view": "Vue en liste"
   },
   "tldraw": {
     "untitled_drawing": "Dessin sans titre",
@@ -5596,7 +5603,9 @@
     "module_media_desc": "Explorez votre bibliothèque de médias.",
     "module_dashboard_title": "Centre de contrôle",
     "module_dashboard_desc": "Surveillez l'état du système et approuvez les outils.",
-    "module_settings_desc": "Gérez les paramètres de votre écosystème."
+    "module_settings_desc": "Gérez les paramètres de votre écosystème.",
+    "module_planning_desc": "Planifiez les projets, les dépendances, les ressources et les calendriers de travail.",
+    "module_notebooks_desc": "Posez des questions basées sur les sources de référence sélectionnées."
   },
   "composer": {
     "title": "Compositeur",
@@ -7674,5 +7683,9 @@
     "agent_command_unknown": "Commande inconnue. Vérifiez la commande configurée pour cet agent.",
     "agent_command_unavailable": "Cet agent est indisponible. Vérifiez sa configuration.",
     "agent_command_request_required": "Écrivez votre demande après la commande."
+  },
+  "accessibility": {
+    "skip_to_content": "Aller au contenu principal",
+    "route_loaded": "Page chargée : {{page}}"
   }
 }

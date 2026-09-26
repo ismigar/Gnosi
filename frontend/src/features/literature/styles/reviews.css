@@ -78,7 +78,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--gnosi-blue);
+    color: var(--gnosi-link);
     font-size: 10px;
     cursor: pointer;
 }

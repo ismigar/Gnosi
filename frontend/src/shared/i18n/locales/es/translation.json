@@ -477,7 +477,7 @@
     "trash": "Papelera",
     "wiki_lock": "Bloquear el arrastre",
     "wiki_unlock": "Desbloquear para reordenar (drag&drop)",
-    "toggle_navigation": "Alternar navegación",
+    "toggle_navigation": "Mostrar u ocultar la navegación",
     "logged_out": "Sesión cerrada.",
     "logout_tooltip_title": "{{user}} — Cerrar sesión",
     "logout_tooltip_label": "Cerrar sesión ({{user}})",
@@ -600,7 +600,11 @@
     "reprocess_resource": "Reprocesar recurso (procesado el {{date}})",
     "process_resource_running": "Procesando…",
     "reprocess_resource_error": "Reanudar el procesamiento interrumpido",
-    "process_resource_no_source": "Este recurso no tiene ningún adjunto ni URL configurados"
+    "process_resource_no_source": "Este recurso no tiene ningún adjunto ni URL configurados",
+    "select_all_rows": "Seleccionar todas las filas",
+    "select_row": "Seleccionar {{title}}",
+    "aggregate_column": "Agregación de {{column}}",
+    "modified_column": "Última modificación"
   },
   "dashboard": {
     "status_title": "Estado del Sistema",
@@ -1192,7 +1196,8 @@
     "synced_empty": "Bloque sincronizado vacío: haz clic en «Editar» para añadir contenido.",
     "date_reminder_tooltip": "Recordatorio: {{date}} a las {{time}}",
     "date_reminder_label": "Recordatorio (opcional)",
-    "date_reminder_clear": "Quitar"
+    "date_reminder_clear": "Quitar",
+    "content_label": "Contenido de la página"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -1335,7 +1340,7 @@
     "up": "Arriba",
     "shortcuts": "Atajos:",
     "vault": "Vault",
-    "home": "Home",
+    "home": "Inicio",
     "root": "Root (/)",
     "search_folders_placeholder": "Busca carpetas en todo el ordenador (≥2 caracteres)...",
     "search_placeholder": "Busca en todo el ordenador (≥2 caracteres)...",
@@ -4679,7 +4684,9 @@
     "index_update_failed": "No se ha podido actualizar la biblioteca. Vuelve a intentarlo.",
     "index_update_paused": "La actualización aún no se ha confirmado. Comprueba de nuevo su estado.",
     "index_retry_wait": "Reintento disponible en unos segundos",
-    "reader_load_error": "No se pudo cargar el lector PDF. Actualiza Gnosi y vuelve a intentarlo."
+    "reader_load_error": "No se pudo cargar el lector PDF. Actualiza Gnosi y vuelve a intentarlo.",
+    "grid_view": "Vista de cuadrícula",
+    "list_view": "Vista de lista"
   },
   "tldraw": {
     "untitled_drawing": "Dibujo sin título",
@@ -5594,9 +5601,11 @@
     "module_social_desc": "Gestiona tus redes sociales desde un solo lugar.",
     "module_media_title": "Fotos y Media",
     "module_media_desc": "Explora tu biblioteca de archivos multimedia.",
-    "module_dashboard_title": "Centro de Control",
+    "module_dashboard_title": "Centro de control",
     "module_dashboard_desc": "Monitoriza el estado del sistema y aprueba herramientas.",
-    "module_settings_desc": "Gestiona los parámetros de tu ecosistema."
+    "module_settings_desc": "Gestiona los parámetros de tu ecosistema.",
+    "module_planning_desc": "Planifica proyectos, dependencias, recursos y calendarios de trabajo.",
+    "module_notebooks_desc": "Haz preguntas basadas en las fuentes de referencia seleccionadas."
   },
   "composer": {
     "title": "Compositor",
@@ -7674,5 +7683,9 @@
     "agent_command_unknown": "Comando desconocido. Revisa el comando configurado en el agente.",
     "agent_command_unavailable": "Este agente no está disponible. Revisa su configuración.",
     "agent_command_request_required": "Escribe la petición después del comando."
+  },
+  "accessibility": {
+    "skip_to_content": "Saltar al contenido principal",
+    "route_loaded": "Se ha cargado {{page}}"
   }
 }

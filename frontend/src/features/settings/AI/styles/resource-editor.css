@@ -121,7 +121,7 @@
 .ai-resource-alert.is-error {
     border-color: rgba(239, 68, 68, 0.25);
     background: rgba(239, 68, 68, 0.08);
-    color: var(--status-error);
+    color: var(--status-error-text);
 }
 
 .ai-resource-alert p {

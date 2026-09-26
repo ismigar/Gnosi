@@ -1,3 +1,4 @@
+import { hasOpenModal } from '../../shared/hooks/useModalKeyboard';
 import {
     lazy,
     Suspense,
@@ -228,6 +229,7 @@ export function AppSidebar() {
 
     useEffect(() => {
         const handler = (event: KeyboardEvent): void => {
+            if (event.defaultPrevented || settingsOpen || hasOpenModal()) return;
             if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
             const activeElement = document.activeElement;
             const tag = activeElement?.tagName;
@@ -247,7 +249,7 @@ export function AppSidebar() {
             }
         };
         return subscribeWindowEvent('keydown', handler);
-    }, [isEnabled, navigate]);
+    }, [isEnabled, navigate, settingsOpen]);
 
     const closeNavigation = (): void => {
         setMobileOpen(false);
