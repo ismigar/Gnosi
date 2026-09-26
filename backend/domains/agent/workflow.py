@@ -184,6 +184,10 @@ async def create_agent_workflow(
     )
     if profile is None:
         return None, {}
+    from backend.services.agent_team_runtime import build_team_workflow
+    team_workflow = build_team_workflow(profile, operation_mode=operation_mode, original=user_message)
+    if team_workflow is not None:
+        return team_workflow
     model, failure_metadata = await asyncio.to_thread(
         resolve_model,
         profile,

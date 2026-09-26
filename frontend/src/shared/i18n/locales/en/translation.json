@@ -6126,10 +6126,10 @@
     "profile": "Task profile",
     "profile_help_open": "Show profile explanations",
     "profile_help_title": "AI work-team profiles",
-    "profile_help_intro": "Choose a profile based on task complexity, volume, and cost.",
+    "profile_help_intro": "A model can suit several roles. Review evidence, missing tests and total cost; labels do not certify specialization.",
     "profile_help": {
       "worker": {
-        "objective": "Massive, simple, very low-cost tasks.",
+        "objective": "Simple, repetitive tasks; check accuracy, speed and cost.",
         "examples": "Classify emails, fix spelling, or translate short labels."
       },
       "administrative": {
@@ -6149,12 +6149,16 @@
         "examples": "Debug code, analyze risks, or solve advanced mathematics."
       },
       "unrated": {
-        "objective": "Models without a comparable intelligence benchmark.",
+        "objective": "There is not enough evidence yet to assess its roles.",
         "examples": "Review the other metrics before assigning them a task."
+      },
+      "director": {
+        "objective": "Plan complex tasks, select executors and integrate evidence.",
+        "examples": "Identify missing specialists, resolve conflicting results and avoid unnecessary calls."
       }
     },
     "profile_help_flow_title": "Recommended workflow",
-    "profile_help_flow": "Documentalist extracts key points → Expert decides the strategy → All-rounder writes → Worker or Administrative translates and formats.",
+    "profile_help_flow": "Known tasks go directly to a suitable executor. The Director intervenes when planning or integration is needed.",
     "all_providers": "All providers",
     "all_profiles": "All profiles",
     "provider": "Provider",
@@ -6248,7 +6252,8 @@
       "documentalist": "Documentalist",
       "allrounder": "All-rounder",
       "expert": "Expert / Director",
-      "unrated": "Unrated"
+      "unrated": "Unrated",
+      "director": "Director"
     },
     "columns": {
       "parameters": "Parameters (B)",
@@ -7448,5 +7453,79 @@
     "use_update": "Apply updated original",
     "executor": "Executing bot",
     "assign_operation": "Use this bot for this operation"
+  },
+  "agent_team": {
+    "setup": "Configure team",
+    "help": "Choose the Director and agents that can receive assignments. Each agent keeps its model and instructions.",
+    "step": "Step {{current}} of {{total}}",
+    "director": "Director",
+    "choose": "Select an agent",
+    "member": "Include {{name}} in the team",
+    "entrypoints": "Profiles allowed to use this team",
+    "initiator": "Allow {{name}} to delegate",
+    "routes_help": "Select executors for known operations. The lowest estimated cost among suitable candidates wins; unknown cost is not treated as zero.",
+    "temporary": "Allow temporary specialists",
+    "allowed_models": "Allowed models",
+    "allowed_skills": "Allowed skills",
+    "review_help": "Review before applying. This takes effect when you save your changes.",
+    "skill_addition": "This skill will be added to the Director:",
+    "limits": "Limits: four assignments, two temporary agents and two simultaneous reading tasks. Keeping a temporary agent requires accepting a proposal.",
+    "back": "Back",
+    "next": "Continue",
+    "apply": "Apply to settings",
+    "disable": "Disable this team",
+    "insufficient_data": "Insufficient data",
+    "catalog_compatible": "Compatible according to catalog",
+    "tested": "Evaluated with tests",
+    "limitation": "Known limitation",
+    "proposals": "Permanent agent proposals",
+    "retain": "Keep agent",
+    "reject": "Reject",
+    "instructions": "Reusable instructions",
+    "review_proposal": "Review and remove any task-specific information before keeping this agent. A personal profile will be created without history or memories; you can add it to your team in settings.",
+    "unknown_date": "Unknown date",
+    "source": "Source",
+    "evidence": "Evidence",
+    "missing": "Missing tests",
+    "metrics": {
+      "tool_support": "Tool support",
+      "reasoning": "Reasoning",
+      "planning_quality": "Planning quality",
+      "executor_selection": "Executor selection",
+      "delegation_cost": "Delegation cost",
+      "catalan_quality": "Catalan quality",
+      "instruction_following": "Instruction following",
+      "tool_reliability": "Tool reliability",
+      "long_context": "Long context",
+      "citation_fidelity": "Citation fidelity",
+      "passage_retrieval": "Passage retrieval",
+      "coverage": "Coverage",
+      "complex_reasoning": "Complex reasoning",
+      "uncertainty_calibration": "Uncertainty calibration",
+      "tool_or_structured_support": "Tools or structured output",
+      "schema_accuracy": "Schema accuracy",
+      "extraction_accuracy": "Extraction accuracy",
+      "text_support": "Text support",
+      "task_accuracy": "Task accuracy",
+      "measured_task_cost": "Measured task cost"
+    },
+    "sources": {
+      "catalog": "Catalog",
+      "declared": "Declared capability",
+      "benchmark": "Benchmark",
+      "gnosi": "Gnosi tests",
+      "mixed": "Multiple sources"
+    },
+    "proposal_rationale": "No suitable existing executor was available for this assignment. Review whether the temporary agent’s instructions and skills are useful for future tasks.",
+    "proposal_limitation": "One completed assignment does not establish general reliability. Review the result and remove task-specific information from the instructions before keeping this agent."
+  },
+  "agent_commands": {
+    "label": "Command",
+    "help": "Optional. Start a message with /traductor to call this agent for that turn only. Each command must be unique.",
+    "agent_command_invalid": "Use / followed by 1–32 unaccented letters, digits, hyphens or underscores, starting with a letter.",
+    "agent_command_duplicate": "This command already belongs to another agent.",
+    "agent_command_unknown": "Unknown command. Check the command configured for the agent.",
+    "agent_command_unavailable": "This agent is unavailable. Check its configuration.",
+    "agent_command_request_required": "Write your request after the command."
   }
 }

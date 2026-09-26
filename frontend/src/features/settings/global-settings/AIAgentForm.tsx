@@ -16,14 +16,14 @@ import { useState } from 'react';
 import { AgentBehaviorInspection } from '../AI/AgentBehaviorInspection';
 import { useTranslation } from 'react-i18next';
 
-export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
+export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', onSave, onChange, aiRegistry, skills, tools, onSelectSkill }: { agent: AgentDraft; otherCommands?: string[]; purpose?: 'principal' | 'profile'; onChange?: (agent: AgentDraft) => void; onSelectSkill?: (id: string) => void; onSave: (agent: AgentDraft) => Promise<void>; aiRegistry: SettingsModel[]; skills: NormalizedSkill[]; tools: NormalizedTool[] }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
-    ...agent, name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
+    ...agent, command: agent.command || '', name: agent.name || '', provider: agent.provider || '', model: agent.model || '',
     icon: agent.icon === 'Bot' ? 'lucide:Bot:default' : agent.icon || 'lucide:Bot:default', persona: agent.persona || '', context: agent.context || '',
     context_refs: agent.context_refs || [], skill_ids: agent.skill_ids || [],
   });
-  const { name, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
+  const { name, command, provider, model, icon, persona, context, context_refs: contextRefs, skill_ids: selectedSkillIds } = form;
   const [section, setSection] = useState('instructions');
   const migration = agent.behavior_migration && typeof agent.behavior_migration === 'object' ? agent.behavior_migration as Record<string, unknown> : undefined;
   const originalInstructions = typeof migration?.original === 'string' ? migration.original : '';
@@ -43,10 +43,17 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
     }
     return map;
   }, [aiRegistry]);
+  const commandError = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    if (normalized && !/^\/[a-z][a-z0-9_-]{0,31}$/.test(normalized)) return 'agent_command_invalid';
+    if (normalized && otherCommands.some(item => item.trim().toLowerCase() === normalized)) return 'agent_command_duplicate';
+    return '';
+  };
+  const currentCommandError = commandError(command);
   const update = (patch: Partial<typeof form>) => {
     const next = { ...form, ...patch };
     setForm(next);
-    if (agent.id && next.name.trim() && grouped.get(next.provider)?.includes(next.model)) {
+    if (agent.id && !commandError(next.command) && next.name.trim() && grouped.get(next.provider)?.includes(next.model)) {
       onChange?.({ ...next, model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
     }
   };
@@ -87,6 +94,13 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
             </FormGroup>
           </div>
         </div>
+
+        <FormGroup label={t('agent_commands.label')} description={t('agent_commands.help')}>
+          <input type="text" className="gnosi-input" aria-label={t('agent_commands.label')} aria-invalid={Boolean(currentCommandError)} value={command}
+            placeholder="/traductor" maxLength={33} autoCapitalize="none" spellCheck={false}
+            onChange={e => { update({ command: e.target.value.toLowerCase() }); }} />
+          {currentCommandError && <p role="alert">{t(`agent_commands.${currentCommandError}`)}</p>}
+        </FormGroup>
 
         {/* Single grouped select: provider is derived from the
                             chosen model (registry rows are provider+model pairs).
@@ -185,7 +199,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
       {!agent.id && <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           className="btn-gnosi btn-gnosi-primary"
-          disabled={!name || !grouped.get(provider)?.includes(model) || savingAgent}
+          disabled={Boolean(currentCommandError) || !name || !grouped.get(provider)?.includes(model) || savingAgent}
           onClick={() => {
             void (async () => {
               setSavingAgent(true);
@@ -194,6 +208,7 @@ export function AIAgentForm({ agent, purpose = 'profile', onSave, onChange, aiRe
                 await onSave({
                   ...agent,
                   name,
+                  command: command.trim(),
                   provider,
                   model,
                   icon,

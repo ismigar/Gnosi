@@ -524,7 +524,9 @@ def test_rate_limit_prefers_last_successful_cache(monkeypatch):
     monkeypatch.setattr(aa.requests.Session, "get", lambda *_args, **_kwargs: Response())
     result = aa.fetch_all_models()
 
-    assert result["models"] == [{"id": "cached"}]
+    assert result["models"][0]["id"] == "cached"
+    assert len(result["models"][0]["role_assessments"]) == 6
+    assert all(r["status"] == "insufficient_data" for r in result["models"][0]["role_assessments"])
     assert result["fallback"] is True
     assert result["stale"] is True
 
@@ -605,7 +607,9 @@ def test_missing_key_prefers_last_successful_cache(monkeypatch):
 
     result = aa.fetch_all_models()
 
-    assert result["models"] == [{"id": "cached"}]
+    assert result["models"][0]["id"] == "cached"
+    assert len(result["models"][0]["role_assessments"]) == 6
+    assert all(r["status"] == "insufficient_data" for r in result["models"][0]["role_assessments"])
     assert result["fallback"] is True
     assert result["fallback_reason"] == "api_key_missing"
     assert result["stale"] is True

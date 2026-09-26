@@ -44,3 +44,19 @@ Un modelo puede conversar sin admitir herramientas. Ante errores de autenticaci�
 ## Perfiles de los plugins
 
 Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus acciones. Configuración → IA → Asistente muestra los perfiles de plugins separados de los personales. Puedes editar el único modelo, las instrucciones, las fuentes y las habilidades asignadas. Los perfiles iniciales copian solo el modelo predeterminado actual; las actualizaciones preservan las ediciones. Desactivar un plugin suspende su perfil sin eliminar la configuración. Si falta el modelo o una habilidad necesaria, la acción falla explícitamente sin recurrir al perfil personal. Las acciones independientes nuevas y las habilidades programadas utilizan el perfil del plugin; los trabajos iniciados conservan su instantánea. El perfil elegido manualmente en una conversación sigue gobernando esa conversación.
+
+## Directivo y equipo de especialistas
+
+En **Configura el equipo**, selecciona el Directivo, los miembros y sus papeles. Un agente puede tener varios papeles. Indica qué perfiles de plugins pueden delegar; sus acciones siguen perteneciendo al plugin. La configuración se activa al guardar. Solo se añade la habilidad de coordinación al Directivo; se conservan modelos, instrucciones y demás habilidades.
+
+Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al Directivo; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del Directivo.
+
+Se permiten cuatro encargos, dos especialistas temporales y dos trabajos de lectura simultáneos. Las modificaciones se ejecutan secuencialmente. Las operaciones estructuradas admiten ocho llamadas totales dentro del presupuesto original. La reparación de formato tiene un intento y no repite acciones. Solo el trabajo de lectura se replantea automáticamente; los efectos inciertos requieren revisión.
+
+Autoriza los modelos y habilidades de los temporales. Crear uno no instala herramientas ni amplía permisos. Pertenece a una ejecución y no aparece en el selector general. En **Actividad**, revisa la propuesta de conservación, edita las instrucciones reutilizables y acepta o rechaza. Aceptar crea un perfil personal sin historial ni memorias; después puedes incorporarlo al equipo. Rechazar impide repetir la misma propuesta.
+
+Las confirmaciones identifican al ejecutor y no autorizan acciones adicionales. Reanudar reutiliza el plan y los encargos completados; las acciones fallidas o de efecto incierto no se repiten automáticamente. Cancelar impide continuar a los descendientes. Los registros privados siguen la retención de la ejecución.
+
+El catálogo muestra valoraciones independientes para Directivo, Todoterreno, Documentalista, Perito, Administrativo y Peón, con evidencias y pruebas pendientes. La compatibilidad declarada no certifica el catalán, las citas ni el coste de delegación. Las etiquetas antiguas se conservan por compatibilidad, sin decidir ejecutores. Las pruebas automáticas usan proveedores simulados y no realizan evaluaciones de pago. Compara calidad y coste total con los mismos casos antes de ampliar las rutas.
+
+El campo opcional **Comando** de cada agente permite asignar un comando único, como `/traductor`. Escribe `/traductor Traduce este texto…` en el chat para enviar ese turno directamente al agente, con su modelo, instrucciones y habilidades, sin pasar por el Directivo. La selección habitual de la conversación no cambia. Los comandos no amplían los permisos y no permiten invocar agentes desactivados. Usa una letra inicial y hasta 32 letras sin acentos, dígitos, guiones o guiones bajos después de `/`; no se distinguen mayúsculas y minúsculas.

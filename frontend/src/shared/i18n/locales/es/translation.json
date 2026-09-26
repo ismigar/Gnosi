@@ -5088,10 +5088,10 @@
     "profile": "Perfil de tarea",
     "profile_help_open": "Mostrar explicaciones de los perfiles",
     "profile_help_title": "Perfiles del equipo de trabajo",
-    "profile_help_intro": "Elige un perfil según la complejidad, el volumen y el coste de la tarea.",
+    "profile_help_intro": "Un modelo puede servir para varios papeles. Revisa evidencias, pruebas pendientes y coste total; las etiquetas no certifican especialización.",
     "profile_help": {
       "worker": {
-        "objective": "Tareas masivas, sencillas y muy baratas.",
+        "objective": "Tareas sencillas y repetitivas; comprueba exactitud, velocidad y coste.",
         "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."
       },
       "administrative": {
@@ -5111,12 +5111,16 @@
         "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."
       },
       "unrated": {
-        "objective": "Modelos sin un benchmark de inteligencia comparable.",
+        "objective": "Todavía no hay suficientes evidencias para valorar sus papeles.",
         "examples": "Revisa las demás métricas antes de asignarles una tarea."
+      },
+      "director": {
+        "objective": "Planificar tareas complejas, seleccionar ejecutores e integrar evidencias.",
+        "examples": "Detectar especialistas ausentes, resolver resultados contradictorios y evitar llamadas innecesarias."
       }
     },
     "profile_help_flow_title": "Combinación recomendada",
-    "profile_help_flow": "Documentalista extrae los puntos clave → Perito decide la estrategia → Totterreno redacta → Peón o Administrativo traduce y formatea.",
+    "profile_help_flow": "Las tareas conocidas van directamente a un ejecutor adecuado. El Directivo interviene cuando se necesita planificar o integrar conclusiones.",
     "all_providers": "Todos los proveedores",
     "all_profiles": "Todos los perfiles",
     "provider": "Proveedor",
@@ -5211,7 +5215,8 @@
       "documentalist": "Documentalista",
       "allrounder": "Todoterreno",
       "expert": "Perito / Director",
-      "unrated": "Sin puntuación"
+      "unrated": "Sin puntuación",
+      "director": "Directivo"
     },
     "columns": {
       "parameters": "Parámetros (B)",
@@ -7502,5 +7507,79 @@
     "use_update": "Aplicar la nueva versión",
     "executor": "Bot ejecutor",
     "assign_operation": "Usar este bot para esta operación"
+  },
+  "agent_team": {
+    "setup": "Configura el equipo",
+    "help": "Elige al Directivo y los agentes que podrán recibir encargos. Cada agente conserva su modelo e instrucciones.",
+    "step": "Paso {{current}} de {{total}}",
+    "director": "Directivo",
+    "choose": "Selecciona un agente",
+    "member": "Incluye a {{name}} en el equipo",
+    "entrypoints": "Perfiles que pueden utilizar este equipo",
+    "initiator": "Permite delegar a {{name}}",
+    "routes_help": "Selecciona ejecutores para operaciones conocidas. Se elegirá el de menor coste estimado entre los adecuados; el coste desconocido no se considerará cero.",
+    "temporary": "Permite especialistas temporales",
+    "allowed_models": "Modelos autorizados",
+    "allowed_skills": "Habilidades autorizadas",
+    "review_help": "Revisa la configuración antes de aplicarla. Entrará en vigor cuando guardes los cambios.",
+    "skill_addition": "Se añadirá esta habilidad al Directivo:",
+    "limits": "Límites: cuatro encargos, dos temporales y dos trabajos de lectura simultáneos. Conservar un temporal requerirá aceptar una propuesta.",
+    "back": "Atrás",
+    "next": "Continúa",
+    "apply": "Aplica a la configuración",
+    "disable": "Desactiva este equipo",
+    "insufficient_data": "Datos insuficientes",
+    "catalog_compatible": "Compatible según el catálogo",
+    "tested": "Evaluado con pruebas",
+    "limitation": "Limitación conocida",
+    "proposals": "Propuestas de agentes permanentes",
+    "retain": "Conserva el agente",
+    "reject": "Rechaza",
+    "instructions": "Instrucciones reutilizables",
+    "review_proposal": "Revisa y elimina cualquier dato particular de la tarea antes de conservar el agente. Se creará un perfil personal sin historial ni memorias; podrás incorporarlo al equipo desde la configuración.",
+    "unknown_date": "Fecha desconocida",
+    "source": "Procedencia",
+    "evidence": "Evidencias",
+    "missing": "Pruebas pendientes",
+    "metrics": {
+      "tool_support": "Uso de herramientas",
+      "reasoning": "Razonamiento",
+      "planning_quality": "Calidad de planificación",
+      "executor_selection": "Selección de ejecutores",
+      "delegation_cost": "Coste de delegación",
+      "catalan_quality": "Calidad del catalán",
+      "instruction_following": "Seguimiento de instrucciones",
+      "tool_reliability": "Fiabilidad de herramientas",
+      "long_context": "Contexto extenso",
+      "citation_fidelity": "Fidelidad de citas",
+      "passage_retrieval": "Recuperación de fragmentos",
+      "coverage": "Cobertura",
+      "complex_reasoning": "Razonamiento complejo",
+      "uncertainty_calibration": "Gestión de la incertidumbre",
+      "tool_or_structured_support": "Herramientas o salida estructurada",
+      "schema_accuracy": "Exactitud de esquemas",
+      "extraction_accuracy": "Exactitud de extracción",
+      "text_support": "Texto",
+      "task_accuracy": "Exactitud de la tarea",
+      "measured_task_cost": "Coste medido por tarea"
+    },
+    "sources": {
+      "catalog": "Catálogo",
+      "declared": "Capacidad declarada",
+      "benchmark": "Benchmark",
+      "gnosi": "Pruebas de Gnosi",
+      "mixed": "Fuentes diversas"
+    },
+    "proposal_rationale": "No había un ejecutor existente adecuado y disponible para este encargo. Revisa si las instrucciones y habilidades del temporal son útiles para futuras tareas.",
+    "proposal_limitation": "Un encargo completado no acredita fiabilidad general. Revisa el resultado y elimina datos particulares de las instrucciones antes de conservarlo."
+  },
+  "agent_commands": {
+    "label": "Comando",
+    "help": "Opcional. Escribe /traductor al principio del mensaje para llamar a este agente solo en ese turno. Cada comando debe ser único.",
+    "agent_command_invalid": "Usa / y entre 1 y 32 letras sin acentos, dígitos, guiones o guiones bajos, empezando por una letra.",
+    "agent_command_duplicate": "Este comando ya pertenece a otro agente.",
+    "agent_command_unknown": "Comando desconocido. Revisa el comando configurado en el agente.",
+    "agent_command_unavailable": "Este agente no está disponible. Revisa su configuración.",
+    "agent_command_request_required": "Escribe la petición después del comando."
   }
 }

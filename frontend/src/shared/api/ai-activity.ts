@@ -75,3 +75,13 @@ export async function exportAgentTrace(runId: string): Promise<Blob> {
 export async function deleteAgentTrace(runId: string): Promise<void> {
     unwrapApiResult(await apiClient.DELETE('/api/agent/runs/{run_id}/trace', { params: { path: { run_id: runId } } }));
 }
+
+export type AgentTeamProposal = components['schemas']['RetentionProposal'];
+export async function fetchAgentTeamProposals(signal?: AbortSignal): Promise<AgentTeamProposal[]> {
+    return unwrapApiResult<AgentTeamProposal[], unknown>(await apiClient.GET('/api/agent/runs/team-proposals', { signal }));
+}
+export async function decideAgentTeamProposal(proposal: AgentTeamProposal, accept: boolean, instructions: string): Promise<AgentTeamProposal> {
+    return unwrapApiResult<AgentTeamProposal, unknown>(await apiClient.POST('/api/agent/runs/{run_id}/team-proposals/{proposal_id}', {
+        params: { path: { run_id: proposal.run_id, proposal_id: proposal.id } }, body: { accept, instructions, name: proposal.name },
+    }));
+}

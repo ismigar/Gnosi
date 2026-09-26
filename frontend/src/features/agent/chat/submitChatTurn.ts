@@ -54,8 +54,11 @@ export async function submitChatTurn(context: ChatTurnContext): Promise<void> {
       try {
         const error: unknown = await response.json();
         const payloadDetail = recordValue(error, 'detail');
-        if (recordValue(payloadDetail, 'code') === 'agent_model_unavailable') {
+        const code = recordValue(payloadDetail, 'code');
+        if (code === 'agent_model_unavailable') {
           detail = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
+        } else if (typeof code === 'string' && ['agent_command_unknown', 'agent_command_duplicate', 'agent_command_unavailable', 'agent_command_request_required', 'agent_command_invalid'].includes(code)) {
+          detail = t(`agent_commands.${code}`);
         } else if (typeof payloadDetail === 'string') {
           detail = payloadDetail || detail;
         }

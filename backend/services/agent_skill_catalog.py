@@ -489,6 +489,14 @@ _BUILTIN_PROVIDERS_REGISTERING = False
 
 
 def _register_builtin_gnosi_catalog() -> None:
+    from backend.services.agent_behavior import skill_instructions
+    _SKILL_CATALOG.register_core(SkillDescriptor(
+        id="core.gnosi-coordination", name="Team coordination",
+        description="Plan bounded assignments, select economical specialists and propose reusable agents.",
+        origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"), kind=SkillKind.AGENT,
+        activation=SkillActivation.EXPLICIT,
+        instructions=skill_instructions("core.gnosi-coordination"),
+    ))
     from backend.services.gnosi_ai_contributions import (
         core_gnosi_registrations,
         core_gnosi_skill_descriptors,

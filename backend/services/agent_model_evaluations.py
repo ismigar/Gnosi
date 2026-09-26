@@ -58,7 +58,14 @@ def evaluate_with_invoker(
             usage = getattr(response, "usage_metadata", None) or {}
             input_tokens += int(usage.get("input_tokens") or 0)
             output_tokens += int(usage.get("output_tokens") or 0)
-            if case["expected"] in content:
+            expected = case["expected"]
+            if case["id"] == "structured":
+                valid = json.loads(content) == {"status": "ok"}
+            elif case.get("validator") == "json_equal":
+                valid = json.loads(content) == json.loads(expected)
+            else:
+                valid = content == expected.strip().lower()
+            if valid:
                 passed += 1
             else:
                 failures.append(f"{case['id']}:contract_mismatch")

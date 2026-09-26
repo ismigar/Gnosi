@@ -258,6 +258,10 @@ def _validate_agent_strategies(
             ai_payload.get("agents") or [],
             load_registry(),
         )
+        from backend.services.agent_commands import validate_commands
+        validate_commands(ai_config["agents"])
+        from backend.services.agent_team_policy import validate_teams
+        validate_teams(ai_config, load_registry())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

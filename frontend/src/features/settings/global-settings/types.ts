@@ -1,5 +1,6 @@
 import type { TOptions } from 'i18next';
 import type { AgentModelStrategy } from './agentModelStrategy';
+import type { AgentTeam } from '../../../shared/ai/agentTeams';
 import type { AppSidebarSettingsProps } from '../AppSidebarSettings';
 import type { IdentityProfileData } from '../identity/IdentityProfile';
 import type { ContextReference } from '../../agent-context/agent-context/agentContextModel';
@@ -17,8 +18,10 @@ export interface GlobalSettingsModalProps {
 
 export type SettingsTranslate = (key: string, options?: Omit<TOptions, 'context'> & { context?: string }) => string;
 export interface SettingsAgent extends Record<string, unknown> {
+  team?: AgentTeam;
   id: string;
   name?: string;
+  command?: string;
   provider?: string;
   model?: string;
   icon?: string;

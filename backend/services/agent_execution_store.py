@@ -41,7 +41,7 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
     resumable = (request.get("mode") is None and not request.get("resume_requires_parent")) or (request.get("mode") == "job" and request.get("operation") in {"reader.analysis", "notebook.analysis", "podcast"})
     if request.get("operation") == "podcast" and not snapshot.get("behavior_resources"):
         resumable = False
-    run = run.model_copy(update={"resumable": resumable})
+    run = run.model_copy(update={"resumable": resumable or bool(snapshot.get("profile", {}).get("team", {}).get("enabled"))})
     with connect() as db:
         encoded_snapshot = json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
         digest = hashlib.sha256(encoded_snapshot.encode()).hexdigest()
@@ -155,7 +155,7 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
         request_metadata = json.loads(str(row["request"]))
         if not run.resumable:
             raise ValueError("agent_run_requires_original_entrypoint")
-        if run.status not in {"failed", "cancelled", "interrupted"}:
+        if run.status not in {"failed", "cancelled", "interrupted", "awaiting_confirmation"}:
             raise ValueError("agent_run_not_resumable")
         saved_scope = _saved_snapshot(db, row).get("scope")
         if saved_scope != scope.model_dump():
@@ -179,8 +179,12 @@ def aggregate(scope: ExecutionScope, run_id: str) -> None:
             return
         parent = AgentRun.model_validate_json(str(parent_row["payload"]))
         children = db.execute(
-            "SELECT payload FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=? AND json_extract(payload, '$.parent_run_id')=?",
-            (scope.user_id, scope.workspace_id, scope.vault_path, run_id),
+            """WITH RECURSIVE descendants(id) AS (
+                SELECT run_id FROM agent_runs WHERE json_extract(payload, '$.parent_run_id')=?
+                UNION ALL SELECT r.run_id FROM agent_runs r JOIN descendants d ON json_extract(r.payload, '$.parent_run_id')=d.id)
+                SELECT payload FROM agent_runs WHERE run_id IN (SELECT id FROM descendants)
+                AND user_id=? AND workspace_id=? AND vault_path=? AND COALESCE(json_extract(request,'$.mode'),'')!='job'""",
+            (run_id, scope.user_id, scope.workspace_id, scope.vault_path),
         ).fetchall()
         runs = [AgentRun.model_validate_json(row[0]) for row in children]
         parent = parent.model_copy(update={

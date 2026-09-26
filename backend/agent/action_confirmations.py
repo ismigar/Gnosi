@@ -196,6 +196,9 @@ def _normalized_scope(scope: Dict[str, Any]) -> Dict[str, str]:
     normalized = {key: str(scope[key]) for key in required}
     if scope.get("profile_id"):
         normalized["profile_id"] = str(scope["profile_id"])
+    for key in ("team_run_id", "team_owner_id", "team_task_key"):
+        if scope.get(key):
+            normalized[key] = str(scope[key])
     return normalized
 
 
@@ -311,6 +314,9 @@ def request_confirmation(
     scope = current_confirmation_scope()
     if action not in ALLOWED_CONFIRMATION_ACTIONS:
         raise ValueError("The pending action is not allowlisted.")
+    if scope.get("team_run_id"):
+        arguments = {**arguments, "_team": {key: scope[key] for key in ("team_run_id", "team_owner_id", "team_task_key", "profile_id") if key in scope}}
+        details = {**(details or {}), "executor": scope.get("profile_id", scope["agent_id"])}
     encoded_arguments = _encoded_json(arguments)
     if len(encoded_arguments.encode("utf-8")) > MAX_ACTION_ARGUMENT_BYTES:
         raise ValueError("The pending action arguments exceed the safety limit.")
@@ -390,6 +396,9 @@ def request_governed_tool_confirmation(
         }),
         "effects": effects,
     }
+    if scope.get("team_run_id"):
+        stored["team_run_id"] = scope["team_run_id"]
+        stored["team_owner_id"] = scope["team_owner_id"]
     return request_confirmation(
         "governed_tool",
         stored,

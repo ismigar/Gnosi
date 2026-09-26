@@ -5088,10 +5088,10 @@
     "profile": "Profil de tâche",
     "profile_help_open": "Mostrar explicaciones de los perfiles",
     "profile_help_title": "Perfiles del equipo de trabajo",
-    "profile_help_intro": "Elige un perfil según la complejidad, el volumen y el coste de la tarea.",
+    "profile_help_intro": "Un modèle peut convenir à plusieurs rôles. Vérifiez les preuves, les tests manquants et le coût total ; les étiquettes ne certifient pas la spécialisation.",
     "profile_help": {
       "worker": {
-        "objective": "Tareas masivas, sencillas y muy baratas.",
+        "objective": "Tâches simples et répétitives ; vérifiez exactitude, rapidité et coût.",
         "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."
       },
       "administrative": {
@@ -5111,12 +5111,16 @@
         "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."
       },
       "unrated": {
-        "objective": "Modèles sans indice d’intelligence comparable.",
+        "objective": "Les preuves sont encore insuffisantes pour évaluer ses rôles.",
         "examples": "Examinez les autres métriques avant de leur attribuer une tâche."
+      },
+      "director": {
+        "objective": "Planifier des tâches complexes, choisir les exécutants et intégrer les preuves.",
+        "examples": "Identifier les spécialistes manquants, résoudre les contradictions et éviter les appels inutiles."
       }
     },
     "profile_help_flow_title": "Combinación recomendada",
-    "profile_help_flow": "Documentalista extrae los puntos clave → Perito decide la estrategia → Totterreno redacta → Peón o Administrativo traduce y formatea.",
+    "profile_help_flow": "Les tâches connues vont directement à un exécutant adapté. Le Directeur intervient pour planifier ou intégrer des conclusions.",
     "all_providers": "Tous les fournisseurs",
     "all_profiles": "Tous les profils",
     "provider": "Fournisseur",
@@ -5211,7 +5215,8 @@
       "documentalist": "Documentaliste",
       "allrounder": "Polyvalent",
       "expert": "Expert / Directeur",
-      "unrated": "Non évalué"
+      "unrated": "Non évalué",
+      "director": "Directeur"
     },
     "columns": {
       "parameters": "Paramètres (B)",
@@ -7502,5 +7507,79 @@
     "use_update": "Appliquer la nouvelle version",
     "executor": "Bot exécutant",
     "assign_operation": "Utiliser ce bot pour cette opération"
+  },
+  "agent_team": {
+    "setup": "Configurer l’équipe",
+    "help": "Choisissez le Directeur et les agents pouvant recevoir des missions. Chaque agent conserve son modèle et ses instructions.",
+    "step": "Étape {{current}} sur {{total}}",
+    "director": "Directeur",
+    "choose": "Sélectionnez un agent",
+    "member": "Inclure {{name}} dans l’équipe",
+    "entrypoints": "Profils autorisés à utiliser cette équipe",
+    "initiator": "Autoriser {{name}} à déléguer",
+    "routes_help": "Sélectionnez les exécutants pour les opérations connues. Le coût estimé le plus faible parmi les candidats adaptés sera retenu ; un coût inconnu ne sera pas considéré comme nul.",
+    "temporary": "Autoriser les spécialistes temporaires",
+    "allowed_models": "Modèles autorisés",
+    "allowed_skills": "Compétences autorisées",
+    "review_help": "Vérifiez avant d’appliquer. La configuration prendra effet après enregistrement.",
+    "skill_addition": "Cette compétence sera ajoutée au Directeur :",
+    "limits": "Limites : quatre missions, deux agents temporaires et deux tâches de lecture simultanées. Conserver un agent temporaire exige d’accepter une proposition.",
+    "back": "Retour",
+    "next": "Continuer",
+    "apply": "Appliquer aux paramètres",
+    "disable": "Désactiver cette équipe",
+    "insufficient_data": "Données insuffisantes",
+    "catalog_compatible": "Compatible selon le catalogue",
+    "tested": "Évalué par des tests",
+    "limitation": "Limitation connue",
+    "proposals": "Propositions d’agents permanents",
+    "retain": "Conserver l’agent",
+    "reject": "Refuser",
+    "instructions": "Instructions réutilisables",
+    "review_proposal": "Vérifiez et supprimez les informations propres à la tâche avant de conserver cet agent. Un profil personnel sera créé sans historique ni mémoires ; vous pourrez l’ajouter à votre équipe dans les paramètres.",
+    "unknown_date": "Date inconnue",
+    "source": "Provenance",
+    "evidence": "Éléments probants",
+    "missing": "Tests manquants",
+    "metrics": {
+      "tool_support": "Utilisation des outils",
+      "reasoning": "Raisonnement",
+      "planning_quality": "Qualité de planification",
+      "executor_selection": "Sélection des exécutants",
+      "delegation_cost": "Coût de délégation",
+      "catalan_quality": "Qualité du catalan",
+      "instruction_following": "Suivi des instructions",
+      "tool_reliability": "Fiabilité des outils",
+      "long_context": "Contexte étendu",
+      "citation_fidelity": "Fidélité des citations",
+      "passage_retrieval": "Récupération de passages",
+      "coverage": "Couverture",
+      "complex_reasoning": "Raisonnement complexe",
+      "uncertainty_calibration": "Gestion de l’incertitude",
+      "tool_or_structured_support": "Outils ou sortie structurée",
+      "schema_accuracy": "Exactitude des schémas",
+      "extraction_accuracy": "Exactitude de l’extraction",
+      "text_support": "Texte",
+      "task_accuracy": "Exactitude de la tâche",
+      "measured_task_cost": "Coût mesuré par tâche"
+    },
+    "sources": {
+      "catalog": "Catalogue",
+      "declared": "Capacité déclarée",
+      "benchmark": "Benchmark",
+      "gnosi": "Tests de Gnosi",
+      "mixed": "Sources multiples"
+    },
+    "proposal_rationale": "Aucun exécutant existant adapté n’était disponible pour cette mission. Vérifiez si les instructions et compétences de l’agent temporaire seront utiles à l’avenir.",
+    "proposal_limitation": "Une mission terminée ne prouve pas une fiabilité générale. Vérifiez le résultat et retirez les informations propres à la tâche avant de conserver cet agent."
+  },
+  "agent_commands": {
+    "label": "Commande",
+    "help": "Facultatif. Commencez un message par /traductor pour appeler cet agent pour ce tour uniquement. Chaque commande doit être unique.",
+    "agent_command_invalid": "Utilisez / suivi de 1 à 32 lettres sans accent, chiffres, tirets ou traits de soulignement, en commençant par une lettre.",
+    "agent_command_duplicate": "Cette commande appartient déjà à un autre agent.",
+    "agent_command_unknown": "Commande inconnue. Vérifiez la commande configurée pour cet agent.",
+    "agent_command_unavailable": "Cet agent est indisponible. Vérifiez sa configuration.",
+    "agent_command_request_required": "Écrivez votre demande après la commande."
   }
 }

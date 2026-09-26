@@ -147,6 +147,10 @@ def before_model_call() -> None:
         return
     scope = current_scope()
     revalidate_scope(scope)
+    active_snapshot = _snapshot.get()
+    if active_snapshot is not None and active_snapshot.profile.get("_team_execution"):
+        from backend.services.agent_team_runtime import execution_profile
+        execution_profile(active_snapshot)
     if store.cancelled(scope, run_id):
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
@@ -189,9 +193,14 @@ def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
         from backend.services.agent_skill_catalog import resolve_agent_runtime
         profiles = load_params(strict_env=False).ai.get("agents", [])
         current = next((item for item in profiles if item.get("id") == snapshot.agent_id), None)
+        if snapshot.profile.get("_team_execution"):
+            from backend.services.agent_team_runtime import execution_profile, _filter_runtime
+            current = execution_profile(snapshot)
         if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
             raise PermissionError("agent_execution_profile_revoked")
         runtime = resolve_agent_runtime(current, vault_path=Path(scope.vault_path), active_skill_ids=snapshot.skill_ids)
+        if snapshot.profile.get("_team_execution", {}).get("read_only"):
+            runtime = _filter_runtime(runtime, read_only=True)
         if not dynamic_context and tool_name not in {descriptor.name for descriptor in runtime.tool_descriptors}:
             raise PermissionError("agent_execution_tool_revoked")
 
@@ -226,7 +235,7 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
     snapshot = snapshot.model_copy(update={"origin": origin})
     run_id = str(inputs.get("trace_id") or uuid.uuid4().hex)
     selection = selection or {}
-    row = AgentRun(run_id=run_id, agent_id=snapshot.agent_id,
+    row = AgentRun(run_id=run_id, parent_run_id=snapshot.parent_run_id, agent_id=snapshot.agent_id,
         skill_id=",".join(snapshot.skill_ids), operation="conversation", origin=origin,
         status="running", created_at=time.time(), updated_at=time.time(),
         provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""),
@@ -247,7 +256,8 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
                     if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
                         result = str(message.content)
             yield event
-        store.update(scope, run_id, status="completed", result=result)
+        status = store.read(scope, run_id).status
+        store.update(scope, run_id, status="awaiting_confirmation" if status == "awaiting_confirmation" else "completed", result=result)
     except BaseException as error:
         from backend.services.agent_cancellation import AgentTurnCancelled
         status = "cancelled" if isinstance(error, (AgentTurnCancelled, asyncio.CancelledError)) else "failed"
@@ -284,6 +294,9 @@ def _operation_context(request: AgentOperation, snapshot: AgentExecutionSnapshot
         raise PermissionError("agent_execution_scope_or_skill_mismatch")
     ai = dict(load_params(strict_env=False).ai)
     current = next((p for p in ai.get("agents", []) if p.get("id") == snapshot.agent_id), None)
+    if snapshot.profile.get("_team_execution"):
+        from backend.services.agent_team_runtime import execution_profile
+        current = execution_profile(snapshot)
     if not current or not current.get("enabled", True) or current.get("plugin_suspended"):
         raise RuntimeError("agent_execution_profile_unavailable")
     allowed = resolve_agent_runtime(current, vault_path=Path(snapshot.scope.vault_path), active_skill_ids=snapshot.skill_ids)
@@ -318,12 +331,14 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
                    execution_revision=snapshot.revision)
-    store.create(row, snapshot.scope, {**request.model_dump(), "checkpoint_key": checkpoint_key}, snapshot.model_dump())
+    team_enabled = bool(snapshot.profile.get("team", {}).get("enabled"))
+    store.create(row, snapshot.scope, {**request.model_dump(), "checkpoint_key": checkpoint_key,
+        **({"max_calls": 8} if team_enabled else {})}, snapshot.model_dump())
     report_run(run_id)
     run_token = _run.set(run_id)
     snapshot_token = _snapshot.set(snapshot)
     resource_token = frozen_resources.set(snapshot.behavior_resources)
-    call_limit_token = _call_limit.set(request.max_model_calls)
+    call_limit_token = _call_limit.set(8 if team_enabled else request.max_model_calls)
     cancel_token = create_cancel_token()
     _tokens[run_id] = cancel_token
     try:
@@ -340,17 +355,23 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request))]
         application = workflow.compile()
         deadline = time.monotonic() + request.timeout_seconds
+        text = ""
         for attempt in range(request.max_model_calls):
+            previous_text = text if attempt else ""
             text = ""
             inputs = {"messages": messages, "cancel_token": cancel_token, "trace_id": run_id,
                       "active_skill_ids": snapshot.skill_ids, "current_user_role": snapshot.scope.role,
                       "turn_authorized_tool_names": []}
             async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
-                    for update in event.values():
-                        for message in update.get("messages", []):
-                            if getattr(message, "type", "") == "ai":
-                                text = str(message.content)
+                if team_enabled and attempt:
+                    from backend.services.agent_team_runtime import repair_output
+                    text = await repair_output(run_id, snapshot.scope, previous_text, str(messages[-1].content), request)
+                else:
+                    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
+                        for update in event.values():
+                            for message in update.get("messages", []):
+                                if getattr(message, "type", "") == "ai":
+                                    text = str(message.content)
             try:
                 text = _validate_output(text, request.output_schema)
                 if output_validator is not None:
@@ -438,6 +459,9 @@ async def resume_run(run_id: str) -> AgentRun:
     scope = current_scope()
     revalidate_scope(scope)
     request_data, snapshot_data = store.resume_data(scope, run_id)
+    if snapshot_data.get("profile", {}).get("team", {}).get("enabled"):
+        from backend.services.agent_team_resume import resume_team
+        return await resume_team(run_id, request_data, AgentExecutionSnapshot.model_validate(snapshot_data))
     if request_data.get("mode") == "job":
         try:
             operation = request_data.get("operation")

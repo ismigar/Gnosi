@@ -5,6 +5,7 @@ import { AgentExecutionHistory } from './AgentExecutionHistory';
 import { changeAgentRun, fetchAgentRuns } from '../../../shared/api/ai-activity';
 
 vi.mock('../../../shared/api/ai-activity', () => ({ fetchAgentRuns: vi.fn(), changeAgentRun: vi.fn() }));
+vi.mock('./AgentTeamProposals', () => ({ AgentTeamProposals: () => null }));
 vi.mock('./AgentTraceRetention', () => ({ AgentTraceRetention: () => null }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => 'vault' }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({

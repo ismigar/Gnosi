@@ -21784,6 +21784,13 @@
             "title": "Release Date",
             "type": "string"
           },
+          "role_assessments": {
+            "items": {
+              "$ref": "#/components/schemas/RoleAssessment"
+            },
+            "title": "Role Assessments",
+            "type": "array"
+          },
           "routes": {
             "items": {
               "$ref": "#/components/schemas/ModelComparisonRoute"
@@ -29585,6 +29592,125 @@
         "title": "ResourceResponse",
         "type": "object"
       },
+      "RetentionDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "accept": {
+            "title": "Accept",
+            "type": "boolean"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 12000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accept"
+        ],
+        "title": "RetentionDecision",
+        "type": "object"
+      },
+      "RetentionProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Acceptance",
+            "type": "array"
+          },
+          "evidence_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Run Ids",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "permanent_agent_id": {
+            "default": "",
+            "title": "Permanent Agent Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skill_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skill Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "run_id",
+          "status",
+          "name",
+          "instructions",
+          "provider",
+          "model",
+          "skill_ids",
+          "acceptance",
+          "rationale",
+          "evidence_run_ids",
+          "limitations"
+        ],
+        "title": "RetentionProposal",
+        "type": "object"
+      },
       "ReviewCreateRequest": {
         "properties": {
           "configuration": {
@@ -29780,6 +29906,146 @@
           "id"
         ],
         "title": "RevokedTokenResponse",
+        "type": "object"
+      },
+      "RoleAssessment": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Id"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "proofs": {
+            "items": {
+              "$ref": "#/components/schemas/RoleEvidence"
+            },
+            "title": "Proofs",
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "director",
+              "allrounder",
+              "documentalist",
+              "expert",
+              "administrative",
+              "worker"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source": {
+            "default": "catalog",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "catalog_compatible",
+              "tested",
+              "insufficient_data",
+              "limitation"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "status"
+        ],
+        "title": "RoleAssessment",
+        "type": "object"
+      },
+      "RoleEvidence": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "declared",
+              "benchmark",
+              "gnosi"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "test_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "metric",
+          "source",
+          "value"
+        ],
+        "title": "RoleEvidence",
         "type": "object"
       },
       "RoleUpdateRequest": {
@@ -36190,6 +36456,123 @@
         ]
       }
     },
+    "/api/agent/runs/team-proposals": {
+      "get": {
+        "operationId": "team_proposals_api_agent_runs_team_proposals_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RetentionProposal"
+                  },
+                  "title": "Response Team Proposals Api Agent Runs Team Proposals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Team Proposals",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
     "/api/agent/runs/trace-settings": {
       "get": {
         "operationId": "trace_settings_api_agent_runs_trace_settings_get",
@@ -36785,6 +37168,147 @@
           }
         },
         "summary": "Resume",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/{run_id}/team-proposals/{proposal_id}": {
+      "post": {
+        "operationId": "decide_team_proposal_api_agent_runs__run_id__team_proposals__proposal_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Team Proposal",
         "tags": [
           "Agent runs"
         ]

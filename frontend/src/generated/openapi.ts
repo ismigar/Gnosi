@@ -115,6 +115,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/{run_id}/team-proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Team Proposal */
+        post: operations["decide_team_proposal_api_agent_runs__run_id__team_proposals__proposal_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/{run_id}/trace": {
         parameters: {
             query?: never;
@@ -178,6 +195,23 @@ export interface paths {
         put?: never;
         /** Preview */
         post: operations["preview_api_agent_runs_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/team-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team Proposals */
+        get: operations["team_proposals_api_agent_runs_team_proposals_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -18458,6 +18492,8 @@ export interface components {
             profile: string;
             /** Release Date */
             release_date: string;
+            /** Role Assessments */
+            role_assessments?: components["schemas"]["RoleAssessment"][];
             /** Routes */
             routes: components["schemas"]["ModelComparisonRoute"][];
             /** Slug */
@@ -21677,6 +21713,50 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** RetentionDecision */
+        RetentionDecision: {
+            /** Accept */
+            accept: boolean;
+            /** Instructions */
+            instructions?: string | null;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /** RetentionProposal */
+        RetentionProposal: {
+            /** Acceptance */
+            acceptance: string[];
+            /** Evidence Run Ids */
+            evidence_run_ids: string[];
+            /** Id */
+            id: string;
+            /** Instructions */
+            instructions: string;
+            /** Limitations */
+            limitations: string[];
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /**
+             * Permanent Agent Id
+             * @default
+             */
+            permanent_agent_id: string;
+            /** Provider */
+            provider: string;
+            /** Rationale */
+            rationale: string;
+            /** Run Id */
+            run_id: string;
+            /** Skill Ids */
+            skill_ids: string[];
+            /** Status */
+            status: string;
+        };
         /** ReviewCreateRequest */
         ReviewCreateRequest: {
             /** Configuration */
@@ -21772,6 +21852,50 @@ export interface components {
             id: string;
             /** Status */
             status: string;
+        };
+        /** RoleAssessment */
+        RoleAssessment: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Evaluation Id */
+            evaluation_id?: number | null;
+            /** Evidence */
+            evidence?: string[];
+            /** Missing */
+            missing?: string[];
+            /** Proofs */
+            proofs?: components["schemas"]["RoleEvidence"][];
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "director" | "allrounder" | "documentalist" | "expert" | "administrative" | "worker";
+            /**
+             * Source
+             * @default catalog
+             */
+            source: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "catalog_compatible" | "tested" | "insufficient_data" | "limitation";
+        };
+        /** RoleEvidence */
+        RoleEvidence: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Metric */
+            metric: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "declared" | "benchmark" | "gnosi";
+            /** Test Id */
+            test_id?: string | null;
+            /** Value */
+            value: number | boolean | string;
         };
         /** RoleUpdateRequest */
         RoleUpdateRequest: {
@@ -24037,6 +24161,49 @@ export interface operations {
             };
         };
     };
+    decide_team_proposal_api_agent_runs__run_id__team_proposals__proposal_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                proposal_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionProposal"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     trace_api_agent_runs__run_id__trace_get: {
         parameters: {
             query?: {
@@ -24225,6 +24392,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BehaviorPreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    team_proposals_api_agent_runs_team_proposals_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionProposal"][];
                 };
             };
             /** @description Validation Error */

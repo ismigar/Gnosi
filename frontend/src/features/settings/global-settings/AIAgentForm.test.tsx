@@ -91,3 +91,30 @@ it('localizes a shipped profile name without persisting the translation on other
   select('profile_model', 'beta||large');
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mail' }));
 });
+
+function enterCommand(value: string) {
+  const input = host.querySelector<HTMLInputElement>('input[aria-label="agent_commands.label"]');
+  if (!input) throw new Error('Missing command field');
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+it('saves and removes a command without changing the agent model, instructions or skills', () => {
+  render({ ...agent, command: '/old' });
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="agent_commands.label"]')?.value).toBe('/old');
+  enterCommand('/TRADUCTOR');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...agent, command: '/traductor' }));
+  enterCommand('');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...agent, command: '' }));
+});
+
+it('does not persist invalid or duplicate commands', () => {
+  act(() => { root.render(<AIAgentForm agent={agent} otherCommands={['/other']} aiRegistry={registry} skills={[]} tools={[]} onSave={onSave} onChange={value => { void onSave(value); }} />); });
+  enterCommand('/bad command');
+  expect(host.textContent).toContain('agent_commands.agent_command_invalid');
+  enterCommand('/OTHER');
+  expect(host.textContent).toContain('agent_commands.agent_command_duplicate');
+  expect(onSave).not.toHaveBeenCalled();
+});

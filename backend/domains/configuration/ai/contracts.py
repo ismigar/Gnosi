@@ -217,6 +217,9 @@ class ModelParameterMetadata(BaseModel):
     checked_at: str | None = None
 
 
+from backend.services.model_role_suitability import RoleAssessment
+
+
 class ModelComparisonEntry(BaseModel):
     """Normalized Artificial Analysis row enriched with Gnosi routes."""
 
@@ -241,6 +244,7 @@ class ModelComparisonEntry(BaseModel):
     parameter_metadata: ModelParameterMetadata | None = None
     metric_sources: dict[str, str] | None = None
     profile: str
+    role_assessments: list[RoleAssessment] = Field(default_factory=list)
 
 
 class ModelComparisonResponse(BaseModel):

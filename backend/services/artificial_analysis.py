@@ -363,6 +363,7 @@ def _enrich_cached_payload(
     """Backfill verifiable catalog metadata in an already normalized cache."""
     enrichment = _catalog_enrichment_index(catalog)
     for model in payload.get("models") or []:
+        from backend.services.model_role_suitability import assess_roles
         matches = _matching_enrichment_entries(model, enrichment)
         match = max(
             matches,
@@ -378,6 +379,7 @@ def _enrich_cached_payload(
             model["modes"] = _supported_modes(model.get("modes"), match.get("modes"))
         if metric_sources:
             model["metric_sources"] = metric_sources
+        model["role_assessments"] = assess_roles({**model, "fetched_at": payload.get("fetched_at")})
     return payload
 
 
@@ -502,6 +504,8 @@ def _normalized_comparison_model(
     }
     if metric_sources:
         model["metric_sources"] = metric_sources
+    from backend.services.model_role_suitability import assess_roles
+    model["role_assessments"] = assess_roles(model)
     return model
 
 

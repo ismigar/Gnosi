@@ -5088,10 +5088,10 @@
     "profile": "Perfil de tasca",
     "profile_help_open": "Mostra l'explicació dels perfils",
     "profile_help_title": "Perfils de l’equip de treball",
-    "profile_help_intro": "Tria el perfil segons la complexitat, el volum i el cost de la tasca.",
+    "profile_help_intro": "Un model pot servir per a diversos papers. Revisa les evidències, les proves pendents i el cost total; les etiquetes no certifiquen l’especialització.",
     "profile_help": {
       "worker": {
-        "objective": "Tasques massives, senzilles i molt barates.",
+        "objective": "Tasques senzilles i repetitives; comprova’n l’exactitud, la velocitat i el cost.",
         "examples": "Classificar correus, corregir ortografia o traduir etiquetes curtes."
       },
       "administrative": {
@@ -5111,12 +5111,16 @@
         "examples": "Depurar codi, analitzar riscos i resoldre matemàtiques avançades."
       },
       "unrated": {
-        "objective": "Models sense benchmark d’intel·ligència comparable.",
+        "objective": "Encara no hi ha prou evidències per valorar-ne els papers.",
         "examples": "Consulta les altres mètriques abans d’assignar-los una tasca."
+      },
+      "director": {
+        "objective": "Planificar tasques complexes, seleccionar executors i integrar evidències.",
+        "examples": "Detectar un especialista absent, resoldre resultats contradictoris i evitar crides innecessàries."
       }
     },
     "profile_help_flow_title": "Combinació recomanada",
-    "profile_help_flow": "Documentalista extreu els punts clau → Perit decideix l’estratègia → Totterreny redacta → Peó o Administratiu tradueix i formata.",
+    "profile_help_flow": "Les tasques conegudes van directament a un executor adequat. El Directiu intervé quan cal planificar o integrar conclusions.",
     "all_providers": "Tots els proveïdors",
     "all_profiles": "Tots els perfils",
     "provider": "Proveïdor",
@@ -5211,7 +5215,8 @@
       "documentalist": "Documentalista",
       "allrounder": "Tot terreny",
       "expert": "Perit / Director",
-      "unrated": "Sense puntuació"
+      "unrated": "Sense puntuació",
+      "director": "Directiu"
     },
     "columns": {
       "parameters": "Paràmetres (B)",
@@ -7502,5 +7507,79 @@
     "use_update": "Aplicar la nova versió",
     "executor": "Bot executor",
     "assign_operation": "Utilitza aquest bot per a aquesta operació"
+  },
+  "agent_team": {
+    "setup": "Configura l’equip",
+    "help": "Tria el Directiu i els agents que podran rebre encàrrecs. Cada agent conserva el seu model i les seves instruccions.",
+    "step": "Pas {{current}} de {{total}}",
+    "director": "Directiu",
+    "choose": "Selecciona un agent",
+    "member": "Inclou {{name}} a l’equip",
+    "entrypoints": "Perfils que poden utilitzar aquest equip",
+    "initiator": "Permet delegar a {{name}}",
+    "routes_help": "Selecciona executors per a operacions conegudes. Es triarà el de menor cost estimat entre els adequats; el cost desconegut no es considerarà zero.",
+    "temporary": "Permet especialistes temporals",
+    "allowed_models": "Models autoritzats",
+    "allowed_skills": "Habilitats autoritzades",
+    "review_help": "Revisa la configuració abans d’aplicar-la. Entrarà en vigor quan desis els canvis.",
+    "skill_addition": "S’afegirà aquesta habilitat al Directiu:",
+    "limits": "Límits: quatre encàrrecs, dos temporals i dos treballs de lectura simultanis. Conservar un temporal requerirà acceptar una proposta.",
+    "back": "Enrere",
+    "next": "Continua",
+    "apply": "Aplica a la configuració",
+    "disable": "Desactiva aquest equip",
+    "insufficient_data": "Dades insuficients",
+    "catalog_compatible": "Compatible segons el catàleg",
+    "tested": "Avaluat amb proves",
+    "limitation": "Limitació coneguda",
+    "proposals": "Propostes d’agents permanents",
+    "retain": "Conserva l’agent",
+    "reject": "Rebutja",
+    "instructions": "Instruccions reutilitzables",
+    "review_proposal": "Revisa i elimina qualsevol dada particular de la tasca abans de conservar l’agent. Es crearà un perfil personal sense historial ni memòries; el podràs incorporar a l’equip des de la configuració.",
+    "unknown_date": "Data desconeguda",
+    "source": "Procedència",
+    "evidence": "Evidències",
+    "missing": "Proves pendents",
+    "metrics": {
+      "tool_support": "Ús d’eines",
+      "reasoning": "Raonament",
+      "planning_quality": "Qualitat de planificació",
+      "executor_selection": "Selecció d’executors",
+      "delegation_cost": "Cost de delegació",
+      "catalan_quality": "Qualitat del català",
+      "instruction_following": "Seguiment d’instruccions",
+      "tool_reliability": "Fiabilitat d’eines",
+      "long_context": "Context extens",
+      "citation_fidelity": "Fidelitat de cites",
+      "passage_retrieval": "Recuperació de fragments",
+      "coverage": "Cobertura",
+      "complex_reasoning": "Raonament complex",
+      "uncertainty_calibration": "Gestió de la incertesa",
+      "tool_or_structured_support": "Eines o sortida estructurada",
+      "schema_accuracy": "Exactitud dels esquemes",
+      "extraction_accuracy": "Exactitud d’extracció",
+      "text_support": "Text",
+      "task_accuracy": "Exactitud de la tasca",
+      "measured_task_cost": "Cost mesurat per tasca"
+    },
+    "sources": {
+      "catalog": "Catàleg",
+      "declared": "Capacitat declarada",
+      "benchmark": "Benchmark",
+      "gnosi": "Proves de Gnosi",
+      "mixed": "Fonts diverses"
+    },
+    "proposal_rationale": "No hi havia cap executor existent adequat i disponible per a aquest encàrrec. Revisa si les instruccions i habilitats del temporal són útils per a futures tasques.",
+    "proposal_limitation": "Un encàrrec completat no acredita fiabilitat general. Revisa el resultat i elimina dades particulars de les instruccions abans de conservar-lo."
+  },
+  "agent_commands": {
+    "label": "Comanda",
+    "help": "Opcional. Escriu /traductor al començament del missatge per cridar aquest agent només en aquell torn. Cada comanda ha de ser única.",
+    "agent_command_invalid": "Fes servir / i entre 1 i 32 lletres sense accents, dígits, guions o guions baixos, començant per una lletra.",
+    "agent_command_duplicate": "Aquesta comanda ja pertany a un altre agent.",
+    "agent_command_unknown": "Comanda desconeguda. Revisa la comanda configurada a l’agent.",
+    "agent_command_unavailable": "Aquest agent no està disponible. Revisa’n la configuració.",
+    "agent_command_request_required": "Escriu la petició després de la comanda."
   }
 }

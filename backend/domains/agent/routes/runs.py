@@ -21,6 +21,28 @@ class TraceRetention(BaseModel):
     days: int = Field(default=30, ge=1, le=3650)
 
 
+from backend.services.agent_team_models import RetentionProposal, RetentionDecision
+
+
+@router.get("/team-proposals", response_model=list[RetentionProposal])
+def team_proposals() -> list[dict[str, Any]]:
+    from backend.services.agent_team_store import list_artifacts
+    return list_artifacts(current_scope(), "proposal")
+
+
+@router.post("/{run_id}/team-proposals/{proposal_id}", response_model=RetentionProposal)
+def decide_team_proposal(run_id: str, proposal_id: str, payload: RetentionDecision) -> dict[str, Any]:
+    from backend.services.agent_team_store import retain
+    try:
+        return retain(current_scope(), run_id, proposal_id, accept=payload.accept, name=payload.name, instructions=payload.instructions)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 class TraceEvent(BaseModel):
     id: int
     created_at: float

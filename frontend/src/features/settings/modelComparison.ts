@@ -10,6 +10,7 @@ import type {
 
 
 export const COMPARISON_PROFILE_KEYS = [
+    'director',
     'worker',
     'administrative',
     'documentalist',
@@ -160,6 +161,7 @@ export const INITIAL_COMPARISON_UI_STATE: ModelComparisonUiState = {
 
 
 export const PROFILE_ICONS: Readonly<Partial<Record<ComparisonProfile, string>>> = {
+    director: '🧭',
     administrative: '🔵',
     allrounder: '🟡',
     documentalist: '📑',
@@ -364,7 +366,9 @@ export const filteredComparisonModels = (
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
-        && (ui.profile === 'all' || model.profile === ui.profile)
+        && (ui.profile === 'all' || (model.role_assessments?.length
+            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => !['catalog_compatible', 'tested'].includes(r.status)) : model.role_assessments.some(r => r.role === ui.profile && ['catalog_compatible', 'tested'].includes(r.status)))
+            : model.profile === ui.profile))
         && (
             ui.showIncomplete
             || (

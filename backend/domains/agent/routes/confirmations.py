@@ -126,11 +126,22 @@ async def _execute_governed_tool(
 ) -> Dict[str, Any]:
     """Re-resolve and execute one exact assigned `confirmation=always` tool."""
     active_skill_ids = list(arguments.get("active_skill_ids") or [])
-    _ai_cfg, agent_data, runtime = prepare_agent_runtime(
-        str(arguments.get("profile_id") or scope["agent_id"]),
-        vault_path=vault,
-        active_skill_ids=active_skill_ids,
-    )
+    if arguments.get("team_run_id"):
+        from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+        from backend.services.agent_team_runtime import execution_profile, _runtime
+        profile_id = str(arguments.get("profile_id") or "")
+        team_scope = ExecutionScope.model_validate({"user_id": scope["user_id"], "workspace_id": scope["workspace_id"], "vault_path": str(vault), "role": scope["role"]})
+        snapshot = AgentExecutionSnapshot(scope=team_scope, agent_id=profile_id,
+            profile={"_team_execution": {"root_id": str(arguments["team_run_id"]), "owner_id": str(arguments["team_owner_id"]), "temporary": profile_id.startswith("temporary_")}},
+            skill_ids=active_skill_ids, instructions=[], catalog_revision="", revision="")
+        agent_data = execution_profile(snapshot)
+        runtime = _runtime(agent_data, team_scope, active_skill_ids)
+    else:
+        _ai_cfg, agent_data, runtime = prepare_agent_runtime(
+            str(arguments.get("profile_id") or scope["agent_id"]),
+            vault_path=vault,
+            active_skill_ids=active_skill_ids,
+        )
     if not agent_data or runtime is None:
         raise PermissionError("The agent runtime is unavailable.")
 
@@ -380,6 +391,18 @@ async def confirm_agent_action(  # noqa: C901 - explicit confirmation outcomes
     try:
         try:
             vault, _vault_scope_id = _vault_scope()
+            team_metadata = pending["arguments"].get("_team")
+            if team_metadata:
+                from backend.services.agent_execution_models import ExecutionScope, AgentExecutionSnapshot
+                from backend.services.agent_team_runtime import execution_profile, _runtime
+                from backend.services.agent_team_store import get
+                team_scope = ExecutionScope.model_validate({"user_id": scope["user_id"], "workspace_id": scope["workspace_id"], "vault_path": str(vault), "role": scope["role"]})
+                task = get(team_scope, team_metadata["team_run_id"], team_metadata["team_task_key"])
+                frozen = AgentExecutionSnapshot.model_validate(task["snapshot"])
+                current = execution_profile(frozen)
+                runtime = _runtime(current, team_scope, frozen.skill_ids)
+                if not set(frozen.skill_ids).issubset(runtime.active_skill_ids) or runtime.unavailable_tool_ids:
+                    raise PermissionError("agent_team_capability_revoked")
             async with asyncio.timeout(CONFIRMED_ACTION_TIMEOUT_SECONDS):
                 with confirmation_context(**scope):
                     if pending["action"] == "governed_tool":

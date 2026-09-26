@@ -133,7 +133,14 @@ export function ModelComparisonRow({
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return isFiniteMetric(model.latency)
                 ? `${formatComparisonMetric(model.latency, 2)} s` : '—';
-            case 'profile': return <span className={`model-profile-badge ${model.profile}`}>
+            case 'profile': return model.role_assessments?.length ? <details><summary>{model.role_assessments.filter(r => ['catalog_compatible', 'tested'].includes(r.status)).map(r => t(`model_comparison.profiles.${r.role}`)).join(', ') || t('agent_team.insufficient_data')}</summary>
+                {model.role_assessments.map(r => <p key={r.role}><strong>{t(`model_comparison.profiles.${r.role}`)}</strong>: {t(`agent_team.${r.status}`)}<br />
+                    {t('agent_team.source')}: {t(`agent_team.sources.${r.source}`)} · {r.checked_at ?? t('agent_team.unknown_date')}<br />
+                    {t('agent_team.evidence')}: {(r.evidence ?? []).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}<br />
+                    {(r.proofs ?? []).map(proof => <span key={`${proof.source}:${proof.metric}`}>{t(`agent_team.metrics.${proof.metric}`, { defaultValue: proof.metric })}: {String(proof.value)} ({t(`agent_team.sources.${proof.source}`)})<br /></span>)}
+                    {t('agent_team.missing')}: {(r.missing ?? []).map(item => t(`agent_team.metrics.${item}`, { defaultValue: item })).join(', ')}
+                </p>)}
+            </details> : <span className={`model-profile-badge ${model.profile}`}>
                 {PROFILE_ICONS[model.profile as ComparisonProfile] ?? '⚪'}{' '}
                 {t(`model_comparison.profiles.${model.profile}`)}
             </span>;

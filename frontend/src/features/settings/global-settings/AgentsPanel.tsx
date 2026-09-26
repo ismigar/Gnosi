@@ -1,4 +1,5 @@
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
+import { AgentTeamSetup } from './AgentTeamSetup';
 import { configurableGap } from './settingsStyles';
 import { AIAgentForm } from './AIAgentForm';
 import { Bot, Clock3 } from 'lucide-react';
@@ -31,6 +32,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
         <AIAgentForm
           key={editingAgent.id || 'new-agent'}
           agent={editingAgent}
+          otherCommands={draft.ai.agents.filter(item => item.id !== editingAgent.id).map(item => item.command || '')}
           purpose={!editingAgent.managed_by && (!principal || editingAgent.id === principal.id) ? 'principal' : 'profile'}
           onChange={updated => {
             setDraft(prev => ({ ...prev, ai: { ...prev.ai,
@@ -172,6 +174,9 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
     {principal && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
       {renderProfile(principal)}
     </div>}
+    {principal && <AgentTeamSetup agents={draft.ai.agents} principalId={principal.id} registry={aiRegistry} onApply={(agents, principalId) => {
+      setDraft(prev => ({ ...prev, ai: { ...prev.ai, agents, active_agent_id: principalId } }));
+    }} />}
     {principal && <p className="settings-desc" style={{ marginTop: '20px' }}>{t('settings.ai.assistant.principal_help')}</p>}
     {draft.ai.agents.length > 0 && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
