@@ -1,11 +1,14 @@
 import { act, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { fetchAiModelComparison } from '../../../shared/api/ai';
+import { fetchAiModelComparison, fetchAiModels } from '../../../shared/api/ai';
 import { fetchConfiguration } from '../../../shared/api/configuration';
 import { useChatConfiguration } from './useChatConfiguration';
 
-vi.mock('../../../shared/api/ai', () => ({ fetchAiModelComparison: vi.fn().mockResolvedValue({ models: [] }) }));
+vi.mock('../../../shared/api/ai', () => ({
+  fetchAiModelComparison: vi.fn().mockResolvedValue({ models: [] }),
+  fetchAiModels: vi.fn().mockResolvedValue({ configured_models: [] }),
+}));
 vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: vi.fn() }));
 vi.mock('../../../shared/platform/configEvents', () => ({ useConfigChanged: () => undefined }));
 let host: HTMLDivElement;
@@ -28,6 +31,10 @@ function current() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(fetchAiModels).mockResolvedValue({
+    configured_models: [], models: [], default: [], budget: {},
+    currency: { code: 'USD', symbol: '$', usd_rate: 1, source: 'fixture', fetched_at: '2026-09-26' },
+  });
   vi.mocked(fetchAiModelComparison).mockResolvedValue({ models: [] } as unknown as Awaited<ReturnType<typeof fetchAiModelComparison>>);
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   host = document.createElement('div'); root = createRoot(host);
@@ -66,9 +73,9 @@ it('loads the profile before model labels and then enriches the matching route',
   let resolveComparison!: (value: Awaited<ReturnType<typeof fetchAiModelComparison>>) => void;
   vi.mocked(fetchAiModelComparison).mockReturnValueOnce(new Promise(resolve => { resolveComparison = resolve; }));
   vi.mocked(fetchConfiguration).mockResolvedValue({ ai: { agents: [{ id: 'principal', name: 'My assistant', provider: 'openrouter', model: 'google/gemini' }], active_agent_id: 'principal' } });
-  await act(async () => { root.render(<Harness initial="" />); });
+  await act(async () => { root.render(<Harness initial="" />); await Promise.resolve(); });
   expect(current().agentConfig?.id).toBe('principal');
   expect(current().agentList[0]?.modelProfile).toBeUndefined();
-  await act(async () => { resolveComparison({ models: [{ profile: 'allround', routes: [{ provider: 'openrouter', model_id: 'google/gemini' }] }] } as Awaited<ReturnType<typeof fetchAiModelComparison>>); });
+  await act(async () => { resolveComparison({ models: [{ profile: 'allround', routes: [{ provider: 'openrouter', model_id: 'google/gemini' }] }] } as Awaited<ReturnType<typeof fetchAiModelComparison>>); await Promise.resolve(); });
   expect(current().agentList[0]?.modelProfile).toBe('allround');
 });
