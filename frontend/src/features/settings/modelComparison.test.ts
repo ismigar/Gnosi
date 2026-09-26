@@ -298,3 +298,9 @@ it('sorts the manufacturer column by creator, independently of hosting routes', 
     const models = [comparisonModel({ id: 'openai', creator: 'OpenAI' }), comparisonModel({ id: 'anthropic', creator: 'Anthropic' })];
     expect(filteredComparisonModels({ ...feed, models }, [], { ...INITIAL_COMPARISON_UI_STATE, sort: { key: 'creator', direction: 'asc' } }).map(m => m.id)).toEqual(['anthropic', 'openai']);
 });
+
+ it('keeps benchmarked models visible when optional route modalities are unknown', () => {
+    const model = comparisonModel({ routes: comparisonModel({}).routes.map(route => ({ ...route, input_modes: undefined, output_modes: undefined })) });
+    expect(filteredComparisonModels({ ...feed, models: [model] }, [], INITIAL_COMPARISON_UI_STATE)).toHaveLength(1);
+    expect(filteredComparisonModels({ ...feed, models: [model] }, [], { ...INITIAL_COMPARISON_UI_STATE, modes: ['image'] })).toHaveLength(0);
+});

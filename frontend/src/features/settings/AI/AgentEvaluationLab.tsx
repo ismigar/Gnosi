@@ -46,7 +46,7 @@ export function AgentEvaluationLab({ onComplete }: { onComplete?: () => void }) 
     };
     const chooser = (label: string, value: string, set: (id: string) => void) => <label>{label}<select className="gnosi-select" value={value} disabled={busy} onChange={e => { set(e.target.value); setAuthorized(false); }}><option value="">—</option>{agents.map(a => <option key={a.id} value={a.id}>{a.name} · {a.provider}/{a.model}</option>)}</select></label>;
     return <section className="ai-resource-card" style={{ margin: '16px 0', padding: '16px' }}>
-        <button className="btn-gnosi-secondary" type="button" aria-expanded={open} onClick={() => { setOpen(v => !v); }}>{t('agent_team.lab_title')}</button>
+        <button className="btn-gnosi btn-gnosi-secondary" type="button" aria-expanded={open} onClick={() => { setOpen(v => !v); }}>{t('agent_team.lab_title')}</button>
         {open && <div className="ai-resource-editor">
             <div className="flex justify-end"><RefreshButton disabled={busy} onClick={() => { setRevision(v => v + 1); }} /></div>
             <p className="settings-desc">{t('agent_team.lab_help')}</p>
@@ -57,7 +57,7 @@ export function AgentEvaluationLab({ onComplete }: { onComplete?: () => void }) 
                 {chooser(t('agent_team.lab_executor'), executor, setExecutor)}
             </>}
             <div className="flex gap-2"><span>{t('agent_team.lab_authorize')}</span><GnosiToggle label={t('agent_team.lab_authorize')} active={authorized} onChange={() => { setAuthorized(v => !v); }} disabled={busy} /></div>
-            <button className="btn-gnosi-primary" type="button" disabled={busy || !authorized || !agents.some(a => a.id === agent) || (kind === 'strategies' && (!agents.some(a => a.id === director) || !agents.some(a => a.id === executor)))} onClick={() => { void run(); }}>{t(busy ? 'agent_team.lab_running' : 'agent_team.lab_run')}</button>
+            <button className="btn-gnosi btn-gnosi-primary" type="button" disabled={busy || !authorized || !agents.some(a => a.id === agent) || (kind === 'strategies' && (!agents.some(a => a.id === director) || !agents.some(a => a.id === executor)))} onClick={() => { void run(); }}>{t(busy ? 'agent_team.lab_running' : 'agent_team.lab_run')}</button>
             {error && <p role="alert">{t(error)}</p>}
             <p className="settings-desc">{t('agent_team.lab_limitations')}</p>
             {reports.slice(0, 10).map(report => <article className="ai-resource-card" key={report.id}>
