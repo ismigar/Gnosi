@@ -238,3 +238,21 @@ it('shows uncertainty rather than a compatible director when the offer has unkno
     expect(summary?.textContent).toContain('agent_team.insufficient_data');
     expect(summary?.textContent).not.toContain('85%');
 });
+
+it('orders usage summaries and details from director to worker like the profile selector', () => {
+    const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+    const base = FEED.models[0];
+    if (!base || !base.routes[0]) throw new Error('Missing fixture');
+    const roles = ['worker', 'documentalist', 'director', 'administrative', 'allrounder', 'expert'] as const;
+    const expected = ['director', 'expert', 'allrounder', 'documentalist', 'administrative', 'worker'];
+    mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{
+        ...base, routes: [{ ...base.routes[0], tool_call: true }],
+        role_assessments: roles.map(role => ({ role, status: 'catalog_compatible', score: 85, coverage: 100 })),
+    }] } } });
+    act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+    const summary = container.querySelector<HTMLButtonElement>('.model-role-assessments > .model-details-trigger');
+    expect(summary?.textContent).toBe(expected.map(role => `model_comparison.profiles.${role} · 85%`).join(', '));
+    act(() => { summary?.click(); });
+    expect([...container.querySelectorAll('.model-role-assessments__body p > strong')].map(element => element.textContent))
+        .toEqual(expected.map(role => `model_comparison.profiles.${role}`));
+});

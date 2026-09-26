@@ -17,6 +17,7 @@ import type {
     AiModelRegistryEntry,
 } from '../../shared/api/ai';
 import {
+    COMPARISON_PROFILE_KEYS,
     formatComparisonContext,
     formatComparisonCost,
     formatComparisonMetric,
@@ -119,7 +120,9 @@ export function ModelComparisonRow({
 
     const parameters = modelParameterMetadata(model);
     const disclosure = modelParameterDisclosure(model);
-    const assessments = (model.role_assessments ?? []).filter(r => selectedProfile === 'all' || selectedProfile === 'unrated' || r.role === selectedProfile);
+    const assessments = (model.role_assessments ?? [])
+        .filter(r => selectedProfile === 'all' || selectedProfile === 'unrated' || r.role === selectedProfile)
+        .sort((first, second) => COMPARISON_PROFILE_KEYS.indexOf(first.role) - COMPARISON_PROFILE_KEYS.indexOf(second.role));
     const renderCell = (key: ComparisonColumn['key']): ReactNode => {
         switch (key) {
             case 'name': return <><strong title={model.name}>{model.name}</strong><small>{model.release_date || '—'}</small>{relatedBenchmarks.length > 1 && <ComparisonDetails summary={t('model_comparison.setup.shared_offer_label')}>{() => <p>{t('model_comparison.setup.shared_offer_help', { models: relatedBenchmarks.join(', ') })}</p>}</ComparisonDetails>}{onSaveAlias && activeEntries.map(entry => <ModelAliasField key={`${entry.provider}:${entry.model_id}`} entry={entry} onSave={onSaveAlias} disabled={isBusy} />)}</>;

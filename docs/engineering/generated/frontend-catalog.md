@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2655 | 0 |
-| `features` | 1130 | 127178 | 32 |
+| `features` | 1130 | 127181 | 32 |
 | `generated` | 2 | 48074 | 494 |
 | `shared` | 264 | 31384 | 425 |
 
@@ -558,7 +558,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/ComparisonLabel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ComparisonLabel.tsx) | 6 | `ComparisonLabel` | — |
 | [`frontend/src/features/settings/GlobalSettingsModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/GlobalSettingsModal.tsx) | 12 | `GlobalSettingsModal` | — |
 | [`frontend/src/features/settings/ModelAliasField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelAliasField.tsx) | 33 | `ModelAliasField` | — |
-| [`frontend/src/features/settings/ModelComparisonRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonRow.tsx) | 243 | `ModelComparisonRow` | — |
+| [`frontend/src/features/settings/ModelComparisonRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonRow.tsx) | 246 | `ModelComparisonRow` | — |
 | [`frontend/src/features/settings/ModelComparisonSetupPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonSetupPanel.tsx) | 252 | `ModelComparisonSetupPanel` | — |
 | [`frontend/src/features/settings/ModelComparisonStatus.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonStatus.tsx) | 179 | `ModelComparisonStatus` | — |
 | [`frontend/src/features/settings/ModelComparisonTable.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonTable.tsx) | 218 | `ModelComparisonTable` | — |
