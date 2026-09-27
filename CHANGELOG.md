@@ -6,7 +6,7 @@ _2026-09-27 · Release candidate_
 
 ### Highlights
 
-- Configure assistant teams with a director, specialist roles and economical delegation, and select an assistant for a single turn with its command.
+- Configure bots and profiles in one list, choose the primary assistant on its card, and set how each participates in the team. Select an assistant for a single turn with its command.
 - Compare provider-specific prices, context windows and capabilities, inspect role suitability and run explicitly authorized synthetic evaluations.
 - Browse and search workspace templates with localized previews, and inspect included files and possible sensitive content before sharing.
 
@@ -16,12 +16,14 @@ _2026-09-27 · Release candidate_
 - Navigate dialogs, settings, tables and lists more consistently with the keyboard and clearer focus indicators.
 - Create resources with visible progress, type-specific templates and automatic covers.
 - Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.
+- Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.
 
 ### Fixes
 
 - Open attached documents in the internal reader with the PDF resources included in desktop builds.
 - Distinguish unknown model prices and capabilities from confirmed values when comparing offers.
 - Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.
+- Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.
 
 ## Gnosi 3.1.0
 

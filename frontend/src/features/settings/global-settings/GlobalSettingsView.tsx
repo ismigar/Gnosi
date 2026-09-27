@@ -84,7 +84,12 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
           <SettingsSidebar context={context} />
 
           {/* CONTENT AREA */}
-          <main ref={mainRef} className="settings-main gnosi-modal-scroll">
+          <main ref={mainRef} className="settings-main gnosi-modal-scroll" tabIndex={0} onPointerDown={event => {
+            const target = event.target;
+            if (event.button !== 0 || !(target instanceof Element)) return;
+            if (target.closest('button, a[href], input, textarea, select, label, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="switch"], [role="checkbox"], [role="combobox"], [role="listbox"], [role="tablist"], [role="tree"], [role="grid"], [role="slider"], [role="spinbutton"], [role="radio"]')) return;
+            event.currentTarget.focus({ preventScroll: true });
+          }}>
             <div className="settings-content-wrap">
               {activeTab === 'ai' && profileOrigin ? <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBottom: 16 }} onClick={backToOrigin}>{t('common.back')}</button> : pluginForSettingsTab(activeTab) && (
                 <SettingsBackButton onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />

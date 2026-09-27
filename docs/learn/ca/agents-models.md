@@ -1,6 +1,6 @@
-# Configura l’assistent i els seus perfils
+# Configura els bots i perfils
 
-El perfil predeterminat s’utilitza en converses noves i en accions de l’app. Cada conversa pot triar un altre perfil sense afectar les altres.
+Tots els bots i perfils apareixen en una sola llista. Només un és el principal: s’utilitza per defecte en converses noves i coordina l’equip. Les accions dels plugins continuen utilitzant els seus perfils.
 
 ## Abans de començar {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activa la funció d’IA. Un proveïdor al núvol necessita credencials vàlides
 
 1. Obre la configuració de models i proveïdors i configura un proveïdor compatible o un servei local. Desa les credencials a Configuració i selecciona un model disponible.
 
-2. Obre Configuració → Plugins → IA → Assistent i prem **Configura l’assistent**. Tria el model, posa nom al perfil i assigna-li les habilitats necessàries.
+2. Obre Configuració → Plugins → IA → Assistents. Prem **Crea el primer assistent** si la llista és buida, o **Crea un perfil** per afegir-ne un. Tria el model, posa nom al perfil i assigna-li les habilitats necessàries.
 
 3. Obre el xat i comprova l’agent i el model seleccionats. Fes una pregunta curta per verificar la connexió.
 
@@ -22,7 +22,7 @@ Activa la funció d’IA. Un proveïdor al núvol necessita credencials vàlides
 
 ### Perfils i converses
 
-Crea perfils des de **Perfils addicionals (avançat)**. Al xat, obre el selector del nom de l’assistent i tria el **Perfil de la conversa**. El canvi s’aplica a les peticions següents i conserva l’historial. Cada conversa recorda el seu perfil. **Fes servir per defecte**, a Configuració, estableix el perfil per a converses noves; no canvia els xats existents.
+Cada fitxa té una roda de configuració i, si no és el principal, **Fes-lo principal**. Triar-ne un altre conserva els bots i les seves configuracions; el nou principal assumeix la coordinació de l’equip. Les converses existents conserven el seu perfil. Al xat, el selector **Perfil de la conversa** permet canviar-lo per a les peticions següents sense perdre l’historial ni afectar les altres converses.
 
 ### Un únic model per perfil
 
@@ -43,20 +43,28 @@ Un model pot conversar sense admetre eines. Davant errors d’autenticació, tem
 
 ## Perfils dels plugins
 
-Cada plugin d’IA declara un perfil editable i les habilitats que utilitzen les seves accions. Configuració → IA → Assistent mostra els perfils dels plugins separats dels personals. Hi pots editar l’únic model, les instruccions, les fonts i les habilitats assignades. Els perfils inicials copien només el model predeterminat actual; les actualitzacions preserven les edicions. Desactivar un plugin suspèn el seu perfil sense eliminar la configuració. Si falta el model o una habilitat necessària, l’acció falla explícitament sense recórrer al perfil personal. Les accions independents noves i les habilitats programades utilitzen el perfil del plugin; els treballs iniciats conserven la seva instantània. El perfil triat manualment en una conversa continua governant aquella conversa.
+Cada plugin d’IA té un perfil editable a la mateixa llista que els perfils personals, amb el nom del plugin que l’utilitza. Pots canviar-ne el model, les instruccions, les fonts i les habilitats, i triar-lo explícitament com a principal. Això no canvia quin perfil utilitzen les accions del plugin. Desactivar el plugin suspèn el seu bot i en conserva la configuració. Si falta el model o una habilitat necessària, l’acció ho indica sense substituir el perfil. Les execucions ja iniciades mantenen la configuració amb què van començar.
 
-## Directiu i equip d’especialistes
+## Principal i participació en l’equip
 
-A **Organitza l’equip**, tria qui coordina (el Directiu). Cada assistent apareix una sola vegada, amb un selector de **Participació en l’equip**:
+El principal forma part de la mateixa llista i coordina l’equip quan hi ha bots que reben encàrrecs. A la fitxa de cadascun dels altres bots, **Participació en l’equip** permet triar:
 
 - **Treballa pel seu compte**: fa les seves tasques amb el seu model i habilitats.
-- **Rep encàrrecs de l’equip**: el Directiu li pot assignar feina.
-- **Demana ajuda a l’equip**: pot demanar al Directiu que mobilitzi l’equip.
+- **Rep encàrrecs de l’equip**: el principal li pot assignar feina.
+- **Demana ajuda a l’equip**: pot demanar al principal que mobilitzi l’equip.
 - **Rep encàrrecs i demana ajuda**: combina les dues funcions.
 
-La icona de configuració de la mateixa fitxa permet editar el model, les instruccions, les fonts i les habilitats. Les especialitats s’obren dins la fitxa, a **Especialitats dins l’equip (avançat)**. Les assignacions per tasca i els especialistes temporals són opcionals i queden plegats en un apartat avançat. Prem **Aplica l’equip** per desar la participació; **Cancel·la** descarta aquests canvis. Els permisos existents es representen amb el selector sense ampliar-los automàticament. Es conserven els models, les instruccions i les altres habilitats; només s’afegeix la coordinació al Directiu. Les accions dels assistents dels plugins continuen pertanyent al seu plugin.
+La roda de configuració de cada fitxa obre el model, les instruccions, les fonts i les habilitats. Les especialitats es trien dins la mateixa fitxa. Les assignacions per tasca i els especialistes temporals són opcionals i s’obren a l’apartat avançat.
 
-Les rutes directes associen operacions conegudes a una llista d’executors. El servidor comprova disponibilitat, habilitats, context i límits abans de comparar el cost estimat de l’encàrrec. El cost desconegut es tracta com a desconegut. Una ruta directa evita la crida al Directiu; una petició ambigua requereix un pla. Un resultat vàlid es lliura sense una revisió automàtica del Directiu.
+Les seleccions completes es desen automàticament. Si falten destinataris o permisos dels temporals, s’indica què queda pendent; tancar el formulari conserva l’última configuració completa. Retirar l’últim bot que rep encàrrecs desactiva la col·laboració. No cal tornar a activar els mateixos bots en un altre apartat. Només s’afegeix al principal l’habilitat de coordinació quan hi ha col·laboració.
+
+Obre un tipus de tasca i marca un o diversos bots. Sense selecció, ho coordina el principal; si no hi ha destinataris, es mostra com afegir-los. Els models i les habilitats dels temporals també admeten diverses seleccions, amb un interruptor per opció. Són permisos disponibles, no tasques que s’executin totes alhora.
+
+Amb el focus en el text o en un interruptor, les fletxes amunt/avall i les tecles de pàgina desplacen el formulari. Els camps de text i els desplegables conserven les seves tecles d’edició i selecció.
+
+
+
+Les rutes directes associen operacions conegudes a una llista d’executors. El servidor comprova disponibilitat, habilitats, context i límits abans de comparar el cost estimat de l’encàrrec. El cost desconegut es tracta com a desconegut. Una ruta directa evita la crida al principal; una petició ambigua requereix un pla. Un resultat vàlid es lliura sense una revisió automàtica del principal.
 
 El pla té un màxim de quatre encàrrecs, dos especialistes temporals i dos encàrrecs de lectura simultanis. Les accions amb modificacions són seqüencials. Les operacions estructurades tenen vuit crides totals com a màxim, dins del pressupost del treball original. La reparació de format té un únic intent i no repeteix les accions. Només es replanteja automàticament treball de lectura; els efectes incerts requereixen revisió.
 
@@ -66,7 +74,7 @@ Les confirmacions identifiquen l’executor. Aprovar una acció no autoritza alt
 
 El catàleg mostra valoracions independents per a Directiu, Tot terreny, Documentalista, Perit, Administratiu i Peó, amb evidències i proves pendents. La compatibilitat declarada no certifica la qualitat del català, les cites ni l’economia de delegació. Les etiquetes antigues es mantenen per compatibilitat, però no decideixen l’executor. Les proves automàtiques utilitzen proveïdors simulats; no executen avaluacions de pagament. Cal comparar qualitat i cost total sobre els mateixos casos abans d’ampliar les rutes.
 
-A la configuració de cada agent, el camp opcional **Comanda** permet assignar una comanda única, com `/traductor`. Escriu `/traductor Tradueix aquest text…` al xat per enviar aquell torn directament a l’agent, amb el seu model, instruccions i habilitats, sense passar pel Directiu. La selecció habitual de la conversa no canvia. Les comandes no amplien els permisos i els agents desactivats no es poden invocar. Fes servir una lletra inicial i fins a 32 lletres sense accents, dígits, guions o guions baixos després de `/`; no es distingeixen majúscules i minúscules.
+A la configuració de cada agent, el camp opcional **Comanda** permet assignar una comanda única, com `/traductor`. Escriu `/traductor Tradueix aquest text…` al xat per enviar aquell torn directament a l’agent, amb el seu model, instruccions i habilitats, sense passar pel principal. La selecció habitual de la conversa no canvia. Les comandes no amplien els permisos i els agents desactivats no es poden invocar. Fes servir una lletra inicial i fins a 32 lletres sense accents, dígits, guions o guions baixos després de `/`; no es distingeixen majúscules i minúscules.
 
 ## Valoració dels perfils i dades pendents
 

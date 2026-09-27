@@ -1,6 +1,6 @@
-# Configura el asistente y sus perfiles
+# Configura los bots y perfiles
 
-El perfil predeterminado se usa en conversaciones nuevas y acciones de la app. Cada conversación puede elegir otro perfil sin afectar a las demás.
+Todos los bots y perfiles aparecen en una sola lista. Solo uno es el principal: se utiliza por defecto en conversaciones nuevas y coordina al equipo. Las acciones de los plugins siguen utilizando sus propios perfiles.
 
 ## Antes de empezar {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 1. Abre los ajustes de modelos y proveedores y configura uno compatible o un servicio local. Guarda las credenciales en Configuración y selecciona un modelo disponible.
 
-2. Abre Configuración → Plugins → IA → Asistente y pulsa **Configurar asistente**. Elige el modelo, pon nombre al perfil y asígnale las habilidades necesarias.
+2. Abre Configuración → Plugins → IA → Asistentes. Pulsa **Crear el primer asistente** si la lista está vacía, o **Crear perfil** para añadir uno. Elige el modelo, pon nombre al perfil y asigna las habilidades necesarias.
 
 3. Abre el chat y comprueba agente y modelo. Haz una pregunta corta para verificar la conexión.
 
@@ -22,7 +22,7 @@ Activa la función de IA. Un proveedor en la nube necesita credenciales válidas
 
 ### Perfiles y conversaciones
 
-Crea perfiles en **Perfiles adicionales (avanzado)**. En el chat, abre el selector junto al nombre del asistente y elige el **Perfil de la conversación**. El cambio se aplica a las peticiones siguientes y conserva el historial. Cada conversación recuerda su perfil. **Usar por defecto**, en Configuración, establece el perfil para conversaciones nuevas y acciones de la app; no cambia los chats existentes.
+Cada ficha tiene una rueda de configuración y, si no es el principal, **Hacer principal**. Elegir otro conserva los bots y sus configuraciones; el nuevo principal asume la coordinación del equipo. Las conversaciones existentes mantienen su perfil. En el chat, el selector **Perfil de la conversación** permite cambiarlo para las peticiones siguientes sin perder el historial ni afectar a otras conversaciones.
 
 ### Un único modelo por perfil
 
@@ -43,20 +43,28 @@ Un modelo puede conversar sin admitir herramientas. Ante errores de autenticaci�
 
 ## Perfiles de los plugins
 
-Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus acciones. Configuración → IA → Asistente muestra los perfiles de plugins separados de los personales. Puedes editar el único modelo, las instrucciones, las fuentes y las habilidades asignadas. Los perfiles iniciales copian solo el modelo predeterminado actual; las actualizaciones preservan las ediciones. Desactivar un plugin suspende su perfil sin eliminar la configuración. Si falta el modelo o una habilidad necesaria, la acción falla explícitamente sin recurrir al perfil personal. Las acciones independientes nuevas y las habilidades programadas utilizan el perfil del plugin; los trabajos iniciados conservan su instantánea. El perfil elegido manualmente en una conversación sigue gobernando esa conversación.
+Cada plugin de IA tiene un perfil editable en la misma lista que los personales, con el nombre del plugin que lo utiliza. Puedes editar el modelo, las instrucciones, las fuentes y las habilidades, y elegirlo explícitamente como principal. Esto no cambia qué perfil utilizan las acciones del plugin. Desactivar el plugin suspende su bot y conserva la configuración. Si falta el modelo o una habilidad necesaria, la acción lo indica sin sustituir el perfil. Las ejecuciones iniciadas mantienen la configuración con la que comenzaron.
 
-## Directivo y equipo de especialistas
+## Principal y participación en el equipo
 
-En **Organiza el equipo**, elige quién coordina (el Directivo). Cada asistente aparece una sola vez, con un selector de **Participación en el equipo**:
+El principal forma parte de la misma lista y coordina al equipo cuando hay otros bots que reciben encargos. En la ficha de los demás bots, **Participación en el equipo** permite elegir:
 
 - **Trabaja por su cuenta**: realiza sus tareas con su modelo y habilidades.
-- **Recibe encargos del equipo**: el Directivo puede asignarle trabajo.
-- **Pide ayuda al equipo**: puede pedir al Directivo que movilice al equipo.
+- **Recibe encargos del equipo**: el principal puede asignarle trabajo.
+- **Pide ayuda al equipo**: puede pedir al principal que movilice al equipo.
 - **Recibe encargos y pide ayuda**: combina ambas funciones.
 
-La configuración de la misma ficha permite editar el modelo, las instrucciones, las fuentes y las habilidades. Las especialidades se abren dentro de la ficha, en **Especialidades dentro del equipo (avanzado)**. Las asignaciones por tarea y los especialistas temporales son opcionales y quedan plegados en un apartado avanzado. Pulsa **Aplicar equipo** para guardar la participación; **Cancelar** descarta esos cambios. Los permisos existentes se representan mediante el selector sin ampliarlos automáticamente. Se conservan los modelos, las instrucciones y las demás habilidades; solo se añade la coordinación al Directivo. Las acciones de los asistentes de plugins siguen perteneciendo a su plugin.
+La rueda de configuración de cada ficha abre el modelo, las instrucciones, las fuentes y las habilidades. Las especialidades se eligen en la misma ficha. Las asignaciones por tarea y los especialistas temporales son opcionales y se abren en el apartado avanzado.
 
-Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al Directivo; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del Directivo.
+Las selecciones completas se guardan automáticamente. Si faltan destinatarios o permisos de temporales, se indica qué queda pendiente; cerrar conserva la última configuración completa. Retirar al último bot que recibe encargos desactiva la colaboración. No hay que volver a activar los mismos bots en otro apartado. Solo se añade al principal la habilidad de coordinación cuando hay colaboración.
+
+Abre un tipo de tarea y marca uno o varios bots. Sin selección, lo coordina el principal; si no hay destinatarios, se explica cómo añadirlos. Los modelos y habilidades de temporales también admiten varias selecciones, con un interruptor por opción. Son permisos disponibles, no tareas que se ejecuten todas a la vez.
+
+Con el foco en el texto o en un interruptor, las flechas arriba/abajo y las teclas de página desplazan el formulario. Los campos de texto y desplegables conservan sus teclas de edición y selección.
+
+
+
+Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al principal; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del principal.
 
 Se permiten cuatro encargos, dos especialistas temporales y dos trabajos de lectura simultáneos. Las modificaciones se ejecutan secuencialmente. Las operaciones estructuradas admiten ocho llamadas totales dentro del presupuesto original. La reparación de formato tiene un intento y no repite acciones. Solo el trabajo de lectura se replantea automáticamente; los efectos inciertos requieren revisión.
 
@@ -66,7 +74,7 @@ Las confirmaciones identifican al ejecutor y no autorizan acciones adicionales. 
 
 El catálogo muestra valoraciones independientes para Directivo, Todoterreno, Documentalista, Perito, Administrativo y Peón, con evidencias y pruebas pendientes. La compatibilidad declarada no certifica el catalán, las citas ni el coste de delegación. Las etiquetas antiguas se conservan por compatibilidad, sin decidir ejecutores. Las pruebas automáticas usan proveedores simulados y no realizan evaluaciones de pago. Compara calidad y coste total con los mismos casos antes de ampliar las rutas.
 
-El campo opcional **Comando** de cada agente permite asignar un comando único, como `/traductor`. Escribe `/traductor Traduce este texto…` en el chat para enviar ese turno directamente al agente, con su modelo, instrucciones y habilidades, sin pasar por el Directivo. La selección habitual de la conversación no cambia. Los comandos no amplían los permisos y no permiten invocar agentes desactivados. Usa una letra inicial y hasta 32 letras sin acentos, dígitos, guiones o guiones bajos después de `/`; no se distinguen mayúsculas y minúsculas.
+El campo opcional **Comando** de cada agente permite asignar un comando único, como `/traductor`. Escribe `/traductor Traduce este texto…` en el chat para enviar ese turno directamente al agente, con su modelo, instrucciones y habilidades, sin pasar por el principal. La selección habitual de la conversación no cambia. Los comandos no amplían los permisos y no permiten invocar agentes desactivados. Usa una letra inicial y hasta 32 letras sin acentos, dígitos, guiones o guiones bajos después de `/`; no se distinguen mayúsculas y minúsculas.
 
 ## Valoración de perfiles y datos pendientes
 

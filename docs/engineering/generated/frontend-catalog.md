@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2655 | 0 |
-| `features` | 1131 | 127236 | 32 |
+| `features` | 1132 | 127251 | 32 |
 | `generated` | 2 | 48074 | 494 |
-| `shared` | 264 | 31384 | 425 |
+| `shared` | 264 | 31400 | 425 |
 
 ## app
 
@@ -572,15 +572,16 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/AccountsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountsPanel.tsx) | 286 | `AccountsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AgentIconSelect.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentIconSelect.tsx) | 185 | `AgentIconSelect` | — |
 | [`frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentModelStrategyFields.tsx) | 63 | `AgentModelStrategyFields` | — |
+| [`frontend/src/features/settings/global-settings/AgentTeamChoices.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamChoices.tsx) | 19 | `AgentTeamChoices` | — |
 | [`frontend/src/features/settings/global-settings/AgentTeamParticipation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamParticipation.tsx) | 42 | `AgentTeamParticipation` | — |
-| [`frontend/src/features/settings/global-settings/AgentTeamSetup.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamSetup.tsx) | 109 | `AgentTeamSetup` | — |
-| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 219 | `AgentsPanel` | — |
+| [`frontend/src/features/settings/global-settings/AgentTeamSetup.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamSetup.tsx) | 128 | `AgentTeamSetup` | — |
+| [`frontend/src/features/settings/global-settings/AgentsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.tsx) | 191 | `AgentsPanel` | — |
 | [`frontend/src/features/settings/global-settings/AiPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.tsx) | 106 | `AiPanel` | — |
 | [`frontend/src/features/settings/global-settings/AliasEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AliasEditor.tsx) | 74 | `AliasEditor` | — |
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 75 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 87 | `GeneralPanel` | — |
-| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 271 | `GlobalSettingsView` | — |
+| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 276 | `GlobalSettingsView` | — |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
 | [`frontend/src/features/settings/global-settings/GraphPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphPanel.tsx) | 82 | `GraphPanel` | — |
@@ -1225,7 +1226,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/shared/ai/agentTeams.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/agentTeams.ts) | 27 | `EMPTY_TEAM`, `TEAM_OPERATIONS`, `TEAM_ROLES`, `TEAM_SKILL`, `normalizedTeam`, `withTeam` | — |
+| [`frontend/src/shared/ai/agentTeams.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/agentTeams.ts) | 40 | `EMPTY_TEAM`, `TEAM_OPERATIONS`, `TEAM_ROLES`, `TEAM_SKILL`, `changeTeamPrincipal`, `normalizedTeam`, `withTeam` | — |
 | [`frontend/src/shared/ai/assistantProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.ts) | 60 | `modelRecommendationLabel`, `principalAssistant`, `profileDisplayName`, `profileModelLabel`, `profilesByDisplayName` | — |
 | [`frontend/src/shared/ai/executionUsage.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/executionUsage.ts) | 21 | `executionUsage` | — |
 | [`frontend/src/shared/ai/modelDisplayName.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/modelDisplayName.ts) | 8 | `modelDisplayName` | — |
@@ -1391,7 +1392,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/graph/viewer/useGraphViewerData.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/useGraphViewerData.ts) | 92 | `useGraphViewerData`, `useGraphViewerPhysics` | — |
 | [`frontend/src/shared/graph/viewer/useGraphViewerRenderer.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/graph/viewer/useGraphViewerRenderer.ts) | 93 | `useGraphViewerRenderer` | — |
 | [`frontend/src/shared/help/helpLinks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/help/helpLinks.ts) | 25 | `contextualHelpTopic`, `helpLocale`, `helpUrl` | — |
-| [`frontend/src/shared/hooks/keyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/keyboardScroll.ts) | 13 | `canKeyboardScroll` | — |
+| [`frontend/src/shared/hooks/keyboardScroll.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/keyboardScroll.ts) | 16 | `canKeyboardScroll` | — |
 | [`frontend/src/shared/hooks/useActiveVaultId.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultId.ts) | 12 | `useActiveVaultId` | — |
 | [`frontend/src/shared/hooks/useActiveVaultName.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useActiveVaultName.ts) | 43 | `useActiveVaultName` | — |
 | [`frontend/src/shared/hooks/useExclusiveFloatingPanel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/hooks/useExclusiveFloatingPanel.ts) | 35 | `announceFloatingPanelOpen`, `useExclusiveFloatingPanel` | — |
