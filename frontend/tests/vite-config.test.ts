@@ -223,7 +223,7 @@ it('blocks raw frontend builds and incomplete outputs when PDF runtime assets ar
   const publicDir = join(temporaryDirectory, 'public');
   const outDir = join(temporaryDirectory, 'dist');
   Reflect.apply(configResolved, plugin, [{ root: temporaryDirectory, publicDir, build: { outDir } }]);
-  expect(() => Reflect.apply(buildStart, plugin, [])).toThrow(/build-zotero-reader.sh/);
+  expect(() => { Reflect.apply(buildStart, plugin, []); }).toThrow(/build-zotero-reader.sh/);
   for (const file of ['host.html', 'reader.js', 'reader.css', 'pdf/build/pdf.mjs',
     'pdf/build/pdf.worker.mjs', 'pdf/web/viewer.html', 'pdf/web/viewer.css',
     'locales/en-US/zotero.ftl', 'locales/en-US/reader.ftl']) {
@@ -231,8 +231,8 @@ it('blocks raw frontend builds and incomplete outputs when PDF runtime assets ar
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, 'fixture');
   }
-  expect(() => Reflect.apply(buildStart, plugin, [])).not.toThrow();
-  expect(() => Reflect.apply(writeBundle, plugin, [])).toThrow(/host.html/);
+  expect(() => { Reflect.apply(buildStart, plugin, []); }).not.toThrow();
+  expect(() => { Reflect.apply(writeBundle, plugin, []); }).toThrow(/host.html/);
   cpSync(publicDir, outDir, { recursive: true });
-  expect(() => Reflect.apply(writeBundle, plugin, [])).not.toThrow();
+  expect(() => { Reflect.apply(writeBundle, plugin, []); }).not.toThrow();
 });
