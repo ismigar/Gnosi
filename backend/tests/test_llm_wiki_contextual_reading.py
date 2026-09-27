@@ -266,3 +266,47 @@ def test_directed_reading_checkpoint_resumes_without_duplicate_notes():
     result, _ = reader.run()
     assert len(result["notes"]) == 2
     assert checkpoints[("resumed", "agent-state")]["plans"]
+
+
+def test_directed_reading_keeps_saved_plans_when_the_first_resumed_call_fails():
+    def generate(request):
+        if request["saved_plan_count"]:
+            raise RuntimeError("provider unavailable")
+        chunk = reader.chunks[0]
+        return {"action": "save_plan", "arguments": {
+            "chunk_id": chunk["id"], "plan": note_answer({"primary_segments": chunk["segments"]}),
+        }}
+
+    reader, _, checkpoints = setup_reader(generate=generate)
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 10
+    for current, previous in [("current", ""), ("resumed", "current"), ("resumed-again", "resumed")]:
+        reader.job_id, reader.resume_job_id = current, previous
+        with pytest.raises(RuntimeError, match="provider unavailable"):
+            reader.run()
+        assert len(checkpoints[(current, "agent-state")]["plans"]) == 1
+
+
+def test_directed_large_source_is_delivered_in_full_with_a_longer_timeout():
+    from backend.domains.llm_wiki import recovery
+    calls = []
+    def generate(prompt, **kwargs):
+        calls.append((json.loads(prompt), kwargs["timeout"]))
+        raise ValueError("stop after inspecting request")
+
+    reader, _, _ = setup_reader()
+    reader.dependencies.input_budget = 750_000
+    reader.dependencies.generate_text = generate
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    original = "Long source evidence. " * 16_000
+    reader.origins = [finalize_origin({"kind": "text", "label": "Long source", "input_order": 0,
+        "segments": [{"text": original, "locator": {}}]})]
+    reader.chunks = reading_chunks(reader.origins, budget=reader.budget // 5, count=token_bound)
+    with pytest.raises(ValueError, match="stop after inspecting request"):
+        reader.run()
+    request, timeout = calls[0]
+    assert request["last_result"]["delivery"] == "complete"
+    assert "".join(segment["text"] for chunk in request["last_result"]["sources"]
+                   for segment in chunk["segments"]) == original.strip()
+    assert timeout == recovery.LONG_REQUEST_TIMEOUT_SECONDS

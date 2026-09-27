@@ -157,6 +157,35 @@ def test_slow_calls_share_an_overall_deadline(clock: Clock) -> None:
     assert clock.now == 360
 
 
+def test_long_source_can_complete_after_the_short_request_timeout(clock: Clock) -> None:
+    def call(timeout: int) -> str:
+        assert timeout == recovery.LONG_REQUEST_TIMEOUT_SECONDS
+        clock.now += 300
+        return "complete source processed"
+
+    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), input_bytes=356_022) == "complete source processed"
+
+
+def test_long_source_retry_budget_is_finite_and_allows_two_full_attempts(clock: Clock) -> None:
+    timeouts = []
+    def call(timeout: int) -> str:
+        timeouts.append(timeout)
+        clock.now += timeout
+        raise TimeoutError()
+
+    with pytest.raises(TimeoutError):
+        recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), input_bytes=356_022)
+    assert timeouts[:2] == [900, 900]
+    assert clock.now == 2 * recovery.LONG_REQUEST_TIMEOUT_SECONDS + recovery.MAX_WAIT_SECONDS
+
+
+def test_long_source_retry_returns_without_repeating_successful_work(clock: Clock) -> None:
+    call = Mock(side_effect=[httpx.ReadTimeout(""), "recovered"])
+    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), input_bytes=356_022) == "recovered"
+    assert call.call_args_list[0].args == call.call_args_list[1].args == (900,)
+    assert clock.waits == [5]
+
+
 @pytest.mark.parametrize("error", [
     provider_error(401), provider_error(403), provider_error(400),
     provider_error(code="insufficient_quota"),
@@ -374,7 +403,11 @@ def test_failed_resume_carries_reused_fragments_into_the_next_job(monkeypatch, c
 
 
 @pytest.mark.parametrize("force", [False, True])
-def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force) -> None:
+@pytest.mark.parametrize("failure,expected_error", [
+    (provider_error(), "Rate limit"),
+    (TimeoutError(), recovery.PROVIDER_TIMEOUT_MESSAGE),
+])
+def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, tmp_path, force, failure, expected_error) -> None:
     _run, _apply, _chunks = ingest
     from backend.services import agent_execution, agent_execution_store
     from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
@@ -392,7 +425,7 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     monkeypatch.setattr(llm_wiki, "threading", SimpleNamespace(Thread=InlineThread))
     assert threading.Thread is not InlineThread
     monkeypatch.setattr("backend.services.context_vars.get_active_vault_path", lambda: None)
-    generate = Mock(side_effect=[answer("one"), *[provider_error() for _ in range(5)]])
+    generate = Mock(side_effect=[answer("one"), *[failure for _ in range(5)]])
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     kwargs = dict(
         source_table_id="sources", source_table={"id": "sources"},
@@ -403,9 +436,19 @@ def test_worker_resumes_a_failed_job_unless_forced(monkeypatch, clock, ingest, t
     assert status["phase"] == "partial"
     assert status["running"] is False
     assert status["progress"] == 37
-    assert "Rate limit" in status["error"]
+    assert expected_error in status["error"]
     generate = Mock(side_effect=[answer("one"), answer("two")])
     monkeypatch.setattr("backend.services.llm_wiki_generation.generate_text", generate)
     second = llm_wiki.start_ingest("resource", "Book", {}, "", "brain", tmp_path, force=force, **kwargs)
     assert generate.call_count == (2 if force else 1)
     assert llm_wiki_storage.get_job_status(str(second["job_id"]))["phase"] == "done"
+
+
+@pytest.mark.parametrize("error,expected", [
+    (TimeoutError(), recovery.PROVIDER_TIMEOUT_MESSAGE),
+    (httpx.ReadTimeout(""), recovery.PROVIDER_TIMEOUT_MESSAGE),
+    (RuntimeError(), "RuntimeError"),
+    (ValueError("No readable source"), "No readable source"),
+])
+def test_processing_errors_always_explain_the_failure(error, expected):
+    assert recovery.processing_error_message(error) == expected

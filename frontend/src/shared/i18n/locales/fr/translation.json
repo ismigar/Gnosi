@@ -6389,6 +6389,7 @@
     "created": "Créées",
     "updated": "Enrichies",
     "error_generic": "Erreur lors du traitement de la ressource",
+    "error_provider_timeout": "Le fournisseur d’IA n’a pas répondu à temps. Réessayez pour reprendre la progression enregistrée.",
     "error_no_brain_table": "Aucune table du Connaissance n’est configurée. Créez-en une dans Paramètres → Extensions → LLM Wiki.",
     "running_hint": "Vous pouvez fermer ; le traitement continuera en arrière-plan.",
     "inbox_button": "Boîte",

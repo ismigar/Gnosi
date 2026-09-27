@@ -134,6 +134,23 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('ProcessResourceModal', () => {
+    it('explains provider timeouts and retries without forcing a fresh run', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            ...runningJob, running: false, phase: 'partial',
+            error: 'The AI provider did not respond in time. Retry to resume saved progress.',
+        });
+        render(<ProcessResourceModal isOpen force noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        expect(container.textContent).toContain('The AI provider did not respond in time.');
+        expect(vi.getTimerCount()).toBe(0);
+        act(() => { buttonWithText('Retry').click(); });
+        await flushProcessing();
+        expect(startResourceProcessing).toHaveBeenLastCalledWith({
+            force: false, resource_id: 'note-1', source_table_id: undefined,
+        });
+    });
+
     it('stops with a recoverable error when a tracked job disappears', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             resource_id: 'job-1', running: false, phase: 'idle', progress: 0,

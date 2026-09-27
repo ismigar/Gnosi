@@ -77,3 +77,22 @@ def test_oversized_prompt_never_reaches_provider(configured, tmp_path):
     with pytest.raises(RuntimeError, match="context budget"):
         runtime.generate("x" * (runtime.input_budget + 1))
     execute.assert_not_called()
+
+
+def test_large_model_retains_its_full_context_capacity(configured, tmp_path, monkeypatch):
+    _, _, execute = configured
+    monkeypatch.setattr("backend.domains.agent.runtime_tools._model_context_window", lambda *_: 1_048_576)
+    runtime = prepare_reading_runtime(tmp_path)
+    prompt = "Evidence from a long source. " * 13_000
+    assert runtime.input_budget > 700_000
+    runtime.generate_structured(prompt, lambda _: None, 900)
+    assert execute.call_args.args[0].input == prompt
+    assert execute.call_args.args[0].timeout_seconds == 900
+
+
+def test_structured_prompt_obeys_the_same_budget(configured, tmp_path):
+    _, _, execute = configured
+    runtime = prepare_reading_runtime(tmp_path)
+    with pytest.raises(RuntimeError, match="context budget"):
+        runtime.generate_structured("x" * (runtime.input_budget + 1), lambda _: None, 240)
+    execute.assert_not_called()

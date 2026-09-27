@@ -105,6 +105,7 @@ class ContextualReader:
                 ),
                 on_wait=lambda: self.phase("retrying"),
                 on_attempt=lambda: self.phase(display_phase),
+                input_bytes=len(prompt.encode("utf-8")),
             )
             try:
                 cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())

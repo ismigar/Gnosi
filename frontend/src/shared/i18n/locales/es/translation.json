@@ -6389,6 +6389,7 @@
     "created": "Creadas",
     "updated": "Enriquecidas",
     "error_generic": "Error procesando el recurso",
+    "error_provider_timeout": "El proveedor de IA no ha respondido a tiempo. Vuelve a intentarlo para reanudar el progreso guardado.",
     "error_no_brain_table": "No hay ninguna tabla del Conocimiento configurada. Crea una en Ajustes → Complementos → LLM Wiki.",
     "running_hint": "Puedes cerrar; continuará en segundo plano.",
     "inbox_button": "Buzón",

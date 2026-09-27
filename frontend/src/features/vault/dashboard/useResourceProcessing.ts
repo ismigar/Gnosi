@@ -3,6 +3,7 @@ import { fetchBrainTableStatus, fetchLlmWikiConfig } from '../../../shared/api/b
 import { fetchReferenceTable } from '../../../shared/api/literature-resources';
 import { fetchResourceProcessingStatus } from '../../../shared/api/resource-processing';
 import { toast } from '../../../shared/notifications/toast';
+import { resourceProcessingError } from '../../../shared/notifications/resourceProcessingError';
 import { record, readWikiConfig } from './readers';
 import type { ResourceJobs } from './types';
 import type { DashboardActions } from './useDashboardActions';
@@ -42,7 +43,7 @@ export function useResourceProcessing(context: DashboardActions) {
             void context.fetchPages();
         }
         else
-            toast.error(error || context.t('llm_wiki.error_generic', 'Error processing the resource'));
+            toast.error(resourceProcessingError(error, context.t));
     });
     useEffect(() => {
         const jobs = Object.values(backgroundLlmWikiJobs);

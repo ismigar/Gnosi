@@ -69,6 +69,8 @@ class ReadingRuntime:
 
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         from backend.services.agent_execution import run_sync
+        if self.count_tokens(prompt) > self.input_budget:
+            raise RuntimeError("The reading input exceeds the selected model's context budget")
         def checked(text: str) -> str:
             answer = json.loads(text)
             if not isinstance(answer, dict):

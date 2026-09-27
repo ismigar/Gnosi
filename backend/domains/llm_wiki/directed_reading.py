@@ -39,6 +39,9 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         import jsonschema  # type: ignore[import-untyped]
         jsonschema.validate(answer, ACTION_SCHEMA)
 
+    # Carry resumed plans into the new job before a provider call can fail.
+    checkpoint()
+
     # A per-resume execution allowance, not a prescribed intellectual sequence.
     for _ in range(deps.max_action_steps):
         request = {

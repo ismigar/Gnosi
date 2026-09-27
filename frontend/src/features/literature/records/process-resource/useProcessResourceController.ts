@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toast } from '../../../../shared/notifications/toast';
+import { resourceProcessingError } from '../../../../shared/notifications/resourceProcessingError';
 import {
     fetchResourceProcessingStatus,
     startResourceProcessing,
@@ -103,9 +104,7 @@ export function useProcessResourceController({
                 onProcessed?.();
             } else if (terminalState === 'error') {
                 stopPolling();
-                setError(nextJob.error || t('llm_wiki.error_generic', {
-                    defaultValue: 'Error processing the resource',
-                }));
+                setError(resourceProcessingError(nextJob.error, t));
                 setState('error');
             }
         } catch {
