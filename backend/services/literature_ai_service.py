@@ -1,6 +1,8 @@
 """Explicit, audited AI assistance for literature workflows."""
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import json
 import re
 import threading
@@ -45,11 +47,12 @@ def _clean_json(raw: str) -> Any:
 def _bounded_works(values: Any, limit: int = 100) -> list[dict[str, Any]]:
     works = [item for item in values if isinstance(item, dict)] if isinstance(values, list) else []
     return [{
-        "id": item.get("id"), "title": str(item.get("title") or "")[:1_000],
-        "abstract": str(item.get("abstract") or "")[:8_000], "year": item.get("year"),
+        "id": item.get("id"), "title": str(item.get("title") or ""),
+        "abstract": str(item.get("abstract") or ""), "year": item.get("year"),
+        "full_text": str(item.get("full_text") or ""),
         "authors": item.get("authors") or [], "type": item.get("type") or "other",
         "evidence_level": _evidence_level(item),
-    } for item in works[:limit]]
+    } for item in works]
 
 
 def _token_overlap_rerank(query: str, works: list[dict[str, Any]]) -> dict[str, Any]:
@@ -103,61 +106,10 @@ def _local_embedding_rerank(query: str, works: list[dict[str, Any]]) -> tuple[di
 
 def _prompt(operation: str, payload: dict[str, Any]) -> tuple[str, str, list[dict[str, Any]]]:
     works = _bounded_works(payload.get("works"), 100)
-    if operation == "query_strategy":
-        question = str(payload.get("question") or "")[:4_000]
-        framework = str(payload.get("framework") or "PICO").upper()
-        framework_instruction = (
-            "Choose transparent concept blocks; use PICO or SPIDER only when they fit the research question"
-            if framework == "AUTO"
-            else f"Use {framework} when appropriate"
-        )
-        return (
-            "You assist a human literature reviewer. Convert the question into editable concepts. "
-            f"{framework_instruction}. Include multilingual synonyms in the requested languages, but keep the "
-            "Boolean query concise, high-recall, and provider-neutral, using the question language and English "
-            "rather than combining every translated synonym. The Boolean query must require only the central "
-            "subject concept; treat requested dates, characteristics, comparisons, or criteria as screening and "
-            "analysis dimensions unless they are indispensable to identify the subject. Include spelling "
-            "variants, controlled terms, and one transparent Boolean query. Do not invent evidence. "
-            "Return only JSON with keys framework, concepts, synonyms, boolean_query, cautions.",
-            question,
-            works,
-        )
-    if operation == "translate_query":
-        return (
-            "Translate an existing Boolean literature query into the target academic source syntax. Preserve "
-            "meaning, quote phrases, explain unsupported operators, and return only JSON with keys source_id, "
-            "original_query, translated_query, warnings.",
-            json.dumps({"query": str(payload.get("query") or "")[:4_000], "source_id": str(payload.get("source_id") or "")[:100]}, ensure_ascii=False),
-            works,
-        )
-    if operation == "screen":
-        return (
-            "Suggest screening outcomes for the supplied works against the criteria. Return only JSON with "
-            "suggestions, each containing id, suggestion (include, exclude, or uncertain), rationale, confidence, "
-            "and evidence_level. Never present the suggestion as a final decision and never claim full-text review "
-            "unless evidence_level is verified_full_text.",
-            json.dumps({"criteria": payload.get("criteria") or {}, "works": works}, ensure_ascii=False),
-            works,
-        )
-    if operation == "synthesize":
-        return (
-            "Synthesize only the supplied selected works. Identify themes, contradictions, evidence gaps, and "
-            "specific next searches. Cite works by their supplied id and label evidence level. Do not claim to "
-            "have read full text when only title or abstract is supplied. Return only JSON with keys summary, "
-            "themes, contradictions, gaps, next_searches, citations.",
-            json.dumps({"question": str(payload.get("question") or "")[:4_000], "works": works}, ensure_ascii=False),
-            works,
-        )
-    if operation == "snowball":
-        return (
-            "Propose transparent backward and forward citation-search steps for the seed works. Distinguish "
-            "retrieved identifiers from suggested discovery queries. Return only JSON with backward_queries, "
-            "forward_queries, identifiers, cautions.",
-            json.dumps({"works": works}, ensure_ascii=False),
-            works,
-        )
-    raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
+    if operation not in {"query_strategy", "translate_query", "screen", "synthesize", "snowball"}:
+        raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
+    data = {**payload, "works": works}
+    return "", task_input(f"literature.{operation}", **data), works
 
 
 def run_operation(operation: str, payload: dict[str, Any], agent_id: str = "") -> dict[str, Any]:
@@ -172,11 +124,13 @@ def run_operation(operation: str, payload: dict[str, Any], agent_id: str = "") -
     system_prompt, user_message, works = _prompt(operation, payload)
     try:
         from backend.services.agent_execution import generate_result_for
-        run = generate_result_for("literature", f"{system_prompt}\n\nINPUT:\n{user_message}", user_message=user_message[:500], timeout=120, output_schema={"type": "object"})
+        run = generate_result_for("literature", user_message, timeout=120, output_schema={"type": "object"})
         raw, model = run.result, run.model
         agent_id = run.agent_id
         result = _clean_json(raw)
     except RuntimeError as exc:
+        if str(exc).startswith("agent_"):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         raise HTTPException(status_code=503, detail="No AI provider is configured. Deterministic literature search remains available.") from exc
     except (ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=502, detail="The configured AI model returned an invalid structured response.") from exc

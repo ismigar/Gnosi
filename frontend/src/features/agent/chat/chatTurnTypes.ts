@@ -7,6 +7,7 @@ import type { StreamEventContext } from './streamEventModel';
 export interface ChatTurnContext extends Omit<StreamEventContext, 'requestScope' | 'agentId' | 'turnId'> {
   readonly browserStorageScope: string;
   readonly selectedAgentId: string;
+  readonly profileId?: string;
   readonly notebookId: string;
   readonly contextRefs: NonNullable<AgentChatProps['contextRefs']>;
   readonly inputValue: string;

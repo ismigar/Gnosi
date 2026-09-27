@@ -179,7 +179,7 @@ describe('settings controller persistence contracts', () => {
     act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [...previous.ai.agents, { ...agent, id: 'other-profile', name: 'Other profile' }] } })); });
     expect(container.textContent).toContain('Fixture agent');
     expect(container.textContent).not.toContain('Other profile');
-    const advanced = container.querySelector<HTMLButtonElement>('button[aria-expanded]');
+    const advanced = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')].find(button => button.textContent.includes('assistant.advanced'));
     if (!advanced) throw new Error('Missing advanced profiles control');
     act(() => { advanced.click(); });
     expect(container.textContent).toContain('Other profile');
@@ -189,6 +189,38 @@ describe('settings controller persistence contracts', () => {
     expect(snapshot().draft.ai.active_agent_id).toBe('other-profile');
     expect(snapshot().draft.ai.agents).toHaveLength(2);
     expect(snapshot().draft.ai.agents[0]?.protected_extension).toEqual({ keep: true });
+  });
+
+  it('deletes only the confirmed additional profile and persists the principal unchanged', async () => {
+    await mount();
+    await advance();
+    const extra = { ...agent, id: 'extra', name: 'Saved profile' };
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [agent, extra] } })); });
+    await advance();
+    requests = [];
+    act(() => { snapshot().handleDeleteAIAgent(extra); });
+    expect(snapshot().confirmConfig.title).toBe('settings.ai.assistant.delete_profile_title');
+    expect(snapshot().draft.ai.agents).toHaveLength(2);
+    await act(async () => { await snapshot().confirmConfig.onConfirm(); });
+    await advance();
+    expect(snapshot().draft.ai.agents).toEqual([agent]);
+    expect(writes().find(request => request.path === '/api/config')?.body).toMatchObject({ ai: {
+      agents: [agent], active_agent_id: agent.id,
+    } });
+  });
+
+  it('protects the principal and managed profiles, including a principal changed during confirmation', async () => {
+    await mount();
+    const extra = { ...agent, id: 'extra' };
+    act(() => { snapshot().handleDeleteAIAgent(agent); });
+    expect(snapshot().confirmConfig.isOpen).toBe(false);
+    act(() => { snapshot().handleDeleteAIAgent({ ...extra, managed_by: 'plugin' }); });
+    expect(snapshot().confirmConfig.isOpen).toBe(false);
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [agent, extra] } })); });
+    act(() => { snapshot().handleDeleteAIAgent(extra); });
+    act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, active_agent_id: extra.id } })); });
+    await act(async () => { await snapshot().confirmConfig.onConfirm(); });
+    expect(snapshot().draft.ai.agents).toEqual([agent, extra]);
   });
 
   it('redirects the automation plugin configure action to activity without writing', async () => {
@@ -424,18 +456,11 @@ describe('settings controller persistence contracts', () => {
     expect(writes()).toEqual([{ method: 'POST', path: '/api/mail/sync', search: '?email=legacy%40example.invalid&limit=50', body: null }]);
     expect(snapshot().syncingAccounts['[object Object]']).toBe(false);
   });
-  it('debounces translation changes and never resends the stored credential', async () => {
+  it('opens translation settings without reading or saving retired provider credentials', async () => {
     await mount({ initialTab: 'translate' });
     await advance(1600);
     expect(writes()).toEqual([]);
-    expect(snapshot().translateState.deepl_input).toBe('');
-    act(() => { snapshot().setTranslateState(previous => ({ ...previous, deepl_input: ' fixture-secret ' })); });
-    await advance(1199);
-    expect(writes()).toEqual([]);
-    await advance(1);
-    expect(writes()).toHaveLength(1);
-    expect(writes()[0]).toMatchObject({ method: 'POST', path: '/api/credentials/', body: { key: 'deepl_api_key', value: 'fixture-secret' } });
-    expect(snapshot().translateState.deepl_input).toBe('');
+    expect(requests.some(request => request.path.startsWith('/api/credentials') || request.path === '/api/env')).toBe(false);
   });
   it('validates dynamic documents and preserves plugin and provider extensions', async () => {
     await mount({ isOpen: false });

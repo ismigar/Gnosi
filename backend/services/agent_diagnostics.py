@@ -7,7 +7,7 @@ from typing import Any
 from backend.services.agent_execution_models import AgentRun
 
 
-def invoke_diagnostic(model_client: Any, messages: Any, *, provider: str, model: str) -> Any:
+def invoke_diagnostic(model_client: Any, messages: Any, *, provider: str, model: str, parent_run_id: str = "", agent_id: str = "diagnostic", metadata_only: bool = False) -> Any:
     from backend.domains.agent.policy import _invoke_agent_model
     from backend.services import agent_execution_store as store
     from backend.services.agent_execution import _run, _call_limit, _tokens
@@ -20,11 +20,13 @@ def invoke_diagnostic(model_client: Any, messages: Any, *, provider: str, model:
     if scope.role not in {"owner", "admin"}:
         raise PermissionError("agent_diagnostic_requires_admin")
     run_id = uuid.uuid4().hex
-    row = AgentRun(run_id=run_id, agent_id="diagnostic", skill_id="", operation="diagnostic",
+    row = AgentRun(run_id=run_id, parent_run_id=parent_run_id, agent_id=agent_id, skill_id="", operation="diagnostic",
         origin="diagnostic", status="running", created_at=time.time(), updated_at=time.time(),
         provider=provider, model=model)
     store.create(row, scope, {"mode":"diagnostic"}, {"scope":scope.model_dump()})
     report_run(run_id)
+    from backend.services.agent_execution_trace import metadata_only_trace
+    trace_token = metadata_only_trace.set(metadata_only)
     token = _run.set(run_id)
     limit = _call_limit.set(1)
     cancel = create_cancel_token()
@@ -41,3 +43,4 @@ def invoke_diagnostic(model_client: Any, messages: Any, *, provider: str, model:
         release(cancel)
         _call_limit.reset(limit)
         _run.reset(token)
+        metadata_only_trace.reset(trace_token)

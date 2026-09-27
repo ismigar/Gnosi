@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - frontend/src/shared/records/hooks/useViewSearch.ts
+  - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
   - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
   - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
@@ -36,6 +38,8 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
@@ -222,6 +226,19 @@ independent, el panell dividit i la vista incrustada exposen les mateixes
 accions de fila configurades. Si s'omet aquesta cadena de propietats,
 una acció queda oculta encara que el registre i l'API indiquin correctament
 que està habilitada.
+
+## Àmbit de la cerca
+
+Les cerques de taula s'apliquen a la vista actual per defecte. El selector pot
+ampliar una consulta no buida a tota la taula d'origen, inclosos els registres
+exclosos pels filtres o les unions de la vista, sense modificar la vista desada.
+Netejar la consulta restaura l'àmbit i els filtres de la vista actual. Quan no
+hi ha resultats, un missatge explica l'àmbit actiu i ofereix cercar a tota la taula.
+
+Les vistes incrustades fan servir el mateix cercador compartit per als registres
+i els recomptes. Es recarreguen mitjançant l'API compartida del vault quan es desa
+una altra pàgina o la finestra recupera el focus. La cerca es manté durant
+l'actualització, sense reutilitzar una memòria cau de taula de cinc minuts.
 
 ## Evolució de l'esquema i concurrència
 

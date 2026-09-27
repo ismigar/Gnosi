@@ -1,3 +1,4 @@
+import { AgentEvaluationLab } from './AI/AgentEvaluationLab';
 import { useMemo, useReducer, type CSSProperties } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,7 @@ import { ModelComparisonTable } from './ModelComparisonTable';
 import { ModelComparisonToolbar } from './ModelComparisonToolbar';
 import { useModelComparisonData } from './useModelComparisonData';
 import { useModelComparisonLayout } from './useModelComparisonLayout';
+import { comparisonRouteKey } from './model-comparison/modelComparisonRegistry';
 
 
 export interface AIModelComparisonModalProps {
@@ -85,18 +87,28 @@ export function AIModelComparisonModal({
         data.registry.models,
         ui,
     ), [data.feed, data.registry.models, ui]);
+    const providerOptions = useMemo(() => {
+        const providers = new Map<string, string>();
+        for (const model of data.feed?.models ?? []) {
+            for (const route of model.routes) providers.set(route.provider, route.provider_name || route.provider);
+        }
+        return [...providers].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [data.feed]);
     const bodyStyle: FilterHeightStyle = {
         '--filter-sticky-height': `${filterHeight.toString()}px`,
     };
     const setupPanel = data.setup ? (
         <ModelComparisonSetupPanel
+            relatedBenchmarks={(data.feed?.models ?? []).filter(model => model.routes.some(route =>
+                data.setup?.routeKey === comparisonRouteKey(route))).map(model => model.name)}
             busyModelId={data.busyModelId}
-            onActivate={controller.activateModel}
+            onAliasChange={controller.setSetupAlias}
             onApiKeyChange={controller.setSetupApiKey}
             onBaseUrlChange={controller.setSetupBaseUrl}
             onCancel={controller.closeSetup}
             onModeChange={controller.changeSetupMode}
             onProviderChange={controller.changeSetupProvider}
+            onTestConnection={controller.testSetupConnection}
             providersById={controller.providersById}
             routesForMode={controller.routesForMode}
             setup={data.setup}
@@ -157,7 +169,9 @@ export function AIModelComparisonModal({
 
                     {!data.loading && data.feed ? (
                         <>
+                            <AgentEvaluationLab />
                             <ModelComparisonToolbar
+                                providers={providerOptions}
                                 currencySymbol={data.feed.currency.symbol || data.feed.currency.code}
                                 dispatch={dispatchUi}
                                 metricAvailability={metricAvailability}
@@ -165,7 +179,11 @@ export function AIModelComparisonModal({
                                 state={ui}
                                 toolbarRef={toolbarRef}
                             />
+                            <p className="settings-desc" role="status">
+                                {t('model_comparison.results_count', { count: models.length })}
+                            </p>
                             <ModelComparisonTable
+                                onParameterUpdate={controller.retry}
                                 busyModelId={data.busyModelId}
                                 columns={columns}
                                 configurationError={data.configurationError}
@@ -174,12 +192,15 @@ export function AIModelComparisonModal({
                                 inputTokens={ui.inputTokens}
                                 metricAvailability={metricAvailability}
                                 models={models}
-                                onBeginActivation={controller.beginActivation}
+                                onBeginActivation={(model) => { controller.beginActivation(model, ui.provider === 'all' ? undefined : ui.provider); }}
+                                onSaveAlias={controller.saveModelAlias}
                                 onDeactivate={controller.deactivateModel}
                                 onScrollbarScroll={onScrollbarScroll}
                                 onSort={(key) => {
                                     dispatchUi({ key, type: 'change-sort' });
                                 }}
+                                selectedProvider={ui.provider}
+                                selectedProfile={ui.profile}
                                 outputTokens={ui.outputTokens}
                                 providersById={controller.providersById}
                                 registryModels={data.registry.models}

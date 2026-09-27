@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./useAIResources', () => ({ useAIResources: () => ({ ...mocks.resources, reload: mocks.reload, refreshApprovals: mocks.refreshApprovals }) }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => mocks.vault }));
 vi.mock('../../../shared/api/configuration', () => ({ fetchConfiguration: () => Promise.resolve({ ai: { agents: [{ id: 'brain', name: 'Assistant' }] } }) }));
-vi.mock('../../../shared/api/ai-activity', () => ({ fetchAutomationRuns: mocks.runs, fetchAgentRuns: () => Promise.resolve([]), changeAgentRun: vi.fn() }));
+vi.mock('../../../shared/api/ai-activity', () => ({ fetchAutomationRuns: mocks.runs, fetchAgentRuns: () => Promise.resolve([]), changeAgentRun: vi.fn(), fetchAgentTeamProposals: () => Promise.resolve([]), agentTraceRetention: () => Promise.resolve(30) }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue || key, i18n: { resolvedLanguage: 'en' } }) }));
 let root: Root;
 let container: HTMLDivElement;

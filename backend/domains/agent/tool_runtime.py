@@ -162,6 +162,13 @@ def validate_arguments(arguments: Mapping[str, Any], descriptor: Any = None) -> 
 
 def bound_result(result: Any) -> Any:
     """Truncate tool content while preserving LangChain metadata."""
+    from backend.services.agent_behavior import frozen_resources
+    if frozen_resources.get():
+        # New executions account for the complete tool protocol at the model
+        # boundary. A budget error is explicit and cannot hide source endings.
+        if isinstance(result, ToolMessage):
+            return result.model_copy(update={"content": redact_secrets(result.content)})
+        return redact_secrets(result) if isinstance(result, str) else result
     if isinstance(result, ToolMessage):
         content = redact_secrets(result.content)
         if len(content) <= MAX_RESULT_CHARS:

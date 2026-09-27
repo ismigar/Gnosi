@@ -99,7 +99,8 @@ test('the installed electron-builder resolves every distribution hook as a funct
   const fromBuilder = createRequire(require.resolve('electron-builder/package.json'));
   const { resolveFunction } = fromBuilder('app-builder-lib/out/util/resolve');
   for (const [name, hook] of [['beforePack', config.beforePack], ['afterSign', config.afterSign], ['sign', config.mac.sign]]) {
-    const resolved = await resolveFunction(undefined, path.resolve(__dirname, hook), name, path.dirname(__dirname));
+    const reference = typeof hook === 'function' ? hook : path.resolve(__dirname, hook);
+    const resolved = await resolveFunction(undefined, reference, name, path.dirname(__dirname));
     assert.equal(typeof resolved, 'function', name);
   }
 });

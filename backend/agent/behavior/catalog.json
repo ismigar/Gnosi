@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "operations": {
+    "writing": {
+      "owner": "ai-platform",
+      "name": "Writing and correction",
+      "instructions": "operations/writing/SKILL.md"
+    },
+    "reader": {
+      "owner": "feeds-reader",
+      "name": "Reader analysis",
+      "instructions": "operations/reader/SKILL.md"
+    },
+    "podcast": {
+      "owner": "feeds-reader",
+      "name": "Daily podcast",
+      "instructions": "operations/podcast/SKILL.md"
+    },
+    "notebook": {
+      "owner": "grounded-notebooks",
+      "name": "Notebook synthesis",
+      "instructions": "operations/notebook/SKILL.md"
+    },
+    "literature": {
+      "owner": "resources",
+      "name": "Literature assistance",
+      "instructions": "operations/literature/SKILL.md"
+    },
+    "mail": {
+      "owner": "mail",
+      "name": "Mail assistance",
+      "instructions": "operations/mail/SKILL.md"
+    },
+    "social": {
+      "owner": "social-publishing",
+      "name": "Social composition",
+      "instructions": "operations/social/SKILL.md"
+    },
+    "meeting": {
+      "owner": "calendar",
+      "name": "Meeting preparation and minutes",
+      "instructions": "operations/meeting/SKILL.md"
+    },
+    "translation": {
+      "owner": "translation",
+      "name": "Faithful translation",
+      "instructions": "operations/translation/SKILL.md"
+    },
+    "tables": {
+      "owner": "ai-platform",
+      "name": "Table actions",
+      "instructions": "operations/tables/SKILL.md"
+    },
+    "knowledge": {
+      "owner": "llm-wiki",
+      "name": "Knowledge connections and refinement",
+      "instructions": "operations/knowledge/SKILL.md"
+    },
+    "capture": {
+      "owner": "ai-platform",
+      "name": "Structured knowledge capture",
+      "instructions": "operations/capture/SKILL.md"
+    },
+    "learning": {
+      "owner": "ai-platform",
+      "name": "Learn and evaluate skills",
+      "instructions": "operations/learning/SKILL.md"
+    }
+  }
+}

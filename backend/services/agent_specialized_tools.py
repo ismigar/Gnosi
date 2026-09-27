@@ -29,7 +29,7 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
     operation, engine = ENGINES[kind]
     scope = current_scope()
     revalidate_scope(scope)
-    snapshot = _snapshot.get() or prepare_snapshot(skill_id(operation))
+    snapshot = prepare_snapshot(skill_id(operation))
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")
     from backend.config.app_config import load_params
@@ -53,8 +53,11 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
         provider="google-tts" if kind == "speech" else "local-engine", execution_revision=snapshot.revision)
     store.create(row, scope, {"mode": "specialized", "resource": resource}, snapshot.model_dump())
     report_run(run_id)
+    from backend.services.agent_execution_trace import append
+    append(scope, run_id, "engine.request", {"engine": engine, "resource": resource, "classification": "technical_inference", "provider_internal_visibility": False})
     try:
         result = invoke()
+        append(scope, run_id, "engine.response", result)
         revalidate_scope(scope)
         if store.cancelled(scope, run_id) or (parent and store.cancelled(scope, parent)):
             from backend.services.agent_cancellation import AgentTurnCancelled
@@ -62,6 +65,7 @@ def run_engine(kind: str, resource: str, invoke: Callable[[], T]) -> T:
         store.update(scope, run_id, status="completed")
         return result
     except BaseException as error:
+        append(scope, run_id, "engine.error", {"type": type(error).__name__, "message": str(error)})
         from backend.services.agent_cancellation import AgentTurnCancelled
         store.update(scope, run_id, status="cancelled" if isinstance(error, AgentTurnCancelled) else "failed", error=type(error).__name__)
         raise

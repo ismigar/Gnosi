@@ -21,7 +21,9 @@ class AgentOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     skill_id: str = Field(min_length=1)
     operation: str = Field(min_length=1)
-    input: str
+    input: str = ""
+    data: dict[str, Any] = Field(default_factory=dict)
+    options: dict[str, Any] = Field(default_factory=dict)
     language: str = ""
     origin: ExecutionOrigin = "button"
     context_refs: list[dict[str, Any]] = Field(default_factory=list)
@@ -46,6 +48,7 @@ class AgentExecutionSnapshot(BaseModel):
     skill_versions: dict[str, str] = Field(default_factory=dict)
     skill_instructions: dict[str, str] = Field(default_factory=dict)
     skill_companions: dict[str, list[str]] = Field(default_factory=dict)
+    behavior_resources: dict[str, str] = Field(default_factory=dict)
 
 
 class AgentRun(BaseModel):
@@ -69,3 +72,5 @@ class AgentRun(BaseModel):
     result: str = ""
     error: str = ""
     execution_revision: str = ""
+    closed_at: float | None = None
+    trace_state: str = "available"

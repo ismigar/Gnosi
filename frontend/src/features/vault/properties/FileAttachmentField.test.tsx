@@ -1,8 +1,10 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { FileAttachmentField } from './FileAttachmentField';
+import { subscribeAppEvent } from '../../../shared/platform/app-events';
 
 interface ReactTestGlobal {
   IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -76,14 +78,22 @@ function renderField(
   root = createRoot(nextContainer);
   act(() => {
     root?.render(
-      <FileAttachmentField
-        onChange={onChange}
-        propertyName="Files"
-        value={value}
-      />,
+      <MemoryRouter>
+        <FileAttachmentField
+          onChange={onChange}
+          propertyName="Files"
+          value={value}
+        />
+        <ReaderLocation />
+      </MemoryRouter>,
     );
   });
   return nextContainer;
+}
+
+function ReaderLocation() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
 }
 
 function clickButton(rendered: HTMLElement, label: string): void {
@@ -116,6 +126,39 @@ afterEach(() => {
 });
 
 describe('FileAttachmentField', () => {
+  it.each([
+    ['/api/vault/assets/report.pdf', '/api/vault/assets/report.pdf', 'pdf'],
+    ['Assets/Files/report.pdf', '/api/vault/assets/Files/report.pdf', 'pdf'],
+    ['file:///tmp/report.pdf', 'file:///tmp/report.pdf', 'pdf'],
+    ['https://example.test/report.pdf', 'https://example.test/report.pdf', 'pdf'],
+    ['/api/vault/library/book.epub', '/api/vault/library/book.epub', 'epub'],
+  ])('opens %s in the internal document reader', (source, expected, kind) => {
+    const onChange = vi.fn();
+    const opened = vi.fn();
+    const unsubscribe = subscribeAppEvent('gnosi:open-pdf', (detail, event) => {
+      event.preventDefault();
+      opened(detail);
+    });
+    const externalOpen = vi.spyOn(window, 'open');
+    try {
+      const rendered = renderField(onChange, source);
+      clickButton(rendered, kind === 'pdf' ? 'report.pdf' : 'book.epub');
+      expect(opened).toHaveBeenCalledWith(expect.objectContaining({ src: expected, kind }));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(externalOpen).not.toHaveBeenCalled();
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('navigates to the reader when there is no dashboard event listener', () => {
+    const rendered = renderField(vi.fn(), '/api/vault/assets/report.pdf');
+    clickButton(rendered, 'report.pdf');
+    expect(rendered.querySelector('[data-testid="location"]')?.textContent).toBe(
+      '/vault/pdf?kind=pdf&src=%2Fapi%2Fvault%2Fassets%2Freport.pdf',
+    );
+  });
+
   it('opens the shared modal and appends its final stored URL', () => {
     const onChange = vi.fn<(value: string | string[]) => void>();
     const rendered = renderField(onChange, 'Assets/old.txt');

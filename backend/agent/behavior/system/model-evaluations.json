@@ -1,0 +1,17 @@
+[
+  {
+    "id": "concise_en",
+    "prompt": "Reply with exactly the word READY.",
+    "expected": "ready"
+  },
+  {
+    "id": "concise_ca",
+    "prompt": "Respon exactament amb la paraula PREPARAT.",
+    "expected": "preparat"
+  },
+  {
+    "id": "structured",
+    "prompt": "Return only this JSON object: {\"status\":\"ok\"}",
+    "expected": "\"status\""
+  }
+]

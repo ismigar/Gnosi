@@ -15,6 +15,8 @@ collab_ws_bypasses_fetch_block).
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import re
 import threading
 import time
@@ -325,12 +327,7 @@ def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries"
     raw = _tool_function(read_pdf)(source) if is_pdf else _tool_function(read_page)(source)
     if raw.startswith("No ") or raw.startswith("Error"):
         return raw
-    prompt = (
-        "You are a study assistant. From the following material, create a Cornell note "
-        "in English with THREE clearly separated parts. Return ONLY JSON with the keys "
-        "'notes' (structured body summary), 'cues' (a list of 4–7 key prompts or questions), "
-        "and 'summary' (3–4 sentences). Material:\n\n" + raw[:8000]
-    )
+    prompt = task_input("capture.cornell", source=raw, title=title)
     generated, _model = generate_text(prompt)
     text = str(generated)
     notes, cues, summary = _parse_cornell_json(text)

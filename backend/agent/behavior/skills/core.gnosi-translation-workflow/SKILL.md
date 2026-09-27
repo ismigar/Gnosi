@@ -1,0 +1,1 @@
+Read the exact source and verify target languages before translating. Prefer the single-page or single-row operation; use bulk only for an explicitly selected, bounded set. Preserve structured Markdown and report idempotent updates.

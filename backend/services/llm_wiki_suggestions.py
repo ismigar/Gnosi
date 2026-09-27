@@ -10,6 +10,8 @@ the vault). The graph reads this canonical queue directly.
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import json
 import threading
 import uuid
@@ -143,30 +145,8 @@ def list_graph_edges() -> List[Dict[str, object]]:
 
 
 def _suggest_prompt(reading_notes: List[Dict[str, str]], language: str) -> str:
-    listing = "\n".join(
-        f"- [{n['id']}] «{n['title']}» (source: {n['source']}) — {n['excerpt']}"
-        for n in reading_notes
-    )
-    return f"""You audit a personal Zettelkasten. Detect meaningful relationships among
-the following reading notes and existing MANUAL permanent notes. You only
-propose; you never draft or create a permanent note.
-
-For each proposal return:
-- "kind": connection|support|contradiction|gap.
-- "title": a short description in {language}.
-- "why": a precise explanation in {language}.
-- "member_ids": exact ids from the list.
-- "evidence": 1-3 short evidence excerpts already present in the notes.
-
-Only propose groups with a real relationship, normally spanning different
-resources. Return an empty list when none qualify. Maximum
-{MAX_SUGGESTIONS_PER_PASS} proposals.
-
-READING NOTES:
-{listing}
-
-Return only JSON: {{"suggestions": [{{"kind": "connection", "title": "…",
-"member_ids": ["…"], "why": "…", "evidence": ["…"]}}]}}"""
+    return task_input("knowledge.connections", notes=reading_notes, language=language,
+                      maximum_proposals=MAX_SUGGESTIONS_PER_PASS)
 
 
 def generate_suggestions(
@@ -228,11 +208,11 @@ def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
                 "id": str(getattr(p, "id", "") or meta.get("id") or ""),
                 "title": str(getattr(p, "title", "") or ""),
                 "source": fonts[0] if fonts else "?",
-                "excerpt": " ".join(body.split())[:280],
+                "excerpt": body,
                 "note_type": note_type,
             }
         )
-    return out[:150]
+    return out
 
 
 def _parse_suggestions(

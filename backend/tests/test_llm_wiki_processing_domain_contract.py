@@ -69,7 +69,7 @@ def test_processing_facades_keep_historical_exports_and_small_domains() -> None:
     assert "backend.services.llm_wiki" not in domain_source
 
 
-def test_planning_facade_resolves_locator_and_dimension_seams_late(
+def test_planning_facade_preserves_locator_data_and_resolves_dimensions_late(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -88,7 +88,11 @@ def test_planning_facade_resolves_locator_and_dimension_seams_late(
         "English",
         [],
     )
-    assert "[SEGMENT segment-1 | page-7]" in prompt
+    payload = json.loads(prompt)
+    assert payload["task"] == "knowledge.process-source.legacy-chunk"
+    assert payload["data"]["chunk"]["segments"] == [
+        {"id": "segment-1", "text": "Grounded text", "locator": {"page": 7}}
+    ]
 
     observed: list[Any] = []
 

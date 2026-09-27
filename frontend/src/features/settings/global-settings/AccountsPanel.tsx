@@ -66,14 +66,14 @@ export function AccountsPanel({ context }: Props) {
                 className="hover-bg"
                 style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontWeight: '700' }}
               >
-                <Database size={16} color="var(--gnosi-blue)" /> {tn('accounts.vault_table')}
+                <Database size={16} color="var(--gnosi-primary)" /> {tn('accounts.vault_table')}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setAddAccountType('calendar'); }}
                 className="hover-bg"
                 style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontWeight: '700' }}
               >
-                <Globe size={16} color="var(--gnosi-blue)" /> {tn('accounts.external_account')}
+                <Globe size={16} color="var(--gnosi-primary)" /> {tn('accounts.external_account')}
               </button>
             </div>
           )}
@@ -199,11 +199,11 @@ export function AccountsPanel({ context }: Props) {
       {isAddingTable && (
         <div className="animate-in" style={{
           marginBottom: '32px', padding: '28px', borderRadius: '28px',
-          background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
-          boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
+          background: 'var(--settings-sidebar-bg)', border: '1px solid color-mix(in srgb, var(--gnosi-primary) 18%, transparent)',
+          boxShadow: '0 15px 40px color-mix(in srgb, var(--gnosi-primary) 12%, transparent)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.select_vault_table')}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.select_vault_table')}</span>
             <button onClick={() => { setIsAddingTable(false); }} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', maxHeight: '400px', overflowY: 'auto', padding: '4px' }}>
@@ -226,7 +226,7 @@ export function AccountsPanel({ context }: Props) {
                 className="hover-bg-strong"
               >
                 <div style={{ background: 'var(--settings-sidebar-bg)', padding: '8px', borderRadius: '10px' }}>
-                  <Database size={16} color="var(--gnosi-blue)" />
+                  <Database size={16} color="var(--gnosi-primary)" />
                 </div>
                 {tbl.name}
               </button>

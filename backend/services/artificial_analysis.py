@@ -135,7 +135,7 @@ def _number(value: Any) -> Optional[float]:
 
 
 def _normalize_name(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
+    return re.sub(r"[^a-z0-9]+", "", (value or "").lower().replace("+", "plus"))
 
 
 def _supported_modes(*values: Any) -> List[str]:
@@ -147,6 +147,14 @@ def _supported_modes(*values: Any) -> List[str]:
         if str(mode).lower() in _SUPPORTED_MODES
     }
     return sorted(modes or {"text"})
+
+
+def _route_price(model: Dict[str, Any], key: str) -> Optional[float]:
+    value = _number(model.get(key))
+    # Older catalogs erased missing prices into zero; do not certify those zeros.
+    if model.get("pricing_known") is False or (value == 0 and model.get("pricing_known") is not True):
+        return None
+    return value
 
 
 def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
@@ -178,9 +186,13 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[st
                 "model_id": str(model.get("id") or ""),
                 "model_name": str(model.get("name") or model.get("id") or ""),
                 "is_local": bool(provider.get("is_local")),
-                "cost_in": _number(model.get("cost_in")) or 0,
-                "cost_out": _number(model.get("cost_out")) or 0,
-                "context_window": int(model.get("context_window") or 8192),
+                "cost_in": _route_price(model, "cost_in"),
+                "cost_out": _route_price(model, "cost_out"),
+                "context_window": int(model["context_window"]) if model.get("context_known") is True else None,
+                "input_modes": model.get("input_modes"),
+                "output_modes": model.get("output_modes"),
+                "tool_call": model.get("tool_call"),
+                "reasoning": model.get("reasoning"),
                 "quality": int(model.get("quality") or 2),
                 "tags": list(model.get("tags") or []),
             }
@@ -228,7 +240,7 @@ def _provider_matches_creator(provider_id: str, creator: str) -> bool:
 # usually lists under the bare base name. Stripped iteratively so composite
 # suffixes (e.g. "deepseek-v4-flash-0420-high") reduce to the catalog entry.
 _EFFORT_SUFFIX_PATTERNS = (
-    re.compile(r"-(xhigh|high|medium|low|max|min|nano|mini|small|large)$", re.I),
+    re.compile(r"-(xhigh|high|medium|low|max|min)$", re.I),
     re.compile(r"-(adaptive|thinking|reasoning|non-reasoning|instruct|chat|base|omni)$", re.I),
     re.compile(r"-(effort|max-effort|high-effort|medium-effort|low-effort)$", re.I),
     re.compile(r"-\d{3,4}$"),  # compact date like 0420
@@ -295,6 +307,7 @@ def _matching_enrichment_entries(
                     continue
                 seen_ids.add(entry_id)
                 matches.append(entry)
+            break
     if creator_name and matches:
         matches.sort(
             key=lambda entry: (
@@ -316,6 +329,13 @@ def _merge_cached_metrics(
         previous = _matching_cached_model(model, cached_by_key)
         if previous:
             _restore_cached_metrics(model, previous)
+    from backend.services.model_role_suitability import assess_roles
+
+    models = payload.get("models") or []
+    for model in models:
+        model["role_assessments"] = assess_roles(
+            {**model, "fetched_at": payload.get("fetched_at")}, models,
+        )
     return payload
 
 
@@ -363,12 +383,14 @@ def _enrich_cached_payload(
     """Backfill verifiable catalog metadata in an already normalized cache."""
     enrichment = _catalog_enrichment_index(catalog)
     for model in payload.get("models") or []:
+        from backend.services.model_role_suitability import assess_roles
         matches = _matching_enrichment_entries(model, enrichment)
         match = max(
             matches,
             key=lambda item: item.get("context_window") or 0,
             default={},
         )
+        model["routes"] = _routes_for_entries(matches)
         metric_sources = dict(model.get("metric_sources") or {})
         for field in ("input_price", "output_price", "context_window"):
             if model.get(field) is None and match.get(field) is not None:
@@ -378,6 +400,7 @@ def _enrich_cached_payload(
             model["modes"] = _supported_modes(model.get("modes"), match.get("modes"))
         if metric_sources:
             model["metric_sources"] = metric_sources
+        model["role_assessments"] = assess_roles({**model, "fetched_at": payload.get("fetched_at")}, payload.get("models") or [])
     return payload
 
 
@@ -502,6 +525,8 @@ def _normalized_comparison_model(
     }
     if metric_sources:
         model["metric_sources"] = metric_sources
+    from backend.services.model_role_suitability import assess_roles
+    model["role_assessments"] = assess_roles(model)
     return model
 
 
@@ -526,7 +551,10 @@ def build_comparison_payload(
     intelligence_values = sorted(
         model["intelligence"] for model in models if model["intelligence"] is not None
     )
+    from backend.services.model_role_suitability import assess_roles
+    assessed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     for model in models:
+        model["role_assessments"] = assess_roles({**model, "fetched_at": assessed_at}, models)
         model["profile"] = _recommended_profile(model, intelligence_values)
 
     models.sort(
@@ -584,12 +612,12 @@ def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict
     return payload
 
 
-def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
+def _fallback_payload(error: ArtificialAnalysisError, *, force_refresh: bool = False) -> Dict[str, Any]:
     cached = _read_cache()
     if cached:
         cached = _enrich_cached_payload(
             cached,
-            load_catalog(force_refresh=False),
+            load_catalog(force_refresh=force_refresh),
         )
         return {
             **cached,
@@ -599,7 +627,7 @@ def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
         }
     if error.code not in _FALLBACK_CODES:
         raise error
-    catalog = load_catalog(force_refresh=False)
+    catalog = load_catalog(force_refresh=force_refresh)
     payload = build_catalog_fallback_payload(catalog, error.code)
     if error.retry_at:
         payload["retry_at"] = error.retry_at
@@ -681,10 +709,10 @@ def _fetch_model_pages(api_key: str) -> tuple[List[Dict[str, Any]], Any]:
     return rows, index_version
 
 
-def fetch_all_models() -> Dict[str, Any]:
+def fetch_all_models(*, force_refresh: bool = False) -> Dict[str, Any]:
     """Fetch every page from Artificial Analysis and build the comparison feed."""
     cached = _read_cache()
-    if cached and _cache_is_fresh(cached):
+    if cached and _cache_is_fresh(cached) and not force_refresh:
         return _enrich_cached_payload(
             cached,
             load_catalog(force_refresh=False),
@@ -692,14 +720,14 @@ def fetch_all_models() -> Dict[str, Any]:
 
     api_key = _configured_api_key()
     if not api_key:
-        return _fallback_payload(ArtificialAnalysisError("api_key_missing", 503))
+        return _fallback_payload(ArtificialAnalysisError("api_key_missing", 503), force_refresh=force_refresh)
 
     try:
         rows, index_version = _fetch_model_pages(api_key)
     except requests.RequestException:
-        return _fallback_payload(ArtificialAnalysisError("network_error", 502))
+        return _fallback_payload(ArtificialAnalysisError("network_error", 502), force_refresh=force_refresh)
     except ArtificialAnalysisError as exc:
-        return _fallback_payload(exc)
+        return _fallback_payload(exc, force_refresh=force_refresh)
 
     # Artificial Analysis is authoritative for benchmark/pricing/performance.
     # models.dev only fills fields omitted by the Free API.

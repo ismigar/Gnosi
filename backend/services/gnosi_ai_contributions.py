@@ -1,6 +1,8 @@
 """Governed core skills and tools for first-party Gnosi operations."""
 from __future__ import annotations
 
+from backend.services.agent_behavior import resource as behavior_resource
+
 from typing import Any, Dict, Iterable, Tuple, TypedDict
 
 from backend.services.feature_ai_contributions import FEATURE_DOMAINS, feature_registrations
@@ -392,59 +394,37 @@ def core_gnosi_skill_descriptors(
     }
     instructions = {
         "vault": (
-            "Operate only on the active Gnosi Vault. Preserve page and row "
-            "metadata, use exact IDs from tools, and never imply an operation "
-            "completed before its tool result. For a request about resources "
-            "authored by the current Vault owner, use "
-            "list_authored_vault_resources; never guess the person's identity "
-            "or an author property name. For other table filters, inspect the "
-            "exact schema first. Never repeat an identical empty read."
+            behavior_resource('skills/core.gnosi-vault/SKILL.md')
         ),
         "mail": (
-            "Use only configured personal-workspace mail accounts. Search is "
-            "read-only; sending, moving, and archiving require review."
+            behavior_resource('skills/core.gnosi-mail/SKILL.md')
         ),
         "calendar": (
-            "Use only configured personal-workspace calendars. Creating an "
-            "event or inviting attendees requires review."
+            behavior_resource('skills/core.gnosi-calendar/SKILL.md')
         ),
         "contacts": (
-            "Use only contacts in the authenticated workspace and preserve "
-            "their exact IDs."
+            behavior_resource('skills/core.gnosi-contacts/SKILL.md')
         ),
         "reader": (
-            "Search and read only the selected Reader scope. For large topic "
-            "evolution requests, inspect the exact inventory first and start "
-            "the durable analysis only after an explicit current-turn request."
+            behavior_resource('skills/core.gnosi-reader/SKILL.md')
         ),
         "memory": (
-            "Read sovereign memory when relevant and save long-term memory only "
-            "after an explicit current-turn request."
+            behavior_resource('skills/core.gnosi-memory/SKILL.md')
         ),
         "jobs": (
-            "Inspect durable jobs through namespaced ids. Estimate cost before "
-            "starting or resuming model work, report provider capabilities "
-            "exactly, and never infer completion from elapsed time."
+            behavior_resource('skills/core.gnosi-jobs/SKILL.md')
         ),
         "planning": (
-            "Read the active Vault planning state before proposing changes. "
-            "Use exact project, task, resource, proposal, baseline, revision, "
-            "and ETag values. Never imply a proposal was applied before the tool result."
+            behavior_resource('skills/core.gnosi-planning/SKILL.md')
         ),
         "social": (
-            "Read configured social streams and publication history. Composition may "
-            "create drafts, but publishing, scheduling, reactions, and reshares always "
-            "require review of the exact network-specific content."
+            behavior_resource('skills/core.gnosi-social/SKILL.md')
         ),
         "translation": (
-            "Use the existing idempotent page and row translation workflows. Preserve "
-            "structured Markdown and provenance, cap bulk selections, and report "
-            "created, updated, skipped, and failed translations exactly."
+            behavior_resource('skills/core.gnosi-translation/SKILL.md')
         ),
         "notion": (
-            "Inspect only content shared with the connected Notion integration. Clone "
-            "selected databases or loose pages into a contained Vault folder only after "
-            "an explicit request and never prune source-orphaned content automatically."
+            behavior_resource('skills/core.gnosi-notion/SKILL.md')
         ),
     }
     names.update({domain: value[0] for domain, value in FEATURE_DOMAINS.items()})
@@ -479,10 +459,7 @@ def core_gnosi_skill_descriptors(
                 "create_page",
             ],
             "instructions": (
-                "Inspect the exact Reader inventory, estimate model calls, and explain "
-                "the scope before starting. Start only after an explicit request. Poll "
-                "through durable status tools, validate cited article ids, and offer to "
-                "save the completed report to the active Vault."
+                behavior_resource('skills/core.gnosi-reader-topic-evolution/SKILL.md')
             ),
         },
         {
@@ -497,9 +474,7 @@ def core_gnosi_skill_descriptors(
                 "planning_get_allocation", "query_memory", "search_vault",
             ],
             "instructions": (
-                "Build one concise briefing from attached scoped sources. Separate facts, "
-                "risks, and suggested priorities; cite exact source records and perform "
-                "no writes. State which expected source is unavailable."
+                behavior_resource('skills/core.gnosi-daily-briefing/SKILL.md')
             ),
         },
         {
@@ -514,10 +489,7 @@ def core_gnosi_skill_descriptors(
                 "reply_mail_message", "archive_mail", "move_mail",
             ],
             "instructions": (
-                "Produce a read-only triage plan first. Use exact message ids and distinguish "
-                "urgent, reply, waiting, and informational mail. Draft, archive, or move only "
-                "when the current request explicitly asks for that action; every external "
-                "mailbox change remains subject to confirmation."
+                behavior_resource('skills/core.gnosi-inbox-triage/SKILL.md')
             ),
         },
         {
@@ -532,9 +504,7 @@ def core_gnosi_skill_descriptors(
                 "query_memory",
             ],
             "instructions": (
-                "Resolve one exact event and its attendees, then gather only relevant recent "
-                "mail and knowledge evidence. Return objectives, context, open decisions, and "
-                "questions. Do not invite attendees or alter the event."
+                behavior_resource('skills/core.gnosi-meeting-preparation/SKILL.md')
             ),
         },
         {
@@ -548,9 +518,7 @@ def core_gnosi_skill_descriptors(
                 "propose_links", "add_page_comment",
             ],
             "instructions": (
-                "Read the exact attached record before writing. Preserve title, source id, "
-                "date, author, URL, and provenance. Create one structured note only after "
-                "an explicit request, then propose links rather than inventing relationships."
+                behavior_resource('skills/core.gnosi-knowledge-capture/SKILL.md')
             ),
         },
         {
@@ -564,9 +532,7 @@ def core_gnosi_skill_descriptors(
                 "read_page", "read_pdf", "create_page", "propose_links",
             ],
             "instructions": (
-                "Start from scoped search results, read exact evidence, distinguish claims from "
-                "inference, surface disagreement and gaps, and cite every material claim. Save "
-                "a dossier only when explicitly requested."
+                behavior_resource('skills/core.gnosi-research-dossier/SKILL.md')
             ),
         },
         {
@@ -582,9 +548,7 @@ def core_gnosi_skill_descriptors(
                 "create_page",
             ],
             "instructions": (
-                "Compare planned and actual work, identify critical-path or capacity risks, and "
-                "separate evidence from recommendations. Never apply leveling or change dates "
-                "inside a review. Save the review only after an explicit request."
+                behavior_resource('skills/core.gnosi-weekly-review/SKILL.md')
             ),
         },
         {
@@ -598,9 +562,7 @@ def core_gnosi_skill_descriptors(
                 "list_calendar_events", "search_vault", "query_memory",
             ],
             "instructions": (
-                "Resolve one exact contact, then retrieve only relevant correspondence, meetings, "
-                "and notes. Report dates and provenance, avoid personality inference, and perform "
-                "no contact or mailbox mutation."
+                behavior_resource('skills/core.gnosi-relationship-brief/SKILL.md')
             ),
         },
         {
@@ -615,8 +577,7 @@ def core_gnosi_skill_descriptors(
                 "planning_get_baseline_variance", "planning_list_worklogs",
             ],
             "instructions": (
-                "Use exact project and revision data. Explain schedule, critical tasks, allocation, "
-                "variance, and diagnostics. Suggestions remain review-only and are never applied."
+                behavior_resource('skills/core.gnosi-project-status/SKILL.md')
             ),
         },
         {
@@ -630,9 +591,7 @@ def core_gnosi_skill_descriptors(
                 "planning_get_state", "create_table_row",
             ],
             "instructions": (
-                "Identify commitments only from exact evidence and include owner, date, source id, "
-                "and uncertainty. Present a proposal first. Create follow-up rows only after an "
-                "explicit request and never send reminders automatically."
+                behavior_resource('skills/core.gnosi-follow-up-manager/SKILL.md')
             ),
         },
         {
@@ -646,9 +605,7 @@ def core_gnosi_skill_descriptors(
                 "compose_social_posts", "publish_social_posts", "schedule_social_posts",
             ],
             "instructions": (
-                "Read publication history and the exact source page first. Compose per-network "
-                "drafts and show the final text, destinations, and schedule before acting. "
-                "Publishing and scheduling always require interactive confirmation."
+                behavior_resource('skills/core.gnosi-social-publishing/SKILL.md')
             ),
         },
         {
@@ -662,9 +619,7 @@ def core_gnosi_skill_descriptors(
                 "translate_vault_row", "translate_vault_rows",
             ],
             "instructions": (
-                "Read the exact source and verify target languages before translating. Prefer the "
-                "single-page or single-row operation; use bulk only for an explicitly selected, "
-                "bounded set. Preserve structured Markdown and report idempotent updates."
+                behavior_resource('skills/core.gnosi-translation-workflow/SKILL.md')
             ),
         },
         {
@@ -679,9 +634,7 @@ def core_gnosi_skill_descriptors(
                 "clone_notion_content",
             ],
             "instructions": (
-                "Inventory shared Notion objects, confirm the exact databases, loose pages, target "
-                "folder, and asset policy, then clone only after an explicit request. Never enable "
-                "orphan pruning automatically and report partial or truncated results."
+                behavior_resource('skills/core.gnosi-notion-migration/SKILL.md')
             ),
         },
     )

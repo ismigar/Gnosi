@@ -61,7 +61,7 @@ test('an asynchronous native installer error restores the stopped backend', asyn
 test('long-running sessions recheck quietly without interrupting an update', async () => {
   const { runtime } = await fixture();
   const timer = runtime.intervals[0];
-  assert.equal(timer.milliseconds, 6 * 60 * 60 * 1000);
+  assert.equal(timer.milliseconds, 15 * 60 * 1000);
   const initialChecks = runtime.calls.filter(call => call === 'check-updates').length;
   for (const status of ['available', 'downloading', 'downloaded', 'installing']) {
     runtime.setUpdateState({ status });

@@ -477,7 +477,7 @@
     "trash": "Papelera",
     "wiki_lock": "Bloquear el arrastre",
     "wiki_unlock": "Desbloquear para reordenar (drag&drop)",
-    "toggle_navigation": "Alternar navegación",
+    "toggle_navigation": "Mostrar u ocultar la navegación",
     "logged_out": "Sesión cerrada.",
     "logout_tooltip_title": "{{user}} — Cerrar sesión",
     "logout_tooltip_label": "Cerrar sesión ({{user}})",
@@ -600,7 +600,11 @@
     "reprocess_resource": "Reprocesar recurso (procesado el {{date}})",
     "process_resource_running": "Procesando…",
     "reprocess_resource_error": "Reanudar el procesamiento interrumpido",
-    "process_resource_no_source": "Este recurso no tiene ningún adjunto ni URL configurados"
+    "process_resource_no_source": "Este recurso no tiene ningún adjunto ni URL configurados",
+    "select_all_rows": "Seleccionar todas las filas",
+    "select_row": "Seleccionar {{title}}",
+    "aggregate_column": "Agregación de {{column}}",
+    "modified_column": "Última modificación"
   },
   "dashboard": {
     "status_title": "Estado del Sistema",
@@ -1192,7 +1196,8 @@
     "synced_empty": "Bloque sincronizado vacío: haz clic en «Editar» para añadir contenido.",
     "date_reminder_tooltip": "Recordatorio: {{date}} a las {{time}}",
     "date_reminder_label": "Recordatorio (opcional)",
-    "date_reminder_clear": "Quitar"
+    "date_reminder_clear": "Quitar",
+    "content_label": "Contenido de la página"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -1246,6 +1251,12 @@
     }
   },
   "views_header": {
+    "search_scope": "Ámbito de la búsqueda",
+    "search_scope_view": "Esta vista",
+    "search_scope_table": "Toda la tabla",
+    "search_entire_table": "Buscar en toda la tabla",
+    "no_search_results_view": "No hay coincidencias en esta vista. Sus filtros siguen activos.",
+    "no_search_results_table": "No hay coincidencias en esta tabla.",
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloqueada)",
     "more_actions": "Más acciones",
@@ -1329,7 +1340,7 @@
     "up": "Arriba",
     "shortcuts": "Atajos:",
     "vault": "Vault",
-    "home": "Home",
+    "home": "Inicio",
     "root": "Root (/)",
     "search_folders_placeholder": "Busca carpetas en todo el ordenador (≥2 caracteres)...",
     "search_placeholder": "Busca en todo el ordenador (≥2 caracteres)...",
@@ -1548,7 +1559,7 @@
         },
         "translation": {
           "name": "Traducción",
-          "description": "Proveedores de traducción y acciones para el idioma de publicación."
+          "description": "Traduce filas, páginas e instrucciones de skills con el perfil de IA de Traducción."
         },
         "contacts": {
           "name": "Contactos",
@@ -2153,7 +2164,10 @@
       "context_add_page": "Página",
       "context_add_file": "Archivo",
       "context_add_vault": "Todo el vault",
-      "context_whole_vault": "Todo el vault",
+      "context_whole_vault": "Todo el vault activo",
+      "context_back_sources": "Volver a las fuentes de Gnosi",
+      "context_vault_description": "Páginas y bases de datos del vault activo.",
+      "context_vault_specific": "Páginas o bases de datos concretas",
       "context_remove_source": "Quitar del contexto",
       "context_configure_source": "Configurar el ámbito de la fuente",
       "context_add_internal": "Fuente de Gnosi",
@@ -2582,7 +2596,10 @@
         "instructions_translation_error": "No se han podido traducir las instrucciones. Se muestra el texto guardado.",
         "instructions_translate": "Traducir al español",
         "instructions_translation_readonly": "Traducción de lectura. El asistente sigue utilizando el texto original.",
-        "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original."
+        "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original.",
+        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
+        "active_skills_only": "Solo habilidades activadas",
+        "back_to_profile": "Volver al perfil"
       },
       "catalog": {
         "domain_skill_name": "Gnosi · {{domain}}",
@@ -2680,7 +2697,11 @@
           "plugin_llm_wiki_process_source": "Procesa una fuente del Conocimiento",
           "plugin_llm_wiki_process_status": "Consulta el progreso del procesamiento del Conocimiento",
           "plugin_llm_wiki_maintain": "Mantén los índices del Conocimiento",
-          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento"
+          "plugin_llm_wiki_propose_connections": "Propón conexiones en el Conocimiento",
+          "core_gnosi_operation_writing": "Redacción y corrección",
+          "core_gnosi_operation_tables": "Acciones de tablas",
+          "core_gnosi_operation_knowledge": "Conexiones y refinamiento del conocimiento",
+          "core_gnosi_operation_learning": "Aprendizaje y evaluación de habilidades"
         },
         "tool_names": {
           "add_page_comment": "Añade un comentario a una página",
@@ -2867,7 +2888,11 @@
           "core_gnosi_notebooks": "Consulta cuadernos y evidencias citables; crea y organiza cuadernos privados a partir de Recursos existentes.",
           "core_gnosi_literature": "Busca en fuentes académicas configuradas, consulta resultados y revisiones e importa referencias en Recursos.",
           "core_gnosi_media": "Localiza archivos multimedia y edita sus etiquetas y descripción sin modificar su contenido.",
-          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones."
+          "core_gnosi_activity": "Consulta tus automatizaciones, resultados y servicios programados sin alterar permisos ni programaciones.",
+          "core_gnosi_operation_writing": "Redacta, resume y corrige textos conservando el significado y el formato.",
+          "core_gnosi_operation_tables": "Propone configuraciones y valores de campos a partir del esquema y del registro proporcionados.",
+          "core_gnosi_operation_knowledge": "Propone conexiones y reformulaciones a partir de las notas y evidencias disponibles, sin guardar cambios.",
+          "core_gnosi_operation_learning": "Extrae procedimientos de las instrucciones aprobadas y evalúa habilidades según criterios explícitos."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara la agenda, las prioridades y los mensajes pendientes de hoy.",
@@ -3103,17 +3128,47 @@
       },
       "assistant": {
         "title": "Asistente",
-        "principal": "Asistente principal",
-        "help": "Elige el modelo y las instrucciones generales de tu asistente.",
+        "principal": "Asistente predeterminado",
+        "help": "El asistente usa el perfil que eliges en cada conversación. Cada perfil guarda un único modelo, instrucciones, fuentes y habilidades.",
         "advanced": "Perfiles adicionales (avanzado)",
-        "profiles_help": "Crea otro perfil solo si necesitas otro modelo, instrucciones, fuentes o habilidades. Cambiar el principal no modifica las automatizaciones guardadas.",
+        "profiles_help": "Perfiles guardados para elegir desde el chat. Cada conversación conserva su perfil y el historial cuando lo cambias.",
         "create_profile": "Crear perfil",
         "setup": "Configurar asistente",
-        "make_principal": "Hacer principal",
+        "make_principal": "Usar por defecto",
         "profile": "Perfil del asistente",
         "other_profile": "Usar otro perfil (avanzado)",
-        "automation_help": "Ejecutará la habilidad con {{name}}. El perfil se guarda con la automatización.",
-        "no_skills": "Asigna habilidades a este asistente en Configuración → IA → Asistente para programarlas."
+        "automation_help": "Esta habilidad utilizará el perfil {{name}}. Puedes editarlo en la configuración del asistente.",
+        "no_skills": "Asigna habilidades a este asistente en Configuración → IA → Asistente para programarlas.",
+        "builtin_profiles": {
+          "translation": "Traducción",
+          "ai-platform": "Escritura y captura de conocimiento",
+          "feeds-reader": "Canales y pódcasts",
+          "grounded-notebooks": "Cuadernos con fuentes",
+          "resources": "Asistencia bibliográfica",
+          "mail": "Correo",
+          "social-publishing": "Publicación social",
+          "calendar": "Reuniones",
+          "llm-wiki": "Conocimiento"
+        },
+        "principal_help": "El perfil predeterminado se utiliza en conversaciones nuevas. Los plugins utilizan sus propios perfiles. Cambiar el perfil de un chat no afecta a otras conversaciones.",
+        "principal_profile": "Perfil predeterminado",
+        "additional_profile": "Perfil adicional",
+        "new_profile": "Nuevo perfil",
+        "profile_name": "Nombre del perfil",
+        "configure_action": "Configurar",
+        "save_changes": "Guardar cambios",
+        "configure_profile": "Configurar el perfil {{name}}",
+        "delete_profile": "Eliminar el perfil {{name}}",
+        "delete_profile_title": "Eliminar el perfil",
+        "delete_profile_message": "¿Quieres eliminar el perfil «{{name}}» y su configuración? Se conservarán los modelos, las fuentes y las habilidades originales.",
+        "restore_help": "Este perfil está desactivado. Guarda su configuración para volver a activarlo.",
+        "conversation_profile": "Perfil de la conversación",
+        "profile_model": "Modelo del perfil",
+        "plugin_profiles": "Perfiles de los plugins",
+        "plugin_profile": "Perfil de plugin",
+        "plugin_owner": "Utilizado por: {{name}}",
+        "plugin_suspended": "Plugin desactivado. Se conserva tu configuración.",
+        "plugin_profiles_help": "Cada plugin utiliza su perfil para las acciones de IA. Puedes editar el modelo, las instrucciones, las fuentes y las habilidades. Las actualizaciones del plugin conservan tus cambios."
       },
       "model_strategy": {
         "primary": "Modelo principal",
@@ -3140,6 +3195,53 @@
         "save_error": "No se ha podido guardar el asistente. Inténtalo de nuevo.",
         "decision_selected": "Modelo seleccionado con Jev",
         "decision_fallback": "Selección interna de Gnosi: Jev no ha aportado una decisión utilizable."
+      },
+      "sources": {
+        "all": "Todos",
+        "unavailable": "No disponible",
+        "no_options": "No hay opciones disponibles.",
+        "no_more_matches": "No hay más opciones coincidentes.",
+        "all_added": "Ya has añadido todas las fuentes disponibles.",
+        "no_sources": "No hay fuentes disponibles.",
+        "load_error": "No se han podido cargar las opciones. Inténtalo de nuevo.",
+        "mail_folders": "Carpetas",
+        "mail_minimum": "Elige al menos una carpeta por cuenta. Las cuentas nuevas usan la carpeta predeterminada.",
+        "no_accounts": "No hay cuentas conectadas disponibles.",
+        "folder_count": "{{count}} carpetas",
+        "folder_count_one": "{{count}} carpeta",
+        "folder_count_other": "{{count}} carpetas",
+        "calendar_default": "Fechas predeterminadas: desde hace 30 días hasta dentro de 90 días.",
+        "days_ago": "Hace 30 días",
+        "days_ahead": "Dentro de 90 días",
+        "all_articles": "Todos los artículos",
+        "options": {
+          "project": "Proyectos",
+          "task": "Tareas",
+          "resource": "Recursos",
+          "assignment": "Asignaciones",
+          "calendar": "Calendarios",
+          "recurrence": "Recurrencias",
+          "page": "Páginas",
+          "database": "Bases de datos",
+          "local": "Local",
+          "google": "Google",
+          "apple": "Apple",
+          "personal": "Personales",
+          "b2b": "Profesionales",
+          "esborrany": "Borrador",
+          "programada": "Programada",
+          "publicant": "Publicando",
+          "publicada": "Publicada",
+          "parcial": "Parcial",
+          "error": "Error",
+          "cancelada": "Cancelada",
+          "mastodon": "Mastodon",
+          "bluesky": "Bluesky",
+          "linkedin": "LinkedIn",
+          "facebook": "Facebook",
+          "telegram": "Telegram"
+        },
+        "folder_count_many": "{{count}} carpetas"
       }
     },
     "footer": {
@@ -3593,7 +3695,7 @@
     "success_page": "Traducción iniciada — las subpáginas se crearán en breve.",
     "error": "Error iniciando la traducción",
     "error_pick_lang": "Selecciona al menos un idioma.",
-    "provider_hint": "El catalán se traduce con Softcatalà; el resto con DeepL. Configura las credenciales en los ajustes seguros.",
+    "provider_hint": "La traducción utiliza el modelo del perfil de IA «Traducción». Revisa el perfil y la conexión del proveedor en los ajustes del plugin de Traducción.",
     "title_bulk": "Traducir {{count}} registros",
     "intro_bulk": "Elige los idiomas destino. Por cada registro seleccionado e idioma se creará (o actualizará) un subítem con la traducción de los campos marcados como traducibles.",
     "success_bulk": "Traducción iniciada para {{count}} registros.",
@@ -3612,25 +3714,10 @@
     "lang_zh": "Chino"
   },
   "translate_settings": {
-    "deepl_label": "DeepL — API key",
-    "softcatala_label": "Softcatalà — URL del traductor",
-    "section_title": "Servicios de traducción",
-    "intro": "Configura los proveedores que usa el botón \"Traducir fila\". DeepL cubre la mayoría de idiomas; Softcatalà se usa para el catalán (DeepL no lo soporta).",
-    "deepl_desc": "Se guarda en el Keychain de macOS, no en .env_shared. Consigue una en deepl.com/pro-api.",
-    "deepl_placeholder": "Pega tu DeepL API key…",
-    "deepl_placeholder_replace": "Introduce una nueva clave para reemplazar",
-    "deepl_configured": "API key configurada en el Keychain",
-    "deepl_saved": "API key de DeepL guardada en el Keychain.",
-    "deepl_save_error": "No se ha podido guardar la clave de DeepL.",
-    "deepl_deleted": "API key de DeepL eliminada.",
-    "deepl_delete_error": "No se ha podido eliminar la clave de DeepL.",
-    "error_deepl_required": "Introduce una API key.",
-    "softcatala_desc": "Endpoint del servicio de traducción de Softcatalà (catalán). Se guarda en el .env local de Gnosi. Vacío = usa el valor predeterminado.",
-    "softcatala_saved": "URL de Softcatalà actualizada.",
-    "softcatala_save_error": "No se ha podido guardar la URL de Softcatalà.",
-    "usage_hint": "Estos valores los consume el endpoint /api/vault/skills/translate-row. Tras guardar la clave de DeepL puede ser necesario reiniciar el backend para que se recargue el Keychain.",
-    "autosaving": "Guardando…",
-    "autosaved": "Guardado"
+    "section_title": "Traducción con IA",
+    "intro": "Los botones para traducir filas, páginas e instrucciones de skills utilizan el perfil de IA «Traducción» del plugin. Configura su modelo y comprueba que su proveedor esté conectado.",
+    "usage_hint": "Las traducciones solicitadas dentro de una conversación utilizan el perfil del agente de esa conversación. Traducir una skill solo muestra una versión de lectura: las instrucciones originales se conservan.",
+    "legacy_notice": "DeepL y Softcatalà pertenecen al sistema de traducción anterior y ya no intervienen en este circuito. Las credenciales antiguas guardadas se conservan, pero no se utilizan."
   },
   "mail": {
     "all_accounts": "Todas las cuentas",
@@ -4406,6 +4493,11 @@
     "type_genogram": "Genograma"
   },
   "metadata_lookup": {
+    "creating_resource": "Preparando el recurso…",
+    "saving_file": "Guardando el PDF…",
+    "creating_cover": "Creando la portada…",
+    "saving_resource": "Guardando el recurso…",
+    "opening_resource": "Abriendo el recurso…",
     "button": "Rellenar",
     "button_title": "Rellenar metadatos desde DOI/ISBN/arXiv/URL",
     "applied_many": "Se han actualizado {{count}} campos",
@@ -4591,7 +4683,10 @@
     "index_updating": "La biblioteca se está actualizando. Puedes consultar las fotos disponibles.",
     "index_update_failed": "No se ha podido actualizar la biblioteca. Vuelve a intentarlo.",
     "index_update_paused": "La actualización aún no se ha confirmado. Comprueba de nuevo su estado.",
-    "index_retry_wait": "Reintento disponible en unos segundos"
+    "index_retry_wait": "Reintento disponible en unos segundos",
+    "reader_load_error": "No se pudo cargar el lector PDF. Actualiza Gnosi y vuelve a intentarlo.",
+    "grid_view": "Vista de cuadrícula",
+    "list_view": "Vista de lista"
   },
   "tldraw": {
     "untitled_drawing": "Dibujo sin título",
@@ -4930,6 +5025,9 @@
     }
   },
   "model_comparison": {
+    "additional_offers_one": "{{count}} oferta más",
+    "additional_offers_other": "{{count}} ofertas más",
+    "additional_offers_many": "{{count}} ofertas más",
     "parameters_missing": "Pendiente de verificar",
     "parameters_missing_help": "Todavía no hemos verificado el tamaño de este modelo con una fuente oficial.",
     "parameters_active": "{{value}} B activos / token",
@@ -4959,7 +5057,8 @@
       "profile": "Uso",
       "coding": "Código\npuntos",
       "agentic": "Agentes\npuntos",
-      "creator": "Creador"
+      "creator": "Fabricante",
+      "provider": "Proveedor"
     },
     "compact_filters": {
       "profile": "Perfil",
@@ -5000,10 +5099,10 @@
     "profile": "Perfil de tarea",
     "profile_help_open": "Mostrar explicaciones de los perfiles",
     "profile_help_title": "Perfiles del equipo de trabajo",
-    "profile_help_intro": "Elige un perfil según la complejidad, el volumen y el coste de la tarea.",
+    "profile_help_intro": "Un modelo puede servir para varios papeles. Revisa evidencias, pruebas pendientes y coste total; las etiquetas no certifican especialización.",
     "profile_help": {
       "worker": {
-        "objective": "Tareas masivas, sencillas y muy baratas.",
+        "objective": "Tareas sencillas y repetitivas; comprueba exactitud, velocidad y coste.",
         "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."
       },
       "administrative": {
@@ -5023,15 +5122,19 @@
         "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."
       },
       "unrated": {
-        "objective": "Modelos sin un benchmark de inteligencia comparable.",
+        "objective": "Todavía no hay suficientes evidencias para valorar sus papeles.",
         "examples": "Revisa las demás métricas antes de asignarles una tarea."
+      },
+      "director": {
+        "objective": "Planificar tareas complejas, seleccionar ejecutores e integrar evidencias.",
+        "examples": "Detectar especialistas ausentes, resolver resultados contradictorios y evitar llamadas innecesarias."
       }
     },
     "profile_help_flow_title": "Combinación recomendada",
-    "profile_help_flow": "Documentalista extrae los puntos clave → Perito decide la estrategia → Totterreno redacta → Peón o Administrativo traduce y formatea.",
+    "profile_help_flow": "Las tareas conocidas van directamente a un ejecutor adecuado. El Directivo interviene cuando se necesita planificar o integrar conclusiones.",
+    "all_providers": "Todos los proveedores",
     "all_profiles": "Todos los perfiles",
     "provider": "Proveedor",
-    "all_providers": "Todos los proveedores",
     "frontier_only": "Solo modelos frontera",
     "results_count_one": "{{count}} modelo visible",
     "results_count_other": "{{count}} modelos visibles",
@@ -5071,7 +5174,7 @@
     "model_enabled": "{{model}} se ha activado con {{provider}}.",
     "model_disabled": "{{model}} se ha desactivado.",
     "no_results": "Ningún modelo coincide con estos filtros.",
-    "data_note": "Datos vivos de benchmarks, precios y rendimiento. Atribución:",
+    "data_note": "Benchmarks y rendimiento del catálogo; pueden proceder de datos guardados. Fuente:",
     "metric_sources": {
       "models_dev": "Valor completado con models.dev",
       "artificial_analysis_cache": "Último valor disponible en la caché de Artificial Analysis"
@@ -5087,7 +5190,8 @@
       "configuration_load_error": "La comparativa está disponible, pero no se ha podido cargar la configuración actual de los modelos.",
       "configuration_save_error": "No se ha podido guardar la configuración del modelo.",
       "upstream_error": "No se han podido cargar los datos actuales de los modelos.",
-      "help": "Crea una clave gratuita, pégala a continuación y Gnosi la guardará de forma segura en el backend."
+      "help": "Crea una clave gratuita, pégala a continuación y Gnosi la guardará de forma segura en el backend.",
+      "unknown_route_price": "No se puede activar el modelo sin tarifas conocidas. Actualiza el catálogo e inténtalo de nuevo; no se guardará un precio desconocido como cero."
     },
     "setup": {
       "execution": "Tipo de ejecución",
@@ -5099,27 +5203,39 @@
       "connected": "conectado",
       "credentials_ready": "Credenciales preparadas",
       "credentials_ready_help": "Gnosi reutilizará la conexión segura que ya tienes configurada.",
+      "credentials_saved": "Credenciales guardadas; conexión sin probar",
+      "connection_unverified": "El proveedor solo se marcará como conectado cuando responda el modelo seleccionado.",
+      "test_connection": "Probar conexión",
+      "connection_verified": "Conectado: la prueba funcionó",
+      "auto_activation_help": "Los cambios se guardan automáticamente. Cuando la conexión funcione, el modelo se activará y este formulario se cerrará.",
+      "auto_checking": "Comprobando la conexión y activando el modelo…",
+      "connection_verified_help": "El modelo {{model}} ha respondido correctamente a la prueba. La caducidad de la clave API depende de la configuración del proveedor.",
+      "connection_failed": "No se pudo verificar la conexión con este modelo.",
       "api_key": "Clave API de {{provider}}",
-      "api_key_help": "Solo se solicita porque este proveedor aún no está conectado.",
+      "api_key_help": "Pega la clave del proveedor. Se guardará y comprobará automáticamente cuando dejes de escribir.",
+      "replace_api_key_help": "Ya hay una clave guardada. Si introduces una nueva, se sustituirá y comprobará automáticamente.",
       "base_url": "URL base",
       "base_url_help": "Se propone el endpoint del catálogo; modifícalo solo si usas un endpoint compatible propio.",
       "no_exact_route": "No se ha encontrado ninguna ruta ejecutable exacta",
       "no_exact_route_help": "Este modelo no se puede activar automáticamente porque el catálogo no ofrece ninguna ruta compatible verificable.",
       "router_help": "El modelo quedará disponible para el router automático y también en Modelos del router.",
-      "activate": "Activar modelo"
+      "activate": "Activar modelo",
+      "shared_offer_help": "Esta oferta es compartida por estas variantes de la comparativa: {{models}}. La activación y el alias afectan a la misma oferta. Las variantes son informativas: esta pantalla no configura el modo de razonamiento ni garantiza reproducir las condiciones de cada evaluación.",
+      "shared_offer_label": "Activación y alias compartidos"
     },
     "profiles": {
       "worker": "Peón",
       "administrative": "Administrativo",
       "documentalist": "Documentalista",
       "allrounder": "Todoterreno",
-      "expert": "Perito / Director",
-      "unrated": "Sin puntuación"
+      "expert": "Perito",
+      "unrated": "Sin puntuación",
+      "director": "Directivo"
     },
     "columns": {
       "parameters": "Parámetros (B)",
       "model": "Modelo",
-      "creator": "Creador",
+      "creator": "Fabricante",
       "provider": "Proveedor",
       "modes": "Modos compatibles",
       "intelligence": "Inteligencia (puntos)",
@@ -5135,7 +5251,44 @@
       "quantization": "Cuantización",
       "monthly_cost": "Est. {{symbol}}/mes",
       "available": "Disponible"
-    }
+    },
+    "alias": {
+      "label": "Alias",
+      "placeholder": "Ej.: Rápido y económico",
+      "help": "En los selectores solo se mostrará este alias. Si lo dejas vacío, se mostrará el nombre del modelo.",
+      "activation_help": "Asigna un alias y activa el modelo cuando estés listo."
+    },
+    "review_lookup": "Consultar la fuente oficial",
+    "review_help": "Consulta las fuentes del fabricante y comprueba la versión exacta. La consulta automática busca la ficha oficial; si no encuentra un dato explícito, puedes contrastarlo y guardarlo con su fuente. No se infiere del nombre.",
+    "review_source_link": "Abrir fuente del fabricante",
+    "review_status": "Resultado de la verificación",
+    "review_known": "Tamaño publicado",
+    "review_total": "Parámetros totales (B)",
+    "review_active": "Parámetros activos (B, opcional)",
+    "review_attest": "He comprobado este dato para la versión exacta en una fuente oficial",
+    "review_save": "Guardar verificación",
+    "review_error": "No se ha podido completar la verificación. Revisa fuente, cantidades y permisos de administración.",
+    "review_outcomes": {
+      "loaded": "Elige la consulta automática o contrasta la fuente manualmente.",
+      "verified": "Dato oficial encontrado y guardado.",
+      "needs_review": "La consulta no encontró un dato explícito. Aún hay que revisar la fuente; no significa que no esté publicado.",
+      "source_unavailable": "La fuente no respondió. Puedes reintentarlo.",
+      "saved": "Verificación manual guardada con fuente y fecha."
+    },
+    "review_manual": "Fuente revisada manualmente",
+    "estimated_fit": "Adecuación estimada",
+    "choice_help": "Elige según la adecuación estimada, el coste y el fabricante. El perfil filtra los modelos con adecuación estimada para esa tarea. Activa «Incluir incompletos» para ver también candidatos sin datos suficientes; esto no confirma su adecuación. Los filtros actuales pueden ocultar alternativas.",
+    "compare_candidates": "Comparar todos los candidatos",
+    "unknown_cost": "Coste desconocido",
+    "local_cost_note": "Sin tarifa por tokens; hardware y energía no incluidos.",
+    "provider_cost_note": "Estimación con las tarifas de cada proveedor y los tokens indicados; excluye cuotas fijas e impuestos. Los costes se muestran de menor a mayor, con los desconocidos al final. Contexto, modos y capacidades corresponden a cada proveedor según el catálogo, sin sustituir datos ausentes por los generales del modelo. Los filtros deben coincidir en una misma oferta. El contexto se ordena por el máximo conocido entre las ofertas del proveedor seleccionado. Velocidad y adecuación siguen siendo datos generales del modelo.",
+    "input_modes": "Entrada",
+    "output_modes": "Salida",
+    "tool_call": "Herramientas",
+    "reasoning": "Razonamiento",
+    "unknown_capability": "Desconocido",
+    "supported": "Sí",
+    "unsupported": "No"
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
@@ -5450,9 +5603,11 @@
     "module_social_desc": "Gestiona tus redes sociales desde un solo lugar.",
     "module_media_title": "Fotos y Media",
     "module_media_desc": "Explora tu biblioteca de archivos multimedia.",
-    "module_dashboard_title": "Centro de Control",
+    "module_dashboard_title": "Centro de control",
     "module_dashboard_desc": "Monitoriza el estado del sistema y aprueba herramientas.",
-    "module_settings_desc": "Gestiona los parámetros de tu ecosistema."
+    "module_settings_desc": "Gestiona los parámetros de tu ecosistema.",
+    "module_planning_desc": "Planifica proyectos, dependencias, recursos y calendarios de trabajo.",
+    "module_notebooks_desc": "Haz preguntas basadas en las fuentes de referencia seleccionadas."
   },
   "composer": {
     "title": "Compositor",
@@ -6131,7 +6286,48 @@
     "submit": "Enviar a revisión",
     "submitted": "Plantilla enviada a moderación.",
     "submit_error": "No se ha podido enviar la plantilla.",
-    "submission_not_configured": "Esta instalación no tiene configurado un servicio de envíos del marketplace."
+    "submission_not_configured": "Esta instalación no tiene configurado un servicio de envíos del marketplace.",
+    "privacy_help": "Revisa los archivos y las alertas antes de compartir. Las alertas indican posibles credenciales; no se muestran los valores detectados.",
+    "files_findings": "Alertas",
+    "files_included": "Archivos incluidos",
+    "files_excluded": "Archivos excluidos",
+    "search_files": "Buscar un archivo",
+    "no_files": "Ningún archivo coincide con esta selección.",
+    "show_more": "Mostrar más",
+    "search_catalog": "Buscar plantillas",
+    "category": "Categoría",
+    "all_categories": "Todas las categorías",
+    "loading_catalog": "Cargando el catálogo…",
+    "contents_preview": "Qué incluye",
+    "category_starter": "Inicio",
+    "category_research": "Investigación",
+    "category_writing": "Escritura",
+    "category_study": "Estudio",
+    "category_projects": "Proyectos",
+    "privacy_reason_private-root": "Datos privados de la aplicación",
+    "privacy_reason_environment-file": "Archivo de variables de entorno",
+    "privacy_reason_executable-content": "Contenido ejecutable",
+    "privacy_reason_symlink": "Enlace simbólico",
+    "privacy_reason_file-too-large": "Archivo demasiado grande",
+    "privacy_reason_unreadable": "No se puede leer",
+    "privacy_reason_private-key": "Posible clave privada",
+    "privacy_reason_aws-access-key": "Posible clave de acceso AWS",
+    "privacy_reason_oauth-refresh-token": "Posible token de acceso OAuth",
+    "privacy_reason_credential-assignment": "Posible contraseña o credencial",
+    "privacy_reason_unknown": "Requiere revisión",
+    "catalog_starter-vault_name": "Espacio de investigación",
+    "catalog_starter-vault_description": "De las fuentes al manuscrito: notas de lectura, síntesis y ejemplos con citas.",
+    "catalog_starter-vault_preview": "Tabla de fuentes · Notas de lectura · Síntesis conectada · Primer párrafo",
+    "catalog_study-workspace_name": "Espacio de estudio",
+    "catalog_study-workspace_description": "Planifica una asignatura, desarrolla conceptos y comprueba qué recuerdas.",
+    "catalog_study-workspace_preview": "Plan semanal · Ficha de concepto · Repaso activo · Guía de inicio",
+    "catalog_project-workspace_name": "Espacio de proyectos",
+    "catalog_project-workspace_description": "Define un proyecto, sigue las tareas y conserva los motivos de las decisiones.",
+    "catalog_project-workspace_preview": "Ficha de proyecto · Tareas · Registro de decisiones · Guía de inicio",
+    "no_matching_templates": "Ninguna plantilla coincide con la búsqueda o categoría.",
+    "findings_ack_one": "Se ha detectado un posible dato sensible. He revisado el archivo de origen y acepto incluirlo.",
+    "findings_ack_other": "Se han detectado {{count}} posibles datos sensibles. He revisado los archivos de origen y acepto incluirlos.",
+    "findings_ack_many": "Se han detectado {{count}} posibles datos sensibles. He revisado los archivos de origen y acepto incluirlos."
   },
   "shared_page": {
     "link_invalid": "Este enlace no es válido o ha caducado.",
@@ -6615,7 +6811,8 @@
       },
       "v3_0_4": {
         "fixes": {
-          "autosave_metadata": "Cambiar el título o el favorito de una página ya no sobrescribe el texto guardado automáticamente hace un momento."
+          "autosave_metadata": "Cambiar el título o el favorito de una página ya no sobrescribe el texto guardado automáticamente hace un momento.",
+          "update_notice_background_check": "El aviso de actualización de escritorio comprueba periódicamente si hay nuevas releases y permite volver a intentar la acción del instalador de macOS."
         }
       },
       "v3_1_0": {
@@ -7338,8 +7535,8 @@
     }
   },
   "agent_execution": {
-    "principal": "Agente principal",
-    "configure": "Configurar el Agente",
+    "principal": "Perfil del asistente",
+    "configure": "Configura el perfil",
     "skills": {
       "writing": "Redacción y resúmenes",
       "podcast": "Resumen diario y pódcast",
@@ -7372,5 +7569,166 @@
       "worker": "Fase"
     },
     "usage_unavailable": "Consumo no informado por el proveedor"
+  },
+  "agent_behavior": {
+    "instructions": "Instrucciones",
+    "skills": "Skills",
+    "context": "Contexto",
+    "operations": "Operaciones",
+    "preview": "Qué recibe el bot",
+    "navigation": "Configuración del comportamiento",
+    "preview_help": "Composición de las instrucciones guardadas. Cada ejecución registra la petición efectiva, con los datos y las fuentes que utiliza.",
+    "system": "Reglas del sistema",
+    "missing": "Skills no disponibles",
+    "trace": "Ver la traza",
+    "more": "Cargar más",
+    "original": "Original distribuido",
+    "restore": "Restaurar el original",
+    "legacy": "Texto anterior conservado",
+    "retention": "Conservar las trazas (días desde el cierre)",
+    "export": "Exportar la traza",
+    "delete": "Eliminar la traza",
+    "trace_deleted": "Traza eliminada",
+    "trace_expired": "Traza caducada",
+    "trace_unavailable": "Traza no disponible",
+    "update": "Nueva versión del original",
+    "use_update": "Aplicar la nueva versión",
+    "executor": "Bot ejecutor",
+    "assign_operation": "Usar este bot para esta operación"
+  },
+  "agent_team": {
+    "setup": "Configura el equipo",
+    "help": "Elige al Directivo y los agentes que podrán recibir encargos. Cada agente conserva su modelo e instrucciones.",
+    "step": "Paso {{current}} de {{total}}",
+    "director": "Directivo",
+    "choose": "Selecciona un agente",
+    "member": "Incluye a {{name}} en el equipo",
+    "entrypoints": "Perfiles que pueden utilizar este equipo",
+    "initiator": "Permite delegar a {{name}}",
+    "routes_help": "Selecciona ejecutores para operaciones conocidas. Se elegirá el de menor coste estimado entre los adecuados; el coste desconocido no se considerará cero.",
+    "temporary": "Permite especialistas temporales",
+    "allowed_models": "Modelos autorizados",
+    "allowed_skills": "Habilidades autorizadas",
+    "review_help": "Revisa la configuración antes de aplicarla. Entrará en vigor cuando guardes los cambios.",
+    "skill_addition": "Se añadirá esta habilidad al Directivo:",
+    "limits": "Límites: cuatro encargos, dos temporales y dos trabajos de lectura simultáneos. Conservar un temporal requerirá aceptar una propuesta.",
+    "back": "Atrás",
+    "next": "Continúa",
+    "apply": "Aplica a la configuración",
+    "disable": "Desactiva este equipo",
+    "insufficient_data": "Datos insuficientes",
+    "catalog_compatible": "Compatible según el catálogo",
+    "tested": "Evaluado con pruebas",
+    "limitation": "Limitación conocida",
+    "proposals": "Propuestas de agentes permanentes",
+    "retain": "Conserva el agente",
+    "reject": "Rechaza",
+    "instructions": "Instrucciones reutilizables",
+    "review_proposal": "Revisa y elimina cualquier dato particular de la tarea antes de conservar el agente. Se creará un perfil personal sin historial ni memorias; podrás incorporarlo al equipo desde la configuración.",
+    "unknown_date": "Fecha desconocida",
+    "source": "Procedencia",
+    "evidence": "Evidencias",
+    "missing": "Pruebas pendientes",
+    "metrics": {
+      "tool_support": "Uso de herramientas",
+      "reasoning": "Razonamiento",
+      "planning_quality": "Calidad de planificación",
+      "executor_selection": "Selección de ejecutores",
+      "delegation_cost": "Coste de delegación",
+      "catalan_quality": "Calidad del catalán",
+      "instruction_following": "Seguimiento de instrucciones",
+      "tool_reliability": "Fiabilidad de herramientas",
+      "long_context": "Contexto extenso",
+      "citation_fidelity": "Fidelidad de citas",
+      "passage_retrieval": "Recuperación de fragmentos",
+      "coverage": "Cobertura",
+      "complex_reasoning": "Razonamiento complejo",
+      "uncertainty_calibration": "Gestión de la incertidumbre",
+      "tool_or_structured_support": "Herramientas o salida estructurada",
+      "schema_accuracy": "Exactitud de esquemas",
+      "extraction_accuracy": "Exactitud de extracción",
+      "text_support": "Texto",
+      "task_accuracy": "Exactitud de la tarea",
+      "measured_task_cost": "Coste medido por tarea",
+      "intelligence": "Inteligencia",
+      "agentic": "Capacidad agéntica",
+      "coding": "Programación",
+      "speed": "Velocidad (tokens/s)",
+      "latency": "Latencia (s)",
+      "token_cost": "Precio ponderado (USD/1M tokens)",
+      "simulated_tool_selection": "Selección simulada de herramientas",
+      "gap_detection": "Detección de carencias"
+    },
+    "sources": {
+      "catalog": "Catálogo",
+      "declared": "Capacidad declarada",
+      "benchmark": "Benchmark",
+      "gnosi": "Pruebas de Gnosi",
+      "mixed": "Fuentes diversas"
+    },
+    "proposal_rationale": "No había un ejecutor existente adecuado y disponible para este encargo. Revisa si las instrucciones y habilidades del temporal son útiles para futuras tareas.",
+    "proposal_limitation": "Un encargo completado no acredita fiabilidad general. Revisa el resultado y elimina datos particulares de las instrucciones antes de conservarlo.",
+    "below_threshold": "Por debajo del umbral orientativo",
+    "role_score": "Valoración orientativa",
+    "data_coverage": "Cobertura de datos",
+    "weight": "Peso",
+    "scoring_help": "Orientación, no certificación: mínimo 60/100 y 60% de datos, con requisitos por rol. Inteligencia, código y capacidad agéntica se comparan con el catálogo actual; contexto y velocidad saturan en 200.000 tokens y 100 tokens/s. Latencia y precio puntúan con 1/(1+x/2). El precio usa una mezcla fija de 4 tokens de entrada por 1 de salida; no es el coste real de una tarea. No se deducen citas, catalán ni fiabilidad a partir del contexto.",
+    "missing_catalog": "Datos de catálogo ausentes",
+    "obtain_catalog": "Pulsa Actualizar para consultar los datos disponibles (se respeta la caché del proveedor). Si siguen ausentes, la fuente debe publicar el dato; no se inventa ni se deduce del nombre o tamaño del modelo.",
+    "verification_pending": "Puedes ejecutar casos sintéticos en «Pruebas de perfiles y estrategias». Los resultados se vinculan a la valoración; no sustituyen todas las pruebas del protocolo.",
+    "verify_roles": {
+      "director": "Cómo verificarlo: ejecutar los mismos casos sintéticos con Todoterreno, Directivo siempre activo y Directivo con rutas; validar planes, ejecutores, llamadas evitables y coste total.",
+      "allrounder": "Cómo verificarlo: probar instrucciones en catalán y herramientas simuladas; puntuar calidad lingüística, seguimiento de instrucciones y resultado de cada acción.",
+      "documentalist": "Cómo verificarlo: preguntar sobre documentos sintéticos con fragmentos y respuestas conocidos; comprobar recuperación, citas exactas y cobertura de fuentes.",
+      "expert": "Cómo verificarlo: resolver problemas con solución conocida y casos sin información suficiente; medir aciertos, contraste y reconocimiento de incertidumbre.",
+      "administrative": "Cómo verificarlo: extraer datos sintéticos con resultado esperado y validar contenido y esquema; ejecutar procedimientos con pasos verificables.",
+      "worker": "Cómo verificarlo: repetir transformaciones con salida esperada y registrar aciertos, tiempo y tokens; calcular el coste por tarea correcta, incluidos reintentos."
+    },
+    "lab_title": "Pruebas de perfiles y estrategias",
+    "lab_help": "Casos sintéticos, sin documentos ni instrucciones particulares. Cada perfil usa 2–3 llamadas; comparar estrategias usa hasta 17 (límite global: 24), con un máximo de 512 tokens de salida por llamada. Se guardan resultados y consumo, no respuestas.",
+    "lab_kind": "Tipo de prueba",
+    "lab_role": "Verificar un perfil",
+    "lab_strategies": "Comparar tres estrategias",
+    "lab_agent": "Agente que se probará",
+    "lab_executor": "Ejecutor candidato",
+    "lab_authorize": "Autorizo las llamadas y el posible coste de esta prueba",
+    "lab_run": "Ejecutar prueba",
+    "lab_running": "Ejecutando…",
+    "lab_error": "No se ha podido completar la prueba o cargar los datos. Comprueba permisos y modelos habilitados.",
+    "lab_limitations": "Pruebas sintéticas limitadas, no una certificación general. La comparación usa los mismos casos y la selección económica de Gnosi en un entorno aislado, sin herramientas de negocio. No mide todas las tareas con dependencias ni el uso real de herramientas. Los costes desconocidos siguen desconocidos. No cambia los modelos asignados.",
+    "lab_strategy": "Estrategia",
+    "lab_passed": "Casos válidos",
+    "lab_calls": "Llamadas",
+    "lab_director_calls": "Llamadas al Directivo",
+    "lab_avoidable": "Llamadas evitables",
+    "lab_cost": "Coste (USD)",
+    "lab_allrounder": "Todoterreno",
+    "lab_director_always": "Directivo siempre activo",
+    "lab_director_routes": "Directivo con rutas directas",
+    "lab_pass": "Superado",
+    "lab_fail": "No superado",
+    "lab_measured": "Resultado sintético verificado",
+    "lab_blend": "Valoración: 50% catálogo y 50% prueba sintética. Las carencias generales siguen visibles.",
+    "reuse_specialty": "Especialista reutilizable en las habilidades indicadas. Compara cobertura y modelo con los agentes existentes antes de conservarlo.",
+    "reusable_skills": "Especialidad reutilizable",
+    "missing_skills": "Habilidades que le faltan a este agente",
+    "same_model": "Mismo modelo",
+    "different_model": "Modelo distinto",
+    "completed_execution_only": "Ejecución completada con resultado; no certifica todos los criterios",
+    "acceptance_not_certified": "Hay que contrastar los criterios particulares. Las instrucciones propuestas son genéricas y no copian contenido de la tarea.",
+    "add_to_team": "Incorporar también el agente a este equipo"
+  },
+  "agent_commands": {
+    "label": "Comando",
+    "help": "Opcional. Escribe /traductor al principio del mensaje para llamar a este agente solo en ese turno. Cada comando debe ser único.",
+    "agent_command_invalid": "Usa / y entre 1 y 32 letras sin acentos, dígitos, guiones o guiones bajos, empezando por una letra.",
+    "agent_command_duplicate": "Este comando ya pertenece a otro agente.",
+    "agent_command_unknown": "Comando desconocido. Revisa el comando configurado en el agente.",
+    "agent_command_unavailable": "Este agente no está disponible. Revisa su configuración.",
+    "agent_command_request_required": "Escribe la petición después del comando."
+  },
+  "accessibility": {
+    "skip_to_content": "Saltar al contenido principal",
+    "route_loaded": "Se ha cargado {{page}}"
   }
 }

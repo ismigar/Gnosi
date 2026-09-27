@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -7,6 +8,8 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, JsonValue
 
+from backend.domains.configuration.ai.budget import sanitize_budget as _sanitize_budget
+from backend.domains.configuration.ai.registry_revision import registry_revision
 from backend.config.app_config import load_params
 from backend.config.env_config import remove_env_keys
 from backend.domains.configuration.ai.contracts import (
@@ -38,6 +41,7 @@ from backend.security.ai_credentials import (
     resolve_provider_api_key,
     sanitize_ai_config,
     set_provider_api_key,
+    validated_provider_models,
 )
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
@@ -73,6 +77,29 @@ class ValidatePayload(BaseModel):
     model: str | None = None
 
 
+def _record_provider_model_validation(provider: str, model: str, success: bool) -> None:
+    if not model:
+        return
+    cfg = load_params(strict_env=False)
+    current_config = _load_yaml_mapping(cfg.params_source)
+    ai_cfg = dict(current_config.get("ai") or {})
+    providers = dict(ai_cfg.get("providers") or {})
+    provider_cfg = dict(providers.get(provider) or {})
+    validations = dict(provider_cfg.get("model_validations") or {})
+    if success:
+        validations[model] = time.time()
+    else:
+        validations.pop(model, None)
+    provider_cfg["model_validations"] = validations
+    providers[provider] = provider_cfg
+    ai_cfg["providers"] = providers
+    current_config["ai"] = ai_cfg
+    safe_write_text(
+        cfg.params_source,
+        yaml.safe_dump(current_config, default_flow_style=False, allow_unicode=True, sort_keys=False),
+    )
+
+
 @router.post(
     "/providers/{provider_id}/validate",
     dependencies=[Depends(require_role("admin"))],
@@ -88,6 +115,7 @@ async def validate_provider(
     If api_key is provided in payload, it uses it. Otherwise, it uses the saved one.
     """
     provider = provider_id.lower().strip()
+    record_saved_verification = not payload.api_key and not payload.base_url
 
     # Resolve API Key
     api_key = payload.api_key
@@ -95,6 +123,10 @@ async def validate_provider(
         api_key = resolve_provider_api_key(provider, {})
 
     if not api_key and provider not in ["ollama", "local", "generic"]:
+        if record_saved_verification:
+            await asyncio.to_thread(
+                _record_provider_model_validation, provider, payload.model or "", False,
+            )
         return {
             "success": False,
             "error": f"Falta la clau API per validar el proveïdor {provider.capitalize()}.",
@@ -120,6 +152,13 @@ async def validate_provider(
         target_model = default_models.get(provider)
 
     try:
+        if not payload.base_url:
+            cfg = load_params(strict_env=False)
+            providers_cfg = dict((cfg.get("ai", {}) or {}).get("providers") or {})
+            provider_cfg = dict(providers_cfg.get(provider) or {})
+            saved_base_url = provider_cfg.get("base_url")
+        else:
+            saved_base_url = payload.base_url
         # timeout=10 is applied when building the client (REAL network timeout). It can NOT be
         # passed to .invoke() via config={"timeout":...}: langchain ignores it, and the "validate"
         # would hang if the provider doesn't respond. cf. directive ai_error_handling.md.
@@ -127,11 +166,15 @@ async def validate_provider(
             provider=provider,
             model=target_model,
             api_key=api_key,
-            base_url=payload.base_url,
+            base_url=saved_base_url,
             timeout=10,
         )
 
         if not llm:
+            if record_saved_verification:
+                await asyncio.to_thread(
+                    _record_provider_model_validation, provider, str(target_model or ""), False,
+                )
             return {
                 "success": False,
                 "error": f"Could not instantiate provider {provider}. Check the dependency and API key. Model: {target_model}",
@@ -147,17 +190,26 @@ async def validate_provider(
             provider=provider, model=str(target_model or ""),
         )
 
+        if record_saved_verification:
+            await asyncio.to_thread(
+                _record_provider_model_validation, provider, str(target_model or ""), True,
+            )
+
         return ProviderValidationResponse.model_validate(
             {"success": True, "response": response.content}
         ).model_dump(exclude_unset=True)
     except Exception as e:
+        if record_saved_verification:
+            await asyncio.to_thread(
+                _record_provider_model_validation, provider, str(target_model or ""), False,
+            )
         error_msg = str(e)
         # Groq/OpenAI SDKs raise AuthenticationError/401 without the literal
         # words "API key" — without this match a bad key surfaced as a cryptic
         # "Internal error [hash]" instead of the actionable message.
         if any(
             marker in error_msg
-            for marker in ("API key", "AuthenticationError", "401", "Unauthorized")
+            for marker in ("API key", "AuthenticationError", "401", "Unauthorized", "User not found", "invalid key")
         ):
             return {"success": False, "error": f"Clau API invàlida per a {provider.capitalize()}."}
         return {
@@ -244,6 +296,7 @@ async def set_provider_credentials(
     if payload.base_url is not None:
         provider_cfg["base_url"] = payload.base_url
     providers[provider] = provider_cfg
+    provider_cfg.pop("model_validations", None)
     ai_cfg["providers"] = providers
     _set_provider_disconnected(ai_cfg, provider, False)
 
@@ -455,6 +508,7 @@ async def get_model_registry() -> JsonObject:
                 strip_legacy_registry_rows(configured_models)
             ),
             "budget": dict(ai_cfg.get("budget") or {}),
+            "revision": registry_revision(ai_cfg),
             "default": DEFAULT_REGISTRY,
             "currency": currency,
         }
@@ -497,6 +551,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
             configured = provider_id in providers_cfg
             provider_cfg = providers_cfg.get(provider_id) if configured else None
             connected = is_provider_connected(provider_id, provider_cfg)
+            validated_models = validated_provider_models(provider_cfg)
             has_api_key = (
                 has_provider_api_key(provider_id, provider_cfg)
                 if configured
@@ -506,6 +561,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
                 {
                     **entry,
                     "connected": connected,
+                    "validated_models": validated_models,
                     "configured": configured,
                     "enabled": (provider_cfg or {}).get("enabled", True),
                     "has_api_key": has_api_key,
@@ -523,7 +579,7 @@ async def get_model_catalog(refresh: bool = False) -> JsonObject:
     response_model=ModelComparisonResponse,
     response_model_exclude_unset=True,
 )
-async def get_model_comparison() -> JsonObject:
+async def get_model_comparison(context: Any = Depends(require_role("viewer")), refresh: bool = False) -> JsonObject:
     """Complete, freshly paginated Artificial Analysis language-model feed."""
     from backend.services.artificial_analysis import (
         ArtificialAnalysisError,
@@ -535,7 +591,14 @@ async def get_model_comparison() -> JsonObject:
         def _load() -> JsonObject:
             from backend.services.model_parameters import enrich_comparison
 
-            res = enrich_comparison(fetch_all_models())
+            res = enrich_comparison(fetch_all_models(force_refresh=True) if refresh else fetch_all_models())
+            if context is not None and hasattr(context, "vault_path"):
+                from backend.services.agent_execution_models import ExecutionScope
+                from backend.services.agent_team_store import list_artifacts
+                from backend.services.agent_role_evaluations import attach_evaluations
+                scope = ExecutionScope(user_id=context.user_id, workspace_id=context.workspace_id,
+                    vault_path=str(context.vault_path.resolve()), role=context.role)
+                res = attach_evaluations(res, list_artifacts(scope, "role_evaluation"))
             cfg = load_params(strict_env=False)
             currency = rate_info(
                 parse_currency_code((cfg.get("settings", {}) or {}).get("currency"))
@@ -620,27 +683,6 @@ async def get_ai_usage_history() -> JsonObject:
     return await asyncio.to_thread(_history)
 
 
-def _sanitize_budget(raw: JsonObject) -> JsonObject:
-    """Keep only known budget keys, safely typed; drop everything else."""
-    budget: JsonObject = {
-        "prefer_local": bool(raw.get("prefer_local")),
-        "prefer_local_below": int(raw.get("prefer_local_below") or 0),
-        "enforce_block": bool(raw.get("enforce_block")),
-    }
-    if raw.get("remaining_tokens") not in (None, ""):
-        try:
-            budget["remaining_tokens"] = int(raw["remaining_tokens"])
-        except (TypeError, ValueError):
-            pass
-    try:
-        cap = float(raw.get("monthly_cost_cap") or 0)
-        if cap > 0:
-            budget["monthly_cost_cap"] = round(cap, 2)
-    except (TypeError, ValueError):
-        pass
-    return budget
-
-
 @router.put(
     "/models",
     dependencies=[Depends(require_role("admin"))],
@@ -663,10 +705,16 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
     )
     from backend.agent.model_router import hydrate_registry_metadata
 
+    price_index, metadata_index = await asyncio.gather(
+        asyncio.to_thread(catalog_price_index),
+        asyncio.to_thread(catalog_model_metadata_index),
+    )
     cfg = load_params(strict_env=False)
     params_path = cfg.params_source
     current_config = _load_yaml_mapping(params_path)
     ai_cfg = dict(current_config.get("ai") or {})
+    if payload.expected_revision is not None and payload.expected_revision != registry_revision(dict(cfg.get("ai", {}) or {})):
+        raise HTTPException(status_code=409, detail="model_registry_changed")
     current_rows = [dict(row) for row in (ai_cfg.get("models") or []) if isinstance(row, dict)]
     current_by_key = {
         (
@@ -675,11 +723,6 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
         ): row
         for row in current_rows
     }
-    price_index, metadata_index = await asyncio.gather(
-        asyncio.to_thread(catalog_price_index),
-        asyncio.to_thread(catalog_model_metadata_index),
-    )
-
     # Minimal validation of each entry
     cleaned: list[JsonObject] = []
     for m in payload.models:
@@ -693,6 +736,9 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
             "provider": provider,
             "model_id": model_id,
         }
+        alias = candidate.get("alias")
+        if alias is not None and (not isinstance(alias, str) or len(alias.strip()) > 120):
+            raise HTTPException(status_code=400, detail="alias ha de ser un text de fins a 120 caràcters")
         effective = hydrate_registry_metadata(
             [candidate],
             metadata_index,
@@ -702,6 +748,7 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
             {
                 "provider": provider,
                 "model_id": model_id,
+                "alias": alias.strip() if isinstance(alias, str) else "",
                 "is_local": bool(effective.get("is_local", False)),
                 "enabled": bool(effective.get("enabled", True)),
                 "priority": int(effective.get("priority") or 100),
@@ -735,3 +782,17 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
 
 
 router.include_router(content_router)
+
+
+from backend.services.model_parameter_review import ParameterReviewRequest, ParameterReviewResponse
+
+
+@router.post("/model-parameters/review", response_model=ParameterReviewResponse)
+async def review_model_parameters(payload: ParameterReviewRequest, _context: Any = Depends(require_role("admin"))) -> dict[str, Any]:
+    from backend.services.model_parameter_review import review
+    try:
+        return await asyncio.to_thread(review, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

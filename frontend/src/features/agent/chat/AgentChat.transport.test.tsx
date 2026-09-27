@@ -214,3 +214,33 @@ describe('AgentChat shared transport integration', () => {
     } finally { errorLog.mockRestore(); }
   });
 });
+
+it('switches the conversation profile without changing history or checkpoint identity and restores it', async () => {
+  mocks.configuration.mockResolvedValue({ ai: { active_agent_id: 'gnosy', agents: [
+    { id: 'gnosy', name: 'Default', provider: 'fixture', model: 'small', icon: 'G' },
+    { id: 'research', name: 'Research', provider: 'fixture', model: 'large', icon: 'R' },
+  ] } });
+  mocks.stream.mockImplementation(() => Promise.resolve(new Response('{"type":"message","content":"Answer"}\n{"type":"done"}\n')));
+  await render(<AgentChat embedded forcedSessionId="profile-conversation" />);
+  await submit('First question');
+  const firstBody = mocks.stream.mock.calls[0]?.[1]?.body;
+  if (typeof firstBody !== 'string') throw new Error('Expected JSON request body');
+  const first = JSON.parse(firstBody) as { agent_id: string; session_id: string };
+  const selector = container.querySelector('select[aria-label="settings.ai.assistant.profile"]');
+  if (!(selector instanceof HTMLSelectElement)) throw new Error('Missing profile selector');
+  await act(async () => { selector.value = 'research'; selector.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+  expect(container.textContent).toContain('First question');
+  expect(selector.value).toBe('research');
+  expect(container.textContent).toContain('Research');
+  await submit('Continue this conversation');
+  const secondBody = mocks.stream.mock.calls[1]?.[1]?.body;
+  if (typeof secondBody !== 'string') throw new Error('Expected JSON request body');
+  const second = JSON.parse(secondBody) as { agent_id: string; session_id: string; profile_id: string };
+  expect(second).toMatchObject({ agent_id: first.agent_id, session_id: first.session_id, profile_id: 'research' });
+  expect(readChatStorage(`agent_chat_sessions_v2:${scope}`)).toContain('"profileId":"research"');
+  await act(async () => { root.unmount(); await Promise.resolve(); });
+  root = createRoot(container);
+  await render(<AgentChat embedded forcedSessionId="profile-conversation" />);
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="settings.ai.assistant.profile"]')?.value).toBe('research');
+  expect(container.textContent).toContain('First question');
+});

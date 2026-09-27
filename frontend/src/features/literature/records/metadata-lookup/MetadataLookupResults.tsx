@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { toServedAssetUrl } from '../../../../shared/resources/fileResource';
 
 import {
     metadataDisplayText,
@@ -40,10 +41,12 @@ function MetadataRow({
                 />
             </td>
             <td className="px-3 py-2 font-medium text-[var(--text-primary)] align-top">
-                {key}
+                {key === 'cover' ? t('editor.cover_alt', { defaultValue: 'Cover' }) : key}
             </td>
             <td className="px-3 py-2 text-[var(--text-tertiary)] align-top break-words max-w-xs">
-                {currentText || (
+                {key === 'cover' && currentText ? (
+                    <img src={toServedAssetUrl(currentText)} alt={t('editor.cover_alt', { defaultValue: 'Cover' })} className="max-h-32 max-w-32 object-contain" />
+                ) : currentText || (
                     <em className="opacity-60">
                         {t('common.empty', { defaultValue: 'Empty' })}
                     </em>
@@ -52,7 +55,9 @@ function MetadataRow({
             <td className={`px-3 py-2 align-top break-words max-w-md ${different
                 ? 'text-[var(--text-primary)] font-medium'
                 : 'text-[var(--text-tertiary)]'}`}>
-                {proposed}
+                {key === 'cover' && proposed ? (
+                    <img src={toServedAssetUrl(proposed)} alt={t('editor.cover_alt', { defaultValue: 'Cover' })} className="max-h-32 max-w-32 object-contain" />
+                ) : proposed}
             </td>
         </tr>
     );

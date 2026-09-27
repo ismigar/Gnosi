@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TRANSPORT = {
     "backend/domains/agent/llm.py", "backend/agent/factory.py",
     "backend/agent/model_router.py", "backend/agent/provider_resilience.py",
+    "backend/agent/json_tool_model.py",
     "backend/services/agent_cancellation.py", "backend/domains/agent/policy.py",
     "backend/domains/agent/workflow_setup.py", "backend/domains/agent/workflow.py",
     "backend/api/ai_routes.py", "backend/domains/configuration/agent/governance_routes.py",
@@ -21,9 +23,19 @@ def violations(path: Path) -> list[str]:
     if relative in TRANSPORT or "/tests/" in relative:
         return []
     tree = ast.parse(path.read_text(encoding="utf-8"))
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
     errors = []
     aliases: set[str] = set(MODEL_FUNCTIONS)
     for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and len(node.value) > 80:
+            parent = parents.get(node)
+            if isinstance(parent, ast.Expr):
+                continue
+            owner = parent
+            while owner is not None and not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                owner = parents.get(owner)
+            if owner is not None and "prompt" in owner.name and re.search(r"\b(?:You are|Your task is|Return ONLY|Write the entire|Create a reusable)\b", node.value):
+                errors.append(f"{relative}:{node.lineno}: behavior text must be loaded from a declared resource")
         if isinstance(node, ast.ImportFrom):
             for imported in node.names:
                 if imported.name in MODEL_FUNCTIONS:

@@ -1,5 +1,7 @@
 """Typed Vault domain extracted from the historical route facade."""
 
+from backend.services.agent_behavior import task_input
+
 import importlib as _legacy_importlib
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Literal, cast
@@ -475,7 +477,7 @@ async def generate_button_action(
         for field in iterable_values(fields)
         if is_record(field) and field.get("name")
     ]
-    system_instruction = f"""You are an AI assistant helping configure table button actions in a database application.\nAvailable table fields: {(", ".join(field_names) if field_names else "Title")}\n\nGiven the user's natural language request, output ONLY a valid JSON object (no markdown wrapping) with these keys:\n{{\n  "button_label": "<Short button label max 20 characters>",\n  "button_action": "set_fields" | "ai_prompt" | "run_skill",\n  "button_config": {{\n    "assignments": [\n       {{ "field": "<field_name>", "value": "<literal or formula like today()>" }}\n    ],\n    "prompt": "<prompt text for ai_prompt>",\n    "target_field": "<target field_name for ai_prompt>",\n    "skill_id": "<skill id for run_skill>"\n  }}\n}}\n"""
+    system_instruction = task_input("tables.configure", fields=field_names, request=user_prompt)
     try:
         raw_resp, _ = await _legacy.asyncio.to_thread(
             generate_text, system_instruction, user_prompt, output_schema={"type": "object", "required": ["button_label", "button_action", "button_config"], "properties": {"button_action": {"enum": ["set_fields", "ai_prompt", "run_skill"]}, "button_config": {"type": "object"}}}
@@ -531,8 +533,8 @@ async def execute_button_action(
 
         generate_text = partial(generate_for, "tables")
 
-        context_str = f"Title: {title}\nMetadata: {json.dumps(metadata, ensure_ascii=False)}\nContent: {body[:1000]}"
-        full_instruction = f"Task: {user_prompt}\nProvide ONLY the result value to set for field '{target_field}'. Do not include formatting or commentary unless requested."
+        context_str = ""
+        full_instruction = task_input("tables.field-value", request=user_prompt, title=title, metadata=metadata, content=body, target_field=target_field)
         output_val, _ = await _legacy.asyncio.to_thread(
             generate_text, full_instruction, context_str
         )

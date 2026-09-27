@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-09-26
 source_paths:
+  - extensions/marketplace/build_vault_templates.py
+  - extensions/marketplace/catalog_content.py
+  - extensions/marketplace/reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.tsx
+  - frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -46,6 +51,8 @@ source_paths:
   - frontend/src/features/notion-import
   - frontend/src/features/integrations
 tests:
+  - extensions/marketplace/test_reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
@@ -303,3 +310,11 @@ Ejecute las pruebas de manifiestos, firmas, sandbox, condiciones de carrera del 
 El [plugin Genogramas](genograms.md), opcional por Vault, añade tablas familiares enlazadas, vistas SVG y exportación local a SVG/PNG/PDF, sin servicios externos ni IA.
 
 Para el registro del correo de Microsoft en escritorio y el consentimiento institucional, consulte la [guía de configuración de Microsoft](../microsoft-mail-setup.md).
+
+## Catálogo y moderación de plantillas de Vault
+
+En modo personal, Configuración → General → Estructura de archivos → Vaults → Desde el repositorio abre el catálogo verificado. La búsqueda, los filtros por categoría y las vistas previas del contenido ayudan a elegir una plantilla; la instalación crea un Vault nuevo. Publicar plantilla abre un inventario con búsqueda de archivos incluidos, exclusiones y posibles datos sensibles. Actualizar el inventario borra la aceptación anterior.
+
+El generador prepara Research Starter Workspace 2.1.0, Study Workspace 1.0.0 y Project Workspace 1.0.0 en catalán, inglés, español y francés. Los paquetes generados solo están disponibles tras la firma oficial y la publicación; instalar la interfaz no publica los archivos del catálogo.
+
+El panel privado de moderación pone los envíos en cuarentena y registra una aprobación o un rechazo definitivos. Las plantillas de Vault aprobadas ofrecen un comprobante vinculado al ZIP exacto mediante SHA-256 y tamaño. El operador de publicación descarga ambos desde el panel autenticado, ejecuta `python -m extensions.marketplace.reviewed_templates` y pasa `--reviewed-dir` al generador del catálogo. La validación rechaza archivos inseguros, identidades discrepantes, credenciales e identificadores duplicados antes de cargar la clave oficial. Los comprobantes son registros de auditoría, no aprobaciones criptográficas: solo se aceptan mediante el proceso de mantenimiento de confianza. Aprobar no firma ni publica; los complementos tienen un proceso de publicación separado.

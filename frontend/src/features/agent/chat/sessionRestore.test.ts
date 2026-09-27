@@ -21,9 +21,9 @@ describe('scoped session restoration', () => {
   it('uses the legacy key when no active key exists', () => {
     expect(restore({ value: [makeSession('one'), makeSession('two')], legacyId: 'two' }).active.id).toBe('two');
   });
-  it('isolates agents and prefers an unarchived session when the saved selection is missing', () => {
+  it('restores the active conversation independently of the last profile', () => {
     const result = restore({ value: [{ ...makeSession('old'), archived: true }, makeSession('live'), makeSession('foreign', 'other')], activeId: 'foreign' });
-    expect(result.active.id).toBe('live');
+    expect(result.active.id).toBe('foreign');
     expect(result.sessions).toHaveLength(3);
   });
   it('creates a session for an agent without deleting other agents history', () => {

@@ -2,7 +2,7 @@
  * useModalKeyboard.js
  * CANONICAL keyboard handling for Gnosi modals.
  *
- *   Esc   → negative action (cancel / close)  — always, unconditionally
+ *   Esc   → negative action (cancel / close)  — active layer only
  *   Enter → positive action (confirm)            — with safeguards
  *   Tab   → focus-trap inside the modal              — optional (trapFocus)
  *
@@ -54,10 +54,19 @@ export interface ModalLayer {
 // releases it when it closes; Esc handlers only act if their layer is
 // the top one. Exported so modals with their own keyboard handling
 // (SchemaConfigModal) can also be counted.
-const modalLayerStack: object[] = [];
+const modalLayerStack: { containerRef?: RefObject<HTMLElement | null> | null }[] = [];
 
-export function pushModalLayer(): ModalLayer {
-    const token = {};
+export function hasOpenModal(): boolean {
+    return modalLayerStack.length > 0;
+}
+
+export function isActiveModalScope(container: HTMLElement): boolean {
+    const top = modalLayerStack.at(-1);
+    return !top || Boolean(top.containerRef?.current?.contains(container));
+}
+
+export function pushModalLayer(containerRef?: RefObject<HTMLElement | null> | null): ModalLayer {
+    const token = { containerRef };
     modalLayerStack.push(token);
     return {
         isTop: () => modalLayerStack[modalLayerStack.length - 1] === token,
@@ -94,8 +103,8 @@ export function useModalKeyboard({
     useEffect(() => {
         if (!isOpen) return undefined;
 
-        // Registers this modal in the layer stack: only the top one responds to Esc.
-        const layer = pushModalLayer();
+        // Only the top modal owns keyboard events.
+        const layer = pushModalLayer(containerRef);
 
         // We remember who had focus BEFORE opening, to restore it on close
         // (accessibility). Works because modals no longer use HTML autoFocus
@@ -117,7 +126,10 @@ export function useModalKeyboard({
                     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
                 ),
             ).filter((element) => (
-                !element.closest('[inert], [aria-hidden="true"]')
+                element.tabIndex >= 0
+                && !element.matches(':disabled, [type="hidden"]')
+                && !element.closest('[inert], [hidden], [aria-hidden="true"]')
+                && getComputedStyle(element).visibility !== 'hidden'
                 && (
                     !layoutAvailable
                     || element.getClientRects().length > 0
@@ -148,10 +160,8 @@ export function useModalKeyboard({
         }
 
         const handleKeyDown = (e: KeyboardEvent): void => {
+            if (!layer.isTop() || e.defaultPrevented || e.isComposing) return;
             if (closeOnEscapeRef.current && e.key === 'Escape') {
-                // With a nested modal open on top (upper layer of another one),
-                // the Esc belongs to it: we neither close nor consume the event.
-                if (!layer.isTop()) return;
                 e.preventDefault();
                 onCloseRef.current();
                 return;
@@ -186,7 +196,7 @@ export function useModalKeyboard({
                 // Key combinations: they are not "confirm".
                 if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
                 // IME (Chinese, Japanese, Korean…): Enter closes the composition, not the modal.
-                if (e.isComposing || Reflect.get(e, 'keyCode') === 229) return;
+                if (Reflect.get(e, 'keyCode') === 229) return;
 
                 const ae = document.activeElement;
                 const tag = ae?.tagName;
@@ -211,6 +221,7 @@ export function useModalKeyboard({
         const unsubscribeKeydown = subscribeWindowEvent('keydown', handleKeyDown, true);
         return () => {
             unsubscribeKeydown();
+            const wasTop = layer.isTop();
             layer.release();
             if (addedContainerTabIndex && panelEl?.getAttribute('tabindex') === '-1') {
                 panelEl.removeAttribute('tabindex');
@@ -225,7 +236,7 @@ export function useModalKeyboard({
             const focusIsLoose = !active
                 || active === document.body
                 || (panelEl ? panelEl.contains(active) : false);
-            if (focusIsLoose && previouslyFocused instanceof HTMLElement) {
+            if (wasTop && focusIsLoose && previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) {
                 try { previouslyFocused.focus({ preventScroll: true }); } catch { /* element is gone */ }
             }
         };

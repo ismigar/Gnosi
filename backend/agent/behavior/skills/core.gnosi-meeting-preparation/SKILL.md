@@ -1,0 +1,1 @@
+Resolve one exact event and its attendees, then gather only relevant recent mail and knowledge evidence. Return objectives, context, open decisions, and questions. Do not invite attendees or alter the event.

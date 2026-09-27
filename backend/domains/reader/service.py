@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import json
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -222,12 +223,13 @@ def _complete_analysis(
     snapshot: list[dict[str, Any]],
     summaries: list[dict[str, Any]],
     model_call: Callable[[str, str], str],
+    *, prepared_topics: list[dict[str, Any]] | None = None,
 ) -> None:
     _update_job(vault_path, job_id, state="reducing", phase="reducing", progress=82)
     by_topic: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for summary in summaries:
         by_topic[str(summary.get("topic") or "Uncategorized")].append(summary)
-    topics = [
+    topics = prepared_topics if prepared_topics is not None else [
         _reduce_topic(
             topic,
             by_topic[topic],
@@ -390,26 +392,45 @@ def _run_job(
         snapshot, job = _load_or_create_snapshot(vault_path, job_id, job)
         if _cancel_if_requested(vault_path, job_id):
             return
-        batches = _build_batches(snapshot)
-        _update_job(vault_path, job_id, total_batches=len(batches))
-        summaries = _map_batches(
-            vault_path,
-            job_id,
-            job,
-            batches,
-            budgeted_model_call,
-            worker_id,
-        )
-        if summaries is None:
-            return
-        _complete_analysis(
-            vault_path,
-            job_id,
-            job,
-            snapshot,
-            summaries,
-            budgeted_model_call,
-        )
+        if execution is not None and execution.behavior_resources:
+            from backend.services.agent_document_work import synthesize
+            from backend.services.agent_execution import operation_session
+            with operation_session(execution):
+                outcome = synthesize("reader", [{**{key: value for key, value in row.items() if key != "content"}, "text": row["content"]} for row in snapshot],
+                    json.dumps({"request": job.get("guidance", ""), "language": job["language"]}, ensure_ascii=False),
+                    snapshot=execution, output_schema={"type": "object", "required": ["topics"], "properties": {
+                        "topics": {"type": "array", "items": {"type": "object", "required": ["topic", "evolution", "article_ids"],
+                            "properties": {"topic": {"type": "string"}, "evolution": {"type": "string"},
+                                "article_ids": {"type": "array", "items": {"enum": [row["id"] for row in snapshot]}}}}}}},
+                    heartbeat=lambda: durable_job_queue.heartbeat(job_id, worker_id, lease_seconds=600) if worker_id else None)
+            for topic in outcome["result"]["topics"]:
+                topic["article_count"] = len(set(topic["article_ids"]))
+                dates = sorted(str(row["published_at"]) for row in snapshot if row["id"] in topic["article_ids"] and row.get("published_at"))
+                topic["period_start"] = dates[0] if dates else None
+                topic["period_end"] = dates[-1] if dates else None
+            _complete_analysis(vault_path, job_id, job, snapshot, [], budgeted_model_call,
+                               prepared_topics=outcome["result"]["topics"])
+        else:
+            batches = _build_batches(snapshot)
+            _update_job(vault_path, job_id, total_batches=len(batches))
+            summaries = _map_batches(
+                vault_path,
+                job_id,
+                job,
+                batches,
+                budgeted_model_call,
+                worker_id,
+            )
+            if summaries is None:
+                return
+            _complete_analysis(
+                vault_path,
+                job_id,
+                job,
+                snapshot,
+                summaries,
+                budgeted_model_call,
+            )
     except Exception as error:  # noqa: BLE001
         log.exception("Reader analysis job %s failed", job_id)
         retry_delay_seconds = _record_failure(vault_path, job_id, error)

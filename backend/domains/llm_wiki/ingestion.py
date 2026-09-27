@@ -104,6 +104,8 @@ class IngestionDependencies:
     phases: IngestionPhases
     generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
     execution_revision: str = ""
+    agent_directed: bool = False
+    max_action_steps: int = 64
     execution_metadata: dict[str, object] | None = None
     input_budget: int = 24000
     count_tokens: Callable[[str], int] = lambda text: len(text.encode("utf-8"))

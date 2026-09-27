@@ -252,6 +252,19 @@ describe('VaultViewsHeader navigation and actions', () => {
         expect(onViewSelect).toHaveBeenCalledWith('default');
     });
 
+    it.each(['view', 'table'] as const)('counts search matches in scope %s and exposes the selector', scope => {
+        const setSearchScope = vi.fn();
+        const { container } = renderHeader({ searchTerm: 'Todo', searchScope: scope, setSearchScope });
+        expect(container.textContent).toContain(`views_header.records_count_in_view:${scope === 'view' ? '0' : '1'}:2`);
+        const selector = container.querySelector<HTMLSelectElement>('select[aria-label="Search in"]');
+        expect(selector?.value).toBe(scope);
+        act(() => {
+            if (!selector) throw new Error('Missing scope selector');
+            selector.value = scope === 'view' ? 'table' : 'view';
+            selector.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        expect(setSearchScope).toHaveBeenCalledWith(scope === 'view' ? 'table' : 'view');
+    });
     it('opens and focuses search, then forwards typed changes', () => {
         const setSearchTerm = vi.fn<(value: string) => void>();
         const { container } = renderHeader({ setSearchTerm });

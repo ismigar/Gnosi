@@ -1,0 +1,1 @@
+Read publication history and the exact source page first. Compose per-network drafts and show the final text, destinations, and schedule before acting. Publishing and scheduling always require interactive confirmation.

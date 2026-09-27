@@ -1,13 +1,12 @@
 import { useEffect, useEffectEvent, useRef } from 'react';
 import { fetchPageViews, fetchVaultViews, fetchVaultPagesByTable, apiErrorDetail } from './api';
-import { byTableGet, byTableSet } from './cache';
 import { applyClientJoins } from './joins';
 import { decodeView, legacyText } from './decode';
 import { readPinned, readText, writeText, selectedKey } from './preferences';
 import { reportEmbedError } from './diagnostics';
 import type { EmbedView } from './types';
 import type { EmbedInputs } from './inputs';
-export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloadKey, setError, setLoading, setView, setRawRecords, setTemplates, setQuickPresets, presetStorageKey, setPinnedViewIds, setTableViews, setActiveViewId, setLoadDuration }: EmbedInputs) {
+export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t, reloadKey, setError, setLoading, setView, setRawRecords, setTableRecords, setTemplates, setQuickPresets, presetStorageKey, setPinnedViewIds, setTableViews, setActiveViewId, setLoadDuration }: EmbedInputs) {
     const lastSavedNonceRef = useRef<number | undefined>(0);
     const beginLoad = useEffectEvent(() => {
         const inlineSectionStr = block?.props?.section;
@@ -17,7 +16,8 @@ export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloa
         const load = async () => {
             const startedAt = window.performance.now();
             setError('');
-            setLoading(true);
+            // Keep the mounted search and renderer during background refreshes.
+            if (!view) setLoading(true);
             try {
                 let section: EmbedView | null | undefined = null;
                 if (viewId) {
@@ -63,6 +63,7 @@ export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloa
                     {
                         setView(null);
                         setRawRecords([]);
+                        setTableRecords([]);
                         setTemplates([]);
                         if (viewId) {
                             setError(t('errors.view_not_found_registry', "View \"{{id}}...\" not found in the registry.", { id: viewId.slice(0, 8) }));
@@ -77,22 +78,21 @@ export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloa
 
                 const tableId = section.source_table_id || section.table_id;
                 if (!tableId) {
-                    { setRawRecords([]); setTemplates([]); setLoading(false); }
+                    { setRawRecords([]); setTableRecords([]); setTemplates([]); setLoading(false); }
                     return;
                 }
 
-                const cached = byTableGet(tableId);
-                let all = cached;
-                if (!all) {
-                    all = await fetchVaultPagesByTable(tableId);
-                    byTableSet(tableId, all);
-                }
+                // The shared API coalesces concurrent reads and scopes them to
+                // the active vault. A second five-minute cache hid saved titles.
+                const all = await fetchVaultPagesByTable(tableId);
+                if (isCancelled()) return;
 
                 // Separate templates (for the "New" button's dropdown) from the
                 // records to display. Templates never appear in the body
                 // of the view, even if they pass the filters.
                 const tpls = all.filter(p => p.metadata.is_template === true);
                 let records = all.filter(p => !p.metadata.is_template);
+                const baseRecords = records;
 
                 // Multi-table: if the view (or the section) defines joins,
                 // expand the base rows with the joined tables' columns. The
@@ -102,11 +102,7 @@ export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloa
                 const viewJoins = Array.isArray(section.joins) ? section.joins : null;
                 if (viewJoins && viewJoins.length > 0) {
                     const loadJoined = async (tid: string) => {
-                        let rows = byTableGet(tid);
-                        if (!rows) {
-                            rows = await fetchVaultPagesByTable(tid);
-                            byTableSet(tid, rows);
-                        }
+                        const rows = await fetchVaultPagesByTable(tid);
                         return rows.filter(p => !p.metadata.is_template);
                     };
                     try {
@@ -133,6 +129,7 @@ export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloa
 
                 if (!isCancelled()) {
                     setRawRecords(records);
+                    setTableRecords(baseRecords);
                     setTemplates(tpls);
                     // Pinned tabs = anchor view's `tabs` in the registry
                     // (portable; written by the Notion importer or by its own
@@ -200,6 +197,7 @@ export function useEmbedLoad({ block, pageId, viewId, headingProp, ctx, t, reloa
                 if (!isCancelled()) {
                     setError(apiErrorDetail(e, t('errors.load_view', "Error loading the view")));
                     setRawRecords([]);
+                    setTableRecords([]);
                     setTemplates([]);
                     setLoading(false);
                 }

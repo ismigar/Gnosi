@@ -129,3 +129,38 @@ def test_budget_only_save_repairs_metadata_and_evicts_workflows(
     assert saved["ai"]["models"][0]["context_window"] == 262144
     assert saved["ai"]["budget"]["monthly_cost_cap"] == 10.0
     assert request.app.state.agent_cache == {}
+
+
+def test_registry_rejects_a_concurrent_stale_writer(monkeypatch, tmp_path):
+    from fastapi import HTTPException
+    from backend.domains.configuration.ai.registry_revision import registry_revision
+
+    params_path = tmp_path / "params.yaml"
+    initial = {"ai": {"models": [], "budget": {"monthly_usd": 10}}}
+    params_path.write_text(yaml.safe_dump(initial))
+
+    class Config(dict):
+        @property
+        def params_source(self):
+            return params_path
+
+    monkeypatch.setattr(ai_routes, "load_params", lambda strict_env=False: Config(yaml.safe_load(params_path.read_text())))
+    monkeypatch.setattr(model_catalog, "catalog_price_index", lambda: {})
+    monkeypatch.setattr(model_catalog, "catalog_model_metadata_index", lambda: {})
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(agent_cache={})))
+    revision = registry_revision(initial["ai"])
+
+    async def write_both():
+        return await asyncio.gather(*[
+            ai_routes.set_model_registry(ai_routes.ModelsPayload(
+                models=[{"provider": "custom", "model_id": name}], expected_revision=revision,
+            ), request) for name in ("first", "second")
+        ], return_exceptions=True)
+
+    results = asyncio.run(write_both())
+    errors = [result for result in results if isinstance(result, HTTPException)]
+    assert len(errors) == 1
+    assert errors[0].status_code == 409
+    saved = yaml.safe_load(params_path.read_text())["ai"]
+    assert len(saved["models"]) == 1
+    assert saved["budget"] == initial["ai"]["budget"]

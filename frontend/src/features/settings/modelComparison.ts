@@ -1,5 +1,8 @@
+import { knownContext, selectedRoutes, routeHasModes, routeContextValue, routeModes } from './model-comparison/modelRouteCapabilities';
+import { routePriceValue, routeHasPrice } from './model-comparison/modelRouteCosts';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
 import { matchingRegistryIndexes } from './model-comparison/modelComparisonRegistry';
+import { routeRoleAssessments } from './model-comparison/routeRoleAssessments';
 import type {
     AiModelCatalog,
     AiModelCatalogProvider,
@@ -10,11 +13,12 @@ import type {
 
 
 export const COMPARISON_PROFILE_KEYS = [
-    'worker',
-    'administrative',
-    'documentalist',
-    'allrounder',
+    'director',
     'expert',
+    'allrounder',
+    'documentalist',
+    'administrative',
+    'worker',
     'unrated',
 ] as const;
 export const COMPARISON_MODE_KEYS = ['text', 'image', 'audio', 'video'] as const;
@@ -39,6 +43,7 @@ export type ComparisonSortKey =
     | 'name'
     | 'output_price'
     | 'profile'
+    | 'provider'
     | 'speed';
 
 
@@ -62,6 +67,7 @@ export interface ModelComparisonUiState {
     readonly minParameters: string;
     readonly maxParameters: string;
     readonly outputTokens: string;
+    readonly provider: string;
     readonly profile: 'all' | ComparisonProfile;
     readonly query: string;
     readonly showIncomplete: boolean;
@@ -71,6 +77,7 @@ export interface ModelComparisonUiState {
 
 
 export type ModelComparisonUiAction =
+    | { readonly type: 'compare-role-candidates' }
     | { readonly type: 'change-sort'; readonly key: ComparisonSortKey }
     | { readonly type: 'set-availability'; readonly value: ComparisonAvailability }
     | { readonly type: 'set-input-tokens'; readonly value: string }
@@ -78,6 +85,7 @@ export type ModelComparisonUiAction =
     | { readonly type: 'set-min-context'; readonly value: string }
     | { readonly type: 'set-output-tokens'; readonly value: string }
     | { readonly type: 'set-profile'; readonly value: 'all' | ComparisonProfile }
+    | { readonly type: 'set-provider'; readonly value: string }
     | { readonly type: 'set-query'; readonly value: string }
     | { readonly type: 'set-show-incomplete'; readonly value: boolean }
     | { readonly type: 'set-show-profile-help'; readonly value: boolean }
@@ -91,9 +99,13 @@ export type ModelComparisonUiAction =
 
 
 export interface ModelSetupState {
+    readonly routeKey?: string;
+    readonly alias?: string;
     readonly apiKey: string;
     readonly baseUrl: string;
     readonly error: string;
+    readonly connectionStatus: 'untested' | 'testing' | 'connected' | 'error';
+    readonly connectionError: string;
     readonly mode: ComparisonSetupMode;
     readonly model: AiModelComparisonEntry;
     readonly providerId: string;
@@ -145,6 +157,7 @@ export const INITIAL_COMPARISON_UI_STATE: ModelComparisonUiState = {
     minParameters: '',
     maxParameters: '',
     outputTokens: '1000000',
+    provider: 'all',
     profile: 'all',
     query: '',
     showIncomplete: false,
@@ -154,6 +167,7 @@ export const INITIAL_COMPARISON_UI_STATE: ModelComparisonUiState = {
 
 
 export const PROFILE_ICONS: Readonly<Partial<Record<ComparisonProfile, string>>> = {
+    director: '🧭',
     administrative: '🔵',
     allrounder: '🟡',
     documentalist: '📑',
@@ -189,8 +203,12 @@ export function modelComparisonUiReducer(
             return { ...state, minContext: action.value };
         case 'set-output-tokens':
             return { ...state, outputTokens: normalizeTokenCountInput(action.value) ?? state.outputTokens };
+        case 'set-provider':
+            return { ...state, provider: action.value };
         case 'set-profile':
-            return { ...state, profile: action.value };
+            return { ...state, profile: action.value, sort: action.value === 'all' || action.value === 'unrated' ? state.sort : { key: 'profile', direction: 'desc' } };
+        case 'compare-role-candidates':
+            return { ...INITIAL_COMPARISON_UI_STATE, profile: state.profile, inputTokens: state.inputTokens, outputTokens: state.outputTokens, showIncomplete: true, sort: { key: 'profile', direction: 'desc' } };
         case 'set-query':
             return { ...state, query: action.value };
         case 'set-show-incomplete':
@@ -261,6 +279,7 @@ export const formatComparisonCost = (
     digits = 2,
 ): string => {
     if (!isFiniteMetric(value)) return '—';
+    if (value > 0 && value < 10 ** -digits) return `< ${formatComparisonCost(10 ** -digits, symbol, digits)}`;
     const formatted = value.toLocaleString(undefined, {
         maximumFractionDigits: digits,
         minimumFractionDigits: digits,
@@ -293,7 +312,7 @@ export const modelMetricAvailability = (
         intelligence: models.some((model) => model.intelligence !== null),
         latency: models.some((model) => model.latency !== null),
         profile: models.some((model) => (
-            Boolean(model.profile) && model.profile !== 'unrated'
+            Boolean(model.role_assessments?.length) || (Boolean(model.profile) && model.profile !== 'unrated')
         )),
         speed: models.some((model) => model.speed !== null),
     };
@@ -304,28 +323,40 @@ export const modelComparisonColumns = (
     available: MetricAvailability,
 ): readonly ComparisonColumn[] => [
     { key: 'name', label: 'model' },
+    ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
+    { key: 'monthly_cost', label: 'monthly_cost' },
+    { key: 'creator', label: 'creator' },
     ...(available.intelligence
         ? [{ key: 'intelligence', label: 'intelligence' } as const] : []),
     { key: 'context_window', label: 'context' },
     { key: 'input_price', label: 'input_price' },
     { key: 'output_price', label: 'output_price' },
-    { key: 'monthly_cost', label: 'monthly_cost' },
     { key: 'modes', label: 'modes' },
     { key: 'parameters', label: 'parameters' },
     ...(available.speed ? [{ key: 'speed', label: 'speed' } as const] : []),
     ...(available.latency ? [{ key: 'latency', label: 'latency' } as const] : []),
-    ...(available.profile ? [{ key: 'profile', label: 'profile' } as const] : []),
     ...(available.coding ? [{ key: 'coding', label: 'coding' } as const] : []),
     ...(available.agentic ? [{ key: 'agentic', label: 'agentic' } as const] : []),
-    { key: 'creator', label: 'creator' },
 ];
 
 
 const sortableModelValue = (
     model: AiModelComparisonEntry,
     key: ComparisonSortKey,
+    profile: ModelComparisonUiState['profile'],
+    provider: string,
 ): number | string | null => {
+    if (key === 'context_window') return routeContextValue(model, provider);
+    if (key === 'modes') {
+        const modes = selectedRoutes(model, provider).map(routeModes).filter(value => value !== null).flat();
+        return modes.length ? [...new Set(modes)].sort().join(',') : null;
+    }
     if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
+    if (key === 'provider') return [...new Set(model.routes.map(route => route.provider))].sort().join(', ');
+    if (key === 'profile') {
+        const scores = (model.role_assessments ?? []).filter(r => (profile === 'all' ? ['catalog_compatible', 'tested'].includes(r.status) : r.role === profile)).map(r => r.score).filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
+        return scores.length ? Math.max(...scores) : null;
+    }
     const value = model[key];
     if (Array.isArray(value)) return value.join(',');
     return typeof value === 'number' || typeof value === 'string' ? value : null;
@@ -350,58 +381,58 @@ export const filteredComparisonModels = (
         if (!deduped.has(key)) deduped.set(key, model);
     }
 
-    return [...deduped.values()].filter((model) => (
+    const requiresTools = ui.profile === 'director' || ui.profile === 'allrounder';
+    const requiresLongContext = ui.profile === 'documentalist';
+    const hasRouteFilters = ui.provider !== 'all' || requiresTools || requiresLongContext || ui.maxPrice !== '' || ui.minContext !== '' || ui.modes.length > 0;
+    const matchesRoute = (route: AiModelComparisonEntry['routes'][number]) =>
+        (!requiresTools || route.tool_call === true || (ui.showIncomplete && route.tool_call == null))
+        && (!requiresLongContext || (knownContext(route.context_window) ? route.context_window >= 100_000 : ui.showIncomplete))
+        && (ui.maxPrice === '' || routeHasPrice(route, priceLimit / (feed?.currency.usd_rate || 1)))
+        && (ui.minContext === '' || (knownContext(route.context_window) && route.context_window >= contextFloor))
+        && routeHasModes(route, ui.modes, ui.modeMatch);
+    // Display and sort the same offers that satisfied the filters.
+    const candidates = [...deduped.values()].map(model => {
+        const scoped = hasRouteFilters
+            ? { ...model, routes: selectedRoutes(model, ui.provider).filter(matchesRoute) }
+            : model;
+        return model.role_assessments?.length
+            ? { ...scoped, role_assessments: routeRoleAssessments(scoped) } : scoped;
+    });
+    return candidates.filter((model) => (
         (!normalizedQuery
-            || `${model.name} ${model.creator}`
+            || `${model.name} ${model.creator} ${model.routes.map(route => `${route.provider} ${route.provider_name} ${route.model_id}`).join(' ')} ${matchingRegistryIndexes(registryModels, model, ui.provider).map(index => registryModels[index]?.alias || '').join(' ')}`
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
-        && (ui.profile === 'all' || model.profile === ui.profile)
+        && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))
+        && (ui.profile === 'all' || (model.role_assessments?.length
+            ? (ui.profile === 'unrated' ? model.role_assessments.every(r => r.status === 'insufficient_data' && r.score == null) : model.role_assessments.some(r => r.role === ui.profile && (['catalog_compatible', 'tested'].includes(r.status) || (ui.showIncomplete && r.status === 'insufficient_data'))))
+            : model.profile === ui.profile))
         && (
             ui.showIncomplete
+            || (ui.profile !== 'all' && ui.profile !== 'unrated')
             || (
-                model.profile !== 'unrated'
+                (model.role_assessments?.length ? model.role_assessments.some(r => ['catalog_compatible', 'tested'].includes(r.status)) : model.profile !== 'unrated')
                 && model.coding !== null
                 && model.agentic !== null
-                && model.input_price !== null
-                && model.context_window !== null
+                && selectedRoutes(model, ui.provider).some(route => routeHasPrice(route, Infinity) && knownContext(route.context_window))
             )
             || ui.profile === 'unrated'
-            || normalizedQuery !== ''
-            || ui.maxPrice !== ''
-            || ui.minContext !== ''
-            || ui.parameterStatus !== 'all'
-            || ui.minParameters !== ''
-            || ui.maxParameters !== ''
-        )
-        && (
-            ui.modes.length === 0
-            || (ui.modeMatch === 'all'
-                ? ui.modes.every((mode) => model.modes.includes(mode))
-                : ui.modes.some((mode) => model.modes.includes(mode)))
         )
         && (
             ui.availability === 'all'
-            || matchingRegistryIndexes(registryModels, model)
+            || matchingRegistryIndexes(registryModels, model, ui.provider)
                 .some((index) => registryModels[index]?.enabled !== false)
                 === (ui.availability === 'active')
         )
-        && (
-            ui.maxPrice === ''
-            || (model.input_price !== null && model.input_price * (feed?.currency.usd_rate || 1) <= priceLimit)
-        )
-        && (
-            ui.minContext === ''
-            || (model.context_window !== null
-                && model.context_window >= contextFloor)
-        )
+        && (!hasRouteFilters || model.routes.length > 0)
         && matchesParameterFilters(model, ui)
     )).sort((left, right) => {
-        const first = ui.sort.key === 'monthly_cost'
-            ? modelMonthlyCost(left, ui.inputTokens, ui.outputTokens)
-            : sortableModelValue(left, ui.sort.key);
-        const second = ui.sort.key === 'monthly_cost'
-            ? modelMonthlyCost(right, ui.inputTokens, ui.outputTokens)
-            : sortableModelValue(right, ui.sort.key);
+        const first = ['monthly_cost', 'input_price', 'output_price'].includes(ui.sort.key)
+            ? routePriceValue(left, ui.provider, ui.sort.key as 'monthly_cost' | 'input_price' | 'output_price', ui.inputTokens, ui.outputTokens)
+            : sortableModelValue(left, ui.sort.key, ui.profile, ui.provider);
+        const second = ['monthly_cost', 'input_price', 'output_price'].includes(ui.sort.key)
+            ? routePriceValue(right, ui.provider, ui.sort.key as 'monthly_cost' | 'input_price' | 'output_price', ui.inputTokens, ui.outputTokens)
+            : sortableModelValue(right, ui.sort.key, ui.profile, ui.provider);
         if (first === null && second === null) return 0;
         if (first === null) return 1;
         if (second === null) return -1;

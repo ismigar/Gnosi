@@ -11,10 +11,11 @@ from backend.services.agent_execution_scope import execution_scope
 
 @pytest.fixture
 def configured(monkeypatch, tmp_path):
-    principal = {"id": "principal", "enabled": True, "provider": "openai", "model": "fixture",
+    principal = {"id": "builtin.llm-wiki.default", "managed_by": "builtin:llm-wiki", "enabled": True, "provider": "openai", "model": "fixture",
                  "persona": "Personal reading style", "context": "Research context", "skill_ids": [SKILL_ID]}
-    ai = {"agents": [principal], "active_agent_id": "principal", "providers": {"openai": {"enabled": True}}}
+    ai = {"agents": [principal, {"id": "personal", "model": "different"}], "active_agent_id": "personal", "providers": {"openai": {"enabled": True}}}
     monkeypatch.setattr("backend.services.principal_agent_migration.ensure_migrated", lambda: ai)
+    monkeypatch.setattr("backend.services.plugin_ai_contributions.reconcile_plugin_ai_contributions", lambda: {})
     resolve = Mock(return_value=SimpleNamespace(active_skill_ids=(SKILL_ID,), instructions=(INSTRUCTIONS,), catalog_revision="test"))
     monkeypatch.setattr("backend.services.agent_skill_catalog.resolve_agent_runtime", resolve)
     monkeypatch.setattr("backend.domains.agent.runtime_tools._model_context_window", lambda *_: 32768)
@@ -25,12 +26,12 @@ def configured(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("legacy", [False, True])
-def test_same_principal_and_skill_are_frozen_across_all_phases(configured, tmp_path, legacy):
+def test_same_plugin_profile_and_skill_are_frozen_across_all_phases(configured, tmp_path, legacy):
     ai, resolve, execute = configured
     if legacy:
         ai["agents"].append({**ai["agents"][0], "id": "llm-wiki", "managed_by": "llm-wiki"})
     runtime = prepare_reading_runtime(tmp_path)
-    assert runtime.agent_id == "principal"
+    assert runtime.agent_id == "builtin.llm-wiki.default"
     original = runtime.identity
     ai["agents"][0]["model"] = "changed-after-start"
     for phase in ("overview", "extract", "review"):
@@ -58,7 +59,7 @@ def test_disabled_profile_does_not_fall_back_to_another_agent(configured, tmp_pa
     ai, _, execute = configured
     ai["agents"][0]["enabled"] = False
     ai["agents"].append({"id":"other", "enabled":True})
-    with pytest.raises(RuntimeError, match="principal_agent_unavailable"):
+    with pytest.raises(RuntimeError, match="plugin_profile_unavailable"):
         prepare_reading_runtime(tmp_path)
     execute.assert_not_called()
 

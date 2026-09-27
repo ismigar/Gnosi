@@ -157,9 +157,9 @@ export default function NotebookSourcesPanel({ controller }: { controller: Noteb
                     </div>
                     {sourcePageCount > 1 && (
                         <nav className="notebook-pagination notebook-pagination--panel" aria-label={t('notebooks.source_pagination', 'Source pages')}>
-                            <button disabled={sources.page <= 1} onClick={() => { void load({ refresh: false, page: sources.page - 1 }); }}><ChevronLeft size={15} /></button>
-                            <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: sources.page, pages: sourcePageCount })}</span>
-                            <button disabled={sources.page >= sourcePageCount} onClick={() => { void load({ refresh: false, page: sources.page + 1 }); }}><ChevronRight size={15} /></button>
+                            <button type="button" aria-label={t('common.previous')} disabled={sources.page <= 1} onClick={() => { void load({ refresh: false, page: sources.page - 1 }); }}><ChevronLeft size={15} /></button>
+                            <span role="status" aria-live="polite" aria-atomic="true">{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: sources.page, pages: sourcePageCount })}</span>
+                            <button type="button" aria-label={t('common.next')} disabled={sources.page >= sourcePageCount} onClick={() => { void load({ refresh: false, page: sources.page + 1 }); }}><ChevronRight size={15} /></button>
                         </nav>
                     )}
                 </aside>

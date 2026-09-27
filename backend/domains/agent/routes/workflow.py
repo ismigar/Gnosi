@@ -27,6 +27,7 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
     turn_context_refs: Optional[List[Dict[str, Any]]] = None,
     memory_user_id: str = "",
     memory_project_id: str = "",
+    direct_agent: bool = False,
 ) -> tuple[Any, Dict[str, Any]]:
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -59,6 +60,13 @@ async def get_agent_workflow(  # noqa: C901 - bounded cache-key assembly
         vault_path=vault_path,
         active_skill_ids=active_skill_ids,
     )
+    if direct_agent:
+        # A slash command addresses this executor, even if it can coordinate a team.
+        agent_data = {**(agent_data or {}), "team": {"enabled": False}}
+        use_cache = False
+    # Team routing and its data envelope are specific to this exact request.
+    if (agent_data or {}).get("team", {}).get("enabled"):
+        use_cache = False
     # Availability, quotas and task difficulty can change between turns. A
     # cached graph would pin the previous turn's adaptive model indefinitely.
     if normalize_model_strategy(agent_data or {})["mode"] != "pinned":

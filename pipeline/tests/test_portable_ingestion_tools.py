@@ -29,6 +29,7 @@ import pytest
 
 if TYPE_CHECKING:
     from backend.domains.vault.pages.foundation_values import PageMetadata
+    from backend.services.agent_execution_models import AgentExecutionSnapshot
     from pipeline.skills.rss_to_audio.scripts.rss_to_audio import Article
 
 
@@ -115,8 +116,9 @@ def isolated_providers(
     monkeypatch.setattr(integrations, "get_keychain", forbidden)
     monkeypatch.setattr(integration_manager, "get_raw", forbidden)
     monkeypatch.setattr(notion_importer, "NotionClient", forbidden)
-    from backend.services import agent_execution, agent_execution_scope, agent_specialized_tools
+    from backend.services import agent_execution, agent_execution_scope, agent_specialized_tools, agent_document_work
     monkeypatch.setattr(agent_execution, "generate_for", forbidden)
+    monkeypatch.setattr(agent_document_work, "synthesize", forbidden)
     monkeypatch.setattr(agent_execution_scope, "personal_scheduler_scope", lambda **kwargs: nullcontext())
     monkeypatch.setattr(agent_specialized_tools, "run_engine", lambda _kind, _resource, invoke: invoke())
     yield
@@ -199,7 +201,7 @@ def check_rss_dates_content_and_opaque_fields(monkeypatch: pytest.MonkeyPatch) -
         "Recent duplicate",
     ]
     assert articles[0]["title"] is opaque_title
-    assert articles[0]["content"] == "x" * 2000
+    assert articles[0]["content"] == "x" * 2100
     assert articles[1]["content"] == "Hello world"
     assert entries[:4] == before
 
@@ -238,39 +240,78 @@ def check_rss_bad_entry_stops_only_its_feed(
     assert "Error processing feed synthetic:bad:" in capsys.readouterr().out
 
 
-def check_rss_summary_contract_and_null(monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.services import agent_execution
-    from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
+def _podcast_job(monkeypatch: pytest.MonkeyPatch) -> tuple[AgentExecutionSnapshot, list[dict[str, object]]]:
+    from backend.services import agent_execution, agent_execution_scope, agent_execution_store
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    from backend.services.agent_operation_catalog import skill_id
 
-    calls: list[tuple[str, str]] = []
-    def generate(operation: str, prompt: str) -> tuple[str, str]:
-        calls.append((operation, prompt))
-        return "Synthetic script", "principal-model"
+    scope = ExecutionScope(user_id="synthetic-user", workspace_id="synthetic-workspace",
+                           vault_path=os.environ["DIGITAL_BRAIN_VAULT_PATH"], role="owner")
+    snapshot = AgentExecutionSnapshot(scope=scope, agent_id="podcast", profile={"id": "podcast"},
+        skill_ids=[skill_id("podcast")], instructions=["Synthetic procedure"], catalog_revision="1", revision="1")
+    updates: list[dict[str, object]] = []
+
+    def prepare(selected: str) -> AgentExecutionSnapshot:
+        assert selected == skill_id("podcast")
+        assert agent_execution_scope.current_scope() == scope
+        return snapshot
+
+    def create(selected: AgentExecutionSnapshot, run_id: str, operation: str) -> AgentExecutionSnapshot:
+        assert selected is snapshot and run_id and operation == "podcast.legacy-script"
+        return snapshot
+
+    def update(selected: ExecutionScope, run_id: str, **values: object) -> None:
+        assert selected == scope and run_id
+        updates.append(values)
+
+    monkeypatch.setattr(agent_execution_scope, "personal_scheduler_scope",
+                        lambda **kwargs: agent_execution_scope.execution_scope(scope, origin="worker"))
+    monkeypatch.setattr(agent_execution, "prepare_snapshot", prepare)
+    monkeypatch.setattr(agent_execution, "create_job_run", create)
+    monkeypatch.setattr(agent_execution_store, "update", update)
+    return snapshot, updates
+
+
+def check_rss_summary_preserves_all_source_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.services import agent_document_work
+    from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
 
     assert rss.generate_summary([]) == (
         "Hello. There are no new articles from the last 24 hours in the selected categories."
     )
-    monkeypatch.setattr(agent_execution, "generate_for", generate)
+    snapshot, updates = _podcast_job(monkeypatch)
+    calls: list[list[dict[str, object]]] = []
+
+    def synthesize(operation: str, sources: list[dict[str, object]], prompt: str, **options: object) -> dict[str, object]:
+        assert operation == "podcast" and options["snapshot"] is snapshot
+        assert json.loads(prompt) == {"task": "podcast.script", "data": {"language": "English"}}
+        assert options["output_schema"] == {"type": "object", "required": ["text"],
+            "properties": {"text": {"type": "string", "minLength": 1}}}
+        calls.append(sources)
+        return {"result": {"text": "Synthetic script"}}
+
+    monkeypatch.setattr(agent_document_work, "synthesize", synthesize)
     article: rss.Article = {**_article()}
     large: rss.Article = {**article, "content": "x" * 25000}
     assert rss.generate_summary([article, large, article]) == "Synthetic script"
-    assert len(calls) == 1
-    assert calls[0][0] == "podcast"
-    assert "Language: English" in calls[0][1]
-    assert "Title: Title\nContent: Body" in calls[0][1]
-    assert "Article 2" not in calls[0][1]
+    assert calls == [[{"id": str(index), "title": "Title", "source": "Synthetic", "text": text}
+                      for index, text in enumerate(["Body", "x" * 25000, "Body"])]]
+    assert updates == [{"status": "completed", "result": "Synthetic script"}]
 
 
 def check_rss_provider_error_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.services import agent_execution
+    from backend.services import agent_document_work
     from pipeline.skills.rss_to_audio.scripts import rss_to_audio as rss
+
+    _, updates = _podcast_job(monkeypatch)
 
     def fail(*args: object, **kwargs: object) -> object:
         raise RuntimeError("principal_agent_model_unavailable")
 
-    monkeypatch.setattr(agent_execution, "generate_for", fail)
+    monkeypatch.setattr(agent_document_work, "synthesize", fail)
     with pytest.raises(RuntimeError, match="principal_agent_model_unavailable"):
         rss.generate_summary([_article()])
+    assert updates == [{"status": "failed", "error": "principal_agent_model_unavailable"}]
 
 
 @pytest.mark.parametrize("explicit", [False, True])
@@ -340,12 +381,14 @@ def check_rss_complete_flow_with_synthetic_providers(
         events.append("feed")
         return {"entries": [_entry("Recent"), _entry("Old", 25)]}
 
-    def generate(operation: str, prompt: str) -> tuple[str, str]:
-        assert operation == "podcast"
-        assert "Title: Recent" in prompt and "Title: Old" not in prompt
-        assert "Content: Hello world" in prompt
+    snapshot, updates = _podcast_job(monkeypatch)
+
+    def synthesize(operation: str, sources: list[dict[str, object]], prompt: str, **options: object) -> dict[str, object]:
+        assert operation == "podcast" and options["snapshot"] is snapshot
+        assert sources == [{"id": "0", "title": "Recent", "source": "Synthetic", "text": "Hello world"}]
+        assert json.loads(prompt)["data"]["language"] == "English"
         events.append("summary")
-        return "Synthetic spoken summary", "principal-model"
+        return {"result": {"text": "Synthetic spoken summary"}}
 
     class Audio:
         def __init__(self, *, text: str, lang: str, slow: bool) -> None:
@@ -356,11 +399,12 @@ def check_rss_complete_flow_with_synthetic_providers(
             Path(filename).write_bytes(b"synthetic-mp3")
 
     monkeypatch.setattr(import_module("feedparser"), "parse", fetch)
-    from backend.services import agent_execution
-    monkeypatch.setattr(agent_execution, "generate_for", generate)
+    from backend.services import agent_document_work
+    monkeypatch.setattr(agent_document_work, "synthesize", synthesize)
     monkeypatch.setattr(import_module("gtts"), "gTTS", Audio)
     rss.main(["--opml", str(source), "--output-dir", str(output)])
     assert events == ["feed", "summary", "tts"]
+    assert updates == [{"status": "completed", "result": "Synthetic spoken summary"}]
     assert (output / "summary_2026_08_31.txt").read_text() == "Synthetic spoken summary"
     assert (output / "summary_2026_08_31.mp3").read_bytes() == b"synthetic-mp3"
 

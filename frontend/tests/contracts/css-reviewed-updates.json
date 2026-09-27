@@ -1,0 +1,232 @@
+[
+  {
+    "file": "src/features/literature/styles/filters-sources.css",
+    "before": "}\n\n.literature-source-queries summary {\n    color: var(--gnosi-blue);\n    font-weight: 700;\n    cursor: pointer;\n}\n",
+    "after": "}\n\n.literature-source-queries summary {\n    color: var(--gnosi-link);\n    font-weight: 700;\n    cursor: pointer;\n}\n"
+  },
+  {
+    "file": "src/features/literature/styles/filters-sources.css",
+    "before": ".literature-source-chip.is-selected {\n    border-color: color-mix(in srgb, var(--gnosi-blue) 45%, var(--border-primary));\n    background: color-mix(in srgb, var(--gnosi-blue) 8%, var(--bg-primary));\n    color: var(--gnosi-blue);\n}\n\n.literature-source-chip.is-unavailable {\n",
+    "after": ".literature-source-chip.is-selected {\n    border-color: color-mix(in srgb, var(--gnosi-blue) 45%, var(--border-primary));\n    background: color-mix(in srgb, var(--gnosi-blue) 8%, var(--bg-primary));\n    color: var(--gnosi-link);\n}\n\n.literature-source-chip.is-unavailable {\n"
+  },
+  {
+    "file": "src/features/literature/styles/layout.css",
+    "before": "\n.literature-review-detail header > div > span,\n.literature-preview header > div > span {\n    color: var(--gnosi-blue);\n    font-size: 11px;\n    font-weight: 800;\n    letter-spacing: .09em;\n",
+    "after": "\n.literature-review-detail header > div > span,\n.literature-preview header > div > span {\n    color: var(--gnosi-link);\n    font-size: 11px;\n    font-weight: 800;\n    letter-spacing: .09em;\n"
+  },
+  {
+    "file": "src/features/literature/styles/layout.css",
+    "before": "\n.literature-page__tabs button.is-active {\n    background: var(--sidebar-item-active, #eef2ff);\n    color: var(--gnosi-blue);\n    font-weight: 700;\n}\n\n",
+    "after": "\n.literature-page__tabs button.is-active {\n    background: var(--sidebar-item-active, #eef2ff);\n    color: var(--gnosi-link);\n    font-weight: 700;\n}\n\n"
+  },
+  {
+    "file": "src/features/literature/styles/manual-capture.css",
+    "before": "}\n\n.literature-manual-capture summary {\n    color: var(--gnosi-blue);\n    font-size: 12px;\n    font-weight: 700;\n    cursor: pointer;\n",
+    "after": "}\n\n.literature-manual-capture summary {\n    color: var(--gnosi-link);\n    font-size: 12px;\n    font-weight: 700;\n    cursor: pointer;\n"
+  },
+  {
+    "file": "src/features/literature/styles/manual-capture.css",
+    "before": "}\n\n.literature-search-state.is-running {\n    color: var(--gnosi-blue);\n}\n",
+    "after": "}\n\n.literature-search-state.is-running {\n    color: var(--gnosi-link);\n}\n"
+  },
+  {
+    "file": "src/features/literature/styles/preview.css",
+    "before": "    align-items: center;\n    gap: 6px;\n    overflow-wrap: anywhere;\n    color: var(--gnosi-blue);\n    font-size: 11px;\n}\n\n",
+    "after": "    align-items: center;\n    gap: 6px;\n    overflow-wrap: anywhere;\n    color: var(--gnosi-link);\n    font-size: 11px;\n}\n\n"
+  },
+  {
+    "file": "src/features/literature/styles/review-decisions.css",
+    "before": "\n.literature-full-text summary,\n.literature-review-protocol summary {\n    color: var(--gnosi-blue);\n    font-size: 11px;\n    font-weight: 700;\n    cursor: pointer;\n",
+    "after": "\n.literature-full-text summary,\n.literature-review-protocol summary {\n    color: var(--gnosi-link);\n    font-size: 11px;\n    font-weight: 700;\n    cursor: pointer;\n"
+  },
+  {
+    "file": "src/features/literature/styles/review-decisions.css",
+    "before": "}\n\n.literature-review-protocol .is-error {\n    color: var(--status-error);\n}\n\n.literature-seed-count {\n",
+    "after": "}\n\n.literature-review-protocol .is-error {\n    color: var(--status-error-text);\n}\n\n.literature-seed-count {\n"
+  },
+  {
+    "file": "src/features/literature/styles/review-decisions.css",
+    "before": "}\n\n.literature-candidate-actions button.is-danger {\n    color: var(--status-error);\n}\n\n.spin {\n",
+    "after": "}\n\n.literature-candidate-actions button.is-danger {\n    color: var(--status-error-text);\n}\n\n.spin {\n"
+  },
+  {
+    "file": "src/features/literature/styles/reviews.css",
+    "before": "    padding: 0;\n    border: 0;\n    background: transparent;\n    color: var(--gnosi-blue);\n    font-size: 10px;\n    cursor: pointer;\n}\n",
+    "after": "    padding: 0;\n    border: 0;\n    background: transparent;\n    color: var(--gnosi-link);\n    font-size: 10px;\n    cursor: pointer;\n}\n"
+  },
+  {
+    "file": "src/features/literature/styles/search-feedback.css",
+    "before": "    border: 1px solid color-mix(in srgb, var(--status-error) 25%, var(--border-primary));\n    border-radius: 10px;\n    background: color-mix(in srgb, var(--status-error) 5%, var(--bg-primary));\n    color: var(--status-error);\n    font-size: 12px;\n}\n\n",
+    "after": "    border: 1px solid color-mix(in srgb, var(--status-error) 25%, var(--border-primary));\n    border-radius: 10px;\n    background: color-mix(in srgb, var(--status-error) 5%, var(--bg-primary));\n    color: var(--status-error-text);\n    font-size: 12px;\n}\n\n"
+  },
+  {
+    "file": "src/features/literature/styles/search-feedback.css",
+    "before": "}\n\n.literature-query-audit > summary {\n    color: var(--gnosi-blue);\n    font-weight: 700;\n    cursor: pointer;\n}\n",
+    "after": "}\n\n.literature-query-audit > summary {\n    color: var(--gnosi-link);\n    font-weight: 700;\n    cursor: pointer;\n}\n"
+  },
+  {
+    "file": "src/features/literature/styles/search.css",
+    "before": "    gap: 6px;\n    border: 0;\n    background: transparent;\n    color: var(--gnosi-blue);\n    font-size: 12px;\n    font-weight: 700;\n    cursor: pointer;\n",
+    "after": "    gap: 6px;\n    border: 0;\n    background: transparent;\n    color: var(--gnosi-link);\n    font-size: 12px;\n    font-weight: 700;\n    cursor: pointer;\n"
+  },
+  {
+    "file": "src/features/literature/styles/search.css",
+    "before": "}\n\n.literature-link-button.is-danger {\n    color: var(--status-error);\n}\n\n.literature-search-history {\n",
+    "after": "}\n\n.literature-link-button.is-danger {\n    color: var(--status-error-text);\n}\n\n.literature-search-history {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-catalog.css",
+    "before": "}\n\n.ai-resource-search input:focus {\n    border-color: var(--gnosi-blue);\n    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);\n}\n\n.ai-resource-list {\n",
+    "after": "}\n\n.ai-resource-search input:focus {\n    border-color: var(--gnosi-primary);\n    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-primary) 12%, transparent);\n}\n\n.ai-resource-list {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-catalog.css",
+    "before": "}\n\n.ai-resource-card.is-expanded {\n    border-color: color-mix(in srgb, var(--gnosi-blue) 42%, var(--settings-border));\n}\n\n.ai-resource-card__main {\n",
+    "after": "}\n\n.ai-resource-card.is-expanded {\n    border-color: color-mix(in srgb, var(--gnosi-primary) 42%, var(--settings-border));\n}\n\n.ai-resource-card__main {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-catalog.css",
+    "before": "\n.ai-resource-badge--external_read,\n.ai-resource-badge--personal_data {\n    background: rgba(59, 130, 246, 0.1);\n    color: #1d4ed8;\n}\n\n.ai-resource-details {\n",
+    "after": "\n.ai-resource-badge--external_read,\n.ai-resource-badge--personal_data {\n    background: color-mix(in srgb, var(--gnosi-primary) 10%, transparent);\n    color: var(--gnosi-primary);\n}\n\n.ai-resource-card > .agent-learning {\n    padding: 0 18px 18px 48px;\n}\n\n.ai-resource-details {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": "    flex-direction: column;\n    gap: 16px;\n    padding: 20px;\n    border: 1px solid color-mix(in srgb, var(--gnosi-blue) 38%, var(--settings-border));\n    border-radius: 18px;\n    background: var(--settings-sidebar-bg);\n}\n",
+    "after": "    flex-direction: column;\n    gap: 16px;\n    padding: 20px;\n    border: 1px solid color-mix(in srgb, var(--gnosi-primary) 38%, var(--settings-border));\n    border-radius: 18px;\n    background: var(--settings-sidebar-bg);\n}\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": "    display: flex;\n    align-items: center;\n    gap: 9px;\n    color: var(--gnosi-blue);\n}\n\n.ai-resource-editor > label,\n",
+    "after": "    display: flex;\n    align-items: center;\n    gap: 9px;\n    color: var(--gnosi-primary);\n}\n\n.ai-resource-editor > label,\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": "\n.ai-resource-tool-option > input {\n    margin-top: 4px;\n    accent-color: var(--gnosi-blue);\n}\n\n.ai-resource-tool-option__copy {\n",
+    "after": "\n.ai-resource-tool-option > input {\n    margin-top: 4px;\n    accent-color: var(--gnosi-primary);\n}\n\n.ai-resource-tool-option__copy {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": "    align-items: flex-start;\n    gap: 10px;\n    padding: 12px 14px;\n    border: 1px solid rgba(59, 130, 246, 0.2);\n    border-radius: 12px;\n    background: rgba(59, 130, 246, 0.07);\n    color: var(--text-secondary);\n    font-size: 0.8rem;\n    line-height: 1.45;\n",
+    "after": "    align-items: flex-start;\n    gap: 10px;\n    padding: 12px 14px;\n    border: 1px solid color-mix(in srgb, var(--gnosi-primary) 20%, transparent);\n    border-radius: 12px;\n    background: color-mix(in srgb, var(--gnosi-primary) 7%, transparent);\n    color: var(--text-secondary);\n    font-size: 0.8rem;\n    line-height: 1.45;\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": ".ai-resource-alert.is-error {\n    border-color: rgba(239, 68, 68, 0.25);\n    background: rgba(239, 68, 68, 0.08);\n    color: var(--status-error);\n}\n\n.ai-resource-alert p {\n",
+    "after": ".ai-resource-alert.is-error {\n    border-color: rgba(239, 68, 68, 0.25);\n    background: rgba(239, 68, 68, 0.08);\n    color: var(--status-error-text);\n}\n\n.ai-resource-alert p {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": "}\n\n.ai-agent-skill.is-selected {\n    border-color: color-mix(in srgb, var(--gnosi-blue) 45%, var(--settings-border));\n    background: rgba(59, 130, 246, 0.06);\n}\n\n.ai-agent-skill.is-unavailable {\n",
+    "after": "}\n\n.ai-agent-skill.is-selected {\n    border-color: color-mix(in srgb, var(--gnosi-primary) 45%, var(--settings-border));\n    background: color-mix(in srgb, var(--gnosi-primary) 6%, transparent);\n}\n\n.ai-agent-skill.is-unavailable {\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-controls.css",
+    "before": "    display: block;\n    font-size: 0.85rem;\n    color: var(--text-secondary);\n    opacity: 0.7;\n    margin-top: -2px;\n    margin-bottom: 12px;\n    line-height: 1.5;\n",
+    "after": "    display: block;\n    font-size: 0.85rem;\n    color: var(--text-secondary);\n    margin-top: -2px;\n    margin-bottom: 12px;\n    line-height: 1.5;\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-controls.css",
+    "before": "}\n\n.account-row:hover {\n    border-color: var(--gnosi-blue) !important;\n    box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.15) !important;\n    transform: translateY(-2px) !important;\n}\n\n",
+    "after": "}\n\n.account-row:hover {\n    border-color: var(--gnosi-primary) !important;\n    box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--gnosi-primary) 15%, transparent) !important;\n    transform: translateY(-2px) !important;\n}\n\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-controls.css",
+    "before": "}\n\n.settings-sidebar__item.active {\n    background: var(--gnosi-blue) !important;\n    color: white !important;\n    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3) !important;\n}\n\n.settings-sidebar__item.active svg {\n",
+    "after": "}\n\n.settings-sidebar__item.active {\n    background: var(--gnosi-action-bg) !important;\n    color: white !important;\n    box-shadow: 0 8px 16px -4px color-mix(in srgb, var(--gnosi-primary) 30%, transparent) !important;\n}\n\n.settings-sidebar__item.active svg {\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-controls.css",
+    "before": "    gap: 22px;\n    margin-bottom: 40px;\n    padding: 22px 24px;\n    border: 1px solid rgba(59, 130, 246, 0.24);\n    border-radius: 22px;\n    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.05));\n}\n\n.ai-comparison-launcher strong,\n",
+    "after": "    gap: 22px;\n    margin-bottom: 40px;\n    padding: 22px 24px;\n    border: 1px solid color-mix(in srgb, var(--gnosi-primary) 24%, transparent);\n    border-radius: 22px;\n    background: linear-gradient(135deg, color-mix(in srgb, var(--gnosi-primary) 12%, transparent), rgba(139, 92, 246, 0.05));\n}\n\n.ai-comparison-launcher strong,\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": ".settings-brand-icon-wrap {\n    width: 36px;\n    height: 36px;\n    background: var(--gnosi-blue);\n    color: white;\n    border-radius: 12px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);\n}\n\n.settings-sidebar-title {\n",
+    "after": ".settings-brand-icon-wrap {\n    width: 36px;\n    height: 36px;\n    background: var(--gnosi-primary);\n    color: white;\n    border-radius: 12px;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    box-shadow: 0 4px 12px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);\n}\n\n.settings-sidebar-title {\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "}\n\n.settings-section-icon-wrap {\n    color: var(--gnosi-blue);\n    display: flex;\n    padding: 10px;\n    background: rgba(59, 130, 246, 0.08);\n    border-radius: 14px;\n}\n\n",
+    "after": "}\n\n.settings-section-icon-wrap {\n    color: var(--gnosi-primary);\n    display: flex;\n    padding: 10px;\n    background: color-mix(in srgb, var(--gnosi-primary) 8%, transparent);\n    border-radius: 14px;\n}\n\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "}\n\n.settings-filter-tabs button.is-active {\n    border-color: var(--gnosi-blue);\n    background: rgba(59, 130, 246, 0.1);\n    color: var(--gnosi-blue);\n}\n\n.social-network-tabs {\n",
+    "after": "}\n\n.settings-filter-tabs button.is-active {\n    border-color: var(--gnosi-primary);\n    background: color-mix(in srgb, var(--gnosi-primary) 10%, transparent);\n    color: var(--gnosi-primary);\n}\n\n.social-network-tabs {\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "\n.social-network-tab:hover,\n.social-network-tab:focus-visible {\n    border-color: var(--gnosi-blue);\n    color: var(--text-primary);\n    outline: none;\n}\n\n.social-network-tab:focus-visible {\n    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);\n}\n\n.social-network-tab.is-enabled {\n    background: color-mix(in srgb, var(--gnosi-blue) 12%, var(--settings-sidebar-bg));\n    border-color: var(--gnosi-blue);\n    color: var(--text-primary);\n}\n\n",
+    "after": "\n.social-network-tab:hover,\n.social-network-tab:focus-visible {\n    border-color: var(--gnosi-primary);\n    color: var(--text-primary);\n    outline: none;\n}\n\n.social-network-tab:focus-visible {\n    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);\n}\n\n.social-network-tab.is-enabled {\n    background: color-mix(in srgb, var(--gnosi-primary) 12%, var(--settings-sidebar-bg));\n    border-color: var(--gnosi-primary);\n    color: var(--text-primary);\n}\n\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "}\n\n.settings-configurable-item.is-editing {\n    border-color: var(--gnosi-blue) !important;\n    border-bottom-width: 0 !important;\n    border-radius: 24px 24px 0 0 !important;\n}\n",
+    "after": "}\n\n.settings-configurable-item.is-editing {\n    border-color: var(--gnosi-primary) !important;\n    border-bottom-width: 0 !important;\n    border-radius: 24px 24px 0 0 !important;\n}\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": ".settings-hover-card:hover {\n    transform: scale(1.01) translateY(-2px);\n    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);\n    border-color: rgba(59, 130, 246, 0.3) !important;\n}\n\n.settings-hover-card {\n",
+    "after": ".settings-hover-card:hover {\n    transform: scale(1.01) translateY(-2px);\n    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);\n    border-color: color-mix(in srgb, var(--gnosi-primary) 30%, transparent) !important;\n}\n\n.settings-hover-card {\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "}\n\n.settings-hover-card.is-selected:hover {\n    border-color: var(--gnosi-blue) !important;\n}\n\n.settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {\n",
+    "after": "}\n\n.settings-hover-card.is-selected:hover {\n    border-color: var(--gnosi-primary) !important;\n}\n\n.settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": ".settings-inline-editor {\n    box-sizing: border-box;\n    padding: 28px;\n    border: 1px solid var(--gnosi-blue);\n    border-radius: 24px;\n    background: var(--bg-primary);\n}\n",
+    "after": ".settings-inline-editor {\n    box-sizing: border-box;\n    padding: 28px;\n    border: 1px solid var(--gnosi-primary);\n    border-radius: 24px;\n    background: var(--bg-primary);\n}\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "    justify-content: space-between;\n    align-items: center;\n    margin-bottom: 20px;\n    color: var(--gnosi-blue);\n    font-size: 0.85rem;\n    font-weight: 900;\n    letter-spacing: 0.08em;\n",
+    "after": "    justify-content: space-between;\n    align-items: center;\n    margin-bottom: 20px;\n    color: var(--gnosi-primary);\n    font-size: 0.85rem;\n    font-weight: 900;\n    letter-spacing: 0.08em;\n"
+  },
+  {
+    "file": "src/features/settings/styles/modal-shell.css",
+    "before": "}\n\n.settings-plugin-item.is-expanded {\n    border-color: var(--gnosi-blue) !important;\n}\n\n.settings-plugin-item {\n    transition: all 0.2s;\n}\n",
+    "after": "}\n\n.settings-plugin-item.is-expanded {\n    border-color: var(--gnosi-primary) !important;\n}\n\n.settings-plugin-item {\n    transition: all 0.2s;\n}\n\n.settings-modal :is(.btn-gnosi-primary, .btn-gnosi-primary7) {\n    box-shadow: 0 4px 12px color-mix(in srgb, var(--gnosi-primary) 25%, transparent);\n}\n"
+  },
+  {
+    "file": "src/features/settings/styles/provider-cards.css",
+    "before": "}\n\n.status-badge--api {\n  background: rgba(59, 130, 246, 0.1);\n  color: #60a5fa;\n  border: 1px solid rgba(59, 130, 246, 0.2);\n}\n\n.status-badge--custom {\n",
+    "after": "}\n\n.status-badge--api {\n  background: color-mix(in srgb, var(--gnosi-primary) 10%, transparent);\n  color: var(--gnosi-primary);\n  border: 1px solid color-mix(in srgb, var(--gnosi-primary) 20%, transparent);\n}\n\n.status-badge--custom {\n"
+  },
+  {
+    "file": "src/features/settings/styles/settings-controls.css",
+    "before": "}\n\n.gnosi-input:focus, .gnosi-select:focus {\n    border-color: var(--gnosi-blue);\n    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);\n}\n\n.gnosi-toggle {\n",
+    "after": "}\n\n.gnosi-input:focus, .gnosi-select:focus {\n    border-color: var(--gnosi-primary);\n    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gnosi-primary) 10%, transparent);\n}\n\n.gnosi-toggle {\n"
+  },
+  {
+    "file": "src/features/settings/styles/settings-controls.css",
+    "before": "}\n\n.gnosi-toggle.active {\n    background: var(--gnosi-blue);\n}\n\n/* Anell de focus visible per a navegació amb teclat (role=\"switch\"). */\n.gnosi-toggle:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-blue);\n}\n\n/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */\n.gnosi-switch-row:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-blue);\n    border-radius: 8px;\n}\n\n",
+    "after": "}\n\n.gnosi-toggle.active {\n    background: var(--gnosi-primary);\n}\n\n/* Anell de focus visible per a navegació amb teclat (role=\"switch\"). */\n.gnosi-toggle:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-primary);\n}\n\n/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */\n.gnosi-switch-row:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-primary);\n    border-radius: 8px;\n}\n\n"
+  },
+  {
+    "file": "src/shared/styles/tokens/theme.css",
+    "before": "  --border-primary: #e5e7eb;\n  --gnosi-blue: #3b82f6;\n  --gnosi-action-bg: #1d4ed8;\n  --gnosi-action-rgb: 29, 78, 216;\n  --accent-primary: var(--gnosi-blue);\n  --border-color: var(--border-primary);\n",
+    "after": "  --border-primary: #e5e7eb;\n  --gnosi-blue: #3b82f6;\n  --gnosi-action-bg: #1d4ed8;\n  --gnosi-link: var(--focus-outline-color);\n  --gnosi-action-rgb: 29, 78, 216;\n  --accent-primary: var(--gnosi-blue);\n  --border-color: var(--border-primary);\n"
+  },
+  {
+    "file": "src/shared/styles/tokens/theme.css",
+    "before": "  --settings-border: #e5e7eb;\n  --settings-title: #111827;\n  --settings-sidebar-active: rgba(59, 130, 246, 0.1);\n  --settings-sidebar-active-text: #3b82f6;\n  --settings-input-bg: #ffffff;\n  --settings-btn-bg: #f3f4f6;\n\n",
+    "after": "  --settings-border: #e5e7eb;\n  --settings-title: #111827;\n  --settings-sidebar-active: rgba(59, 130, 246, 0.1);\n  --settings-sidebar-active-text: var(--gnosi-link);\n  --settings-input-bg: #ffffff;\n  --settings-btn-bg: #f3f4f6;\n\n"
+  },
+  {
+    "file": "src/shared/styles/tokens/theme.css",
+    "before": "  /* Status Colors Light */\n  --status-success: #10b981;\n  --status-error: #ef4444;\n  --status-warning: #f59e0b;\n  --status-info: #3b82f6;\n\n",
+    "after": "  /* Status Colors Light */\n  --status-success: #10b981;\n  --status-error: #ef4444;\n  --status-error-text: #b91c1c;\n  --status-warning: #f59e0b;\n  --status-info: #3b82f6;\n\n"
+  },
+  {
+    "file": "src/shared/styles/tokens/theme.css",
+    "before": "  /* Status Colors Dark */\n  --status-success: #059669;\n  --status-error: #dc2626;\n  --status-warning: #d97706;\n  --status-info: #2563eb;\n\n",
+    "after": "  /* Status Colors Dark */\n  --status-success: #059669;\n  --status-error: #dc2626;\n  --status-error-text: #fca5a5;\n  --status-warning: #d97706;\n  --status-info: #2563eb;\n\n"
+  },
+  {
+    "file": "src/shared/ui/settings/SettingsSectionTabs.css",
+    "before": "\n.ai-settings-sections button.is-active {\n    background: var(--settings-bg);\n    color: var(--sidebar-item-active-text);\n    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);\n}\n",
+    "after": "\n.ai-settings-sections button.is-active {\n    background: var(--settings-bg);\n    color: var(--gnosi-link);\n    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);\n}\n"
+  }
+]

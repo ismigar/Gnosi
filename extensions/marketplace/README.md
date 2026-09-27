@@ -5,7 +5,7 @@ GitHub Release assets and are not tracked Git objects, so cloning the applicatio
 does not download marketplace packages.
 
 The current candidate workflow assembles the official plugin index, the generated
-Starter Vault package, the Vault template index, and detached index signatures
+Research, Study and Project Vault packages, the Vault template index, and detached index signatures
 as a short-lived review artifact. It does not publish or modify an
 `ismigar/Gnosi` release. The long-term catalog can move to a separate
 `ismigar/Gnosi-Marketplace` repository without changing the package or API
@@ -26,10 +26,10 @@ an explicitly configured moderation broker. Set
 use its own bearer credential through `GNOSI_MARKETPLACE_SUBMISSION_TOKEN`, but
 it must not accept or expose a maintainer GitHub PAT in the desktop application.
 
-The broker is responsible for quarantining uploads, opening or updating a pull
-request in the marketplace repository, running automated validation without
-secrets, and requiring human review before the release workflow signs an
-artifact.
+The broker quarantines uploads and exposes a private review queue. Approved
+Vault templates can be downloaded with a review receipt for secretless
+validation and handoff to the authorized release operator. Human review and
+official signing remain separate steps; approval does not publish an artifact.
 
 ## Package boundaries
 
@@ -44,3 +44,19 @@ artifact.
 The implementation directive is
 `docs/dev_memory/directives/marketplace_vault_templates.md` in the private
 engineering repository.
+
+## Catalog and review
+
+The bundled catalog contains Research Starter Workspace 2.1.0, Study Workspace
+1.0.0 and Project Workspace 1.0.0. All three include original notes in Catalan,
+English, Spanish and French, with validated wiki links and deterministic file
+inventories. The app provides search, category filters and content previews.
+In personal mode, open **Settings → General → File structure → Vaults → From
+repository**. The adjacent **Publish template** action opens the export review.
+
+Before exporting, users can inspect included and excluded file paths, exclusion
+reasons and potential credential findings. Filtering and pagination keep large
+Vaults usable. Refreshing the inventory clears the previous acknowledgement.
+
+See [MODERATION.md](MODERATION.md) for the private moderation queue, approved
+review receipts and the secretless validation step before official signing.

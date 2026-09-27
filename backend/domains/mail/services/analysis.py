@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import asyncio
 import json
 import logging
@@ -195,36 +197,7 @@ def parse_entity_analysis(content: str, provider: str) -> dict[str, object]:
 
 
 def _analysis_prompt(context: str) -> str:
-    today = date.today().isoformat()
-    return f"""Analyze this email and extract calendar events and contacts.
-The email may be in any language (Catalan, Spanish, English, French, etc.).
-Today's date is {today}.
-
-Return ONLY a JSON object with the fields 'events' and 'contacts'. Do not add
-other text or Markdown. Return empty arrays when there are no entities.
-
-Date formats to recognize (non-exhaustive examples):
-- "dia 6 de maig de 2026 a les 09.30 hores" → 2026-05-06T09:30:00
-- "el proper dilluns a les 10h" → calculate relative to {today}
-- "6 de mayo de 2026 a las 10:00" → 2026-05-06T10:00:00
-- "May 6th 2026 at 10am" → 2026-05-06T10:00:00
-
-Each event must contain:
-- title: string (short descriptive event name)
-- start: ISO 8601 string (use T09:00:00 when no time is provided)
-- end: ISO 8601 string (one hour after start when not specified)
-- location: string (empty when not mentioned)
-- description: string (brief summary)
-
-Each contact must contain:
-- name: string
-- email: string
-- phone: string
-- company: string
-- notes: string
-
-EMAIL CONTENT:
-{context}"""
+    return task_input("mail.extract", today=date.today().isoformat(), email=context)
 
 
 def _public_provider_name(provider: str, index: int) -> str:

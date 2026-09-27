@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-09-26
 source_paths:
+  - extensions/marketplace/build_vault_templates.py
+  - extensions/marketplace/catalog_content.py
+  - extensions/marketplace/reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.tsx
+  - frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -46,6 +51,8 @@ source_paths:
   - frontend/src/features/notion-import
   - frontend/src/features/integrations
 tests:
+  - extensions/marketplace/test_reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
@@ -367,3 +374,11 @@ dades de producció.
 El [plugin Genogrames](genograms.md), opcional per Vault, afegeix taules familiars enllaçades, vistes SVG i exportació local a SVG/PNG/PDF, sense serveis externs ni IA.
 
 Per al registre del correu de Microsoft a l’escriptori i el consentiment institucional, consulteu la [guia de configuració de Microsoft](../microsoft-mail-setup.md).
+
+## Catàleg i moderació de plantilles de Vault
+
+En mode personal, Configuració → General → Estructura de fitxers → Vaults → Des del repositori obre el catàleg verificat. La cerca, els filtres per categoria i les previsualitzacions de contingut ajuden a triar una plantilla; la instal·lació crea un Vault nou. Publicar plantilla obre un inventari cercable dels fitxers inclosos, les exclusions i les possibles dades sensibles. Refrescar l’inventari esborra l’acceptació anterior.
+
+El generador prepara Research Starter Workspace 2.1.0, Study Workspace 1.0.0 i Project Workspace 1.0.0 en català, anglès, castellà i francès. Els paquets generats només estan disponibles després de la signatura oficial i la publicació; instal·lar la interfície no publica els fitxers del catàleg.
+
+El panell privat de moderació posa els enviaments en quarantena i registra una aprovació o un rebuig definitius. Les plantilles de Vault aprovades ofereixen un comprovant vinculat al ZIP exacte mitjançant SHA-256 i mida. L’operador de publicació descarrega tots dos des del panell autenticat, executa `python -m extensions.marketplace.reviewed_templates` i passa `--reviewed-dir` al generador del catàleg. La validació rebutja arxius insegurs, identitats discrepants, credencials i identificadors de plantilla duplicats abans de carregar la clau oficial. Els comprovants són registres d’auditoria, no aprovacions criptogràfiques: només s’accepten pel procés de manteniment de confiança. Aprovar no signa ni publica; els complements tenen un procés de publicació separat.

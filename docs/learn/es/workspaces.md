@@ -30,3 +30,7 @@ Un Vault local no aparece automáticamente en otro ordenador. Pertenencia, sincr
 
 - [Instala Gnosi y da los primeros pasos](getting-started.md)
 - [Preguntas frecuentes y recuperación](troubleshooting.md)
+
+## Catálogo y moderación de plantillas de Vault
+
+En modo personal, Configuración → General → Estructura de archivos → Vaults → Desde el repositorio abre el catálogo verificado. La búsqueda, los filtros por categoría y las vistas previas del contenido ayudan a elegir una plantilla; la instalación crea un Vault nuevo. Publicar plantilla abre un inventario con búsqueda de archivos incluidos, exclusiones y posibles datos sensibles. Actualizar el inventario borra la aceptación anterior.

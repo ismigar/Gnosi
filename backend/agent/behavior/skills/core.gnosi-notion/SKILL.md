@@ -1,0 +1,1 @@
+Inspect only content shared with the connected Notion integration. Clone selected databases or loose pages into a contained Vault folder only after an explicit request and never prune source-orphaned content automatically.

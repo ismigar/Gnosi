@@ -4,6 +4,8 @@ last_verified: 2026-09-23
 source_paths:
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
+  - backend/services/plugin_agent_profiles.py
+  - backend/tests/test_plugin_agent_profiles.py
   - backend/services/agent_learning_models.py
   - backend/services/agent_learning_capture.py
   - backend/services/agent_learning_generation.py
@@ -254,37 +256,7 @@ ni de un proveedor de nube. Las pruebas inyectan ese mismo mecanismo canónico d
 resolución, y las claves de cifrado de los flujos permanecen en el subdirectorio
 `secrets` del directorio de datos local.
 
-La selección de modelos durante la ejecución pertenece al perfil del agente.
-`pinned` utiliza solo el proveedor y modelo asignados; `resilient` empieza con
-ellos y permite pasar a una alternativa solo ante un error transitorio; y
-`adaptive` puede elegir entre el principal y la lista explícita de modelos
-permitidos del perfil. Cada alternativa debe ser una entrada habilitada del
-registro con la misma condición local o remota; ni las credenciales ni los valores
-predeterminados del catálogo amplían la lista permitida. Los errores de
-autenticación, política o contenido nunca provocan el paso a una alternativa.
-La alternativa seleccionada se indica en los metadatos del mensaje y en el
-comprobante del flujo, de modo que un modelo local no pueda enviar inesperadamente
-contexto privado a un proveedor remoto.
-
-Los perfiles adaptativos pueden definir `decision_engine: jev` manteniendo la
-identidad, memoria y herramientas del asistente. Gnosi filtra el principal y las
-alternativas explícitas por disponibilidad, ventana de contexto, capacidades, cuotas
-y presupuesto antes de que el adaptador las reciba. Los perfiles locales nunca llaman
-a Jev. El adaptador envía solo la petición actual (hasta 12.000 caracteres) y los
-metadatos de candidatos al destino HTTPS fijo de TypeSafe; las credenciales usan el
-almacén seguro existente. Se permite una única consulta limitada, sin redirecciones
-ni reintentos. La distribución validada debe elegir un candidato permitido con
-confianza y probabilidad de al menos 0,75; este umbral es una heurística de selección,
-no una garantía de exactitud. La falta de credenciales, la incertidumbre y los errores
-conservan la selección interna. El uso se añade al registro compartido de gasto, con
-estimaciones conservadoras cuando un tiempo de espera agotado deja la facturación
-incierta. Las operaciones gobernadas reservan una llamada de modelo para la decisión
-y conservan una para la respuesta. Los flujos no fijos se reconstruyen en cada turno
-para que la caché no reutilice la selección de una tarea anterior. La configuración
-expone los tres modos y las credenciales opcionales de TypeSafe; los detalles de la
-respuesta identifican Jev o la selección interna. La cobertura se encuentra en
-`backend/tests/test_agent_model_decisions.py` y
-`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
+Los perfiles usan `pinned`: solo el proveedor y modelo configurados. Las opciones antiguas `resilient`, `adaptive` y `decision_engine: jev` ya no seleccionan alternativas para los perfiles. El formulario guarda un único modelo sin alternativas. Las utilidades antiguas siguen cubiertas en `backend/tests/test_agent_model_decisions.py`; la edición de perfiles se prueba en `frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`.
 
 El cliente MCP por stdio valida los objetos en el límite JSON-RPC, tipa
 explícitamente las peticiones asíncronas pendientes y enruta las herramientas
@@ -332,14 +304,14 @@ campos gestionados y campos del usuario. La reconciliación de plugins es
 idempotente: desactivar un plugin suspende su contribución gestionada sin
 eliminar las personalizaciones del usuario.
 
-La habilidad de traducción de filas mantiene el enrutamiento de proveedores y
-el ciclo de vida local de OPUS-MT en su propio paquete consolidado. Las estructuras
-JSON externas se restringen antes de usarse, la puntuación de idiomas tiene un
-orden tipado determinista y la caché de carga diferida de OPUS almacena solo
-protocolos mínimos de tokenizador y modelo. Los tipos genéricos concretos de
-Transformers no se propagan al contrato de enrutamiento ni alteran el orden
-establecido de alternativas: Softcatalà, Apertium, OPUS, DeepL y marcadores de
-posición.
+Las traducciones de filas, páginas e instrucciones de skills utilizan la
+operación compartida `translation`. Los botones seleccionan el perfil del plugin
+de Traducción; las acciones dentro de una conversación heredan el perfil del
+agente en ejecución. Este perfil determina el modelo, las políticas y el registro
+de actividad. El panel de traducción enlaza a este perfil. Los argumentos
+históricos de DeepL y Softcatalà se mantienen por compatibilidad, pero se ignoran;
+ya no hay enrutamiento por pares de idiomas ni alternativa con marcadores.
+Traducir una skill muestra una copia de lectura y conserva sus instrucciones.
 
 La reconciliación de plugins también puede ejecutarse antes de componer las
 rutas de FastAPI. Deriva el directorio `.gnosi` del contexto canónico del Vault
@@ -770,7 +742,7 @@ que un manejador sea ejecutable.
 
 ## Configuración de LLM Wiki
 
-Conocimiento utiliza siempre el Agente principal. El parámetro histórico `agent_id` se conserva pero no permite seleccionar otro perfil de ejecución. La migración versionada retira el perfil gestionado `llm-wiki`; conserva los perfiles personales y las instrucciones de Conocimiento. Los ajustes enlazan al principal y sus habilidades. Cada ejecución programada toma el principal vigente; las iniciadas conservan su instantánea.
+Conocimiento utiliza su perfil de plugin. El parámetro histórico `agent_id` se conserva pero no sustituye el perfil del plugin. El antiguo perfil gestionado `llm-wiki` sigue retirado; el perfil nuevo conserva las instrucciones complementarias de Conocimiento migradas. La configuración enlaza al perfil del plugin y sus habilidades.
 
 El menú secundario Herramientas del Cerebro está en la cabecera de su tabla,
 incluidas las tablas dentro de páginas. Ofrece la revisión determinista con
@@ -1177,7 +1149,7 @@ asignado. Cancelar el borrador no modifica el catálogo ni las asignaciones.
 
 ## Comparativa de modelos y parámetros verificados
 
-La comparativa prioriza inteligencia, contexto, precios de entrada/salida y coste mensual estimado, seguidos de modos, parámetros, velocidad, latencia, perfil y puntuaciones especializadas. Los títulos compactos conservan unidades y texto completo emergente; los filtros se alinean con sus campos, Modos se cierra al pulsar fuera y los tokens mensuales separan los miles. El pie queda libre de la barra horizontal.
+La comparativa muestra primero el modelo y la valoración de sus perfiles, seguidos del coste mensual estimado y el fabricante, y después inteligencia, contexto, precios de entrada/salida, modos, parámetros, velocidad, latencia y puntuaciones especializadas. Los títulos compactos conservan unidades y texto completo emergente; los filtros se alinean con sus campos, Modos se cierra al pulsar fuera y los tokens mensuales separan los miles. El pie queda libre de la barra horizontal.
 
 Los parámetros se expresan en miles de millones, distinguiendo totales y activos en modelos MoE. Los filtros admiten estado conocido/no publicado/pendiente y límites de tamaño total. Los modos usan AND explícito por defecto u OR. Los metadatos estáticos revisados siguen disponibles si el servidor no proporciona datos enriquecidos.
 
@@ -1254,6 +1226,55 @@ La acción de traducción utiliza un botón compacto alineado a la derecha. Los 
 
 ## Ejecución del Agente principal
 
-La IA funcional pasa por el ejecutor compartido del Agente principal. Botones, chat y programaciones utilizan habilidades asignadas, la política de modelos del principal, memoria delimitada y un registro común de consumo. Las operaciones estructuradas admiten una única reparación de formato dentro del mismo presupuesto. Las fases largas conservan una instantánea del perfil y reutilizan los puntos de reanudación completados.
+La IA funcional utiliza un ejecutor compartido con perfiles explícitos. Los botones y programaciones de plugins resuelven el perfil del plugin; las conversaciones utilizan el perfil seleccionado. Se mantienen las habilidades, la memoria delimitada, el registro de consumo, la reparación de formato acotada y los puntos de reanudación.
 
 Actividad muestra identificadores de ejecución, cancelación y las reanudaciones compatibles. La migración versionada copia la configuración, retira solo el perfil Brain gestionado, preserva los perfiles personales y traslada las instrucciones de Conocimiento a una habilidad complementaria. Las rutas de Conocimiento y las antiguas comparten implementación y permisos; Notion sigue siendo opcional.
+
+
+## Perfiles y conversaciones
+
+Crea perfiles en **Perfiles adicionales (avanzado)**. En el chat, abre el selector junto al nombre del asistente y elige el **Perfil de la conversación**. El cambio se aplica a las peticiones siguientes y conserva el historial. Cada conversación recuerda su perfil. **Usar por defecto**, en Configuración, establece el perfil para conversaciones nuevas y acciones de la app; no cambia los chats existentes.
+
+Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
+
+
+La identidad del historial se mantiene en `agent_id` y `session_id`. El campo opcional `profile_id` elige el perfil de ejecución, guardado por el navegador como `profileId` por conversación. Cambiar de perfil conserva los mensajes, adjuntos, recuperación del flujo y retroceso vinculados al mismo historial. Los argumentos de confirmación guardados por el servidor conservan el perfil original. Las conversaciones nuevas usan el predeterminado actual; las habilidades programadas usan el perfil de su plugin. Un perfil ausente o desactivado produce un error explícito.
+
+## Perfiles de los plugins
+
+Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus acciones. Configuración → IA → Asistente muestra los perfiles de plugins separados de los personales. Puedes editar el único modelo, las instrucciones, las fuentes y las habilidades asignadas. Los perfiles iniciales copian solo el modelo predeterminado actual; las actualizaciones preservan las ediciones. Desactivar un plugin suspende su perfil sin eliminar la configuración. Si falta el modelo o una habilidad necesaria, la acción falla explícitamente sin recurrir al perfil personal. Las acciones independientes nuevas y las habilidades programadas utilizan el perfil del plugin; los trabajos iniciados conservan su instantánea. El perfil elegido manualmente en una conversación sigue gobernando esa conversación.
+
+
+## Valoración orientativa — weighted_catalog_v1
+
+Orientación, no certificación: mínimo 60/100 y 60% de datos, con requisitos por rol. Inteligencia, código y capacidad agéntica se comparan con el catálogo actual; contexto y velocidad saturan en 200.000 tokens y 100 tokens/s. Latencia y precio puntúan con 1/(1+x/2). El precio usa una mezcla fija de 4 tokens de entrada por 1 de salida; no es el coste real de una tarea. No se deducen citas, catalán ni fiabilidad a partir del contexto.
+
+
+Los pesos están en `backend/services/model_role_suitability.py`. Los benchmarks se ordenan en el catálogo sin filtrar, con igualdad para empates y 0,5 para un modelo único; no son probabilidades de calidad. Se requiere inteligencia, capacidad agéntica y herramientas para Directivo; inteligencia y herramientas para Todoterreno; inteligencia y contexto para Documentalista (mínimo 100k); inteligencia para Perito; inteligencia y herramientas o salida estructurada para Administrativo; texto, precio y velocidad para Peón. Los datos ausentes reducen cobertura y los requisitos ausentes impiden recomendar. Las limitaciones explícitas prevalecen sobre la puntuación. El tamaño no se usa como indicador de capacidad. El perfil antiguo queda por compatibilidad. La recarga recalcula también la caché.
+
+La columna Uso muestra solo el perfil seleccionado y su porcentaje; ordenarla compara esa puntuación, con valores desconocidos al final. Coste estimado y Fabricante aparecen después. Sin filtro, ordenar Uso compara la mejor puntuación disponible de cada modelo.
+
+El panel Pruebas de perfiles y estrategias de la comparativa permite elegir agentes habilitados y autorizar cada ejecución con consumo real. Las pruebas por rol usan 2–3 casos sintéticos con validadores deterministas. La comparación aplica los mismos tres casos a Todoterreno, Directivo siempre activo y Directivo con rutas; incluye dos rutas conocidas y la resolución de fuentes contradictorias con dependencias. Compara aciertos, llamadas, intervenciones evitables y coste; los datos ausentes no cuentan como cero. Es un laboratorio aislado que reutiliza la selección económica, sin herramientas de negocio. No certifica completamente el idioma, la recuperación extensa ni el uso real de herramientas.
+
+Cada resultado conserva versión, fecha, modelo, proveedor y comprobaciones por caso dentro del usuario y Vault originales. Las valoraciones con datos suficientes combinan 50% catálogo y 50% prueba sintética; las limitaciones y carencias generales siguen visibles. Refresca la comparativa después de consultar los resultados. La prueba tiene un límite global de 24 llamadas y hasta 512 tokens de salida por llamada; comparar las tres estrategias hace 17 llamadas. Las trazas de estas pruebas guardan solo metadatos. Cancélalas desde Actividad. No cambian los modelos asignados.
+
+Las propuestas de conservación muestran habilidades reutilizables, diferencias de cobertura y modelo respecto a agentes existentes y ejecuciones completadas. No confunden completar una ejecución con verificar todos los criterios particulares. Las instrucciones permanentes parten de una plantilla de habilidades registradas, sin copiar el encargo; el usuario puede revisarlas. Aceptar permite incorporar el nuevo perfil personal al equipo. Una configuración equivalente existente evita una propuesta duplicada. Rechazar impide repetir la misma propuesta.
+
+Implementación: `backend/services/agent_role_evaluations.py` · `backend/services/agent_team_retention.py` · `frontend/src/features/settings/AI/AgentEvaluationLab.tsx`
+
+Para resolver un tamaño desconocido, selecciona **Pendiente de verificar** en la columna Parámetros. **Consulta la fuente oficial** busca una coincidencia de versión exacta en las fichas de los fabricantes compatibles. Si la fuente no responde o no hay coincidencia, el dato sigue pendiente. También puedes registrar los miles de millones totales y activos, o una ausencia de publicación revisada, con una fuente HTTPS y la confirmación explícita de haber comprobado el modelo exacto. Los datos revisados manualmente conservan su procedencia y fecha; no encontrar una cifra no demuestra que no esté publicada. El servidor no visita los enlaces introducidos.
+
+Seleccionar un perfil ordena por adecuación estimada. Los candidatos con datos insuficientes solo aparecen con Incluir incompletos activado; la búsqueda y los demás filtros no activan esta opción. Comparar todos los candidatos activa explícitamente los incompletos y conserva el perfil y el volumen de tokens. No es necesario ejecutar pruebas para elegir un modelo.
+
+Los precios por proveedor son independientes del precio del benchmark. El proveedor seleccionado determina la estimación mensual, las columnas de precio de entrada/salida, el filtro de precio y la ordenación. Con todos los proveedores, cada par diferente de proveedor y tarifa aparece por coste mensual de tokens creciente; los desconocidos van al final. Las rutas de la comparativa en caché se actualizan con el catálogo actual. Las tarifas ausentes y los ceros antiguos no verificados son desconocidos, no gratuitos. El coste local por tokens excluye hardware y energía; las estimaciones excluyen cuotas fijas e impuestos. La velocidad y la adecuación siguen siendo datos generales del modelo.
+
+La coincidencia de modelos conserva la variante plus y no elimina sufijos de tamaño como mini o small para encontrar una ruta de proveedor.
+
+La activación rechaza tarifas desconocidas antes de habilitar el proveedor o guardar el registro; actualizar el catálogo puede resolver los precios ausentes.
+
+
+El contexto y las capacidades se muestran por proveedor, incluyendo modos de entrada y salida, uso de herramientas y razonamiento. Las declaraciones ausentes quedan desconocidas, también los valores antiguos de contexto por defecto. Los filtros de proveedor, la ordenación de contexto y los filtros combinados de precio, contexto y modos usan datos de la oferta; una misma oferta debe cumplir todas las condiciones. El contexto se ordena por el máximo conocido del proveedor seleccionado, con los desconocidos al final. Los benchmarks y las valoraciones de roles siguen siendo evidencias generales del modelo.
+
+La coincidencia del registro usa rutas exactas de proveedor/modelo, nunca nombres ni fragmentos. El filtro de activación y los alias respetan el proveedor seleccionado. Los filtros Directivo y Polivalente excluyen rutas que declaran no admitir herramientas. La activación conserva cada oferta de proveedor/modelo y verifica la ruta seleccionada. Los cambios de la comparativa se guardan en serie y releen el registro persistente antes de guardar, preservando cambios intermedios de modelos y presupuesto. Recuperar métricas de la caché recalcula las valoraciones de rol con los datos recuperados.
+
+Los guardados de la comparativa incluyen una revisión optimista del registro: un guardado obsoleto recibe HTTP 409 en lugar de sobrescribir cambios de otra ventana. Actualizar evita las cachés de benchmarks y proveedores, conservando la procedencia alternativa si falla. Las variantes que comparten una ruta ejecutable son vistas informativas de una única oferta: la activación y los alias afectan a la oferta compartida, y el formulario explica que no configura el razonamiento ni reproduce las condiciones de las evaluaciones. Sin puntuación significa que no hay puntuación numérica de rol; las limitaciones y puntuaciones bajas tienen etiquetas distintas. La vista compacta muestra el contexto máximo y el precio mínimo de cada columna, como la ordenación. Las cabeceras exponen aria-sort, se anuncia el recuento filtrado y la inspección de parámetros rellena los datos existentes sin indicar un guardado.

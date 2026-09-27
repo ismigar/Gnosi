@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import postcss, { type ChildNode, type Root, type Rule } from 'postcss';
 import { describe, expect, it } from 'vitest';
 import { cssContracts } from './css-modules.baseline';
+import reviewedUpdates from './css-reviewed-updates.json';
 
 const frontend = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -34,7 +35,16 @@ function digest(root: Root): string {
 }
 
 function parseFile(path: string): Root {
-  return postcss.parse(readFileSync(path, 'utf8'), { from: path });
+  let content = readFileSync(path, 'utf8');
+  // Assert the reviewed primary-color, contrast and profile-layout changes
+  // from cfe191bf5 through 692fa1138 before restoring the extraction snapshot.
+  // The original AST hashes remain unchanged; unrelated changes still fail.
+  for (const update of reviewedUpdates.filter(update => update.file === relative(frontend, path))) {
+    const pieces = content.split(update.after);
+    expect(pieces, `Reviewed CSS change in ${update.file}`).toHaveLength(2);
+    content = pieces.join(update.before);
+  }
+  return postcss.parse(content, { from: path });
 }
 
 function importPath(params: string): string {
@@ -138,6 +148,25 @@ function removeVerifiedResponsiveToolbarRules(root: Root): void {
   expect(toolbar).toHaveLength(1);
   const rule = toolbar[0];
   if (rule?.type !== 'rule') throw new Error('Missing toolbar rule');
+  const layer = rule.nodes.filter(node => node.type === 'decl' && node.prop === 'z-index');
+  expect(layer).toHaveLength(1);
+  const declaration = layer[0];
+  if (declaration?.type !== 'decl') throw new Error('Missing toolbar layer');
+  expect(semantic(declaration)).toEqual(['decl', 'z-index', 'var(--z-popover)', false]);
+  declaration.value = '25';
+  const alignment = root.nodes.filter(node => node.type === 'rule'
+    && node.selector === '.vault-view-toolbar > div:last-child,\n.vault-view-actions');
+  expect(alignment).toHaveLength(1);
+  const alignmentRule = alignment[0];
+  if (!alignmentRule) throw new Error('Missing right-aligned actions');
+  const expectedAlignment = postcss.parse(`
+.vault-view-toolbar > div:last-child,
+.vault-view-actions { margin-inline-start: auto; justify-content: flex-end; }
+`).nodes[0];
+  if (!expectedAlignment) throw new Error('Missing expected right-aligned actions');
+  expect(semantic(alignmentRule)).toEqual(semantic(expectedAlignment));
+  if (alignmentRule.prev()?.type === 'comment') alignmentRule.prev()?.remove();
+  alignmentRule.remove();
   for (const [prop, value] of [['flex-wrap', 'wrap'], ['min-width', '0']] as const) {
     const declarations = rule.nodes.filter(node => node.type === 'decl' && node.prop === prop);
     expect(declarations).toHaveLength(1);
@@ -278,6 +307,18 @@ function extractionTree(entry: string): Root {
     removeVerifiedMobileQuickAccessRule(root);
     removeVerifiedHelpMenuRules(root);
     removeVerifiedResponsiveToolbarRules(root);
+    for (const selector of ['.vault-views-header', '.vault-new-record-menu']) {
+      const rules = root.nodes.filter(node => node.type === 'rule' && node.selector === selector);
+      expect(rules).toHaveLength(1);
+      const rule = rules[0];
+      if (rule?.type !== 'rule') throw new Error(`Missing ${selector}`);
+      const layers = rule.nodes.filter(node => node.type === 'decl' && node.prop === 'z-index');
+      expect(layers).toHaveLength(1);
+      const layer = layers[0];
+      if (layer?.type !== 'decl') throw new Error(`Missing ${selector} layer`);
+      expect(semantic(layer)).toEqual(['decl', 'z-index', 'var(--z-modal-dropdown)', false]);
+      layer.value = 'var(--z-popover)';
+    }
     // Assert the reviewed keyboard-focus changes before restoring only those
     // rules for comparison with the immutable extraction baseline.
     const addedRules = postcss.parse(`

@@ -61,14 +61,24 @@ def read_cache(path: Path | None = None) -> dict[str, Any]:
 def write_cache(value: dict[str, Any], path: Path | None = None) -> None:
     target = path or cache_path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    fd, name = tempfile.mkstemp(prefix=".model-parameters-", dir=target.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(value, stream, ensure_ascii=False, allow_nan=False)
-        os.replace(name, target)
-    finally:
-        if os.path.exists(name):
-            os.unlink(name)
+    from filelock import FileLock
+    with FileLock(str(target) + ".lock", timeout=30):
+        latest = read_cache(target)
+        merged = dict(latest.get("entries", {}))
+        for key, entry in value.get("entries", {}).items():
+            old = merged.get(key, {})
+            # A stale scheduled batch cannot overwrite a later explicit review.
+            if str(entry.get("checked_at") or "") >= str(old.get("checked_at") or ""):
+                merged[key] = entry
+        value = {**value, "entries": merged}
+        fd, name = tempfile.mkstemp(prefix=".model-parameters-", dir=target.parent)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(value, stream, ensure_ascii=False, allow_nan=False)
+            os.replace(name, target)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
 
 
 def valid_counts(value: dict[str, Any]) -> bool:
@@ -81,8 +91,10 @@ def valid_counts(value: dict[str, Any]) -> bool:
 
 def metadata(model: dict[str, Any], cache: dict[str, Any]) -> dict[str, Any]:
     entry = cache.get("entries", {}).get(model_key(model), {})
+    if isinstance(entry, dict) and entry.get("status") == "not_published" and entry.get("source") and entry.get("verification") == "user_review":
+        return {k: entry[k] for k in ("status", "source", "checked_at", "verification") if k in entry}
     if isinstance(entry, dict) and entry.get("status") == "known" and valid_counts(entry):
-        return {k: entry[k] for k in ("status", "total", "active", "source", "checked_at") if k in entry}
+        return {k: entry[k] for k in ("status", "total", "active", "source", "checked_at", "verification") if k in entry}
     names = {normalized(base_name(str(model.get(field, "")))) for field in ("name", "slug")}
     creator = creator_key(str(model.get("creator", "")))
     for seed in PUBLISHED:

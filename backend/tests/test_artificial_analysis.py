@@ -307,6 +307,7 @@ def test_build_payload_enriches_context_from_models_dev():
         "cost_in": 1,
         "cost_out": 2,
         "context_window": 1_000_000,
+        "context_known": True,
         "tags": ["long"],
         "modes": ["text", "image"],
         "quality": 3,
@@ -327,6 +328,10 @@ def test_build_payload_enriches_context_from_models_dev():
         "cost_in": 1.0,
         "cost_out": 2.0,
         "context_window": 1_000_000,
+        "input_modes": None,
+        "output_modes": None,
+        "tool_call": None,
+        "reasoning": None,
         "quality": 3,
         "tags": ["long"],
     }]
@@ -524,7 +529,9 @@ def test_rate_limit_prefers_last_successful_cache(monkeypatch):
     monkeypatch.setattr(aa.requests.Session, "get", lambda *_args, **_kwargs: Response())
     result = aa.fetch_all_models()
 
-    assert result["models"] == [{"id": "cached"}]
+    assert result["models"][0]["id"] == "cached"
+    assert len(result["models"][0]["role_assessments"]) == 6
+    assert all(r["status"] == "insufficient_data" for r in result["models"][0]["role_assessments"])
     assert result["fallback"] is True
     assert result["stale"] is True
 
@@ -605,7 +612,82 @@ def test_missing_key_prefers_last_successful_cache(monkeypatch):
 
     result = aa.fetch_all_models()
 
-    assert result["models"] == [{"id": "cached"}]
+    assert result["models"][0]["id"] == "cached"
+    assert len(result["models"][0]["role_assessments"]) == 6
+    assert all(r["status"] == "insufficient_data" for r in result["models"][0]["role_assessments"])
     assert result["fallback"] is True
     assert result["fallback_reason"] == "api_key_missing"
     assert result["stale"] is True
+
+
+def test_route_pricing_distinguishes_unknown_and_confirmed_free():
+    from backend.services.artificial_analysis import _route_price
+    assert _route_price({"cost_in": 0}, "cost_in") is None
+    assert _route_price({"cost_in": 0, "pricing_known": True}, "cost_in") == 0
+    assert _route_price({"cost_in": 1, "pricing_known": False}, "cost_in") is None
+    assert _route_price({"cost_in": 0.3}, "cost_in") == 0.3
+
+
+def test_cached_comparison_replaces_route_prices_with_current_catalog():
+    from backend.services.artificial_analysis import _enrich_cached_payload
+    payload = {"models": [{"id": "x", "name": "X", "routes": [{"provider": "p", "cost_in": 0}]}]}
+    catalog = {"providers": [{"id": "p", "name": "P", "models": [{"id": "x", "name": "X", "cost_in": .3, "cost_out": 1.5}]}]}
+    updated = _enrich_cached_payload(payload, catalog)
+    assert updated["models"][0]["routes"][0]["cost_in"] == .3
+    assert updated["models"][0]["routes"][0]["cost_out"] == 1.5
+
+
+
+def test_plus_and_size_variants_do_not_inherit_another_models_routes():
+    from backend.services.artificial_analysis import _catalog_enrichment_index, _matching_enrichment_entries
+    catalog = {"providers": [{"id": "openrouter", "models": [
+        {"id": "cohere/command-a", "name": "Command A", "cost_in": 2.5, "cost_out": 10},
+        {"id": "cohere/command-a-plus", "name": "Command A+", "cost_in": .3, "cost_out": 1.5},
+    ]}]}
+    index = _catalog_enrichment_index(catalog)
+    matches = _matching_enrichment_entries({"name": "Command A+", "slug": "command-a-plus"}, index)
+    assert [r["model_id"] for m in matches for r in m["routes"]] == ["cohere/command-a-plus"]
+    assert _matching_enrichment_entries({"name": "Command A Mini", "slug": "command-a-mini"}, index) == []
+
+
+def test_routes_keep_provider_capabilities_without_generic_fallback():
+    catalog = {'providers': [{'id': provider, 'models': [model]} for provider, model in [
+        ('small', {'id': 'x', 'context_window': 8000, 'context_known': True,
+                   'input_modes': ['text'], 'output_modes': ['text'], 'tool_call': False}),
+        ('large', {'id': 'x', 'context_window': 200000, 'context_known': True,
+                   'input_modes': ['text', 'image'], 'output_modes': ['text'], 'tool_call': True}),
+        ('legacy', {'id': 'x', 'context_window': 8192, 'modes': ['text'], 'tags': ['tools']}),
+    ]]}
+    routes = {r['provider']: r for r in aa._routes_for_entries(aa._catalog_enrichment_index(catalog)['x'])}
+    assert routes['small']['context_window'] == 8000
+    assert routes['large']['input_modes'] == ['text', 'image']
+    assert routes['small']['tool_call'] is False
+    assert routes['large']['tool_call'] is True
+    assert routes['legacy']['context_window'] is None
+    assert routes['legacy']['input_modes'] is None
+    assert routes['legacy']['tool_call'] is None
+
+
+def test_restored_metrics_recompute_role_assessments():
+    model = {"id": "stable-role", "intelligence": 90, "agentic": None,
+             "context_window": 200000, "input_price": 0, "output_price": 0,
+             "latency": 0, "tags": ["tools"], "modes": ["text"],
+             "role_assessments": [{"role": "director", "status": "insufficient_data"}]}
+    result = aa._merge_cached_metrics(
+        {"models": [model]}, {"models": [{"id": "stable-role", "agentic": 80}]},
+    )
+    assessment = next(row for row in result["models"][0]["role_assessments"] if row["role"] == "director")
+    assert assessment["status"] == "catalog_compatible"
+    assert next(proof["value"] for proof in assessment["proofs"] if proof["metric"] == "agentic") == 80
+
+
+def test_explicit_refresh_bypasses_fresh_comparison_cache(monkeypatch):
+    calls = []
+    monkeypatch.setattr(aa, "_read_cache", lambda: {"models": []})
+    monkeypatch.setattr(aa, "_cache_is_fresh", lambda payload: True)
+    monkeypatch.setattr(aa, "_configured_api_key", lambda: "test-key")
+    monkeypatch.setattr(aa, "_fetch_model_pages", lambda key: (calls.append("upstream") or [], "test"))
+    monkeypatch.setattr(aa, "load_catalog", lambda force_refresh=False: calls.append(force_refresh) or {})
+    monkeypatch.setattr(aa, "_write_cache", lambda payload: None)
+    aa.fetch_all_models(force_refresh=True)
+    assert calls == ["upstream", True]

@@ -25,8 +25,8 @@ export function AppearancePanel({ context }: Props) {
             writeStorage(themeKey, opt.id);
             dispatchWindowEvent(new Event('db-theme-changed'));
           }} style={{
-            padding: '12px', borderRadius: '24px', border: `2px solid ${draft.settings.theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`,
-            background: draft.settings.theme === opt.id ? 'rgba(59, 130, 246, 0.05)' : 'transparent', cursor: 'pointer', transition: 'all 0.3s'
+            padding: '12px', borderRadius: '24px', border: `2px solid ${draft.settings.theme === opt.id ? 'var(--gnosi-primary)' : 'var(--settings-border)'}`,
+            background: draft.settings.theme === opt.id ? 'color-mix(in srgb, var(--gnosi-primary) 5%, transparent)' : 'transparent', cursor: 'pointer', transition: 'all 0.3s'
           }}>
             <div style={{ height: '80px', borderRadius: '16px', background: opt.bg, border: '1px solid var(--settings-border)', marginBottom: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Monitor size={24} color={opt.id === 'light' ? '#ccc' : (opt.id === 'dark' ? '#444' : '#888')} />

@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - frontend/src/shared/records/hooks/useViewSearch.ts
+  - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
   - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
   - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
@@ -36,6 +38,8 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
@@ -219,6 +223,20 @@ de `VaultViewBody`. Por tanto, la pestaña de tabla, la tabla independiente, el
 panel dividido y la vista incrustada ofrecen las mismas acciones de fila
 configuradas. Omitir esa cadena de props oculta una acción incluso cuando el
 registro de configuración y la API indican correctamente que está habilitada.
+
+## Ámbito de la búsqueda
+
+Las búsquedas de tabla se aplican a la vista actual por defecto. El selector
+puede ampliar una consulta no vacía a toda la tabla de origen, incluidos los
+registros excluidos por los filtros o las uniones de la vista, sin modificar
+la vista guardada. Limpiar la consulta restaura el ámbito y los filtros de la
+vista actual. Si no hay resultados, un mensaje explica el ámbito activo y
+ofrece buscar en toda la tabla.
+
+Las vistas incrustadas utilizan el mismo buscador compartido para los registros
+y los recuentos. Se recargan mediante la API compartida del vault cuando se
+guarda otra página o la ventana recupera el foco. La búsqueda se mantiene durante
+la actualización, sin reutilizar una caché de tabla de cinco minutos.
 
 ## Evolución del esquema y concurrencia
 

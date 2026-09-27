@@ -1,0 +1,124 @@
+.agent-team-setup,
+.agent-team-setup__wizard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.agent-team-setup > .btn-gnosi {
+    align-self: flex-start;
+    margin-top: 16px;
+}
+
+.agent-team-setup__wizard {
+    padding: 24px;
+    border: 1px solid var(--settings-border);
+    border-radius: 16px;
+    background: var(--settings-bg);
+}
+
+.agent-team-setup__wizard p,
+.agent-team-setup__wizard .settings-form-group {
+    margin: 0;
+}
+
+.agent-team-setup__progress {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--settings-border);
+}
+
+.agent-team-setup__track {
+    display: flex;
+    gap: 6px;
+}
+
+.agent-team-setup__track span {
+    width: 28px;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--settings-border);
+}
+
+.agent-team-setup__track .is-complete {
+    background: var(--gnosi-primary);
+}
+
+.agent-team-setup__card {
+    border: 1px solid var(--settings-border);
+    border-radius: 16px;
+    background: var(--settings-sidebar-bg);
+    overflow: hidden;
+}
+
+.agent-team-setup__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-width: 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.agent-team-setup__card > .agent-team-setup__row {
+    padding: 18px;
+}
+
+.agent-team-setup__row .gnosi-toggle {
+    flex-shrink: 0;
+}
+
+.agent-team-setup__identity {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.agent-team-setup__roles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+    gap: 16px 24px;
+    padding: 18px;
+    border-top: 1px solid var(--settings-border);
+}
+
+.agent-team-setup__heading {
+    margin: 12px 0 0;
+}
+
+.agent-team-setup__wizard .gnosi-select {
+    width: 100%;
+    min-width: 0;
+}
+
+.agent-team-setup__wizard select[multiple] {
+    min-height: 120px;
+    padding: 8px;
+    background-image: none;
+}
+
+.agent-team-setup__wizard select[multiple] option {
+    padding: 8px;
+    white-space: normal;
+}
+
+.agent-team-setup__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 20px;
+    border-top: 1px solid var(--settings-border);
+}
+
+@media (max-width: 640px) {
+    .agent-team-setup__wizard {
+        padding: 16px;
+    }
+}

@@ -1,4 +1,5 @@
 import os
+import time
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
@@ -298,6 +299,25 @@ def is_provider_connected(provider_id: str, provider_cfg: Optional[Dict[str, Any
     return any(os.environ.get(k) for k in env_keys_for_provider(normalized))
 
 
+def validated_provider_models(provider_cfg: Optional[Mapping[str, Any]]) -> List[str]:
+    """Return model IDs whose exact provider route passed a recent live probe."""
+    if not provider_cfg:
+        return []
+    raw = provider_cfg.get("model_validations")
+    if not isinstance(raw, Mapping):
+        return []
+    now = time.time()
+    fresh_for = 60 * 60
+    return sorted(
+        str(model_id)
+        for model_id, checked_at in raw.items()
+        if isinstance(model_id, str)
+        and model_id
+        and isinstance(checked_at, (int, float))
+        and 0 <= now - checked_at <= fresh_for
+    )
+
+
 def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Provider list for the connect UI: the live model catalog (models.dev,
     ALL providers) annotated with local connection status. Providers that only
@@ -345,6 +365,7 @@ def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
                 if configured
                 else any(os.environ.get(k) for k in env_keys_for_provider(provider_id)),
                 "connected": is_provider_connected(provider_id, cfg if configured else None),
+                "validated_models": validated_provider_models(cfg if configured else None),
                 "configured": configured,
                 "enabled": cfg.get("enabled", True),
             }
@@ -376,6 +397,7 @@ def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
                 "credential_ref": normalize_credential_ref(provider_id, cfg),
                 "has_api_key": has_provider_api_key(provider_id, cfg),
                 "connected": is_provider_connected(provider_id, cfg if configured else None),
+                "validated_models": validated_provider_models(cfg if configured else None),
                 "configured": configured,
                 "enabled": cfg.get("enabled", True),
             }

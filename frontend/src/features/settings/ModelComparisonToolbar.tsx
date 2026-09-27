@@ -19,6 +19,7 @@ import {
 
 
 interface ModelComparisonToolbarProps {
+    readonly providers: readonly { id: string; name: string }[];
     readonly currencySymbol: string;
     readonly dispatch: Dispatch<ModelComparisonUiAction>;
     readonly metricAvailability: MetricAvailability;
@@ -29,6 +30,7 @@ interface ModelComparisonToolbarProps {
 
 
 export function ModelComparisonToolbar({
+    providers,
     currencySymbol,
     dispatch,
     metricAvailability,
@@ -62,6 +64,17 @@ export function ModelComparisonToolbar({
                         placeholder={t('model_comparison.search')}
                         value={state.query}
                     />
+                </label>
+                <label>
+                    <span>{t('settings.ai.provider')}</span>
+                    <select value={state.provider} onChange={(event) => {
+                        dispatch({ type: 'set-provider', value: event.target.value });
+                    }}>
+                        <option value="all">{t('model_comparison.all_providers')}</option>
+                        {providers.map((provider) => (
+                            <option key={provider.id} value={provider.id}>{provider.name}</option>
+                        ))}
+                    </select>
                 </label>
                 {metricAvailability.profile ? (
                     <label className="model-profile-filter">
@@ -231,6 +244,11 @@ export function ModelComparisonToolbar({
                 </div>
             </div>
 
+            {state.profile !== 'all' && state.profile !== 'unrated' && <div className="model-comparison-note">
+                <p>{t('model_comparison.choice_help')}</p>
+                <button className="btn-gnosi-secondary" type="button" onClick={() => { dispatch({ type: 'compare-role-candidates' }); }}>{t('model_comparison.compare_candidates')}</button>
+            </div>}
+
             {state.showProfileHelp ? (
                 <div className="model-profile-help-backdrop" role="presentation">
                     <section
@@ -286,6 +304,15 @@ export function ModelComparisonToolbar({
                 </div>
             ) : null}
 
+            <ModelTokenBudget state={state} dispatch={dispatch} />
+        </>
+    );
+}
+
+
+function ModelTokenBudget({ state, dispatch }: Pick<ModelComparisonToolbarProps, 'state' | 'dispatch'>) {
+    const { t } = useTranslation();
+    return (
             <div className="model-cost-calculator">
                 <label>
                     <ComparisonLabel text={t('model_comparison.compact_filters.input_tokens')} full={t('model_comparison.input_tokens')} />
@@ -316,6 +343,5 @@ export function ModelComparisonToolbar({
                     />
                 </label>
             </div>
-        </>
     );
 }

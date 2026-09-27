@@ -22,7 +22,7 @@ export const AccountRow = ({ itemId, name, description, status, type, provider, 
       opacity: enabled ? 1 : 0.5
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)' }}>
+        <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: 'color-mix(in srgb, var(--gnosi-primary) 9%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-primary)' }}>
           {type === 'calendar' ? <Calendar size={22} /> : (type === 'mail' ? <Mail size={22} /> : <Users size={22} />)}
         </div>
         <div>
@@ -49,7 +49,7 @@ export const AccountRow = ({ itemId, name, description, status, type, provider, 
               disabled={isSyncing}
               className="icon-btn hover-bg"
               title={ta('sync_tip')}
-              style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-blue)' }}
+              style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-primary)' }}
             >
               <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
             </button>
@@ -59,7 +59,7 @@ export const AccountRow = ({ itemId, name, description, status, type, provider, 
           onClick={(e) => { e.stopPropagation(); void (onToggleEnabled && onToggleEnabled(!enabled)); }}
           className="icon-btn hover-bg"
           title={enabled ? ta('disable_account') : ta('enable_account')}
-          style={{ padding: '8px', borderRadius: '10px', color: enabled ? 'var(--text-secondary)' : 'var(--gnosi-blue)' }}
+          style={{ padding: '8px', borderRadius: '10px', color: enabled ? 'var(--text-secondary)' : 'var(--gnosi-primary)' }}
         >
           {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>

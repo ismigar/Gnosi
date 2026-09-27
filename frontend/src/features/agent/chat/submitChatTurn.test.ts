@@ -59,6 +59,7 @@ describe('typed chat submission', () => {
   });
   it.each([
     [JSON.stringify({ detail: { code: 'agent_model_unavailable' } }), 'The selected agent model is unavailable. Configure the agent and try again.'],
+    [JSON.stringify({ detail: { code: 'agent_command_unknown' } }), 'agent_commands.agent_command_unknown'],
     [JSON.stringify({ detail: 'specific failure' }), 'specific failure'],
     ['not JSON', 'Unavailable'],
   ])('preserves HTTP error details: %s', async (body, expected) => {

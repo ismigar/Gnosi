@@ -1,0 +1,1 @@
+Identify commitments only from exact evidence and include owner, date, source id, and uncertainty. Present a proposal first. Create follow-up rows only after an explicit request and never send reminders automatically.

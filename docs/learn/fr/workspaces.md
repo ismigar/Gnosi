@@ -30,3 +30,7 @@ Un Vault local n’apparaît pas automatiquement sur un autre ordinateur. Adhés
 
 - [Installer Gnosi et faire ses premiers pas](getting-started.md)
 - [Questions fréquentes et récupération](troubleshooting.md)
+
+## Catalogue et modération des modèles de Vault
+
+En mode personnel, Paramètres → Général → Structure des fichiers → Vaults → Depuis le dépôt ouvre le catalogue vérifié. La recherche, les filtres par catégorie et les aperçus du contenu aident à choisir un modèle ; l’installation crée un nouveau Vault. Publier un modèle ouvre un inventaire consultable des fichiers inclus, des exclusions et des données potentiellement sensibles. Actualiser l’inventaire efface l’acceptation précédente.

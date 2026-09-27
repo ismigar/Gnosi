@@ -5,7 +5,7 @@
     border: 1px solid color-mix(in srgb, var(--status-error) 25%, var(--border-primary));
     border-radius: 10px;
     background: color-mix(in srgb, var(--status-error) 5%, var(--bg-primary));
-    color: var(--status-error);
+    color: var(--status-error-text);
     font-size: 12px;
 }
 
@@ -36,7 +36,7 @@
 }
 
 .literature-query-audit > summary {
-    color: var(--gnosi-blue);
+    color: var(--gnosi-link);
     font-weight: 700;
     cursor: pointer;
 }

@@ -1,101 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
-
-import { logError } from '../../../shared/notifications/notifyError';
-import {
-    fetchExternalContextSources,
-    fetchInternalContextSources,
-    type InternalContextSource,
-} from '../../../shared/api/agent-context';
+import { useState } from 'react';
+import { fetchExternalContextSources, fetchInternalContextSources } from '../../../shared/api/agent-context';
 import { fetchVaultPages, fetchVaultTables } from '../../../shared/api/vaults';
-import {
-    catalogItems,
-    type ContextCatalogItem,
-    type ContextPickingKind,
-} from './agentContextModel';
+import { catalogItems, type ContextPickingKind } from './agentContextModel';
+import { useContextResource } from './useContextResource';
 
+const loadPages = async (signal: AbortSignal) => catalogItems(await fetchVaultPages({}, signal));
+const loadTables = async (signal: AbortSignal) => catalogItems(await fetchVaultTables(undefined, signal));
+const loadExternal = async (signal: AbortSignal) => catalogItems(await fetchExternalContextSources(signal));
 
-interface AgentContextCatalog {
-    readonly internalDescriptors: readonly InternalContextSource[];
-    readonly options: readonly ContextCatalogItem[] | null;
-}
-
-
-export function useAgentContextCatalog(
-    picking: ContextPickingKind | null,
-    needsInternal: boolean,
-): AgentContextCatalog {
-    const [tables, setTables] = useState<ContextCatalogItem[] | null>(null);
-    const [pages, setPages] = useState<ContextCatalogItem[] | null>(null);
-    const [external, setExternal] = useState<ContextCatalogItem[] | null>(null);
-    const [internal, setInternal] = useState<InternalContextSource[] | null>(null);
-
-    useEffect(() => {
-        const controller = new AbortController();
-        const { signal } = controller;
-        const reportFailure = (operation: string, error: unknown): void => {
-            if (!signal.aborted) logError(operation, error);
-        };
-
-        if (picking === 'table' && tables === null) {
-            void fetchVaultTables(undefined, signal)
-                .then((items) => {
-                    if (!signal.aborted) setTables(catalogItems(items));
-                })
-                .catch((error: unknown) => {
-                    reportFailure('agent-context-load-tables', error);
-                    if (!signal.aborted) setTables([]);
-                });
-        }
-        if (picking === 'page' && pages === null) {
-            void fetchVaultPages({}, signal)
-                .then((items) => {
-                    if (!signal.aborted) setPages(catalogItems(items));
-                })
-                .catch((error: unknown) => {
-                    reportFailure('agent-context-load-pages', error);
-                    if (!signal.aborted) setPages([]);
-                });
-        }
-        if (picking === 'source' && external === null) {
-            void fetchExternalContextSources(signal)
-                .then((items) => {
-                    if (!signal.aborted) setExternal(catalogItems(items));
-                })
-                .catch((error: unknown) => {
-                    reportFailure('agent-context-load-external', error);
-                    if (!signal.aborted) setExternal([]);
-                });
-        }
-        if ((picking === 'internal' || needsInternal) && internal === null) {
-            void fetchInternalContextSources(signal)
-                .then((items) => {
-                    if (!signal.aborted) setInternal(items);
-                })
-                .catch((error: unknown) => {
-                    reportFailure('agent-context-load-internal', error);
-                    if (!signal.aborted) setInternal([]);
-                });
-        }
-        return () => {
-            controller.abort();
-        };
-    }, [external, internal, needsInternal, pages, picking, tables]);
-
-    const internalItems = useMemo(
-        () => internal === null ? null : catalogItems(internal),
-        [internal],
-    );
-    const options = picking === 'table'
-        ? tables
-        : picking === 'page'
-            ? pages
-            : picking === 'source'
-                ? external
-                : picking === 'internal'
-                    ? internalItems
-                    : null;
+export function useAgentContextCatalog(picking: ContextPickingKind | null, needsInternal: boolean) {
+    const [revision, setRevision] = useState(0);
+    const vaultVisible = picking === 'internal' || picking === 'vault' || picking === 'page' || picking === 'table';
+    const pages = useContextResource(loadPages, vaultVisible, revision);
+    const tables = useContextResource(loadTables, vaultVisible, revision);
+    const external = useContextResource(loadExternal, picking === 'source', revision);
+    const internal = useContextResource(fetchInternalContextSources, picking === 'internal' || needsInternal, revision);
+    const active = picking === 'page' ? pages : picking === 'table' ? tables : picking === 'source' ? external : internal;
     return {
-        internalDescriptors: internal ?? [],
-        options,
+        internalDescriptors: internal.data ?? [],
+        internal,
+        pages,
+        tables,
+        options: picking === 'internal' ? (internal.data ? catalogItems(internal.data) : null) : active.data ? catalogItems(active.data) : null,
+        error: active.error,
+        loading: active.loading,
+        refresh: () => { setRevision(value => value + 1); },
+        revision,
     };
 }

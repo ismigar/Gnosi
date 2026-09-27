@@ -45,8 +45,9 @@ def _article() -> dict[str, Any]:
 
 
 def _successful_model(prompt: str, _message: str) -> str:
-    if "BATCH ANALYSES:\n" in prompt:
-        summaries = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
+    envelope = json.loads(prompt)
+    if envelope["task"] == "reader.topic":
+        summaries = envelope["data"]["analyses"]
         return json.dumps(
             {
                 "topic": "Research",
@@ -55,7 +56,7 @@ def _successful_model(prompt: str, _message: str) -> str:
                 "article_ids": summaries[0]["article_ids"],
             }
         )
-    articles = [json.loads(line) for line in prompt.split("ARTICLES:\n", 1)[1].splitlines()]
+    articles = envelope["data"]["articles"]
     return json.dumps(
         {
             "topic": "Research",

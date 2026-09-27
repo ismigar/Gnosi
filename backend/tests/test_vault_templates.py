@@ -162,7 +162,7 @@ def test_release_builder_emits_signed_valid_starter(tmp_path, monkeypatch):
         expected_public_key=keypair["public"],
     )
 
-    assert result["templates"] == 1
+    assert result["templates"] == 3
     index_bytes = (output / "vault-templates-index.json").read_bytes()
     signature = (output / "vault-templates-index.sig").read_text(encoding="ascii")
     assert plugin_signing.verify(keypair["public"], signature, index_bytes)
@@ -172,8 +172,8 @@ def test_release_builder_emits_signed_valid_starter(tmp_path, monkeypatch):
     assert plugin_signing.verify(keypair["public"], entry["signature"], package)
     manifest, _infos = vault_templates.validate_package(package)
     assert manifest["id"] == "starter-vault"
-    assert manifest["version"] == "2.0.0"
-    assert manifest["languages"] == ["ca", "en", "es"]
+    assert manifest["version"] == "2.1.0"
+    assert manifest["languages"] == ["ca", "en", "es", "fr"]
     assert manifest["categories"] == ["starter", "research", "writing"]
 
     archive = zipfile.ZipFile(io.BytesIO(package))

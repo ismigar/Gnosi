@@ -118,7 +118,7 @@
     align-items: center;
     gap: 6px;
     overflow-wrap: anywhere;
-    color: var(--gnosi-blue);
+    color: var(--gnosi-link);
     font-size: 11px;
 }
 

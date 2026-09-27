@@ -1,6 +1,8 @@
+import { dispatchWindowEvent } from '../../shared/platform/browser-events';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { pushModalLayer } from '../../shared/hooks/useModalKeyboard';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppSidebar } from './AppSidebar';
@@ -229,4 +231,19 @@ describe('AppSidebar adaptive navigation', () => {
 
         expect(container.querySelector('[aria-label="More applications"]')).toBeNull();
     });
+});
+
+it('suspends background navigation for modal layers and open Settings', async () => {
+    function Location() { return <output>{useLocation().pathname}</output>; }
+    const container = document.createElement('div'); document.body.append(container);
+    const root = createRoot(container); mountedRoots.push({root, container});
+    await act(async () => { root.render(<MemoryRouter><AppSidebar/><Location/></MemoryRouter>); await Promise.resolve(); });
+    const navigate = async () => { await act(async () => { dispatchWindowEvent(new KeyboardEvent('keydown', {key: '2', ctrlKey: true, bubbles: true, cancelable: true})); await Promise.resolve(); }); };
+    const layer = pushModalLayer();
+    try { await navigate(); expect(container.querySelector('output')?.textContent).toBe('/'); }
+    finally { layer.release(); }
+    await navigate(); expect(container.querySelector('output')?.textContent).toBe('/@principal/graph');
+    await act(async () => { emitAppEvent('gnosi:open-settings'); await Promise.resolve(); });
+    await act(async () => { dispatchWindowEvent(new KeyboardEvent('keydown', {key: '1', ctrlKey: true, bubbles: true, cancelable: true})); await Promise.resolve(); });
+    expect(container.querySelector('output')?.textContent).toBe('/@principal/graph');
 });

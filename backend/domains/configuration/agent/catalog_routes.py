@@ -124,6 +124,10 @@ def _validate_automation_target(context: WorkspaceContext, *, agent_id: str, ski
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     normalized = skill_id.strip().lower()
+    from backend.services.plugin_agent_profiles import owner_for_skill
+    owner = owner_for_skill(normalized)
+    if owner and (agent.get("managed_by") != owner or agent.get("plugin_suspended")):
+        raise HTTPException(status_code=409, detail="skill requires its active plugin profile")
     assigned = {
         str(value).strip().lower() for value in iterate_values(agent.get("skill_ids") or [])
     }
@@ -253,7 +257,7 @@ def create_skill(
             "version": source.descriptor.version, "revision": source.revision,
             "instructions": source.descriptor.instructions,
             "tool_ids": source.descriptor.tool_ids,
-        }}
+        }, **({"learning": source.descriptor.metadata["learning"]} if "learning" in source.descriptor.metadata else {})}
     try:
         descriptor = store.create(
             metadata,
@@ -360,6 +364,10 @@ def clone_skill(
     )
     metadata["name"] = clone_name
     metadata["status"] = CatalogStatus.AVAILABLE
+    metadata["metadata"] = {"derived_from": {"id": descriptor.id, "name": descriptor.name,
+        "version": descriptor.version, "revision": entry.revision, "instructions": descriptor.instructions,
+        "tool_ids": descriptor.tool_ids},
+        **({"learning": descriptor.metadata["learning"]} if "learning" in descriptor.metadata else {})}
     try:
         clone = _store_for(context).create(metadata, descriptor.instructions)
         clone_entry = get_skill_catalog().get_entry(clone.id, Path(context.vault_path))

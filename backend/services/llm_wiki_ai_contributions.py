@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import resource as behavior_resource
+
 from typing import Callable, Iterable, cast
 
 from backend.agent.llm_wiki_tools import LLM_WIKI_TOOL_HANDLERS
@@ -181,10 +183,7 @@ def _skill_descriptors() -> Iterable[SkillDescriptor]:
                 "plugin.llm-wiki.query-wiki",
             ],
             instructions=(
-                "Consult the compiled Brain first for knowledge that has already "
-                "been processed. Preserve citations and provenance, distinguish "
-                "reading notes from permanent notes, and open raw source material "
-                "only when evidence must be verified."
+                behavior_resource('skills/plugin.llm-wiki.query/SKILL.md')
             ),
             status=status,
         ),
@@ -214,8 +213,7 @@ def _skill_descriptors() -> Iterable[SkillDescriptor]:
             activation=SkillActivation.AUTOMATIC,
             tool_ids=["plugin.llm-wiki.process-status"],
             instructions=(
-                "When asked about an ingest already started, report the durable "
-                "job state exactly and never infer completion from elapsed time."
+                behavior_resource('skills/plugin.llm-wiki.process-status/SKILL.md')
             ),
             status=status,
         ),
@@ -228,9 +226,7 @@ def _skill_descriptors() -> Iterable[SkillDescriptor]:
             activation=SkillActivation.EXPLICIT,
             tool_ids=["plugin.llm-wiki.maintain"],
             instructions=(
-                "Run deterministic lint and index maintenance only after an "
-                "explicit request. This skill never starts semantic model work. "
-                "Report the actual maintenance result."
+                behavior_resource('skills/plugin.llm-wiki.maintain/SKILL.md')
             ),
             status=status,
         ),
@@ -245,9 +241,7 @@ def _skill_descriptors() -> Iterable[SkillDescriptor]:
             activation=SkillActivation.EXPLICIT,
             tool_ids=["plugin.llm-wiki.propose-connections"],
             instructions=(
-                "Generate semantic Brain connection, support, contradiction, and "
-                "gap proposals only when the user explicitly requests this "
-                "model-costing analysis. Report the actual queued results."
+                behavior_resource('skills/plugin.llm-wiki.propose-connections/SKILL.md')
             ),
             status=status,
         ),

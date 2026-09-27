@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import quote
 
 import requests as http
 
@@ -254,7 +255,7 @@ def microsoft_list_messages(
     limit: int = 50,
     page_token: str | None = None,
 ) -> dict[str, Any]:
-    graph_folder = _GNOSI_TO_GRAPH.get(folder.upper() if folder else "INBOX", "inbox")
+    graph_folder = _GNOSI_TO_GRAPH.get(folder.upper() if folder else "INBOX", folder or "inbox")
 
     params: dict[str, object] = {
         "$top": min(limit, 100),
@@ -269,7 +270,7 @@ def microsoft_list_messages(
     if folder and folder.upper() == "ALL":
         path = "/me/messages"
     else:
-        path = f"/me/mailFolders/{graph_folder}/messages"
+        path = f"/me/mailFolders/{quote(graph_folder, safe='')}/messages"
 
     data = _authed_get(email, path, params=params, timeout=20)
     if data is None:
@@ -308,6 +309,18 @@ def microsoft_get_message(email: str, message_id: str) -> dict[str, Any] | None:
         parsed["body_text"] = body.get("content", "")
         parsed["body_html"] = None
     return parsed
+
+
+def microsoft_get_message_in_folder(email: str, message_id: str, folder: str) -> dict[str, Any] | None:
+    """Check current Graph folder membership before returning message content."""
+    folder_key = _GNOSI_TO_GRAPH.get(folder.upper(), folder)
+    descriptor = _authed_get(email, f"/me/mailFolders/{quote(folder_key, safe='')}", params={"$select": "id"})
+    if not descriptor or not descriptor.get("id"):
+        return None
+    message = microsoft_get_message(email, message_id)
+    if not message or message.get("_folder_id") != descriptor["id"]:
+        return None
+    return message
 
 
 def microsoft_get_inline_parts(

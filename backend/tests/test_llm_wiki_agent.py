@@ -214,11 +214,11 @@ def test_generic_settings_save_cannot_remove_or_unmanage_the_profile():
         validate_agent_preserved(current, edited)
 
 
-def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
+def test_lifecycle_disables_wiki_without_confirmation_and_persists_final_plugin_state(
     monkeypatch,
     tmp_path,
 ):
-    """The endpoint must not turn off the feature before the explicit confirm."""
+    """Disabling Knowledge alone preserves state and stops its maintenance task."""
     import asyncio
     from types import SimpleNamespace
 
@@ -226,7 +226,10 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
     from backend.scheduler import manager as scheduler_module
     from backend.services.context_vars import active_vault_path
 
-    state = {"disabled": [], "settings": {}, "granted": {}}
+    state = {
+        "schema_version": 2, "enabled_builtin": ["ai-platform", "llm-wiki", "resources"],
+        "disabled": [], "settings": {"llm-wiki": {"preserved": True}}, "granted": {},
+    }
     transitions = []
     scheduler_updates = []
     monkeypatch.setattr(vr, "_load_plugins_state", lambda: dict(state))
@@ -260,16 +263,8 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
             await vr.set_plugins_state(vr.PluginsUpdateRequest(disabled=["llm-wiki"], settings={}))
         assert generic_error.value.status_code == 409
 
-        with pytest.raises(HTTPException) as error:
-            await vr.set_llm_wiki_lifecycle(
-                vr.LlmWikiLifecycleRequest(enabled=False),
-                request,
-            )
-        assert error.value.status_code == 409
-        assert transitions == []
-
         result = await vr.set_llm_wiki_lifecycle(
-            vr.LlmWikiLifecycleRequest(enabled=False, confirm_disable=True),
+            vr.LlmWikiLifecycleRequest(enabled=False),
             request,
         )
         assert result["enabled"] is False
@@ -280,7 +275,8 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(
     finally:
         active_vault_path.reset(vault_token)
     assert "llm-wiki" in state["disabled"]
-    assert state["enabled_builtin"] == ["resources"]
+    assert state["enabled_builtin"] == ["ai-platform", "resources"]
+    assert state["settings"] == {"llm-wiki": {"preserved": True}}
     assert transitions == [False]
     assert scheduler_updates == [
         (

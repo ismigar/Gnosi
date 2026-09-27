@@ -173,6 +173,28 @@ class AgentSkillAssignmentStore:
                 self.save()
             return changed
 
+    def bind_operation(self, operation: str, agent_id: str, expected_agent_id: str) -> dict[str, str]:
+        """Replace one operation binding without overwriting concurrent settings."""
+        from backend.services.agent_operation_catalog import OPERATIONS, skill_id
+        from backend.services.plugin_agent_profiles import select_profile
+        if operation not in OPERATIONS:
+            raise AgentAssignmentConflictError("agent_operation_unknown")
+        with self._lock:
+            self._refresh_if_changed()
+            ai = self.params.setdefault("ai", {})
+            bindings = ai.setdefault("operation_bindings", {})
+            default = f"builtin.{OPERATIONS[operation][0]}.default"
+            current = bindings.get(operation, {}).get("agent_id", default)
+            if current != expected_agent_id:
+                raise AgentAssignmentConflictError("agent_operation_binding_changed")
+            binding = {"agent_id": agent_id, "skill_id": skill_id(operation)}
+            candidate = copy.deepcopy(ai)
+            candidate["operation_bindings"][operation] = binding
+            select_profile(candidate, skill_id(operation))
+            bindings[operation] = binding
+            self.save()
+            return binding
+
     def agent_revision(self, agent_id: str) -> str:
         with self._lock:
             self._refresh_if_changed()

@@ -1,7 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-09-16
+last_verified: 2026-09-26
 source_paths:
+  - extensions/marketplace/build_vault_templates.py
+  - extensions/marketplace/catalog_content.py
+  - extensions/marketplace/reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.tsx
+  - frontend/src/features/vault-management/VaultTemplatePrivacyPreview.tsx
   - backend/api/integrations_routes.py
   - backend/api/google_auth_routes.py
   - backend/services/auth_public_surface.py
@@ -46,6 +51,8 @@ source_paths:
   - frontend/src/features/notion-import
   - frontend/src/features/integrations
 tests:
+  - extensions/marketplace/test_reviewed_templates.py
+  - frontend/src/features/vault-management/VaultTemplateMarketplace.test.tsx
   - backend/tests/test_integration_secret_storage.py
   - backend/tests/test_google_auth_routes.py
   - desktop/google-sign-in.test.js
@@ -346,3 +353,11 @@ The optional [Genograms plugin](genograms.md) uses the built-in plugin registry 
 per-Vault enablement, with no external integration or AI dependency.
 
 For native Microsoft mail registration and institutional consent, see the [Microsoft desktop mail setup guide](../microsoft-mail-setup.md).
+
+## Vault template catalog and moderation
+
+In personal mode, Settings → General → File structure → Vaults → From repository opens the verified catalog. Search, category filters and content previews help select a template; installation creates a new Vault. Publish template opens a searchable inventory of included files, exclusions and potential sensitive content. Refreshing the inventory clears the previous acknowledgement.
+
+The catalog builder produces Research Starter Workspace 2.1.0, Study Workspace 1.0.0 and Project Workspace 1.0.0 in Catalan, English, Spanish and French. Generated packages become available only after official signing and release publication; installing the interface does not publish catalog assets.
+
+The private moderation dashboard quarantines uploads and records final approval or rejection. Approved Vault templates expose a review receipt bound to the exact ZIP by SHA-256 and size. The release operator downloads both through the authenticated dashboard, runs `python -m extensions.marketplace.reviewed_templates`, then supplies `--reviewed-dir` to the catalog builder. Validation rejects unsafe archives, mismatched identities, credentials and duplicate template identities before loading the official signing key. Receipts are audit records, not cryptographic approval: accept them only through the trusted maintainer process. Approval does not sign or publish; plugin packages use their separate release process.

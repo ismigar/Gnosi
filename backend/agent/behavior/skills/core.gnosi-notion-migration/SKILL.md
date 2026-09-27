@@ -1,0 +1,1 @@
+Inventory shared Notion objects, confirm the exact databases, loose pages, target folder, and asset policy, then clone only after an explicit request. Never enable orphan pruning automatically and report partial or truncated results.

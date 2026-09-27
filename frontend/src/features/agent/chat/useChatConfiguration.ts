@@ -1,11 +1,15 @@
+import { subscribeAppEvent } from '../../../shared/platform/app-events';
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { useConfigChanged } from '../../../shared/platform/configEvents';
 import { fetchConfiguration } from '../../../shared/api/configuration';
-import { resolveAgentRuntimeSelection } from '../model/agentChatAgentUtils';
+import { fetchAiModelComparison, fetchAiModels } from '../../../shared/api/ai';
+import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 import { isRecord } from '../model/agentChatMessageTypes';
 import { logChatError } from './chatDiagnostics';
 
 export interface ChatAgentProfile {
+  readonly modelProfile?: string;
+  readonly modelAlias?: string;
   readonly [key: string]: unknown;
   readonly id: string;
   readonly name?: string;
@@ -16,7 +20,7 @@ export interface ChatAgentProfile {
 
 export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).flatMap((profile) => profile.enabled === false || typeof profile.id !== 'string' ? [] : [{
+  return value.filter(isRecord).flatMap((profile) => profile.enabled === false || profile.plugin_suspended === true || typeof profile.id !== 'string' ? [] : [{
     ...profile, id: profile.id,
     name: typeof profile.name === 'string' ? profile.name : undefined,
     icon: typeof profile.icon === 'string' ? profile.icon : undefined,
@@ -26,33 +30,44 @@ export function enabledChatAgents(value: unknown): ChatAgentProfile[] {
 }
 
 interface Options {
-  readonly forcedAgentId: string;
   readonly selectedAgentId: string;
   readonly setSelectedAgentId: Dispatch<SetStateAction<string>>;
 }
-export function useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId }: Options) {
-  const [loadedAgent, setLoadedAgent] = useState<ChatAgentProfile | null>(null);
+export function useChatConfiguration({ selectedAgentId, setSelectedAgentId }: Options) {
   const [agentList, setAgentList] = useState<ChatAgentProfile[]>([]);
+  const [defaultAgentId, setDefaultAgentId] = useState('');
   const loadConfig = useCallback(async () => {
     try {
       const data = await fetchConfiguration();
       const ai = isRecord(data.ai) ? data.ai : {};
-      const agents = enabledChatAgents(ai.agents);
-      setAgentList(agents);
-      const selection = resolveAgentRuntimeSelection(agents, forcedAgentId, selectedAgentId, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
-      if (selection.agent) setLoadedAgent(selection.agent);
-      if (selection.selectedAgentId) setSelectedAgentId(selection.selectedAgentId);
+      const profiles = enabledChatAgents(ai.agents).filter(profile => profile.managed_by !== 'llm-wiki');
+      const principal = principalAssistant(profiles, typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '');
+      setAgentList(profiles);
+      setDefaultAgentId(principal?.id || '');
+      // Only initialize an unbound conversation. Existing histories keep their identity.
+      setSelectedAgentId(current => current || principal?.id || '');
+      void fetchAiModels().then(registry => {
+        if (!Array.isArray(registry.configured_models)) return;
+        setAgentList(current => current.map(profile => ({
+          ...profile,
+          modelAlias: registry.configured_models.find(row => row.provider === profile.provider && row.model_id === profile.model)?.alias?.trim() || undefined,
+        })));
+      }).catch(() => {});
+      // Catalog labels enrich the selector without delaying the conversation.
+      void fetchAiModelComparison().then(comparison => {
+        if (!Array.isArray(comparison.models)) return;
+        setAgentList(current => current.map(profile => {
+          const model = comparison.models.find(candidate => candidate.routes.some(route =>
+            route.provider === profile.provider && route.model_id === profile.model,
+          ));
+          return { ...profile, modelProfile: model?.profile };
+        }));
+      }).catch(() => {});
     } catch (error) { logChatError('agent-chat-configuration', error); }
-  }, [forcedAgentId, selectedAgentId, setSelectedAgentId]);
+  }, [setSelectedAgentId]);
   const onConfigChanged = useCallback(() => { void loadConfig(); }, [loadConfig]);
   useConfigChanged(onConfigChanged);
-  useEffect(() => {
-    if (!agentList.length) return;
-    const selection = resolveAgentRuntimeSelection(agentList, forcedAgentId, selectedAgentId, '');
-    if (selection.agent) {
-      if (selection.selectedAgentId !== selectedAgentId) setSelectedAgentId(selection.selectedAgentId);
-    }
-  }, [forcedAgentId, selectedAgentId, agentList, setSelectedAgentId]);
-  const agentConfig = resolveAgentRuntimeSelection(agentList, forcedAgentId, selectedAgentId, '').agent || loadedAgent;
-  return { agentConfig, agentList, loadConfig };
+  useEffect(() => subscribeAppEvent('gnosi-ai-models-changed', onConfigChanged), [onConfigChanged]);
+  const agentConfig = agentList.find(profile => profile.id === selectedAgentId) || null;
+  return { agentConfig, agentList, defaultAgentId, loadConfig };
 }

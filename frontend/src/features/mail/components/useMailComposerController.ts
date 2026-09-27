@@ -188,7 +188,7 @@ export function useMailComposerController({
   });
 
   useEffect(() => subscribeWindowEvent('keydown', (event) => {
-    if (event.key !== 'Escape') return;
+    if (event.defaultPrevented || event.isComposing || event.key !== 'Escape') return;
     if (showAvailability) {
       setShowAvailability(false);
     } else if (showCloseConfirm) {

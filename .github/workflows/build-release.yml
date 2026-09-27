@@ -95,6 +95,8 @@ jobs:
           enable-cache: false
       - name: Install frozen Node dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build Zotero Reader assets
+        run: bash scripts/runtime/build-zotero-reader.sh
       - name: Build frontend
         env:
           NODE_OPTIONS: --max-old-space-size=4096
@@ -114,6 +116,8 @@ jobs:
             codesign --verify --deep --strict --verbose=2 "$mount_dir/Gnosi.app"
             test -f "$mount_dir/Gnosi.app/Contents/Resources/icon.icns"
             test -f "$mount_dir/Gnosi.app/Contents/Resources/frontend/dist/index.html"
+            test -f "$mount_dir/Gnosi.app/Contents/Resources/frontend/dist/zotero-reader/host.html"
+            test -f "$mount_dir/Gnosi.app/Contents/Resources/frontend/dist/zotero-reader/reader.js"
             hdiutil detach "$mount_dir"
             rmdir "$mount_dir"
           done
@@ -165,6 +169,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: |
           pnpm install --frozen-lockfile
+          bash scripts/runtime/build-zotero-reader.sh
           pnpm build:frontend
           desktop/build-python.sh
           pnpm --filter @gnosi/desktop exec electron-builder --linux --arm64 --publish never
@@ -227,6 +232,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: |
           pnpm install --frozen-lockfile
+          bash scripts/runtime/build-zotero-reader.sh
           pnpm build:frontend
           pnpm --filter @gnosi/desktop build:win
       - name: Validate Windows release artifacts

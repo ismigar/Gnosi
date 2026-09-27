@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.services.agent_behavior import task_input
+
 import hashlib
 import json
 import re
@@ -161,21 +163,8 @@ def _map_batch(
     model_call: Callable[[str, str], str],
 ) -> Dict[str, Any]:
     articles = batch["articles"]
-    prompt = (
-        "You are analysing one chronological batch from a Reader collection "
-        "to answer the user's request. "
-        f"Canonical topic: {batch['topic']}. Output language: {language}. "
-        "Every supplied article belongs to this batch. Return only JSON with keys "
-        "topic, period_start, period_end, article_count, summary, developments, "
-        "and article_ids. developments must be a chronological list of concise "
-        "changes, each with date, claim, and supporting article_ids. Do not invent "
-        "facts or identifiers. Keep representative article_ids from the input."
-        " An article may span multiple content parts; integrate every supplied "
-        "part with the same id before drawing conclusions."
-    )
-    if guidance:
-        prompt += f"\nUSER READER REQUEST:\n{guidance}"
-    prompt += "\nARTICLES:\n" + "\n".join(json.dumps(item, ensure_ascii=False) for item in articles)
+    prompt = task_input("reader.batch", topic=batch["topic"], language=language,
+                        request=guidance, articles=articles)
     parsed = _extract_json(model_call(prompt, "Analyse this Reader batch for the request"))
     if not parsed:
         return _fallback_batch_summary(batch)
@@ -229,17 +218,8 @@ def _reduce_once(
         {key: value for key, value in summary.items() if key != "_article_ids_all"}
         for summary in summaries
     ]
-    prompt = (
-        f"Combine chronological batch analyses for the canonical news topic "
-        f"{topic!r}. Output language: {language}. Return only JSON with keys "
-        "topic, evolution, turning_points, and article_ids. Preserve chronology, "
-        "answer the user's Reader request, distinguish sustained trends from "
-        "one-off events when relevant, and cite only supplied article ids. Do "
-        "not invent evidence.\nUSER READER REQUEST:\n"
-        + (guidance or "Provide a faithful synthesis of the selected collection.")
-        + "\nBATCH ANALYSES:\n"
-        + json.dumps(model_summaries, ensure_ascii=False)
-    )
+    prompt = task_input("reader.topic", topic=topic, language=language,
+                        request=guidance, analyses=model_summaries)
     parsed = _extract_json(model_call(prompt, "Synthesize this Reader topic for the request"))
     if not parsed:
         return {

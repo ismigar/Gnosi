@@ -62,7 +62,7 @@ export function DesktopUpdateNotice() {
             : t('desktop_update.automatic_hint', 'Download version {{version}} and restart automatically when ready.', { version });
 
     const runAction = async (): Promise<void> => {
-        if (actionPending.current || busy || manual) return;
+        if (actionPending.current || busy) return;
         const action = update.status === 'downloaded'
             ? window.electronAPI?.installUpdate : window.electronAPI?.downloadUpdate;
         if (!action) return;
@@ -87,7 +87,7 @@ export function DesktopUpdateNotice() {
             <button
                 type="button"
                 onClick={() => { void runAction(); }}
-                disabled={busy || manual}
+                disabled={busy}
                 title={description}
                 aria-label={`${label}. ${description}`}
                 aria-busy={busy}

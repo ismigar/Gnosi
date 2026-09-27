@@ -233,6 +233,8 @@ async def chat_endpoint(
     """
     Main endpoint for chatting with a specific agent.
     """
+    original_message = chat_req.message
+    command_selected = False
     request_started_at = time.monotonic()
     cancel_token = ""
     trace_id = uuid.uuid4().hex
@@ -244,10 +246,22 @@ async def chat_endpoint(
     notebook_turn: Optional[Dict[str, Any]] = None
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
-        from backend.services.principal_agent_migration import ensure_migrated, principal_profile
-        principal = principal_profile(ensure_migrated())
-        if agent_id != principal["id"]:
-            raise HTTPException(status_code=409, detail="principal_agent_changed")
+        # Checkpoint identity stays stable when the conversation changes profile.
+        profile_id = _validated_identifier(chat_req.profile_id or agent_id, "profile_id")
+        from backend.services.principal_agent_migration import ensure_migrated
+        profiles = ensure_migrated().get("agents", [])
+        from backend.services.agent_commands import resolve_command
+        try:
+            command = resolve_command(chat_req.message, profiles)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"code": str(exc)}) from exc
+        if command:
+            profile_id, message = command
+            command_selected = True
+            chat_req = chat_req.model_copy(update={"profile_id": profile_id, "message": message, "active_skill_ids": None})
+        if not any(p.get("id") == profile_id and p.get("enabled", True) and not p.get("plugin_suspended")
+                   and p.get("managed_by") != "llm-wiki" for p in profiles if isinstance(p, dict)):
+            raise HTTPException(status_code=409, detail="conversation_profile_unavailable")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()
@@ -304,19 +318,21 @@ async def chat_endpoint(
             turn_context_refs = merge_context_refs(project_refs, turn_context_refs)
         if notebook_turn:
             turn_context_refs = notebook_turn["contexts"]
+        workflow_options: dict[str, Any] = {
+            **({"direct_agent": True} if command_selected else {}),
+            **({"memory_project_id": learning_project_id} if learning_project_id else {}),
+        }
         workflow, llm_selection = await get_agent_workflow(
             request,
-            agent_id,
-            llm_mode=chat_req.llm_mode,
-            llm_provider=chat_req.llm_provider,
-            llm_model=chat_req.llm_model,
+            profile_id,
+            llm_mode="agent_default",
             user_message=chat_req.message,
             vault_scope=vault_scope,
             vault_path=vault,
             active_skill_ids=requested_skill_ids,
             turn_context_refs=turn_context_refs,
             memory_user_id=workspace_context.user_id,
-            **({"memory_project_id": learning_project_id} if learning_project_id else {}),
+            **workflow_options,
         )
         workflow_ready_at = time.monotonic()
         cancel_token = create_cancel_token()
@@ -383,6 +399,8 @@ async def chat_endpoint(
             cancel_token=cancel_token,
             trace_id=trace_id,
         )
+
+        inputs["messages"][0].additional_kwargs["gnosi_visible_content"] = original_message
 
         # 3. Configure memory thread (per agent + session)
         thread_id = _chat_thread_id(

@@ -16,7 +16,7 @@ from backend.services.principal_agent_migration import migrate
 @pytest.fixture
 def runtime(monkeypatch, tmp_path):
     scope = ExecutionScope(user_id="alice", workspace_id="team", vault_path=str(tmp_path), role="owner")
-    snapshot = AgentExecutionSnapshot(scope=scope, agent_id="personal", profile={"id": "personal", "enabled": True}, skill_ids=["core.gnosi-operation-writing"], instructions=["Use the assigned procedure"], catalog_revision="1", revision="v1")
+    snapshot = AgentExecutionSnapshot(scope=scope, agent_id="personal", profile={"id": "personal", "managed_by": "builtin:ai-platform", "enabled": True}, skill_ids=["core.gnosi-operation-writing"], instructions=["Use the assigned procedure"], catalog_revision="1", revision="v1")
     monkeypatch.setattr(store, "resolve_data_dir", lambda **kwargs: tmp_path)
     monkeypatch.setattr(execution, "revalidate_scope", lambda scope: None)
     from backend.config import app_config

@@ -95,7 +95,7 @@ describe('chat header', () => {
     const props = header({ isMinimized: true }); await render(<ChatHeader {...props} />); await click('div');
     expect(props.setIsMinimized).toHaveBeenCalledExactlyOnceWith(false);
     await render(<ChatHeader {...props} embedded isMinimized={false} />);
-    expect(container.textContent).toContain('Fixture Copilot'); expect(container.querySelector('select')).toBeNull(); expect(container.querySelector('button')).toBeNull();
+    expect(container.textContent).toContain('Fixture Copilot'); expect(container.querySelector('select')).not.toBeNull(); expect(container.querySelector('button')).toBeNull();
   });
   it('shows runtime limitations and dispatches the typed settings event', async () => {
     const props = header({ runtimeLimited: true, runtimeStatusHelp: 'Choose a tool-capable model' }); await render(<ChatHeader {...props} />);

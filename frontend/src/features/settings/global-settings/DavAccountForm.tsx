@@ -70,7 +70,7 @@ export function DavAccountForm({ context }: Props) {
     </FormGroup>
 
     <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-      <button type="submit" className="btn-gnosi-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px 24px', flex: 1, fontWeight: '900', border: 'none', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(59, 130, 246, 0.2)' }}>
+      <button type="submit" className="btn-gnosi-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px 24px', flex: 1, fontWeight: '900', border: 'none', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 10px 20px color-mix(in srgb, var(--gnosi-primary) 20%, transparent)' }}>
         <Check size={18} />
         {editingAccountId ? tn('accounts.update_account') : tn('accounts.connect_account')}
       </button>

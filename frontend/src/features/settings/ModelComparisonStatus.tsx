@@ -1,3 +1,4 @@
+import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { CheckCircle2, Loader2, RefreshCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -115,6 +116,7 @@ export function ModelComparisonStatus({
     return (
         <>
             <div className="model-comparison-meta">
+                <RefreshButton onClick={onRetry} style={{ marginLeft: 'auto', order: 1 }} />
                 <strong>{t('model_comparison.model_count', {
                     count: feed.count,
                 })}</strong>
@@ -166,7 +168,7 @@ export function ModelComparisonStatus({
                     {actionMessage.type === 'success' ? (
                         <CheckCircle2 size={16} />
                     ) : null}
-                    {t(`model_comparison.${actionMessage.key}`, {
+                    {t(`model_comparison.${actionMessage.type === 'error' ? 'errors.' : ''}${actionMessage.key}`, {
                         model: actionMessage.model,
                         provider: actionMessage.provider,
                     })}

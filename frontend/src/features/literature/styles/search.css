@@ -38,7 +38,7 @@
     gap: 6px;
     border: 0;
     background: transparent;
-    color: var(--gnosi-blue);
+    color: var(--gnosi-link);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -78,7 +78,7 @@
 }
 
 .literature-link-button.is-danger {
-    color: var(--status-error);
+    color: var(--status-error-text);
 }
 
 .literature-search-history {

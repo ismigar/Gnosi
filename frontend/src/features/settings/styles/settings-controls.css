@@ -13,8 +13,8 @@
 }
 
 .gnosi-input:focus, .gnosi-select:focus {
-    border-color: var(--gnosi-blue);
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    border-color: var(--gnosi-primary);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--gnosi-primary) 10%, transparent);
 }
 
 .gnosi-toggle {
@@ -28,19 +28,19 @@
 }
 
 .gnosi-toggle.active {
-    background: var(--gnosi-blue);
+    background: var(--gnosi-primary);
 }
 
 /* Anell de focus visible per a navegació amb teclat (role="switch"). */
 .gnosi-toggle:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--gnosi-blue);
+    box-shadow: 0 0 0 3px var(--gnosi-primary);
 }
 
 /* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */
 .gnosi-switch-row:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--gnosi-blue);
+    box-shadow: 0 0 0 3px var(--gnosi-primary);
     border-radius: 8px;
 }
 

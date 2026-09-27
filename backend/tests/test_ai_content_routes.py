@@ -1,6 +1,7 @@
 """Behavior contracts for the extracted AI editor routes."""
 
 import asyncio
+import json
 
 import pytest
 from fastapi import HTTPException
@@ -35,8 +36,10 @@ def test_translation_prompt_preserves_target_language() -> None:
         GeneratePayload(mode="translate", context="Bon dia", language="French")
     )
 
-    assert "translate it into French" in prompt
-    assert "--- TEXT ---\nBon dia" in prompt
+    request = json.loads(prompt)
+    assert request["task"] == "translation.text"
+    assert request["data"]["language"] == "French"
+    assert request["data"]["text"] == "Bon dia"
 
 
 def test_generate_content_uses_editor_context(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,7 +75,7 @@ def test_correct_text_preserves_source_excerpt(monkeypatch: pytest.MonkeyPatch) 
 
     assert result == {"corrected": "Text corregit", "provider": "groq"}
     assert observed[0][1] == "Text incorrekte"
-    assert "Catalan" in observed[0][0]
+    assert json.loads(observed[0][0])["data"]["language"] == "ca"
 
 
 def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -88,8 +91,9 @@ def test_generate_content_maps_provider_timeout(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.mark.parametrize(("incident", "detail"), [
+    ("plugin_profile_unavailable:builtin:mail", "The plugin profile is unavailable"),
     ("principal_agent_unavailable", "No active principal agent is configured"),
-    ("principal_agent_model_unavailable", "The principal agent's model is unavailable"),
+    ("principal_agent_model_unavailable", "The selected profile's model is unavailable"),
     ("agent_skill_unavailable:core.gnosi-operation-writing", "missing the required skill: core.gnosi-operation-writing"),
 ])
 def test_editor_reports_the_specific_principal_configuration_issue(monkeypatch, incident, detail):

@@ -93,8 +93,16 @@ export function useAgentChatController({
 
     const clearDraftMentions = useCallback(() => { setSelectedMentions([]); }, []);
     const clearDraftAttachments = useCallback(() => { setAttachments([]); }, []);
+    const selectedProfileId = chatSessions.find(session => session.id === sessionId)?.profileId || selectedAgentId;
+    const { agentConfig, agentList, defaultAgentId, loadConfig } =
+        useChatConfiguration({ selectedAgentId: selectedProfileId, setSelectedAgentId });
+    const selectProfile = (profileId: string) => {
+        if (isLoading || isRewinding || readOnly || isUploadingAttachment || !agentList.some(profile => profile.id === profileId)) return;
+        setChatSessions(previous => previous.map(session => session.id === sessionId ? { ...session, profileId } : session));
+        setAgentRuntime(null);
+    };
     const sessionContext = {
-        browserStorageScope, defaultSessionTitle, embedded, forcedAgentId, forcedSessionId,
+        browserStorageScope, defaultSessionTitle, defaultAgentId, embedded, forcedAgentId, forcedSessionId,
         notebookId, isLoading, scopeReady, selectedAgentId, sessionId, chatSessions, messages,
         scopedStorageKey, requestAbortRef, historyHydrationRef, setChatSessions, setMessages,
         setSelectedAgentId, setSessionId, setSessionsHydrated, setHydratedStorageScope,
@@ -141,8 +149,6 @@ export function useAgentChatController({
 
     const { mentionResults, showMentionMenu, setShowMentionMenu, applyMention, loadMentionCatalog } =
         useChatMentions({ inputValue, inputRef, setInputValue, setSelectedMentions });
-    const { agentConfig, agentList, loadConfig } =
-        useChatConfiguration({ forcedAgentId, selectedAgentId, setSelectedAgentId });
 
     const loadChatResources = useEffectEvent(() => {
         void loadConfig();
@@ -221,7 +227,7 @@ export function useAgentChatController({
             t, inputValue, attachments, readOnly, isLoading, agentHasModel, selectedMentions,
             processingStartedAtRef, setMessages, setInputValue, clearDraftMentions,
             clearDraftAttachments, setShowMentionMenu, setIsLoading, setProcessingPhase,
-            browserStorageScope, selectedAgentId, sessionId, activeScopeRef, activeStreamRef,
+            browserStorageScope, selectedAgentId, profileId: selectedProfileId, sessionId, activeScopeRef, activeStreamRef,
             setAgentRuntime, confirmationSummary, requestAbortRef, contextRefs, notebookId, inputRef,
         });
     };
@@ -230,7 +236,7 @@ export function useAgentChatController({
     const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
     const agentHasModel = Boolean(agentConfig?.provider && agentConfig.model);
     const agentModel = agentHasModel
-        ? `${agentConfig?.provider || ''} · ${agentConfig?.model || ''}`
+        ? agentConfig?.modelAlias || agentConfig?.model || ''
         : t('chat.model_not_configured', 'Model not configured');
     const runtimeStatus = deriveAgentRuntimeStatus(agentRuntime, agentHasModel);
     const runtimeLimited = runtimeStatus.limited;
@@ -259,8 +265,7 @@ export function useAgentChatController({
         ),
     };
     const runtimeStatusHelp = runtimeHelp[runtimeStatus.kind] || '';
-    const sortedSessions = chatSessions
-        .filter((session) => session.agentId === selectedAgentId)
+    const sortedSessions = [...chatSessions]
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
     const cancelResponse = () => {
@@ -279,7 +284,7 @@ export function useAgentChatController({
         isOpen, isDockOpen, agentIcon, setIsDockOpen, setIsOpen, isMinimized, handleChatKeyDown,
         isLoading, runtimeLimited, agentHasModel, agentName, selectedAgentId, runtimeStatusLabel,
         agentModel, runtimeStatusHelp, agentList, archiveCurrentSession, setIsMinimized,
-        setSelectedAgentId, setShowSessionsView, messagesContainerRef, showSessionsView,
+        setSelectedAgentId: selectProfile, selectedProfileId, setShowSessionsView, messagesContainerRef, showSessionsView,
         sortedSessions, selectSession, deleteSessionById, messages, isRewinding, detailsMessageIndex,
         confirmationTitle, confirmationSummary, setPendingConfirmation, setPendingRewindIndex,
         setDetailsMessageIndex, focusComposerWith, copyMessage, quoteMessage, markMessage,

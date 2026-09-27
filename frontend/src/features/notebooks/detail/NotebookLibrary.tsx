@@ -96,9 +96,9 @@ export default function NotebookLibrary({ onCreate }: { onCreate: () => void }) 
 
                     {pageCount > 1 && (
                         <nav className="notebook-pagination" aria-label={t('notebooks.pagination', 'Notebook pages')}>
-                            <button disabled={data.page <= 1} onClick={() => { setPage((previous) => previous - 1); }}><ChevronLeft size={16} /></button>
-                            <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: data.page, pages: pageCount })}</span>
-                            <button disabled={data.page >= pageCount} onClick={() => { setPage((previous) => previous + 1); }}><ChevronRight size={16} /></button>
+                            <button type="button" aria-label={t('common.previous')} disabled={data.page <= 1} onClick={() => { setPage((previous) => previous - 1); }}><ChevronLeft size={16} /></button>
+                            <span role="status" aria-live="polite" aria-atomic="true">{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: data.page, pages: pageCount })}</span>
+                            <button type="button" aria-label={t('common.next')} disabled={data.page >= pageCount} onClick={() => { setPage((previous) => previous + 1); }}><ChevronRight size={16} /></button>
                         </nav>
                     )}
                 </div>

@@ -10,11 +10,15 @@ import { AgentContextScopeEditor } from './agent-context/AgentContextScopeEditor
 import { internalSourceLabel } from './agent-context/agentContextLabels';
 import {
     newContextRefId,
+    contextReferenceKey,
     type ContextPickingKind,
     type ContextReference,
     type ContextScope,
     type ContextSourceKind,
 } from './agent-context/agentContextModel';
+import './AgentContextSources.css';
+import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
+import { useContextKey } from './agent-context/useContextResource';
 import { useAgentContextCatalog } from './agent-context/useAgentContextCatalog';
 
 
@@ -24,7 +28,7 @@ export interface AgentContextSourcesProps {
 }
 
 
-export default function AgentContextSources({
+function ContextSources({
     onChange,
     value = [],
 }: AgentContextSourcesProps) {
@@ -36,10 +40,11 @@ export default function AgentContextSources({
     const needsInternal = references.some((reference) => (
         reference.type === 'internal'
     ));
-    const { internalDescriptors, options } = useAgentContextCatalog(
+    const catalog = useAgentContextCatalog(
         picking,
         needsInternal,
     );
+    const { internalDescriptors, options } = catalog;
 
     const addReference = (
         type: ContextSourceKind,
@@ -47,7 +52,7 @@ export default function AgentContextSources({
         label: string,
         scope?: ContextScope,
     ): void => {
-        if (references.some((item) => item.type === type && item.ref === ref)) {
+        if (references.some((item) => contextReferenceKey(item.type, item.ref) === contextReferenceKey(type, ref))) {
             toast(t(
                 'settings.ai.context_already_added',
                 'That source is already in the context.',
@@ -112,44 +117,54 @@ export default function AgentContextSources({
         return true;
     };
 
-    const editingReference = references.find((reference) => (
-        reference.id === editingRefId && reference.type === 'internal'
-    ));
-    const editingDescriptor = internalDescriptors.find((descriptor) => (
-        descriptor.id === editingReference?.ref
+    const selected = new Set(references.map(item => contextReferenceKey(item.type, item.ref)));
+    const available = options?.filter(item => !selected.has(contextReferenceKey(picking ?? 'internal', item.id))) ?? null;
+    const wholeVaultAdded = selected.has(contextReferenceKey('vault', 'active'));
+    const vaultAvailable = !wholeVaultAdded || [catalog.pages, catalog.tables].some((resource, index) => (
+        resource.data === null || resource.data.some(item => !selected.has(contextReferenceKey(index === 0 ? 'page' : 'table', item.id)))
     ));
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="agent-context-sources">
             <AgentContextReferenceList
                 editingRefId={editingRefId}
                 onEdit={setEditingRefId}
                 onRemove={removeReference}
                 references={references}
+                descriptors={internalDescriptors}
+                renderEditor={(reference, descriptor) => descriptor ? <AgentContextScopeEditor
+                    descriptor={descriptor} reference={reference} onRefresh={catalog.refresh}
+                    sourceLabel={internalSourceLabel(t, reference.ref, reference.label)}
+                    onPatch={patch => { patchReferenceScope(reference.id, patch); }} /> : (
+                        <div className="agent-source-feedback" role={catalog.internal.error ? 'alert' : 'status'}>
+                            <span>{catalog.internal.loading ? t('common.loading', 'Loading...') : catalog.internal.error
+                                ? t('settings.ai.sources.load_error', 'Could not load options. Try again.')
+                                : t('settings.ai.sources.unavailable', 'Unavailable')}</span>
+                            <RefreshButton loading={catalog.internal.loading} onClick={catalog.refresh} />
+                        </div>
+                    )}
             />
             <AgentContextPicker
                 onAdd={addReference}
                 onAddUrl={addUrl}
                 onPickingChange={setPicking}
                 onUpload={handleUpload}
-                options={options}
+                options={available}
+                totalOptions={(options?.length ?? 0) + (picking === 'internal' ? 1 : 0)}
+                error={catalog.error}
+                loading={catalog.loading}
+                onRefresh={catalog.refresh}
+                wholeVaultAdded={wholeVaultAdded}
+                vaultAvailable={vaultAvailable}
                 picking={picking}
                 uploading={uploading}
             />
-            {editingReference && editingDescriptor ? (
-                <AgentContextScopeEditor
-                    descriptor={editingDescriptor}
-                    onPatch={(patch) => {
-                        patchReferenceScope(editingReference.id, patch);
-                    }}
-                    reference={editingReference}
-                    sourceLabel={internalSourceLabel(
-                        t,
-                        editingReference.ref,
-                        editingReference.label,
-                    )}
-                />
-            ) : null}
+
         </div>
     );
+}
+
+export default function AgentContextSources(props: AgentContextSourcesProps) {
+    const contextKey = useContextKey();
+    return <ContextSources key={contextKey} {...props} />;
 }

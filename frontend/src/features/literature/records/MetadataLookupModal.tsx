@@ -19,7 +19,7 @@ export interface MetadataLookupModalProps {
     readonly mode?: MetadataLookupMode;
     readonly onApply?: (patch: Record<string, unknown>) => void;
     readonly onClose?: () => void;
-    readonly onCreate?: (metadata: MetadataRecord) => void;
+    readonly onCreate?: (metadata: MetadataRecord, sourceFile?: File) => void;
 }
 
 

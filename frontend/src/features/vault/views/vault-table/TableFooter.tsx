@@ -1,14 +1,17 @@
 import type { TableController } from './useTableController';
 
 export function TableFooter({ model }: { model: TableController; }) {
-  const { t, dynamicColumns, showModifiedColumn, aggregations, setAggregations, calculateAggregation } = model;
+  const { t, schema, dynamicColumns, showModifiedColumn, aggregations, setAggregations, calculateAggregation } = model;
+  const titleKey = Object.entries(schema).find(([, type]) => type === 'title')?.[0] || 'title';
+  const titleLabel = titleKey === 'title' ? t('table.note_name') : titleKey;
   return (<tfoot className="bg-[var(--bg-primary)] text-[11px] text-[var(--text-secondary)] font-medium">
     <tr>
       <td className="w-10 sticky left-0 bg-[var(--bg-primary)] z-20 border-r border-[var(--border-primary)]"></td>
       <td className="py-2 px-4 sticky left-10 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
         <div className="flex flex-col">
           <select
-            className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:text-indigo-600"
+            className="bg-transparent border-none p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-outline-color)] cursor-pointer hover:text-indigo-600"
+            aria-label={t('table.aggregate_column', { column: titleLabel })}
             value={aggregations['title'] || 'none'}
             onChange={(e) => { setAggregations({ ...aggregations, title: e.currentTarget.value }); }}
           >
@@ -24,7 +27,8 @@ export function TableFooter({ model }: { model: TableController; }) {
         <td key={key} className="py-2 px-4 border-r border-[var(--border-primary)]">
           <div className="flex flex-col">
             <select
-              className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:text-indigo-600"
+              className="bg-transparent border-none p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-outline-color)] cursor-pointer hover:text-indigo-600"
+              aria-label={t('table.aggregate_column', { column: key })}
               value={aggregations[key] || 'none'}
               onChange={(e) => { setAggregations({ ...aggregations, [key]: e.currentTarget.value }); }}
             >
@@ -55,7 +59,8 @@ export function TableFooter({ model }: { model: TableController; }) {
         <td className="py-2 px-4 border-l border-[var(--border-primary)]">
           <div className="flex flex-col">
             <select
-              className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer hover:text-indigo-600"
+              className="bg-transparent border-none p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-outline-color)] cursor-pointer hover:text-indigo-600"
+              aria-label={t('table.aggregate_column', { column: t('table.modified_column') })}
               value={aggregations['last_modified'] || 'none'}
               onChange={(e) => { setAggregations({ ...aggregations, last_modified: e.currentTarget.value }); }}
             >

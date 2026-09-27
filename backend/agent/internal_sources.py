@@ -230,10 +230,14 @@ def describe_internal_source(source_id: str, raw_scope: Any) -> str:
     if source_id == "reader":
         payload = _reader_inventory(scope)
     elif source_id == "mail":
+        from backend.domains.agent.sources.mail import mail_folders
+
+        accounts = _allowed_accounts(scope["accounts"])
         payload = {
             "source": "mail",
-            "accounts": _allowed_accounts(scope["accounts"]),
+            "accounts": accounts,
             "folder": scope["folder"],
+            "folders_by_account": {account: mail_folders(scope, account) for account in accounts},
         }
     elif source_id == "calendar":
         payload = {

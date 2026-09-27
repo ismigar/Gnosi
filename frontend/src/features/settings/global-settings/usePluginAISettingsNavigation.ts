@@ -7,7 +7,7 @@ import type { SettingsController } from './useGlobalSettingsController';
 
 /** Open the existing editors for the principal assistant or a selected profile. */
 export function usePluginAISettingsNavigation(context: SettingsController) {
-    const { activeTab, draft, setActiveTab, setAiSection, setDraft, setEditingAgent, t } = context;
+    const { activeTab, aiSection, draft, setActiveTab, setAiSection, setDraft, setEditingAgent, t } = context;
     const pendingAgent = useRef<string | undefined>(undefined);
     useEffect(() => {
         if (activeTab !== 'ai' || !pendingAgent.current) return;
@@ -19,7 +19,7 @@ export function usePluginAISettingsNavigation(context: SettingsController) {
             pendingAgent.current = undefined;
         }, 0);
         return () => { clearTimeout(timer); };
-    }, [activeTab, draft.ai.agents, setEditingAgent]);
+    }, [activeTab, aiSection, draft.ai.agents, setEditingAgent]);
 
     return (section: 'agents' | 'skills', agentId?: string): void => {
         pendingAgent.current = agentId;

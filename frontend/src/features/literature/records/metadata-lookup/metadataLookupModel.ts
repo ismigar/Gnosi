@@ -89,7 +89,7 @@ export function groupMetadataEntries(
     for (const entry of fieldEntries) {
         const [key] = entry;
         if (key === 'Item Type') continue;
-        if (zoteroType && isFieldRelevantForType(key, zoteroType)) {
+        if (key === 'cover' || (zoteroType && isFieldRelevantForType(key, zoteroType))) {
             relevantEntries.push(entry);
         } else {
             otherEntries.push(entry);

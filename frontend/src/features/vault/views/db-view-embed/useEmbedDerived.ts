@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 import { buildSchemaFromTableProperties } from '../../../../shared/records/model/schemaUtils';
+import { useVaultViewData } from '../../../../shared/records/hooks/useVaultViewData';
+import { searchesWholeTable } from '../../../../shared/records/hooks/useViewSearch';
 import { normalizeVisibleColumns } from './joins';
 import { isFilterGroup } from './decode';
-import { applyFilterNode, multiKeySort, searchRows, countRules } from './filter-model';
+import { applyFilterNode, multiKeySort, countRules } from './filter-model';
 import type { EmbedInputs } from './inputs';
-export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, headingLevelProp, rawRecords, pageId, searchTerm, ctx, t }: EmbedInputs) {
+export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, headingLevelProp, rawRecords, tableRecords, pageId, searchTerm, searchScope, ctx, t }: EmbedInputs) {
     const tableId = view?.source_table_id || view?.table_id;
+    const wholeTable = searchesWholeTable(searchTerm, searchScope);
 
     // The EFFECTIVE view = the active tab (of the table) or, by default, the
     // the block's section. Columns, type, filters, and sorting all come from it.
@@ -35,11 +38,12 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
     const rawType = (effectiveView?.view_type || effectiveView?.type || 'table').toLowerCase();
     const viewType = rawType === 'db_view' ? 'table' : rawType;
     const activeFilterCount = useMemo(() => {
+        if (wholeTable) return 0;
         if (isFilterGroup(effectiveView?.filterTree)) {
             return countRules(effectiveView.filterTree);
         }
         return effectiveView?.filters?.length || (effectiveView?.filter ? 1 : 0);
-    }, [effectiveView]);
+    }, [effectiveView, wholeTable]);
     // The title/heading is carried by the block's section (it doesn't change with the tab).
     const displayHeading = headingProp || view?.heading;
     const displayLevel = headingLevelProp || view?.heading_level || 1;
@@ -59,13 +63,18 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
                     ? effectiveView.filters
                     : (effectiveView?.filter ? [effectiveView.filter] : []),
             };
-        const filtered = rawRecords.filter(r => applyFilterNode(r, pageId, tree));
+        const filtered = wholeTable ? tableRecords : rawRecords.filter(r => applyFilterNode(r, pageId, tree));
         const sorts = (effectiveView?.sorts && effectiveView.sorts.length > 0)
             ? effectiveView.sorts
             : (effectiveView?.sort ? [effectiveView.sort] : []);
         return multiKeySort(filtered, sorts);
-    }, [rawRecords, effectiveView, pageId]);
-    const rows = useMemo(() => viewType === 'genogram' ? allRows : searchRows(allRows, searchTerm), [allRows, searchTerm, viewType]);
+    }, [rawRecords, tableRecords, effectiveView, pageId, wholeTable]);
+    // Count exactly the same matches as the shared renderer, including title
+    // phrases, structured authors, single characters, wildcards and regexes.
+    const { sortedPages: rows } = useVaultViewData({
+        pages: allRows,
+        searchTerm: viewType === 'genogram' ? '' : searchTerm,
+    });
     const table = ctx.registry.tables.find(t => t.id === String(tableId)) || null;
     const embeddedSchema = useMemo(() => {
         const props = [...(table?.properties || [])];

@@ -1,9 +1,9 @@
-import { act, useState } from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AIAgentForm } from './AIAgentForm';
 import type { AgentDraft, SettingsModel } from './types';
-import { fetchAiCatalog, setAiProviderCredentials, setAiProviderStatus } from '../../../shared/api/ai';
+import { fetchAiCatalog } from '../../../shared/api/ai';
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('./AgentIconSelect', () => ({ AgentIconSelect: () => null }));
@@ -34,16 +34,14 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => { root.unmount(); }); host.remove(); vi.unstubAllGlobals(); });
 
-function Harness({ draft = agent, models = registry }: { draft?: AgentDraft; models?: SettingsModel[] }) {
-  const [connected, setConnected] = useState(false);
-  return <AIAgentForm agent={draft} aiRegistry={models} skills={[]} tools={[]} onSave={onSave}
-    jevConnected={connected} onConnectJev={() => { setConnected(true); }} />;
+function Harness({ draft = agent, models = registry, purpose = 'profile' }: { draft?: AgentDraft; models?: SettingsModel[]; purpose?: 'principal' | 'profile' }) {
+  return <AIAgentForm agent={draft} purpose={purpose} aiRegistry={models} skills={[]} tools={[]} onSave={onSave} onChange={value => { void onSave(value); }} />;
 }
 function render(draft = agent, models = registry) {
   act(() => { root.render(<Harness draft={draft} models={models} />); });
 }
 function select(label: string, value: string) {
-  const element = host.querySelector<HTMLSelectElement>(`select[aria-label="settings.ai.model_strategy.${label}"]`);
+  const element = host.querySelector<HTMLSelectElement>(`select[aria-label="settings.ai.assistant.${label}"]`);
   if (!element) throw new Error(`Missing select: ${label}`);
   act(() => { element.value = value; element.dispatchEvent(new Event('change', { bubbles: true })); });
 }
@@ -53,76 +51,70 @@ async function click(text: string) {
   await act(async () => { button.click(); await Promise.resolve(); });
 }
 
-function enterKey(value: string) {
-  const field = host.querySelector<HTMLInputElement>('input[type="password"]');
-  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-  if (!field || !descriptor?.set) throw new Error('Missing password input');
-  act(() => {
-    descriptor.set?.call(field, value);
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  return field;
-}
-
-it('keeps legacy agents fixed and retains their instructions and capabilities on save', async () => {
+it('keeps legacy agents fixed and retains their instructions and capabilities on save', () => {
   render();
   expect(host.querySelector('select')?.value).toBe('alpha||small');
   expect(host.querySelector('[role="switch"]')).toBeNull();
-  await click('settings.ai.update_agent');
+  select('profile_model', 'alpha||small');
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ ...agent,
     model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } }));
 });
 
-it('saves automatic selection only among explicitly enabled compatible models', async () => {
+it('removes legacy model alternatives and saves exactly one selected LLM', () => {
+  render({ ...agent, model_strategy: { schema_version: 1, mode: 'adaptive', decision_engine: 'jev', allowed_models: [{ provider: 'beta', model: 'large' }] } });
+  expect(host.querySelectorAll('select')).toHaveLength(1);
+  select('profile_model', 'ollama||local');
+  expect(onSave.mock.calls[0]?.[0]).toMatchObject({ provider: 'ollama', model: 'local', model_strategy: { schema_version: 1, mode: 'pinned', decision_engine: 'rules', allowed_models: [] } });
+});
+
+it('does not save on mount or show a save button for existing profiles', () => {
   render();
-  select('label', 'adaptive');
-  expect([...host.querySelectorAll('[role="switch"]')].map(item => item.getAttribute('aria-label'))).toEqual(['large · beta']);
-  act(() => { host.querySelector<HTMLElement>('[role="switch"]')?.click(); });
-  select('engine', 'jev');
-  await click('settings.ai.update_agent');
-  expect(onSave.mock.calls[0]?.[0].model_strategy).toEqual({ schema_version: 1, mode: 'adaptive',
-    decision_engine: 'jev', allowed_models: [{ provider: 'beta', model: 'large' }] });
-  expect(host.textContent).toContain('settings.ai.model_strategy.jev_help');
-  expect(setAiProviderCredentials).not.toHaveBeenCalled();
+  expect(onSave).not.toHaveBeenCalled();
+  expect(host.querySelector('button[aria-pressed]')).not.toBeNull();
+  expect(Array.from(host.querySelectorAll('button')).some(button => button.textContent === 'save')).toBe(false);
 });
 
-it('resets remote routing when the primary is changed to a local model', async () => {
-  render({ ...agent, model_strategy: { schema_version: 1, mode: 'adaptive', decision_engine: 'jev',
-    allowed_models: [{ provider: 'beta', model: 'large' }] } });
-  select('primary', 'ollama||local');
-  expect(host.querySelector<HTMLOptionElement>('option[value="jev"]')?.disabled).toBe(true);
-  expect(host.querySelector('input[type="password"]')).toBeNull();
-  await click('settings.ai.update_agent');
-  expect(onSave.mock.calls[0]?.[0].model_strategy).toEqual({ schema_version: 1, mode: 'adaptive', decision_engine: 'rules', allowed_models: [] });
+it.each(['principal', 'profile'] as const)('distinguishes %s setup from an existing profile edit', async purpose => {
+  const newProfile = { ...agent, id: undefined };
+  act(() => { root.render(<Harness draft={newProfile} purpose={purpose} />); });
+  expect(host.querySelector('h3')?.textContent).toBe(purpose === 'principal'
+    ? 'settings.ai.assistant.setup' : 'settings.ai.assistant.new_profile');
+  expect(host.textContent).toContain('settings.ai.assistant.profile_name');
+  expect(host.textContent).not.toContain('settings.ai.new_agent_title');
+  await click(purpose === 'principal' ? 'settings.ai.assistant.configure_action' : 'settings.ai.assistant.create_profile');
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: agent.name, model: agent.model }));
 });
 
-it('does not allow saving an unavailable primary model', () => {
-  render({ ...agent, model: 'removed' });
-  const button = [...host.querySelectorAll('button')].find(item => item.textContent === 'settings.ai.update_agent');
-  expect(button?.disabled).toBe(true);
+it('localizes a shipped profile name without persisting the translation on other edits', () => {
+  render({ ...agent, name: 'Mail', managed_by: 'builtin:mail' });
+  expect(host.querySelector<HTMLInputElement>('input')?.value).toBe('settings.ai.assistant.builtin_profiles.mail');
+  select('profile_model', 'beta||large');
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mail' }));
 });
 
-it('connects TypeSafe explicitly and never saves the key in the assistant profile', async () => {
-  render();
-  select('label', 'adaptive'); select('engine', 'jev');
-  const field = enterKey('test-only-key');
-  await click('settings.ai.model_strategy.jev_connect');
-  expect(setAiProviderCredentials).toHaveBeenCalledExactlyOnceWith('typesafe', { api_key: 'test-only-key', base_url: null });
-  expect(setAiProviderStatus).toHaveBeenCalledExactlyOnceWith('typesafe', { enabled: true });
-  expect(field.value).toBe('');
-  expect(host.textContent).toContain('settings.ai.model_strategy.jev_connected');
-  await click('settings.ai.update_agent');
-  expect(JSON.stringify(onSave.mock.calls)).not.toContain('test-only-key');
+function enterCommand(value: string) {
+  const input = host.querySelector<HTMLInputElement>('input[aria-label="agent_commands.label"]');
+  if (!input) throw new Error('Missing command field');
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+it('saves and removes a command without changing the agent model, instructions or skills', () => {
+  render({ ...agent, command: '/old' });
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="agent_commands.label"]')?.value).toBe('/old');
+  enterCommand('/TRADUCTOR');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...agent, command: '/traductor' }));
+  enterCommand('');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...agent, command: '' }));
 });
 
-it('shows connection and save failures without falsely marking success', async () => {
-  vi.mocked(setAiProviderCredentials).mockRejectedValueOnce(new Error('test failure'));
-  onSave.mockRejectedValueOnce(new Error('save failed'));
-  render(); select('label', 'adaptive'); select('engine', 'jev');
-  enterKey('test-only-key');
-  await click('settings.ai.model_strategy.jev_connect');
-  expect(host.querySelector('[role="alert"]')?.textContent).toBe('settings.ai.model_strategy.jev_connection_error');
-  expect(setAiProviderStatus).not.toHaveBeenCalled();
-  await click('settings.ai.update_agent');
-  expect(host.textContent).toContain('settings.ai.model_strategy.save_error');
+it('does not persist invalid or duplicate commands', () => {
+  act(() => { root.render(<AIAgentForm agent={agent} otherCommands={['/other']} aiRegistry={registry} skills={[]} tools={[]} onSave={onSave} onChange={value => { void onSave(value); }} />); });
+  enterCommand('/bad command');
+  expect(host.textContent).toContain('agent_commands.agent_command_invalid');
+  enterCommand('/OTHER');
+  expect(host.textContent).toContain('agent_commands.agent_command_duplicate');
+  expect(onSave).not.toHaveBeenCalled();
 });

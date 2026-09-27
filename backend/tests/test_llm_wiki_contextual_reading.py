@@ -228,3 +228,41 @@ def test_large_overview_uses_every_map_with_bounded_hierarchical_synthesis():
     assert all(item in consumed for item in maps)
     assert len(calls) > 1
     assert all(token_bound(encoded(call)) <= reader.budget for call in calls)
+
+
+def test_directed_reading_full_sources_and_model_selected_order():
+    actions = []
+    reader, calls, _ = setup_reader(generate=lambda request: actions.pop(0))
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 10
+    actions.append({"action": "finish", "arguments": {"summary": "too early"}})
+    for chunk in reversed(reader.chunks):
+        plan = note_answer({"primary_segments": chunk["segments"]})
+        plan["reviewed"] = True
+        actions.append({"action": "save_plan", "arguments": {"chunk_id": chunk["id"], "plan": plan}})
+    actions.append({"action": "finish", "arguments": {"summary": "All originals reviewed"}})
+    result, _ = reader.run()
+    assert calls[0]["last_result"]["delivery"] == "complete"
+    assert calls[1]["last_result"]["error"] == "source_coverage_incomplete"
+    assert len(result["coverage"]) == 2
+    assert result["reviewed"] is True
+    assert result["summary"] == "All originals reviewed"
+
+
+def test_directed_reading_checkpoint_resumes_without_duplicate_notes():
+    actions = []
+    reader, calls, checkpoints = setup_reader(generate=lambda request: actions.pop(0))
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 1
+    for chunk in reader.chunks:
+        plan = note_answer({"primary_segments": chunk["segments"]})
+        actions.append({"action": "save_plan", "arguments": {"chunk_id": chunk["id"], "plan": plan}})
+    actions.append({"action": "finish", "arguments": {"summary": "Read"}})
+    with pytest.raises(RuntimeError, match="resume_required"):
+        reader.run()
+    reader.resume_job_id = "current"
+    reader.job_id = "resumed"
+    reader.dependencies.max_action_steps = 10
+    result, _ = reader.run()
+    assert len(result["notes"]) == 2
+    assert checkpoints[("resumed", "agent-state")]["plans"]

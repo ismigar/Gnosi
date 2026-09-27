@@ -12,9 +12,11 @@ from backend.domains.agent.policy import AgentState, _invoke_agent_model
 def operation_workflow(model: Any, instructions: str, context_window: int) -> StateGraph[Any, None, Any, Any]:
     def execute(state: AgentState) -> dict[str, Any]:
         messages = [SystemMessage(content=instructions), *state["messages"]]
-        size = sum(len(str(message.content).encode("utf-8")) for message in messages)
-        # Conservative bound: complete instructions and evidence are never truncated.
-        if size + max(2048, context_window // 4) + 512 > context_window:
+        from backend.services.agent_context_budget import messages_budget
+        from backend.services.agent_execution_trace import record
+        budget = messages_budget(messages, str(getattr(model, "model_name", "") or getattr(model, "model", "")), context_window)
+        record("context.budget", budget)
+        if not budget["fits"]:
             raise RuntimeError("agent_operation_context_exceeded")
         return {"messages": [_invoke_agent_model(model, messages, state)]}
 

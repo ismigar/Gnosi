@@ -18,7 +18,7 @@ vi.mock('../../../shared/api/useNotebookData', () => ({
         visibility: 'private', conversation_mode: 'private_member',
         resource_count: 2, source_counts: { available: 2 },
       }],
-      total: 1, page: 1, page_size: 24,
+      total: 25, page: 1, page_size: 24,
     },
     isFetching: false, error: null,
   }),
@@ -39,6 +39,11 @@ it('names the interactive notebook card with its visible title', async () => {
     expect(card).not.toBeNull();
     expect(card?.getAttribute('aria-label')).toBe('Recerca sintètica');
     expect(card?.querySelector('h2')?.textContent).toBe('Recerca sintètica');
+    const previous = container.querySelector<HTMLButtonElement>('.notebook-pagination button[aria-label="common.previous"]');
+    const next = container.querySelector<HTMLButtonElement>('.notebook-pagination button[aria-label="common.next"]');
+    expect(previous?.disabled).toBe(true);
+    expect(next?.disabled).toBe(false);
+    expect(container.querySelector('.notebook-pagination [role="status"]')).not.toBeNull();
   } finally {
     act(() => { root.unmount(); });
   }

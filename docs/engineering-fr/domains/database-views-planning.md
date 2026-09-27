@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-08-31
 source_paths:
+  - frontend/src/shared/records/hooks/useViewSearch.ts
+  - frontend/src/features/vault/views/ViewSearchScope.tsx
   - frontend/src/features/vault/dashboard/useContentCreation.ts
   - frontend/src/features/vault/dashboard/DashboardWelcome.tsx
   - frontend/src/features/vault/dashboard/DashboardSidebar.tsx
@@ -36,6 +38,8 @@ source_paths:
   - frontend/src/shared/dates/projectPlanning.ts
   - frontend/src/shared/filtering/vaultFilters.ts
 tests:
+  - frontend/src/features/vault/views/db-view-embed/DbViewEmbed.test.tsx
+  - frontend/src/features/vault/dashboard/TablePane.test.tsx
   - frontend/src/features/vault/dashboard/creationFlow.test.tsx
   - frontend/src/features/planning/ProjectPlanningPage.test.tsx
   - frontend/src/features/planning/public-entry.test.ts
@@ -223,6 +227,21 @@ fonctionnalités activées du registre de la table à `VaultTable` via
 vue intégrée exposent donc les mêmes actions de lignes configurées. Omettre
 cette chaîne de propriétés masque une action même lorsque le registre et
 l'API l'indiquent correctement comme activée.
+
+## Portée de la recherche
+
+Les recherches de table portent par défaut sur la vue actuelle. Le sélecteur
+peut étendre une requête non vide à toute la table source, y compris les
+éléments exclus par les filtres ou les jointures de la vue, sans modifier la
+vue enregistrée. Effacer la requête restaure la portée et les filtres de la vue
+actuelle. En l'absence de résultats, un message explique la portée active et
+propose de rechercher dans toute la table.
+
+Les vues intégrées utilisent le même moteur de recherche partagé pour les
+éléments et les décomptes. Elles se rechargent via l'API partagée du vault quand
+une autre page est enregistrée ou que la fenêtre retrouve le focus. La recherche
+reste affichée pendant l'actualisation, sans réutiliser un cache de table de
+cinq minutes.
 
 ## Évolution du schéma et concurrence
 

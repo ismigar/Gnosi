@@ -33,14 +33,15 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
     onDeletePage,
   } = model;
   return (<td className={`w-10 px-2 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
-    <div className="flex items-center justify-center gap-0.5">
+    <div className="flex items-center justify-center gap-1.5">
       {/* Selection checkbox */}
       <label
-        className={`cursor-pointer inline-flex items-center shrink-0 ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}
+        className={`cursor-pointer inline-flex items-center shrink-0 ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100'}`}
         onClick={(e) => { e.stopPropagation(); }}
       >
         <input
           type="checkbox"
+          aria-label={t('table.select_row', { title: note.title || note.id })}
           checked={isSelected(note.id)}
           onChange={(e) => { toggleSelect(note.id, { shiftKey: 'shiftKey' in e && Boolean(e.shiftKey) }); }}
           className="w-3.5 h-3.5 rounded border-[var(--border-primary)] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -94,7 +95,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
               void executeTableFunctionality(event, note, functionality);
             }}
             disabled={!gate.ok || isExecuting}
-            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
             aria-label={gate.ok ? label : (gate.reason ?? undefined)}
           >
             <Icon size={14} className={isExecuting ? 'animate-spin' : ''} />
@@ -116,7 +117,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
               });
             }}
             disabled={!gate.ok}
-            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
             aria-label={gate.ok ? t('table.translate_row', "Translate") : (gate.reason ?? undefined)}
           >
             <Languages size={14} />
@@ -139,7 +140,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
               });
             }}
             disabled={!gate.ok}
-            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
             aria-label={gate.ok ? label : (gate.reason ?? undefined)}
           >
             <Globe size={14} className={note.metadata?.drupal_uuid && gate.ok ? 'text-[var(--gnosi-primary)]' : ''} />
@@ -160,7 +161,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
               });
             }}
             disabled={!gate.ok}
-            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
             aria-label={gate.ok ? t('table.publish_social', "Publish to social") : (gate.reason ?? undefined)}
           >
             <Send size={14} />
@@ -202,7 +203,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
               });
             }}
             disabled={!ok}
-            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+            className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 ${ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
             aria-label={label}
           >
             <BrainCircuit size={14} />
@@ -216,7 +217,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
             e.stopPropagation();
             onDeletePage(note.id, note.title);
           }}
-          className="relative p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100"
+          className="relative p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100"
           aria-label={t('table.delete')}
         >
           <Trash2 size={14} />

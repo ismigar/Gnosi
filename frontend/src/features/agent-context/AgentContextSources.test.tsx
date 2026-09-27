@@ -11,6 +11,8 @@ const { fetchInternalContextSources } = vi.hoisted(() => ({
 }));
 
 
+vi.mock('../../shared/api/vaults', () => ({ fetchVaultPages: vi.fn().mockResolvedValue([]), fetchVaultTables: vi.fn().mockResolvedValue([]) }));
+
 vi.mock('../../shared/api/agent-context', () => ({
     fetchExternalContextSources: vi.fn(),
     fetchInternalContextSources,
@@ -160,6 +162,26 @@ afterEach(() => {
 
 
 describe('AgentContextSources internal sources', () => {
+    it('adds the vault through Gnosi sources with the existing reference type', async () => {
+        fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
+        const onChange = vi.fn<(references: ContextReference[]) => void>();
+        const container = await render(
+            <AgentContextSources onChange={onChange} value={[]} />,
+        );
+        expect(container.textContent).not.toContain('Entire active vault');
+        await act(async () => {
+            buttonByText(container, 'Gnosi source').click();
+            await Promise.resolve();
+        });
+        act(() => { buttonByText(container, 'Vault').click(); });
+        expect(onChange).not.toHaveBeenCalled();
+        expect(container.textContent).toContain('Specific pages or databases');
+        act(() => { buttonByText(container, 'Entire active vault').click(); });
+        expect(onChange.mock.calls[0]?.[0]?.[0]).toMatchObject({
+            type: 'vault', ref: 'active', label: 'Entire active vault',
+        });
+    });
+
     it('adds a source reference with its server-provided default scope', async () => {
         fetchInternalContextSources.mockResolvedValue(sourceCatalogue);
         const onChange = vi.fn<(references: ContextReference[]) => void>();
@@ -206,13 +228,13 @@ describe('AgentContextSources internal sources', () => {
         act(() => {
             requiredButton(
                 container,
-                'button[aria-label="Configure source scope"]',
+                'button[aria-label^="Configure source scope:"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
         act(() => {
             requiredInput(
                 container,
-                'input[type="checkbox"]',
+                '[role="switch"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
@@ -238,14 +260,16 @@ describe('AgentContextSources internal sources', () => {
         act(() => {
             requiredButton(
                 container,
-                'button[aria-label="Configure source scope"]',
+                'button[aria-label^="Configure source scope:"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
         expect(container.textContent).toContain('Planning entities');
-        expect(container.textContent).toContain('Launch');
-        expect(container.textContent).toContain('Ada');
-        expect(container.querySelectorAll('select[multiple]')).toHaveLength(3);
+        await act(async () => { await Promise.resolve(); requiredButton(container, '[role="combobox"][aria-label="Projects"]').click(); });
+        expect(document.body.textContent).toContain('Launch');
+        await act(async () => { await Promise.resolve(); requiredButton(container, '[role="combobox"][aria-label="Resources"]').click(); });
+        expect(document.body.textContent).toContain('Ada');
+        expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(3);
     });
 
     it('renders connected Notion scope options', async () => {
@@ -263,12 +287,13 @@ describe('AgentContextSources internal sources', () => {
         act(() => {
             requiredButton(
                 container,
-                'button[aria-label="Configure source scope"]',
+                'button[aria-label^="Configure source scope:"]',
             ).dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
         expect(container.textContent).toContain('Object types');
-        expect(container.textContent).toContain('Research');
-        expect(container.querySelectorAll('select[multiple]')).toHaveLength(2);
+        await act(async () => { await Promise.resolve(); requiredButton(container, '[role="combobox"][aria-label="Databases"]').click(); });
+        expect(document.body.textContent).toContain('Research');
+        expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(2);
     });
 });

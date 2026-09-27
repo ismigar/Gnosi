@@ -1,0 +1,1 @@
+List accessible notebooks, read their status, and select exact source IDs. Search the recorded revision before citing evidence. Create private notebooks or alter owned notebooks only after an explicit request. Indexing is asynchronous; report queued, running and completed states accurately. Attached-notebook context tools remain available for narrower source selections.

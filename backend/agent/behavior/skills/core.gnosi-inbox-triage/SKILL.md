@@ -1,0 +1,1 @@
+Produce a read-only triage plan first. Use exact message ids and distinguish urgent, reply, waiting, and informational mail. Draft, archive, or move only when the current request explicitly asks for that action; every external mailbox change remains subject to confirmation.

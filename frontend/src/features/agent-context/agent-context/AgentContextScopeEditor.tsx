@@ -1,6 +1,11 @@
-import type { ChangeEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
+import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
+import { ScopeMultiSelect } from './ScopeMultiSelect';
+import { contextOptionLabel } from './agentContextLabels';
+import { MailFolderScopes } from './MailFolderScopes';
 import type { InternalContextSource } from '../../../shared/api/agent-context';
 import {
     contextBoolean,
@@ -17,56 +22,14 @@ import {
 
 interface ScopeEditorProps {
     readonly descriptor: InternalContextSource;
+    readonly onRefresh: () => void;
     readonly onPatch: (patch: ContextScope) => void;
     readonly reference: ContextReference;
     readonly sourceLabel: string;
 }
 
 
-const selectedValues = (event: ChangeEvent<HTMLSelectElement>): string[] => (
-    Array.from(event.target.selectedOptions, (option) => option.value)
-);
-
-
-const optionStrings = (values: readonly string[]): NamedContextOption[] => (
-    values.map((value) => ({ id: value, name: value }))
-);
-
-
-function ScopeSelect({
-    label,
-    numeric = false,
-    onChange,
-    options,
-    values,
-}: {
-    readonly label: string;
-    readonly numeric?: boolean;
-    readonly onChange: (values: number[] | string[]) => void;
-    readonly options: readonly NamedContextOption[];
-    readonly values: readonly (number | string)[];
-}) {
-    return (
-        <label style={{ fontSize: '0.78rem' }}>
-            {label}
-            <select
-                className="gnosi-input"
-                multiple
-                onChange={(event) => {
-                    const selected = selectedValues(event);
-                    onChange(numeric ? selected.map(Number) : selected);
-                }}
-                style={{ marginTop: '5px', minHeight: '76px', width: '100%' }}
-                value={values.map(String)}
-            >
-                {options.map((option) => (
-                    <option key={option.id} value={option.id}>{option.name}</option>
-                ))}
-            </select>
-        </label>
-    );
-}
-
+const optionStrings = (values: readonly string[]): NamedContextOption[] => values.map(value => ({ id: value, name: value }));
 
 function ScopeCheckbox({
     checked,
@@ -78,16 +41,10 @@ function ScopeCheckbox({
     readonly onChange: (checked: boolean) => void;
 }) {
     return (
-        <label style={{ fontSize: '0.82rem' }}>
-            <input
-                checked={checked}
-                onChange={(event) => {
-                    onChange(event.target.checked);
-                }}
-                type="checkbox"
-            />{' '}
-            {children}
-        </label>
+        <div className="agent-source-toggle">
+            <GnosiToggle active={checked} label={typeof children === 'string' ? children : undefined} onChange={() => { onChange(!checked); }} />
+            <span>{children}</span>
+        </div>
     );
 }
 
@@ -101,7 +58,7 @@ function DateRange({
 }) {
     const { t } = useTranslation();
     return (
-        <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: '1fr 1fr' }}>
+        <div className="agent-source-grid">
             {(['date_from', 'date_to'] as const).map((key) => (
                 <label key={key} style={{ fontSize: '0.78rem' }}>
                     {t(key === 'date_from'
@@ -125,6 +82,7 @@ function DateRange({
 
 export function AgentContextScopeEditor({
     descriptor,
+    onRefresh,
     onPatch,
     reference,
     sourceLabel,
@@ -133,7 +91,7 @@ export function AgentContextScopeEditor({
     const { options } = descriptor;
     const scope = reference.scope;
     const strings = (key: string): NamedContextOption[] => (
-        optionStrings(contextOptionStrings(options, key))
+        optionStrings(contextOptionStrings(options, key)).map(option => ({ ...option, name: ['entity_types', 'sources', 'types', 'object_types', 'networks', 'statuses'].includes(key) ? contextOptionLabel(t, option.name) : option.name }))
     );
     const select = (
         key: string,
@@ -141,7 +99,7 @@ export function AgentContextScopeEditor({
         namedOptions = strings(key),
         numeric = false,
     ): ReactNode => (
-        <ScopeSelect
+        <ScopeMultiSelect
             label={label}
             numeric={numeric}
             onChange={(values) => {
@@ -155,20 +113,13 @@ export function AgentContextScopeEditor({
     );
 
     return (
-        <div style={{
-            background: 'var(--settings-bg)',
-            border: '1px solid var(--settings-border)',
-            borderRadius: '14px',
-            display: 'grid',
-            gap: '12px',
-            padding: '14px',
-        }}>
+        <div className="agent-source-scope">
             <div>
-                <strong style={{ fontSize: '0.88rem' }}>
+                <div className="agent-source-heading"><strong style={{ fontSize: '0.88rem' }}>
                     {t('settings.ai.context_scope_title', '{{source}} scope', {
                         source: sourceLabel,
                     })}
-                </strong>
+                </strong><RefreshButton onClick={onRefresh} /></div>
                 <p style={{
                     color: 'var(--text-tertiary)',
                     fontSize: '0.78rem',
@@ -186,7 +137,7 @@ export function AgentContextScopeEditor({
                     <ScopeCheckbox
                         checked={contextBoolean(scope, 'unread_only', true)}
                         onChange={(checked) => {
-                            onPatch({ unread_only: checked });
+                            onPatch({ unread_only: checked, ...(typeof scope?.read_status === 'string' ? { read_status: checked ? 'unread' : 'all' } : {}) });
                         }}
                     >
                         {t('settings.ai.context_reader_unread', 'Unread articles only')}
@@ -219,22 +170,11 @@ export function AgentContextScopeEditor({
             {reference.ref === 'mail' || reference.ref === 'calendar'
                 ? select('accounts', t('settings.ai.context_accounts', 'Accounts'))
                 : null}
-            {reference.ref === 'mail' ? (
-                <label style={{ fontSize: '0.78rem' }}>
-                    {t('settings.ai.context_mail_folder', 'Folder')}
-                    <input
-                        className="gnosi-input"
-                        onChange={(event) => {
-                            onPatch({ folder: event.target.value });
-                        }}
-                        style={{ marginTop: '5px', width: '100%' }}
-                        value={contextString(scope, 'folder', 'INBOX')}
-                    />
-                </label>
-            ) : null}
+            {reference.ref === 'mail' ? <MailFolderScopes scope={scope} options={options} onPatch={onPatch} /> : null}
             {reference.ref === 'calendar' ? (
                 <>
                     <DateRange onPatch={onPatch} scope={scope} />
+                    {!contextString(scope, 'date_from') || !contextString(scope, 'date_to') ? <small>{t('settings.ai.sources.calendar_default', 'Default dates: 30 days ago to 90 days ahead.')}</small> : null}
                     <ScopeCheckbox
                         checked={contextBoolean(scope, 'include_vault', true)}
                         onChange={(checked) => {
@@ -250,7 +190,7 @@ export function AgentContextScopeEditor({
             ) : null}
 
             {reference.ref === 'contacts' ? (
-                <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: '1fr 1fr' }}>
+                <div className="agent-source-grid">
                     {select('sources', t('settings.ai.context_contact_sources', 'Contact sources'))}
                     {select('types', t('settings.ai.context_contact_types', 'Contact types'))}
                 </div>
@@ -261,7 +201,7 @@ export function AgentContextScopeEditor({
                         'entity_types',
                         t('settings.ai.context_planning_entities', 'Planning entities'),
                     )}
-                    <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: '1fr 1fr' }}>
+                    <div className="agent-source-grid">
                         {select(
                             'project_ids',
                             t('settings.ai.context_planning_projects', 'Projects'),
@@ -287,13 +227,13 @@ export function AgentContextScopeEditor({
                 </>
             ) : null}
             {reference.ref === 'references' ? (
-                <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: '1fr 1fr' }}>
+                <div className="agent-source-grid">
                     {select('item_types', t('settings.ai.context_reference_types', 'Reference types'))}
                     {select('languages', t('settings.ai.context_reference_languages', 'Languages'))}
                 </div>
             ) : null}
             {reference.ref === 'social' ? (
-                <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: '1fr 1fr' }}>
+                <div className="agent-source-grid">
                     {select('networks', t('settings.ai.context_social_networks', 'Networks'))}
                     {select('statuses', t('settings.ai.context_social_statuses', 'Publication statuses'))}
                 </div>
@@ -302,7 +242,7 @@ export function AgentContextScopeEditor({
                 ? <DateRange onPatch={onPatch} scope={scope} />
                 : null}
             {reference.ref === 'notion' ? (
-                <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: '1fr 1fr' }}>
+                <div className="agent-source-grid">
                     {select('object_types', t('settings.ai.context_notion_types', 'Object types'))}
                     {select(
                         'database_ids',

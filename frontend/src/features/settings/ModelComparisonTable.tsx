@@ -1,4 +1,5 @@
-import type { ReactNode, RefObject, UIEventHandler } from 'react';
+import { useMemo, type ReactNode, type RefObject, type UIEventHandler } from 'react';
+import { comparisonRouteKey } from './model-comparison/modelComparisonRegistry';
 import {
     ArrowDown,
     ArrowLeftRight,
@@ -15,6 +16,7 @@ import type {
 } from '../../shared/api/ai';
 import {
     type ComparisonColumn,
+    type ComparisonProfile,
     type ComparisonSort,
     type ComparisonSortKey,
     type MetricAvailability,
@@ -24,6 +26,7 @@ import { ModelComparisonRow } from './ModelComparisonRow';
 
 
 interface ModelComparisonTableProps {
+    readonly onParameterUpdate?: () => void;
     readonly busyModelId: string;
     readonly columns: readonly ComparisonColumn[];
     readonly configurationError: string;
@@ -33,9 +36,12 @@ interface ModelComparisonTableProps {
     readonly metricAvailability: MetricAvailability;
     readonly models: readonly AiModelComparisonEntry[];
     readonly onBeginActivation: (model: AiModelComparisonEntry) => void;
-    readonly onDeactivate: (model: AiModelComparisonEntry) => Promise<void>;
+    readonly onSaveAlias?: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
+    readonly onDeactivate: (model: AiModelComparisonEntry, provider?: string) => Promise<void>;
     readonly onScrollbarScroll: UIEventHandler<HTMLDivElement>;
     readonly onSort: (key: ComparisonSortKey) => void;
+    readonly selectedProvider?: string;
+    readonly selectedProfile?: 'all' | ComparisonProfile;
     readonly outputTokens: string;
     readonly providersById: Readonly<Record<string, AiModelCatalogProvider>>;
     readonly registryModels: readonly AiModelRegistryEntry[];
@@ -63,6 +69,7 @@ function SortIcon({
 
 
 export function ModelComparisonTable({
+    onParameterUpdate,
     busyModelId,
     columns,
     configurationError,
@@ -72,9 +79,12 @@ export function ModelComparisonTable({
     metricAvailability,
     models,
     onBeginActivation,
+    onSaveAlias,
     onDeactivate,
     onScrollbarScroll,
     onSort,
+    selectedProvider = 'all',
+    selectedProfile = 'all',
     outputTokens,
     providersById,
     registryModels,
@@ -86,6 +96,16 @@ export function ModelComparisonTable({
     tableWrapRef,
 }: ModelComparisonTableProps) {
     const { t } = useTranslation();
+    const benchmarkNames = useMemo(() => {
+        const names = new Map<string, Set<string>>();
+        for (const model of feed.models) for (const route of model.routes) {
+            const key = comparisonRouteKey(route);
+            const variants = names.get(key) ?? new Set<string>();
+            variants.add(model.name);
+            names.set(key, variants);
+        }
+        return names;
+    }, [feed]);
     const tableMinWidth = Math.max(960, 468 + ((columns.length - 1) * 100));
 
     return (
@@ -111,6 +131,7 @@ export function ModelComparisonTable({
                         <tr>
                             {columns.map((column) => (
                                 <th
+                                    aria-sort={sort.key === column.key ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined}
                                     className={column.key === 'name'
                                         ? 'model-comparison-sticky-start'
                                         : ''}
@@ -141,6 +162,8 @@ export function ModelComparisonTable({
                     <tbody>
                         {models.map((model) => (
                             <ModelComparisonRow
+                                relatedBenchmarks={[...new Set(model.routes.flatMap(route => [...(benchmarkNames.get(comparisonRouteKey(route)) ?? [])]))]}
+                                onParameterUpdate={onParameterUpdate}
                                 busyModelId={busyModelId}
                                 columns={columns}
                                 configurationError={configurationError}
@@ -151,7 +174,10 @@ export function ModelComparisonTable({
                                 metricAvailability={metricAvailability}
                                 model={model}
                                 onBeginActivation={onBeginActivation}
+                                onSaveAlias={onSaveAlias}
                                 onDeactivate={onDeactivate}
+                                selectedProvider={selectedProvider}
+                                selectedProfile={selectedProfile}
                                 outputTokens={outputTokens}
                                 providersById={providersById}
                                 registryModels={registryModels}
@@ -178,6 +204,7 @@ export function ModelComparisonTable({
                     width: `${Math.max(tableScrollWidth, 1).toString()}px`,
                 }} />
             </div>
+            <p className="model-comparison-note">{t('model_comparison.provider_cost_note')} <a href="https://models.dev" target="_blank" rel="noreferrer">models.dev ↗</a></p>
             <p className="model-comparison-note">{t('model_comparison.selection_help')}</p>
             <p className="model-comparison-note">
                 {t('model_comparison.data_note')}

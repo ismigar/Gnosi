@@ -1,0 +1,22 @@
+.agent-context-sources { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.agent-source-list { display: flex; flex-direction: column; gap: 8px; }
+.agent-source-row, .agent-source-folders { border: 1px solid var(--settings-border, var(--border-primary)); border-radius: 12px; background: var(--settings-sidebar-bg, var(--bg-secondary)); min-width: 0; }
+.agent-source-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.agent-source-expand { display: flex; align-items: center; gap: 10px; padding: 12px; flex: 1; min-width: 0; border: 0; background: none; color: var(--text-primary); text-align: left; font: inherit; }
+button.agent-source-expand { cursor: pointer; }
+.agent-source-expand > svg { flex-shrink: 0; transition: transform 150ms; }
+.agent-source-expand .is-expanded { transform: rotate(180deg); }
+.agent-source-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.agent-source-copy strong { font-size: .85rem; }
+.agent-source-copy > span, .agent-source-folders small { color: var(--text-secondary); font-size: .76rem; }
+.agent-source-remove { display: flex; align-items: center; padding: 8px; margin-right: 6px; border: 0; border-radius: 8px; background: none; color: var(--text-secondary); cursor: pointer; }
+.agent-source-remove:hover { background: var(--bg-secondary); color: var(--status-error); }
+.agent-source-scope { display: grid; gap: 12px; padding: 14px; border-top: 1px solid var(--settings-border, var(--border-primary)); }
+.agent-source-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.agent-source-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: .78rem; }
+.agent-source-toggle { display: flex; align-items: center; gap: 8px; font-size: .82rem; }
+.agent-source-folders { display: grid; gap: 8px; padding: 10px; }
+.agent-source-folders strong { font-size: .78rem; overflow-wrap: anywhere; }
+.agent-source-feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: .8rem; padding: 10px; color: var(--text-secondary); }
+.agent-context-sources :focus-visible { outline: 2px solid var(--gnosi-primary); outline-offset: 3px; }
+.agent-context-sources [aria-disabled="true"] { opacity: .65; }
