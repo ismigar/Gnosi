@@ -25,7 +25,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `backend/` | 1506 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 2082 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
-| `desktop/` | 116 | Desktop lifecycle, backend packaging, IPC, and updates |
+| `desktop/` | 117 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 53 | Office, browser, plugin, marketplace, and external-system adapters |
 | `tests/e2e/` | 43 | Host-level Playwright acceptance tests |
 | `scripts/` | 40 | Native, self-host, release, and maintenance scripts |

@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 589 | 2506 |
+| Vitest | 589 | 2507 |
 | pytest | 563 | 4037 |
 
 ## Fichiers
@@ -628,7 +628,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/tests/native-preview.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/native-preview.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/tests/preview-asset-cache.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/preview-asset-cache.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/tests/typescript-coverage.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/typescript-coverage.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/tests/vite-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vite-config.test.ts) | 14 | call-pattern estimate |
+| Vitest | [`frontend/tests/vite-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vite-config.test.ts) | 15 | call-pattern estimate |
 | Vitest | [`frontend/tests/vitest-config.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/vitest-config.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/tests/web-clipper.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/web-clipper.test.ts) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/tests/word-addin.test.ts) | 13 | call-pattern estimate |
