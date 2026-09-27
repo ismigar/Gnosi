@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import readerAssets from "../desktop/scripts/verify-frontend-assets.cjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -250,6 +251,26 @@ function immutablePreviewAssetsPlugin() {
   };
 }
 
+function requiredReaderAssetsPlugin() {
+  let publicDirectory;
+  let outputDirectory;
+  return {
+    name: "gnosi:required-reader-assets",
+    apply: "build",
+    configResolved(config) {
+      publicDirectory = config.publicDir;
+      outputDirectory = path.resolve(config.root, config.build.outDir);
+    },
+    buildStart() {
+      if (!publicDirectory) throw new Error("The PDF reader requires Vite public assets.");
+      readerAssets.verifyReaderAssets(publicDirectory);
+    },
+    writeBundle() {
+      readerAssets.verifyReaderAssets(outputDirectory);
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ""), ...process.env };
 
@@ -257,7 +278,7 @@ export default defineConfig(({ mode }) => {
   const frontendPort = env.VITE_FRONTEND_PORT || "5173";
 
   return {
-    plugins: [react(), httpToHttpsRedirectPlugin(), immutablePreviewAssetsPlugin()],
+    plugins: [react(), httpToHttpsRedirectPlugin(), immutablePreviewAssetsPlugin(), requiredReaderAssetsPlugin()],
     // Web and packaged app://gnosi both serve from the origin root. Relative
     // assets break direct BrowserRouter entries and reloads below nested paths.
     base: env.VITE_BASE_PATH || "/",

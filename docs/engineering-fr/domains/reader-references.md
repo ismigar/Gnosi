@@ -333,3 +333,7 @@ SSRF/XML, erreurs partielles, masquage entre évaluateurs, imports concurrents
 et comptages PRISMA. Dans le navigateur, ouvrez un document de test réel et
 vérifiez un aller-retour de citation ou d'annotation, puis une recherche
 bibliographique progressive, sa provenance et l'import d'un résultat dédupliqué.
+
+## Fichiers du lecteur PDF
+
+Le lecteur PDF intégré nécessite tous les fichiers Zotero générés dans `frontend/public/zotero-reader`. Exécuter `bash scripts/runtime/build-zotero-reader.sh` avant de compiler une nouvelle copie. Vite vérifie les fichiers d’entrée et de sortie, notamment le moteur PDF, le worker, le visualiseur et la langue de secours. Le paquet de bureau utilise le même validateur. Les mises à jour de l’interface seule doivent aussi copier ce répertoire ; si le host manque, le délai expire avant l’ouverture du document. Le CI de l’interface et les releases préparent ces fichiers.

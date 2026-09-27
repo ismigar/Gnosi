@@ -295,3 +295,7 @@ reintentar después de un error.
 ## Enfoque de verificación
 
 Ejecute las pruebas de claves de cita, PubMed, tipos de elementos, estilos CSL, escapes BibTeX, entrada y salida de referencias, anotaciones, confinamiento de rutas, deduplicación de importaciones y savepoints de feeds. Añada pruebas de normalización de conectores, tokens y marcas de eliminación OAI, SSRF/XML, errores parciales, ocultación de decisiones entre revisores, importación concurrente y recuentos PRISMA. La validación en el navegador debe abrir un documento de prueba real y completar un ciclo de creación y lectura de una cita o anotación; después debe realizar una búsqueda bibliográfica progresiva, inspeccionar la procedencia e importar un resultado deduplicado.
+
+## Archivos del lector PDF
+
+El lector PDF integrado necesita todos los archivos generados de Zotero en `frontend/public/zotero-reader`. Hay que ejecutar `bash scripts/runtime/build-zotero-reader.sh` antes de compilar una copia nueva. Vite comprueba los archivos de entrada y salida, incluidos el motor PDF, el worker, el visor y el idioma alternativo. El empaquetado de escritorio utiliza el mismo validador. Las actualizaciones solo de la interfaz también deben copiar este directorio; si falta el host, la espera se agota antes de abrir el documento. Tanto el CI de la interfaz como las releases preparan estos archivos.
