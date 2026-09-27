@@ -8,11 +8,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 734 | 252 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 736 | 253 | 0 |
 | `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1004 | 267 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 445 | 114 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 130 | 52 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 134 | 53 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 261 | 94 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 98 | 49 | 0 |
