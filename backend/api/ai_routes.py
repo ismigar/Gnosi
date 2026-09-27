@@ -19,7 +19,6 @@ from backend.domains.configuration.ai.contracts import (
     ModelCatalogResponse,
     ModelComparisonResponse,
     ModelRegistryResponse,
-    ModelReasoningResponse,
     ModelRegistryUpdateResponse,
     ModelsPayload,
     ProviderCredentialsResponse,
@@ -35,6 +34,7 @@ from backend.domains.configuration.ai.content_routes import (
     generate_content,
     router as content_router,
 )
+from backend.domains.configuration.ai.model_metadata_routes import router as model_metadata_router
 from backend.security.ai_credentials import (
     env_keys_for_provider,
     get_ai_catalog_with_status,
@@ -50,6 +50,7 @@ from backend.utils.safe_io import safe_write_text
 
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
+router.include_router(model_metadata_router)
 JsonObject = dict[str, Any]
 
 
@@ -515,13 +516,6 @@ async def get_model_registry() -> JsonObject:
         }
 
     return await asyncio.to_thread(_load)
-
-
-@router.get("/model-reasoning", response_model=ModelReasoningResponse)
-async def get_model_reasoning(provider: str, model: str) -> JsonObject:
-    """Public provider metadata, without accessing credentials or calling an LLM."""
-    from backend.services.model_reasoning import reasoning_options
-    return await asyncio.to_thread(reasoning_options, provider, model)
 
 
 @router.get(

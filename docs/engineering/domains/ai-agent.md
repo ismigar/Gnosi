@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -1134,3 +1135,5 @@ Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRou
 ## Optional team help
 
 Team permission no longer intercepts every workflow. The factory resolves the selected profile’s own model first, including its reasoning setting, then offers `request_team_help` as an optional control call in chat and structured operations. Native function calling and validated JSON transport use the same contract. Ordinary work adds no routing call. A handoff must be the only tool call and must precede tool execution; format repair cannot request help. The bounded coordinator reuses the current turn input, snapshots, confirmation grants, cancellation and total-call limits. Executors cannot request nested help or route an assignment back to its requester. Member specialties are included in the planning catalog. Repair and resumption enter team handling only when a saved handoff or plan exists; otherwise they retain the original assistant. No team permissions are enabled by migration.
+
+Read-only reasoning metadata lives in `backend/domains/configuration/ai/model_metadata_routes.py`; the AI settings router includes it under the unchanged `/api/ai/model-reasoning` path and public contract. This keeps the main router within the project source-size guardrail.

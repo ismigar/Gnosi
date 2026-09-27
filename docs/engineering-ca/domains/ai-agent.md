@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -1240,3 +1241,5 @@ Els perfils desen `reasoning_effort` opcional. L’editor consulta les opcions e
 ## Ajuda opcional de l’equip
 
 El permís de col·laboració ja no intercepta tots els fluxos. Primer es resol el model del perfil seleccionat, inclòs el nivell de raonament, i després s’ofereix `request_team_help` com a crida de control opcional al xat i a les operacions estructurades. Les eines natives i el transport JSON validat comparteixen contracte. La feina habitual no afegeix cap crida d’encaminament. La delegació ha de ser l’única crida i precedir qualsevol execució d’eines; la reparació de format no pot demanar ajuda. El coordinador conserva l’entrada del torn actual, les configuracions fixades, els permisos de confirmació, la cancel·lació i el límit total de crides. Els executors no poden encadenar ajuda ni retornar l’encàrrec al sol·licitant. El catàleg del pla inclou les especialitats dels membres. La reparació i la represa només usen el tractament d’equip si s’ha desat una petició d’ajuda o un pla; altrament mantenen l’assistent original. La migració no activa permisos d’equip.
+
+Les metadades de raonament de només lectura són a `backend/domains/configuration/ai/model_metadata_routes.py`; l’encaminador de configuració d’IA les inclou a `/api/ai/model-reasoning`, amb el mateix contracte públic. Així es respecta el límit de mida dels fitxers del projecte.

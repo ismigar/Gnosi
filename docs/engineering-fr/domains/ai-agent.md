@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -1329,3 +1330,5 @@ Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte le
 ## Aide facultative de l’équipe
 
 La permission de collaboration n’intercepte plus tous les flux. Le modèle du profil sélectionné, y compris son niveau de raisonnement, est résolu en premier ; `request_team_help` devient ensuite un appel de contrôle facultatif dans le chat et les opérations structurées. Les outils natifs et le transport JSON validé partagent le même contrat. Le travail courant n’ajoute aucun appel de routage. La délégation doit être le seul appel et précéder toute exécution d’outil ; la correction de format ne peut pas demander d’aide. Le coordinateur conserve la demande du tour actuel, les configurations figées, les confirmations, l’annulation et le plafond global d’appels. Les exécutants ne peuvent pas enchaîner les délégations ni renvoyer la tâche au demandeur. Le catalogue du plan comprend les spécialités des membres. La correction et la reprise utilisent l’équipe seulement si une demande d’aide ou un plan est enregistré ; sinon elles conservent l’assistant initial. La migration n’active aucune permission d’équipe.
+
+Les métadonnées de raisonnement en lecture seule se trouvent dans `backend/domains/configuration/ai/model_metadata_routes.py` ; le routeur des réglages IA les inclut sous `/api/ai/model-reasoning`, avec le même contrat public. Cette séparation respecte la limite de taille des fichiers du projet.

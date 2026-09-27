@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -1306,3 +1307,5 @@ Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opcione
 ## Ayuda opcional del equipo
 
 El permiso de colaboración ya no intercepta todos los flujos. Primero se resuelve el modelo del perfil seleccionado, incluido el nivel de razonamiento, y después se ofrece `request_team_help` como llamada de control opcional en chat y operaciones estructuradas. Las herramientas nativas y el transporte JSON validado comparten contrato. El trabajo habitual no añade llamadas de encaminamiento. La delegación debe ser la única llamada y preceder la ejecución de herramientas; la reparación de formato no puede pedir ayuda. El coordinador conserva la entrada del turno actual, la configuración fijada, las confirmaciones, la cancelación y el límite total de llamadas. Los ejecutores no pueden encadenar ayuda ni devolver el encargo al solicitante. El catálogo del plan incluye las especialidades de los miembros. La reparación y la reanudación solo usan el equipo si hay una petición de ayuda o plan guardado; de lo contrario mantienen el asistente original. La migración no activa permisos de equipo.
+
+Los metadatos de razonamiento de solo lectura están en `backend/domains/configuration/ai/model_metadata_routes.py`; el enrutador de configuración de IA los incluye en `/api/ai/model-reasoning`, con el mismo contrato público. Así se respeta el límite de tamaño de los archivos del proyecto.
