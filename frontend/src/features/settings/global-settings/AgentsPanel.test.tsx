@@ -171,3 +171,29 @@ it('shows only the assigned profile when opened from a plugin', () => {
   expect(host.querySelector('[data-settings-editor-for="agent:brain"]')).not.toBeNull();
   expect(host.textContent).not.toContain('settings.ai.assistant.advanced');
 });
+
+it('organizes personal and plugin assistants in one editable card each without duplicate lists', () => {
+  const plugin = { id: 'mail', name: 'Mail helper', managed_by: 'builtin:mail', model: 'mail-model', persona: 'Keep mail instructions' };
+  act(() => { root.render(<Harness profiles={[principal, { id: 'other', name: 'Other' }, plugin]} />); });
+  click('settings.ai.assistant.advanced');
+  click('agent_team.setup');
+  for (const id of ['brain', 'other', 'mail']) {
+    expect(host.querySelectorAll(`[data-settings-item-id="agent:${id}"]`)).toHaveLength(1);
+  }
+  expect(host.querySelector('section[aria-label="settings.ai.assistant.plugin_profiles"]')).toBeNull();
+  expect(host.textContent).not.toContain('agent_team.entrypoints');
+  expect(host.textContent).not.toContain('settings.ai.assistant.advanced');
+  const card = host.querySelector('[data-settings-item-id="agent:mail"]')?.closest('.agent-team-setup__card');
+  const participation = card?.querySelector<HTMLSelectElement>('.agent-team-setup__participation select');
+  expect(participation).toBeTruthy();
+  act(() => { if (participation) { participation.value = 'both'; participation.dispatchEvent(new Event('change', { bubbles: true })); } });
+  act(() => { card?.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.configure_profile:Mail helper"]')?.click(); });
+  expect(card?.querySelector('[data-settings-editor-for="agent:mail"]')).not.toBeNull();
+  click('Edit fixture');
+  click('agent_team.apply');
+  const ai = savedAi();
+  expect(ai.agents.find(agent => agent.id === 'mail')).toMatchObject({ ...plugin, name: 'Auto saved', team: { enabled: true, director_id: 'brain' } });
+  expect(ai.agents.find(agent => agent.id === 'brain')?.team?.members).toEqual([{ agent_id: 'mail', roles: ['allrounder'] }]);
+  expect(host.querySelector('[data-settings-editor-for]')).toBeNull();
+  expect(host.querySelectorAll('[data-settings-item-id="agent:mail"]')).toHaveLength(1);
+});

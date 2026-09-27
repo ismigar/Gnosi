@@ -23,31 +23,6 @@
     margin: 0;
 }
 
-.agent-team-setup__progress {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--settings-border);
-}
-
-.agent-team-setup__track {
-    display: flex;
-    gap: 6px;
-}
-
-.agent-team-setup__track span {
-    width: 28px;
-    height: 4px;
-    border-radius: 4px;
-    background: var(--settings-border);
-}
-
-.agent-team-setup__track .is-complete {
-    background: var(--gnosi-primary);
-}
-
 .agent-team-setup__card {
     border: 1px solid var(--settings-border);
     border-radius: 16px;
@@ -69,6 +44,36 @@
     padding: 18px;
 }
 
+.agent-team-setup__card > .ai-agent-row {
+    border-radius: 0;
+}
+
+.agent-team-setup__participation {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    border-top: 1px solid var(--settings-border);
+}
+
+.agent-team-setup__specialties > summary,
+.agent-team-setup__advanced > summary {
+    cursor: pointer;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.agent-team-setup__specialties > p,
+.agent-team-setup__advanced > :not(summary) {
+    margin-top: 16px;
+}
+
+.agent-team-setup__advanced {
+    padding: 18px;
+    border: 1px solid var(--settings-border);
+    border-radius: 16px;
+}
+
 .agent-team-setup__row .gnosi-toggle {
     flex-shrink: 0;
 }
@@ -85,12 +90,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
     gap: 16px 24px;
-    padding: 18px;
-    border-top: 1px solid var(--settings-border);
-}
-
-.agent-team-setup__heading {
-    margin: 12px 0 0;
+    padding-top: 16px;
 }
 
 .agent-team-setup__wizard .gnosi-select {

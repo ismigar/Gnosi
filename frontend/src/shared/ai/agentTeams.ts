@@ -1,4 +1,4 @@
-export const TEAM_ROLES = ['director', 'allrounder', 'documentalist', 'expert', 'administrative', 'worker'] as const;
+export const TEAM_ROLES = ['director', 'expert', 'allrounder', 'documentalist', 'administrative', 'worker'] as const;
 export type TeamRole = typeof TEAM_ROLES[number];
 export interface AgentTeam {
     version: 1;

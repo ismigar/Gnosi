@@ -47,7 +47,14 @@ Cada plugin d’IA declara un perfil editable i les habilitats que utilitzen les
 
 ## Directiu i equip d’especialistes
 
-A **Configura l’equip**, selecciona el Directiu, els membres i els papers de cadascun. Un agent pot tenir diversos papers. Indica també quins perfils de plugins poden delegar: les seves accions continuen pertanyent al plugin. La configuració no s’activa fins que deses els canvis. Només s’afegeix l’habilitat de coordinació al Directiu; es conserven els models, les instruccions i les altres habilitats.
+A **Organitza l’equip**, tria qui coordina (el Directiu). Cada assistent apareix una sola vegada, amb un selector de **Participació en l’equip**:
+
+- **Treballa pel seu compte**: fa les seves tasques amb el seu model i habilitats.
+- **Rep encàrrecs de l’equip**: el Directiu li pot assignar feina.
+- **Demana ajuda a l’equip**: pot demanar al Directiu que mobilitzi l’equip.
+- **Rep encàrrecs i demana ajuda**: combina les dues funcions.
+
+La icona de configuració de la mateixa fitxa permet editar el model, les instruccions, les fonts i les habilitats. Les especialitats s’obren dins la fitxa, a **Especialitats dins l’equip (avançat)**. Les assignacions per tasca i els especialistes temporals són opcionals i queden plegats en un apartat avançat. Prem **Aplica l’equip** per desar la participació; **Cancel·la** descarta aquests canvis. Els permisos existents es representen amb el selector sense ampliar-los automàticament. Es conserven els models, les instruccions i les altres habilitats; només s’afegeix la coordinació al Directiu. Les accions dels assistents dels plugins continuen pertanyent al seu plugin.
 
 Les rutes directes associen operacions conegudes a una llista d’executors. El servidor comprova disponibilitat, habilitats, context i límits abans de comparar el cost estimat de l’encàrrec. El cost desconegut es tracta com a desconegut. Una ruta directa evita la crida al Directiu; una petició ambigua requereix un pla. Un resultat vàlid es lliura sense una revisió automàtica del Directiu.
 

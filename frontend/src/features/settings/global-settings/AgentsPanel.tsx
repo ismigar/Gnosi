@@ -25,6 +25,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
   const sortedAgents = profilesByDisplayName(draft.ai.agents, t, i18n.resolvedLanguage);
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
   const [showProfiles, setShowProfiles] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
   const expanded = showProfiles || Boolean(principal && editingAgent && !editingAgent.managed_by && editingAgent.id !== principal.id);
   const editor = editingAgent && (
     <InlineEditorPlacement
@@ -86,7 +87,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
       </div>
     </InlineEditorPlacement>
   );
-  const renderProfile = (agent: SettingsAgent) => (
+  const renderProfile = (agent: SettingsAgent, participation?: React.ReactNode) => (
     <React.Fragment key={agent.id}>
       <div
         className={`settings-configurable-item ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
@@ -94,7 +95,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
         onClick={() => { setEditingAgent(current => current?.id === agent.id ? null : agent); }}
         title={t('settings.ai.assistant.configure_profile', { name: profileDisplayName(agent, t) })}
         style={{
-          width: '100%', padding: '24px', border: '1px solid var(--settings-border)',
+          width: '100%', padding: '24px', border: participation ? 'none' : '1px solid var(--settings-border)',
           background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: '20px', flexWrap: 'wrap', transition: 'all 0.2s', cursor: 'pointer', boxSizing: 'border-box'
         }}
@@ -130,7 +131,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '14px', marginLeft: 'auto' }}>
-          {(agent.id !== principal?.id || agent.enabled === false) && !agent.managed_by && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={event => {
+          {!teamOpen && (agent.id !== principal?.id || agent.enabled === false) && !agent.managed_by && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={event => {
             event.stopPropagation();
             setDraft(prev => ({ ...prev, ai: { ...prev.ai, active_agent_id: agent.id,
               agents: prev.ai.agents.map(item => item.id === agent.id ? { ...item, enabled: true } : item),
@@ -139,11 +140,12 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
           <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(current => current?.id === agent.id ? null : agent); }} aria-expanded={editingAgent?.id === agent.id} aria-label={t('settings.ai.assistant.configure_profile', { name: profileDisplayName(agent, t) })} title={t('settings.ai.assistant.configure_profile', { name: profileDisplayName(agent, t) })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
             <SettingsIcon size={22} />
           </button>
-          {agent.id !== principal?.id && !agent.managed_by && <button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={t('settings.ai.assistant.delete_profile', { name: profileDisplayName(agent, t) })} title={t('settings.ai.assistant.delete_profile', { name: profileDisplayName(agent, t) })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
+          {!teamOpen && agent.id !== principal?.id && !agent.managed_by && <button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={t('settings.ai.assistant.delete_profile', { name: profileDisplayName(agent, t) })} title={t('settings.ai.assistant.delete_profile', { name: profileDisplayName(agent, t) })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
             <Trash2 size={22} />
           </button>}
         </div>
       </div>
+      {participation}
       {editingAgent?.id === agent.id && (
         <div
           ref={setAgentEditorTarget}
@@ -174,17 +176,18 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
       </button>
     </div>}
     {(!principal || editingAgent?.id) && editor}
-    {principal && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
+    {principal && !teamOpen && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
       {renderProfile(principal)}
     </div>}
-    {principal && <AgentTeamSetup agents={draft.ai.agents} principalId={principal.id} registry={aiRegistry} onApply={(agents, principalId) => {
+    {principal && <AgentTeamSetup agents={draft.ai.agents} principalId={principal.id} registry={aiRegistry}
+      renderAgent={renderProfile} onOpenChange={open => { setTeamOpen(open); setEditingAgent(null); }} onApply={(agents, principalId) => {
       setDraft(prev => ({ ...prev, ai: { ...prev.ai, agents, active_agent_id: principalId } }));
     }} />}
-    {principal && <p className="settings-desc" style={{ marginTop: '20px' }}>{t('settings.ai.assistant.principal_help')}</p>}
-    {draft.ai.agents.length > 0 && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
+    {principal && !teamOpen && <p className="settings-desc" style={{ marginTop: '20px' }}>{t('settings.ai.assistant.principal_help')}</p>}
+    {!teamOpen && draft.ai.agents.length > 0 && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ marginBlock: '16px' }} aria-expanded={expanded} onClick={() => { setShowProfiles(!expanded); if (expanded && editingAgent?.id !== principal?.id) setEditingAgent(null); }}>
       {t('settings.ai.assistant.advanced')}
     </button>}
-    {expanded && <div className="ai-resources-panel">
+    {!teamOpen && expanded && <div className="ai-resources-panel">
       <p>{t('settings.ai.assistant.profiles_help')}</p>
       {principal && (!editingAgent || editingAgent.id) && <div style={{ marginBottom: '20px' }}>
         <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => {
@@ -197,14 +200,14 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
       </div>}
     </div>}
     {principal && !editingAgent?.id && editor}
-    {expanded && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
-      {sortedAgents.filter(agent => !agent.managed_by && agent.id !== principal?.id).map(renderProfile)}
+    {!teamOpen && expanded && <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
+      {sortedAgents.filter(agent => !agent.managed_by && agent.id !== principal?.id).map(agent => renderProfile(agent))}
     </div>}
-    {draft.ai.agents.some(agent => agent.managed_by) && <section aria-label={t('settings.ai.assistant.plugin_profiles')}>
+    {!teamOpen && draft.ai.agents.some(agent => agent.managed_by) && <section aria-label={t('settings.ai.assistant.plugin_profiles')}>
       <h4>{t('settings.ai.assistant.plugin_profiles')}</h4>
       <p className="settings-desc">{t('settings.ai.assistant.plugin_profiles_help')}</p>
       <div className="settings-configurable-list ai-agent-list" style={configurableGap('20px')}>
-        {sortedAgents.filter(agent => agent.managed_by).map(renderProfile)}
+        {sortedAgents.filter(agent => agent.managed_by).map(agent => renderProfile(agent))}
       </div>
     </section>}
     {onOpenActivity && <div style={{ marginTop: '24px' }}>

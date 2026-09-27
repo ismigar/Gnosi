@@ -47,7 +47,14 @@ Cada plugin de IA declara un perfil editable y las habilidades que utilizan sus 
 
 ## Directivo y equipo de especialistas
 
-En **Configura el equipo**, selecciona el Directivo, los miembros y sus papeles. Un agente puede tener varios papeles. Indica qué perfiles de plugins pueden delegar; sus acciones siguen perteneciendo al plugin. La configuración se activa al guardar. Solo se añade la habilidad de coordinación al Directivo; se conservan modelos, instrucciones y demás habilidades.
+En **Organiza el equipo**, elige quién coordina (el Directivo). Cada asistente aparece una sola vez, con un selector de **Participación en el equipo**:
+
+- **Trabaja por su cuenta**: realiza sus tareas con su modelo y habilidades.
+- **Recibe encargos del equipo**: el Directivo puede asignarle trabajo.
+- **Pide ayuda al equipo**: puede pedir al Directivo que movilice al equipo.
+- **Recibe encargos y pide ayuda**: combina ambas funciones.
+
+La configuración de la misma ficha permite editar el modelo, las instrucciones, las fuentes y las habilidades. Las especialidades se abren dentro de la ficha, en **Especialidades dentro del equipo (avanzado)**. Las asignaciones por tarea y los especialistas temporales son opcionales y quedan plegados en un apartado avanzado. Pulsa **Aplicar equipo** para guardar la participación; **Cancelar** descarta esos cambios. Los permisos existentes se representan mediante el selector sin ampliarlos automáticamente. Se conservan los modelos, las instrucciones y las demás habilidades; solo se añade la coordinación al Directivo. Las acciones de los asistentes de plugins siguen perteneciendo a su plugin.
 
 Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al Directivo; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del Directivo.
 

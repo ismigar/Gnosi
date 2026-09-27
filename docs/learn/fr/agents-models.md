@@ -47,7 +47,14 @@ Chaque plugin d’IA déclare un profil modifiable et les compétences utilisée
 
 ## Directeur et équipe de spécialistes
 
-Dans **Configurer l’équipe**, choisissez le Directeur, les membres et leurs rôles. Un agent peut avoir plusieurs rôles. Indiquez quels profils de plugins peuvent déléguer ; leurs actions restent la propriété du plugin. La coordination prend effet après enregistrement. Seule la compétence de coordination est ajoutée au Directeur ; les modèles, instructions et autres compétences sont conservés.
+Dans **Organiser l’équipe**, choisissez qui coordonne (la Direction). Chaque assistant apparaît une seule fois, avec un sélecteur de **Participation à l’équipe** :
+
+- **Travaille de façon autonome** : effectue ses tâches avec son modèle et ses compétences.
+- **Reçoit des tâches de l’équipe** : la Direction peut lui attribuer du travail.
+- **Demande de l’aide à l’équipe** : peut demander à la Direction de mobiliser l’équipe.
+- **Reçoit des tâches et demande de l’aide** : combine les deux fonctions.
+
+L’icône de configuration sur la même fiche permet de modifier le modèle, les instructions, les sources et les compétences. Les spécialités s’ouvrent dans la fiche sous **Spécialités au sein de l’équipe (avancé)**. L’attribution des tâches et les spécialistes temporaires sont facultatifs et repliés dans une section avancée. Cliquez sur **Appliquer l’équipe** pour enregistrer la participation ; **Annuler** abandonne ces changements. Les permissions existantes sont représentées sans extension automatique. Les modèles, instructions et autres compétences sont conservés ; seule la coordination est ajoutée à la Direction. Les actions des assistants de plugins appartiennent toujours à leur plugin.
 
 Les routes directes associent des opérations connues à des listes d’exécutants. Le serveur vérifie disponibilité, compétences, contexte et limites avant de comparer le coût estimé de la mission. Un coût inconnu reste inconnu. Une route directe évite l’appel au Directeur ; une demande ambiguë nécessite un plan. Un résultat valide est livré sans révision automatique du Directeur.
 

@@ -19,11 +19,12 @@ function click(text: string) {
     const button = [...host.querySelectorAll('button')].find(item => item.textContent === text);
     expect(button).toBeDefined(); act(() => { button?.click(); });
 }
-it('reviews three steps before changing the draft and keeps agent settings', () => {
+it('configures participation in one card without mandatory advanced steps and keeps agent settings', () => {
     click('agent_team.setup');
-    const member = host.querySelector<HTMLElement>('[aria-label="agent_team.member:worker"]');
-    expect(member).not.toBeNull(); act(() => { member?.click(); });
-    click('agent_team.next'); click('agent_team.next');
+    const member = host.querySelector<HTMLSelectElement>('[aria-label="agent_team.participation_for:worker"]');
+    expect(member).not.toBeNull(); act(() => { if (member) { member.value = 'member'; member.dispatchEvent(new Event('change', { bubbles: true })); } });
+    expect(host.querySelector('details')?.open).toBe(false);
+    expect(host.textContent).not.toContain('agent_team.entrypoints');
     expect(host.textContent).toContain('agent_team.review_help');
     expect(apply).not.toHaveBeenCalled();
     click('agent_team.apply');

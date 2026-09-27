@@ -47,7 +47,14 @@ Each AI plugin declares an editable profile and the skills its actions use. Sett
 
 ## Director and specialist team
 
-In **Configure team**, choose the Director, members and their roles. An agent can have several roles. Select which plugin profiles may delegate; their actions remain owned by the plugin. Coordination takes effect when you save settings. Only the coordination skill is added to the Director; existing models, instructions and other skills are preserved.
+In **Organize the team**, choose who coordinates it (the Director). Each assistant appears once, with one **Team participation** selector:
+
+- **Works independently**: handles its tasks with its own model and skills.
+- **Receives team tasks**: the Director can assign work to it.
+- **Asks the team for help**: can ask the Director to bring in the team.
+- **Receives tasks and asks for help**: combines both functions.
+
+The settings icon on the same card opens its model, instructions, sources and skills. Open specialties inside the card under **Team specialties (advanced)**. Task assignments and temporary specialists are optional and start collapsed in an advanced section. Press **Apply team** to save participation; **Cancel** discards those changes. Existing permissions map to the selector without being expanded automatically. Models, instructions and other skills are preserved; only coordination is added to the Director. Plugin assistants’ actions still belong to their plugin.
 
 Direct routes associate known operations with executor lists. The server checks availability, skills, context and limits before comparing estimated assignment cost. Unknown cost remains unknown. Direct routes bypass the Director; ambiguous requests require a plan. Valid results are delivered without automatic Director review.
 
