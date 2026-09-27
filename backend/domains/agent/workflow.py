@@ -5,7 +5,7 @@ from __future__ import annotations
 from backend.services.agent_behavior import resource as behavior_resource
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
@@ -184,10 +184,8 @@ async def create_agent_workflow(
     )
     if profile is None:
         return None, {}
-    from backend.services.agent_team_runtime import build_team_workflow
-    team_workflow = build_team_workflow(profile, operation_mode=operation_mode, original=user_message)
-    if team_workflow is not None:
-        return team_workflow
+    from backend.domains.agent.team_help import optional_team_help
+    team_help = optional_team_help(profile.agent_data, operation_mode=operation_mode)
     model, failure_metadata = await asyncio.to_thread(
         resolve_model,
         profile,
@@ -200,6 +198,11 @@ async def create_agent_workflow(
     )
     if model is None:
         return None, failure_metadata
+    if team_help:
+        from backend.domains.agent.runtime_tools import _model_supports_tools
+        from backend.agent.json_tool_model import JsonToolModel
+        if not _model_supports_tools(model.provider_name, model.model_name, profile.agent_data):
+            model = replace(model, llm=JsonToolModel(model.llm))
     prompts = build_prompts(
         profile,
         model,
@@ -215,9 +218,13 @@ async def create_agent_workflow(
         default_supervisor_prompt=behavior_resource('system/workflow-1.md'),
         preserve_instructions=operation_mode,
     )
+    if team_help:
+        prompts = replace(prompts,
+            combined_persona=prompts.combined_persona + "\n\n" + team_help.instructions,
+            general_prompt=prompts.general_prompt + "\n\n" + team_help.instructions)
     if operation_mode:
         from backend.domains.agent.operation_graph import operation_workflow
-        return operation_workflow(model.llm, prompts.combined_persona, prompts.context_window_tokens), {
+        return operation_workflow(model.llm, prompts.combined_persona, prompts.context_window_tokens, team_help=team_help), {
             "provider": model.provider_name, "model": model.model_name,
             "active_skill_ids": list(prompts.active_runtime_skill_ids),
         }
@@ -229,6 +236,7 @@ async def create_agent_workflow(
         mcp_client=mcp_client,
         active_skill_ids=active_skill_ids,
         dependencies=deps,
+        team_help=team_help,
     )
     from backend.services.agent_execution import snapshot_from_runtime
     from backend.services.agent_execution_scope import _scope

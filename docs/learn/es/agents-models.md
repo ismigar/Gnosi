@@ -47,12 +47,14 @@ Cada plugin de IA tiene un perfil editable en la misma lista que los personales,
 
 ## Principal y participación en el equipo
 
+Todos los bots, también los que participan en el equipo, siguen realizando sus tareas con el modelo, las instrucciones y las habilidades de su ficha. Pedir ayuda es opcional: el agente solo lo elige si necesita otra especialidad o trabajo coordinado. Lo decide antes de ejecutar herramientas; los encargos recibidos no se vuelven a delegar.
+
 El principal forma parte de la misma lista y coordina al equipo cuando hay otros bots que reciben encargos. En la ficha de los demás bots, **Participación en el equipo** permite elegir:
 
-- **Trabaja por su cuenta**: realiza sus tareas con su modelo y habilidades.
-- **Recibe encargos del equipo**: el principal puede asignarle trabajo.
-- **Pide ayuda al equipo**: puede pedir al principal que movilice al equipo.
-- **Recibe encargos y pide ayuda**: combina ambas funciones.
+- **Trabaja por su cuenta**: Realiza sus tareas con su propio modelo y habilidades. No recibe encargos del equipo ni le pide ayuda.
+- **Recibe encargos del equipo**: Sigue realizando sus tareas con su propio modelo. También puede recibir encargos del principal, pero no pide ayuda al equipo.
+- **Pide ayuda al equipo**: Realiza sus tareas con su propio modelo y solo pide ayuda al equipo cuando necesita otra especialidad. No recibe encargos del principal.
+- **Recibe encargos y pide ayuda**: Realiza sus tareas con su propio modelo. También recibe encargos del principal y puede pedir ayuda cuando necesita otra especialidad; no delega automáticamente todo el trabajo.
 
 La rueda de configuración de cada ficha abre el modelo, las instrucciones, las fuentes y las habilidades. Las especialidades se eligen en la misma ficha. Las asignaciones por tarea y los especialistas temporales son opcionales y se abren en el apartado avanzado.
 
@@ -64,7 +66,7 @@ Con el foco en el texto o en un interruptor, las flechas arriba/abajo y las tecl
 
 
 
-Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al principal; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del principal.
+Las asignaciones avanzadas y las rutas directas solo se aplican después de que un agente pida ayuda. Las rutas directas vinculan operaciones conocidas con ejecutores. El servidor comprueba disponibilidad, habilidades, contexto y límites antes de comparar el coste estimado del encargo. Un coste desconocido sigue siendo desconocido. Una ruta directa evita llamar al principal; una petición ambigua requiere un plan. Un resultado válido se entrega sin revisión automática del principal.
 
 Se permiten cuatro encargos, dos especialistas temporales y dos trabajos de lectura simultáneos. Las modificaciones se ejecutan secuencialmente. Las operaciones estructuradas admiten ocho llamadas totales dentro del presupuesto original. La reparación de formato tiene un intento y no repite acciones. Solo el trabajo de lectura se replantea automáticamente; los efectos inciertos requieren revisión.
 

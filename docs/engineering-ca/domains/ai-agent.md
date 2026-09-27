@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/agent/team_help.py
+  - backend/services/agent_team_runtime.py
+  - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -1233,3 +1236,7 @@ Després d’un canvi de plugin es renoven les memòries cau de configuració i 
 ## Nivell de raonament
 
 Els perfils desen `reasoning_effort` opcional. L’editor consulta les opcions exactes d’OpenRouter amb `GET /api/ai/model-reasoning`: les metadades absents no habiliten opcions, null explícit admet els nivells de la passarel·la i el raonament obligatori exclou `none`. La memòria cau és fora del vault i inclou una alternativa verificada de Luna per al primer ús sense connexió. El desament rebutja opcions incompatibles. Les fàbriques del model predeterminat i del flux només propaguen el nivell quan proveïdor i model coincideixen amb el perfil. El raonament explícit d’OpenRouter i el predeterminat de Luna utilitzen Responses sense estat, `store=false`, historial complet i raonament xifrat entre crides d’eines. Els valors predeterminats dels altres models es conserven.
+
+## Ajuda opcional de l’equip
+
+El permís de col·laboració ja no intercepta tots els fluxos. Primer es resol el model del perfil seleccionat, inclòs el nivell de raonament, i després s’ofereix `request_team_help` com a crida de control opcional al xat i a les operacions estructurades. Les eines natives i el transport JSON validat comparteixen contracte. La feina habitual no afegeix cap crida d’encaminament. La delegació ha de ser l’única crida i precedir qualsevol execució d’eines; la reparació de format no pot demanar ajuda. El coordinador conserva l’entrada del torn actual, les configuracions fixades, els permisos de confirmació, la cancel·lació i el límit total de crides. Els executors no poden encadenar ajuda ni retornar l’encàrrec al sol·licitant. El catàleg del pla inclou les especialitats dels membres. La reparació i la represa només usen el tractament d’equip si s’ha desat una petició d’ajuda o un pla; altrament mantenen l’assistent original. La migració no activa permisos d’equip.

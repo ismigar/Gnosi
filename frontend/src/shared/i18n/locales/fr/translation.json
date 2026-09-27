@@ -6878,7 +6878,8 @@
           "reader": "Ouvrez les documents joints dans le lecteur interne avec les ressources PDF incluses dans les versions de bureau.",
           "preservation": "Distinguez les prix et les capacités inconnus des modèles des valeurs confirmées lorsque vous comparez les offres.",
           "model_comparison": "La comparaison préserve les modifications simultanées, distingue les offres exactes et les variantes partageant une offre, et applique les filtres de rôle aux capacités déclarées de l’offre sélectionnée. L’actualisation, le tri, le décompte filtré et la révision des paramètres sont plus cohérents.",
-          "settings_keyboard": "Les touches de navigation font défiler le formulaire depuis le texte et les interrupteurs ; les champs de texte et listes conservent leurs touches d’édition et de sélection."
+          "settings_keyboard": "Les touches de navigation font défiler le formulaire depuis le texte et les interrupteurs ; les champs de texte et listes conservent leurs touches d’édition et de sélection.",
+          "optional_team_help": "L’aide de l’équipe est facultative : chaque assistant conserve son modèle et effectue le travail courant, en déléguant seulement si un soutien est nécessaire, sans chaîne de délégation."
         }
       }
     }
@@ -7646,8 +7647,7 @@
     "assign_operation": "Utiliser ce bot pour cette opération"
   },
   "agent_team": {
-    "help": "La participation indique si un bot travaille seul, reçoit des tâches, demande de l’aide ou combine les deux fonctions. Le principal coordonne les tâches de l’équipe.",
-    "routes_help": "Sélectionnez un ou plusieurs bots pour chaque type de tâche. Sans sélection, le principal la coordonne. Parmi les bots sélectionnés capables de la réaliser, celui au coût estimé le plus faible est choisi ; un coût inconnu ne vaut pas zéro.",
+    "routes_help": "Facultatif : choisissez les bots pouvant recevoir chaque type de tâche lorsqu’une aide est demandée à l’équipe. Sans affectation, le principal planifie sa répartition. Le bot adapté au coût estimé le plus faible est choisi ; un coût inconnu n’est pas considéré comme nul.",
     "temporary": "Autoriser les spécialistes temporaires",
     "allowed_models": "Modèles autorisés",
     "allowed_skills": "Compétences autorisées",
@@ -7756,7 +7756,7 @@
     "completed_execution_only": "Exécution terminée avec résultat ; ne certifie pas tous les critères",
     "acceptance_not_certified": "Les critères particuliers nécessitent une vérification. Les instructions proposées sont génériques et ne copient pas le contenu de la tâche.",
     "add_to_team": "Ajouter aussi cet agent à cette équipe",
-    "director_help": "C’est le principal : il est utilisé par défaut pour les nouvelles conversations et coordonne l’équipe lorsque d’autres bots reçoivent des tâches. Choisissez « Définir comme principal » sur une autre fiche pour le changer.",
+    "director_help": "Cet assistant est le principal, utilisé par défaut dans les nouvelles conversations. Il travaille avec son propre modèle et coordonne l’équipe lorsque de l’aide est nécessaire. Utilisez « Définir comme principal » sur une autre fiche pour le changer.",
     "participation": "Participation à l’équipe",
     "participation_for": "Participation de {{name}} à l’équipe",
     "participation_options": {
@@ -7766,10 +7766,10 @@
       "both": "Reçoit des tâches et demande de l’aide"
     },
     "participation_help": {
-      "independent": "Effectue ses tâches avec son modèle et ses compétences, sans recevoir de tâches ni demander de l’aide à l’équipe.",
-      "member": "Le principal peut lui attribuer du travail.",
-      "requester": "Peut demander à l’assistant principal de coordonner l’équipe pour l’aider.",
-      "both": "Le principal peut lui attribuer du travail et cet assistant peut aussi demander de l’aide à l’équipe."
+      "independent": "Effectue ses tâches avec son propre modèle et ses compétences. Il ne reçoit pas de missions de l’équipe et ne lui demande pas d’aide.",
+      "member": "Continue à effectuer ses tâches avec son propre modèle. Il peut aussi recevoir des missions du principal, mais ne demande pas d’aide à l’équipe.",
+      "requester": "Effectue ses tâches avec son propre modèle et ne demande de l’aide que si une autre spécialité est nécessaire. Il ne reçoit pas de missions du principal.",
+      "both": "Effectue ses tâches avec son propre modèle. Il reçoit aussi des missions du principal et peut demander de l’aide si une autre spécialité est nécessaire ; il ne délègue pas automatiquement tout le travail."
     },
     "unavailable_help": "Cet assistant ou son plugin est désactivé. Réactivez-le avant de l’intégrer à l’équipe.",
     "specialties": "Spécialités au sein de l’équipe (avancé)",

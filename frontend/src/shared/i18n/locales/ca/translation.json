@@ -6878,7 +6878,8 @@
           "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",
           "preservation": "Diferencia els preus i les capacitats desconeguts dels models dels valors confirmats quan compares ofertes.",
           "model_comparison": "La comparativa preserva els canvis simultanis, diferencia les ofertes exactes i les variants que comparteixen oferta, i aplica els filtres de rol a les capacitats declarades de l’oferta seleccionada. També millora l’actualització, l’ordenació, el recompte filtrat i la revisió de paràmetres.",
-          "settings_keyboard": "Les tecles de navegació desplacen el formulari des del text i dels interruptors; els camps de text i desplegables conserven les seves tecles d’edició i selecció."
+          "settings_keyboard": "Les tecles de navegació desplacen el formulari des del text i dels interruptors; els camps de text i desplegables conserven les seves tecles d’edició i selecció.",
+          "optional_team_help": "Demanar ajuda a l’equip és opcional: cada assistent conserva el seu model i fa la feina habitual; només delega quan necessita suport, sense cadenes de delegació."
         }
       }
     }
@@ -7646,8 +7647,7 @@
     "assign_operation": "Utilitza aquest bot per a aquesta operació"
   },
   "agent_team": {
-    "help": "La participació indica si un bot treballa pel seu compte, rep encàrrecs, demana ajuda o combina les dues funcions. El principal coordina els encàrrecs de l’equip.",
-    "routes_help": "Marca un o diversos bots per a cada tipus de tasca. Si no en marques cap, ho coordina el principal. Entre els seleccionats que puguin fer la tasca, es triarà el de menor cost estimat; un cost desconegut no es considera zero.",
+    "routes_help": "Opcional: tria quins bots poden rebre cada tipus de tasca quan es demana ajuda a l’equip. Sense assignació, el principal en planifica la distribució. Es tria un bot adequat amb el menor cost estimat; un cost desconegut no es considera zero.",
     "temporary": "Permet especialistes temporals",
     "allowed_models": "Models autoritzats",
     "allowed_skills": "Habilitats autoritzades",
@@ -7756,7 +7756,7 @@
     "completed_execution_only": "Execució completada amb resultat; no certifica tots els criteris",
     "acceptance_not_certified": "Cal contrastar els criteris particulars. Les instruccions proposades són genèriques i no copien el contingut de la tasca.",
     "add_to_team": "Incorpora també l’agent a aquest equip",
-    "director_help": "És el principal: s’utilitza per defecte en converses noves i coordina l’equip quan hi ha altres bots que reben encàrrecs. Pots canviar-lo amb «Fes-lo principal» en una altra fitxa.",
+    "director_help": "És el principal i s’utilitza per defecte en converses noves. Fa la feina amb el seu model i coordina l’equip quan cal ajuda. Pots canviar-lo amb «Fes-lo principal» en una altra fitxa.",
     "participation": "Participació en l’equip",
     "participation_for": "Participació de {{name}} en l’equip",
     "participation_options": {
@@ -7766,10 +7766,10 @@
       "both": "Rep encàrrecs i demana ajuda"
     },
     "participation_help": {
-      "independent": "Fa les seves tasques amb el seu model i les seves habilitats, sense rebre encàrrecs ni demanar ajuda a l’equip.",
-      "member": "El principal li pot assignar feina.",
-      "requester": "Pot demanar al principal que coordini l’equip per ajudar-lo.",
-      "both": "El principal li pot assignar feina i també pot demanar ajuda a l’equip."
+      "independent": "Fa les seves tasques amb el seu model i les seves habilitats. No rep encàrrecs de l’equip ni li demana ajuda.",
+      "member": "Continua fent les seves tasques amb el seu model. També pot rebre encàrrecs del principal, però no demana ajuda a l’equip.",
+      "requester": "Fa les seves tasques amb el seu model i només demana ajuda a l’equip quan necessita una altra especialitat. No rep encàrrecs del principal.",
+      "both": "Fa les seves tasques amb el seu model. També rep encàrrecs del principal i pot demanar ajuda quan necessita una altra especialitat; no delega automàticament tota la feina."
     },
     "unavailable_help": "Aquest assistent o el seu plugin està desactivat. Reactiva’l abans d’incorporar-lo a l’equip.",
     "specialties": "Especialitats dins l’equip (avançat)",

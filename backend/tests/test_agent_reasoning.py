@@ -97,13 +97,13 @@ def test_workflow_scopes_effort_to_the_assistants_route(monkeypatch, provider, m
     agent = {"provider": "openrouter", "model": LUNA, "reasoning_effort": "medium"}
     profile = setup.ProfileSetup({}, {}, [], agent, "sources", None)
     monkeypatch.setattr(setup, "_select_model_route", lambda *_, **__: (provider, model, {}))
-    factory = Mock(return_value=Mock())
-    dependencies = SimpleNamespace(get_llm=factory, resolve_provider_api_key=lambda *_: "test-key",
+    model_factory = Mock(return_value=Mock())
+    dependencies = SimpleNamespace(get_llm=model_factory, resolve_provider_api_key=lambda *_: "test-key",
                                    provider_fallbacks=lambda *_, **__: [])
     result, _ = setup.resolve_model(profile, llm_mode="agent_default", llm_provider=None,
                                     llm_model=None, user_message="Hi", timeout=10, dependencies=dependencies)
     assert result is not None
-    assert factory.call_args.kwargs.get("reasoning_effort") == expected
+    assert model_factory.call_args.kwargs.get("reasoning_effort") == expected
 
 
 def test_default_llm_reads_each_assistants_saved_effort(monkeypatch):
@@ -113,12 +113,12 @@ def test_default_llm_reads_each_assistants_saved_effort(monkeypatch):
               {"id": "other", "provider": "openrouter", "model": LUNA}]
     monkeypatch.setattr(llm, "load_params", lambda **_: SimpleNamespace(ai={"agents": agents, "providers": {}}))
     monkeypatch.setattr(llm, "resolve_provider_api_key", lambda *_: "test-key")
-    factory = Mock(return_value=SimpleNamespace(model_name=LUNA))
-    monkeypatch.setattr(llm, "get_llm", factory)
+    model_factory = Mock(return_value=SimpleNamespace(model_name=LUNA))
+    monkeypatch.setattr(llm, "get_llm", model_factory)
     llm.get_default_llm_with_meta(agent_id="sources")
-    assert factory.call_args.kwargs["reasoning_effort"] == "medium"
+    assert model_factory.call_args.kwargs["reasoning_effort"] == "medium"
     llm.get_default_llm_with_meta(agent_id="other")
-    assert "reasoning_effort" not in factory.call_args.kwargs
+    assert "reasoning_effort" not in model_factory.call_args.kwargs
 
 
 def test_openrouter_wire_payload_preserves_effort_and_tool_reasoning(monkeypatch):
@@ -142,7 +142,7 @@ def test_openrouter_wire_payload_preserves_effort_and_tool_reasoning(monkeypatch
             "usage": {"input_tokens": 5, "output_tokens": 2, "total_tokens": 7}})
 
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
-        # Exercise the production factory while replacing only HTTP transport.
+        # Exercise the production model_factory while replacing only HTTP transport.
         monkeypatch.setattr("langchain_openai.ChatOpenAI", lambda **kwargs: ChatOpenAI(http_client=client, **kwargs))
         llm = get_llm("openrouter", LUNA, api_key="test-key", timeout=10, reasoning_effort="medium")
         assert llm is not None

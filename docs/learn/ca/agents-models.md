@@ -47,12 +47,14 @@ Cada plugin d’IA té un perfil editable a la mateixa llista que els perfils pe
 
 ## Principal i participació en l’equip
 
+Tots els bots, també els que participen en l’equip, continuen fent les seves tasques amb el model, les instruccions i les habilitats de la seva fitxa. Demanar ajuda és una capacitat opcional: l’agent només la tria si necessita una altra especialitat o treball coordinat. Ho decideix abans d’executar eines; els encàrrecs rebuts no es tornen a delegar.
+
 El principal forma part de la mateixa llista i coordina l’equip quan hi ha bots que reben encàrrecs. A la fitxa de cadascun dels altres bots, **Participació en l’equip** permet triar:
 
-- **Treballa pel seu compte**: fa les seves tasques amb el seu model i habilitats.
-- **Rep encàrrecs de l’equip**: el principal li pot assignar feina.
-- **Demana ajuda a l’equip**: pot demanar al principal que mobilitzi l’equip.
-- **Rep encàrrecs i demana ajuda**: combina les dues funcions.
+- **Treballa pel seu compte**: Fa les seves tasques amb el seu model i les seves habilitats. No rep encàrrecs de l’equip ni li demana ajuda.
+- **Rep encàrrecs de l’equip**: Continua fent les seves tasques amb el seu model. També pot rebre encàrrecs del principal, però no demana ajuda a l’equip.
+- **Demana ajuda a l’equip**: Fa les seves tasques amb el seu model i només demana ajuda a l’equip quan necessita una altra especialitat. No rep encàrrecs del principal.
+- **Rep encàrrecs i demana ajuda**: Fa les seves tasques amb el seu model. També rep encàrrecs del principal i pot demanar ajuda quan necessita una altra especialitat; no delega automàticament tota la feina.
 
 La roda de configuració de cada fitxa obre el model, les instruccions, les fonts i les habilitats. Les especialitats es trien dins la mateixa fitxa. Les assignacions per tasca i els especialistes temporals són opcionals i s’obren a l’apartat avançat.
 
@@ -64,7 +66,7 @@ Amb el focus en el text o en un interruptor, les fletxes amunt/avall i les tecle
 
 
 
-Les rutes directes associen operacions conegudes a una llista d’executors. El servidor comprova disponibilitat, habilitats, context i límits abans de comparar el cost estimat de l’encàrrec. El cost desconegut es tracta com a desconegut. Una ruta directa evita la crida al principal; una petició ambigua requereix un pla. Un resultat vàlid es lliura sense una revisió automàtica del principal.
+Les assignacions avançades i les rutes directes només s’apliquen després que un agent demani ajuda. Les rutes directes associen operacions conegudes a una llista d’executors. El servidor comprova disponibilitat, habilitats, context i límits abans de comparar el cost estimat de l’encàrrec. El cost desconegut es tracta com a desconegut. Una ruta directa evita la crida al principal; una petició ambigua requereix un pla. Un resultat vàlid es lliura sense una revisió automàtica del principal.
 
 El pla té un màxim de quatre encàrrecs, dos especialistes temporals i dos encàrrecs de lectura simultanis. Les accions amb modificacions són seqüencials. Les operacions estructurades tenen vuit crides totals com a màxim, dins del pressupost del treball original. La reparació de format té un únic intent i no repeteix les accions. Només es replanteja automàticament treball de lectura; els efectes incerts requereixen revisió.
 

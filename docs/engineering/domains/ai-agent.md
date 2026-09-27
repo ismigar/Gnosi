@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/agent/team_help.py
+  - backend/services/agent_team_runtime.py
+  - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -1127,3 +1130,7 @@ Plugin suspension remains authoritative on the server and blocks execution. A su
 ## Reasoning effort
 
 Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRouter model choices through `GET /api/ai/model-reasoning`; absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls. Other model defaults are unchanged.
+
+## Optional team help
+
+Team permission no longer intercepts every workflow. The factory resolves the selected profile’s own model first, including its reasoning setting, then offers `request_team_help` as an optional control call in chat and structured operations. Native function calling and validated JSON transport use the same contract. Ordinary work adds no routing call. A handoff must be the only tool call and must precede tool execution; format repair cannot request help. The bounded coordinator reuses the current turn input, snapshots, confirmation grants, cancellation and total-call limits. Executors cannot request nested help or route an assignment back to its requester. Member specialties are included in the planning catalog. Repair and resumption enter team handling only when a saved handoff or plan exists; otherwise they retain the original assistant. No team permissions are enabled by migration.

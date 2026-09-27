@@ -42,6 +42,7 @@ from backend.domains.agent.runtime_tools import (
     _tool_schema_chars,
 )
 from backend.domains.agent.workflow_nodes import AgentWorkflowNodes
+from backend.domains.agent.team_help import HELP_TOOL, TeamHelp
 from backend.services.agent_model_evaluations import quality_scores
 from backend.services.agent_model_strategy import choose_agent_model
 from backend.services.agent_model_strategy import normalize_model_strategy
@@ -646,6 +647,7 @@ def build_tool_workflow(
     mcp_client: Any,
     active_skill_ids: Iterable[str] | None,
     dependencies: Any,
+    team_help: TeamHelp | None = None,
 ) -> ToolSetup:
     """Prepare tool policy, bind specialists and build the uncompiled graph."""
     safe_mcp = _safe_mcp_definitions(
@@ -657,9 +659,10 @@ def build_tool_workflow(
     supports_tools = _model_supports_tools(
         model.provider_name, model.model_name, profile.agent_data
     )
-    if not supports_tools and profile.agent_data.get("behavior_migration"):
+    if not supports_tools and profile.agent_data.get("behavior_migration") and not isinstance(model.llm, JsonToolModel):
         model = replace(model, llm=JsonToolModel(model.llm))
         supports_tools = True
+    supports_tools = supports_tools or isinstance(model.llm, JsonToolModel)
     runtime_tools, metadata, guarded_names = _runtime_tools_and_metadata(profile.resolved_runtime)
     policies = {item["name"]: dict(item) for item in metadata}
     if prompts.legacy_bundle_active:
@@ -693,7 +696,8 @@ def build_tool_workflow(
         if supports_tools and prompts.legacy_bundle_active
         else []
     )
-    coder_llm = model.llm.bind_tools(coder_tools) if coder_tools else model.llm
+    coder_model_tools = [*coder_tools, HELP_TOOL] if team_help else coder_tools
+    coder_llm = model.llm.bind_tools(coder_model_tools) if coder_model_tools else model.llm
     context_tool_names = {_tool_name(item) for item in context_tools}
     forced_context_llms = (
         {
@@ -747,6 +751,7 @@ def build_tool_workflow(
         runtime_tools=runtime_tools,
         supervisor_prompt=prompts.supervisor_prompt,
         tool_policies=policies,
+        team_help=team_help,
     ).build_graph()
     return ToolSetup(
         workflow=workflow,

@@ -123,6 +123,7 @@
       "backend/api/tools_routes.py",
       "backend/services/ai*.py",
       "backend/services/model_reasoning.py",
+      "backend/domains/agent/team_help.py",
       "frontend/src/features/agent/**/*",
       "frontend/src/features/agent-context/**/*",
       "frontend/src/features/settings/AI/**/*",

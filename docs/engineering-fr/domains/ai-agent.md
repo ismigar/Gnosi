@@ -2,6 +2,9 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/domains/agent/team_help.py
+  - backend/services/agent_team_runtime.py
+  - backend/tests/test_agent_team.py
   - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
@@ -1322,3 +1325,7 @@ Après un changement de plugin, les caches de configuration sont invalidés et l
 ## Niveau de raisonnement
 
 Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les choix exacts d’OpenRouter via `GET /api/ai/model-reasoning` : des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.
+
+## Aide facultative de l’équipe
+
+La permission de collaboration n’intercepte plus tous les flux. Le modèle du profil sélectionné, y compris son niveau de raisonnement, est résolu en premier ; `request_team_help` devient ensuite un appel de contrôle facultatif dans le chat et les opérations structurées. Les outils natifs et le transport JSON validé partagent le même contrat. Le travail courant n’ajoute aucun appel de routage. La délégation doit être le seul appel et précéder toute exécution d’outil ; la correction de format ne peut pas demander d’aide. Le coordinateur conserve la demande du tour actuel, les configurations figées, les confirmations, l’annulation et le plafond global d’appels. Les exécutants ne peuvent pas enchaîner les délégations ni renvoyer la tâche au demandeur. Le catalogue du plan comprend les spécialités des membres. La correction et la reprise utilisent l’équipe seulement si une demande d’aide ou un plan est enregistré ; sinon elles conservent l’assistant initial. La migration n’active aucune permission d’équipe.

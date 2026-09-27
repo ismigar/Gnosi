@@ -26,6 +26,7 @@ _2026-09-27 · Release candidate_
 - Distinguish unknown model prices and capabilities from confirmed values when comparing offers.
 - Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.
 - Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.
+- Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.
 
 ## Gnosi 3.1.0
 

@@ -13,7 +13,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 445 | 114 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 130 | 52 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 259 | 94 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 260 | 94 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 98 | 49 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 82 | 33 | 0 |
@@ -62,7 +62,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 ## AI agents, models, tools, and skills
 
 - Guia: [`AI agents, models, tools, and skills`](../domains/ai-agent.md)
-- Patrons de fonts: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `backend/services/model_reasoning.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
+- Patrons de fonts: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `backend/services/model_reasoning.py`, `backend/domains/agent/team_help.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
 - Patrons de proves: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`, `frontend/src/features/agent/**/*.test.*`, `frontend/src/features/agent-context/**/*.test.*`, `frontend/src/features/settings/AI/**/*.test.*`, `frontend/src/features/settings/AI*.test.*`, `frontend/src/features/settings/*Comparison*.test.*`
 - Directives: none found
 

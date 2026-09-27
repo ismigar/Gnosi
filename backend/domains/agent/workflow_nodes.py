@@ -53,6 +53,7 @@ from backend.domains.agent.runtime_tools import (
     _turn_model_tools,
 )
 from backend.services.agent_cancellation import AgentTurnCancelled
+from backend.domains.agent.team_help import HELP_NAME, HELP_TOOL, TeamHelp, requested_help, can_request_help
 
 SYNTHESIS_CONTEXT_TOOLS = {
     "inventory_context",
@@ -137,6 +138,7 @@ class AgentWorkflowNodes:
     runtime_tools: Any
     supervisor_prompt: Any
     tool_policies: Any
+    team_help: TeamHelp | None = None
 
     @staticmethod
     def _latest_user(messages: Any) -> str:
@@ -199,8 +201,11 @@ class AgentWorkflowNodes:
             else ""
         )
         try:
+            coder_model = self.coder_llm
+            if self.team_help and not can_request_help(state):
+                coder_model = self.llm.bind_tools(self.coder_tools) if self.coder_tools else self.llm
             response = _invoke_agent_model(
-                self.coder_llm,
+                coder_model,
                 [SystemMessage(content=coder_system)]
                 + _bounded_model_messages(messages, self.message_budget_chars),
                 state,
@@ -221,7 +226,7 @@ class AgentWorkflowNodes:
         messages = state["messages"]
         try:
             response = _invoke_agent_model(
-                self.llm,
+                self.llm.bind_tools([HELP_TOOL]) if self.team_help else self.llm,
                 [SystemMessage(content=self.general_prompt)]
                 + _bounded_model_messages(messages, self.message_budget_chars),
                 state,
@@ -341,7 +346,8 @@ class AgentWorkflowNodes:
             and not _vault_context_is_relevant(latest_user)
         ):
             tools = [tool for tool in tools if _tool_name(tool) not in self.context_tool_names]
-        selected_llm = self.llm.bind_tools(tools) if tools else self.llm
+        model_tools = [*tools, HELP_TOOL] if self.team_help and can_request_help(state) else tools
+        selected_llm = self.llm.bind_tools(model_tools) if model_tools else self.llm
         return BrainTurn(
             state=state,
             messages=messages,
@@ -350,8 +356,8 @@ class AgentWorkflowNodes:
             authorized_names=authorized_names,
             context_route=route,
             turn_plan=turn_plan,
-            tools=tools,
-            bound_tool_names={_tool_name(item) for item in tools},
+            tools=model_tools,
+            bound_tool_names={_tool_name(item) for item in tools} | ({HELP_NAME} if len(model_tools) > len(tools) else set()),
             selected_llm=selected_llm,
         )
 
@@ -688,6 +694,9 @@ class AgentWorkflowNodes:
         workflow.add_node("coder", self.coder_node)
         workflow.add_node("brain", self.brain_node)
         workflow.add_node("general", self.general_node)
+        if self.team_help:
+            workflow.add_node("team_help", self.team_help.execute)
+            workflow.add_edge("team_help", END)
         workflow.add_node("coder_tools", ToolNode(self.coder_tools))
         workflow.add_node(
             "brain_tools",
@@ -704,19 +713,19 @@ class AgentWorkflowNodes:
         )
         workflow.add_conditional_edges(
             "coder",
-            self.coder_router,
-            {"coder_tools": "coder_tools", "END": END},
+            lambda state: "team_help" if self.team_help and requested_help(state) else self.coder_router(state),
+            {"coder_tools": "coder_tools", "END": END, **({"team_help": "team_help"} if self.team_help else {})},
         )
         workflow.add_edge("coder_tools", "coder")
         workflow.add_conditional_edges(
             "brain",
-            self.brain_router,
-            {"brain_tools": "brain_tools", "END": END},
+            lambda state: "team_help" if self.team_help and requested_help(state) else self.brain_router(state),
+            {"brain_tools": "brain_tools", "END": END, **({"team_help": "team_help"} if self.team_help else {})},
         )
         workflow.add_conditional_edges(
             "brain_tools",
             self.brain_tools_router,
             {"brain": "brain", "END": END},
         )
-        workflow.add_edge("general", END)
+        workflow.add_conditional_edges("general", lambda state: "team_help" if self.team_help and requested_help(state) else END)
         return workflow

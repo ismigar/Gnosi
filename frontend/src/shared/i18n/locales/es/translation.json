@@ -6878,7 +6878,8 @@
           "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",
           "preservation": "Distingue los precios y las capacidades desconocidos de los modelos de los valores confirmados al comparar ofertas.",
           "model_comparison": "La comparativa preserva los cambios simultáneos, diferencia las ofertas exactas y las variantes que comparten oferta, y aplica los filtros de rol a las capacidades declaradas de la oferta seleccionada. También mejora la actualización, la ordenación, el recuento filtrado y la revisión de parámetros.",
-          "settings_keyboard": "Las teclas de navegación desplazan el formulario desde el texto y los interruptores; los campos de texto y selectores conservan sus teclas de edición y selección."
+          "settings_keyboard": "Las teclas de navegación desplazan el formulario desde el texto y los interruptores; los campos de texto y selectores conservan sus teclas de edición y selección.",
+          "optional_team_help": "Pedir ayuda al equipo es opcional: cada asistente conserva su modelo y realiza el trabajo habitual; solo delega cuando necesita apoyo, sin cadenas de delegación."
         }
       }
     }
@@ -7646,8 +7647,7 @@
     "assign_operation": "Usar este bot para esta operación"
   },
   "agent_team": {
-    "help": "La participación indica si un bot trabaja por su cuenta, recibe encargos, pide ayuda o combina ambas funciones. El principal coordina los encargos del equipo.",
-    "routes_help": "Marca uno o varios bots para cada tipo de tarea. Si no marcas ninguno, lo coordina el principal. Entre los seleccionados que puedan realizar la tarea, se elige el de menor coste estimado; un coste desconocido no se considera cero.",
+    "routes_help": "Opcional: elige qué bots pueden recibir cada tipo de tarea cuando se pide ayuda al equipo. Sin asignación, el principal planifica su distribución. Se elige un bot adecuado con el menor coste estimado; un coste desconocido no se considera cero.",
     "temporary": "Permite especialistas temporales",
     "allowed_models": "Modelos autorizados",
     "allowed_skills": "Habilidades autorizadas",
@@ -7756,7 +7756,7 @@
     "completed_execution_only": "Ejecución completada con resultado; no certifica todos los criterios",
     "acceptance_not_certified": "Hay que contrastar los criterios particulares. Las instrucciones propuestas son genéricas y no copian contenido de la tarea.",
     "add_to_team": "Incorporar también el agente a este equipo",
-    "director_help": "Es el principal: se usa por defecto en conversaciones nuevas y coordina el equipo cuando otros bots reciben encargos. Puedes cambiarlo con «Hacer principal» en otra ficha.",
+    "director_help": "Es el asistente principal y se utiliza por defecto en conversaciones nuevas. Trabaja con su propio modelo y coordina el equipo cuando hace falta ayuda. Puedes cambiarlo con «Hacer principal» en otra ficha.",
     "participation": "Participación en el equipo",
     "participation_for": "Participación de {{name}} en el equipo",
     "participation_options": {
@@ -7766,10 +7766,10 @@
       "both": "Recibe encargos y pide ayuda"
     },
     "participation_help": {
-      "independent": "Realiza sus tareas con su modelo y habilidades, sin recibir encargos ni pedir ayuda al equipo.",
-      "member": "El principal puede asignarle trabajo.",
-      "requester": "Puede pedir al principal que coordine al equipo para ayudarlo.",
-      "both": "El principal puede asignarle trabajo y también puede pedir ayuda al equipo."
+      "independent": "Realiza sus tareas con su propio modelo y habilidades. No recibe encargos del equipo ni le pide ayuda.",
+      "member": "Sigue realizando sus tareas con su propio modelo. También puede recibir encargos del principal, pero no pide ayuda al equipo.",
+      "requester": "Realiza sus tareas con su propio modelo y solo pide ayuda al equipo cuando necesita otra especialidad. No recibe encargos del principal.",
+      "both": "Realiza sus tareas con su propio modelo. También recibe encargos del principal y puede pedir ayuda cuando necesita otra especialidad; no delega automáticamente todo el trabajo."
     },
     "unavailable_help": "Este asistente o su plugin está desactivado. Reactívalo antes de incorporarlo al equipo.",
     "specialties": "Especialidades dentro del equipo (avanzado)",

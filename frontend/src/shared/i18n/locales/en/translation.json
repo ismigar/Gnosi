@@ -6824,7 +6824,8 @@
           "reader": "Open attached documents in the internal reader with the PDF resources included in desktop builds.",
           "preservation": "Distinguish unknown model prices and capabilities from confirmed values when comparing offers.",
           "model_comparison": "Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.",
-          "settings_keyboard": "Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls."
+          "settings_keyboard": "Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.",
+          "optional_team_help": "Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation."
         }
       }
     }
@@ -7590,8 +7591,7 @@
     "assign_operation": "Use this bot for this operation"
   },
   "agent_team": {
-    "help": "Participation determines whether a bot works independently, receives tasks, asks for help or combines both functions. The principal coordinates team tasks.",
-    "routes_help": "Select one or more bots for each task type. With none selected, the principal coordinates it. Among selected bots that can do the task, the one with the lowest estimated cost is chosen; unknown cost is not zero.",
+    "routes_help": "Optional: choose which bots can receive each task type when team help is requested. Without an assignment, the primary plans its distribution. The suitable bot with the lowest estimated cost is selected; unknown cost is not treated as zero.",
     "temporary": "Allow temporary specialists",
     "allowed_models": "Allowed models",
     "allowed_skills": "Allowed skills",
@@ -7700,7 +7700,7 @@
     "completed_execution_only": "Execution completed with a result; does not certify every criterion",
     "acceptance_not_certified": "Specific acceptance criteria need review. Proposed instructions are generic and do not copy task content.",
     "add_to_team": "Also add the agent to this team",
-    "director_help": "This is the principal: the default for new conversations and the team coordinator when other bots receive tasks. Choose “Make principal” on another card to change it.",
+    "director_help": "This is the primary assistant, used by default in new conversations. It works with its own model and coordinates the team when help is needed. Use “Make primary” on another card to change it.",
     "participation": "Team participation",
     "participation_for": "Team participation for {{name}}",
     "participation_options": {
@@ -7710,10 +7710,10 @@
       "both": "Receives tasks and asks for help"
     },
     "participation_help": {
-      "independent": "Handles its tasks with its own model and skills, without receiving team tasks or asking the team for help.",
-      "member": "The principal can assign work to this assistant.",
-      "requester": "Can ask the primary assistant to coordinate the team to help it.",
-      "both": "The principal can assign work to this assistant, which can also ask the team for help."
+      "independent": "Handles its tasks with its own model and skills. It neither receives team tasks nor asks the team for help.",
+      "member": "Keeps handling its tasks with its own model. It can also receive assignments from the primary assistant, but does not ask the team for help.",
+      "requester": "Handles its tasks with its own model and asks the team for help only when another specialty is needed. It does not receive assignments from the primary assistant.",
+      "both": "Handles its tasks with its own model. It also receives assignments and can ask for help when another specialty is needed; it does not automatically delegate all work."
     },
     "unavailable_help": "This assistant or its plugin is disabled. Enable it before adding it to the team.",
     "specialties": "Team specialties (advanced)",

@@ -47,12 +47,14 @@ Each AI plugin has an editable profile in the same list as personal profiles, la
 
 ## Primary assistant and team participation
 
+Every bot, including team participants, keeps handling its tasks with its own model, instructions and skills. Asking for help is optional: the assistant chooses it only when another specialty or coordinated work is needed. It decides before executing tools; received assignments cannot be delegated again.
+
 The primary assistant belongs to the same list and coordinates the team when other bots receive tasks. On every other bot’s card, **Team participation** offers:
 
-- **Works independently**: handles its tasks with its own model and skills.
-- **Receives team tasks**: the primary assistant can assign work to it.
-- **Asks the team for help**: can ask the primary assistant to bring in the team.
-- **Receives tasks and asks for help**: combines both functions.
+- **Works independently**: Handles its tasks with its own model and skills. It neither receives team tasks nor asks the team for help.
+- **Receives team tasks**: Keeps handling its tasks with its own model. It can also receive assignments from the primary assistant, but does not ask the team for help.
+- **Asks the team for help**: Handles its tasks with its own model and asks the team for help only when another specialty is needed. It does not receive assignments from the primary assistant.
+- **Receives tasks and asks for help**: Handles its tasks with its own model. It also receives assignments and can ask for help when another specialty is needed; it does not automatically delegate all work.
 
 The settings icon on each card opens its model, instructions, sources and skills. Specialties are selected inside the same card. Task assignments and temporary specialists are optional, in a collapsed advanced section.
 
@@ -64,7 +66,7 @@ With focus on reading text or a switch, Up/Down and page keys scroll the form. T
 
 
 
-Direct routes associate known operations with executor lists. The server checks availability, skills, context and limits before comparing estimated assignment cost. Unknown cost remains unknown. Direct routes bypass the primary assistant; ambiguous requests require a plan. Valid results are delivered without automatic Director review.
+Advanced assignments and direct routes apply only after an assistant requests help. Direct routes associate known operations with executor lists. The server checks availability, skills, context and limits before comparing estimated assignment cost. Unknown cost remains unknown. Direct routes bypass the primary assistant; ambiguous requests require a plan. Valid results are delivered without automatic Director review.
 
 Limits are four assignments, two temporary specialists and two simultaneous reading tasks. Modifications run sequentially. Structured operations allow eight total calls within the original budget. Format repair gets one attempt and never repeats actions. Automatic replanning is limited to reading work; uncertain effects require review.
 

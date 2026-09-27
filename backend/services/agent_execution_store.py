@@ -41,7 +41,7 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
     resumable = (request.get("mode") is None and not request.get("resume_requires_parent")) or (request.get("mode") == "job" and request.get("operation") in {"reader.analysis", "notebook.analysis", "podcast"})
     if request.get("operation") == "podcast" and not snapshot.get("behavior_resources"):
         resumable = False
-    run = run.model_copy(update={"resumable": resumable or bool(snapshot.get("profile", {}).get("team", {}).get("enabled"))})
+    run = run.model_copy(update={"resumable": resumable})
     with connect() as db:
         encoded_snapshot = json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
         digest = hashlib.sha256(encoded_snapshot.encode()).hexdigest()

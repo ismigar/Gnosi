@@ -231,6 +231,7 @@ DATA_FILES = (
     "backend/agent/behavior/skills/plugin.llm-wiki.propose-connections/SKILL.md",
     "backend/agent/behavior/skills/plugin.llm-wiki.query/SKILL.md",
     "backend/agent/behavior/system/data-boundary.md",
+    "backend/agent/behavior/system/team-help.md",
     "backend/agent/behavior/system/json-tools.md",
     "backend/agent/behavior/system/repair.md",
 

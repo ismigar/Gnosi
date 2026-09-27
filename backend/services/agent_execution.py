@@ -361,9 +361,10 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             text = ""
             inputs = {"messages": messages, "cancel_token": cancel_token, "trace_id": run_id,
                       "active_skill_ids": snapshot.skill_ids, "current_user_role": snapshot.scope.role,
-                      "turn_authorized_tool_names": []}
+                      "turn_authorized_tool_names": [], "team_help_allowed": attempt == 0}
             async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                if team_enabled and attempt:
+                from backend.services import agent_team_store as team_artifacts
+                if attempt and team_artifacts.list_artifacts(snapshot.scope, "plan", run_id):
                     from backend.services.agent_team_runtime import repair_output
                     text = await repair_output(run_id, snapshot.scope, previous_text, str(messages[-1].content), request)
                 else:
@@ -459,7 +460,8 @@ async def resume_run(run_id: str) -> AgentRun:
     scope = current_scope()
     revalidate_scope(scope)
     request_data, snapshot_data = store.resume_data(scope, run_id)
-    if snapshot_data.get("profile", {}).get("team", {}).get("enabled"):
+    from backend.services import agent_team_store as team_artifacts
+    if team_artifacts.list_artifacts(scope, "help", run_id) or team_artifacts.list_artifacts(scope, "plan", run_id):
         from backend.services.agent_team_resume import resume_team
         return await resume_team(run_id, request_data, AgentExecutionSnapshot.model_validate(snapshot_data))
     if request_data.get("mode") == "job":
@@ -483,7 +485,7 @@ async def resume_run(run_id: str) -> AgentRun:
             store.update(scope, run_id, status="failed", error=str(error))
             raise
         return store.read(scope, run_id)
-    request = AgentOperation.model_validate(request_data)
+    request = AgentOperation.model_validate({key: value for key, value in request_data.items() if key not in {"max_calls", "checkpoint_key"}})
     snapshot = AgentExecutionSnapshot.model_validate(snapshot_data)
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")

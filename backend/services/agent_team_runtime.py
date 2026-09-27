@@ -98,6 +98,7 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
 
 
 def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *, preferred: str = "", tools: bool = False) -> tuple[dict[str, Any] | None, str, float | None]:
+    ids = [identifier for identifier in ids if identifier != owner["id"]]
     from backend.agent.model_router import load_registry
     from backend.domains.agent.llm import _provider_is_available
     from backend.agent.model_router import UsageStore, budget_status
@@ -342,9 +343,10 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             skill_ids=required, read_only=operation_mode or bool(chat_operation(original)))], result_task="direct")
     else:
         record("team.route", {"mode": "director", "reason": reason})
-        member_ids = {m.agent_id for m in team.members}
+        member_ids = {m.agent_id for m in team.members if m.agent_id != owner["id"]}
         members = [p for p in _config().get("agents", []) if p.get("id") in member_ids and p.get("enabled", True) and not p.get("plugin_suspended")]
-        catalog = [{"id": p["id"], "name": p.get("name"), "skills": p.get("skill_ids", []), "provider": p.get("provider"), "model": p.get("model")} for p in members]
+        roles = {m.agent_id: m.roles for m in team.members}
+        catalog = [{"id": p["id"], "name": p.get("name"), "roles": roles[p["id"]], "skills": p.get("skill_ids", []), "provider": p.get("provider"), "model": p.get("model")} for p in members]
         plan_data = {"request": original, "members": catalog, "temporary_policy": team.temporary.model_dump(),
             "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}]}
         raw = await _phase(owner, root_id, scope, json.dumps(plan_data, ensure_ascii=False), TeamPlan.model_json_schema(), "team.plan")

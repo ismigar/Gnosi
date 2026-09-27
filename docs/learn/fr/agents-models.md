@@ -47,12 +47,14 @@ Chaque plugin d’IA possède un profil modifiable dans la même liste que les p
 
 ## Assistant principal et participation à l’équipe
 
+Tous les bots, y compris les membres de l’équipe, continuent à effectuer leurs tâches avec leur propre modèle, leurs instructions et leurs compétences. Demander de l’aide est facultatif : l’assistant le choisit seulement si une autre spécialité ou un travail coordonné est nécessaire. Il décide avant d’exécuter des outils ; les missions reçues ne peuvent pas être déléguées à nouveau.
+
 L’assistant principal appartient à la même liste et coordonne l’équipe lorsque d’autres bots reçoivent des tâches. Sur la fiche de chaque autre bot, **Participation à l’équipe** propose :
 
-- **Travaille de façon autonome** : effectue ses tâches avec son modèle et ses compétences.
-- **Reçoit des tâches de l’équipe** : l’assistant principal peut lui attribuer du travail.
-- **Demande de l’aide à l’équipe** : peut demander à l’assistant principal de mobiliser l’équipe.
-- **Reçoit des tâches et demande de l’aide** : combine les deux fonctions.
+- **Travaille de façon autonome** : Effectue ses tâches avec son propre modèle et ses compétences. Il ne reçoit pas de missions de l’équipe et ne lui demande pas d’aide.
+- **Reçoit des tâches de l’équipe** : Continue à effectuer ses tâches avec son propre modèle. Il peut aussi recevoir des missions du principal, mais ne demande pas d’aide à l’équipe.
+- **Demande de l’aide à l’équipe** : Effectue ses tâches avec son propre modèle et ne demande de l’aide que si une autre spécialité est nécessaire. Il ne reçoit pas de missions du principal.
+- **Reçoit des tâches et demande de l’aide** : Effectue ses tâches avec son propre modèle. Il reçoit aussi des missions du principal et peut demander de l’aide si une autre spécialité est nécessaire ; il ne délègue pas automatiquement tout le travail.
 
 L’icône de configuration de chaque fiche ouvre le modèle, les instructions, les sources et les compétences. Les spécialités se choisissent dans la même fiche. Les attributions par tâche et les spécialistes temporaires sont facultatifs, dans une section avancée repliée.
 
@@ -64,7 +66,7 @@ Lorsque le texte ou un interrupteur a le focus, les flèches haut/bas et les tou
 
 
 
-Les routes directes associent des opérations connues à des listes d’exécutants. Le serveur vérifie disponibilité, compétences, contexte et limites avant de comparer le coût estimé de la mission. Un coût inconnu reste inconnu. Une route directe évite l’appel à l’assistant principal ; une demande ambiguë nécessite un plan. Un résultat valide est livré sans révision automatique de l’assistant principal.
+Les attributions avancées et les routes directes ne s’appliquent qu’après une demande d’aide. Les routes directes associent des opérations connues à des listes d’exécutants. Le serveur vérifie disponibilité, compétences, contexte et limites avant de comparer le coût estimé de la mission. Un coût inconnu reste inconnu. Une route directe évite l’appel à l’assistant principal ; une demande ambiguë nécessite un plan. Un résultat valide est livré sans révision automatique de l’assistant principal.
 
 Les limites sont quatre missions, deux spécialistes temporaires et deux tâches de lecture simultanées. Les modifications s’exécutent successivement. Les opérations structurées disposent de huit appels au total dans le budget initial. Une seule correction de format est permise, sans répétition des actions. Seul le travail de lecture peut être replanifié automatiquement ; les effets incertains exigent une vérification.
 
