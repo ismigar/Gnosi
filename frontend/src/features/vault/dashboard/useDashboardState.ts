@@ -8,7 +8,6 @@ import { usePlugins } from '../../../shared/plugins/usePlugins';
 import { useViewSearch } from '../../../shared/records/hooks/useViewSearch';
 import type { Page, Tab, RecordReturnFocus, View, PromptState, WikiConfig, ResourceJobs, ResourceTarget, ViewMode, Registry, ViewDraft, HistoryEntry, HistoryOperation, PageResponse } from './types';
 import type { ViewUsage } from '../../../shared/api/vault-views';
-import type { ResourceProcessingJob } from '../../../shared/api/resource-processing';
 import { readStorage } from '../../../shared/platform/browser-storage';
 import { EDIT_LOCKS } from './storage';
 export function useDashboardState() {
@@ -39,7 +38,6 @@ export function useDashboardState() {
     const [llmWikiConfig, setLlmWikiConfig] = useState<WikiConfig | null>(null);
     const [llmWikiJobs, setLlmWikiJobs] = useState<ResourceJobs>({});
     const [resourceToProcess, setResourceToProcess] = useState<ResourceTarget | null>(null);
-    const [backgroundLlmWikiJobs, setBackgroundLlmWikiJobs] = useState<Record<string, ResourceProcessingJob>>({});
     const [viewMode, setViewMode] = useState<ViewMode>('editor');
     const [schema, setSchema] = useState<Record<string, unknown>>({});
     const [views, setViews] = useState<View[]>([]);
@@ -110,7 +108,6 @@ export function useDashboardState() {
         activeViewId,
         activeViewIdRef,
         aliasIndex,
-        backgroundLlmWikiJobs,
         brainTableId,
         closePromptModalRef,
         codeViewByTabId,
@@ -170,7 +167,6 @@ export function useDashboardState() {
         setActiveTableId,
         setActiveViewId,
         setAliasIndex,
-        setBackgroundLlmWikiJobs,
         setBrainTableId,
         setCodeViewByTabId,
         setCommentsOpen,

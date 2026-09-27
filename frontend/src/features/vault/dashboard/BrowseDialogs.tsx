@@ -33,7 +33,6 @@ export function BrowseDialogs(dashboard: DashboardController) {
     refreshTableAfterTranslate,
     registry,
     resourceToProcess,
-    setBackgroundLlmWikiJobs,
     setCreateSourceTableId,
     setIsGlobalSearchOpen,
     setIsPresentOpen,
@@ -134,14 +133,6 @@ export function BrowseDialogs(dashboard: DashboardController) {
         }));
       }}
       {...{ onProcessed: fetchPages }}
-      onContinueInBackground={(job) => {
-        if (typeof job.job_id !== 'string' || !job.job_id) return;
-        const jobId = job.job_id;
-        setBackgroundLlmWikiJobs((current) => ({
-          ...current,
-          [jobId]: job,
-        }));
-      }}
     />)}
 
 
