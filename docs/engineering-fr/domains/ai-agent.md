@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1336,3 +1338,9 @@ Les métadonnées de raisonnement en lecture seule se trouvent dans `backend/dom
 ## Progression des ressources en arrière-plan
 
 Fermer la boîte de dialogue laisse une carte compacte et non modale dans le coin inférieur droit. Elle affiche le titre, la phase, les fragments et la progression disponible, et permet de rouvrir les détails sans lancer une autre tâche. Le magasin global conserve les démarrages en attente et les requêtes de suivi sans chevauchement, depuis une ligne de tableau ou une ressource ouverte, même lors de la navigation. Les résultats terminés ou interrompus restent visibles jusqu’à leur fermeture ; réessayer reprend le travail enregistré. Le suivi se réinitialise lors d’un changement de Vault ou de compte et ignore les réponses obsolètes. Cet état de session de l’interface ne persiste pas lors du rechargement de l’application.
+
+## Format des opérations structurées
+
+Les opérations structurées OpenRouter transmettent leur contrat de sortie au fournisseur, en mode schéma strict pour les contrats détaillés et en mode objet JSON pour les objets génériques. Le routage exige la prise en charge des paramètres et conserve les préférences du fournisseur et le raisonnement. Les outils natifs facultatifs utilisent des contrats de fonction stricts ; les outils JSON de remplacement contraignent leur enveloppe et valident localement la réponse extraite. Les autres fournisseurs conservent la validation locale. La lecture dirigée des sources transmet son schéma d’actions, avec le type explicite de l’action.
+
+L’acceptation de la requête par le fournisseur ne prouve pas sa conformité : les validations locales du schéma et du contenu restent obligatoires, avec la tentative de réparation limitée existante. Un objet ou une liste JSON complet suivi uniquement d’un délimiteur final répété peut être récupéré sans modifier aucun champ ; les valeurs supplémentaires, la prose, les fermetures incohérentes et le contenu incomplet sont rejetés. La vérification des citations, la couverture des sources et la validation des notes sont conservées. La validité structurelle ne garantit ni l’exactitude factuelle ni une rédaction identique entre les exécutions.

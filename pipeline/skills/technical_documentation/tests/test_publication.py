@@ -52,6 +52,7 @@ CI_COMMANDS = {
         "pnpm --filter @gnosi/frontend typecheck",
         "pnpm test:e2e:contracts",
         "pnpm test:frontend",
+        "bash scripts/runtime/build-zotero-reader.sh",
         "pnpm build:frontend",
         "pnpm test:desktop",
         "pnpm --filter @gnosi/desktop typecheck:ipc",

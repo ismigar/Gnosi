@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1247,3 +1249,9 @@ Les metadades de raonament de només lectura són a `backend/domains/configurati
 ## Progrés dels recursos en segon pla
 
 Tancar el diàleg de processament deixa una targeta compacta, no modal, al racó inferior dret. Mostra el títol del recurs, la fase, els fragments i el progrés disponible, i permet reobrir els detalls sense iniciar un altre treball. El magatzem global de tasques manté els inicis pendents i les consultes de seguiment sense solapaments, tant des de les files de taula com des d’un recurs obert, encara que es canviï de pàgina. Els resultats completats o interromputs continuen visibles fins que s’amaguen; reintentar reprèn la feina desada. El seguiment es reinicia en canviar de Vault o de compte i ignora respostes antigues. Aquest estat de sessió de la interfície no persisteix quan es recarrega l’aplicació.
+
+## Format de les operacions estructurades
+
+Les operacions estructurades d’OpenRouter envien el contracte de sortida al proveïdor, amb mode d’esquema estricte per als contractes detallats i mode d’objecte JSON per als objectes genèrics. La selecció de ruta exigeix compatibilitat amb els paràmetres i conserva les preferències del proveïdor i el raonament. Les eines natives opcionals utilitzen contractes de funció estrictes; les eines JSON alternatives restringeixen l’embolcall i validen localment la resposta extreta. Els altres proveïdors mantenen la validació local. La lectura dirigida de fonts transmet l’esquema d’accions, amb el tipus de l’acció explícit.
+
+Que el proveïdor accepti la petició no demostra que compleixi el contracte: les validacions locals d’esquema i contingut continuen sent obligatòries, amb l’intent de reparació limitat existent. Es pot recuperar un objecte o una llista JSON complets seguits únicament d’un delimitador final repetit, sense canviar cap camp; es rebutgen valors addicionals, prosa, tancaments incoherents i contingut incomplet. La comprovació de cites, la cobertura de fonts i la validació de notes es mantenen. La validesa estructural no garanteix exactitud factual ni una redacció idèntica entre execucions.

@@ -71,6 +71,13 @@ class ReadingRuntime:
         from backend.services.agent_execution import run_sync
         if self.count_tokens(prompt) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
+        try:
+            envelope = json.loads(prompt)
+        except ValueError:
+            envelope = None
+        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        if not isinstance(schema, dict):
+            schema = {"type": "object"}
         def checked(text: str) -> str:
             answer = json.loads(text)
             if not isinstance(answer, dict):
@@ -82,7 +89,7 @@ class ReadingRuntime:
             return text
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            output_schema={"type": "object"}), snapshot=self.snapshot, output_validator=checked)
+            output_schema=schema), snapshot=self.snapshot, output_validator=checked)
         return result.result, result.model
 
 

@@ -278,8 +278,20 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         return text
     cleaned = text.strip()
     if cleaned.startswith("```"):
-        cleaned = cleaned.partition("\n")[2].rsplit("```", 1)[0].strip()
-    value = json.loads(cleaned)
+        opening, _, body = cleaned.partition("\n")
+        if opening.lower() in {"```", "```json"} and body.endswith("```"):
+            cleaned = body[:-3].strip()
+    try:
+        value = json.loads(cleaned)
+    except json.JSONDecodeError as error:
+        if error.msg != "Extra data":
+            raise
+        value, end = json.JSONDecoder().raw_decode(cleaned)
+        # Preserve the complete result when the model repeats one root closer.
+        # Never discard a second value, prose, or an incomplete nested payload.
+        closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
+        if not closer or cleaned[end:].strip() != closer:
+            raise
     jsonschema.validate(value, schema)
     return json.dumps(value, ensure_ascii=False)
 
@@ -348,6 +360,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
             prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
             memory_user_id=snapshot.scope.user_id, operation_mode=True,
+            output_schema=request.output_schema,
         )
         if workflow is None:
             raise RuntimeError("principal_agent_model_unavailable")

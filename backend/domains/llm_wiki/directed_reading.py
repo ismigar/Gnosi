@@ -9,7 +9,7 @@ from backend.domains.llm_wiki.contextual_reading import fingerprint
 
 ACTION_SCHEMA = {
     "type": "object", "required": ["action", "arguments"],
-    "properties": {"action": {"enum": ["index", "read", "search", "remember", "save_plan", "recall", "finish"]},
+    "properties": {"action": {"type": "string", "enum": ["index", "read", "search", "remember", "save_plan", "recall", "finish"]},
                    "arguments": {"type": "object"}}, "additionalProperties": False,
 }
 

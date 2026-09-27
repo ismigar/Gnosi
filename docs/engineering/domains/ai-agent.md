@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1141,3 +1143,9 @@ Read-only reasoning metadata lives in `backend/domains/configuration/ai/model_me
 ## Background resource progress
 
 Closing the processing dialog leaves a compact, nonmodal progress card in the lower-right corner. It shows the resource title, phase, fragment count and available progress, and reopens details without starting a second job. The application-level task store owns pending starts and non-overlapping polling, so both table actions and open-resource actions survive page navigation. Completed or interrupted results remain until dismissed; retry resumes saved work. The monitor resets on Vault or account changes and ignores stale responses. This frontend session state is not persisted across application reloads.
+
+## Structured operation output
+
+OpenRouter structured operations send their output contract to the provider, with strict schema mode for detailed contracts and JSON-object mode for generic objects. Routing requires parameter support and preserves existing provider preferences and reasoning settings. Optional native tools use strict function contracts; fallback JSON tools constrain their outer envelope and validate the extracted answer locally. Other providers retain local validation. Directed source reading forwards its action schema, including the explicit action type.
+
+Provider acceptance is not proof of compliance: local schema and domain validation remain mandatory, with the existing bounded repair attempt. A complete JSON object or array followed only by one repeated root closing delimiter can be recovered without changing any field; extra values, prose, mismatched closers and incomplete content are rejected. Citation matching, source coverage and note validation are unchanged. Structural validity does not guarantee factual accuracy or identical wording between runs.

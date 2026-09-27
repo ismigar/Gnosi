@@ -1,5 +1,6 @@
 """Contextual reading freezes the principal and executes each phase centrally."""
 from types import SimpleNamespace
+import json
 from unittest.mock import Mock
 import pytest
 
@@ -96,3 +97,14 @@ def test_structured_prompt_obeys_the_same_budget(configured, tmp_path):
     with pytest.raises(RuntimeError, match="context budget"):
         runtime.generate_structured("x" * (runtime.input_budget + 1), lambda _: None, 240)
     execute.assert_not_called()
+
+
+def test_directed_reading_sends_the_action_schema_to_the_operation(configured, tmp_path):
+    from backend.domains.llm_wiki.directed_reading import ACTION_SCHEMA
+    _, _, execute = configured
+    runtime = prepare_reading_runtime(tmp_path)
+    prompt = json.dumps({"phase": "agent-actions", "output_schema": ACTION_SCHEMA})
+    runtime.generate_structured(prompt, lambda _: None, 900)
+    request = execute.call_args.args[0]
+    assert request.output_schema == ACTION_SCHEMA
+    assert request.input == prompt

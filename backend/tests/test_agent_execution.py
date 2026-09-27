@@ -1,5 +1,6 @@
 """Conformance tests for principal operations without provider calls or user data."""
 import asyncio
+import json
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -94,6 +95,70 @@ def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     row = store.list_runs(scope)[0]
     assert row.status == "failed"
     assert not row.result
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_redundant_root_closer_preserves_every_note_without_model_repair(runtime, monkeypatch, fenced):
+    scope, snapshot = runtime
+    plan = {"action": "save_plan", "arguments": {"plan": {"notes": [
+        {"title": f"Note {i}", "body_md": "Quoted braces stay intact: } ] { " * 35}
+        for i in range(68)
+    ]}}}
+    response = json.dumps(plan) + "}"
+    if fenced:
+        response = "```json\n" + response + "\n```"
+    calls = install_workflow(monkeypatch, [response])
+    with execution_scope(scope):
+        result = asyncio.run(execution.execute_operation(AgentOperation(
+            skill_id=snapshot.skill_ids[0], operation="writing", input="source",
+            output_schema={"type": "object", "required": ["action", "arguments"]},
+        ), snapshot=snapshot))
+    assert result.status == "completed"
+    assert json.loads(result.result) == plan
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("text", [
+    '{"answer": 1}{"answer": 2}', '{"answer": 1} trailing text',
+    '{"answer": 1} } {"answer": 2}', '{"answer": 1}}}',
+    '{"answer": 1}]', '{"answer": {"nested": 1}', '42}',
+    '```json\n{"answer": 1}\n``` trailing text',
+    '```json\n{"answer": 1}\n```\n{"answer": 2}',
+    '```json\n{"answer": 1}',
+])
+def test_root_closer_recovery_rejects_additional_content_and_incomplete_json(text):
+    with pytest.raises(json.JSONDecodeError):
+        execution._validate_output(text, {"type": "object"})
+
+
+def test_root_closer_recovery_keeps_schema_and_domain_validation(runtime, monkeypatch):
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['{"answer": "bad"}}', '{"answer": "ok"}'])
+    validated = []
+    def validate(text):
+        answer = json.loads(text)
+        validated.append(answer)
+        if answer["answer"] != "ok":
+            raise ValueError("answer must be ok")
+        return text
+    with execution_scope(scope):
+        result = asyncio.run(execution.execute_operation(AgentOperation(
+            skill_id=snapshot.skill_ids[0], operation="writing", input="source",
+            output_schema={"type": "object", "required": ["answer"]},
+        ), snapshot=snapshot, output_validator=validate))
+    assert json.loads(result.result) == {"answer": "ok"}
+    assert validated == [{"answer": "bad"}, {"answer": "ok"}]
+    assert len(calls) == 2
+
+
+def test_root_closer_recovery_still_rejects_schema_violations():
+    with pytest.raises(execution.jsonschema.ValidationError):
+        execution._validate_output('{"unexpected": 1}}', {"type": "object", "required": ["answer"]})
+
+
+def test_array_closer_recovery_preserves_values_and_unstructured_output():
+    assert json.loads(execution._validate_output('[{"a": "}]"}, 2]]', {"type": "array"})) == [{"a": "}]"}, 2]
+    assert execution._validate_output('Example: {a}}', None) == 'Example: {a}}'
 
 
 def test_scope_and_skill_mismatch_rejected_before_model(runtime, monkeypatch):

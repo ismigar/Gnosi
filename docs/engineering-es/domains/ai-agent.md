@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1313,3 +1315,9 @@ Los metadatos de razonamiento de solo lectura están en `backend/domains/configu
 ## Progreso de los recursos en segundo plano
 
 Al cerrar el diálogo de procesamiento queda una tarjeta compacta, no modal, en la esquina inferior derecha. Muestra el título del recurso, la fase, los fragmentos y el progreso disponible, y permite reabrir los detalles sin iniciar otro trabajo. El almacén global de tareas mantiene los inicios pendientes y las consultas de seguimiento sin solapamientos, tanto desde filas de tabla como desde un recurso abierto, aunque se cambie de página. Los resultados completados o interrumpidos permanecen hasta descartarlos; reintentar retoma el trabajo guardado. El seguimiento se reinicia al cambiar de Vault o de cuenta e ignora respuestas antiguas. Este estado de sesión de la interfaz no persiste al recargar la aplicación.
+
+## Formato de las operaciones estructuradas
+
+Las operaciones estructuradas de OpenRouter envían su contrato de salida al proveedor, con modo de esquema estricto para contratos detallados y modo de objeto JSON para objetos genéricos. La selección de ruta exige compatibilidad con los parámetros y conserva las preferencias del proveedor y el razonamiento. Las herramientas nativas opcionales usan contratos de función estrictos; las herramientas JSON alternativas restringen su envoltorio y validan localmente la respuesta extraída. Los demás proveedores mantienen la validación local. La lectura dirigida de fuentes transmite el esquema de acciones, incluido el tipo explícito de la acción.
+
+Que el proveedor acepte la petición no demuestra que cumpla el contrato: las validaciones locales de esquema y contenido siguen siendo obligatorias, con el intento de reparación limitado existente. Se puede recuperar un objeto o una lista JSON completos seguidos únicamente de un delimitador final repetido, sin modificar ningún campo; se rechazan valores adicionales, prosa, cierres incoherentes y contenido incompleto. La comprobación de citas, la cobertura de fuentes y la validación de notas se mantienen. La validez estructural no garantiza exactitud factual ni una redacción idéntica entre ejecuciones.
