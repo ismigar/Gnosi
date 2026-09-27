@@ -7,6 +7,11 @@ export function principalAssistant<T extends { readonly id: string }>(
     return personal.find(agent => !('enabled' in agent) || agent.enabled !== false);
 }
 
+/** Plugin lifecycle owns suspension; personal profiles remain editable. */
+export function isSuspendedPluginProfile(profile: { managed_by?: string; plugin_suspended?: boolean }): boolean {
+    return Boolean(profile.plugin_suspended && /^(builtin:|plugin:)/.test(profile.managed_by ?? ''));
+}
+
 /** Translate shipped profile names without renaming user or third-party profiles. */
 const builtinProfileNames: Readonly<Record<string, string>> = {
     'ai-platform': 'Writing and knowledge capture', 'feeds-reader': 'Feeds and podcasts',

@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 584 | 2480 |
+| Vitest | 587 | 2495 |
 | pytest | 562 | 4009 |
 
 ## Archivos
@@ -252,15 +252,17 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AgentTeamParticipation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamParticipation.test.tsx) | 14 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AgentTeamSetup.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamSetup.test.tsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/AgentsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.test.tsx) | 12 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/AgentsPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentsPanel.test.tsx) | 15 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AiPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AiPanel.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsNavigation.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/SettingsSidebar.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/TranslationPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/TranslationPanel.test.tsx) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/aiOperationsBridge.test.ts) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/pluginProfileSync.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/pluginProfileSync.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsController.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsController.test.tsx) | 21 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsGraphModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsGraphModel.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/settingsPrimitives.test.tsx) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/useSettingsPluginProfiles.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsPluginProfiles.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/identity/IdentityProfile.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelOfferList.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/model-comparison/ModelParameterReview.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.test.tsx) | 2 | call-pattern estimate |
@@ -445,6 +447,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/vault/views/viewConstants.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/viewConstants.test.ts) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Navigation/WorkspaceSwitcher.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/workspaces/Workspace/WorkspaceMembersPanel.test.tsx) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/ai/agentModelRecommendation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/agentModelRecommendation.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ai/agentTeams.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/agentTeams.test.ts) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ai/assistantProfiles.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/assistantProfiles.test.ts) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/ai/executionUsage.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/ai/executionUsage.test.ts) | 2 | call-pattern estimate |

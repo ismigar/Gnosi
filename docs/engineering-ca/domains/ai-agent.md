@@ -1221,3 +1221,9 @@ Cada perfil té una única fitxa sempre visible amb la configuració, l’elecci
 Les seleccions completes de participació, assignacions i permisos de temporals es desen automàticament. Els canvis incomplets queden al formulari, indiquen què falta i no substitueixen la darrera configuració completa. Retirar l’últim destinatari desactiva la col·laboració i els permisos per demanar ajuda. Els interruptors amb noms permeten seleccionar diversos models, habilitats i destinataris; les llistes buides expliquen com afegir-ne. La coordinació només s’afegeix en activar l’equip. L’edició d’un perfil incorpora l’estat més recent de l’equip per preservar els canvis simultanis de participació.
 
 L’àrea de lectura de la configuració admet el focus del teclat. Les tecles de desplaçament funcionen des del text i dels interruptors individuals; els camps editables, desplegables i controls compostos conserven les seves interaccions.
+
+## Recomanacions de models i cicle de vida dels plugins
+
+Cada fitxa visible recomana un paper de model segons el principal, les operacions del plugin, les habilitats conegudes i les seves còpies, les especialitats i les rutes. Guanya el paper de major exigència; les tasques desconegudes reben orientació Tot terreny. És una recomanació, no una puntuació del model ni un canvi de ruta o permisos.
+
+Després d’un canvi de plugin es renoven les memòries cau de configuració i s’avisa el xat i el formulari. Només es fusionen els camps de cicle de vida i els perfils nous, preservant les edicions locals. Els perfils suspesos queden ocults i no poden executar feina; es retiren dels destinataris i les rutes actives. Si se suspèn el principal o l’últim destinatari, la col·laboració s’atura. El principal no es reemplaça automàticament. Es descarten respostes tardanes després de tancar la configuració o canviar de vault.

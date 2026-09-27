@@ -1287,3 +1287,9 @@ Cada perfil tiene una única ficha siempre visible con su configuración, la ele
 Las selecciones completas de participación, asignaciones y permisos temporales se guardan automáticamente. Los cambios incompletos permanecen en el formulario, indican qué falta y no sustituyen la última configuración completa. Retirar al último destinatario desactiva la colaboración y los permisos para pedir ayuda. Los interruptores con nombres permiten seleccionar varios modelos, habilidades y destinatarios; las listas vacías explican cómo añadirlos. La coordinación solo se añade al activar el equipo. La edición de perfiles incorpora el estado más reciente del equipo para preservar cambios simultáneos de participación.
 
 El área de lectura de configuración admite el foco del teclado. Las teclas de desplazamiento funcionan desde el texto y los interruptores individuales; los campos editables, selectores y controles compuestos conservan sus interacciones.
+
+## Recomendaciones de modelos y ciclo de vida de los plugins
+
+Cada ficha visible recomienda un papel de modelo según el principal, las operaciones del plugin, las habilidades conocidas y sus copias, las especialidades y las rutas. Gana el papel de mayor exigencia; las tareas desconocidas reciben orientación Todoterreno. Es una recomendación, no una puntuación del modelo ni un cambio de ruta o permisos.
+
+Tras un cambio de plugin se invalidan las cachés de configuración y se avisa al chat y al formulario. Solo se fusionan los campos de ciclo de vida y los perfiles nuevos, preservando las ediciones locales. Los perfiles suspendidos quedan ocultos y no pueden ejecutar tareas; se retiran de los destinatarios y rutas activas. Si se suspende el principal o el último destinatario, se detiene la colaboración. El principal no se reemplaza automáticamente. Se descartan respuestas tardías tras cerrar los ajustes o cambiar de vault.

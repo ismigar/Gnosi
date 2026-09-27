@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { profileDisplayName, profilesByDisplayName } from '../../../shared/ai/assistantProfiles';
+import { isSuspendedPluginProfile, profileDisplayName, profilesByDisplayName } from '../../../shared/ai/assistantProfiles';
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import './AgentTeamSetup.css';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,7 @@ export function AgentTeamSetup({ agents, principalId, registry, skillCatalog = [
     const [team, setTeam] = useState<AgentTeam>(() => normalizedTeam(current?.team, principalId));
     const [initiators, setInitiators] = useState<string[]>(() => agents.filter(a => a.team?.enabled && a.team.director_id === (current?.team?.director_id ?? principalId)).map(a => a.id));
     const [pending, setPending] = useState(false);
-    const sorted = profilesByDisplayName(agents, t, i18n.resolvedLanguage).sort((a, b) => Number(b.id === principalId) - Number(a.id === principalId));
+    const sorted = profilesByDisplayName(agents.filter(a => !isSuspendedPluginProfile(a)), t, i18n.resolvedLanguage).sort((a, b) => Number(b.id === principalId) - Number(a.id === principalId));
     const available = sorted.filter(a => a.enabled !== false && !a.plugin_suspended);
     const agentName = (agent: SettingsAgent) => profileDisplayName(agent, t) || agent.id;
     const agentModel = (agent: SettingsAgent) => modelDisplayName(registry.find(row => row.provider === agent.provider && row.model_id === agent.model)) || agent.model;

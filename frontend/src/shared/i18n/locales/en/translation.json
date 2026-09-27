@@ -3164,7 +3164,7 @@
       "assistant": {
         "title": "Assistants",
         "principal": "Principal",
-        "help": "All bots and profiles appear in this list. Choose the principal and how each participates in the team. Each card’s settings icon opens its model, instructions, sources and skills.",
+        "help": "Configure each bot or profile from its card and choose the principal. The settings gear opens its model, instructions, sources and skills. Bots from disabled plugins are hidden.",
         "advanced": "Additional profiles (advanced)",
         "profiles_help": "Each profile keeps its model, instructions, sources and skills. You can choose it for a conversation without changing the primary assistant.",
         "create_profile": "Create profile",
@@ -3203,9 +3203,21 @@
         "plugin_profile": "Plugin profile",
         "plugin_owner": "Used by: {{name}}",
         "plugin_suspended": "The plugin is disabled. Enable it in Plugins to use this bot; its settings are preserved.",
-        "plugin_profiles_help": "Plugin bots appear in the same list. They continue handling their plugin’s actions even when chosen as principal.",
+        "plugin_profiles_help": "Bots from active plugins appear in the same list. Disabling a plugin disables and hides its bot; enabling it again restores its settings. Team work stops being assigned to disabled bots.",
         "make_principal_for": "Make {{name}} principal",
-        "list_label": "Bots and profiles"
+        "list_label": "Bots and profiles",
+        "recommended_llm_profile": "Recommended LLM profile: {{profile}}",
+        "recommendation_help": "The recommendation guides model selection based on the bot’s tasks, skills and specialties. When several apply, the most demanding profile is shown. You can look it up in the model comparison.",
+        "principal_plugin_suspended": "The principal “{{name}}” is unavailable because its plugin is disabled. Choose another bot with “Make principal” or enable the plugin again.",
+        "plugin_refresh_error": "The bots could not be refreshed after the plugin change. Reopen settings.",
+        "recommendation_reasons": {
+          "director": "For planning, coordinating the team and integrating its results.",
+          "expert": "For analyzing complex problems, checking conclusions and evaluating procedures.",
+          "allrounder": "For combining writing, translation and other everyday tasks.",
+          "documentalist": "For consulting and summarizing extensive sources while retaining references.",
+          "administrative": "For classifying information and following procedures with structured data.",
+          "worker": "For simple, repetitive tasks with a clearly defined scope."
+        }
       },
       "model_strategy": {
         "primary": "Primary model",
@@ -6791,7 +6803,8 @@
           "accessibility": "Navigate dialogs, settings, tables and lists more consistently with the keyboard and clearer focus indicators.",
           "resources": "Create resources with visible progress, type-specific templates and automatic covers.",
           "role_names": "Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.",
-          "team_setup": "Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages."
+          "team_setup": "Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.",
+          "model_guidance": "Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation."
         },
         "fixes": {
           "reader": "Open attached documents in the internal reader with the PDF resources included in desktop builds.",

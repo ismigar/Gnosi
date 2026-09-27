@@ -1354,7 +1354,7 @@
       "assistant": {
         "title": "Assistants",
         "principal": "Principal",
-        "help": "Tous les bots et profils figurent dans cette liste. Choisissez le principal et la participation de chacun à l’équipe. La configuration de chaque fiche ouvre son modèle, ses instructions, ses sources et ses compétences.",
+        "help": "Configurez chaque bot ou profil depuis sa fiche et choisissez le principal. La roue des paramètres ouvre son modèle, ses instructions, ses sources et ses compétences. Les bots des plugins désactivés sont masqués.",
         "advanced": "Profils supplémentaires (avancé)",
         "profiles_help": "Chaque profil conserve son modèle, ses instructions, ses sources et ses compétences. Vous pouvez le choisir pour une conversation sans changer l’assistant principal.",
         "create_profile": "Créer un profil",
@@ -1393,9 +1393,21 @@
         "plugin_profile": "Profil de plugin",
         "plugin_owner": "Utilisé par : {{name}}",
         "plugin_suspended": "Le plugin est désactivé. Activez-le dans Plugins pour utiliser ce bot ; sa configuration est conservée.",
-        "plugin_profiles_help": "Les bots des plugins figurent dans la même liste. Ils continuent à traiter les actions de leur plugin même si vous en choisissez un comme principal.",
+        "plugin_profiles_help": "Les bots des plugins actifs figurent dans la même liste. Désactiver un plugin désactive et masque son bot ; le réactiver restaure sa configuration. L’équipe cesse de confier des tâches aux bots désactivés.",
         "make_principal_for": "Définir {{name}} comme principal",
-        "list_label": "Bots et profils"
+        "list_label": "Bots et profils",
+        "recommended_llm_profile": "Profil LLM recommandé : {{profile}}",
+        "recommendation_help": "La recommandation guide le choix du modèle selon les tâches, compétences et spécialités du bot. Lorsque plusieurs profils conviennent, le plus exigeant est affiché. Vous pouvez le consulter dans le comparatif des modèles.",
+        "principal_plugin_suspended": "Le principal « {{name}} » est indisponible car son plugin est désactivé. Choisissez un autre bot avec « Définir comme principal » ou réactivez le plugin.",
+        "plugin_refresh_error": "Les bots n’ont pas pu être actualisés après la modification du plugin. Rouvrez les paramètres.",
+        "recommendation_reasons": {
+          "director": "Pour planifier, coordonner l’équipe et intégrer ses résultats.",
+          "expert": "Pour analyser des problèmes complexes, confronter les conclusions et évaluer des procédures.",
+          "allrounder": "Pour combiner rédaction, traduction et autres tâches quotidiennes.",
+          "documentalist": "Pour consulter et synthétiser des sources volumineuses en conservant leurs références.",
+          "administrative": "Pour classer l’information et suivre des procédures avec des données structurées.",
+          "worker": "Pour des tâches simples, répétitives et bien délimitées."
+        }
       },
       "model_strategy": {
         "primary": "Modèle principal",
@@ -6845,7 +6857,8 @@
           "accessibility": "Naviguez dans les boîtes de dialogue, les paramètres, les tableaux et les listes de façon plus cohérente au clavier, avec des indicateurs de focus plus visibles.",
           "resources": "Créez des ressources avec une progression visible, des modèles propres à chaque type et des couvertures automatiques.",
           "role_names": "Les noms des rôles distinguent clairement le Directeur, qui coordonne l’équipe, de l’Expert, qui apporte des connaissances spécialisées.",
-          "team_setup": "Les réglages de l’équipe enregistrent automatiquement les changements complets. Les tâches, modèles et compétences temporaires permettent plusieurs sélections nommées, avec une aide en l’absence d’options et des explications cohérentes dans les quatre langues."
+          "team_setup": "Les réglages de l’équipe enregistrent automatiquement les changements complets. Les tâches, modèles et compétences temporaires permettent plusieurs sélections nommées, avec une aide en l’absence d’options et des explications cohérentes dans les quatre langues.",
+          "model_guidance": "Chaque bot affiche un profil LLM recommandé selon ses tâches et compétences. Désactiver un plugin désactive et masque son bot ; sa configuration est conservée pour le réactiver."
         },
         "fixes": {
           "reader": "Ouvrez les documents joints dans le lecteur interne avec les ressources PDF incluses dans les versions de bureau.",

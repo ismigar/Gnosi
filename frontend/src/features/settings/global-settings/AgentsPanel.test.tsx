@@ -72,6 +72,33 @@ function savedAi() {
   return JSON.parse(host.querySelector('output')?.textContent || '{}') as { active_agent_id: string; agents: SettingsAgent[] };
 }
 
+it('shows a task-based model recommendation on each visible profile without changing its model', () => {
+  const profiles = [principal, { id: 'mail', name: 'Mail', managed_by: 'builtin:mail', model: 'chosen' }];
+  act(() => { root.render(<Harness profiles={profiles} />); });
+  expect(host.querySelectorAll('.agent-model-recommendation')).toHaveLength(2);
+  expect(host.textContent).toContain('settings.ai.assistant.recommendation_reasons.director');
+  expect(host.textContent).toContain('settings.ai.assistant.recommendation_reasons.administrative');
+  expect(savedAi().agents).toEqual(profiles);
+});
+
+it('hides suspended plugin profiles while preserving their saved configuration', () => {
+  const suspended = { id: 'mail', name: 'Mail', managed_by: 'builtin:mail', plugin_suspended: true, model: 'chosen', persona: 'Keep' };
+  act(() => { root.render(<Harness profiles={[principal, suspended]} />); });
+  expect(host.querySelector('[data-settings-item-id="agent:mail"]')).toBeNull();
+  expect(savedAi().agents[1]).toEqual(suspended);
+});
+
+it('asks for another principal when its plugin is disabled without silently choosing one', () => {
+  const suspended = { id: 'mail', name: 'Custom Mail', managed_by: 'builtin:mail', plugin_suspended: true };
+  act(() => { root.render(<Harness profiles={[principal, suspended]} activeId="mail" />); });
+  expect(host.querySelector('[data-settings-item-id="agent:mail"]')).toBeNull();
+  expect(host.querySelector('[role="status"]')?.textContent).toContain('settings.ai.assistant.principal_plugin_suspended:Custom Mail');
+  expect(savedAi().active_agent_id).toBe('mail');
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.make_principal_for:Cervell"]')?.click(); });
+  expect(savedAi().active_agent_id).toBe('brain');
+  expect(host.textContent).not.toContain('settings.ai.assistant.principal_plugin_suspended');
+});
+
 it('shows every profile once and protects the selected principal from deletion', () => {
   act(() => { root.render(<Harness profiles={[principal, { id: 'other', name: 'Other' }]} />); });
   expect(host.querySelectorAll('[data-settings-item-id="agent:brain"]')).toHaveLength(1);

@@ -1,13 +1,14 @@
 import { modelDisplayName } from '../../../shared/ai/modelDisplayName';
 import { TEAM_SKILL, changeTeamPrincipal } from '../../../shared/ai/agentTeams';
 import { AgentTeamSetup } from './AgentTeamSetup';
+import { AgentModelRecommendation } from './AgentModelRecommendation';
 import { AIAgentForm } from './AIAgentForm';
 import { Bot, Clock3 } from 'lucide-react';
 import { IconRenderer } from '../../../shared/ui/previews/IconRenderer';
 import { InlineEditorPlacement } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Plus } from 'lucide-react';
 import React from 'react';
-import { principalAssistant, profileDisplayName } from '../../../shared/ai/assistantProfiles';
+import { isSuspendedPluginProfile, principalAssistant, profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Trash2 } from 'lucide-react';
@@ -28,7 +29,8 @@ function mergeProfile(current: SettingsAgent, updated: AgentDraft): SettingsAgen
 export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedProfileId }: Props) {
   const { agentEditorTarget, aiRegistry, aiResources, draft, editingAgent, handleDeleteAIAgent, setAgentEditorTarget, setDraft, setEditingAgent, t } = context;
   const principal = principalAssistant(draft.ai.agents, draft.ai.active_agent_id);
-  const editor = editingAgent && (
+  const teamListKey = JSON.stringify([principal?.id, draft.ai.agents.filter(isSuspendedPluginProfile).map(agent => agent.id).sort()]);
+  const editor = editingAgent && !isSuspendedPluginProfile(editingAgent) && (
     <InlineEditorPlacement
       target={editingAgent.id ? agentEditorTarget : null}
       waitForTarget={Boolean(editingAgent.id)}
@@ -125,12 +127,12 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
             <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{profileDisplayName(agent, t)}</div>
             <strong>{t(agent.id === principal?.id ? 'settings.ai.assistant.principal_profile' : agent.managed_by ? 'settings.ai.assistant.plugin_profile' : 'settings.ai.assistant.additional_profile')}</strong>
             {agent.managed_by && <p className="settings-desc">{t('settings.ai.assistant.plugin_owner', { name: t(`settings.plugins.catalog.${agent.managed_by.replace(/^(builtin:|plugin:)/, '')}.name`, { defaultValue: agent.managed_by.replace(/^(builtin:|plugin:)/, '') }) })}</p>}
-            {agent.plugin_suspended && <p role="status">{t('settings.ai.assistant.plugin_suspended')}</p>}
             {agent.id === principal?.id && agent.enabled === false && <p role="status">{t('settings.ai.assistant.restore_help')}</p>}
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{modelDisplayName(aiRegistry.find(row => row.provider === agent.provider && row.model_id === agent.model)) || agent.model}</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '5px' }}>
               {t('settings.ai.resources.assigned_skill_count', { count: (agent.skill_ids || []).length })}
             </div>
+            <AgentModelRecommendation agent={agent} principalId={principal?.id ?? ''} team={principal?.team} skills={aiResources.skills} />
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '14px', marginLeft: 'auto' }}>
@@ -160,8 +162,8 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
   if (focusedProfileId) {
     const selected = draft.ai.agents.find(agent => agent.id === focusedProfileId);
     return <Section title={selected ? profileDisplayName(selected, t) : t('settings.ai.assistant.profile')} icon={Bot}>
-      {selected && renderProfile(selected)}
-      {editor}
+      {selected && (isSuspendedPluginProfile(selected) ? <p role="status">{t('settings.ai.assistant.plugin_suspended')}</p> : renderProfile(selected))}
+      {selected && !isSuspendedPluginProfile(selected) && editor}
     </Section>;
   }
   return (<Section
@@ -173,13 +175,15 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
   >
     <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>{t('settings.ai.assistant.help')}</p>
     <p className="settings-desc">{t('settings.ai.assistant.principal_help')}</p>
+    <p className="settings-desc">{t('settings.ai.assistant.recommendation_help')}</p>
+    {principal && isSuspendedPluginProfile(principal) && <p role="status">{t('settings.ai.assistant.principal_plugin_suspended', { name: profileDisplayName(principal, t) })}</p>}
     {(!editingAgent || editingAgent.id) && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBlock: '16px' }}>
       <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => { setAgentEditorTarget(null); setEditingAgent({}); }}>
         <Plus size={16} />{t(draft.ai.agents.length ? 'settings.ai.assistant.create_profile' : 'settings.ai.assistant.setup')}
       </button>
     </div>}
     {editor}
-    {draft.ai.agents.length > 0 && <AgentTeamSetup key={principal?.id ?? 'unassigned'} agents={draft.ai.agents} principalId={principal?.id ?? ''} registry={aiRegistry} skillCatalog={aiResources.skills}
+    {draft.ai.agents.length > 0 && <AgentTeamSetup key={teamListKey} agents={draft.ai.agents} principalId={principal?.id ?? ''} registry={aiRegistry} skillCatalog={aiResources.skills}
       renderAgent={renderProfile} onChange={(agents, principalId) => {
         setDraft(prev => ({ ...prev, ai: { ...prev.ai, agents, active_agent_id: principalId } }));
       }} />}

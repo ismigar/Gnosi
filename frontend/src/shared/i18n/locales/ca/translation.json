@@ -3183,7 +3183,7 @@
       "assistant": {
         "title": "Assistents",
         "principal": "Principal",
-        "help": "Tots els bots i perfils són en aquesta llista. Tria quin és el principal i com participa cadascun en l’equip. La roda de configuració de cada fitxa obre el seu model, les instruccions, les fonts i les habilitats.",
+        "help": "Configura cada bot o perfil des de la seva fitxa i tria el principal. La roda de configuració obre el model, les instruccions, les fonts i les habilitats. Els bots dels plugins desactivats queden ocults.",
         "advanced": "Perfils addicionals (avançat)",
         "profiles_help": "Cada perfil conserva el seu model, les instruccions, les fonts i les habilitats. Pots triar-lo per a una conversa sense canviar el principal.",
         "create_profile": "Crea un perfil",
@@ -3222,9 +3222,21 @@
         "plugin_profile": "Perfil de plugin",
         "plugin_owner": "Utilitzat per: {{name}}",
         "plugin_suspended": "El plugin està desactivat. Activa’l a Plugins per poder utilitzar aquest bot; la configuració es conserva.",
-        "plugin_profiles_help": "Els bots dels plugins apareixen a la mateixa llista. Continuen atenent les accions del seu plugin encara que en triïs un com a principal.",
+        "plugin_profiles_help": "Els bots dels plugins actius apareixen a la mateixa llista. Desactivar un plugin desactiva i amaga el seu bot; reactivar-lo en recupera la configuració. Els encàrrecs de l’equip deixen d’assignar-se als bots desactivats.",
         "make_principal_for": "Fes principal {{name}}",
-        "list_label": "Bots i perfils"
+        "list_label": "Bots i perfils",
+        "recommended_llm_profile": "Perfil LLM recomanat: {{profile}}",
+        "recommendation_help": "La recomanació orienta la tria del model segons les tasques, les habilitats i les especialitats del bot. Si en combina diverses, es mostra el perfil de major exigència. Pots consultar-lo a la comparativa de models.",
+        "principal_plugin_suspended": "El principal «{{name}}» no està disponible perquè el seu plugin està desactivat. Tria un altre bot amb «Fes-lo principal» o reactiva el plugin.",
+        "plugin_refresh_error": "No s’han pogut actualitzar els bots després del canvi del plugin. Torna a obrir la configuració.",
+        "recommendation_reasons": {
+          "director": "Per planificar, coordinar l’equip i integrar-ne els resultats.",
+          "expert": "Per analitzar problemes complexos, contrastar conclusions i avaluar procediments.",
+          "allrounder": "Per combinar redacció, traducció i altres tasques quotidianes.",
+          "documentalist": "Per consultar i sintetitzar fonts extenses mantenint-ne les referències.",
+          "administrative": "Per classificar informació i executar procediments amb dades estructurades.",
+          "worker": "Per a tasques senzilles, repetitives i ben delimitades."
+        }
       },
       "model_strategy": {
         "primary": "Model principal",
@@ -6845,7 +6857,8 @@
           "accessibility": "Navega pels diàlegs, la configuració, les taules i les llistes de manera més coherent amb el teclat i indicadors de focus més clars.",
           "resources": "Crea recursos amb progrés visible, plantilles específiques per tipus i portades automàtiques.",
           "role_names": "Els noms dels rols distingeixen clarament el Directiu, que coordina l’equip, del Perit, que aporta coneixement especialitzat.",
-          "team_setup": "La configuració de l’equip desa automàticament els canvis complets. Les tasques, els models i les habilitats dels temporals permeten diverses seleccions amb noms clars, ajuda quan no hi ha opcions i aclaracions coherents en els quatre idiomes."
+          "team_setup": "La configuració de l’equip desa automàticament els canvis complets. Les tasques, els models i les habilitats dels temporals permeten diverses seleccions amb noms clars, ajuda quan no hi ha opcions i aclaracions coherents en els quatre idiomes.",
+          "model_guidance": "Cada bot mostra el perfil LLM recomanat segons les seves tasques i habilitats. Desactivar un plugin desactiva i amaga el seu bot; la configuració es conserva per reactivar-lo."
         },
         "fixes": {
           "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",

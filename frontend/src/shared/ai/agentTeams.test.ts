@@ -47,4 +47,6 @@ it('keeps an inactive team inactive when choosing another principal', () => {
     const changed = changeTeamPrincipal([{ id: 'old', team }, { id: 'new', skill_ids: ['read'] }, { id: 'worker' }], 'new', 'old');
     expect(changed[1]?.team?.enabled).toBe(false);
     expect(changed[1]?.skill_ids).toEqual(['read']);
+    const legacy = changeTeamPrincipal([{ id: 'old', team: { enabled: false } as AgentTeam }, { id: 'new' }], 'new', 'old');
+    expect(legacy[1]?.team).toMatchObject({ enabled: false, director_id: 'new', members: [], direct_routes: [] });
 });

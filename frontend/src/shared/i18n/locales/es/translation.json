@@ -3129,7 +3129,7 @@
       "assistant": {
         "title": "Asistentes",
         "principal": "Principal",
-        "help": "Todos los bots y perfiles aparecen en esta lista. Elige cuál es el principal y cómo participa cada uno en el equipo. La configuración de cada ficha abre su modelo, instrucciones, fuentes y habilidades.",
+        "help": "Configura cada bot o perfil desde su ficha y elige el principal. La rueda de configuración abre el modelo, las instrucciones, las fuentes y las habilidades. Los bots de los plugins desactivados quedan ocultos.",
         "advanced": "Perfiles adicionales (avanzado)",
         "profiles_help": "Cada perfil conserva su modelo, instrucciones, fuentes y habilidades. Puedes elegirlo para una conversación sin cambiar el principal.",
         "create_profile": "Crear perfil",
@@ -3168,9 +3168,21 @@
         "plugin_profile": "Perfil de plugin",
         "plugin_owner": "Utilizado por: {{name}}",
         "plugin_suspended": "El plugin está desactivado. Actívalo en Plugins para utilizar este bot; la configuración se conserva.",
-        "plugin_profiles_help": "Los bots de plugins aparecen en la misma lista. Siguen atendiendo las acciones de su plugin aunque elijas uno como principal.",
+        "plugin_profiles_help": "Los bots de los plugins activos aparecen en la misma lista. Desactivar un plugin desactiva y oculta su bot; reactivarlo recupera su configuración. El equipo deja de asignar encargos a los bots desactivados.",
         "make_principal_for": "Hacer principal a {{name}}",
-        "list_label": "Bots y perfiles"
+        "list_label": "Bots y perfiles",
+        "recommended_llm_profile": "Perfil LLM recomendado: {{profile}}",
+        "recommendation_help": "La recomendación orienta la elección del modelo según las tareas, habilidades y especialidades del bot. Si combina varias, se muestra el perfil de mayor exigencia. Puedes consultarlo en la comparativa de modelos.",
+        "principal_plugin_suspended": "El principal «{{name}}» no está disponible porque su plugin está desactivado. Elige otro bot con «Hacer principal» o reactiva el plugin.",
+        "plugin_refresh_error": "No se han podido actualizar los bots tras el cambio del plugin. Vuelve a abrir la configuración.",
+        "recommendation_reasons": {
+          "director": "Para planificar, coordinar el equipo e integrar sus resultados.",
+          "expert": "Para analizar problemas complejos, contrastar conclusiones y evaluar procedimientos.",
+          "allrounder": "Para combinar redacción, traducción y otras tareas cotidianas.",
+          "documentalist": "Para consultar y sintetizar fuentes extensas conservando sus referencias.",
+          "administrative": "Para clasificar información y ejecutar procedimientos con datos estructurados.",
+          "worker": "Para tareas sencillas, repetitivas y bien delimitadas."
+        }
       },
       "model_strategy": {
         "primary": "Modelo principal",
@@ -6845,7 +6857,8 @@
           "accessibility": "Navega por diálogos, ajustes, tablas y listas de forma más coherente con el teclado e indicadores de foco más claros.",
           "resources": "Crea recursos con progreso visible, plantillas específicas por tipo y portadas automáticas.",
           "role_names": "Los nombres de los roles distinguen claramente al Directivo, que coordina el equipo, del Perito, que aporta conocimiento especializado.",
-          "team_setup": "La configuración del equipo guarda automáticamente los cambios completos. Las tareas, modelos y habilidades de temporales permiten varias selecciones con nombres claros, ayuda cuando no hay opciones y explicaciones coherentes en los cuatro idiomas."
+          "team_setup": "La configuración del equipo guarda automáticamente los cambios completos. Las tareas, modelos y habilidades de temporales permiten varias selecciones con nombres claros, ayuda cuando no hay opciones y explicaciones coherentes en los cuatro idiomas.",
+          "model_guidance": "Cada bot muestra el perfil LLM recomendado según sus tareas y habilidades. Desactivar un plugin desactiva y oculta su bot; la configuración se conserva para reactivarlo."
         },
         "fixes": {
           "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",

@@ -1,4 +1,5 @@
 import { isJsonRecord } from '../AI/aiResourcesApi';
+import { syncPluginProfiles } from './pluginProfileSync';
 import type { SettingsDraft, SettingsAgent, IntegrationAccount, SettingsIntegrations, MailAlias, SettingsRegistryEntry } from './types';
 
 const optional = (value: unknown, predicate: (value: unknown) => boolean) => value === undefined || value === null || predicate(value);
@@ -60,12 +61,13 @@ export function hydrateDraft(previous: SettingsDraft, config: Record<string, unk
   if (!optional(graph.physics, physics => isJsonRecord(physics) && ['gravity', 'repulsion', 'friction'].every(key => number(physics[key])))) throw new TypeError('Invalid graph physics');
   const ai = section(config.ai);
   if (!optional(ai.active_agent_id, string)) throw new TypeError('Invalid active agent');
+  const agents = settingsAgents(ai.agents);
   return {
     ...previous,
     settings: { ...previous.settings, ...settings },
     paths: { ...previous.paths, ...paths },
     graph: { ...previous.graph, ...graph },
-    ai: { ...previous.ai, providers: section(ai.providers), agents: settingsAgents(ai.agents), active_agent_id: typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '' },
+    ai: { ...previous.ai, providers: section(ai.providers), agents: syncPluginProfiles(agents, agents), active_agent_id: typeof ai.active_agent_id === 'string' ? ai.active_agent_id : '' },
   };
 }
 

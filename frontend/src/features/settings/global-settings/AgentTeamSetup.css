@@ -74,6 +74,17 @@
     overflow-wrap: anywhere;
 }
 
+.agent-model-recommendation {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 10px;
+    max-width: 42rem;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
 .agent-team-setup__roles {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));

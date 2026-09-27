@@ -77,12 +77,11 @@ it('closing retains autosaved participation and reopens the saved configuration'
     click('fixture.open');
     expect(host.querySelector<HTMLSelectElement>('[aria-label="agent_team.participation_for:worker"]')?.value).toBe('both');
 });
-it('keeps unavailable assistants visible without offering new team permissions', () => {
+it('hides suspended plugin assistants while retaining disabled personal profiles', () => {
     render([director, worker, { id: 'disabled', name: 'disabled', enabled: false }, { id: 'suspended', name: 'suspended', managed_by: 'builtin:mail', plugin_suspended: true }]);
-    for (const name of ['disabled', 'suspended']) {
-        expect(host.querySelector<HTMLSelectElement>(`[aria-label="agent_team.participation_for:${name}"]`)?.disabled).toBe(true);
-    }
-    expect(host.querySelectorAll('.agent-team-setup__card')).toHaveLength(4);
+    expect(host.querySelector<HTMLSelectElement>('[aria-label="agent_team.participation_for:disabled"]')?.disabled).toBe(true);
+    expect(host.querySelector('[aria-label="agent_team.participation_for:suspended"]')).toBeNull();
+    expect(host.querySelectorAll('.agent-team-setup__card')).toHaveLength(3);
     expect(apply).not.toHaveBeenCalled();
 });
 it('requires members even if other profiles can request help', () => {

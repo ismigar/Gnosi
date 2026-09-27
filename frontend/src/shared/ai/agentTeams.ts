@@ -29,8 +29,9 @@ export function normalizedTeam(value: Partial<AgentTeam> | undefined, principalI
 /** Move the existing team with an explicit principal choice, preserving its state. */
 export function changeTeamPrincipal<T extends { id: string; enabled?: boolean; skill_ids?: string[]; team?: AgentTeam }>(agents: readonly T[], nextId: string, previousId: string): T[] {
     const enabled = agents.map(agent => agent.id === nextId ? { ...agent, enabled: true } : agent);
-    const previous = agents.find(agent => agent.id === previousId)?.team ?? agents.find(agent => agent.id === nextId)?.team;
-    if (!previous) return enabled;
+    const saved = agents.find(agent => agent.id === previousId)?.team ?? agents.find(agent => agent.id === nextId)?.team;
+    if (!saved) return enabled;
+    const previous = normalizedTeam(saved, previousId);
     const members = previous.members.filter(member => member.agent_id !== nextId);
     const team = { ...previous, director_id: nextId, members, enabled: previous.enabled && members.length > 0,
         direct_routes: previous.direct_routes.map(route => ({ ...route, agent_ids: route.agent_ids.filter(id => members.some(member => member.agent_id === id)) })).filter(route => route.agent_ids.length),
