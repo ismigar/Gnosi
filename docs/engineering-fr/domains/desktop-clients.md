@@ -599,7 +599,7 @@ déplacement et la mise à jour au même emplacement, et reconstruire le backend
 
 Le candidat `3.0.4` comprend la correction de préservation de l’enregistrement automatique intégrée dans la PR 96. Il remplace le candidat non publié `3.0.3` sans déplacer son tag ni réutiliser ses validations d’acceptation. Les quatre champs de version sont synchronisés, les fichiers de dépendances verrouillées restent inchangés et le catalogue reste non publié jusqu’à la validation des nouveaux installateurs.
 
-La constante du backend `GNOSI_VERSION` indique également `3.1.0` ; le test du contrat de l’API de santé la compare aux quatre manifestes de version.
+La constante du backend `GNOSI_VERSION` indique également `3.2.0` ; le test du contrat de l’API de santé la compare aux quatre manifestes de version.
 
 Il faut régénérer le document OpenAPI enregistré et son SHA-256 après modification de la version du backend. Pour ce candidat, la différence vérifiée du schéma se limite à la version de l’application ; les routes et les données restent inchangées.
 
@@ -633,3 +633,5 @@ La composition des annotations PDF exécute les 57 contrats dans chacun de deux 
 La validation locale avant PR et CI invoquent le même point d’entrée `pnpm lint:frontend`. Le lanceur partagé vérifie toujours tout le frontend sans autoriser d’avertissements ; il ajoute les options de cache de contenu uniquement lorsque `GNOSI_ESLINT_CACHE` est défini. Les chemins du cache sont transmis comme arguments littéraux sans interpréteur de commandes et les erreurs d’analyse restent fatales. Le test de parité avant PR rejette toujours toute validation CI absente du plan local complet.
 
 La version candidate `3.1.0` regroupe l’assistant principal commun, la sélection de modèles selon la tâche, la mémoire à portée définie, l’apprentissage réutilisable et la lecture contextuelle des sources. Les données existantes sont préservées par les migrations révisées. Tous les manifestes et `GNOSI_VERSION` concordent ; le contrat OpenAPI régénéré ne change que sa version par rapport au code préparé. Les deux fichiers de dépendances verrouillées restent inchangés. Le catalogue reste non publié jusqu’à ce que les installateurs issus du même code réussissent les tests d’installation initiale, de persistance et de mise à niveau sur les quatre cibles.
+
+La candidate `3.2.0` ajoute des équipes d’assistants et des rôles spécialisés, la comparaison des modèles par fournisseur et des modèles multilingues d’espaces de travail. Les versions de la racine, du frontend, du bureau, de Python et du backend en exécution concordent. OpenAPI est régénéré avec la nouvelle version ; les deux fichiers de dépendances verrouillées restent inchangés. Le catalogue reste non publié jusqu’à ce que les installateurs issus du même code réussissent les tests d’installation initiale, de persistance et de mise à niveau sur les quatre cibles prises en charge.

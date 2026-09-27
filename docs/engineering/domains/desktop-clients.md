@@ -516,7 +516,7 @@ same-path upgrade; this change also requires a newly built frozen backend.
 
 The `3.0.4` candidate includes the autosave preservation fix merged in PR 96. It supersedes the unpublished `3.0.3` candidate without moving its tag or reusing its acceptance claims. All four version fields are synchronized, dependency locks remain unchanged, and the catalog stays unpublished until newly built installers pass acceptance.
 
-The backend runtime constant `GNOSI_VERSION` also reports `3.1.0`; the health API contract test compares it with all four release manifests.
+The backend runtime constant `GNOSI_VERSION` also reports `3.2.0`; the health API contract test compares it with all four release manifests.
 
 Regenerate the committed OpenAPI document and its SHA-256 after changing the runtime version. For this candidate, the reviewed schema difference is limited to the application version; routes and payloads remain unchanged.
 
@@ -553,3 +553,5 @@ The desktop update notice periodically checks for newly published releases.
 When an update has been downloaded, the macOS installer action can be retried
 from the notice if the first installation attempt fails. Background checks and
 the renderer action are intentionally guarded so they do not run concurrently.
+
+The `3.2.0` candidate adds assistant teams and specialist roles, provider-specific model comparison and multilingual workspace templates. Root, frontend, desktop, Python and backend runtime versions match. OpenAPI is regenerated with the new version; both dependency locks remain unchanged. The catalog stays unpublished until the source-matched installers pass first-install, persistence and upgrade acceptance on all four supported targets.
