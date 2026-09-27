@@ -6777,6 +6777,24 @@
           "skill_startup": "Assigned skills remain available when several catalog requests arrive during startup.",
           "dimensions_auth": "Dimensions searches authenticate the configured API key before requesting results."
         }
+      },
+      "v3_2_0": {
+        "highlights": {
+          "teams": "Configure assistant teams with a director, specialist roles and economical delegation, and select an assistant for a single turn with its command.",
+          "models": "Compare provider-specific prices, context windows and capabilities, inspect role suitability and run explicitly authorized synthetic evaluations.",
+          "templates": "Browse and search workspace templates with localized previews, and inspect included files and possible sensitive content before sharing."
+        },
+        "improvements": {
+          "profiles": "Edit assistant instructions, skills and scoped sources, including account-specific mail access, with clearer saved settings and personal model aliases.",
+          "accessibility": "Navigate dialogs, settings, tables and lists more consistently with the keyboard and clearer focus indicators.",
+          "resources": "Create resources with visible progress, type-specific templates and automatic covers.",
+          "role_names": "Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge."
+        },
+        "fixes": {
+          "reader": "Open attached documents in the internal reader with the PDF resources included in desktop builds.",
+          "preservation": "Distinguish unknown model prices and capabilities from confirmed values when comparing offers.",
+          "model_comparison": "Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent."
+        }
       }
     }
   },

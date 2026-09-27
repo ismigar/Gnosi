@@ -6831,6 +6831,24 @@
           "skill_startup": "Les compétences attribuées restent disponibles lorsque plusieurs requêtes du catalogue arrivent au démarrage.",
           "dimensions_auth": "Les recherches Dimensions authentifient la clé API configurée avant de demander les résultats."
         }
+      },
+      "v3_2_0": {
+        "highlights": {
+          "teams": "Configurez des équipes d’assistants avec un directeur, des rôles spécialisés et une délégation économique, et sélectionnez un assistant pour un seul tour avec sa commande.",
+          "models": "Comparez les prix, les fenêtres de contexte et les capacités de chaque fournisseur, consultez l’adéquation aux rôles et lancez des évaluations synthétiques explicitement autorisées.",
+          "templates": "Parcourez et recherchez des modèles d’espace de travail avec des aperçus traduits, et examinez les fichiers inclus et le contenu potentiellement sensible avant de les partager."
+        },
+        "improvements": {
+          "profiles": "Modifiez les instructions, les compétences et les sources délimitées des assistants, y compris l’accès au courrier par compte, avec des paramètres enregistrés plus clairs et des alias personnels de modèles.",
+          "accessibility": "Naviguez dans les boîtes de dialogue, les paramètres, les tableaux et les listes de façon plus cohérente au clavier, avec des indicateurs de focus plus visibles.",
+          "resources": "Créez des ressources avec une progression visible, des modèles propres à chaque type et des couvertures automatiques.",
+          "role_names": "Les noms des rôles distinguent clairement le Directeur, qui coordonne l’équipe, de l’Expert, qui apporte des connaissances spécialisées."
+        },
+        "fixes": {
+          "reader": "Ouvrez les documents joints dans le lecteur interne avec les ressources PDF incluses dans les versions de bureau.",
+          "preservation": "Distinguez les prix et les capacités inconnus des modèles des valeurs confirmées lorsque vous comparez les offres.",
+          "model_comparison": "La comparaison préserve les modifications simultanées, distingue les offres exactes et les variantes partageant une offre, et applique les filtres de rôle aux capacités déclarées de l’offre sélectionnée. L’actualisation, le tri, le décompte filtré et la révision des paramètres sont plus cohérents."
+        }
       }
     }
   },
