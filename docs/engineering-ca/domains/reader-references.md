@@ -373,3 +373,7 @@ Els errors de temps d’espera desen un missatge útil, traduït al diàleg i a 
 notificacions. La lectura dirigida copia els plans desats al nou treball abans de
 contactar amb el proveïdor per conservar el progrés si falla un nou intent.
 Les crides estructurades respecten el mateix límit de context que la resta de lectures.
+
+## Fitxers del lector PDF
+
+El lector PDF integrat necessita tots els fitxers generats de Zotero a `frontend/public/zotero-reader`. Cal executar `bash scripts/runtime/build-zotero-reader.sh` abans de compilar una còpia nova. Vite comprova els fitxers d’entrada i de sortida, incloent-hi el motor PDF, el worker, el visor i la llengua alternativa. L’empaquetat d’escriptori utilitza el mateix validador. Les actualitzacions només de la interfície també han de copiar aquest directori; si falta el host, l’espera s’esgota abans d’obrir el document. Tant el CI de la interfície com les releases preparen aquests fitxers.

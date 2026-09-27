@@ -318,3 +318,7 @@ Los errores de tiempo de espera guardan un mensaje útil, traducido en el diálo
 las notificaciones. La lectura dirigida copia los planes guardados al nuevo trabajo
 antes de contactar con el proveedor, conservando el progreso si vuelve a fallar.
 Las llamadas estructuradas respetan el mismo límite de contexto que las demás lecturas.
+
+## Archivos del lector PDF
+
+El lector PDF integrado necesita todos los archivos generados de Zotero en `frontend/public/zotero-reader`. Hay que ejecutar `bash scripts/runtime/build-zotero-reader.sh` antes de compilar una copia nueva. Vite comprueba los archivos de entrada y salida, incluidos el motor PDF, el worker, el visor y el idioma alternativo. El empaquetado de escritorio utiliza el mismo validador. Las actualizaciones solo de la interfaz también deben copiar este directorio; si falta el host, la espera se agota antes de abrir el documento. Tanto el CI de la interfaz como las releases preparan estos archivos.

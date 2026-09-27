@@ -353,3 +353,7 @@ Provider timeouts persist a nonempty, actionable message, localized in the modal
 and background notifications. Directed reading copies saved plans to the new job
 before contacting the provider, so repeated failed resumes retain earlier progress.
 Structured calls enforce the same model context limit as ordinary reading calls.
+
+## PDF reader runtime assets
+
+The embedded PDF reader requires its complete generated Zotero runtime in `frontend/public/zotero-reader`. Run `bash scripts/runtime/build-zotero-reader.sh` before building a fresh checkout. Vite checks the source assets before compiling and the output after writing, including the PDF engine, worker, viewer and fallback locale. Desktop packaging uses the same validator. Frontend-only installations must copy this directory as well as the application chunks; a missing host otherwise times out before the document is opened. Both frontend CI and release jobs prepare these assets.

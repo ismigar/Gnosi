@@ -152,6 +152,9 @@ jobs:
         run: pnpm test:e2e:contracts
       - run: pnpm test:frontend
         if: steps.scope.outputs.runtime_required != 'false'
+      - name: Build bundled PDF reader
+        if: steps.scope.outputs.runtime_required != 'false'
+        run: bash scripts/runtime/build-zotero-reader.sh
       - run: pnpm build:frontend
         if: steps.scope.outputs.runtime_required != 'false'
       - run: pnpm test:desktop

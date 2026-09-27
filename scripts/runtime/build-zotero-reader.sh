@@ -8,10 +8,10 @@
 #     amb els seus sub-submodules (pdfjs, epubjs):
 #       git submodule update --init --recursive
 #
-# Aquest script no es crida automàticament al CI ni al build de Vite. Cal
-# executar-lo una vegada després de clonar el repo, i de nou si el
-# submodule s'actualitza. Els artifacts (build/, node_modules/, locales/)
-# estan al `.gitignore`.
+# El CI de release l’executa abans del build de Vite. En una còpia local,
+# cal executar-lo després de clonar el repo i quan s’actualitza el submodule.
+# Vite i l’empaquetador comproven que els artifacts estiguin complets.
+# Els artifacts (build/, node_modules/, locales/) estan al `.gitignore`.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -130,6 +130,12 @@ if [ -d "$OVERLAYS_DIR" ]; then
         echo "  · overlay $lang/gnosi-overlay.ftl"
     done
 fi
+
+node - "$PUBLIC_TARGET" "$SCRIPT_DIR/../../desktop/scripts/verify-frontend-assets.cjs" <<'NODE'
+const path = require('node:path');
+const [target, verifier] = process.argv.slice(2);
+require(verifier).verifyReaderAssets(path.dirname(target));
+NODE
 
 echo "✓ zotero-reader build completat a $PUBLIC_TARGET"
 echo "  Verifica amb: curl -I http://localhost:5173/zotero-reader/host.html"

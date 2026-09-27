@@ -357,3 +357,7 @@ dialogue et les notifications. La lecture dirigée copie les plans enregistrés 
 nouvelle tâche avant de contacter le fournisseur, préservant la progression en cas
 de nouvel échec. Les appels structurés respectent la même limite de contexte que les
 autres lectures.
+
+## Fichiers du lecteur PDF
+
+Le lecteur PDF intégré nécessite tous les fichiers Zotero générés dans `frontend/public/zotero-reader`. Exécuter `bash scripts/runtime/build-zotero-reader.sh` avant de compiler une nouvelle copie. Vite vérifie les fichiers d’entrée et de sortie, notamment le moteur PDF, le worker, le visualiseur et la langue de secours. Le paquet de bureau utilise le même validateur. Les mises à jour de l’interface seule doivent aussi copier ce répertoire ; si le host manque, le délai expire avant l’ouverture du document. Le CI de l’interface et les releases préparent ces fichiers.
