@@ -3236,6 +3236,19 @@
           "documentalist": "Per consultar i sintetitzar fonts extenses mantenint-ne les referències.",
           "administrative": "Per classificar informació i executar procediments amb dades estructurades.",
           "worker": "Per a tasques senzilles, repetitives i ben delimitades."
+        },
+        "reasoning_effort": "Nivell de raonament",
+        "reasoning_help": "Més esforç pot trigar més i consumir més tokens. Aquesta opció només afecta aquest assistent.",
+        "reasoning_default": "Per defecte del model",
+        "reasoning_default_level": "Per defecte del model ({{level}})",
+        "reasoning_levels": {
+          "none": "Desactivat",
+          "minimal": "Mínim",
+          "low": "Baix",
+          "medium": "Mitjà",
+          "high": "Alt",
+          "xhigh": "Molt alt",
+          "max": "Màxim"
         }
       },
       "model_strategy": {
@@ -6858,7 +6871,8 @@
           "resources": "Crea recursos amb progrés visible, plantilles específiques per tipus i portades automàtiques.",
           "role_names": "Els noms dels rols distingeixen clarament el Directiu, que coordina l’equip, del Perit, que aporta coneixement especialitzat.",
           "team_setup": "La configuració de l’equip desa automàticament els canvis complets. Les tasques, els models i les habilitats dels temporals permeten diverses seleccions amb noms clars, ajuda quan no hi ha opcions i aclaracions coherents en els quatre idiomes.",
-          "model_guidance": "Cada bot mostra el perfil LLM recomanat segons les seves tasques i habilitats. Desactivar un plugin desactiva i amaga el seu bot; la configuració es conserva per reactivar-lo."
+          "model_guidance": "Cada bot mostra el perfil LLM recomanat segons les seves tasques i habilitats. Desactivar un plugin desactiva i amaga el seu bot; la configuració es conserva per reactivar-lo.",
+          "reasoning": "Pots ajustar el nivell de raonament de cada assistent amb models compatibles d’OpenRouter; es desa automàticament i també s’aplica quan utilitza eines."
         },
         "fixes": {
           "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",

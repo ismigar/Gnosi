@@ -45,6 +45,7 @@ from backend.domains.agent.workflow_nodes import AgentWorkflowNodes
 from backend.services.agent_model_evaluations import quality_scores
 from backend.services.agent_model_strategy import choose_agent_model
 from backend.services.agent_model_strategy import normalize_model_strategy
+from backend.services.model_reasoning import agent_reasoning_kwargs
 from backend.services.agent_model_decisions import decision_selector
 from backend.services.agent_routing_policy import current_routing_limits
 
@@ -253,6 +254,7 @@ def resolve_model(
         api_key=resolved_api_key,
         base_url=provider_cfg.get("base_url"),
         timeout=timeout,
+        **agent_reasoning_kwargs(profile.agent_data, provider_name, model_name),
     )
     if not llm and llm_mode == "agent_default":
         return None, failure

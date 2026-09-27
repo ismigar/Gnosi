@@ -1407,6 +1407,19 @@
           "documentalist": "Pour consulter et synthétiser des sources volumineuses en conservant leurs références.",
           "administrative": "Pour classer l’information et suivre des procédures avec des données structurées.",
           "worker": "Pour des tâches simples, répétitives et bien délimitées."
+        },
+        "reasoning_effort": "Niveau de raisonnement",
+        "reasoning_help": "Un effort accru peut prendre plus de temps et consommer plus de tokens. Ce réglage concerne uniquement cet assistant.",
+        "reasoning_default": "Valeur par défaut du modèle",
+        "reasoning_default_level": "Valeur par défaut du modèle ({{level}})",
+        "reasoning_levels": {
+          "none": "Désactivé",
+          "minimal": "Minimal",
+          "low": "Faible",
+          "medium": "Moyen",
+          "high": "Élevé",
+          "xhigh": "Très élevé",
+          "max": "Maximum"
         }
       },
       "model_strategy": {
@@ -6858,7 +6871,8 @@
           "resources": "Créez des ressources avec une progression visible, des modèles propres à chaque type et des couvertures automatiques.",
           "role_names": "Les noms des rôles distinguent clairement le Directeur, qui coordonne l’équipe, de l’Expert, qui apporte des connaissances spécialisées.",
           "team_setup": "Les réglages de l’équipe enregistrent automatiquement les changements complets. Les tâches, modèles et compétences temporaires permettent plusieurs sélections nommées, avec une aide en l’absence d’options et des explications cohérentes dans les quatre langues.",
-          "model_guidance": "Chaque bot affiche un profil LLM recommandé selon ses tâches et compétences. Désactiver un plugin désactive et masque son bot ; sa configuration est conservée pour le réactiver."
+          "model_guidance": "Chaque bot affiche un profil LLM recommandé selon ses tâches et compétences. Désactiver un plugin désactive et masque son bot ; sa configuration est conservée pour le réactiver.",
+          "reasoning": "Réglez le niveau de raisonnement de chaque assistant avec les modèles OpenRouter compatibles ; le réglage est enregistré automatiquement et s’applique aussi lors de l’utilisation d’outils."
         },
         "fixes": {
           "reader": "Ouvrez les documents joints dans le lecteur interne avec les ressources PDF incluses dans les versions de bureau.",

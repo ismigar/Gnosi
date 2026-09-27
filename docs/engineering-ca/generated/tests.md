@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 587 | 2495 |
-| pytest | 562 | 4009 |
+| Vitest | 587 | 2500 |
+| pytest | 563 | 4018 |
 
 ## Fitxers
 
@@ -248,7 +248,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/settings/AppSidebarSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/ModelComparisonAudit.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonAudit.test.tsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/aiUsageHistory.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/aiUsageHistory.test.ts) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.test.tsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/global-settings/AIAgentForm.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AIAgentForm.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AccountProviderChoices.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AgentTeamParticipation.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamParticipation.test.tsx) | 14 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/global-settings/AgentTeamSetup.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AgentTeamSetup.test.tsx) | 2 | call-pattern estimate |
@@ -664,6 +664,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_phase_two.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_phase_two.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_quality_telemetry.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_agent_reasoning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_reasoning.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_agent_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_recovery.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_agent_resilience.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_resilience.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_agent_role_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_role_evaluations.py) | 6 | Python AST |

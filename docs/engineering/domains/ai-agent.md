@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +77,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1121,3 +1123,7 @@ The settings reading area accepts keyboard focus. Scrolling keys work from text 
 Each visible assistant card derives an advisory model role from its principal status, built-in plugin operations, known assigned skills (including customized derivatives), team specialties and explicit task routes. The most demanding recognized role wins; unknown tasks use All-rounder guidance. This never changes the assigned route, grants a capability or treats the recommendation as a measured model score. Labels and reasons use the four UI locales.
 
 Plugin suspension remains authoritative on the server and blocks execution. A successful lifecycle mutation invalidates configuration caches and notifies settings and chat. Settings merge only plugin lifecycle fields and newly created owned profiles, preserving local instructions and model edits. Suspended plugin profiles are hidden rather than deleted; active team membership and routes are pruned and collaboration stops when the principal or last receiver is suspended. A suspended principal produces an explicit selection prompt, without silently replacing the configured principal or existing conversations. Late refreshes after closing settings or changing vaults are discarded.
+
+## Reasoning effort
+
+Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRouter model choices through `GET /api/ai/model-reasoning`; absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls. Other model defaults are unchanged.

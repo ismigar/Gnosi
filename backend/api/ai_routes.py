@@ -19,6 +19,7 @@ from backend.domains.configuration.ai.contracts import (
     ModelCatalogResponse,
     ModelComparisonResponse,
     ModelRegistryResponse,
+    ModelReasoningResponse,
     ModelRegistryUpdateResponse,
     ModelsPayload,
     ProviderCredentialsResponse,
@@ -514,6 +515,13 @@ async def get_model_registry() -> JsonObject:
         }
 
     return await asyncio.to_thread(_load)
+
+
+@router.get("/model-reasoning", response_model=ModelReasoningResponse)
+async def get_model_reasoning(provider: str, model: str) -> JsonObject:
+    """Public provider metadata, without accessing credentials or calling an LLM."""
+    from backend.services.model_reasoning import reasoning_options
+    return await asyncio.to_thread(reasoning_options, provider, model)
 
 
 @router.get(

@@ -11,6 +11,7 @@ export type AiModelComparisonEntry =
 export type AiModelCatalogProvider =
   components['schemas']['ModelCatalogProvider'];
 export type AiModelRegistry = components['schemas']['ModelRegistryResponse'];
+export type AiModelReasoning = components['schemas']['ModelReasoningResponse'];
 export type AiModelRegistryEntry = components['schemas']['ModelRegistryEntry'];
 export type AiModelsPayload = components['schemas']['ModelsPayload'];
 export type AiModelRegistryUpdate =
@@ -62,6 +63,12 @@ export async function fetchAiModels(
 ): Promise<AiModelRegistry> {
   return unwrapApiResult<AiModelRegistry, unknown>(
     await apiClient.GET('/api/ai/models', { signal }),
+  );
+}
+
+export async function fetchAiModelReasoning(provider: string, model: string, signal?: AbortSignal): Promise<AiModelReasoning> {
+  return unwrapApiResult<AiModelReasoning, unknown>(
+    await apiClient.GET('/api/ai/model-reasoning', { params: { query: { provider, model } }, signal }),
   );
 }
 

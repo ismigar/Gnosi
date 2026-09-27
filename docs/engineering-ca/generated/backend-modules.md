@@ -11,12 +11,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
 | `agent` | 53 | 9469 |
-| `api` | 38 | 13239 |
+| `api` | 38 | 13247 |
 | `app` | 8 | 801 |
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 467 | 99633 |
+| `domains` | 467 | 99651 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 194 | 41526 |
+| `services` | 195 | 41648 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **867 modules** and **174710 source lines**.
+Total: **868 modules** and **174858 source lines**.
 
 ## agent
 
@@ -95,7 +95,7 @@ Total: **867 modules** and **174710 source lines**.
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_routes.py) | 209 | 1 | 0 | 0 | 1 | Compatibility facade for the modular agent HTTP routes. |
 | [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_skills_routes.py) | 194 | 1 | 0 | 0 | 1 | Compatibility facade for governed agent configuration APIs. |
-| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 798 | 3 | 17 | 12 | 12 | No module docstring |
+| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 806 | 3 | 18 | 13 | 13 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py) | 378 | 0 | 12 | 7 | 12 | No module docstring |
 | [`backend/api/auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py) | 384 | 7 | 11 | 0 | 11 | Auth endpoints — register / login / logout / me. |
 | [`backend/api/calendar_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py) | 692 | 0 | 30 | 22 | 20 | No module docstring |
@@ -203,7 +203,7 @@ Total: **867 modules** and **174710 source lines**.
 | [`backend/domains/agent/gnosi_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 566 | 1 | 28 | 2 | 11 | Shared deterministic helpers for first-party Gnosi tools. |
 | [`backend/domains/agent/gnosi_vault_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_vault_tools.py) | 388 | 0 | 15 | 0 | 14 | Vault read and explicit-write tools. |
 | [`backend/domains/agent/intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/intent.py) | 304 | 0 | 4 | 0 | 3 | Deterministic multilingual intent and authorization classification. |
-| [`backend/domains/agent/llm.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 542 | 0 | 20 | 0 | 7 | Typed language-model selection and provider adapters. |
+| [`backend/domains/agent/llm.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 548 | 0 | 20 | 0 | 7 | Typed language-model selection and provider adapters. |
 | [`backend/domains/agent/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/messages.py) | 219 | 0 | 9 | 0 | 2 | Bounded projection of durable agent messages into provider prompts. |
 | [`backend/domains/agent/operation_graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/operation_graph.py) | 27 | 0 | 1 | 0 | 0 | Structured, tool-free phases of the canonical agent workflow. |
 | [`backend/domains/agent/policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/policy.py) | 379 | 1 | 11 | 0 | 11 | Request-scoped agent state, cancellation and governed tool policy. |
@@ -243,7 +243,7 @@ Total: **867 modules** and **174710 source lines**.
 | [`backend/domains/agent/turn_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_planning.py) | 465 | 0 | 7 | 0 | 4 | Provider-independent planning for governed agent turns. |
 | [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 244 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
 | [`backend/domains/agent/workflow_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 722 | 4 | 0 | 0 | 3 | LangGraph nodes for the agent workflow. |
-| [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 758 | 4 | 16 | 1 | 20 | Typed preparation stages for the agent workflow coordinator. |
+| [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 760 | 4 | 16 | 1 | 20 | Typed preparation stages for the agent workflow coordinator. |
 | [`backend/domains/agent/write_intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 491 | 0 | 7 | 0 | 4 | Fail-closed multilingual authorization intent. |
 | [`backend/domains/analytics/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/__init__.py) | 1 | 0 | 0 | 0 | 0 | Analytics-domain contracts and services. |
 | [`backend/domains/analytics/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/schemas.py) | 93 | 10 | 0 | 0 | 10 | Public request and response contracts for workspace analytics. |
@@ -268,7 +268,7 @@ Total: **867 modules** and **174710 source lines**.
 | [`backend/domains/configuration/ai/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/__init__.py) | 1 | 0 | 0 | 0 | 0 | AI configuration domain routes and contracts. |
 | [`backend/domains/configuration/ai/budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/budget.py) | 25 | 0 | 1 | 0 | 1 | Normalize model registry budget settings. |
 | [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py) | 171 | 4 | 5 | 2 | 3 | Typed AI content-generation routes used by the Vault editor. |
-| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 321 | 24 | 0 | 0 | 24 | Public request and response contracts for AI registry and usage APIs. |
+| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 329 | 25 | 0 | 0 | 25 | Public request and response contracts for AI registry and usage APIs. |
 | [`backend/domains/configuration/ai/registry_revision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/registry_revision.py) | 9 | 0 | 1 | 0 | 0 | Optimistic revision for model and budget edits from independent clients. |
 | [`backend/domains/configuration/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration HTTP APIs. |
 | [`backend/domains/configuration/api/credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/credentials.py) | 216 | 0 | 5 | 5 | 5 | No module docstring |
@@ -277,7 +277,7 @@ Total: **867 modules** and **174710 source lines**.
 | [`backend/domains/configuration/api/plugin_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_models.py) | 228 | 29 | 0 | 0 | 23 | Pydantic contracts for the plugin configuration API. |
 | [`backend/domains/configuration/api/plugin_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_routes.py) | 201 | 1 | 1 | 0 | 2 | Route composition for the plugin API. |
 | [`backend/domains/configuration/api/plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugins.py) | 703 | 1 | 48 | 23 | 30 | HTTP adapters for built-in and third-party plugin configuration. |
-| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 368 | 0 | 22 | 5 | 16 | No module docstring |
+| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 370 | 0 | 22 | 5 | 16 | No module docstring |
 | [`backend/domains/configuration/config_response_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/config_response_cache.py) | 101 | 2 | 0 | 0 | 1 | Thread-safe cache for sanitized configuration responses. |
 | [`backend/domains/configuration/credential_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/credential_schemas.py) | 41 | 4 | 0 | 0 | 0 | Public schemas for secret-safe credential management. |
 | [`backend/domains/configuration/environment_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/environment_schemas.py) | 21 | 3 | 0 | 0 | 3 | Public request and response contracts for local environment settings. |
@@ -906,6 +906,7 @@ Total: **867 modules** and **174710 source lines**.
 | [`backend/services/model_parameter_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_review.py) | 86 | 2 | 1 | 0 | 0 | Per-model parameter source review. Supplied URLs are never fetched by the server. |
 | [`backend/services/model_parameter_seed.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_seed.py) | 201 | 2 | 0 | 0 | 0 | Reviewed manufacturer parameter disclosures; billions (10^9). |
 | [`backend/services/model_parameters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameters.py) | 232 | 0 | 16 | 0 | 1 | Bounded official-source parameter refresh; no guesses from model names. |
+| [`backend/services/model_reasoning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_reasoning.py) | 122 | 0 | 7 | 0 | 2 | Provider-declared reasoning choices and profile-scoped request settings. |
 | [`backend/services/model_role_suitability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_role_suitability.py) | 112 | 2 | 3 | 0 | 0 | Independent role assessments with explicit provenance and untested abilities. |
 | [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notebook_service.py) | 210 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical notebooks domain. |
 | [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/notion_attachments.py) | 198 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |

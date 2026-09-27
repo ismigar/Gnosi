@@ -21,6 +21,7 @@ TARGET_RESPONSE_MODELS = {
     ("GET", "/ai/models"): "ModelRegistryResponse",
     ("PUT", "/ai/models"): "ModelRegistryUpdateResponse",
     ("GET", "/ai/model-catalog"): "ModelCatalogResponse",
+    ("GET", "/ai/model-reasoning"): "ModelReasoningResponse",
     ("GET", "/ai/model-comparison"): "ModelComparisonResponse",
     ("GET", "/ai/usage"): "AiUsageResponse",
     ("GET", "/ai/usage/history"): "AiUsageHistoryResponse",

@@ -3217,6 +3217,19 @@
           "documentalist": "For consulting and summarizing extensive sources while retaining references.",
           "administrative": "For classifying information and following procedures with structured data.",
           "worker": "For simple, repetitive tasks with a clearly defined scope."
+        },
+        "reasoning_effort": "Reasoning effort",
+        "reasoning_help": "More effort can take longer and use more tokens. This setting only affects this assistant.",
+        "reasoning_default": "Model default",
+        "reasoning_default_level": "Model default ({{level}})",
+        "reasoning_levels": {
+          "none": "Off",
+          "minimal": "Minimal",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "xhigh": "Very high",
+          "max": "Maximum"
         }
       },
       "model_strategy": {
@@ -6804,7 +6817,8 @@
           "resources": "Create resources with visible progress, type-specific templates and automatic covers.",
           "role_names": "Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.",
           "team_setup": "Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.",
-          "model_guidance": "Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation."
+          "model_guidance": "Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.",
+          "reasoning": "Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use."
         },
         "fixes": {
           "reader": "Open attached documents in the internal reader with the PDF resources included in desktop builds.",

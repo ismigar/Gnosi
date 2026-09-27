@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +77,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1293,3 +1295,7 @@ El área de lectura de configuración admite el foco del teclado. Las teclas de 
 Cada ficha visible recomienda un papel de modelo según el principal, las operaciones del plugin, las habilidades conocidas y sus copias, las especialidades y las rutas. Gana el papel de mayor exigencia; las tareas desconocidas reciben orientación Todoterreno. Es una recomendación, no una puntuación del modelo ni un cambio de ruta o permisos.
 
 Tras un cambio de plugin se invalidan las cachés de configuración y se avisa al chat y al formulario. Solo se fusionan los campos de ciclo de vida y los perfiles nuevos, preservando las ediciones locales. Los perfiles suspendidos quedan ocultos y no pueden ejecutar tareas; se retiran de los destinatarios y rutas activas. Si se suspende el principal o el último destinatario, se detiene la colaboración. El principal no se reemplaza automáticamente. Se descartan respuestas tardías tras cerrar los ajustes o cambiar de vault.
+
+## Nivel de razonamiento
+
+Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opciones exactas de OpenRouter con `GET /api/ai/model-reasoning`: sin metadatos no ofrece opciones, null explícito admite los niveles de la pasarela y el razonamiento obligatorio excluye `none`. La caché se guarda fuera del vault e incluye una alternativa verificada de Luna para el primer uso sin conexión. El guardado rechaza opciones incompatibles. Las fábricas del modelo predeterminado y del flujo solo propagan el nivel cuando proveedor y modelo coinciden con el perfil. El razonamiento explícito de OpenRouter y el predeterminado de Luna usan Responses sin estado, `store=false`, historial completo y razonamiento cifrado entre llamadas de herramientas. Se conservan los valores predeterminados de los demás modelos.

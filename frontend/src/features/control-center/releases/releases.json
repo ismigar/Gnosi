@@ -15,7 +15,8 @@
         "release_notes.entries.v3_2_0.improvements.resources",
         "release_notes.entries.v3_2_0.improvements.role_names",
         "release_notes.entries.v3_2_0.improvements.team_setup",
-        "release_notes.entries.v3_2_0.improvements.model_guidance"
+        "release_notes.entries.v3_2_0.improvements.model_guidance",
+        "release_notes.entries.v3_2_0.improvements.reasoning"
       ],
       "fixes": [
         "release_notes.entries.v3_2_0.fixes.reader",

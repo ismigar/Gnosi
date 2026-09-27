@@ -933,6 +933,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/model-reasoning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Model Reasoning
+         * @description Public provider metadata, without accessing credentials or calling an LLM.
+         */
+        get: operations["get_model_reasoning_api_ai_model_reasoning_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/model-reliability": {
         parameters: {
             query?: never;
@@ -18789,6 +18809,21 @@ export interface components {
             verification?: string | null;
         };
         /**
+         * ModelReasoningResponse
+         * @description Effort choices explicitly supported by this provider/model route.
+         */
+        ModelReasoningResponse: {
+            /** Default Effort */
+            default_effort: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "openrouter" | "verified_snapshot" | "unavailable";
+            /** Supported Efforts */
+            supported_efforts: string[];
+        };
+        /**
          * ModelRegistryEntry
          * @description One configured router model, preserving provider-specific JSON metadata.
          */
@@ -26530,6 +26565,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParameterReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_model_reasoning_api_ai_model_reasoning_get: {
+        parameters: {
+            query: {
+                model: string;
+                provider: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelReasoningResponse"];
                 };
             };
             /** @description Validation Error */

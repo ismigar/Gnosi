@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +77,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1316,3 +1318,7 @@ La zone de lecture des paramètres accepte le focus du clavier. Les touches de d
 Chaque fiche visible recommande un rôle de modèle selon le principal, les opérations du plugin, les compétences connues et leurs copies, les spécialités et les routes. Le rôle le plus exigeant l’emporte ; les tâches inconnues reçoivent une orientation Polyvalent. Il s’agit d’un conseil, pas d’un score du modèle ni d’un changement de route ou de permissions.
 
 Après un changement de plugin, les caches de configuration sont invalidés et le chat et le formulaire sont notifiés. Seuls les champs de cycle de vie et les nouveaux profils sont fusionnés, en préservant les modifications locales. Les profils suspendus sont masqués et ne peuvent pas exécuter de tâches ; ils sont retirés des destinataires et routes actifs. La collaboration s’arrête si le principal ou le dernier destinataire est suspendu. Le principal n’est pas remplacé automatiquement. Les réponses tardives après fermeture des paramètres ou changement de vault sont ignorées.
+
+## Niveau de raisonnement
+
+Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les choix exacts d’OpenRouter via `GET /api/ai/model-reasoning` : des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.

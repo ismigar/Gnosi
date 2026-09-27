@@ -3182,6 +3182,19 @@
           "documentalist": "Para consultar y sintetizar fuentes extensas conservando sus referencias.",
           "administrative": "Para clasificar información y ejecutar procedimientos con datos estructurados.",
           "worker": "Para tareas sencillas, repetitivas y bien delimitadas."
+        },
+        "reasoning_effort": "Nivel de razonamiento",
+        "reasoning_help": "Más esfuerzo puede tardar más y consumir más tokens. Esta opción solo afecta a este asistente.",
+        "reasoning_default": "Predeterminado del modelo",
+        "reasoning_default_level": "Predeterminado del modelo ({{level}})",
+        "reasoning_levels": {
+          "none": "Desactivado",
+          "minimal": "Mínimo",
+          "low": "Bajo",
+          "medium": "Medio",
+          "high": "Alto",
+          "xhigh": "Muy alto",
+          "max": "Máximo"
         }
       },
       "model_strategy": {
@@ -6858,7 +6871,8 @@
           "resources": "Crea recursos con progreso visible, plantillas específicas por tipo y portadas automáticas.",
           "role_names": "Los nombres de los roles distinguen claramente al Directivo, que coordina el equipo, del Perito, que aporta conocimiento especializado.",
           "team_setup": "La configuración del equipo guarda automáticamente los cambios completos. Las tareas, modelos y habilidades de temporales permiten varias selecciones con nombres claros, ayuda cuando no hay opciones y explicaciones coherentes en los cuatro idiomas.",
-          "model_guidance": "Cada bot muestra el perfil LLM recomendado según sus tareas y habilidades. Desactivar un plugin desactiva y oculta su bot; la configuración se conserva para reactivarlo."
+          "model_guidance": "Cada bot muestra el perfil LLM recomendado según sus tareas y habilidades. Desactivar un plugin desactiva y oculta su bot; la configuración se conserva para reactivarlo.",
+          "reasoning": "Puedes ajustar el nivel de razonamiento de cada asistente con modelos compatibles de OpenRouter; se guarda automáticamente y también se aplica cuando utiliza herramientas."
         },
         "fixes": {
           "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",

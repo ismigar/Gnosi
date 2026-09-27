@@ -122,6 +122,7 @@
       "backend/api/ai_routes.py",
       "backend/api/tools_routes.py",
       "backend/services/ai*.py",
+      "backend/services/model_reasoning.py",
       "frontend/src/features/agent/**/*",
       "frontend/src/features/agent-context/**/*",
       "frontend/src/features/settings/AI/**/*",

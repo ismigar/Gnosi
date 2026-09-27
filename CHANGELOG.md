@@ -18,6 +18,7 @@ _2026-09-27 · Release candidate_
 - Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.
 - Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.
 - Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.
+- Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.
 
 ### Fixes
 

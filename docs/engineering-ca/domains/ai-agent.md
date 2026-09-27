@@ -2,6 +2,7 @@
 status: implemented
 last_verified: 2026-09-23
 source_paths:
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +77,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1227,3 +1229,7 @@ L’àrea de lectura de la configuració admet el focus del teclat. Les tecles d
 Cada fitxa visible recomana un paper de model segons el principal, les operacions del plugin, les habilitats conegudes i les seves còpies, les especialitats i les rutes. Guanya el paper de major exigència; les tasques desconegudes reben orientació Tot terreny. És una recomanació, no una puntuació del model ni un canvi de ruta o permisos.
 
 Després d’un canvi de plugin es renoven les memòries cau de configuració i s’avisa el xat i el formulari. Només es fusionen els camps de cicle de vida i els perfils nous, preservant les edicions locals. Els perfils suspesos queden ocults i no poden executar feina; es retiren dels destinataris i les rutes actives. Si se suspèn el principal o l’últim destinatari, la col·laboració s’atura. El principal no es reemplaça automàticament. Es descarten respostes tardanes després de tancar la configuració o canviar de vault.
+
+## Nivell de raonament
+
+Els perfils desen `reasoning_effort` opcional. L’editor consulta les opcions exactes d’OpenRouter amb `GET /api/ai/model-reasoning`: les metadades absents no habiliten opcions, null explícit admet els nivells de la passarel·la i el raonament obligatori exclou `none`. La memòria cau és fora del vault i inclou una alternativa verificada de Luna per al primer ús sense connexió. El desament rebutja opcions incompatibles. Les fàbriques del model predeterminat i del flux només propaguen el nivell quan proveïdor i model coincideixen amb el perfil. El raonament explícit d’OpenRouter i el predeterminat de Luna utilitzen Responses sense estat, `store=false`, historial complet i raonament xifrat entre crides d’eines. Els valors predeterminats dels altres models es conserven.
