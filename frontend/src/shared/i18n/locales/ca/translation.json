@@ -6831,6 +6831,24 @@
           "skill_startup": "Les habilitats assignades continuen disponibles quan arriben diverses peticions del catàleg durant l’inici.",
           "dimensions_auth": "Les cerques a Dimensions autentiquen la clau d’API configurada abans de demanar els resultats."
         }
+      },
+      "v3_2_0": {
+        "highlights": {
+          "teams": "Configura equips d’assistents amb un director, rols especialitzats i delegació econòmica, i selecciona un assistent per a un sol torn amb la seva ordre.",
+          "models": "Compara preus, finestres de context i capacitats de cada proveïdor, consulta la idoneïtat per rol i executa avaluacions sintètiques autoritzades explícitament.",
+          "templates": "Explora i cerca plantilles d’espai de treball amb previsualitzacions traduïdes, i revisa els fitxers inclosos i el possible contingut sensible abans de compartir-les."
+        },
+        "improvements": {
+          "profiles": "Edita les instruccions, habilitats i fonts delimitades dels assistents, inclòs l’accés al correu per compte, amb una configuració desada més clara i àlies personals dels models.",
+          "accessibility": "Navega pels diàlegs, la configuració, les taules i les llistes de manera més coherent amb el teclat i indicadors de focus més clars.",
+          "resources": "Crea recursos amb progrés visible, plantilles específiques per tipus i portades automàtiques.",
+          "role_names": "Els noms dels rols distingeixen clarament el Directiu, que coordina l’equip, del Perit, que aporta coneixement especialitzat."
+        },
+        "fixes": {
+          "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",
+          "preservation": "Diferencia els preus i les capacitats desconeguts dels models dels valors confirmats quan compares ofertes.",
+          "model_comparison": "La comparativa preserva els canvis simultanis, diferencia les ofertes exactes i les variants que comparteixen oferta, i aplica els filtres de rol a les capacitats declarades de l’oferta seleccionada. També millora l’actualització, l’ordenació, el recompte filtrat i la revisió de paràmetres."
+        }
       }
     }
   },

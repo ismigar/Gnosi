@@ -573,7 +573,7 @@ canvi de ruta i actualització amb la mateixa ruta, i reconstruir el backend con
 
 El candidat `3.0.4` inclou la correcció de preservació del desament automàtic integrada a la PR 96. Substitueix el candidat no publicat `3.0.3` sense moure’n el tag ni reutilitzar les seves validacions d’acceptació. Els quatre camps de versió estan sincronitzats, els fitxers de dependències fixades no canvien i el catàleg es manté sense publicar fins que els nous instal·ladors superin l’acceptació.
 
-La constant del backend `GNOSI_VERSION` també indica `3.1.0`; la prova del contracte de l’API de salut la compara amb els quatre manifestos de versió.
+La constant del backend `GNOSI_VERSION` també indica `3.2.0`; la prova del contracte de l’API de salut la compara amb els quatre manifestos de versió.
 
 Cal regenerar el document OpenAPI desat i el seu SHA-256 després de canviar la versió del backend. En aquest candidat, la diferència revisada de l’esquema es limita a la versió de l’aplicació; les rutes i les dades no canvien.
 
@@ -607,3 +607,5 @@ La composició d'anotacions PDF executa els 57 contractes en cadascun de dos ord
 La validació local prèvia a la PR i CI invoquen el mateix punt d’entrada `pnpm lint:frontend`. El llançador compartit sempre comprova tot el frontend sense permetre avisos; només afegeix les opcions de cache de contingut quan es defineix `GNOSI_ESLINT_CACHE`. Les rutes de cache es passen com a arguments literals sense intèrpret d’ordres i els errors d’anàlisi continuen sent fatals. La prova de paritat prèvia a la PR continua rebutjant qualsevol validació de CI absent del pla local complet.
 
 La candidata `3.1.0` empaqueta l’assistent principal compartit, la selecció de models segons la tasca, la memòria amb àmbit definit, l’aprenentatge reutilitzable i la lectura contextual de fonts. Les dades existents es conserven mitjançant les migracions revisades. Tots els manifests i `GNOSI_VERSION` coincideixen; el contracte OpenAPI regenerat només canvia la versió respecte del codi preparat. Els dos fitxers de dependències fixades es mantenen intactes. El catàleg continua sense publicar fins que els instal·ladors del mateix codi superin les proves d’instal·lació inicial, persistència i actualització als quatre destins.
+
+La candidata `3.2.0` afegeix equips d’assistents i rols especialitzats, comparació de models per proveïdor i plantilles multilingües d’espais de treball. Coincideixen les versions de l’arrel, el frontend, l’escriptori, Python i el backend en execució. Es regenera OpenAPI amb la nova versió; els dos fitxers de dependències fixades es mantenen intactes. El catàleg continua sense publicar fins que els instal·ladors del mateix codi superin l’acceptació d’instal·lació inicial, persistència i actualització en els quatre destins compatibles.

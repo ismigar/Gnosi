@@ -1,5 +1,28 @@
 [
   {
+    "version": "3.2.0",
+    "date": "2026-09-27",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v3_2_0.highlights.teams",
+        "release_notes.entries.v3_2_0.highlights.models",
+        "release_notes.entries.v3_2_0.highlights.templates"
+      ],
+      "improvements": [
+        "release_notes.entries.v3_2_0.improvements.profiles",
+        "release_notes.entries.v3_2_0.improvements.accessibility",
+        "release_notes.entries.v3_2_0.improvements.resources",
+        "release_notes.entries.v3_2_0.improvements.role_names"
+      ],
+      "fixes": [
+        "release_notes.entries.v3_2_0.fixes.reader",
+        "release_notes.entries.v3_2_0.fixes.preservation",
+        "release_notes.entries.v3_2_0.fixes.model_comparison"
+      ]
+    }
+  },
+  {
     "version": "3.1.0",
     "date": "2026-09-24",
     "channel": "stable",

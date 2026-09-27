@@ -1,5 +1,28 @@
 # Gnosi changelog
 
+## Gnosi 3.2.0
+
+_2026-09-27 · Release candidate_
+
+### Highlights
+
+- Configure assistant teams with a director, specialist roles and economical delegation, and select an assistant for a single turn with its command.
+- Compare provider-specific prices, context windows and capabilities, inspect role suitability and run explicitly authorized synthetic evaluations.
+- Browse and search workspace templates with localized previews, and inspect included files and possible sensitive content before sharing.
+
+### Improvements
+
+- Edit assistant instructions, skills and scoped sources, including account-specific mail access, with clearer saved settings and personal model aliases.
+- Navigate dialogs, settings, tables and lists more consistently with the keyboard and clearer focus indicators.
+- Create resources with visible progress, type-specific templates and automatic covers.
+- Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.
+
+### Fixes
+
+- Open attached documents in the internal reader with the PDF resources included in desktop builds.
+- Distinguish unknown model prices and capabilities from confirmed values when comparing offers.
+- Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.
+
 ## Gnosi 3.1.0
 
 _2026-09-24 · Stable_

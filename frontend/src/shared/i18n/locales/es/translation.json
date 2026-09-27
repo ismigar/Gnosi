@@ -6831,6 +6831,24 @@
           "skill_startup": "Las habilidades asignadas siguen disponibles cuando llegan varias peticiones del catálogo durante el inicio.",
           "dimensions_auth": "Las búsquedas en Dimensions autentican la clave de API configurada antes de solicitar los resultados."
         }
+      },
+      "v3_2_0": {
+        "highlights": {
+          "teams": "Configura equipos de asistentes con un director, roles especializados y delegación económica, y selecciona un asistente para un solo turno mediante su comando.",
+          "models": "Compara precios, ventanas de contexto y capacidades de cada proveedor, consulta la idoneidad por rol y ejecuta evaluaciones sintéticas autorizadas explícitamente.",
+          "templates": "Explora y busca plantillas de espacio de trabajo con vistas previas traducidas, y revisa los archivos incluidos y el posible contenido sensible antes de compartirlas."
+        },
+        "improvements": {
+          "profiles": "Edita las instrucciones, habilidades y fuentes delimitadas de los asistentes, incluido el acceso al correo por cuenta, con una configuración guardada más clara y alias personales de modelos.",
+          "accessibility": "Navega por diálogos, ajustes, tablas y listas de forma más coherente con el teclado e indicadores de foco más claros.",
+          "resources": "Crea recursos con progreso visible, plantillas específicas por tipo y portadas automáticas.",
+          "role_names": "Los nombres de los roles distinguen claramente al Directivo, que coordina el equipo, del Perito, que aporta conocimiento especializado."
+        },
+        "fixes": {
+          "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",
+          "preservation": "Distingue los precios y las capacidades desconocidos de los modelos de los valores confirmados al comparar ofertas.",
+          "model_comparison": "La comparativa preserva los cambios simultáneos, diferencia las ofertas exactas y las variantes que comparten oferta, y aplica los filtros de rol a las capacidades declaradas de la oferta seleccionada. También mejora la actualización, la ordenación, el recuento filtrado y la revisión de parámetros."
+        }
       }
     }
   },
