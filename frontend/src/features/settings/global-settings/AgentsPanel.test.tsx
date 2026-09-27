@@ -210,8 +210,12 @@ it('selects a plugin bot as the only principal from its card and transfers the e
   const team: AgentTeam = { ...EMPTY_TEAM, enabled: true, director_id: principal.id, members: [{ agent_id: 'helper', roles: ['allrounder'] }] };
   const plugin = { id: 'mail', name: 'Mail helper', managed_by: 'builtin:mail', persona: 'Keep instructions', skill_ids: ['mail'] };
   act(() => { root.render(<Harness profiles={[{ ...principal, team }, plugin, { id: 'helper', name: 'Helper' }]} />); });
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.configure_profile:Cervell"]')?.click(); });
+  click('Edit fixture');
   act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.make_principal_for:Mail helper"]')?.click(); });
   expect(savedAi().active_agent_id).toBe('mail');
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Profile name"]')?.value).toBe('Auto saved');
+  expect(savedAi().agents.find(agent => agent.id === principal.id)?.name).toBe('Auto saved');
   expect(savedAi().agents.find(agent => agent.id === 'mail')).toMatchObject({ ...plugin, skill_ids: ['mail', TEAM_SKILL], team: { enabled: true, director_id: 'mail', members: team.members } });
   const cards = [...host.querySelectorAll('[data-settings-item-id]')];
   expect(cards).toHaveLength(3);

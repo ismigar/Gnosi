@@ -40,6 +40,7 @@ export function AgentsPanel({ context, onSelectSkill, onOpenActivity, focusedPro
           otherCommands={draft.ai.agents.filter(item => item.id !== editingAgent.id).map(item => item.command || '')}
           purpose={!principal || editingAgent.id === principal.id ? 'principal' : 'profile'}
           onChange={updated => {
+            setEditingAgent(current => current?.id === updated.id ? updated : current);
             setDraft(prev => ({ ...prev, ai: { ...prev.ai,
               agents: prev.ai.agents.map(item => item.id === updated.id ? mergeProfile(item, updated) : item),
             } }));
