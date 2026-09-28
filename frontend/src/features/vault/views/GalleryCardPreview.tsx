@@ -137,7 +137,7 @@ export function GalleryContentPreview({
                     event.stopPropagation();
                 }
             }}
-            className={`gallery-card-preview ${scrollMode === 'page' ? 'text-sm' : 'h-full overflow-y-auto overscroll-contain text-xs custom-scrollbar'} overflow-x-hidden rounded-md px-1 leading-relaxed text-[var(--text-secondary)] outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-xs [&_img]:max-h-40 [&_img]:object-contain [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_td]:break-words`}
+            className={`gallery-card-preview ${scrollMode === 'page' ? 'overflow-x-clip text-sm' : 'h-full overflow-x-hidden overflow-y-auto overscroll-contain text-xs custom-scrollbar'} rounded-md px-1 leading-relaxed text-[var(--text-secondary)] outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-xs [&_img]:max-h-40 [&_img]:object-contain [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_td]:break-words`}
         >
             {markdown ? (
                 <VaultMarkdown

@@ -301,7 +301,7 @@ describe('VaultGallery', () => {
         expect(cards).toHaveLength(2);
         expect(cards[0]?.parentElement?.classList.contains('grid-cols-1')).toBe(true);
         expect(cards[0]?.parentElement?.className).not.toMatch(/(?:sm|lg|xl|2xl):grid-cols/);
-        expect(cards.every(card => card.classList.contains('h-auto') && card.classList.contains('min-h-96'))).toBe(true);
+        expect(cards.every(card => card.classList.contains('h-auto') && !card.className.includes('min-h-'))).toBe(true);
         expect(mocks.contentPreview.mock.calls.map(([props]) => props.scrollMode)).toEqual(['page', 'page']);
     });
 

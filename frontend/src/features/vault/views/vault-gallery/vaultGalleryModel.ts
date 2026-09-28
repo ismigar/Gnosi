@@ -195,7 +195,7 @@ export function galleryGridClass(size: GalleryCardSize): string {
 
 
 export function galleryCardHeightClass(size: GalleryCardSize): string {
-    if (size === 'full') return 'min-h-96 h-auto';
+    if (size === 'full') return 'h-auto';
     return size === 'small' ? 'h-40' : size === 'large' ? 'h-80' : 'h-64';
 }
 
