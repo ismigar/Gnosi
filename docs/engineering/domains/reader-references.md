@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-24
+last_verified: 2026-09-27
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki.py
+  - backend/services/llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.ts
   - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
@@ -33,6 +37,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_recovery.py
+  - backend/tests/test_llm_wiki_contextual_reading.py
+  - backend/tests/test_llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.test.ts
   - backend/tests/test_reference_covers.py
   - frontend/src/features/vault/dashboard/useSources.test.tsx
   - frontend/src/shared/resources/pdfCover.test.ts
@@ -331,3 +339,21 @@ review-blinding, concurrent import, and PRISMA count tests. Browser validation
 must open an actual fixture document and exercise a citation or annotation
 round trip, then run one progressive literature search, inspect provenance, and
 import a deduplicated result.
+
+## Full-source processing and timeouts
+
+Source processing retains the selected model's context capacity and sends complete
+sources when they fit. The context limit and the execution timeout are independent.
+Requests above 96,000 UTF-8 bytes receive up to 900 seconds per attempt, with a
+1,920-second overall retry budget; smaller phases retain the 240-second request and
+360-second overall budgets. The existing five-attempt and 120-second backoff limits
+still apply. This threshold changes waiting time only, never truncation or chunking.
+
+Provider timeouts persist a nonempty, actionable message, localized in the modal
+and background notifications. Directed reading copies saved plans to the new job
+before contacting the provider, so repeated failed resumes retain earlier progress.
+Structured calls enforce the same model context limit as ordinary reading calls.
+
+## PDF reader runtime assets
+
+The embedded PDF reader requires its complete generated Zotero runtime in `frontend/public/zotero-reader`. Run `bash scripts/runtime/build-zotero-reader.sh` before building a fresh checkout. Vite checks the source assets before compiling and the output after writing, including the PDF engine, worker, viewer and fallback locale. Desktop packaging uses the same validator. Frontend-only installations must copy this directory as well as the application chunks; a missing host otherwise times out before the document is opened. Both frontend CI and release jobs prepare these assets.

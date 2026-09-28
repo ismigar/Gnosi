@@ -11,6 +11,7 @@ import {
     type ResourceProcessingStart,
 } from '../../../shared/api/resource-processing';
 import { ProcessResourceModal } from './ProcessResourceModal';
+import { resetResourceProcessingTasks } from './process-resource/resourceProcessingTasks';
 
 
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
@@ -91,6 +92,7 @@ let root: Root;
 
 beforeEach(() => {
     vi.useFakeTimers();
+    resetResourceProcessingTasks();
     vi.resetAllMocks();
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -103,6 +105,7 @@ beforeEach(() => {
 afterEach(() => {
     act(() => {
         root.unmount();
+        resetResourceProcessingTasks();
     });
     container.remove();
     vi.useRealTimers();
@@ -134,6 +137,23 @@ async function flushProcessing(): Promise<void> {
 
 
 describe('ProcessResourceModal', () => {
+    it('explains provider timeouts and retries without forcing a fresh run', async () => {
+        vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
+            ...runningJob, running: false, phase: 'partial',
+            error: 'The AI provider did not respond in time. Retry to resume saved progress.',
+        });
+        render(<ProcessResourceModal isOpen force noteId="note-1" onClose={vi.fn()} />);
+        act(() => { buttonWithText('Process').click(); });
+        await flushProcessing();
+        expect(container.textContent).toContain('The AI provider did not respond in time.');
+        expect(vi.getTimerCount()).toBe(0);
+        act(() => { buttonWithText('Retry').click(); });
+        await flushProcessing();
+        expect(startResourceProcessing).toHaveBeenLastCalledWith({
+            force: false, resource_id: 'note-1', source_table_id: undefined,
+        });
+    });
+
     it('stops with a recoverable error when a tracked job disappears', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             resource_id: 'job-1', running: false, phase: 'idle', progress: 0,
@@ -149,7 +169,7 @@ describe('ProcessResourceModal', () => {
     });
 
 
-    it('does not overlap slow polls or accept their response after unmount', async () => {
+    it('does not overlap slow polls and keeps monitoring after navigation', async () => {
         let resolvePoll: (job: ResourceProcessingJob) => void = () => {};
         vi.mocked(fetchResourceProcessingStatus).mockReturnValueOnce(new Promise((resolve) => {
             resolvePoll = resolve;
@@ -166,12 +186,12 @@ describe('ProcessResourceModal', () => {
         const signal = vi.mocked(fetchResourceProcessingStatus).mock.calls[0]?.[2];
         expect(signal?.aborted).toBe(false);
         render(<div />);
-        expect(signal?.aborted).toBe(true);
+        expect(signal?.aborted).toBe(false);
         resolvePoll(doneJob);
         await flushProcessing();
         expect(onJobUpdate).toHaveBeenCalledTimes(1);
         expect(onProcessed).not.toHaveBeenCalled();
-        expect(toast.success).not.toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalledOnce();
         expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -333,7 +353,7 @@ describe('ProcessResourceModal', () => {
 
         expect(container.textContent).toContain('Planning notes with AI');
         expect(container.textContent).toContain('1 pages');
-        expect(container.textContent).toContain('continue in the background');
+        expect(container.textContent).toContain('follow progress in the corner');
         const progress = container.querySelector<HTMLElement>('[style]');
         expect(progress?.style.width).toBe('25%');
         act(() => {
@@ -369,7 +389,7 @@ describe('ProcessResourceModal', () => {
             buttonWithText('Process').click();
         });
         await flushProcessing();
-        expect(container.textContent).toContain('continue in the background');
+        expect(container.textContent).toContain('follow progress in the corner');
 
         await act(async () => {
             await vi.advanceTimersByTimeAsync(1500);

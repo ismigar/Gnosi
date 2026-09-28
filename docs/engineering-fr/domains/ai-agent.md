@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1332,3 +1334,29 @@ Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte le
 La permission de collaboration n’intercepte plus tous les flux. Le modèle du profil sélectionné, y compris son niveau de raisonnement, est résolu en premier ; `request_team_help` devient ensuite un appel de contrôle facultatif dans le chat et les opérations structurées. Les outils natifs et le transport JSON validé partagent le même contrat. Le travail courant n’ajoute aucun appel de routage. La délégation doit être le seul appel et précéder toute exécution d’outil ; la correction de format ne peut pas demander d’aide. Le coordinateur conserve la demande du tour actuel, les configurations figées, les confirmations, l’annulation et le plafond global d’appels. Les exécutants ne peuvent pas enchaîner les délégations ni renvoyer la tâche au demandeur. Le catalogue du plan comprend les spécialités des membres. La correction et la reprise utilisent l’équipe seulement si une demande d’aide ou un plan est enregistré ; sinon elles conservent l’assistant initial. La migration n’active aucune permission d’équipe.
 
 Les métadonnées de raisonnement en lecture seule se trouvent dans `backend/domains/configuration/ai/model_metadata_routes.py` ; le routeur des réglages IA les inclut sous `/api/ai/model-reasoning`, avec le même contrat public. Cette séparation respecte la limite de taille des fichiers du projet.
+
+## Progression des ressources en arrière-plan
+
+Fermer la boîte de dialogue laisse une carte compacte et non modale dans le coin inférieur droit. Elle affiche le titre, la phase, les fragments et la progression disponible, et permet de rouvrir les détails sans lancer une autre tâche. Le magasin global conserve les démarrages en attente et les requêtes de suivi sans chevauchement, depuis une ligne de tableau ou une ressource ouverte, même lors de la navigation. Les résultats terminés ou interrompus restent visibles jusqu’à leur fermeture ; réessayer reprend le travail enregistré. Le suivi se réinitialise lors d’un changement de Vault ou de compte et ignore les réponses obsolètes. Cet état de session de l’interface ne persiste pas lors du rechargement de l’application.
+
+## Format des opérations structurées
+
+Les opérations structurées OpenRouter transmettent leur contrat de sortie au fournisseur, en mode schéma strict pour les contrats détaillés et en mode objet JSON pour les objets génériques. Le routage exige la prise en charge des paramètres et conserve les préférences du fournisseur et le raisonnement. Les outils natifs facultatifs utilisent des contrats de fonction stricts ; les outils JSON de remplacement contraignent leur enveloppe et valident localement la réponse extraite. Les autres fournisseurs conservent la validation locale. La lecture dirigée des sources transmet son schéma d’actions, avec le type explicite de l’action.
+
+L’acceptation de la requête par le fournisseur ne prouve pas sa conformité : les validations locales du schéma et du contenu restent obligatoires, avec la tentative de réparation limitée existante. Un objet ou une liste JSON complet suivi uniquement d’un délimiteur final répété peut être récupéré sans modifier aucun champ ; les valeurs supplémentaires, la prose, les fermetures incohérentes et le contenu incomplet sont rejetés. La vérification des citations, la couverture des sources et la validation des notes sont conservées. La validité structurelle ne garantit ni l’exactitude factuelle ni une rédaction identique entre les exécutions.
+
+Si le planificateur d’une équipe facultative refuse le contexte avant tout appel au modèle ou toute tâche, l’opération structurée peut continuer avec le modèle initial dans les mêmes limites de temps et d’appels. La requête complète et la réponse à la demande d’aide sont conservées ; le transfert refusé reste traçable et ne redirige pas la reprise vers la phase échouée de l’équipe. Les erreurs de permissions, les annulations et les erreurs survenant après la création d’un plan arrêtent toujours l’exécution. La reprise du traitement interrompu depuis la barre de la page utilise la progression sauvegardée, y compris après un redémarrage de l’application, sans imposer une nouvelle exécution.
+
+La planification et la replanification des équipes valident les exécutants, l’ordre des dépendances et la tâche de résultat avant de terminer la phase ou de lancer les tâches. Les erreurs de cohérence entrent dans le processus habituel de réparation, avec au maximum deux appels de planification dans le budget total existant. Une seconde réponse invalide fait échouer la phase sans exécuter ses tâches. Les plans terminés récupérés du cache sont également validés avant réutilisation.
+
+La lecture dirigée contraint les champs de chaque action, y compris les notes, la couverture et les citations. Elle valide les références à la source, la couverture complète et les citations exactes avant d’accepter ou de mettre en cache une action, afin que la réparation limitée conserve ensemble les preuves originales et la réponse rejetée. La validation préalable ne modifie pas l’état de lecture. Chaque étape contient les identifiants exacts des fragments et le nombre de passages principaux ; une identité d’étape empêche de réutiliser une réponse identique entre des itérations différentes.
+
+Les phases de l’équipe héritent du délai d’attente de l’opération principale tout en restant limitées par son échéance existante. Une réparation déléguée reçoit l’entrée et les données originales avec la réponse rejetée et l’erreur de validation, afin de vérifier les preuves en corrigeant la réponse.
+
+La validation de lecture signale ensemble les erreurs indépendantes de couverture et de citation, en indiquant la position des notes et citations sans reproduire le texte source. La seule tentative de réparation autorisée peut ainsi corriger toutes les incohérences connues à partir des preuves originales, au lieu de découvrir uniquement l’erreur suivante après chaque tentative. Les plans invalides ne font pas avancer l’état de lecture.
+
+Les réparations de références de la lecture dirigée renvoient des modifications limitées par un schéma pour les notes rejetées et la couverture. La demande originale, la mémoire globale, les notes concernées et les passages originaux de référence restent disponibles. Seuls les champs de référence énumérés peuvent changer ; les titres, corps, ordre et champs non concernés des notes sont copiés sans modification depuis le brouillon. Les chemins dupliqués, absents ou non autorisés sont rejetés localement. Le profil original effectue cette réparation dans la même limite de deux appels et la même échéance, sans délégation supplémentaire. L’action reconstruite doit respecter le schéma original et la validation complète des preuves avant toute mise en cache ou sauvegarde.
+
+Avant tout début de délégation, les demandes d’aide invalides ou répétées d’une opération structurée sont rejetées ensemble. Les appels sont enregistrés comme non exécutés, et l’assistant initial peut répondre directement avec la demande complète dans les limites de correction et de temps existantes. Aucune mission ni aucun appel combiné à un outil ne sont exécutés. Chaque étape de lecture indique également si chaque fragment répertorié a été lu et si son plan a été enregistré, y compris après une reprise, afin que les totaux ne masquent pas les plans encore en attente.
+
+La lecture de sources longues conserve le délai étendu mais borné lors du choix des actions suivantes, de la révision des plans récupérés et de la reprise, même si la demande actuelle est courte. La taille de la source détermine le temps disponible ; les limites de contexte, le budget fini de nouvelles tentatives, l’annulation et la validation restent inchangés.

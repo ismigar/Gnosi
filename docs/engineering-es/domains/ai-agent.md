@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1309,3 +1311,29 @@ Los perfiles guardan `reasoning_effort` opcional. El editor consulta las opcione
 El permiso de colaboración ya no intercepta todos los flujos. Primero se resuelve el modelo del perfil seleccionado, incluido el nivel de razonamiento, y después se ofrece `request_team_help` como llamada de control opcional en chat y operaciones estructuradas. Las herramientas nativas y el transporte JSON validado comparten contrato. El trabajo habitual no añade llamadas de encaminamiento. La delegación debe ser la única llamada y preceder la ejecución de herramientas; la reparación de formato no puede pedir ayuda. El coordinador conserva la entrada del turno actual, la configuración fijada, las confirmaciones, la cancelación y el límite total de llamadas. Los ejecutores no pueden encadenar ayuda ni devolver el encargo al solicitante. El catálogo del plan incluye las especialidades de los miembros. La reparación y la reanudación solo usan el equipo si hay una petición de ayuda o plan guardado; de lo contrario mantienen el asistente original. La migración no activa permisos de equipo.
 
 Los metadatos de razonamiento de solo lectura están en `backend/domains/configuration/ai/model_metadata_routes.py`; el enrutador de configuración de IA los incluye en `/api/ai/model-reasoning`, con el mismo contrato público. Así se respeta el límite de tamaño de los archivos del proyecto.
+
+## Progreso de los recursos en segundo plano
+
+Al cerrar el diálogo de procesamiento queda una tarjeta compacta, no modal, en la esquina inferior derecha. Muestra el título del recurso, la fase, los fragmentos y el progreso disponible, y permite reabrir los detalles sin iniciar otro trabajo. El almacén global de tareas mantiene los inicios pendientes y las consultas de seguimiento sin solapamientos, tanto desde filas de tabla como desde un recurso abierto, aunque se cambie de página. Los resultados completados o interrumpidos permanecen hasta descartarlos; reintentar retoma el trabajo guardado. El seguimiento se reinicia al cambiar de Vault o de cuenta e ignora respuestas antiguas. Este estado de sesión de la interfaz no persiste al recargar la aplicación.
+
+## Formato de las operaciones estructuradas
+
+Las operaciones estructuradas de OpenRouter envían su contrato de salida al proveedor, con modo de esquema estricto para contratos detallados y modo de objeto JSON para objetos genéricos. La selección de ruta exige compatibilidad con los parámetros y conserva las preferencias del proveedor y el razonamiento. Las herramientas nativas opcionales usan contratos de función estrictos; las herramientas JSON alternativas restringen su envoltorio y validan localmente la respuesta extraída. Los demás proveedores mantienen la validación local. La lectura dirigida de fuentes transmite el esquema de acciones, incluido el tipo explícito de la acción.
+
+Que el proveedor acepte la petición no demuestra que cumpla el contrato: las validaciones locales de esquema y contenido siguen siendo obligatorias, con el intento de reparación limitado existente. Se puede recuperar un objeto o una lista JSON completos seguidos únicamente de un delimitador final repetido, sin modificar ningún campo; se rechazan valores adicionales, prosa, cierres incoherentes y contenido incompleto. La comprobación de citas, la cobertura de fuentes y la validación de notas se mantienen. La validez estructural no garantiza exactitud factual ni una redacción idéntica entre ejecuciones.
+
+Si el planificador de un equipo opcional rechaza el contexto antes de llamar al modelo o ejecutar tareas, la operación estructurada puede continuar con el modelo original dentro del mismo plazo y límite de llamadas. Se conservan la petición completa y la respuesta a la solicitud de ayuda; la delegación rechazada queda registrada y no desvía la reanudación hacia la fase fallida del equipo. Los errores de permisos, las cancelaciones y los errores posteriores a la existencia de un plan siguen deteniendo la ejecución. Reanudar el procesamiento interrumpido desde la barra de la página aprovecha el progreso guardado, también después de reiniciar la aplicación, sin forzar una ejecución nueva.
+
+La planificación y replanificación de equipos validan los ejecutores, el orden de las dependencias y la tarea de resultado antes de completar la fase o iniciar las tareas. Los errores de coherencia entran en el proceso habitual de reparación, con un máximo de dos llamadas de planificación dentro del presupuesto total existente. Una segunda respuesta inválida hace fallar la fase sin ejecutar sus tareas. Los planes completados recuperados de la caché también se validan antes de reutilizarlos.
+
+La lectura dirigida restringe los campos de cada acción, incluidas las notas, la cobertura y las citas. Valida las referencias a la fuente, la cobertura completa y las citas exactas antes de aceptar o guardar una acción, para que la reparación limitada conserve juntas las evidencias originales y la respuesta rechazada. La validación previa no modifica el estado de lectura. Cada paso incluye los identificadores exactos de los fragmentos y el número de pasajes principales, y una identidad de paso impide reutilizar una respuesta idéntica entre iteraciones distintas.
+
+Las fases del equipo heredan el tiempo de espera de la operación principal y siguen limitadas por su plazo existente. Una reparación delegada recibe la entrada y los datos originales junto con la respuesta rechazada y el error de validación, para poder comprobar las evidencias al corregir la respuesta.
+
+La validación de lectura comunica conjuntamente los errores independientes de cobertura y citación, identificando la posición de las notas y citas sin reproducir el texto de la fuente. Así, el único intento de reparación permitido puede corregir todas las incoherencias conocidas con la evidencia original, en lugar de descubrir solo el siguiente error después de cada intento. Los planes inválidos no hacen avanzar el estado de lectura.
+
+Las reparaciones de referencias de la lectura dirigida devuelven cambios limitados por un esquema para las notas rechazadas y la cobertura. Se conservan la petición original, la memoria global, las notas afectadas y los pasajes originales de referencia. Solo pueden cambiar los campos de referencia enumerados; los títulos, cuerpos, orden y campos no afectados de las notas se copian intactos del borrador. Las rutas duplicadas, ausentes o no autorizadas se rechazan localmente. El perfil original realiza esta reparación dentro del mismo límite de dos llamadas y plazo, sin delegaciones adicionales. La acción reconstruida debe superar el esquema original y la validación completa de evidencias antes de guardarse o entrar en la caché.
+
+Antes de iniciar cualquier delegación, las peticiones de ayuda inválidas o repetidas de una operación estructurada se rechazan conjuntamente. Los registros de llamada quedan resueltos como no ejecutados, y el asistente original puede responder directamente con la petición completa dentro del límite de reparación y del plazo existentes. No se ejecuta ningún encargo al equipo ni ninguna herramienta combinada. Cada paso de lectura también incluye el estado de lectura y de guardado de cada fragmento enumerado, incluso después de reanudar, para que el recuento no oculte qué planes siguen pendientes.
+
+La lectura de fuentes largas conserva el plazo ampliado y limitado durante la selección posterior de acciones, la revisión de planes recuperados y la reanudación, aunque la petición actual sea breve. El tamaño de la fuente determina el tiempo disponible; se mantienen los límites de contexto, el presupuesto finito de reintentos, la cancelación y la validación.

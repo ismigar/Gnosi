@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.routing import APIRoute
+from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
 
 from backend.agent import model_catalog
 from backend.api import ai_routes
@@ -28,11 +28,12 @@ TARGET_RESPONSE_MODELS = {
 }
 
 
-def _api_routes() -> list[APIRoute]:
-    return [route for route in ai_routes.router.routes if isinstance(route, APIRoute)]
+def _api_routes() -> list[RouteContext]:
+    return [context for context in iter_route_contexts(ai_routes.router.routes)
+            if isinstance(context.original_route, APIRoute)]
 
 
-def _route(method: str, path: str) -> APIRoute:
+def _route(method: str, path: str) -> RouteContext:
     return next(
         route
         for route in _api_routes()

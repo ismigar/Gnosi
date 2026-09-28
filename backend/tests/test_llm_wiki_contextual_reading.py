@@ -243,7 +243,8 @@ def test_directed_reading_full_sources_and_model_selected_order():
     actions.append({"action": "finish", "arguments": {"summary": "All originals reviewed"}})
     result, _ = reader.run()
     assert calls[0]["last_result"]["delivery"] == "complete"
-    assert calls[1]["last_result"]["error"] == "source_coverage_incomplete"
+    assert calls[1]["correction"] == "source_coverage_incomplete"
+    assert calls[1]["last_result"] == calls[0]["last_result"]
     assert len(result["coverage"]) == 2
     assert result["reviewed"] is True
     assert result["summary"] == "All originals reviewed"
@@ -266,3 +267,106 @@ def test_directed_reading_checkpoint_resumes_without_duplicate_notes():
     result, _ = reader.run()
     assert len(result["notes"]) == 2
     assert checkpoints[("resumed", "agent-state")]["plans"]
+    assert [[(item["read"], item["saved"]) for item in request["index"]] for request in calls] == [
+        [(True, False), (True, False)],
+        [(True, True), (True, False)],
+        [(True, True), (True, True)],
+    ]
+
+
+def test_directed_reading_keeps_saved_plans_when_the_first_resumed_call_fails():
+    def generate(request):
+        if request["saved_plan_count"]:
+            raise RuntimeError("provider unavailable")
+        chunk = reader.chunks[0]
+        return {"action": "save_plan", "arguments": {
+            "chunk_id": chunk["id"], "plan": note_answer({"primary_segments": chunk["segments"]}),
+        }}
+
+    reader, _, checkpoints = setup_reader(generate=generate)
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 10
+    for current, previous in [("current", ""), ("resumed", "current"), ("resumed-again", "resumed")]:
+        reader.job_id, reader.resume_job_id = current, previous
+        with pytest.raises(RuntimeError, match="provider unavailable"):
+            reader.run()
+        assert len(checkpoints[(current, "agent-state")]["plans"]) == 1
+
+
+def test_directed_large_source_is_delivered_in_full_with_a_longer_timeout():
+    from backend.domains.llm_wiki import recovery
+    calls = []
+    def generate(prompt, **kwargs):
+        calls.append((json.loads(prompt), kwargs["timeout"]))
+        raise ValueError("stop after inspecting request")
+
+    reader, _, _ = setup_reader()
+    reader.dependencies.input_budget = 750_000
+    reader.dependencies.generate_text = generate
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    original = "Long source evidence. " * 16_000
+    reader.origins = [finalize_origin({"kind": "text", "label": "Long source", "input_order": 0,
+        "segments": [{"text": original, "locator": {}}]})]
+    reader.chunks = reading_chunks(reader.origins, budget=reader.budget // 5, count=token_bound)
+    with pytest.raises(ValueError, match="stop after inspecting request"):
+        reader.run()
+    request, timeout = calls[0]
+    assert request["last_result"]["delivery"] == "complete"
+    assert "".join(segment["text"] for chunk in request["last_result"]["sources"]
+                   for segment in chunk["segments"]) == original.strip()
+    assert timeout == recovery.LONG_REQUEST_TIMEOUT_SECONDS
+
+
+def test_directed_steps_keep_exact_chunk_ids_and_distinct_cache_inputs():
+    reader, calls, _ = setup_reader(generate=lambda _: {"action": "remember", "arguments": {"text": "Global context"}})
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 4
+    with pytest.raises(RuntimeError, match="resume_required"):
+        reader.run()
+    assert [request["step"] for request in calls] == [0, 1, 2, 3]
+    assert calls[2]["last_result"] == calls[3]["last_result"]
+    assert calls[2] != calls[3]
+    for request in calls:
+        assert [item["id"] for item in request["index"]] == [chunk["id"] for chunk in reader.chunks]
+        assert all(item["primary_segment_count"] == 1 for item in request["index"])
+
+
+@pytest.mark.parametrize("source_size,expected_timeout", [(1_000, 240), (120_000, 900)])
+def test_resumed_review_keeps_source_timeout_when_request_is_short(source_size, expected_timeout):
+    reader, _, _ = setup_reader(resume="previous-job")
+    reader.origins = [finalize_origin({"kind": "text", "label": "Source", "input_order": 0,
+        "segments": [{"text": "A" * source_size, "locator": {}}]})]
+    def generate(prompt, **kwargs):
+        assert len(prompt.encode("utf-8")) < 96_000
+        assert kwargs["timeout"] == expected_timeout
+        return '{"summary":"Reviewed"}', "test-model"
+    reader.dependencies.generate_text = generate
+    assert reader.ask("review-saved", "agent-actions", {"saved_plan_count": 3}, lambda _: None)["summary"] == "Reviewed"
+
+
+@pytest.mark.parametrize("action,arguments", [
+    ("read", {}), ("read", {"text": "wrong action payload"}),
+    ("index", {"offset": True}), ("index", {"limit": 101}),
+    ("search", {"query": "  "}), ("remember", {"text": 12}),
+])
+def test_directed_action_contract_rejects_wrong_arguments(action, arguments):
+    from backend.domains.llm_wiki.directed_reading import validate_action
+    reader, _, _ = setup_reader()
+    with pytest.raises(ValueError):
+        validate_action(reader, {"read": [], "plans": {}}, {}, {"action": action, "arguments": arguments})
+
+
+@pytest.mark.parametrize("action", ["read", "remember", "save_plan"])
+def test_validating_an_action_does_not_mutate_live_state(action):
+    from backend.domains.llm_wiki.directed_reading import validate_action
+    reader, _, checkpoints = setup_reader()
+    chunks = {chunk["id"]: chunk for chunk in reader.chunks}
+    state = {"read": list(chunks) if action == "save_plan" else [], "plans": {}, "memory": "Original global map"}
+    before = deepcopy(state)
+    first = reader.chunks[0]
+    arguments = {"read": {"chunk_id": first["id"]}, "remember": {"text": "New map"},
+                 "save_plan": {"chunk_id": first["id"], "plan": note_answer({"primary_segments": first["segments"]})}}[action]
+    validate_action(reader, state, chunks, {"action": action, "arguments": arguments})
+    assert state == before
+    assert not checkpoints

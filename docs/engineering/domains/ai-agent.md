@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1137,3 +1139,29 @@ Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRou
 Team permission no longer intercepts every workflow. The factory resolves the selected profile’s own model first, including its reasoning setting, then offers `request_team_help` as an optional control call in chat and structured operations. Native function calling and validated JSON transport use the same contract. Ordinary work adds no routing call. A handoff must be the only tool call and must precede tool execution; format repair cannot request help. The bounded coordinator reuses the current turn input, snapshots, confirmation grants, cancellation and total-call limits. Executors cannot request nested help or route an assignment back to its requester. Member specialties are included in the planning catalog. Repair and resumption enter team handling only when a saved handoff or plan exists; otherwise they retain the original assistant. No team permissions are enabled by migration.
 
 Read-only reasoning metadata lives in `backend/domains/configuration/ai/model_metadata_routes.py`; the AI settings router includes it under the unchanged `/api/ai/model-reasoning` path and public contract. This keeps the main router within the project source-size guardrail.
+
+## Background resource progress
+
+Closing the processing dialog leaves a compact, nonmodal progress card in the lower-right corner. It shows the resource title, phase, fragment count and available progress, and reopens details without starting a second job. The application-level task store owns pending starts and non-overlapping polling, so both table actions and open-resource actions survive page navigation. Completed or interrupted results remain until dismissed; retry resumes saved work. The monitor resets on Vault or account changes and ignores stale responses. This frontend session state is not persisted across application reloads.
+
+## Structured operation output
+
+OpenRouter structured operations send their output contract to the provider, with strict schema mode for detailed contracts and JSON-object mode for generic objects. Routing requires parameter support and preserves existing provider preferences and reasoning settings. Optional native tools use strict function contracts; fallback JSON tools constrain their outer envelope and validate the extracted answer locally. Other providers retain local validation. Directed source reading forwards its action schema, including the explicit action type.
+
+Provider acceptance is not proof of compliance: local schema and domain validation remain mandatory, with the existing bounded repair attempt. A complete JSON object or array followed only by one repeated root closing delimiter can be recovered without changing any field; extra values, prose, mismatched closers and incomplete content are rejected. Citation matching, source coverage and note validation are unchanged. Structural validity does not guarantee factual accuracy or identical wording between runs.
+
+If an optional team planner rejects the context before any model call or assignment, a structured operation can continue on its original model within the same deadline and call limit. The full request and resolved help call are retained; the declined handoff remains auditable and does not redirect resumption into the failed team phase. Permission failures, cancellation and failures after a plan exists still stop execution. Resuming interrupted resource processing from the page toolbar uses saved progress, including after an application reload, rather than forcing a new run.
+
+Team planning and replanning validate executors, ordered dependencies and the result task before completing the planning phase or starting assignments. Domain errors participate in the canonical repair loop, with at most two planning calls within the existing total budget. A second invalid response fails the phase without executing its assignments. Completed cached plans are also validated before reuse.
+
+Directed reading constrains each action payload, including nested notes, coverage and citations. It validates source references, complete coverage and exact quotations before accepting or caching an action, so one bounded repair keeps the original evidence and rejected answer together. Validation previews do not modify reading state. Every step carries exact chunk identifiers and primary-segment counts, and a step identity prevents an identical response from being reused across distinct iterations.
+
+Team phases inherit the enclosing operation timeout while remaining inside its existing deadline. A delegated repair receives the original input and data alongside the rejected output and validation error, so it can check evidence rather than repairing an isolated answer.
+
+Reading validation reports independent coverage and citation errors together, identifying note and citation positions without echoing source text. The single permitted repair can therefore correct all known inconsistencies against the original evidence, rather than discovering only the next error after each attempt. Invalid plans never advance reading state.
+
+Reference repairs for directed reading return a schema-constrained patch for rejected notes and coverage. The original request, global memory, affected notes and original reference passages remain available. Only enumerated reference fields can change; note titles, bodies, order and unrelated fields are copied unchanged from the draft. Duplicate, missing and unauthorized patch paths fail locally. The original profile performs this repair within the same two-call allowance and deadline, without further delegation. The restored action must pass the original schema and complete evidence validation before it can be cached or saved.
+
+Before any handoff work starts, invalid or repeated help calls in a structured operation are rejected together. Their tool-call records are resolved as unexecuted, and the original assistant can answer directly using the full request within the existing repair allowance and deadline. No team assignment or mixed tool call executes. A reading step also carries the read and saved status of each listed source chunk, including after resumption, so counts cannot hide which plans remain pending.
+
+Long-source reading retains the longer bounded timeout during later action selection, recalled-plan review and resumption, even when the current request is short. The source size determines the work allowance; input context limits, finite retry budgets, cancellation and validation are unchanged.
