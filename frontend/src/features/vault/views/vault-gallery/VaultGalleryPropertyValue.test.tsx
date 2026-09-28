@@ -59,6 +59,12 @@ describe('VaultGalleryPropertyValue open inputs', () => {
         act(() => { root.render(<VaultGalleryPropertyValue {...baseProps} {...overrides} />); });
     }
 
+    it('renders percentage rollups as progress, including zero', () => {
+        render({ field: 'Progress', type: 'rollup', value: '0%', schema: { Progress: 'rollup', Progress_config: { aggregation: 'percent_checked' } } });
+        expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('0');
+        expect(container.textContent).toContain('0%');
+    });
+
     it('matches opaque table IDs by identity and renders scalar related titles', () => {
         const tableId = new Map([['imported', 4n]]);
         const onNoteSelect = vi.fn();

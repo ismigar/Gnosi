@@ -14,7 +14,8 @@ import {
 } from './vaultGalleryModel';
 
 
-vi.mock('../../../../shared/records/model/schemaUtils', () => ({
+vi.mock('../../../../shared/records/model/schemaUtils', async importOriginal => ({
+    ...await importOriginal<typeof import('../../../../shared/records/model/schemaUtils')>(),
     getFieldConfig: () => ({
         options: [{ color: 'red', name: 'Doing' }, { color: 'green', name: 'Done' }],
     }),

@@ -1,3 +1,4 @@
+import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ReactNode } from 'react';
 import { Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 
@@ -9,7 +10,6 @@ import { AutoriaDisplay } from '../../properties/AutoriaField';
 import { FileFieldValue } from '../../properties/FileFieldValue';
 import {
     formatDate,
-    formatNumber,
     resolveFieldFormat,
 } from '../../../../shared/records/model/formatUtils';
 import { RelationItem } from '../../properties/RelationItem';
@@ -99,14 +99,9 @@ export function VaultGalleryPropertyValue({
             })}</span>
         </div>;
     }
-    if (type === 'number') {
+    if (['number', 'formula', 'rollup', 'virtual'].includes(type)) {
         const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-        return <span className="tabular-nums">{formatNumber(value, {
-            currencyCode: format.currencyCode,
-            decimals: format.decimals,
-            kind: format.kind,
-            locale: format.numberLocale,
-        })}</span>;
+        return <span className="tabular-nums"><NumberValue value={value} format={format} /></span>;
     }
     if (type === 'autoria') return <AutoriaDisplay value={value} />;
     if (type === 'status' || type === 'select') {

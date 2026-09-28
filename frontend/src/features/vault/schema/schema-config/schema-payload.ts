@@ -78,8 +78,10 @@ export function buildPayload(fields: Field[], enableTranslation: boolean) {
         }
         // Per-field format (override of the global one): only persisted if it has
         // meaningful values, so that a field without a format derives from the global one.
-        if (f.type === 'number' && f.format) {
+        if (['number', 'formula', 'rollup', 'virtual'].includes(f.type) && f.format) {
             const fmt: EditorFormat = {};
+            if (typeof f.format.progressMax === 'number' && Number.isFinite(f.format.progressMax) && f.format.progressMax > 0) fmt.progressMax = f.format.progressMax;
+            if (f.format.display) fmt.display = f.format.display;
             if (f.format.kind && f.format.kind !== 'number') fmt.kind = f.format.kind;
             if (f.format.decimals != null && f.format.decimals !== '') fmt.decimals = Number(f.format.decimals);
             if (f.format.currency) fmt.currency = f.format.currency;

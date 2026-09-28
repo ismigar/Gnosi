@@ -1,3 +1,4 @@
+import { NumberValue } from '../../../../../shared/records/NumberValue';
 import { GnosiToggle } from '../../../../../shared/ui/settings/SettingsPrimitives';
 import { asBool } from '../../../../../shared/filtering/vaultFilters';
 import { isPagePropertyReadOnly, propertyDisplayText } from './propertyModel';
@@ -5,7 +6,6 @@ import { parsePeriod } from '../../../properties/VaultDateProperty';
 import { ImageHoverPreview } from '../../../../../shared/ui/previews/ImageHoverPreview';
 import { VaultDateProperty } from '../../../properties/VaultDateProperty';
 import { formatDate } from '../../../../../shared/records/model/formatUtils';
-import { formatNumber } from '../../../../../shared/records/model/formatUtils';
 import { isImageFieldName } from '../../../../../shared/resources/fileResource';
 import { parseImageField } from '../../../../../shared/resources/fileResource';
 import { resolveFieldFormat } from '../../../../../shared/records/model/formatUtils';
@@ -27,7 +27,7 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
     if (typeof v === 'boolean') return <GnosiToggle label={prop.name} active={v} disabled />;
     const fmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
     const text = ['formula', 'rollup', 'virtual'].includes(prop.type) && (typeof v === 'number' || typeof v === 'string')
-      ? formatNumber(v, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })
+      ? <NumberValue value={v} format={fmt} />
       : propertyDisplayText(v);
     return <span className="px-2 py-1 text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words" aria-label={prop.name}>{text || t('common.empty')}</span>;
   }
@@ -94,7 +94,11 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
   }
   if (!isEditor && hasVal && prop.type === 'number') {
     const fmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
-    return <span className="px-2 py-1 text-sm text-[var(--text-primary)] tabular-nums">{formatNumber(v, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
+    return <span className="px-2 py-1 text-sm text-[var(--text-primary)] tabular-nums"><NumberValue value={v} format={fmt} /></span>;
+  }
+  if (isEditor && prop.type === 'number') {
+    const format = resolveFieldFormat(getPropConfig(prop), localeSettings);
+    if (format.display === 'bar' || format.display === 'ring') return <div className="flex flex-wrap items-center gap-2"><NumberValue value={v} format={format} /><input aria-label={prop.name} type="number" step="any" value={inputValue(v)} onChange={e => { handleMetaChange(prop.name, e.target.value === '' ? '' : e.target.valueAsNumber); }} className="w-20 rounded bg-[var(--bg-secondary)] px-2 py-1 text-sm" /></div>;
   }
   if (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period') {
     return (

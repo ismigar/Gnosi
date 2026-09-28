@@ -1,3 +1,4 @@
+import { readGroupFieldValue } from '../groupFieldValue';
 import { normalizeOptions } from '../../../../shared/records/model/optionCatalogUtils';
 import { getFieldConfig, type VaultSchema } from '../../../../shared/records/model/schemaUtils';
 import type { TableGroupMetadata, TableRowRecord } from './rowTypes';
@@ -51,6 +52,7 @@ export function buildTableGroupMetadata(
     note.resolved_table_id || note.metadata?.table_id || note.metadata?.database_table_id
   ) === relationDatabase);
   return {
+    readValue: note => readGroupFieldValue(note, field, schema, allNotes),
     fieldId: config.id || null,
     optionOrder: options.map(option => option.name),
     colorMap: Object.fromEntries(options.map(option => [option.name, option.color])),

@@ -1,3 +1,4 @@
+import { groupValueKeys, groupValueLabel, readGroupValue } from '../groupValueUtils';
 import { optionColorHex } from '../../../../shared/records/model/optionCatalogUtils';
 import type { TableRowDescriptor, TableRowDescriptorInput, TableRowRecord } from './rowTypes';
 
@@ -7,13 +8,6 @@ interface RowGroup<Note> {
   key: string;
   label: string;
   notes: Note[];
-}
-
-/** Match legacy String coercion for arbitrary persisted metadata, including arrays. */
-function groupName(raw: unknown): string {
-  if (Array.isArray(raw)) return raw.length ? String(raw[0]).trim() : '';
-  const text = String(raw);
-  return raw === null || raw === undefined ? '' : text.trim();
 }
 
 export function buildTableRowDescriptors<Note extends TableRowRecord>({
@@ -44,19 +38,18 @@ export function buildTableRowDescriptors<Note extends TableRowRecord>({
   }
   const groups = new Map<string, RowGroup<Note>>();
   for (const note of sortedNotes) {
-    const metadata = note.metadata || {};
-    // An own property wins even if its value is empty; stable field id is a fallback only.
-    const raw = Object.hasOwn(metadata, groupByField) ? metadata[groupByField]
-      : groupMeta.fieldId && Object.hasOwn(metadata, groupMeta.fieldId) ? metadata[groupMeta.fieldId] : undefined;
-    const name = groupName(raw);
-    const id = name === '' ? EMPTY : name;
-    const group = groups.get(id) ?? {
-      key: id,
-      label: id === EMPTY ? emptyGroupLabel : groupMeta.labelMap?.[name] || name,
-      notes: [],
-    };
-    group.notes.push(note);
-    groups.set(id, group);
+    const raw = groupMeta.readValue ? groupMeta.readValue(note) : readGroupValue(note, groupByField, groupMeta.fieldId);
+    const values = groupValueKeys(raw);
+    for (const name of values.length ? values : ['']) {
+      const id = name === '' ? EMPTY : name;
+      const group = groups.get(id) ?? {
+        key: id,
+        label: id === EMPTY ? emptyGroupLabel : groupMeta.labelMap?.[name] || groupValueLabel(name),
+        notes: [],
+      };
+      group.notes.push(note);
+      groups.set(id, group);
+    }
   }
   const mode = activeView?.groupSort || activeView?.group_sort || 'catalog';
   const direction = (activeView?.groupSortDir || activeView?.group_sort_dir || 'asc') === 'desc' ? -1 : 1;

@@ -1,4 +1,4 @@
-import { GROUP_FIELD_TYPES, DATE_FIELD_TYPES, NUMERIC_FIELD_TYPES } from './constants';
+import { DATE_FIELD_TYPES, NUMERIC_FIELD_TYPES } from './constants';
 import type { useViewStateResult } from './useViewState';
 import type { useViewFieldLabelsResult } from './useViewFieldLabels';
 
@@ -11,7 +11,7 @@ export function useViewOptions({
     | 'existingViewsTableId'
     | 'sourceTableId'
 >) {
-    const groupFieldOptions = sortedTableFields.filter(f => GROUP_FIELD_TYPES.has((f.type || '').toLowerCase()));
+    const groupFieldOptions = sortedTableFields;
     const dateFieldOptions = sortedTableFields.filter(f => DATE_FIELD_TYPES.has((f.type || '').toLowerCase()));
     const numericFieldOptions = sortedTableFields.filter(f => NUMERIC_FIELD_TYPES.has((f.type || '').toLowerCase()));
     // Fields suitable for the gallery cover: attachments/images/URL or fields with

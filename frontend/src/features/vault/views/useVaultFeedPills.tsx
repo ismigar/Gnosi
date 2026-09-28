@@ -1,3 +1,4 @@
+import { NumberValue } from '../../../shared/records/NumberValue';
 import { Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +10,6 @@ import { asBool } from '../../../shared/filtering/vaultFilters';
 import { FileFieldValue } from '../properties/FileFieldValue';
 import {
   formatDate,
-  formatNumber,
   resolveFieldFormat,
 } from '../../../shared/records/model/formatUtils';
 import {
@@ -133,9 +133,9 @@ export function useVaultFeedPills({
       });
       return <span className="flex items-center gap-1.5 whitespace-nowrap text-sm text-[var(--text-secondary)]"><Calendar size={14} className="text-[var(--text-tertiary)]" />{end ? `${formatPart(start)} → ${formatPart(end)}` : formatPart(start)}</span>;
     }
-    if (type === 'number') {
+    if (['number', 'formula', 'rollup', 'virtual'].includes(type)) {
       const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-      return <span className="tabular-nums text-sm text-[var(--text-secondary)]">{formatNumber(value, { currencyCode: format.currencyCode, decimals: format.decimals, kind: format.kind, locale: format.numberLocale })}</span>;
+      return <span className="tabular-nums text-sm text-[var(--text-secondary)]"><NumberValue value={value} format={format} /></span>;
     }
     if (type === 'status' || type === 'select') {
       const text = feedValueString(value).trim();

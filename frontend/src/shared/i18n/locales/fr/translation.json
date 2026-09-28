@@ -2486,6 +2486,10 @@
     "name_pattern_ph": "Ex. : {Authors} - {Any} - {Títol}",
     "number_currency": "Devise",
     "number_decimals": "Décimales",
+    "progress_max": "Valeur représentant 100 %",
+    "number_display": "Affichage",
+    "progress_bar": "Barre de progression",
+    "progress_ring": "Anneau de progression",
     "number_format": "Format du nombre",
     "number_format_hint": "Vide/« Nombre » = format global des Réglages. Le pourcentage affiche la valeur telle quelle avec « % ». « Année » supprime le séparateur de milliers (2024, pas 2 024).",
     "number_percent": "Pourcentage",
@@ -3732,7 +3736,7 @@
     "fit_contain": "Entière",
     "fit_cover": "Remplir",
     "grouping": "Regroupement",
-    "grouping_intro": "Regroupez les enregistrements par un champ de sélection ou statut.",
+    "grouping_intro": "Regroupez les enregistrements selon n’importe quel champ.",
     "group_order": "Ordre des groupes",
     "group_order_catalog": "Ordre du catalogue",
     "group_order_alpha": "Alphabétique",
@@ -3741,11 +3745,11 @@
     "pick_table_first": "Sélectionnez d'abord une table.",
     "no_grouping": "Sans regroupement",
     "no_grouping_for_type": "Ce type de vue ne prend pas en charge le regroupement.",
-    "no_group_fields": "Aucun champ de sélection/statut dans la table pour regrouper.",
+    "no_group_fields": "Aucun champ dans la table pour regrouper.",
     "board_options": "Options du kanban",
     "board_options_intro": "Choisissez comment les colonnes du kanban sont regroupées.",
     "group_auto": "Automatique (statut)",
-    "no_group_fields_auto": "Aucun champ de sélection/statut dans la table ; le regroupement sera automatique.",
+    "no_group_fields_auto": "Aucun champ dans la table ; le regroupement sera automatique.",
     "calendar_options": "Options du calendrier",
     "timeline_options": "Options de la chronologie",
     "start_date": "Date de début",
@@ -6908,9 +6912,9 @@
           "settings_keyboard": "Les touches de navigation font défiler le formulaire depuis le texte et les interrupteurs ; les champs de texte et listes conservent leurs touches d’édition et de sélection.",
           "optional_team_help": "L’aide de l’équipe est facultative : chaque assistant conserve son modèle et effectue le travail courant, en déléguant seulement si un soutien est nécessaire, sans chaîne de délégation.",
           "source_processing": "Reprenez le traitement des sources longues en préservant le contexte global du document et corrigez les références invalides sans réécrire les notes valides.",
-          "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue. Les nouvelles vues permettent de choisir une table source lorsqu’aucune table n’est active et proposent ses champs dans chaque onglet. La limite de hauteur est réglable de 1 à 100 % de la fenêtre (70 % par défaut) et est conservée lors des changements de mode.",
+          "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue. Les nouvelles vues permettent de choisir une table source lorsqu’aucune table n’est active et proposent ses champs dans chaque onglet. La limite de hauteur est réglable de 1 à 100 % de la fenêtre (70 % par défaut) et est conservée lors des changements de mode. Le regroupement prend en charge tous les types de champs et les infobulles des onglets restent masquées lorsque le menu est ouvert.",
           "desktop_bootstrap": "La configuration initiale est enregistrée hors de l’app afin de préserver la signature de l’installation au premier démarrage.",
-          "page_properties": "Les propriétés des pages affichent correctement les cases à cocher, les valeurs zéro, les icônes et les résultats calculés. Les dates et sélections respectent le verrouillage de la page, et les ressources Zotero peuvent être ouvertes depuis leur propriété. Les champs suivent l’ordre configuré et Gérer les champs permet de consulter et de supprimer les propriétés propres à la page sans dupliquer le titre."
+          "page_properties": "Les propriétés des pages affichent correctement les cases à cocher, les valeurs zéro, les icônes et les résultats calculés. Les dates et sélections respectent le verrouillage de la page, et les ressources Zotero peuvent être ouvertes depuis leur propriété. Les champs suivent l’ordre configuré et Gérer les champs permet de consulter et de supprimer les propriétés propres à la page sans dupliquer le titre. Les champs numériques peuvent afficher une barre ou un anneau de progression dans les pages et vues, avec une échelle configurable et un pourcentage visible."
         }
       }
     }

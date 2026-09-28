@@ -1,3 +1,4 @@
+import { GlobalTooltip } from '../../../../shared/ui/tooltip/GlobalTooltip';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -79,8 +80,8 @@ afterEach(async () => {
     container.remove(); vi.unstubAllGlobals();
     for (const key of [pinnedKey('page', 'anchor'), selectedKey('page', 'anchor'), 'gnosi.view.quickPresets.desktop.page.anchor', 'gnosi.view.lastLoad.page.anchor']) removeStorage(defineStorageKey(key, stringStorageCodec));
 });
-async function render(value: EmbedBlock = block): Promise<void> {
-    await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} /></VaultEditorContext.Provider>); });
+async function render(value: EmbedBlock = block, tooltip = false): Promise<void> {
+    await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} />{tooltip && <GlobalTooltip />}</VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
 it('forwards parallel opening from an embedded view to its editor', async () => {
@@ -108,6 +109,21 @@ async function inputValue(input: HTMLInputElement | null, value: string): Promis
     });
 }
 async function tabMenu(): Promise<void> { await click(container.querySelectorAll('button[aria-label="View options"]')[1]); }
+
+it('dismisses tab hints while its options menu is open', async () => {
+    await render(block, true);
+    const option = container.querySelectorAll('button[aria-label="View options"]')[1];
+    const tab = option?.parentElement;
+    if (!tab) throw new Error('Missing tab fixture');
+    act(() => { tab.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('double-click');
+    await click(option);
+    await act(async () => { await Promise.resolve(); });
+    act(() => { tab.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    expect(button('Configure')).toBeDefined();
+    expect(option.getAttribute('aria-expanded')).toBe('true');
+});
 
 describe('adding embedded view tabs', () => {
     it('adds an existing view without rewriting its configuration and restores it on reload', async () => {

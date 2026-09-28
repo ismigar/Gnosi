@@ -39,6 +39,23 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ table_id: 'resources' }));
     });
 
+    it('offers and persists grouping for every field type, including relations', async () => {
+        const types = ['relation', 'checkbox', 'text', 'rich_text', 'number', 'date', 'period',
+            'files', 'image', 'url', 'email', 'phone', 'formula', 'rollup', 'autoria',
+            'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'virtual', 'button'];
+        const { api } = await renderModal(undefined, {
+            mode: 'table', editingView: { ...existingView }, editingBlock: null,
+            allTables: [{ id: 'resources', name: 'Resources', properties: types.map(type => ({ name: type, type })) }],
+        });
+        const modal = requireContainer();
+        await actAndFlush(() => { requireButton(modal, 'Grouping').click(); });
+        const group = requireElement(modal, 'select', HTMLSelectElement);
+        expect(Array.from(group.options).map(option => option.value)).toEqual(expect.arrayContaining(['title', ...types]));
+        await actAndFlush(() => { group.value = 'relation'; group.dispatchEvent(new Event('change', { bubbles: true })); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(api.updateVaultView).toHaveBeenCalledWith(existingView.id, expect.objectContaining({ groupBy: 'relation' }));
+    });
+
     it('shows the fixed source table when configuring an existing registry view', async () => {
         await renderModal(undefined, { mode: 'table', editingView: { ...existingView }, editingBlock: null });
         const source = requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement);

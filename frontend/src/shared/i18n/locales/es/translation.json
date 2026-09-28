@@ -3654,6 +3654,10 @@
     "name_pattern_ph": "Ej: {Authors} - {Any} - {Títol}",
     "number_currency": "Moneda",
     "number_decimals": "Decimales",
+    "progress_max": "Valor que representa el 100%",
+    "number_display": "Visualización",
+    "progress_bar": "Barra de progreso",
+    "progress_ring": "Anillo de progreso",
     "number_format": "Formato del número",
     "number_format_hint": "Vacío/«Número» = formato global de Ajustes. El porcentaje muestra el valor tal cual con «%». «Año» suprime el punto de millares (2024, no 2.024).",
     "number_percent": "Porcentaje",
@@ -4385,7 +4389,7 @@
     "fit_contain": "Entera",
     "fit_cover": "Rellena",
     "grouping": "Agrupación",
-    "grouping_intro": "Agrupa los registros por un campo de selección o estado.",
+    "grouping_intro": "Agrupa los registros por cualquier campo.",
     "group_order": "Orden de los grupos",
     "group_order_catalog": "Orden del catálogo",
     "group_order_alpha": "Alfabético",
@@ -4394,11 +4398,11 @@
     "pick_table_first": "Selecciona primero una tabla.",
     "no_grouping": "Sin agrupar",
     "no_grouping_for_type": "Este tipo de vista no admite agrupación.",
-    "no_group_fields": "Ningún campo de selección/estado en la tabla para agrupar.",
+    "no_group_fields": "No hay campos en la tabla para agrupar.",
     "board_options": "Opciones del kanban",
     "board_options_intro": "Elige cómo se agrupan las columnas del kanban.",
     "group_auto": "Automático (estado)",
-    "no_group_fields_auto": "Ningún campo de selección/estado en la tabla; se agrupará automáticamente.",
+    "no_group_fields_auto": "No hay campos en la tabla; se agrupará automáticamente.",
     "calendar_options": "Opciones del calendario",
     "timeline_options": "Opciones del timeline",
     "start_date": "Fecha de inicio",
@@ -6908,9 +6912,9 @@
           "settings_keyboard": "Las teclas de navegación desplazan el formulario desde el texto y los interruptores; los campos de texto y selectores conservan sus teclas de edición y selección.",
           "optional_team_help": "Pedir ayuda al equipo es opcional: cada asistente conserva su modelo y realiza el trabajo habitual; solo delega cuando necesita apoyo, sin cadenas de delegación.",
           "source_processing": "Reanuda el procesamiento de fuentes extensas conservando el contexto global del documento y corrige las referencias inválidas sin reescribir las notas válidas.",
-          "view_editing": "La configuración de las vistas conserva sus valores y cambios; Espacio entra en las notas agrupadas y Esc vuelve al grupo y lo pliega. Los archivos lentos de la nube ya no bloquean otras peticiones al comprobar el uso de una vista. Las vistas nuevas permiten elegir la tabla de origen cuando no hay una tabla activa y muestran sus campos en todas las pestañas. El límite de altura se puede ajustar del 1 al 100% de la ventana (70% por defecto) y se conserva al cambiar de modo.",
+          "view_editing": "La configuración de las vistas conserva sus valores y cambios; Espacio entra en las notas agrupadas y Esc vuelve al grupo y lo pliega. Los archivos lentos de la nube ya no bloquean otras peticiones al comprobar el uso de una vista. Las vistas nuevas permiten elegir la tabla de origen cuando no hay una tabla activa y muestran sus campos en todas las pestañas. El límite de altura se puede ajustar del 1 al 100% de la ventana (70% por defecto) y se conserva al cambiar de modo. Se puede agrupar por cualquier tipo de campo y las pistas de las pestañas se ocultan mientras el menú está abierto.",
           "desktop_bootstrap": "La configuración inicial se guarda fuera de la app para que el primer arranque mantenga intacta la firma de la instalación.",
-          "page_properties": "Las propiedades de las páginas muestran correctamente las casillas, los valores cero, los iconos y los campos calculados. Las fechas y selecciones respetan el bloqueo de la página, y los recursos Zotero se pueden abrir desde su propiedad. Los campos siguen el orden configurado y Gestionar campos permite consultar y eliminar las propiedades locales de la página sin duplicar el título."
+          "page_properties": "Las propiedades de las páginas muestran correctamente las casillas, los valores cero, los iconos y los campos calculados. Las fechas y selecciones respetan el bloqueo de la página, y los recursos Zotero se pueden abrir desde su propiedad. Los campos siguen el orden configurado y Gestionar campos permite consultar y eliminar las propiedades locales de la página sin duplicar el título. Los campos numéricos permiten mostrar una barra o un anillo de progreso en páginas y vistas, con escala configurable y porcentaje visible."
         }
       }
     }

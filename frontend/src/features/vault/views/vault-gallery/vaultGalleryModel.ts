@@ -1,3 +1,5 @@
+import { readGroupFieldValue } from '../groupFieldValue';
+import { groupValueKeys, groupValueLabel } from '../groupValueUtils';
 import type { VaultViewPage } from '../../../../shared/records/hooks/useVaultViewData';
 import { normalizeOptions, optionColorHex } from '../../../../shared/records/model/optionCatalogUtils';
 import { getFieldConfig } from '../../../../shared/records/model/schemaUtils';
@@ -101,32 +103,12 @@ export function galleryVisibleProperties(value: unknown): readonly string[] | un
 }
 
 
-function groupValues(note: GalleryNote, field: string): string[] {
-    const raw = galleryMetadataValue(note, field);
-    if (Array.isArray(raw)) return raw.flatMap((value) => {
-        if (
-            typeof value === 'string'
-            || typeof value === 'number'
-            || typeof value === 'bigint'
-            || typeof value === 'boolean'
-        ) return String(value).trim() ? [String(value)] : [];
-        return [];
-    });
-    if (
-        typeof raw !== 'string'
-        && typeof raw !== 'number'
-        && typeof raw !== 'bigint'
-        && typeof raw !== 'boolean'
-    ) return [];
-    const value = String(raw);
-    return value.trim() ? [value] : [];
-}
-
-
 export function buildGallerySections(
     notes: readonly GalleryNote[],
     schema: GallerySchema,
     view: GalleryView,
+    labels: Readonly<Record<string, string>> = {},
+    allNotes: readonly GalleryNote[] = notes,
 ): GallerySection[] | null {
     const field = galleryGroupField(view);
     if (!field) return null;
@@ -139,7 +121,7 @@ export function buildGallerySections(
     options.forEach(({ name }) => buckets.set(name, []));
     const ungrouped: GalleryNote[] = [];
     notes.forEach((note) => {
-        const values = groupValues(note, field);
+        const values = groupValueKeys(readGroupFieldValue(note, field, schema, allNotes));
         if (values.length === 0) {
             ungrouped.push(note);
             return;
@@ -155,7 +137,7 @@ export function buildGallerySections(
         .map(([name, groupedNotes]) => ({
             color: colors[name] ? optionColorHex(colors[name]) : null,
             id: `g:${name}`,
-            name,
+            name: labels[name] ?? groupValueLabel(name),
             notes: groupedNotes,
         }));
     const sort = view.groupSort ?? view.group_sort ?? 'catalog';

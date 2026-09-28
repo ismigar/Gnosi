@@ -30,6 +30,8 @@ export function readFormat(value: unknown): EditorFormat {
     return {
         ...record,
         kind: readString(record.kind),
+        display: readString(record.display),
+        progressMax: typeof record.progressMax === 'number' ? record.progressMax : undefined,
         currency: readString(record.currency),
         dateFormat: readString(record.dateFormat),
         decimals: record.decimals == null ? record.decimals : readNumberOrString(record.decimals),

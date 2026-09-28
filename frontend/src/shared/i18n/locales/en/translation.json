@@ -3687,6 +3687,10 @@
     "name_pattern_ph": "E.g. {Authors} - {Any} - {Títol}",
     "number_currency": "Currency",
     "number_decimals": "Decimals",
+    "progress_max": "Value representing 100%",
+    "number_display": "Display",
+    "progress_bar": "Progress bar",
+    "progress_ring": "Progress ring",
     "number_format": "Number format",
     "number_format_hint": "Empty/“Number” = global Settings format. Percent shows the value as-is with “%”. “Year” drops the thousands separator (2024, not 2,024).",
     "number_percent": "Percent",
@@ -4409,7 +4413,7 @@
     "fit_contain": "Whole",
     "fit_cover": "Fill",
     "grouping": "Grouping",
-    "grouping_intro": "Group records by a select or status field.",
+    "grouping_intro": "Group records by any field.",
     "group_order": "Group order",
     "group_order_catalog": "Catalog order",
     "group_order_alpha": "Alphabetical",
@@ -4418,11 +4422,11 @@
     "pick_table_first": "Select a table first.",
     "no_grouping": "No grouping",
     "no_grouping_for_type": "This view type does not support grouping.",
-    "no_group_fields": "No select/status field in the table to group by.",
+    "no_group_fields": "No fields in the table to group by.",
     "board_options": "Kanban options",
     "board_options_intro": "Choose how the kanban columns are grouped.",
     "group_auto": "Automatic (status)",
-    "no_group_fields_auto": "No select/status field in the table; it will group automatically.",
+    "no_group_fields_auto": "No fields in the table; it will group automatically.",
     "calendar_options": "Calendar options",
     "timeline_options": "Timeline options",
     "start_date": "Start date",
@@ -6854,9 +6858,9 @@
           "settings_keyboard": "Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.",
           "optional_team_help": "Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.",
           "source_processing": "Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.",
-          "view_editing": "View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage. New views allow choosing a source table when no table is active, making its fields available in every settings tab. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes.",
+          "view_editing": "View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage. New views allow choosing a source table when no table is active, making its fields available in every settings tab. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes. Grouping supports every field type, and tab hints stay hidden while the menu is open.",
           "desktop_bootstrap": "First-start configuration is stored outside the app so its installed signature remains intact.",
-          "page_properties": "Page properties correctly display checkboxes, zero values, field icons and calculated results. Dates and selections respect the page lock, and Zotero resources can be opened from their property. Fields follow their configured order, and Manage Fields lets you inspect and remove page-only properties without duplicating the title."
+          "page_properties": "Page properties correctly display checkboxes, zero values, field icons and calculated results. Dates and selections respect the page lock, and Zotero resources can be opened from their property. Fields follow their configured order, and Manage Fields lets you inspect and remove page-only properties without duplicating the title. Numeric fields can display progress bars or rings across pages and views, with a configurable scale and visible percentage."
         }
       }
     }

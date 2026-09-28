@@ -3708,6 +3708,10 @@
     "name_pattern_ph": "Ex: {Authors} - {Any} - {Títol}",
     "number_currency": "Moneda",
     "number_decimals": "Decimals",
+    "progress_max": "Valor que representa el 100%",
+    "number_display": "Visualització",
+    "progress_bar": "Barra de progrés",
+    "progress_ring": "Anell de progrés",
     "number_format": "Format del número",
     "number_format_hint": "Buit/«Número» = format global de Settings. El percentatge mostra el valor tal qual amb «%». «Any» suprimeix el punt de milers (2024, no 2.024).",
     "number_percent": "Percentatge",
@@ -4439,7 +4443,7 @@
     "fit_contain": "Sencera",
     "fit_cover": "Omple",
     "grouping": "Agrupació",
-    "grouping_intro": "Agrupa els registres per un camp de selecció o estat.",
+    "grouping_intro": "Agrupa els registres per qualsevol camp.",
     "group_order": "Ordre dels grups",
     "group_order_catalog": "Ordre del catàleg",
     "group_order_alpha": "Alfabètic",
@@ -4448,11 +4452,11 @@
     "pick_table_first": "Selecciona primer una taula.",
     "no_grouping": "Sense agrupar",
     "no_grouping_for_type": "Aquest tipus de vista no admet agrupació.",
-    "no_group_fields": "Cap camp de selecció/estat a la taula per agrupar.",
+    "no_group_fields": "No hi ha camps a la taula per agrupar.",
     "board_options": "Opcions del kanban",
     "board_options_intro": "Tria com s'agrupen les columnes del kanban.",
     "group_auto": "Automàtic (estat)",
-    "no_group_fields_auto": "Cap camp de selecció/estat a la taula; s'agruparà automàticament.",
+    "no_group_fields_auto": "No hi ha camps a la taula; s’agruparà automàticament.",
     "calendar_options": "Opcions del calendari",
     "timeline_options": "Opcions del timeline",
     "start_date": "Data d'inici",
@@ -6908,9 +6912,9 @@
           "settings_keyboard": "Les tecles de navegació desplacen el formulari des del text i dels interruptors; els camps de text i desplegables conserven les seves tecles d’edició i selecció.",
           "optional_team_help": "Demanar ajuda a l’equip és opcional: cada assistent conserva el seu model i fa la feina habitual; només delega quan necessita suport, sense cadenes de delegació.",
           "source_processing": "Reprèn el processament de fonts llargues conservant el context global del document i corregeix les referències invàlides sense reescriure les notes vàlides.",
-          "view_editing": "La configuració de les vistes conserva els valors i els canvis; Espai entra a les notes agrupades i Esc torna al grup i el plega. Els fitxers lents del núvol ja no bloquegen altres peticions en comprovar l’ús d’una vista. Les vistes noves permeten triar la taula d’origen quan no hi ha una taula activa, i mostren els seus camps a totes les pestanyes. El límit d’alçada es pot ajustar de l’1 al 100% de la finestra (70% per defecte) i es conserva en canviar de mode.",
+          "view_editing": "La configuració de les vistes conserva els valors i els canvis; Espai entra a les notes agrupades i Esc torna al grup i el plega. Els fitxers lents del núvol ja no bloquegen altres peticions en comprovar l’ús d’una vista. Les vistes noves permeten triar la taula d’origen quan no hi ha una taula activa, i mostren els seus camps a totes les pestanyes. El límit d’alçada es pot ajustar de l’1 al 100% de la finestra (70% per defecte) i es conserva en canviar de mode. Es pot agrupar per qualsevol tipus de camp, i les pistes de les pestanyes s’amaguen quan el menú és obert.",
           "desktop_bootstrap": "La configuració inicial es desa fora de l’app perquè el primer arrencament mantingui intacta la firma de la instal·lació.",
-          "page_properties": "Les propietats de les pàgines mostren correctament els checkbox, els valors zero, les icones i els camps calculats. Les dates i seleccions respecten el bloqueig de la pàgina, i els recursos Zotero es poden obrir des de la propietat. Els camps segueixen l’ordre configurat i Gestionar camps permet consultar i eliminar les propietats locals de la pàgina sense duplicar el títol."
+          "page_properties": "Les propietats de les pàgines mostren correctament els checkbox, els valors zero, les icones i els camps calculats. Les dates i seleccions respecten el bloqueig de la pàgina, i els recursos Zotero es poden obrir des de la propietat. Els camps segueixen l’ordre configurat i Gestionar camps permet consultar i eliminar les propietats locals de la pàgina sense duplicar el títol. Els camps numèrics permeten mostrar una barra o un anell de progrés a les pàgines i vistes, amb escala configurable i percentatge visible."
         }
       }
     }
