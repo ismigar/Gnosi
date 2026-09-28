@@ -57,6 +57,7 @@ export function decodeView(value: unknown): ViewConfig {
         sorts: Array.isArray(src.sorts) ? src.sorts.filter(isSort) : undefined,
         sort: isSort(src.sort) ? src.sort : undefined,
         heightMode: text(src.heightMode),
+        heightPercent: typeof src.heightPercent === 'number' ? src.heightPercent : undefined,
         cardSize: nullableText(src.cardSize), galleryPreview: nullableText(src.galleryPreview),
         coverField: text(src.coverField), cover_field: text(src.cover_field),
         imageFit: text(src.imageFit), image_fit: text(src.image_fit),

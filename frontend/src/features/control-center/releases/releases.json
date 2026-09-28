@@ -28,7 +28,8 @@
         "release_notes.entries.v3_2_0.fixes.optional_team_help",
         "release_notes.entries.v3_2_0.fixes.source_processing",
         "release_notes.entries.v3_2_0.fixes.view_editing",
-        "release_notes.entries.v3_2_0.fixes.desktop_bootstrap"
+        "release_notes.entries.v3_2_0.fixes.desktop_bootstrap",
+        "release_notes.entries.v3_2_0.fixes.page_properties"
       ]
     }
   },

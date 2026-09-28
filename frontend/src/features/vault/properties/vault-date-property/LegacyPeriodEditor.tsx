@@ -21,8 +21,8 @@ export function LegacyPeriodEditor({
     };
 
     return (
-        <div className="flex items-center gap-1 w-full">
-            <div className="flex-1 relative group">
+        <div className="flex flex-wrap items-center gap-1 w-full">
+            <div className="flex-1 min-w-28 relative group">
                 <input
                     type="text"
                     value={start || ''}
@@ -33,7 +33,7 @@ export function LegacyPeriodEditor({
                 />
             </div>
             <span className="text-[var(--text-tertiary)]">→</span>
-            <div className="flex-1 relative group">
+            <div className="flex-1 min-w-28 relative group">
                 <input
                     type="text"
                     value={end || ''}

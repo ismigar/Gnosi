@@ -1,13 +1,14 @@
 import { VaultViewBody, type VaultViewBodyProps } from '../VaultViewBody';
 import { GraphRender } from './GraphRender';
 import { EmbeddedViewBox } from './ViewContainers';
-import { viewHeightMode } from '../../../../shared/records/model/viewHeight';
+import { viewHeightMode, viewHeightPercent } from '../../../../shared/records/model/viewHeight';
 import type { EmbedModel } from './useEmbedController';
 import type { EmbedNavigation } from './useEmbedNavigation';
 import { ViewSearchEmptyState } from '../ViewSearchScope';
 export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedModel ;} & Pick<EmbedNavigation, 'registerNavApi' | 'focusShell'>) {
     const { rows, columnsAsKeys, embeddedSchema, ctx, allRows, embeddedView, searchTerm, setSearchTerm, feedGroupMode, block, feedDensity, viewType, templates, reload, table, onEditSchemaAdapter, onCreateRecordAdapter, onDeletePageAdapter, onDeleteSelectedAdapter, onApplyTemplateAdapter, onUpdateViewAdapter, onUpdateNoteAdapter } = model;
     const heightMode = viewHeightMode(embeddedView.heightMode, viewType);
+    const heightPercent = viewHeightPercent(embeddedView.heightPercent);
     if (searchTerm.trim() && rows.length === 0 && viewType !== 'genogram') {
         return <ViewSearchEmptyState scope={model.searchScope} onScopeChange={model.setSearchScope} />;
     }
@@ -20,7 +21,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
         activeView: embeddedView,
         // Maximum cap on the embedded table/list height: below that, it grows with
         // the content (without empty space); above that it scrolls internally.
-        maxHeight: heightMode === 'content' ? 'none' : '70vh',
+        maxHeight: heightMode === 'content' ? 'none' : `${String(heightPercent)}vh`,
         searchTerm,
         onSearchChange: setSearchTerm,
         feedGroupMode,
@@ -62,5 +63,5 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
                 />
         );
     };
-    return <EmbeddedViewBox viewType={viewType} heightMode={heightMode}>{renderBody()}</EmbeddedViewBox>;
+    return <EmbeddedViewBox viewType={viewType} heightMode={heightMode} heightPercent={heightPercent}>{renderBody()}</EmbeddedViewBox>;
 }

@@ -7,7 +7,7 @@ export function useViewAutosave({
     isOpen, initializedRef, isTableMode, skipNextAutosaveRef,
     sourceTableId, visibleProperties, setAutosaveStatus, persistViewRef,
     pendingSaveRef, viewName, viewType, filterTree,
-    sorts, resultSnapshot, resultSnapshotLimit, heightMode, cardSize,
+    sorts, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize,
     galleryPreview, coverField, imageFit, groupBy,
     groupSort, groupSortDir, dateField, endDateField,
     calendarView, colorField, rowHeight, feedPillLimit,
@@ -31,6 +31,7 @@ export function useViewAutosave({
     | 'resultSnapshot'
     | 'resultSnapshotLimit'
     | 'heightMode'
+    | 'heightPercent'
     | 'cardSize'
     | 'galleryPreview'
     | 'coverField'
@@ -74,7 +75,7 @@ export function useViewAutosave({
         const handle = setTimeout(() => { void doSave(); }, 800);
         return () => { clearTimeout(handle); };
     }, [isOpen, isTableMode, sourceTableId, viewName, viewType, filterTree, sorts,
-        visibleProperties, resultSnapshot, resultSnapshotLimit, heightMode, cardSize, galleryPreview,
+        visibleProperties, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize, galleryPreview,
         coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField,
         calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus,
         summaryModel, chartType, xField, yField, aggregation, initializedRef, pendingSaveRef, persistViewRef, setAutosaveStatus, skipNextAutosaveRef]);

@@ -1,3 +1,7 @@
+import { GnosiToggle } from '../../../../../shared/ui/settings/SettingsPrimitives';
+import { asBool } from '../../../../../shared/filtering/vaultFilters';
+import { isPagePropertyReadOnly, propertyDisplayText } from './propertyModel';
+import { parsePeriod } from '../../../properties/VaultDateProperty';
 import { ImageHoverPreview } from '../../../../../shared/ui/previews/ImageHoverPreview';
 import { VaultDateProperty } from '../../../properties/VaultDateProperty';
 import { formatDate } from '../../../../../shared/records/model/formatUtils';
@@ -11,10 +15,22 @@ import type { PageEditorController } from './usePageEditorController';
 import type { PageProperty } from './types';
 import { dateValue, inputValue, legacyText, periodInput, planningNotes, planningSettings } from './valueBoundaries';
 export function ScalarPropertyValue({ context, prop }: { context: PageEditorController; prop: PageProperty }) {
-  const { metadata, isEditor, setImagePickerProp, t, localeSettings, getPropConfig, noteFilename, allNotes, idToTitle, projectPlanningSettings, projectPlanningEnabled, handleMetaChange } = context;
+  const { metadata, setImagePickerProp, t, localeSettings, getPropConfig, noteFilename, allNotes, idToTitle, projectPlanningSettings, projectPlanningEnabled, handleMetaChange, getPropValue } = context;
 
-  const v = metadata[prop.name];
+  const v = getPropValue(prop);
+  const isEditor = context.isEditor && !isPagePropertyReadOnly(prop);
   const hasVal = v !== undefined && v !== null && v !== '';
+  if (prop.type === 'checkbox') {
+    return <GnosiToggle label={prop.name} active={asBool(v)} disabled={!isEditor} onChange={() => { handleMetaChange(prop.name, !asBool(v)); }} />;
+  }
+  if (['formula', 'rollup', 'virtual', 'created_by', 'last_edited_by', 'button'].includes(prop.type)) {
+    if (typeof v === 'boolean') return <GnosiToggle label={prop.name} active={v} disabled />;
+    const fmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
+    const text = ['formula', 'rollup', 'virtual'].includes(prop.type) && (typeof v === 'number' || typeof v === 'string')
+      ? formatNumber(v, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })
+      : propertyDisplayText(v);
+    return <span className="px-2 py-1 text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words" aria-label={prop.name}>{text || t('common.empty')}</span>;
+  }
   // Image field inferred by NAME (same detection as the table
   // cell, via isImageFieldName) for text fields: if the value
   // resolves to a servable image, it is shown as a thumbnail with
@@ -57,25 +73,28 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
   // date fields on every page.
   if (prop.type === 'created_time' || prop.type === 'last_edited_time') {
     const systemValue = resolveSystemDateValue(
-      { metadata, created_time: metadata.created_time, last_modified: metadata.last_modified },
+      { metadata: { ...metadata, [prop.name]: v }, created_time: metadata.created_time, last_modified: metadata.last_modified },
       {},
       prop.type,
       prop.name,
     ) || v;
-    const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
+    const pfmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
     return (
       <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">
         {systemValue ? formatDate(dateValue(systemValue), { dateFormat: pfmt.dateFormat, type: 'datetime', locale: pfmt.dateLocale }) : '—'}
       </span>
     );
   }
-  // Read mode: formatted number/date (global or field override).
-  if (!isEditor && hasVal && (prop.type === 'number' || prop.type === 'date' || prop.type === 'datetime')) {
-    const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
-    const text = prop.type === 'number'
-      ? formatNumber(v, { kind: pfmt.kind, decimals: pfmt.decimals, currencyCode: pfmt.currencyCode, locale: pfmt.numberLocale })
-      : formatDate(dateValue(v), { dateFormat: pfmt.dateFormat, type: prop.type === 'datetime' ? 'datetime' : 'date', locale: pfmt.dateLocale });
-    return <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">{text}</span>;
+  if (!isEditor && (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period')) {
+    const fmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
+    const period = parsePeriod(v);
+    const formatBoundary = (value: unknown) => formatDate(dateValue(value), { dateFormat: fmt.dateFormat, type: prop.type === 'datetime' || String(value).includes('T') ? 'datetime' : 'date', locale: fmt.dateLocale });
+    const text = period.start ? [formatBoundary(period.start), ...(period.end && period.end !== period.start ? [formatBoundary(period.end)] : [])].join(' → ') : '';
+    return <span className="px-2 py-1 text-sm text-[var(--text-primary)] tabular-nums" aria-label={prop.name}>{text || t('common.empty')}</span>;
+  }
+  if (!isEditor && hasVal && prop.type === 'number') {
+    const fmt = resolveFieldFormat(getPropConfig(prop), localeSettings);
+    return <span className="px-2 py-1 text-sm text-[var(--text-primary)] tabular-nums">{formatNumber(v, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
   }
   if (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period') {
     return (
@@ -97,6 +116,6 @@ export function ScalarPropertyValue({ context, prop }: { context: PageEditorCont
       </div>
     );
   }
-  return <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : 'text'} value={inputValue(v)} onChange={e => { handleMetaChange(prop.name, e.target.value); }} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />;
+  return <input aria-label={prop.name} disabled={!isEditor} type={prop.type === 'number' ? 'number' : 'text'} step={prop.type === 'number' ? 'any' : undefined} value={inputValue(v)} onChange={e => { handleMetaChange(prop.name, prop.type === 'number' && e.target.value !== '' ? e.target.valueAsNumber : e.target.value); }} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />;
 
 }

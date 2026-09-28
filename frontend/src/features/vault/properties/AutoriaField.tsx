@@ -200,7 +200,7 @@ export function AutoriaEditor({
 
     return (
         <div
-            className="w-full min-w-[280px] py-1"
+            className="w-full min-w-0 py-1"
             onClick={(event) => {
                 event.stopPropagation();
             }}
@@ -211,7 +211,7 @@ export function AutoriaEditor({
                     const matches = focusedIndex === index ? matchesFor(index) : [];
                     return (
                         <div key={`${authorSortLabel(author)}-${String(index)}`}>
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
                                 <div className="flex shrink-0 flex-col -space-y-1 text-[var(--text-tertiary)]">
                                     <ArrowUp
                                         className={`cursor-pointer hover:text-[var(--gnosi-primary)] ${index === 0 ? 'pointer-events-none opacity-20' : ''}`}

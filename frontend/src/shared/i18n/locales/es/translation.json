@@ -1005,6 +1005,12 @@
     "add_property": "Añadir propiedad",
     "property_name_placeholder": "Nombre de la clave (ej: Autor)",
     "manage_fields": "Gestionar Campos",
+    "table_fields": "Campos de la tabla",
+    "table_fields_description": "Estos campos se comparten entre todas las páginas de la tabla.",
+    "configure_table_fields": "Configurar campos de la tabla",
+    "page_only_fields": "Solo esta página",
+    "page_only_fields_description": "Son propiedades guardadas en esta página que no forman parte de la configuración actual de la tabla. Eliminarlas solo afecta a esta página.",
+    "no_page_only_fields": "Esta página no tiene propiedades locales.",
     "links_and_mentions": "Enlaces y menciones",
     "links_graph": "Grafo de enlaces directos",
     "links_graph_empty": "Esta página aún no tiene enlaces directos.",
@@ -4285,7 +4291,7 @@
     "height_label": "Altura dentro de la página",
     "height_limited": "Limitada",
     "height_content": "Según el contenido",
-    "height_limited_hint": "Crece hasta el 70% de la altura de la ventana; después, el desplazamiento se hace dentro de la vista.",
+    "height_limited_hint": "Crece hasta el {{percent}}% de la altura de la ventana; después, el desplazamiento se hace dentro de la vista.",
     "height_content_hint": "Crece con el contenido. Desplaza la página para leerlo todo seguido.",
     "column_title": "Título",
     "filter_this": "Esta página",
@@ -4526,7 +4532,8 @@
     "template_duplicate": "Error al duplicar la plantilla",
     "toggle_favorites": "Error al modificar los favoritos",
     "usage_count_many": "Esta vista ya se usa en {{count}} páginas.",
-    "type_genogram": "Genograma"
+    "type_genogram": "Genograma",
+    "height_percent": "Altura máxima de la ventana (%)"
   },
   "metadata_lookup": {
     "creating_resource": "Preparando el recurso…",
@@ -6897,8 +6904,9 @@
           "settings_keyboard": "Las teclas de navegación desplazan el formulario desde el texto y los interruptores; los campos de texto y selectores conservan sus teclas de edición y selección.",
           "optional_team_help": "Pedir ayuda al equipo es opcional: cada asistente conserva su modelo y realiza el trabajo habitual; solo delega cuando necesita apoyo, sin cadenas de delegación.",
           "source_processing": "Reanuda el procesamiento de fuentes extensas conservando el contexto global del documento y corrige las referencias inválidas sin reescribir las notas válidas.",
-          "view_editing": "La configuración de las vistas conserva sus valores y cambios; Espacio entra en las notas agrupadas y Esc vuelve al grupo y lo pliega. Los archivos lentos de la nube ya no bloquean otras peticiones al comprobar el uso de una vista.",
-          "desktop_bootstrap": "La configuración inicial se guarda fuera de la app para que el primer arranque mantenga intacta la firma de la instalación."
+          "view_editing": "La configuración de las vistas conserva sus valores y cambios; Espacio entra en las notas agrupadas y Esc vuelve al grupo y lo pliega. Los archivos lentos de la nube ya no bloquean otras peticiones al comprobar el uso de una vista. Las vistas nuevas permiten elegir la tabla de origen cuando no hay una tabla activa y muestran sus campos en todas las pestañas. El límite de altura se puede ajustar del 1 al 100% de la ventana (70% por defecto) y se conserva al cambiar de modo.",
+          "desktop_bootstrap": "La configuración inicial se guarda fuera de la app para que el primer arranque mantenga intacta la firma de la instalación.",
+          "page_properties": "Las propiedades de las páginas muestran correctamente las casillas, los valores cero, los iconos y los campos calculados. Las fechas y selecciones respetan el bloqueo de la página, y los recursos Zotero se pueden abrir desde su propiedad. Los campos siguen el orden configurado y Gestionar campos permite consultar y eliminar las propiedades locales de la página sin duplicar el título."
         }
       }
     }

@@ -11,6 +11,8 @@ export interface PropertyDropdownPortalProps {
 }
 
 export interface MultiSelectPillsProps {
+    readonly disabled?: boolean;
+    readonly label?: string;
     readonly value?: unknown;
     readonly onChange: (value: PropertySelection) => void;
     readonly options?: readonly unknown[] | null;

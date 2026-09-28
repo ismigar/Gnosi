@@ -30,8 +30,9 @@ _2026-09-28 · Release candidate_
 - Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.
 - Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.
 - Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.
-- View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage.
+- View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage. New views allow choosing a source table when no table is active, making its fields available in every settings tab. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes.
 - First-start configuration is stored outside the app so its installed signature remains intact.
+- Page properties correctly display checkboxes, zero values, field icons and calculated results. Dates and selections respect the page lock, and Zotero resources can be opened from their property. Fields follow their configured order, and Manage Fields lets you inspect and remove page-only properties without duplicating the title.
 
 ## Gnosi 3.1.0
 

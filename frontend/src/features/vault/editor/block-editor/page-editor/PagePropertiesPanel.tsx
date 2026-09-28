@@ -3,7 +3,8 @@ import { ChevronDown } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
 import { PdfAnnotationsToCite } from '../../../../literature/records/PdfAnnotationsToCite';
 import { Plus } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
+import { PageFieldsManager } from './PageFieldsManager';
 import { SchemaPropertyRow } from './SchemaPropertyRow';
 import { Search } from 'lucide-react';
 import { Settings } from 'lucide-react';
@@ -12,6 +13,7 @@ import { X } from 'lucide-react';
 import { ZoteroExtrasSection } from '../../../../literature/records/ZoteroExtrasSection';
 import type { PageEditorController } from './usePageEditorController';
 export function PagePropertiesPanel({ context }: { context: PageEditorController }) {
+  const [isManagingFields, setIsManagingFields] = useState(false);
   const { propertiesPanelRef, propertiesHeaderRef, setIsPropertiesOpen, handlePropertiesHeaderKeyDown, t, properties, adhocProperties, isEditable, isReferenceRecord, setIsMetadataLookupOpen, isPropertiesOpen, activeProp, setActiveProp, isEditor, metadata, handleMetaChange, handleRemoveProperty, zoteroExtras, currentTableId, pdfSourceUri, pdfCitationKey, currentTable, isAddingProp, setIsAddingProp, newPropName, setNewPropName, handleAddAdhocProperty, onEditSchema } = context;
   return (<div ref={propertiesPanelRef} className="rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
     <div className="w-full h-[var(--control-height-touch)] flex items-center justify-between gap-3 px-3 hover:bg-[var(--bg-secondary)]/60 transition-colors">
@@ -70,6 +72,8 @@ export function PagePropertiesPanel({ context }: { context: PageEditorController
         <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center">
           {properties.map((prop) => <SchemaPropertyRow key={prop.name} prop={prop} context={context} />)}
 
+          {adhocProperties.length > 0 && <div className="col-span-2 mt-3 mb-1 text-xs font-semibold text-[var(--text-secondary)]">{t('editor.page_only_fields')}</div>}
+
           {adhocProperties.map(key => (
             <React.Fragment key={key}>
               <div
@@ -94,11 +98,8 @@ export function PagePropertiesPanel({ context }: { context: PageEditorController
                   placeholder={t('editor.empty_local')}
                   className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed"
                 />
-                {/* LOCAL field (ad-hoc): always removable from its row,
-                                                    even if the page belongs to a collection — "Manage
-                                                    Fields" only touches the schema, not these local keys. */}
                 {isEditor && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveProperty(key); }} className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] hover:bg-[var(--bg-secondary)] shrink-0" title={t('editor.remove_local_property')} aria-label={t('editor.remove_local_property')}><Trash2 size={14} /></button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); void handleRemoveProperty(key); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--status-error)] hover:bg-[var(--bg-secondary)] shrink-0" title={t('editor.remove_local_property')} aria-label={`${t('editor.remove_local_property')}: ${key}`}><Trash2 size={14} /></button>
                 )}
               </div>
             </React.Fragment>
@@ -109,7 +110,7 @@ export function PagePropertiesPanel({ context }: { context: PageEditorController
               extras={zoteroExtras}
               readOnly={!isEditor}
               onChange={(nextDict) => { handleMetaChange('Zotero Extras', nextDict); }}
-              onRemoveAll={() => { handleRemoveProperty('Zotero Extras'); }}
+              onRemoveAll={() => { void handleRemoveProperty('Zotero Extras'); }}
               tableId={currentTableId}
               // Promoting migrates pages + adds a column to the schema. The open
               // editor doesn't re-sync `metadata` (local state, stable `key`),
@@ -153,8 +154,8 @@ export function PagePropertiesPanel({ context }: { context: PageEditorController
                 <button onClick={() => { setIsAddingProp(false); setNewPropName(""); }} className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--status-error)] transition-all"><X size={16} /></button>
               </div>
             ))}
-            {currentTable && isEditor && (
-              <button onClick={() => { onEditSchema?.(currentTable); }} className="btn btn-gnosi-primary flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold">
+            {(currentTable || adhocProperties.length > 0) && isEditor && (
+              <button onClick={() => { if (adhocProperties.length > 0) setIsManagingFields(true); else if (currentTable) onEditSchema?.(currentTable); }} className="btn btn-gnosi-primary flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold">
                 <Settings size={14} /> {t('editor.manage_fields')}
               </button>
             )}
@@ -162,5 +163,6 @@ export function PagePropertiesPanel({ context }: { context: PageEditorController
         </div>
       </div>
     )}
+    {isManagingFields && <PageFieldsManager context={context} onClose={() => { setIsManagingFields(false); }} />}
   </div>);
 }

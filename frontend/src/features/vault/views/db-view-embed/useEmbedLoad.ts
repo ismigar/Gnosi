@@ -159,6 +159,7 @@ export function useEmbedLoad({ block, pageId, viewId, view, headingProp, ctx, t,
                         // extra fields); we preserve them so embeddedView can read them.
                         cardSize: section.cardSize,
                         heightMode: section.heightMode,
+                        heightPercent: section.heightPercent,
                         galleryPreview: section.galleryPreview,
                         coverField: section.coverField || section.cover_field,
                         imageFit: section.imageFit || section.image_fit,

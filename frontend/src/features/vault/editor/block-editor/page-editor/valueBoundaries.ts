@@ -11,7 +11,7 @@ export function legacyText(value: unknown): string {
   return Reflect.apply(String, undefined, [value]);
 }
 export function inputValue(value: unknown): string | number | readonly string[] {
-  if (!value) return '';
+  if (value === undefined || value === null) return '';
   if (typeof value === 'string' || typeof value === 'number') return value;
   if (Array.isArray(value)) return value.map(legacyText);
   return legacyText(value);

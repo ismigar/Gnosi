@@ -49,6 +49,7 @@ export function useViewState({
     // They are saved to the view and the renderer honors them; views that are not of the
     // corresponding type simply ignore them.
     const [heightMode, setHeightMode] = useState<ViewHeightMode>();
+    const [heightPercent, setHeightPercent] = useState(70);
     const [cardSize, setCardSize] = useState('medium');
     const [galleryPreview, setGalleryPreview] = useState('cover');
     const [coverField, setCoverField] = useState('');
@@ -111,7 +112,7 @@ export function useViewState({
         discoveredByTable, setDiscoveredByTable, viewType, setViewType,
         filterTree, setFilterTree, sorts, setSorts,
         resultSnapshot, setResultSnapshot, resultSnapshotLimit, setResultSnapshotLimit,
-        heightMode, setHeightMode, cardSize, setCardSize, galleryPreview, setGalleryPreview,
+        heightMode, setHeightMode, heightPercent, setHeightPercent, cardSize, setCardSize, galleryPreview, setGalleryPreview,
         coverField, setCoverField, imageFit, setImageFit,
         groupBy, setGroupBy, groupSort, setGroupSort,
         groupSortDir, setGroupSortDir, dateField, setDateField,

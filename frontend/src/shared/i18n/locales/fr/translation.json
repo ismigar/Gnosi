@@ -3638,7 +3638,7 @@
     "height_label": "Hauteur dans la page",
     "height_limited": "Limitée",
     "height_content": "Selon le contenu",
-    "height_limited_hint": "Grandit jusqu’à 70 % de la hauteur de la fenêtre, puis défile à l’intérieur de la vue.",
+    "height_limited_hint": "Grandit jusqu’à {{percent}} % de la hauteur de la fenêtre, puis défile à l’intérieur de la vue.",
     "height_content_hint": "Grandit avec le contenu. Faites défiler la page pour tout lire à la suite.",
     "column_title": "Titre",
     "filter_this": "Cette page",
@@ -3879,7 +3879,8 @@
     "graph_stats": "{{nodes}} nœuds · {{edges}} arêtes",
     "no_records_in_view": "Aucun enregistrement dans cette vue.",
     "usage_count_many": "Cette vue est déjà utilisée sur {{count}} pages.",
-    "type_genogram": "Génogramme"
+    "type_genogram": "Génogramme",
+    "height_percent": "Hauteur maximale de la fenêtre (%)"
   },
   "editor": {
     "toggle_focus_mode": "Activer ou désactiver le mode concentration",
@@ -3995,6 +3996,12 @@
     "loading_backlinks": "Chargement des rétroliens...",
     "loading_editor": "Chargement de l'éditeur...",
     "manage_fields": "Gérer les champs",
+    "table_fields": "Champs de la table",
+    "table_fields_description": "Ces champs sont partagés par toutes les pages de la table.",
+    "configure_table_fields": "Configurer les champs de la table",
+    "page_only_fields": "Uniquement cette page",
+    "page_only_fields_description": "Ces propriétés sont enregistrées sur cette page mais ne font pas partie de la configuration actuelle de la table. Leur suppression ne concerne que cette page.",
+    "no_page_only_fields": "Cette page ne contient aucune propriété locale.",
     "markdown_save_error": "Erreur d'enregistrement du Markdown",
     "markdown_saved": "Markdown enregistré",
     "mentions_linked": "Mentions liées : {{count}} dans {{notes}} note(s)",
@@ -6897,8 +6904,9 @@
           "settings_keyboard": "Les touches de navigation font défiler le formulaire depuis le texte et les interrupteurs ; les champs de texte et listes conservent leurs touches d’édition et de sélection.",
           "optional_team_help": "L’aide de l’équipe est facultative : chaque assistant conserve son modèle et effectue le travail courant, en déléguant seulement si un soutien est nécessaire, sans chaîne de délégation.",
           "source_processing": "Reprenez le traitement des sources longues en préservant le contexte global du document et corrigez les références invalides sans réécrire les notes valides.",
-          "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue.",
-          "desktop_bootstrap": "La configuration initiale est enregistrée hors de l’app afin de préserver la signature de l’installation au premier démarrage."
+          "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue. Les nouvelles vues permettent de choisir une table source lorsqu’aucune table n’est active et proposent ses champs dans chaque onglet. La limite de hauteur est réglable de 1 à 100 % de la fenêtre (70 % par défaut) et est conservée lors des changements de mode.",
+          "desktop_bootstrap": "La configuration initiale est enregistrée hors de l’app afin de préserver la signature de l’installation au premier démarrage.",
+          "page_properties": "Les propriétés des pages affichent correctement les cases à cocher, les valeurs zéro, les icônes et les résultats calculés. Les dates et sélections respectent le verrouillage de la page, et les ressources Zotero peuvent être ouvertes depuis leur propriété. Les champs suivent l’ordre configuré et Gérer les champs permet de consulter et de supprimer les propriétés propres à la page sans dupliquer le titre."
         }
       }
     }

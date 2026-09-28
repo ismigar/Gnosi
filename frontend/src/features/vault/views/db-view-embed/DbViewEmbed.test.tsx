@@ -117,7 +117,7 @@ describe('embedded view data and editor navigation', () => {
             await render();
             expect(fixture.body?.maxHeight).toBe('none');
             expect(fixture.body?.activeView).toMatchObject({ heightMode: 'content' });
-            expect(container.querySelector('.max-h-\\[70vh\\]')).toBeNull();
+            expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('');
         },
     );
     it('limits an explicitly bounded feed', async () => {
@@ -125,7 +125,27 @@ describe('embedded view data and editor navigation', () => {
         vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, type: 'feed', heightMode: 'limited' }]);
         await render();
         expect(fixture.body?.maxHeight).toBe('70vh');
-        expect(container.querySelector('.max-h-\\[70vh\\]')).not.toBeNull();
+        expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('70vh');
+    });
+
+    it.each(['table', 'list', 'gallery', 'board', 'calendar', 'timeline', 'chart', 'feed', 'genogram'])(
+        'applies the saved window percentage to a limited %s view', async type => {
+            const view = { ...anchor, type, heightMode: 'limited', heightPercent: 45 };
+            context = { ...context, registry: { ...context.registry, views: [view] } };
+            vi.mocked(api.fetchVaultViews).mockResolvedValue([view]);
+            await render();
+            expect(fixture.body?.maxHeight).toBe('45vh');
+            expect(fixture.body?.activeView).toMatchObject({ heightPercent: 45 });
+            if (type !== 'table' && type !== 'list') {
+                expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('45vh');
+            }
+        },
+    );
+    it('keeps the height percentage of an inline section without a registry view', async () => {
+        vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [] });
+        await render({ id: 'inline', props: { section: JSON.stringify({ source_table_id: 'books', view_type: 'gallery', heightMode: 'limited', heightPercent: 35 }) } });
+        expect(fixture.body?.maxHeight).toBe('35vh');
+        expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('35vh');
     });
 
     it('provides Brain tools on the configured embedded table and refreshes its records', async () => {

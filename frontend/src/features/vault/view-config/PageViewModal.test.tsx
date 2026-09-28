@@ -26,7 +26,7 @@ interface TestView {
     readonly sorts: readonly unknown[];
     readonly table_id: string;
     readonly type: string;
-    readonly visibleProperties: readonly string[];
+    readonly visibleProperties: string[];
 }
 
 type CloseHandler = (saved?: boolean, result?: unknown) => void;
@@ -180,8 +180,52 @@ const actAndFlush = async (action: () => void): Promise<void> => {
 
 // Rendering the full modal can exceed five seconds on the shared CI machine.
 describe('PageViewModal editing', { timeout: 15_000 }, () => {
+    it('selects a source table for a new registry view opened without active table context', async () => {
+        const { api, onClose } = await renderModal(undefined, {
+            mode: 'table', preselectedTableId: '', editingBlock: null, editingView: { type: 'gallery' },
+            allTables: [{ id: 'resources', name: 'Resources', properties: [
+                { name: 'title', type: 'title' }, { name: 'Area', type: 'select', options: ['Research'] },
+            ] }],
+        });
+        const modal = requireContainer();
+        const source = requireElement(modal, 'select[aria-label="Source table"]', HTMLSelectElement);
+        expect(source.disabled).toBe(false);
+        expect(source.value).toBe('');
+        await actAndFlush(() => { updateInput(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement), 'By area'); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { source.value = 'resources'; source.dispatchEvent(new Event('change', { bubbles: true })); });
+        await settle();
+        await actAndFlush(() => { requireButton(modal, 'Fields').click(); });
+        expect(modal.textContent).toContain('Area');
+        expect(modal.textContent).not.toContain('Select a table first in the General tab.');
+        await actAndFlush(() => { requireButton(modal, 'Sort').click(); });
+        expect(requireButton(modal, 'Add criterion').disabled).toBe(false);
+        await actAndFlush(() => { requireButton(modal, 'Add criterion').click(); });
+        expect(Array.from(modal.querySelectorAll('select option')).some(option => option.textContent === 'Area')).toBe(true);
+        await actAndFlush(() => { requireButton(modal, 'Grouping').click(); });
+        const group = requireElement(modal, 'select', HTMLSelectElement);
+        expect(Array.from(group.options).some(option => option.value === 'Area')).toBe(true);
+        await actAndFlush(() => { group.value = 'Area'; group.dispatchEvent(new Event('change', { bubbles: true })); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({ name: 'By area', table_id: 'resources', type: 'gallery', groupBy: 'Area' }));
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ table_id: 'resources' }));
+    });
+
+    it('shows the fixed source table when configuring an existing registry view', async () => {
+        await renderModal(undefined, { mode: 'table', editingView: { ...existingView }, editingBlock: null });
+        const source = requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement);
+        expect(source.value).toBe('resources');
+        expect(source.disabled).toBe(true);
+    });
+
+    it('can recover an unavailable preselected table by choosing a current source', async () => {
+        await renderModal(undefined, { mode: 'table', editingView: null, editingBlock: null, preselectedTableId: 'removed-table' });
+        expect(requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement).disabled).toBe(false);
+    });
+
     it.each(['gallery', 'table', 'feed'])('restores and saves the common height setting for a %s view', async type => {
-        const view = { ...existingView, type, heightMode: 'limited' };
+        const view = { ...existingView, type, heightMode: 'limited', heightPercent: 45 };
         const { api } = await renderModal(undefined,
             { editingBlock: { props: { view_id: view.id }, view } }, prepared => {
                 prepared.fetchVaultViews.mockResolvedValue([view]);
@@ -189,11 +233,30 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
             });
         const modal = requireContainer();
         expect(requireButton(modal, 'Limited').getAttribute('aria-pressed')).toBe('true');
+        const height = requireElement(modal, 'input[type="number"][max="100"]', HTMLInputElement);
+        expect(height.value).toBe('45');
+        await actAndFlush(() => { updateInput(height, '85'); });
         await actAndFlush(() => { requireButton(modal, 'Fit content').click(); });
+        expect(modal.querySelector('input[type="number"][max="100"]')).toBeNull();
+        await actAndFlush(() => { requireButton(modal, 'Limited').click(); });
+        expect(requireElement(modal, 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('85');
         await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
         expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
-            id: view.id, type, heightMode: 'content',
+            id: view.id, type, heightMode: 'limited', heightPercent: 85,
         }));
+    });
+
+    it('autosaves the chosen height percentage and restores it on reopening', async () => {
+        const view = { ...existingView, heightMode: 'limited' };
+        const { api, rerender } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
+        const height = requireElement(requireContainer(), 'input[type="number"][max="100"]', HTMLInputElement);
+        expect(height.value).toBe('70');
+        await actAndFlush(() => { updateInput(height, '55'); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+        expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({ heightPercent: 55 }));
+        await rerender({ isOpen: false });
+        await rerender({ isOpen: true, editingView: { ...view, heightPercent: 55 } });
+        expect(requireElement(requireContainer(), 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('55');
     });
 
     it('opens with the displayed view configuration and persists full-width reading without losing filters', async () => {

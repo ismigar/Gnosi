@@ -51,6 +51,7 @@ export interface FilterContext {
 }
 export interface ViewAppearance {
     heightMode?: string;
+    heightPercent?: number;
     genogram?: import('../../../genograms').Config | null;
     cardSize?: string | null;
     galleryPreview?: string | null;

@@ -9,7 +9,7 @@ import { parseImageField } from '../../../../../shared/resources/fileResource';
 import { servedUrlToVaultPath } from '../../../../../shared/resources/fileResource';
 import type { PageEditorController } from './usePageEditorController';
 export function PageModals({ context }: { context: PageEditorController }) {
-  const { noteFilename, isHistoryOpen, setIsHistoryOpen, isPageViewModalOpen, setIsPageViewModalOpen, pageViewEditingBlock, setPageViewPreselectedTable, setPageViewEditingBlock, applyViewSectionRef, setViewSectionNonce, onRefreshNotes, allTables, pageViewPreselectedTable, isIconPickerOpen, setIsIconPickerOpen, handleMetaChange, metadata, iconTriggerRef, isCoverPickerOpen, setIsCoverPickerOpen, coverTriggerRef, isMetadataLookupOpen, setIsMetadataLookupOpen, imagePickerProp, rawTableId, setImagePickerProp } = context;
+  const { noteFilename, isHistoryOpen, setIsHistoryOpen, isPageViewModalOpen, setIsPageViewModalOpen, pageViewEditingBlock, setPageViewPreselectedTable, setPageViewEditingBlock, applyViewSectionRef, setViewSectionNonce, onRefreshNotes, allTables, pageViewPreselectedTable, isIconPickerOpen, setIsIconPickerOpen, handleMetaChange, propertyMetadata: metadata, iconTriggerRef, isCoverPickerOpen, setIsCoverPickerOpen, coverTriggerRef, isMetadataLookupOpen, setIsMetadataLookupOpen, imagePickerProp, rawTableId, setImagePickerProp } = context;
   return (<><PageHistory pageId={noteFilename} open={isHistoryOpen} onClose={() => { setIsHistoryOpen(false); }} onRestore={() => { window.location.reload(); }} />
     <PageViewModal
       isOpen={isPageViewModalOpen}

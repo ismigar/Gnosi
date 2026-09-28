@@ -1046,6 +1046,12 @@
     "add_property": "Add property",
     "property_name_placeholder": "Key name (e.g. Author)",
     "manage_fields": "Manage Fields",
+    "table_fields": "Table fields",
+    "table_fields_description": "These fields are shared by all pages in the table.",
+    "configure_table_fields": "Configure table fields",
+    "page_only_fields": "Only this page",
+    "page_only_fields_description": "These properties are saved on this page but are not part of the current table configuration. Deleting them only affects this page.",
+    "no_page_only_fields": "This page has no local properties.",
     "links_and_mentions": "Links and Mentions",
     "links_graph": "Direct links graph",
     "links_graph_empty": "This page has no direct links yet.",
@@ -4309,7 +4315,7 @@
     "height_label": "Height within a page",
     "height_limited": "Limited",
     "height_content": "Fit content",
-    "height_limited_hint": "Grows up to 70% of the window height, then scrolls within the view.",
+    "height_limited_hint": "Grows up to {{percent}}% of the window height, then scrolls within the view.",
     "height_content_hint": "Grows with the content. Scroll the page to read everything in sequence.",
     "column_title": "Title",
     "filter_this": "This page",
@@ -4549,7 +4555,8 @@
     "template_default": "Error setting the default template",
     "template_duplicate": "Error duplicating the template",
     "toggle_favorites": "Error updating favorites",
-    "type_genogram": "Genogram"
+    "type_genogram": "Genogram",
+    "height_percent": "Maximum window height (%)"
   },
   "metadata_lookup": {
     "creating_resource": "Preparing the resource…",
@@ -6843,8 +6850,9 @@
           "settings_keyboard": "Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.",
           "optional_team_help": "Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.",
           "source_processing": "Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.",
-          "view_editing": "View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage.",
-          "desktop_bootstrap": "First-start configuration is stored outside the app so its installed signature remains intact."
+          "view_editing": "View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage. New views allow choosing a source table when no table is active, making its fields available in every settings tab. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes.",
+          "desktop_bootstrap": "First-start configuration is stored outside the app so its installed signature remains intact.",
+          "page_properties": "Page properties correctly display checkboxes, zero values, field icons and calculated results. Dates and selections respect the page lock, and Zotero resources can be opened from their property. Fields follow their configured order, and Manage Fields lets you inspect and remove page-only properties without duplicating the title."
         }
       }
     }

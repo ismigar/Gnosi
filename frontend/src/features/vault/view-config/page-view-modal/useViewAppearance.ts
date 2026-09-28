@@ -1,10 +1,10 @@
 import { configValue } from '../../../genograms';
-import { viewHeightMode } from '../../../../shared/records/model/viewHeight';
+import { viewHeightMode, viewHeightPercent } from '../../../../shared/records/model/viewHeight';
 import type { useViewStateResult } from './useViewState';
 import type { ViewAppearance } from './types';
 
 export function useViewAppearance({
-    heightMode, setHeightMode, setCardSize, setGalleryPreview, setCoverField, setImageFit,
+    heightMode, setHeightMode, heightPercent, setHeightPercent, setCardSize, setGalleryPreview, setCoverField, setImageFit,
     setGroupBy, setGroupSort, setGroupSortDir, setDateField,
     setEndDateField, setCalendarView, setColorField, setRowHeight,
     setFeedPillLimit, setFeedExcerptLines, setFeedFocus, setSummaryModel,
@@ -19,6 +19,8 @@ export function useViewAppearance({
     useViewStateResult,
     'heightMode'
     | 'setHeightMode'
+    | 'heightPercent'
+    | 'setHeightPercent'
     | 'setCardSize'
     | 'setGalleryPreview'
     | 'setCoverField'
@@ -65,6 +67,7 @@ export function useViewAppearance({
 >) {
     const applyTypeOptions = (v: ViewAppearance | null | undefined) => {
         setHeightMode(v?.heightMode === 'content' || v?.heightMode === 'limited' ? v.heightMode : undefined);
+        setHeightPercent(viewHeightPercent(v?.heightPercent));
         setGenogram(configValue(v?.genogram));
         setCardSize(v?.cardSize || 'medium');
         setGalleryPreview(v?.galleryPreview || 'cover');
@@ -89,6 +92,7 @@ export function useViewAppearance({
     };
     const resetTypeOptions = () => {
         setHeightMode(undefined);
+        setHeightPercent(70);
         setGenogram(configValue(undefined));
         setCardSize('medium');
         setGalleryPreview('cover');
@@ -116,8 +120,8 @@ export function useViewAppearance({
         // existing view) it extracts the same fields with the same defaults,
         // tolerating camelCase (registry) and snake_case (embedded section). This way
         // change detection and saving use exactly the same shape.
-        const s = src || { heightMode, genogram, cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
-        const extras: Record<string, unknown> = { heightMode: viewHeightMode(s.heightMode, viewType) };
+        const s = src || { heightMode, heightPercent, genogram, cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
+        const extras: Record<string, unknown> = { heightMode: viewHeightMode(s.heightMode, viewType), heightPercent: viewHeightPercent(s.heightPercent) };
         if (viewType === 'genogram') {
             extras.genogram = configValue(s.genogram);
         } else if (viewType === 'gallery') {
