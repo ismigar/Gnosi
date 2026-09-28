@@ -6,7 +6,7 @@ from typing import Any, cast
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.contextual_reading import fingerprint
-from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA, ARGUMENT_SCHEMAS
+from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA as ACTION_SCHEMA, action_schemas
 
 
 def _chunk_status(state: dict[str, Any], key: str) -> dict[str, object]:
@@ -18,6 +18,7 @@ def _chunk_status(state: dict[str, Any], key: str) -> dict[str, object]:
 def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     from backend.services.agent_execution_trace import record
     deps = reader.dependencies
+    output_schema, _ = action_schemas(reader.dimensions)
     chunks = {str(chunk["id"]): chunk for chunk in reader.chunks}
     identity = fingerprint([deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index])
     saved = deps.load_checkpoint(reader.resume_job_id, "agent-state") if reader.resume_job_id else None
@@ -27,7 +28,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     if not chunks:
         raise RuntimeError("No readable source segments were extracted")
     complete = list(chunks.values())
-    if state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, ACTION_SCHEMA])) + 2048 <= reader.budget:
+    if state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, output_schema])) + 2048 <= reader.budget:
         state["read"] = list(chunks)
         state["last_result"] = {"sources": complete, "delivery": "complete"}
 
@@ -47,7 +48,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
             "step": state["step"],
-            "language": reader.language, "output_schema": ACTION_SCHEMA,
+            "language": reader.language, "output_schema": output_schema,
             "source_count": len(chunks), "read_count": len(state["read"]),
             "saved_plan_count": len(state["plans"]), "memory": state["memory"],
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
@@ -69,7 +70,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
                              **_chunk_status(state, key),
                              "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
-        answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=ACTION_SCHEMA)
+        answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
         action, args = str(answer["action"]), answer["arguments"]
         record("reading.action", {"step": state["step"], **answer})
         result: Any = {}
@@ -101,9 +102,10 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
 
 def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], answer: dict[str, object]) -> None:
     import jsonschema  # type: ignore[import-untyped]
+    output_schema, argument_schemas = action_schemas(reader.dimensions)
     try:
-        jsonschema.validate(answer, ACTION_SCHEMA)
-        jsonschema.validate(answer["arguments"], ARGUMENT_SCHEMAS[str(answer["action"])])
+        jsonschema.validate(answer, output_schema)
+        jsonschema.validate(answer["arguments"], argument_schemas[str(answer["action"])])
     except jsonschema.ValidationError as error:
         raise ValueError(error.message) from error
     action, args = str(answer["action"]), cast(dict[str, Any], answer["arguments"])

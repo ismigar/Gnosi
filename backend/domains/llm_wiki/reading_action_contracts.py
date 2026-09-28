@@ -1,5 +1,6 @@
 """Typed action payloads; source identity, coverage and citations are checked locally."""
 
+from copy import deepcopy
 from typing import Any
 
 
@@ -37,3 +38,54 @@ ACTION_SCHEMA = _object({
     "action": {"type": "string", "enum": list(ARGUMENT_SCHEMAS)},
     "arguments": {"anyOf": list(ARGUMENT_SCHEMAS.values())},
 }, ["action", "arguments"])
+
+
+def dimension_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
+    """Expose every configured AI field and its existing labels to the provider."""
+    properties: dict[str, Any] = {}
+    for spec in dimensions:
+        labels = spec.get("allowed_labels")
+        if not isinstance(labels, list) or not labels:
+            continue
+        value: dict[str, Any] = {
+            "type": "array", "items": {"type": "string", "enum": labels},
+        }
+        if not spec.get("multiple"):
+            value["maxItems"] = 1
+        properties[str(spec["field_id"])] = value
+    return _object(properties, list(properties))
+
+
+def action_schemas(
+    dimensions: list[dict[str, object]],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Keep static actions compatible while making configured classification explicit."""
+    arguments = deepcopy(ARGUMENT_SCHEMAS)
+    if dimensions:
+        note = arguments["save_plan"]["properties"]["plan"]["properties"]["notes"]["items"]
+        note["properties"]["dimensions"] = dimension_schema(dimensions)
+        note["required"].append("dimensions")
+    action = deepcopy(ACTION_SCHEMA)
+    action["properties"]["arguments"]["anyOf"] = list(arguments.values())
+    return action, arguments
+
+
+def validate_note_dimensions(
+    answer: dict[str, object], dimensions: list[dict[str, object]],
+) -> None:
+    """Reject omitted or invented classification before any note can be persisted."""
+    if not dimensions or "requests" in answer:
+        return
+    import jsonschema  # type: ignore[import-untyped]
+    notes = answer.get("notes")
+    schema = dimension_schema(dimensions)
+    for index, note in enumerate(notes if isinstance(notes, list) else []):
+        if not isinstance(note, dict):
+            continue  # The reading contract reports malformed notes.
+        try:
+            jsonschema.validate(note.get("dimensions"), schema)
+        except jsonschema.ValidationError as error:
+            raise ValueError(
+                f"notes[{index}].dimensions: {error.message}. Return every configured field "
+                "with existing labels; use [] only when no category is supported by the evidence."
+            ) from error

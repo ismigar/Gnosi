@@ -89,6 +89,85 @@ def setup_reader(*, revision="v1", resume="", checkpoints=None, generate=None):
     return reader, calls, checkpoints
 
 
+NOTE_DIMENSIONS = [
+    {"field_id": "area", "name": "Area", "multiple": False,
+     "allowed_labels": ["Research", "History"], "by_label": {"research": "Research", "history": "History"}},
+    {"field_id": "tags", "name": "Tags", "multiple": True,
+     "allowed_labels": ["Evidence", "Learning"], "by_label": {"evidence": "Evidence", "learning": "Learning"}},
+]
+
+
+@pytest.mark.parametrize("directed", [False, True])
+@pytest.mark.parametrize("dimensions", [
+    None, {}, {"area": ["Research"]},
+    {"area": ["Invented"], "tags": []},
+    {"area": ["Research", "History"], "tags": []},
+    {"area": [], "tags": [], "unconfigured": []},
+])
+def test_configured_properties_cannot_be_omitted_or_invented(directed, dimensions):
+    reader = None
+
+    def generate(request):
+        if request["phase"] in {"overview", "synthesis"}:
+            return {"summary": "Map"}
+        segments = reader.chunks[0]["segments"] if directed else request["primary_segments"]
+        answer = note_answer({"primary_segments": segments})
+        for note in answer["notes"]:
+            if dimensions is None:
+                note.pop("dimensions")
+            else:
+                note["dimensions"] = dimensions
+        return {"action": "save_plan", "arguments": {"chunk_id": reader.chunks[0]["id"], "plan": answer}} if directed else answer
+
+    reader, _, checkpoints = setup_reader(generate=generate)
+    reader.dimensions = NOTE_DIMENSIONS
+    reader.dependencies.agent_directed = directed
+    reader.dependencies.max_action_steps = 10
+    reader.dependencies.reduce_plans = Mock()
+    with pytest.raises(RuntimeError, match="invalid"):
+        reader.run()
+    reader.dependencies.reduce_plans.assert_not_called()
+    if directed:
+        assert checkpoints[("current", "agent-state")]["plans"] == {}
+
+
+@pytest.mark.parametrize("directed", [False, True])
+def test_classification_reaches_the_write_plan_and_allows_explicit_abstention(directed):
+    actions = []
+
+    def generate(request):
+        if directed:
+            return actions.pop(0)
+        if request["phase"] in {"overview", "synthesis"}:
+            return {"summary": "Map"}
+        answer = note_answer(request)
+        for note in answer["notes"]:
+            note["dimensions"] = {"area": ["Research"], "tags": ["Evidence", "Learning"]}
+        return answer
+
+    reader, calls, _ = setup_reader(generate=generate)
+    reader.dimensions = NOTE_DIMENSIONS
+    reader.dependencies.agent_directed = directed
+    reader.dependencies.max_action_steps = 10
+    if directed:
+        for index, chunk in enumerate(reader.chunks):
+            plan = note_answer({"primary_segments": chunk["segments"]})
+            for note in plan["notes"]:
+                note["dimensions"] = {"area": ["Research"], "tags": ["Evidence", "Learning"]} if index == 0 else {"area": [], "tags": []}
+            actions.append({"action": "save_plan", "arguments": {"chunk_id": chunk["id"], "plan": plan}})
+        actions.append({"action": "finish", "arguments": {"summary": "Read"}})
+    result, _ = reader.run()
+    assert result["notes"][0]["dimensions"] == {"area": ["Research"], "tags": ["Evidence", "Learning"]}
+    if directed:
+        assert result["notes"][-1]["dimensions"] == {"area": [], "tags": []}
+        import jsonschema
+        # This is the exact contract delivered to the provider, not only a local validator.
+        schema = calls[0]["output_schema"]
+        invalid = {"action": "save_plan", "arguments": {"chunk_id": reader.chunks[0]["id"], "plan": note_answer({"primary_segments": reader.chunks[0]["segments"]})}}
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(invalid, schema)
+
+
 def test_all_fragments_receive_global_map_and_all_notes_are_reviewed():
     reader, calls, _ = setup_reader()
     result, _ = reader.run()
