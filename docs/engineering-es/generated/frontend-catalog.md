@@ -48,9 +48,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1137 | 127466 | 32 |
+| `features` | 1137 | 127477 | 32 |
 | `generated` | 2 | 48148 | 495 |
-| `shared` | 266 | 31486 | 426 |
+| `shared` | 267 | 31524 | 426 |
 
 ## app
 
@@ -514,7 +514,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/reader/zotero/ZoteroReaderView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderView.tsx) | 157 | `ZoteroReaderPage`, `ZoteroReaderTab` | — |
 | [`frontend/src/features/reader/zotero/useZoteroReaderController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/useZoteroReaderController.ts) | 297 | `openReaderDocumentExternally`, `useZoteroReaderController` | `/api/vault/local-file/register`, `/api/vault/open-local-path` |
 | [`frontend/src/features/reader/zotero/zoteroReaderModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderModel.ts) | 144 | `detectKindFromSrc`, `isUnknownArray`, `isUnknownRecord`, `pdfAnnotationToZotero`, `toFilesystemPath`, `zoteroToPdfAnnotation` | — |
-| [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 159 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
+| [`frontend/src/features/reader/zotero/zoteroReaderPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.ts) | 170 | `fetchPersistedAnnotations`, `persistDeleteAnnotations`, `persistSaveAnnotations` | `/api/vault/pdf-annotations` |
 | [`frontend/src/features/settings/AI/AIActivityPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.tsx) | 92 | `AIActivityPanel` | — |
 | [`frontend/src/features/settings/AI/AIAgentSkillsField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIAgentSkillsField.tsx) | 193 | `AgentSkillsField` | — |
 | [`frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsHistoryPanel.tsx) | 244 | `OperationsHistoryPanel` | — |
@@ -1454,10 +1454,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/records/model/schemaTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaTypes.ts) | 59 | — | — |
 | [`frontend/src/shared/records/model/schemaUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.ts) | 476 | `INTERNAL_METADATA_KEYS`, `buildSchemaFromTableProperties`, `buildTablePropertiesFromSchema`, `discoverFieldNamesFromRecords`, `getFieldConfig`, `getFieldId`, `getFieldNameById`, `getFieldType`, `getMetaValue`, `getSchemaFieldEntries`, `getSchemaFieldNames`, `isAppContent`, `normalizeSorts`, `resolveFieldRef`, `resolveSystemDateValue`, `resolveViewFilters`, `resolveViewSorts`, `setMetaValue`, `withResolvedSystemDates` | — |
 | [`frontend/src/shared/resources/citationDeepLink.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/citationDeepLink.ts) | 37 | `CITATION_PROTOCOL`, `CITATION_PROTOCOL_SENTINEL`, `citationParamsFromHref`, `citationSentinelToHref`, `isCitationHref`, `protectCitationMarkdownLinks` | — |
+| [`frontend/src/shared/resources/documentSourceIdentity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/documentSourceIdentity.ts) | 38 | `canonicalDocumentSource`, `documentAnnotationSources` | — |
 | [`frontend/src/shared/resources/fileResource.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResource.ts) | 47 | — | — |
 | [`frontend/src/shared/resources/fileResourceNaming.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceNaming.ts) | 122 | `interpolateNamePattern`, `parseAuthorsString` | — |
-| [`frontend/src/shared/resources/fileResourceOpen.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceOpen.ts) | 334 | `findCitationAttachment`, `findDocAttachment`, `openCitation`, `openFileResource` | `/api/vault/open-local-path` |
-| [`frontend/src/shared/resources/fileResourcePaths.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourcePaths.ts) | 279 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileResourceString`, `fileTargetKey`, `filenameFromTarget`, `getActiveVaultId`, `getImageSrc`, `isImageFieldName`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/` |
+| [`frontend/src/shared/resources/fileResourceOpen.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceOpen.ts) | 333 | `findCitationAttachment`, `findDocAttachment`, `openCitation`, `openFileResource` | `/api/vault/open-local-path` |
+| [`frontend/src/shared/resources/fileResourcePaths.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourcePaths.ts) | 280 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileResourceString`, `fileTargetKey`, `filenameFromTarget`, `getActiveVaultId`, `getImageSrc`, `isImageFieldName`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/` |
 | [`frontend/src/shared/resources/pdfCover.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/pdfCover.ts) | 34 | `createPdfCover` | — |
 | [`frontend/src/shared/routing/vaultQuickNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultQuickNavigation.ts) | 85 | `isGeneratedIndexNote`, `openVaultNote`, `selectRecentNotes` | — |
 | [`frontend/src/shared/routing/vaultRouting.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/routing/vaultRouting.ts) | 196 | `activateVault`, `activateVaultSlug`, `canonicalVaultSwitchPath`, `initializeVaultRouting`, `knowledgeDocumentPath`, `knowledgeDocumentType`, `legacyBrowserPathToCanonical`, `vaultAppFromPath`, `vaultPath` | — |

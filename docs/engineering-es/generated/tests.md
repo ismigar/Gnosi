@@ -11,7 +11,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Ejecutor | Archivos | Indicios de pruebas |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 590 | 2513 |
+| Vitest | 591 | 2516 |
 | pytest | 568 | 4083 |
 
 ## Archivos
@@ -230,7 +230,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/features/reader/page/readerDashboardModel.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/page/readerDashboardModel.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/public-entry.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/public-entry.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/reader/zotero/ZoteroReaderTab.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/ZoteroReaderTab.test.tsx) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.test.ts) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/features/reader/zotero/zoteroReaderPersistence.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/zotero/zoteroReaderPersistence.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIActivityPanel.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIActivityPanel.test.tsx) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIOperationsSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIOperationsSettings.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/AIQualitySettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIQualitySettings.test.tsx) | 1 | call-pattern estimate |
@@ -598,6 +598,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/records/model/schemaUtils.systemDates.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.systemDates.test.ts) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/records/model/schemaUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/records/model/schemaUtils.test.ts) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/citationDeepLink.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/citationDeepLink.test.ts) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/resources/documentSourceIdentity.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/documentSourceIdentity.test.ts) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/fileResource.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResource.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/fileResourceCitation.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/fileResourceCitation.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/resources/pdfCover.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/resources/pdfCover.test.ts) | 1 | call-pattern estimate |

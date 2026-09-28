@@ -53,6 +53,29 @@ function captureOpenedDocument(): {
 }
 
 describe('openCitation', () => {
+  it.each(['', '  ', null])('opens an attached PDF when evidence has an empty source URL (%s)', async (sourceUrl) => {
+    apiMocks.transportFetch
+      .mockResolvedValueOnce(Response.json({
+        kind: 'pdf',
+        source_url: sourceUrl,
+        segment: { locator: { page: 3 }, text: 'The full source paragraph.' },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        metadata: { 'Arxiu/s': '/api/vault/library/Book.pdf' },
+      }));
+    const capture = captureOpenedDocument();
+
+    await openCitation('resource-1', '1', {
+      citation: { snapshot: 'snapshot-1', segment: 'segment-1', highlightText: 'source paragraph' },
+    });
+
+    capture.unsubscribe();
+    expect(capture.opened()).toMatchObject({
+      src: '/api/vault/library/Book.pdf',
+      location: { pageNumber: '3', highlightText: 'source paragraph' },
+    });
+  });
+
   it('opens notebook evidence from its pinned revision and exact attachment', async () => {
     apiMocks.fetchNotebookEvidence.mockResolvedValueOnce({
         locator: { page: 9, paragraph: 3 },

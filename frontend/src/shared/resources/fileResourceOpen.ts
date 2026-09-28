@@ -303,9 +303,8 @@ export async function openCitation(
         || citation.kind
         || '';
       const evidenceSource = recordProperty(evidence, 'source_url');
-      let src = typeof evidenceSource === 'string'
-        ? evidenceSource
-        : findCitationAttachment(metadata, kind);
+      const evidenceTarget = typeof evidenceSource === 'string' ? evidenceSource.trim() : '';
+      let src = evidenceTarget || findCitationAttachment(metadata, kind);
       if (src) {
         const locator = evidenceLocator(evidence);
         const evidencePage = locator.page;

@@ -16,6 +16,10 @@ vi.mock('../../../shared/api/transports', () => ({
   transportFetch: mocks.transportFetch,
 }));
 vi.mock('../../../shared/notifications/notifyError', () => ({ logError: vi.fn() }));
+vi.mock('../../../shared/api/vault-context', () => ({
+  getActiveVaultId: () => '',
+  getActiveVaultSlug: () => 'principal',
+}));
 
 function persistenceState(): AnnotationPersistenceState {
   return {
@@ -29,6 +33,37 @@ beforeEach(() => {
 });
 
 describe('reader annotation persistence', () => {
+  it('loads generated and manual highlights across the two routes without duplicates', async () => {
+    const generated = { id: 12, type: 'highlight', text: 'Generated idea', page: 3 };
+    const manual = { id: 13, type: 'highlight', text: 'Manual note', page: 4 };
+    mocks.transportFetch
+      .mockResolvedValueOnce(Response.json([generated]))
+      .mockResolvedValueOnce(Response.json([generated, manual]));
+    const state = persistenceState();
+
+    const annotations = await fetchPersistedAnnotations(
+      '/api/v1/vaults/principal/knowledge/library/Book.pdf', undefined, state,
+    );
+
+    expect(annotations?.map((item) => item.id)).toEqual(['gnosi:12', 'gnosi:13']);
+    expect(mocks.transportFetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/vault/pdf-annotations?source_uri=%2Fapi%2Fvault%2Flibrary%2FBook.pdf',
+      '/api/vault/pdf-annotations?source_uri=%2Fapi%2Fv1%2Fvaults%2Fprincipal%2Fknowledge%2Flibrary%2FBook.pdf',
+    ]);
+  });
+
+  it('saves new highlights under the same identity used by source processing', async () => {
+    mocks.transportFetch.mockResolvedValueOnce(Response.json({ id: 14 }));
+    await persistSaveAnnotations(
+      [{ id: 'new', type: 'highlight', position: { pageIndex: 2 }, text: 'An idea' }],
+      '/api/v1/vaults/principal/knowledge/library/Book.pdf', persistenceState(), vi.fn(),
+    );
+    const body = mocks.transportFetch.mock.calls[0]?.[1]?.body;
+    if (typeof body !== 'string') throw new Error('Expected a JSON request body');
+    const saved: unknown = JSON.parse(body);
+    expect(saved).toMatchObject({ source_uri: '/api/vault/library/Book.pdf', page: 3 });
+  });
+
   it('restores native Zotero blobs and their database identity', async () => {
     const state = persistenceState();
     mocks.transportFetch.mockResolvedValueOnce(Response.json([{
