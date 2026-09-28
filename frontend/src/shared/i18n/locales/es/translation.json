@@ -1257,6 +1257,10 @@
     }
   },
   "views_header": {
+    "create_new_view": "Crear una vista nueva",
+    "add_existing_view": "Añadir una vista existente",
+    "search_existing_views": "Buscar vistas existentes",
+    "no_available_views": "No hay vistas coincidentes disponibles para añadir.",
     "search_scope": "Ámbito de la búsqueda",
     "search_scope_view": "Esta vista",
     "search_scope_table": "Toda la tabla",

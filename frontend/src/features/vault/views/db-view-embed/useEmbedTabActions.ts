@@ -3,7 +3,7 @@ import { fetchVaultViews, fetchVaultViewUsage, deleteVaultView, updateVaultView,
 import { toast } from '../../../../shared/notifications/toast';
 import { reportEmbedError } from './diagnostics';
 import { decodeView } from './decode';
-import { writeText, pinnedKey } from './preferences';
+import { writeText, pinnedKey, selectedKey } from './preferences';
 import type { EmbedView } from './types';
 import type { EmbedInputs } from './inputs';
 import type { EmbedDerived } from './useEmbedDerived';
@@ -24,9 +24,16 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); persistServerTabs(next); return next; });
     }, [viewId, setPinnedViewIds, persistPinned, persistServerTabs]);
 
+    const handleAddExistingView = useCallback((id: string) => {
+        if (!tableViews.some(view => view.id === id)) return;
+        pinView(id);
+        setActiveViewId(id);
+        try { writeText(selectedKey(pageId, viewId), id); } catch { /* local fallback */ }
+    }, [tableViews, pinView, setActiveViewId, pageId, viewId]);
+
     const handleAddView = useCallback((type = 'table') => {
         if (!tableId || !onOpenViewConfig) return;
-        onOpenViewConfig({ type: type, name: '' }, (saved: unknown) => {
+        onOpenViewConfig({ type: type, name: '', table_id: tableId }, (saved: unknown) => {
             const savedView = decodeView(saved);
             if (savedView.id) {
                 pinView(savedView.id);
@@ -128,6 +135,6 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
             if (data.id) { pinView(data.id); setActiveViewId(data.id); }
         } catch (e) { reportEmbedError('duplicate view failed', e); }
     }, [tableId, columns, refetchTableViews, pinView, setActiveViewId]);
-    return { refetchTableViews, pinView, handleAddView, handleDeleteView, doDeleteView, handleUnpinView, handleRenameView, doRename, handleConfigureView, handleDuplicateView };
+    return { refetchTableViews, pinView, handleAddExistingView, handleAddView, handleDeleteView, doDeleteView, handleUnpinView, handleRenameView, doRename, handleConfigureView, handleDuplicateView };
 }
 export type EmbedTabActions = ReturnType<typeof useEmbedTabActions>;

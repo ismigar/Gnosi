@@ -1257,6 +1257,10 @@
     }
   },
   "views_header": {
+    "create_new_view": "Crea una vista nova",
+    "add_existing_view": "Afegeix una vista existent",
+    "search_existing_views": "Cerca vistes existents",
+    "no_available_views": "No hi ha vistes coincidents disponibles per afegir.",
     "search_scope": "Àmbit de la cerca",
     "search_scope_view": "Aquesta vista",
     "search_scope_table": "Tota la taula",

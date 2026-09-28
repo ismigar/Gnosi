@@ -1298,6 +1298,10 @@
     }
   },
   "views_header": {
+    "create_new_view": "Create a new view",
+    "add_existing_view": "Add an existing view",
+    "search_existing_views": "Search existing views",
+    "no_available_views": "No matching views available to add.",
     "search_scope": "Search in",
     "search_scope_view": "This view",
     "search_scope_table": "Entire table",

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { AddEmbedViewDialog } from './AddEmbedViewDialog';
 import { Heading } from './Heading';
 import { ReferenceImportExport } from '../../../literature/records/ReferenceImportExport';
 import { BrainTools } from '../../../agent/inbox/BrainTools';
@@ -6,7 +8,9 @@ import type { EmbedModel } from './useEmbedController';
 export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
     const { displayHeading, displayLevel, t, rows, ctx, tableId, reload, handleCreate, handleAddView, templates, handleOpenConfig, searchTerm, setSearchTerm, showSearch, setShowSearch, feedDensity, viewType, toggleFeedDensity, activeFilterCount, quickPresets, saveQuickPreset, applyQuickPreset, renameQuickPreset, deleteQuickPreset, exportQuickPresets, setIsImportQuickPresetOpen, feedGroupMode, toggleFeedGroupMode, loadDuration } = model;
     const { onOpenPageViewModal } = ctx;
-    return (<div className="vault-view-toolbar flex items-center justify-between gap-3 mb-2">
+    const [addingView, setAddingView] = useState(false);
+    const availableViews = model.tableViews.filter(view => view.id && !model.visibleTabs.some(tab => tab.id === view.id));
+    return (<><div className="vault-view-toolbar flex items-center justify-between gap-3 mb-2">
         <div className="flex items-baseline gap-2 min-w-0">
             {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}
             <span className="text-[11px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">
@@ -24,7 +28,7 @@ export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
                 onCreate={tableId ? handleCreate : null}
                 onCreateTemplate={tableId ? () => ctx.onCreateTemplate?.(tableId) : null}
                 onCreateFromSource={ctx.referenceTableId === tableId ? () => ctx.onCreateFromSource?.(tableId) : null}
-                onAddView={tableId ? () => { handleAddView('table'); } : null}
+                onAddView={tableId ? () => { setAddingView(true); } : null}
                 templates={templates}
                 onOpenConfig={onOpenPageViewModal && tableId ? handleOpenConfig : null}
                 searchTerm={searchTerm}
@@ -50,5 +54,10 @@ export function EmbedToolbar({ model }: { model: EmbedModel ;}) {
                 loadDuration={loadDuration}
             />
         </div>
-    </div>);
+    </div>
+        {addingView && <AddEmbedViewDialog views={availableViews}
+            onClose={() => { setAddingView(false); }}
+            onCreate={ctx.onOpenViewConfig ? () => { setAddingView(false); handleAddView('table'); } : undefined}
+            onSelect={id => { model.handleAddExistingView(id); setAddingView(false); }} />}
+    </>);
 }

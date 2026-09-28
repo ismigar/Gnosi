@@ -3243,6 +3243,10 @@
     "remove_favorite": "Retirer des favoris"
   },
   "views_header": {
+    "create_new_view": "Créer une nouvelle vue",
+    "add_existing_view": "Ajouter une vue existante",
+    "search_existing_views": "Rechercher des vues existantes",
+    "no_available_views": "Aucune vue correspondante disponible à ajouter.",
     "search_scope": "Portée de la recherche",
     "search_scope_view": "Cette vue",
     "search_scope_table": "Toute la table",

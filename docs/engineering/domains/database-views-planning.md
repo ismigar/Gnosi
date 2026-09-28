@@ -328,3 +328,5 @@ Page properties use the registered field type for controls and icons. Checkboxes
 The page keeps the field order saved in the table configuration, including keyboard navigation and compact previews. The title field is not duplicated as a local property. Manage Fields lists page-only properties separately, shows their values and can remove them from this page without changing the table schema. Local deletions save immediately, restore their value on failure and preserve pending property edits.
 
 The view dialog always shows its source table. A new view opened without an active table allows selecting one and enables the corresponding fields, filters, sorting and grouping options. Views with a configured table keep that source.
+
+The embedded Add view action offers a new view or an existing view from the same table. Existing views are added as tabs without duplication or configuration changes; already displayed tabs are excluded. The selected tab and membership persist when reopening the page. New views inherit the embedded source table.
