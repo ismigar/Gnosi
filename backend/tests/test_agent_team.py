@@ -132,14 +132,14 @@ def test_team_artifacts_are_private(team_runtime):
         artifacts.get(other, "root", "private")
 
 
-def run_operation(fixture, *, schema=None, input_text="Summarize this", max_model_calls=2):
+def run_operation(fixture, *, schema=None, input_text="Summarize this", max_model_calls=2, timeout_seconds=120):
     from backend.services.agent_execution_scope import execution_scope
     from backend.services.agent_execution import execute_operation
     from backend.services.agent_execution_models import AgentOperation
     scope, snapshot, _, _ = fixture
     with execution_scope(scope):
         return asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input=input_text,
-            max_model_calls=max_model_calls, output_schema=schema), snapshot=snapshot))
+            max_model_calls=max_model_calls, timeout_seconds=timeout_seconds, output_schema=schema), snapshot=snapshot))
 
 
 def test_direct_route_does_not_escape_configured_shortlist(team_runtime):
@@ -719,3 +719,27 @@ def test_cached_plan_is_validated_without_repeating_calls(planning_runtime, oper
         with pytest.raises(ValueError, match="agent_team_missing_executor"):
             asyncio.run(teams._phase(snapshot.profile, run.run_id, scope, "", TeamPlan.model_json_schema(), operation))
     assert calls == ["director", "planner", "worker"]
+
+
+def test_team_planning_inherits_operation_timeout_and_restores_context(planning_runtime):
+    from backend.services import agent_execution_store as store
+    from backend.services.agent_execution import _operation_timeout
+    fixture, _ = planning_runtime
+    run_operation(fixture, timeout_seconds=900)
+    planner = next(row for row in store.list_runs(fixture[0]) if row.operation == "team.plan")
+    with store.connect() as db:
+        request = json.loads(db.execute("select request from agent_runs where run_id=?", (planner.run_id,)).fetchone()[0])
+    assert request["timeout_seconds"] == 900
+    assert _operation_timeout.get() == 120
+
+
+def test_team_repair_retains_original_evidence_and_timeout(team_runtime):
+    from backend.services import agent_execution_store as store
+    team_runtime[3]["_responses"] = {"worker": ["bad JSON", '{"result":"fixed"}']}
+    run_operation(team_runtime, schema={"type": "object"}, input_text="Complete original evidence", timeout_seconds=900)
+    repair = next(row for row in store.list_runs(team_runtime[0]) if row.operation == "team.repair")
+    with store.connect() as db:
+        request = json.loads(db.execute("select request from agent_runs where run_id=?", (repair.run_id,)).fetchone()[0])
+    assert request["input"] == "bad JSON"
+    assert request["data"]["original_input"] == "Complete original evidence"
+    assert request["timeout_seconds"] == 900

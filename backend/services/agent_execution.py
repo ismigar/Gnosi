@@ -27,6 +27,7 @@ from backend.services.agent_behavior import operation_input, resource, inventory
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
 _call_limit: ContextVar[int] = ContextVar("agent_execution_call_limit", default=2)
+_operation_timeout: ContextVar[int] = ContextVar("agent_operation_timeout", default=120)
 _run: ContextVar[str] = ContextVar("agent_execution_run", default="")
 
 
@@ -367,6 +368,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     snapshot_token = _snapshot.set(snapshot)
     resource_token = frozen_resources.set(snapshot.behavior_resources)
     call_limit_token = _call_limit.set(8 if team_enabled else request.max_model_calls)
+    timeout_token = _operation_timeout.set(request.timeout_seconds)
     cancel_token = create_cancel_token()
     _tokens[run_id] = cancel_token
     try:
@@ -425,6 +427,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         _tokens.pop(run_id, None)
         release(cancel_token)
         _call_limit.reset(call_limit_token)
+        _operation_timeout.reset(timeout_token)
         _snapshot.reset(snapshot_token)
         frozen_resources.reset(resource_token)
         _run.reset(run_token)

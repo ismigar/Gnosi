@@ -48,7 +48,10 @@ def validate_notes(
         or len(coverage) != len(primary_ids)
         or any(not row.get("reason") for row in coverage)
     ):
-        raise ValueError("Account for every primary segment with a nonempty reason")
+        covered_ids = {row.get("segment_id") for row in coverage}
+        raise ValueError("Account for every primary segment with a nonempty reason "
+                         f"(expected {len(primary_ids)} unique segments; "
+                         f"missing {len(primary_ids - covered_ids)}, unknown {len(covered_ids - primary_ids)})")
     notes = answer.get("notes")
     if not isinstance(notes, list):
         raise ValueError("notes must be a list")

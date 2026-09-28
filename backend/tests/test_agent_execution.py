@@ -97,6 +97,60 @@ def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     assert not row.result
 
 
+@pytest.mark.parametrize("fault", ["unknown_chunk", "coverage", "citation", "early_finish"])
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+def test_reader_repairs_invalid_actions_with_original_evidence_before_checkpoint(runtime, monkeypatch, fault, repair_succeeds):
+    from copy import deepcopy
+    from backend.tests.test_llm_wiki_contextual_reading import setup_reader, note_answer
+    scope, snapshot = runtime
+    reader, _, checkpoints = setup_reader()
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 4
+    valid = [{"action": "save_plan", "arguments": {"chunk_id": chunk["id"],
+             "plan": note_answer({"primary_segments": chunk["segments"]})}} for chunk in reader.chunks]
+    valid.append({"action": "finish", "arguments": {"summary": "Complete"}})
+    invalid = deepcopy(valid[0])
+    if fault == "unknown_chunk":
+        invalid = {"action": "read", "arguments": {"chunk_id": "invented"}}
+    elif fault == "coverage":
+        invalid["arguments"]["plan"]["coverage"] = []
+    elif fault == "citation":
+        invalid["arguments"]["plan"]["notes"][0]["citations"][0]["quote"] = "invented quotation"
+    else:
+        invalid = valid[-1]
+    responses = [invalid, *valid] if repair_succeeds else [invalid, invalid]
+    calls = install_workflow(monkeypatch, [json.dumps(answer) for answer in responses])
+
+    def generate(prompt, validate, timeout):
+        def checked(text):
+            validate(json.loads(text))
+            return text
+        with execution_scope(scope):
+            result = asyncio.run(execution.execute_operation(AgentOperation(
+                skill_id=snapshot.skill_ids[0], operation="knowledge.process-source.phase",
+                input=prompt, output_schema=json.loads(prompt)["output_schema"], timeout_seconds=timeout,
+            ), snapshot=snapshot, output_validator=checked))
+        return result.result, result.model
+
+    reader.dependencies.generate_structured = generate
+    if repair_succeeds:
+        result, _ = reader.run()
+        assert len(result["notes"]) == 2
+        assert checkpoints[("current", "action-0")]["answer"] == valid[0]
+    else:
+        with pytest.raises(ValueError):
+            reader.run()
+        assert len(calls) == 2
+        assert ("current", "action-0") not in checkpoints
+        assert not checkpoints[("current", "agent-state")]["plans"]
+        assert checkpoints[("current", "agent-state")]["step"] == 0
+    assert calls[0]["messages"][0].content == calls[1]["messages"][0].content
+    assert json.loads(calls[1]["messages"][1].content) == invalid
+    assert "validation_error" in calls[1]["messages"][-1].content
+    original = json.loads(json.loads(calls[0]["messages"][0].content)["input"])
+    assert original["last_result"]["delivery"] == "complete"
+
+
 @pytest.mark.parametrize("fenced", [False, True])
 def test_redundant_root_closer_preserves_every_note_without_model_repair(runtime, monkeypatch, fenced):
     scope, snapshot = runtime

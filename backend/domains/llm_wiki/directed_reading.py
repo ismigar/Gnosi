@@ -1,17 +1,12 @@
 """Durable JSON actions over immutable source passages and validated draft notes."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.contextual_reading import fingerprint
-
-ACTION_SCHEMA = {
-    "type": "object", "required": ["action", "arguments"],
-    "properties": {"action": {"type": "string", "enum": ["index", "read", "search", "remember", "save_plan", "recall", "finish"]},
-                   "arguments": {"type": "object"}}, "additionalProperties": False,
-}
+from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA, ARGUMENT_SCHEMAS
 
 
 def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
@@ -36,8 +31,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
             deps.update_job(reader.job_id, chunks_done=len(state["plans"]), phase="planning")
 
     def checked(answer: dict[str, object]) -> None:
-        import jsonschema  # type: ignore[import-untyped]
-        jsonschema.validate(answer, ACTION_SCHEMA)
+        validate_action(reader, state, chunks, answer)
 
     # Carry resumed plans into the new job before a provider call can fail.
     checkpoint()
@@ -46,6 +40,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     for _ in range(deps.max_action_steps):
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
+            "step": state["step"],
             "language": reader.language, "output_schema": ACTION_SCHEMA,
             "source_count": len(chunks), "read_count": len(state["read"]),
             "saved_plan_count": len(state["plans"]), "memory": state["memory"],
@@ -58,8 +53,8 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "recall": {"chunk_id": "string"}, "finish": {"summary": "string"},
             },
         }
-        if state["step"] == 0:
-            request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section")} for key, chunk in list(chunks.items())[:100]]
+        request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
+                             "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
         answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=ACTION_SCHEMA)
         action, args = str(answer["action"]), answer["arguments"]
         record("reading.action", {"step": state["step"], **answer})
@@ -87,6 +82,28 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         state["step"] += 1
         checkpoint()
     raise RuntimeError("agent_reading_incomplete_resume_required")
+
+
+def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], answer: dict[str, object]) -> None:
+    import jsonschema  # type: ignore[import-untyped]
+    try:
+        jsonschema.validate(answer, ACTION_SCHEMA)
+        jsonschema.validate(answer["arguments"], ARGUMENT_SCHEMAS[str(answer["action"])])
+    except jsonschema.ValidationError as error:
+        raise ValueError(error.message) from error
+    action, args = str(answer["action"]), cast(dict[str, Any], answer["arguments"])
+    if action in {"read", "recall", "save_plan"} and args["chunk_id"] not in chunks:
+        raise ValueError("unknown_chunk_id: use an exact chunk id from the supplied index")
+    if action == "recall" and args["chunk_id"] not in state["plans"]:
+        raise ValueError("plan_not_saved: read the original chunk before drafting a plan")
+    if action == "finish":
+        if set(state["plans"]) != set(chunks) or set(state["read"]) != set(chunks):
+            raise ValueError("source_coverage_incomplete")
+    else:
+        # Keep invalid answers out of checkpoints and retain original evidence
+        # in the executor's bounded repair conversation. Preview changes only.
+        preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
+        _apply_action(reader, preview, chunks, action, args)
 
 
 def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], action: str, args: dict[str, Any]) -> Any:
