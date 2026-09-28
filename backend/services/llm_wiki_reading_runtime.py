@@ -96,7 +96,9 @@ class ReadingRuntime:
             return plan
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            output_schema=schema), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
+            # A syntax correction can expose reference errors. Allow their one
+            # immutable patch within the same finite operation deadline.
+            output_schema=schema, max_model_calls=3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
         return result.result, result.model
 
 

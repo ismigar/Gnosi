@@ -9,6 +9,12 @@ from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA, ARGUMENT_SCHEMAS
 
 
+def _chunk_status(state: dict[str, Any], key: str) -> dict[str, object]:
+    plan = state["plans"].get(key, {})
+    return {"read": key in state["read"], "saved": key in state["plans"],
+            "reviewed": plan.get("reviewed") is True, "note_count": len(records(plan.get("notes")))}
+
+
 def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     from backend.services.agent_execution_trace import record
     deps = reader.dependencies
@@ -44,6 +50,13 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
             "language": reader.language, "output_schema": ACTION_SCHEMA,
             "source_count": len(chunks), "read_count": len(state["read"]),
             "saved_plan_count": len(state["plans"]), "memory": state["memory"],
+            "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
+            "state_contract": (
+                "The index and counts report the current persisted state, after evidence and coverage validation. "
+                "reviewed is the saved reader-declared review flag, not a guarantee of correct interpretation. "
+                "These current progress facts supersede conflicting progress claims in model-authored memory, "
+                "which may describe an earlier step. last_action identifies the operation that produced last_result."
+            ),
             "last_result": state["last_result"], "dimensions": reader.dimensions,
             "available_actions": {
                 "index": {"offset": "integer", "limit": "integer, maximum 100"},
@@ -54,7 +67,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
             },
         }
         request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
-                             "read": key in state["read"], "saved": key in state["plans"],
+                             **_chunk_status(state, key),
                              "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
         answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=ACTION_SCHEMA)
         action, args = str(answer["action"]), answer["arguments"]
@@ -80,6 +93,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         if deps.count_tokens(encoded(result)) > reader.budget // 2:
             raise RuntimeError("agent_action_result_context_exceeded")
         state["last_result"] = result
+        state["last_action"] = {"name": action, "chunk_id": args.get("chunk_id"), "step": state["step"]}
         state["step"] += 1
         checkpoint()
     raise RuntimeError("agent_reading_incomplete_resume_required")
@@ -114,7 +128,7 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         offset = max(0, int(args.get("offset", 0)))
         limit = max(1, min(100, int(args.get("limit", 100))))
         keys = list(chunks)[offset:offset + limit]
-        result = {"chunks": [{"id": key, "read": key in state["read"], "saved": key in state["plans"]} for key in keys], "next_offset": offset + len(keys), "total": len(chunks)}
+        result = {"chunks": [{"id": key, **_chunk_status(state, key)} for key in keys], "next_offset": offset + len(keys), "total": len(chunks)}
     elif action == "read":
         key = str(args["chunk_id"])
         result = chunks[key]
@@ -132,6 +146,7 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         if deps.count_tokens(memory) > reader.budget // 8:
             raise ValueError("memory_budget_exceeded")
         state["memory"] = memory
+        state["memory_step"] = state["step"]
         result = {"saved": True}
     elif action == "recall":
         result = state["plans"][str(args["chunk_id"]) ]

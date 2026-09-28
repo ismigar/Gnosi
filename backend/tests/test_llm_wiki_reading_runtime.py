@@ -108,3 +108,4 @@ def test_directed_reading_sends_the_action_schema_to_the_operation(configured, t
     request = execute.call_args.args[0]
     assert request.output_schema == ACTION_SCHEMA
     assert request.input == prompt
+    assert request.max_model_calls == 3

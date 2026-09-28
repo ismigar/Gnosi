@@ -293,6 +293,42 @@ def test_directed_reading_keeps_saved_plans_when_the_first_resumed_call_fails():
         assert len(checkpoints[(current, "agent-state")]["plans"]) == 1
 
 
+@pytest.mark.parametrize("legacy_checkpoint", [False, True])
+def test_resumed_reader_distinguishes_stale_memory_from_current_reviewed_plans(legacy_checkpoint):
+    actions = [{"action": "remember", "arguments": {"text": "No plans saved yet; all work remains."}}]
+    reader, calls, checkpoints = setup_reader(generate=lambda request: actions.pop(0))
+    reader.dependencies.agent_directed = True
+    for chunk in reader.chunks:
+        plan = note_answer({"primary_segments": chunk["segments"]})
+        plan["reviewed"] = True
+        actions.append({"action": "save_plan", "arguments": {"chunk_id": chunk["id"], "plan": plan}})
+    reader.dependencies.max_action_steps = len(actions)
+    with pytest.raises(RuntimeError, match="resume_required"):
+        reader.run()
+    saved = checkpoints[("current", "agent-state")]
+    if legacy_checkpoint:
+        saved.pop("memory_step")
+        saved.pop("last_action")
+    original = deepcopy(saved)
+    reader.resume_job_id, reader.job_id = "current", "resumed"
+    first_id = reader.chunks[0]["id"]
+    actions.extend([{"action": "recall", "arguments": {"chunk_id": first_id}},
+                    {"action": "finish", "arguments": {"summary": "All saved plans reviewed"}}])
+    result, _ = reader.run()
+    resumed = calls[-2]
+    assert resumed["memory"] == original["memory"]
+    assert resumed["memory_step"] == (None if legacy_checkpoint else 0)
+    assert resumed["saved_plan_count"] == len(reader.chunks)
+    assert all(item["saved"] and item["reviewed"] and item["note_count"] == 1 for item in resumed["index"])
+    assert "supersede conflicting progress claims" in resumed["state_contract"]
+    assert resumed["last_action"] == original.get("last_action")
+    assert calls[-1]["last_action"] == {"name": "recall", "chunk_id": first_id, "step": original["step"]}
+    assert calls[-1]["last_result"] == original["plans"][first_id]
+    final = checkpoints[("resumed", "agent-state")]
+    assert all(final[key] == original[key] for key in ("identity", "read", "plans", "memory"))
+    assert result["reviewed"] is True and len(result["notes"]) == len(reader.chunks)
+
+
 def test_directed_large_source_is_delivered_in_full_with_a_longer_timeout():
     from backend.domains.llm_wiki import recovery
     calls = []
@@ -362,7 +398,7 @@ def test_validating_an_action_does_not_mutate_live_state(action):
     from backend.domains.llm_wiki.directed_reading import validate_action
     reader, _, checkpoints = setup_reader()
     chunks = {chunk["id"]: chunk for chunk in reader.chunks}
-    state = {"read": list(chunks) if action == "save_plan" else [], "plans": {}, "memory": "Original global map"}
+    state = {"step": 4, "read": list(chunks) if action == "save_plan" else [], "plans": {}, "memory": "Original global map"}
     before = deepcopy(state)
     first = reader.chunks[0]
     arguments = {"read": {"chunk_id": first["id"]}, "remember": {"text": "New map"},

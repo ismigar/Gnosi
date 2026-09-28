@@ -97,8 +97,16 @@ def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     assert not row.result
 
 
+def test_operation_call_allowance_stays_finite_with_the_existing_default():
+    values = {"skill_id": "reader", "operation": "reading", "input": "source"}
+    assert AgentOperation(**values).max_model_calls == 2
+    with pytest.raises(ValueError):
+        AgentOperation(**values, max_model_calls=4)
+
+
 @pytest.mark.parametrize("valid_patch", [True, False])
-def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runtime, monkeypatch, valid_patch):
+@pytest.mark.parametrize("syntax_repair_first", [False, True])
+def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runtime, monkeypatch, valid_patch, syntax_repair_first):
     from backend.agent import factory
     from backend.domains.llm_wiki.reading_contracts import validate_notes
     from backend.domains.llm_wiki.reading_repairs import build_reading_repair
@@ -107,7 +115,10 @@ def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runt
     action, passages, _, patch = repair_fixture()
     if not valid_patch:
         patch["patches"][1]["value"][0]["quote"] = "Invented"
-    calls = install_workflow(monkeypatch, [json.dumps(action), json.dumps(patch)])
+    answers = [json.dumps(action), json.dumps(patch)]
+    if syntax_repair_first:
+        answers.insert(0, '{"action": "save_plan", "arguments": {"reason": "An unescaped "quote"."}}')
+    calls = install_workflow(monkeypatch, answers)
     create = factory.create_agent_workflow
     configurations = []
     async def capture(*args, **kwargs):
@@ -118,7 +129,7 @@ def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runt
         validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
         return text
     request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="All original context",
-                             output_schema={"type": "object"}, max_model_calls=2)
+                             output_schema={"type": "object"}, max_model_calls=len(answers))
     with execution_scope(scope):
         work = execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
             output_repair=lambda text, error: build_reading_repair(request.input, text, error))
@@ -132,12 +143,12 @@ def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runt
                 asyncio.run(work)
             assert store.list_runs(scope)[0].status == "failed"
             assert not store.list_runs(scope)[0].result
-    assert len(calls) == 2
-    assert calls[1]["team_help_allowed"] is False
+    assert len(calls) == len(answers)
+    assert all(call["team_help_allowed"] is False for call in calls[1:])
     assert configurations[0]["prepared_agent_data"] == configurations[1]["prepared_agent_data"]
     assert configurations[0]["output_schema"] == request.output_schema
     assert "patches" in configurations[1]["output_schema"]["properties"]
-    assert "All original context" in calls[1]["messages"][0].content
+    assert "All original context" in calls[-1]["messages"][0].content
 
 
 def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
@@ -163,7 +174,7 @@ def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
         validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
         return text
     request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="Original context",
-                             timeout_seconds=1, output_schema={"type": "object"})
+                             timeout_seconds=1, output_schema={"type": "object"}, max_model_calls=3)
     with execution_scope(scope), pytest.raises(TimeoutError):
         asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
             output_repair=lambda text, error: build_reading_repair(request.input, text, error)))
