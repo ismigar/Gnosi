@@ -6877,14 +6877,16 @@
           "role_names": "Les noms des rôles distinguent clairement le Directeur, qui coordonne l’équipe, de l’Expert, qui apporte des connaissances spécialisées.",
           "team_setup": "Les réglages de l’équipe enregistrent automatiquement les changements complets. Les tâches, modèles et compétences temporaires permettent plusieurs sélections nommées, avec une aide en l’absence d’options et des explications cohérentes dans les quatre langues.",
           "model_guidance": "Chaque bot affiche un profil LLM recommandé selon ses tâches et compétences. Désactiver un plugin désactive et masque son bot ; sa configuration est conservée pour le réactiver.",
-          "reasoning": "Réglez le niveau de raisonnement de chaque assistant avec les modèles OpenRouter compatibles ; le réglage est enregistré automatiquement et s’applique aussi lors de l’utilisation d’outils."
+          "reasoning": "Réglez le niveau de raisonnement de chaque assistant avec les modèles OpenRouter compatibles ; le réglage est enregistré automatiquement et s’applique aussi lors de l’utilisation d’outils.",
+          "processing_progress": "Suivez le traitement des sources dans une carte de progression compacte après avoir fermé la boîte de dialogue ou changé de page."
         },
         "fixes": {
           "reader": "Ouvrez les documents joints dans le lecteur interne avec les ressources PDF incluses dans les versions de bureau.",
           "preservation": "Distinguez les prix et les capacités inconnus des modèles des valeurs confirmées lorsque vous comparez les offres.",
           "model_comparison": "La comparaison préserve les modifications simultanées, distingue les offres exactes et les variantes partageant une offre, et applique les filtres de rôle aux capacités déclarées de l’offre sélectionnée. L’actualisation, le tri, le décompte filtré et la révision des paramètres sont plus cohérents.",
           "settings_keyboard": "Les touches de navigation font défiler le formulaire depuis le texte et les interrupteurs ; les champs de texte et listes conservent leurs touches d’édition et de sélection.",
-          "optional_team_help": "L’aide de l’équipe est facultative : chaque assistant conserve son modèle et effectue le travail courant, en déléguant seulement si un soutien est nécessaire, sans chaîne de délégation."
+          "optional_team_help": "L’aide de l’équipe est facultative : chaque assistant conserve son modèle et effectue le travail courant, en déléguant seulement si un soutien est nécessaire, sans chaîne de délégation.",
+          "source_processing": "Reprenez le traitement des sources longues en préservant le contexte global du document et corrigez les références invalides sans réécrire les notes valides."
         }
       }
     }

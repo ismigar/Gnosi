@@ -1,7 +1,7 @@
 [
   {
     "version": "3.2.0",
-    "date": "2026-09-27",
+    "date": "2026-09-28",
     "channel": "prerelease",
     "sections": {
       "highlights": [
@@ -16,14 +16,16 @@
         "release_notes.entries.v3_2_0.improvements.role_names",
         "release_notes.entries.v3_2_0.improvements.team_setup",
         "release_notes.entries.v3_2_0.improvements.model_guidance",
-        "release_notes.entries.v3_2_0.improvements.reasoning"
+        "release_notes.entries.v3_2_0.improvements.reasoning",
+        "release_notes.entries.v3_2_0.improvements.processing_progress"
       ],
       "fixes": [
         "release_notes.entries.v3_2_0.fixes.reader",
         "release_notes.entries.v3_2_0.fixes.preservation",
         "release_notes.entries.v3_2_0.fixes.model_comparison",
         "release_notes.entries.v3_2_0.fixes.settings_keyboard",
-        "release_notes.entries.v3_2_0.fixes.optional_team_help"
+        "release_notes.entries.v3_2_0.fixes.optional_team_help",
+        "release_notes.entries.v3_2_0.fixes.source_processing"
       ]
     }
   },
