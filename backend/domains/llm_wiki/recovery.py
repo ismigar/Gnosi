@@ -20,6 +20,8 @@ MAX_RETRIES = 4
 REQUEST_TIMEOUT_SECONDS = 240
 CALL_BUDGET_SECONDS = 360
 MAX_WAIT_SECONDS = 120
+LONG_INPUT_BYTES = 96_000
+LONG_REQUEST_TIMEOUT_SECONDS = 900
 _TRANSIENT_STATUSES = {408, 429, 500, 502, 503, 504}
 _PERMANENT_CODES = {
     "insufficient_quota",
@@ -27,6 +29,19 @@ _PERMANENT_CODES = {
     "billing_not_active",
     "credit_balance_too_low",
 }
+
+PROVIDER_TIMEOUT_MESSAGE = (
+    "The AI provider did not respond in time. Retry to resume saved progress."
+)
+
+
+def processing_error_message(error: Exception) -> str:
+    """TimeoutError often has no text; never persist an unexplained failure."""
+    if isinstance(error, (TimeoutError, httpx.TimeoutException)) or isinstance(
+        error.__cause__, (TimeoutError, httpx.TimeoutException)
+    ):
+        return PROVIDER_TIMEOUT_MESSAGE
+    return str(error).strip() or type(error).__name__
 
 
 def _can_retry(error: Exception) -> bool:
@@ -77,13 +92,22 @@ def call_with_retry(
     *,
     on_wait: Callable[[], None],
     on_attempt: Callable[[], None],
+    input_bytes: int = 0,
+    source_bytes: int = 0,
 ) -> T:
-    """Retry transient failures within five calls, two minutes of waits and six minutes total."""
-    deadline = time.monotonic() + CALL_BUDGET_SECONDS
+    """Bound retries while allowing full-source reading to take longer than short phases."""
+    # Capacity and latency are separate: a valid long-context request can take
+    # more than four minutes. Keep its evidence intact and allow two full calls.
+    # Recalled plans and final review can have a short request while still
+    # requiring reasoning or team coordination over the entire long source.
+    long_input = max(input_bytes, source_bytes) > LONG_INPUT_BYTES
+    request_timeout = LONG_REQUEST_TIMEOUT_SECONDS if long_input else REQUEST_TIMEOUT_SECONDS
+    budget = 2 * request_timeout + MAX_WAIT_SECONDS if long_input else CALL_BUDGET_SECONDS
+    deadline = time.monotonic() + budget
     waited = 0.0
     for retry in range(MAX_RETRIES + 1):
         on_attempt()
-        timeout = min(REQUEST_TIMEOUT_SECONDS, max(1, int(deadline - time.monotonic())))
+        timeout = min(request_timeout, max(1, int(deadline - time.monotonic())))
         try:
             return call(timeout)
         except Exception as error:

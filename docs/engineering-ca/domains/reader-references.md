@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-24
+last_verified: 2026-09-27
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki.py
+  - backend/services/llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.ts
   - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
@@ -33,6 +37,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_recovery.py
+  - backend/tests/test_llm_wiki_contextual_reading.py
+  - backend/tests/test_llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.test.ts
   - backend/tests/test_reference_covers.py
   - frontend/src/features/vault/dashboard/useSources.test.tsx
   - frontend/src/shared/resources/pdfCover.test.ts
@@ -351,6 +359,20 @@ errors parcials, cegament de revisions, importacions concurrents i recomptes
 PRISMA. La validació al navegador ha d'obrir un document de prova real i
 comprovar un cicle de citació o anotació; després ha de fer una cerca progressiva
 de literatura, inspeccionar-ne la procedència i importar un resultat deduplicat.
+
+## Processament de fonts completes i temps d’espera
+
+El processament conserva la capacitat de context del model seleccionat i envia les
+fonts completes quan hi caben. El límit de context i el temps d’execució són independents.
+Les peticions de més de 96.000 bytes UTF-8 disposen de fins a 900 segons per intent i
+1.920 segons en total; les fases més petites mantenen 240 segons per petició i 360 en
+total. Es mantenen els límits de cinc intents i 120 segons d’espera entre intents.
+El llindar només modifica el temps d’espera, mai el contingut ni la fragmentació.
+
+Els errors de temps d’espera desen un missatge útil, traduït al diàleg i a les
+notificacions. La lectura dirigida copia els plans desats al nou treball abans de
+contactar amb el proveïdor per conservar el progrés si falla un nou intent.
+Les crides estructurades respecten el mateix límit de context que la resta de lectures.
 
 ## Fitxers del lector PDF
 

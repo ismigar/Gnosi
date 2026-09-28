@@ -47,16 +47,16 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
-| `app` | 21 | 2655 | 0 |
-| `features` | 1135 | 127367 | 32 |
+| `app` | 21 | 2657 | 0 |
+| `features` | 1137 | 127393 | 32 |
 | `generated` | 2 | 48148 | 495 |
-| `shared` | 265 | 31476 | 426 |
+| `shared` | 266 | 31486 | 426 |
 
 ## app
 
 | Font | Línies | Indicis d’exportació | Rutes literals de l’API |
 | --- | ---: | --- | --- |
-| [`frontend/src/app/App.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/App.tsx) | 317 | `App` | — |
+| [`frontend/src/app/App.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/App.tsx) | 319 | `App` | — |
 | [`frontend/src/app/AppProviders.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/AppProviders.tsx) | 16 | `AppProviders` | — |
 | [`frontend/src/app/HomePage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/HomePage.tsx) | 231 | `HomePage` | — |
 | [`frontend/src/app/bootstrap.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/app/bootstrap.tsx) | 33 | `bootstrap` | — |
@@ -297,7 +297,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/integrations/drupal/SyncDrupalModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/integrations/drupal/SyncDrupalModal.tsx) | 196 | `SyncDrupalModal` | — |
 | [`frontend/src/features/literature/LiteraturePage.test-helpers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/LiteraturePage.test-helpers.ts) | 167 | `FakeEventStream`, `buttonContaining`, `configurationFixture`, `createdReview`, `emptyImport`, `labelContaining`, `requiredForm`, `requiredInput`, `requiredItem`, `requiredTextarea`, `search`, `source`, `work` | — |
 | [`frontend/src/features/literature/LiteraturePage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/LiteraturePage.tsx) | 79 | `LiteraturePage`, `function` | — |
-| [`frontend/src/features/literature/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/index.ts) | 3 | `LiteraturePage` | — |
+| [`frontend/src/features/literature/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/index.ts) | 6 | `LiteraturePage` | — |
 | [`frontend/src/features/literature/records/CitePicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/CitePicker.tsx) | 242 | `CitePicker` | — |
 | [`frontend/src/features/literature/records/CslStylePicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/CslStylePicker.tsx) | 199 | `CslStylePicker` | — |
 | [`frontend/src/features/literature/records/MetadataLookupModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/MetadataLookupModal.tsx) | 132 | `MetadataLookupModal` | — |
@@ -310,9 +310,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/MetadataLookupResults.tsx) | 173 | `MetadataLookupResults` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/metadataLookupModel.ts) | 154 | `SOURCE_LABELS`, `groupMetadataEntries`, `initialFieldSelection`, `metadataDisplayText`, `metadataScalarText`, `metadataValueIsEmpty`, `normalizeLookupResult`, `resolveZoteroType`, `selectedMetadataPatch`, `zoteroTypeLabel` | — |
 | [`frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/metadata-lookup/useMetadataLookup.ts) | 286 | `useMetadataLookup` | — |
-| [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 261 | `ProcessResourceModalView` | — |
+| [`frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx) | 262 | `ProcessResourceModalView` | — |
+| [`frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/ResourceProcessingMonitor.tsx) | 64 | `ResourceProcessingMonitor` | — |
 | [`frontend/src/features/literature/records/process-resource/processResourceModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/processResourceModel.ts) | 115 | `NO_BRAIN_TABLE_ERROR`, `PHASE_LABELS`, `POLL_INTERVAL_MS`, `countTouchedPages`, `getPollingIdentifier`, `getProcessPhase`, `getProgressPercent`, `getStartErrorMessage`, `getTerminalProcessState`, `isProviderRateLimit` | — |
-| [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 162 | `useProcessResourceController` | — |
+| [`frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts) | 120 | `dismissResourceProcessingTask`, `getResourceProcessingTasks`, `processingTaskId`, `resetResourceProcessingTasks`, `setResourceProcessingBackground`, `startResourceProcessingTask`, `subscribeResourceProcessingTasks`, `useResourceProcessingTasks` | — |
+| [`frontend/src/features/literature/records/process-resource/useProcessResourceController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/process-resource/useProcessResourceController.ts) | 37 | `useProcessResourceController` | — |
 | [`frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/reference-import-export/referenceImportModel.ts) | 27 | `duplicateReferenceBreakdown`, `referenceExportFilename` | — |
 | [`frontend/src/features/literature/records/resourceTemplateSelection.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/records/resourceTemplateSelection.ts) | 83 | `resolveResourceDocumentType`, `selectResourceTemplate` | — |
 | [`frontend/src/features/literature/settings/ResourcesPluginConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/literature/settings/ResourcesPluginConfig.tsx) | 9 | `ResourcesPluginConfig`, `function` | — |
@@ -690,7 +692,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/content/insert-content/insertContentTransfers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/content/insert-content/insertContentTransfers.ts) | 81 | `localFolderSentinel`, `performInsertUpload`, `registerInsertLocalFile` | — |
 | [`frontend/src/features/vault/content/insert-content/insertContentTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/content/insert-content/insertContentTypes.ts) | 132 | — | — |
 | [`frontend/src/features/vault/content/insert-content/useInsertContentController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/content/insert-content/useInsertContentController.ts) | 367 | `useInsertContentController` | — |
-| [`frontend/src/features/vault/dashboard/BrowseDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/BrowseDialogs.tsx) | 149 | `BrowseDialogs` | — |
+| [`frontend/src/features/vault/dashboard/BrowseDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/BrowseDialogs.tsx) | 140 | `BrowseDialogs` | — |
 | [`frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx) | 150 | `ConfigurationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx) | 108 | `ConfirmationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.tsx) | 56 | `Dashboard`, `function` | — |
@@ -717,7 +719,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/useDashboardController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardController.ts) | 22 | `useDashboardController` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardEvents.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardEvents.tsx) | 150 | `useDashboardEvents` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardLifecycle.ts) | 150 | `useDashboardLifecycle` | — |
-| [`frontend/src/features/vault/dashboard/useDashboardState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardState.ts) | 246 | `useDashboardState` | — |
+| [`frontend/src/features/vault/dashboard/useDashboardState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardState.ts) | 242 | `useDashboardState` | — |
 | [`frontend/src/features/vault/dashboard/useDataLoading.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDataLoading.ts) | 162 | `useDataLoading` | — |
 | [`frontend/src/features/vault/dashboard/useDocumentTabs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDocumentTabs.ts) | 164 | `useDocumentTabs` | — |
 | [`frontend/src/features/vault/dashboard/useEditorUpdates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useEditorUpdates.ts) | 135 | `useEditorUpdates` | — |
@@ -730,7 +732,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/usePaneLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePaneLayout.ts) | 105 | `usePaneLayout` | — |
 | [`frontend/src/features/vault/dashboard/useRecordCatalog.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRecordCatalog.ts) | 144 | `useRecordCatalog` | — |
 | [`frontend/src/features/vault/dashboard/useRelationHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useRelationHistory.ts) | 78 | `useRelationHistory` | — |
-| [`frontend/src/features/vault/dashboard/useResourceProcessing.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useResourceProcessing.ts) | 82 | `useResourceProcessing` | — |
+| [`frontend/src/features/vault/dashboard/useResourceProcessing.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useResourceProcessing.ts) | 58 | `useResourceProcessing` | — |
 | [`frontend/src/features/vault/dashboard/useSources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useSources.ts) | 119 | `useSources` | — |
 | [`frontend/src/features/vault/dashboard/useTableNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTableNavigation.ts) | 169 | `useTableNavigation` | — |
 | [`frontend/src/features/vault/dashboard/useTemplates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useTemplates.ts) | 168 | `useTemplates` | — |
@@ -1410,6 +1412,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/shared/i18n/locales/registry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/i18n/locales/registry.ts) | 263 | `FALLBACK_LOCALE`, `applyDocumentLocale`, `applyLocaleMetadata`, `availableLocales`, `buildLocaleRegistry`, `canonicalizeLocale`, `getIntlLocale`, `getLocaleMeta`, `loadLocaleResource`, `resolveLocale` | — |
 | [`frontend/src/shared/i18n/useLocaleSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/i18n/useLocaleSettings.ts) | 76 | `useLocaleSettings` | — |
 | [`frontend/src/shared/notifications/notifyError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/notifyError.ts) | 204 | `_persistNotification`, `logError`, `notifyError`, `notifyInfo`, `notifySuccess` | — |
+| [`frontend/src/shared/notifications/resourceProcessingError.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/resourceProcessingError.ts) | 10 | `resourceProcessingError` | — |
 | [`frontend/src/shared/notifications/toast.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/notifications/toast.ts) | 185 | `toast` | — |
 | [`frontend/src/shared/page-search/GlobalSearchModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/GlobalSearchModal.tsx) | 450 | `GlobalSearchModal` | — |
 | [`frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/page-search/global-search-modal/GlobalSearchResults.tsx) | 103 | `GlobalSearchResults` | — |

@@ -1,5 +1,6 @@
 """Conformance tests for principal operations without provider calls or user data."""
 import asyncio
+import json
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -94,6 +95,199 @@ def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     row = store.list_runs(scope)[0]
     assert row.status == "failed"
     assert not row.result
+
+
+@pytest.mark.parametrize("valid_patch", [True, False])
+def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runtime, monkeypatch, valid_patch):
+    from backend.agent import factory
+    from backend.domains.llm_wiki.reading_contracts import validate_notes
+    from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+    from backend.tests.test_llm_wiki_reading_repairs import repair_fixture
+    scope, snapshot = runtime
+    action, passages, _, patch = repair_fixture()
+    if not valid_patch:
+        patch["patches"][1]["value"][0]["quote"] = "Invented"
+    calls = install_workflow(monkeypatch, [json.dumps(action), json.dumps(patch)])
+    create = factory.create_agent_workflow
+    configurations = []
+    async def capture(*args, **kwargs):
+        configurations.append(kwargs)
+        return await create(*args, **kwargs)
+    monkeypatch.setattr(factory, "create_agent_workflow", capture)
+    def validate(text):
+        validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
+        return text
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="All original context",
+                             output_schema={"type": "object"}, max_model_calls=2)
+    with execution_scope(scope):
+        work = execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
+            output_repair=lambda text, error: build_reading_repair(request.input, text, error))
+        if valid_patch:
+            result = asyncio.run(work)
+            assert result.status == "completed"
+            assert json.loads(result.result)["arguments"]["plan"]["notes"][1] == action["arguments"]["plan"]["notes"][1]
+            assert json.loads(result.result)["action"] == "save_plan"
+        else:
+            with pytest.raises(ValueError, match="literal|exact substrings"):
+                asyncio.run(work)
+            assert store.list_runs(scope)[0].status == "failed"
+            assert not store.list_runs(scope)[0].result
+    assert len(calls) == 2
+    assert calls[1]["team_help_allowed"] is False
+    assert configurations[0]["prepared_agent_data"] == configurations[1]["prepared_agent_data"]
+    assert configurations[0]["output_schema"] == request.output_schema
+    assert "patches" in configurations[1]["output_schema"]["properties"]
+    assert "All original context" in calls[1]["messages"][0].content
+
+
+def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
+    from backend.agent import factory
+    from backend.domains.llm_wiki.reading_contracts import validate_notes
+    from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+    from backend.tests.test_llm_wiki_reading_repairs import repair_fixture
+    scope, snapshot = runtime
+    action, passages, _, patch = repair_fixture()
+    calls = []
+    class Application:
+        async def astream(self, inputs, **kwargs):
+            calls.append(inputs)
+            await asyncio.sleep(0.6)
+            answer = action if len(calls) == 1 else patch
+            yield {"operation": {"messages": [AIMessage(content=json.dumps(answer))]}}
+        def compile(self):
+            return self
+    async def create(*args, **kwargs):
+        return Application(), {"model": "fake", "provider": "test"}
+    monkeypatch.setattr(factory, "create_agent_workflow", create)
+    def validate(text):
+        validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
+        return text
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="Original context",
+                             timeout_seconds=1, output_schema={"type": "object"})
+    with execution_scope(scope), pytest.raises(TimeoutError):
+        asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
+            output_repair=lambda text, error: build_reading_repair(request.input, text, error)))
+    assert len(calls) == 2
+    assert store.list_runs(scope)[0].status == "failed"
+    assert not store.list_runs(scope)[0].result
+
+
+@pytest.mark.parametrize("fault", ["unknown_chunk", "coverage", "citation", "early_finish"])
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+def test_reader_repairs_invalid_actions_with_original_evidence_before_checkpoint(runtime, monkeypatch, fault, repair_succeeds):
+    from copy import deepcopy
+    from backend.tests.test_llm_wiki_contextual_reading import setup_reader, note_answer
+    scope, snapshot = runtime
+    reader, _, checkpoints = setup_reader()
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 4
+    valid = [{"action": "save_plan", "arguments": {"chunk_id": chunk["id"],
+             "plan": note_answer({"primary_segments": chunk["segments"]})}} for chunk in reader.chunks]
+    valid.append({"action": "finish", "arguments": {"summary": "Complete"}})
+    invalid = deepcopy(valid[0])
+    if fault == "unknown_chunk":
+        invalid = {"action": "read", "arguments": {"chunk_id": "invented"}}
+    elif fault == "coverage":
+        invalid["arguments"]["plan"]["coverage"] = []
+    elif fault == "citation":
+        invalid["arguments"]["plan"]["notes"][0]["citations"][0]["quote"] = "invented quotation"
+    else:
+        invalid = valid[-1]
+    responses = [invalid, *valid] if repair_succeeds else [invalid, invalid]
+    calls = install_workflow(monkeypatch, [json.dumps(answer) for answer in responses])
+
+    def generate(prompt, validate, timeout):
+        def checked(text):
+            validate(json.loads(text))
+            return text
+        with execution_scope(scope):
+            result = asyncio.run(execution.execute_operation(AgentOperation(
+                skill_id=snapshot.skill_ids[0], operation="knowledge.process-source.phase",
+                input=prompt, output_schema=json.loads(prompt)["output_schema"], timeout_seconds=timeout,
+            ), snapshot=snapshot, output_validator=checked))
+        return result.result, result.model
+
+    reader.dependencies.generate_structured = generate
+    if repair_succeeds:
+        result, _ = reader.run()
+        assert len(result["notes"]) == 2
+        assert checkpoints[("current", "action-0")]["answer"] == valid[0]
+    else:
+        with pytest.raises(ValueError):
+            reader.run()
+        assert len(calls) == 2
+        assert ("current", "action-0") not in checkpoints
+        assert not checkpoints[("current", "agent-state")]["plans"]
+        assert checkpoints[("current", "agent-state")]["step"] == 0
+    assert calls[0]["messages"][0].content == calls[1]["messages"][0].content
+    assert json.loads(calls[1]["messages"][1].content) == invalid
+    assert "validation_error" in calls[1]["messages"][-1].content
+    original = json.loads(json.loads(calls[0]["messages"][0].content)["input"])
+    assert original["last_result"]["delivery"] == "complete"
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_redundant_root_closer_preserves_every_note_without_model_repair(runtime, monkeypatch, fenced):
+    scope, snapshot = runtime
+    plan = {"action": "save_plan", "arguments": {"plan": {"notes": [
+        {"title": f"Note {i}", "body_md": "Quoted braces stay intact: } ] { " * 35}
+        for i in range(68)
+    ]}}}
+    response = json.dumps(plan) + "}"
+    if fenced:
+        response = "```json\n" + response + "\n```"
+    calls = install_workflow(monkeypatch, [response])
+    with execution_scope(scope):
+        result = asyncio.run(execution.execute_operation(AgentOperation(
+            skill_id=snapshot.skill_ids[0], operation="writing", input="source",
+            output_schema={"type": "object", "required": ["action", "arguments"]},
+        ), snapshot=snapshot))
+    assert result.status == "completed"
+    assert json.loads(result.result) == plan
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("text", [
+    '{"answer": 1}{"answer": 2}', '{"answer": 1} trailing text',
+    '{"answer": 1} } {"answer": 2}', '{"answer": 1}}}',
+    '{"answer": 1}]', '{"answer": {"nested": 1}', '42}',
+    '```json\n{"answer": 1}\n``` trailing text',
+    '```json\n{"answer": 1}\n```\n{"answer": 2}',
+    '```json\n{"answer": 1}',
+])
+def test_root_closer_recovery_rejects_additional_content_and_incomplete_json(text):
+    with pytest.raises(json.JSONDecodeError):
+        execution._validate_output(text, {"type": "object"})
+
+
+def test_root_closer_recovery_keeps_schema_and_domain_validation(runtime, monkeypatch):
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['{"answer": "bad"}}', '{"answer": "ok"}'])
+    validated = []
+    def validate(text):
+        answer = json.loads(text)
+        validated.append(answer)
+        if answer["answer"] != "ok":
+            raise ValueError("answer must be ok")
+        return text
+    with execution_scope(scope):
+        result = asyncio.run(execution.execute_operation(AgentOperation(
+            skill_id=snapshot.skill_ids[0], operation="writing", input="source",
+            output_schema={"type": "object", "required": ["answer"]},
+        ), snapshot=snapshot, output_validator=validate))
+    assert json.loads(result.result) == {"answer": "ok"}
+    assert validated == [{"answer": "bad"}, {"answer": "ok"}]
+    assert len(calls) == 2
+
+
+def test_root_closer_recovery_still_rejects_schema_violations():
+    with pytest.raises(execution.jsonschema.ValidationError):
+        execution._validate_output('{"unexpected": 1}}', {"type": "object", "required": ["answer"]})
+
+
+def test_array_closer_recovery_preserves_values_and_unstructured_output():
+    assert json.loads(execution._validate_output('[{"a": "}]"}, 2]]', {"type": "array"})) == [{"a": "}]"}, 2]
+    assert execution._validate_output('Example: {a}}', None) == 'Example: {a}}'
 
 
 def test_scope_and_skill_mismatch_rejected_before_model(runtime, monkeypatch):

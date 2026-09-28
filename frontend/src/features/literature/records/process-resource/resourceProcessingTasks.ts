@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import type { TFunction } from 'i18next';
 import { fetchResourceProcessingStatus, startResourceProcessing, type ResourceProcessingJob } from '../../../../shared/api/resource-processing';
 import { toast } from '../../../../shared/notifications/toast';
+import { resourceProcessingError } from '../../../../shared/notifications/resourceProcessingError';
 import { countTouchedPages, getPollingIdentifier, getStartErrorMessage, getTerminalProcessState, POLL_INTERVAL_MS, type ProcessResourceState } from './processResourceModel';
 
 export interface ResourceProcessingTask {
@@ -65,7 +66,7 @@ function applyJob(id: string, job: ResourceProcessingJob, t: TFunction): boolean
     const state = unavailable ? 'error' : getTerminalProcessState(job) ?? 'running';
     const error = unavailable
         ? t('llm_wiki.job_unavailable', { defaultValue: 'The processing status is unavailable. Retry to resume saved progress.' })
-        : state === 'error' ? job.error || t('llm_wiki.error_generic', { defaultValue: 'Error processing the resource' }) : '';
+        : state === 'error' ? resourceProcessingError(job.error, t) : '';
     // Retain the last known job identity when the server no longer has its status.
     update(id, { ...(unavailable ? {} : { job }), state, error });
     if (state === 'running') return false;

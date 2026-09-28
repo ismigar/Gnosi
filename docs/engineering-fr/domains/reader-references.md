@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-24
+last_verified: 2026-09-27
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki.py
+  - backend/services/llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.ts
   - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
@@ -33,6 +37,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_recovery.py
+  - backend/tests/test_llm_wiki_contextual_reading.py
+  - backend/tests/test_llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.test.ts
   - backend/tests/test_reference_covers.py
   - frontend/src/features/vault/dashboard/useSources.test.tsx
   - frontend/src/shared/resources/pdfCover.test.ts
@@ -333,6 +341,22 @@ SSRF/XML, erreurs partielles, masquage entre évaluateurs, imports concurrents
 et comptages PRISMA. Dans le navigateur, ouvrez un document de test réel et
 vérifiez un aller-retour de citation ou d'annotation, puis une recherche
 bibliographique progressive, sa provenance et l'import d'un résultat dédupliqué.
+
+## Traitement des sources complètes et délais d’attente
+
+Le traitement conserve la capacité de contexte du modèle choisi et transmet les
+sources complètes lorsqu’elles y tiennent. La limite de contexte et le délai
+d’exécution sont indépendants. Les requêtes dépassant 96 000 octets UTF-8 disposent
+de 900 secondes par tentative et de 1 920 secondes au total ; les phases plus courtes
+conservent 240 secondes par requête et 360 au total. Les limites de cinq tentatives et
+de 120 secondes d’attente entre les tentatives restent applicables. Le seuil modifie
+uniquement le délai, jamais le contenu ni le découpage.
+
+Les dépassements de délai enregistrent un message utile, traduit dans la boîte de
+dialogue et les notifications. La lecture dirigée copie les plans enregistrés vers la
+nouvelle tâche avant de contacter le fournisseur, préservant la progression en cas
+de nouvel échec. Les appels structurés respectent la même limite de contexte que les
+autres lectures.
 
 ## Fichiers du lecteur PDF
 

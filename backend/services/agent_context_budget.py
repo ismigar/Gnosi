@@ -14,6 +14,13 @@ _ENCODING_HASHES = {
 }
 
 
+class OperationContextExceeded(RuntimeError):
+    """An operation was rejected before making a model call."""
+
+    def __init__(self) -> None:
+        super().__init__("agent_operation_context_exceeded")
+
+
 def _available_encoding(model: str) -> Any:
     from tiktoken.model import encoding_name_for_model
     from tiktoken.registry import ENCODINGS, get_encoding

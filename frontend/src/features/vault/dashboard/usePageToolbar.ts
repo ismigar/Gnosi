@@ -147,7 +147,7 @@ export function usePageToolbar(context: DashboardActions) {
                 noteId: currentOpenPage.id,
                 title: currentOpenPage.title || '',
                 sourceTableId: openPageTableId,
-                force: Boolean(llmWikiResourceProcessed) || llmWikiResourceRetryable,
+                force: Boolean(llmWikiResourceProcessed) && !llmWikiResourceRetryable,
             });
         },
         canDeleteCurrentPage,

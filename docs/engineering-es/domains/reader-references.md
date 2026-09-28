@@ -1,7 +1,11 @@
 ---
 status: implemented
-last_verified: 2026-09-24
+last_verified: 2026-09-27
 source_paths:
+  - backend/domains/llm_wiki
+  - backend/services/llm_wiki.py
+  - backend/services/llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.ts
   - frontend/src/features/vault/properties/FileAttachmentField.tsx
   - backend/domains/reader
   - backend/domains/literature
@@ -33,6 +37,10 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_recovery.py
+  - backend/tests/test_llm_wiki_contextual_reading.py
+  - backend/tests/test_llm_wiki_reading_runtime.py
+  - frontend/src/shared/notifications/resourceProcessingError.test.ts
   - backend/tests/test_reference_covers.py
   - frontend/src/features/vault/dashboard/useSources.test.tsx
   - frontend/src/shared/resources/pdfCover.test.ts
@@ -295,6 +303,21 @@ reintentar después de un error.
 ## Enfoque de verificación
 
 Ejecute las pruebas de claves de cita, PubMed, tipos de elementos, estilos CSL, escapes BibTeX, entrada y salida de referencias, anotaciones, confinamiento de rutas, deduplicación de importaciones y savepoints de feeds. Añada pruebas de normalización de conectores, tokens y marcas de eliminación OAI, SSRF/XML, errores parciales, ocultación de decisiones entre revisores, importación concurrente y recuentos PRISMA. La validación en el navegador debe abrir un documento de prueba real y completar un ciclo de creación y lectura de una cita o anotación; después debe realizar una búsqueda bibliográfica progresiva, inspeccionar la procedencia e importar un resultado deduplicado.
+
+## Procesamiento de fuentes completas y tiempos de espera
+
+El procesamiento conserva la capacidad de contexto del modelo seleccionado y envía
+las fuentes completas cuando caben. El límite de contexto y el tiempo de ejecución
+son independientes. Las peticiones de más de 96.000 bytes UTF-8 disponen de hasta 900
+segundos por intento y 1.920 segundos en total; las fases menores mantienen 240
+segundos por petición y 360 en total. Se mantienen cinco intentos y un máximo de 120
+segundos de espera entre intentos. El umbral solo cambia el tiempo, nunca el contenido
+ni la fragmentación.
+
+Los errores de tiempo de espera guardan un mensaje útil, traducido en el diálogo y
+las notificaciones. La lectura dirigida copia los planes guardados al nuevo trabajo
+antes de contactar con el proveedor, conservando el progreso si vuelve a fallar.
+Las llamadas estructuradas respetan el mismo límite de contexto que las demás lecturas.
 
 ## Archivos del lector PDF
 

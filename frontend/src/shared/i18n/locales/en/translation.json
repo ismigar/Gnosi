@@ -6078,6 +6078,7 @@
     "created": "Created",
     "updated": "Enriched",
     "error_generic": "Error processing the resource",
+    "error_provider_timeout": "The AI provider did not respond in time. Retry to resume saved progress.",
     "error_no_brain_table": "No Knowledge table is configured. Create one in Settings → Plugins → LLM Wiki.",
     "running_hint": "You can close; follow progress in the corner of the window.",
     "inbox_button": "Inbox",

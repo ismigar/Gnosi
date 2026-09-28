@@ -6393,6 +6393,7 @@
     "created": "Creades",
     "updated": "Enriquides",
     "error_generic": "Error processant el recurs",
+    "error_provider_timeout": "El proveïdor d’IA no ha respost a temps. Torna-ho a provar per reprendre el progrés desat.",
     "error_no_brain_table": "No hi ha cap taula del Coneixement configurada. Crea'n una a Configuració → Connectors → LLM Wiki.",
     "running_hint": "Pots tancar; segueix el progrés al racó de la finestra.",
     "inbox_button": "Bústia",

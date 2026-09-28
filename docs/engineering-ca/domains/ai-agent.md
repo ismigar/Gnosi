@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
@@ -1247,3 +1249,25 @@ Les metadades de raonament de només lectura són a `backend/domains/configurati
 ## Progrés dels recursos en segon pla
 
 Tancar el diàleg de processament deixa una targeta compacta, no modal, al racó inferior dret. Mostra el títol del recurs, la fase, els fragments i el progrés disponible, i permet reobrir els detalls sense iniciar un altre treball. El magatzem global de tasques manté els inicis pendents i les consultes de seguiment sense solapaments, tant des de les files de taula com des d’un recurs obert, encara que es canviï de pàgina. Els resultats completats o interromputs continuen visibles fins que s’amaguen; reintentar reprèn la feina desada. El seguiment es reinicia en canviar de Vault o de compte i ignora respostes antigues. Aquest estat de sessió de la interfície no persisteix quan es recarrega l’aplicació.
+
+## Format de les operacions estructurades
+
+Les operacions estructurades d’OpenRouter envien el contracte de sortida al proveïdor, amb mode d’esquema estricte per als contractes detallats i mode d’objecte JSON per als objectes genèrics. La selecció de ruta exigeix compatibilitat amb els paràmetres i conserva les preferències del proveïdor i el raonament. Les eines natives opcionals utilitzen contractes de funció estrictes; les eines JSON alternatives restringeixen l’embolcall i validen localment la resposta extreta. Els altres proveïdors mantenen la validació local. La lectura dirigida de fonts transmet l’esquema d’accions, amb el tipus de l’acció explícit.
+
+Que el proveïdor accepti la petició no demostra que compleixi el contracte: les validacions locals d’esquema i contingut continuen sent obligatòries, amb l’intent de reparació limitat existent. Es pot recuperar un objecte o una llista JSON complets seguits únicament d’un delimitador final repetit, sense canviar cap camp; es rebutgen valors addicionals, prosa, tancaments incoherents i contingut incomplet. La comprovació de cites, la cobertura de fonts i la validació de notes es mantenen. La validesa estructural no garanteix exactitud factual ni una redacció idèntica entre execucions.
+
+Si el planificador d’un equip opcional rebutja el context abans de fer cap crida al model o executar cap tasca, l’operació estructurada pot continuar amb el model original dins del mateix termini i límit de crides. Es conserven la petició completa i la resposta a la sol·licitud d’ajuda; la delegació rebutjada queda registrada i no redirigeix la represa cap a la fase fallida de l’equip. Els errors de permisos, les cancel·lacions i els errors posteriors a l’existència d’un pla continuen aturant l’execució. Reprendre el processament interromput des de la barra de la pàgina aprofita el progrés guardat, també després de reiniciar l’aplicació, sense forçar una execució nova.
+
+La planificació i la replanificació dels equips validen els executors, l’ordre de les dependències i la tasca de resultat abans de completar la fase o iniciar les tasques. Els errors de coherència entren al procés de reparació habitual, amb un màxim de dues crides de planificació dins del pressupost total existent. Una segona resposta invàlida fa fallar la fase sense executar-ne les tasques. Els plans completats que es recuperen de la memòria cau també es validen abans de reutilitzar-los.
+
+La lectura dirigida restringeix els camps de cada acció, incloses les notes, la cobertura i les cites. Valida les referències a la font, la cobertura completa i les citacions exactes abans d’acceptar o guardar una acció, perquè la reparació limitada conservi juntes les evidències originals i la resposta rebutjada. La validació prèvia no modifica l’estat de lectura. Cada pas inclou els identificadors exactes dels fragments i el nombre de passatges principals, i una identitat de pas impedeix reutilitzar una resposta idèntica entre iteracions diferents.
+
+Les fases de l’equip hereten el temps d’espera de l’operació principal i continuen limitades pel seu termini existent. Una reparació delegada rep l’entrada i les dades originals juntament amb la resposta rebutjada i l’error de validació, per poder comprovar les evidències en corregir la resposta.
+
+La validació de lectura comunica conjuntament els errors independents de cobertura i citació, identificant la posició de les notes i cites sense reproduir el text de la font. Així, l’únic intent de reparació permès pot corregir totes les incoherències conegudes amb l’evidència original, en lloc de descobrir només l’error següent després de cada intent. Els plans invàlids no fan avançar l’estat de lectura.
+
+Les reparacions de referències de la lectura dirigida retornen canvis limitats per un esquema per a les notes rebutjades i la cobertura. Es conserven la petició original, la memòria global, les notes afectades i els passatges originals de referència. Només poden canviar els camps de referència enumerats; els títols, cossos, ordre i camps no afectats de les notes es copien intactes de l’esborrany. Les rutes duplicades, absents o no autoritzades es rebutgen localment. El perfil original fa aquesta reparació dins del mateix límit de dues crides i termini, sense delegacions addicionals. L’acció reconstruïda ha de superar l’esquema original i la validació completa d’evidències abans de desar-se o entrar a la memòria cau.
+
+Abans que comenci cap delegació, les peticions d’ajuda invàlides o repetides d’una operació estructurada es rebutgen conjuntament. Els registres de crida queden resolts com a no executats, i l’assistent original pot respondre directament amb la petició completa dins del límit de reparació i del termini existents. No s’executa cap encàrrec a l’equip ni cap eina combinada. Cada pas de lectura també inclou l’estat de lectura i de desament de cada fragment enumerat, fins i tot després d’una represa, perquè el recompte no amagui quins plans queden pendents.
+
+La lectura de fonts llargues conserva el termini ampliat i limitat durant la selecció d’accions posterior, la revisió de plans recuperats i la represa, encara que la petició actual sigui breu. La mida de la font determina el temps disponible; els límits de context, el pressupost finit de reintents, la cancel·lació i la validació es mantenen.
