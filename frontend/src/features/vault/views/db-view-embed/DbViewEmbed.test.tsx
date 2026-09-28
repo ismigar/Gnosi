@@ -346,7 +346,15 @@ describe('embedded record and view actions', () => {
     });
     it('renames the full registry view and opens config with a synthetic block', async () => {
         await render(); await tabMenu(); await click(button('Configure'));
-        expect(openConfig).toHaveBeenCalledWith('books', { id: 'block', props: { view_id: 'other', heading: '', heading_level: 1 } });
+        expect(openConfig).toHaveBeenCalledTimes(1);
+        expect(openConfig.mock.calls[0]).toMatchObject(['books', {
+            id: 'block',
+            props: { view_id: 'other', heading: '', heading_level: 1 },
+            view: {
+                id: 'other', name: 'Other',
+                filters: [{ field: 'title', operator: 'contains', value: 'Beta' }],
+            },
+        }]);
         await tabMenu(); await click(button('Rename'));
         await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
         await inputValue(document.querySelector('input[type="text"]'), 'Renamed'); await click(button('Rename'));
