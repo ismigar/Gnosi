@@ -218,7 +218,7 @@ def test_configured_note_categories_persist_under_real_property_names(tmp_path: 
     )} for label in ("Evidence", "Learning")]
     writing.apply_plan(
         {"notes": notes}, "resource", "Resource", "brain",
-        config={"brain_roles": {"tags": "tag-id"}},
+        config={"brain_roles": {"tags": "tag-id"}, "index_field_ids": ["area-id", "tag-id"]},
         source_dimensions={"project-id": ["[[Project|project-row]]"]},
         dependencies=dependencies,
     )
@@ -226,6 +226,28 @@ def test_configured_note_categories_persist_under_real_property_names(tmp_path: 
     assert all(metadata["Àrea"] == ["[[Research|area-row]]"] for metadata in saved)
     assert all(metadata["Projecte"] == ["[[Project|project-row]]"] for metadata in saved)
     assert all("Tags" not in metadata for metadata in saved)
+
+
+@pytest.mark.parametrize("name", ["Tags", "Etiquetes"])
+@pytest.mark.parametrize("mapped, expected", [({}, []), ({"tag-id": ["Known"]}, ["Known"])])
+def test_free_form_tags_cannot_override_configured_mapping_or_abstention(
+    tmp_path: Path, name: str, mapped: dict[str, object], expected: list[str],
+) -> None:
+    saved: list[PageMetadata] = []
+    dependencies = replace(
+        _dependencies(tmp_path),
+        table_by_id=lambda table_id: {"properties": [{"id": "tag-id", "name": name, "type": "multi_select"}]},
+        save_page_md=lambda path, metadata, body: saved.append(metadata),
+    )
+    writing.apply_plan(
+        {"notes": [{"title": "Idea", "managed_key": "key", "tags": ["Invented"], "dimensions": {"tag-id": []}}]},
+        "source", "Source", "brain",
+        config={"brain_roles": {"tags": "tag-id"}, "index_field_ids": ["tag-id"]},
+        source_dimensions=mapped, dependencies=dependencies,
+    )
+    assert saved[0][name] == expected
+    if name != "Tags":
+        assert "Tags" not in saved[0]
 
 
 class _SingleIterator(Iterator[object]):
