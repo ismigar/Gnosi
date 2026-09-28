@@ -13,7 +13,7 @@ export function NumberValue({ value, format }: { value: unknown; format: Resolve
     return <span className="inline-flex max-w-full items-center gap-2 tabular-nums" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={bounded} aria-valuetext={label}>
         {format.display === 'ring'
             ? <svg aria-hidden="true" viewBox="0 0 36 36" className="h-6 w-6 shrink-0 -rotate-90"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--border-primary)" strokeWidth="4" /><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--gnosi-primary)" strokeWidth="4" strokeDasharray={`${String(bounded)} 100`} /></svg>
-            : <span aria-hidden="true" className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-[var(--border-primary)]"><span className="block h-full rounded-full bg-[var(--gnosi-primary)]" style={{ width: `${String(bounded)}%` }} /></span>}
-        <span>{label}</span>
+            : <span aria-hidden="true" className="h-1.5 w-20 min-w-0 shrink overflow-hidden rounded-full bg-[var(--border-primary)]"><span className="block h-full rounded-full bg-[var(--gnosi-primary)]" style={{ width: `${String(bounded)}%` }} /></span>}
+        <span className="shrink-0 whitespace-nowrap">{label}</span>
     </span>;
 }
