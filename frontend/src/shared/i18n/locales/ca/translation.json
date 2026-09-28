@@ -6877,14 +6877,16 @@
           "role_names": "Els noms dels rols distingeixen clarament el Directiu, que coordina l’equip, del Perit, que aporta coneixement especialitzat.",
           "team_setup": "La configuració de l’equip desa automàticament els canvis complets. Les tasques, els models i les habilitats dels temporals permeten diverses seleccions amb noms clars, ajuda quan no hi ha opcions i aclaracions coherents en els quatre idiomes.",
           "model_guidance": "Cada bot mostra el perfil LLM recomanat segons les seves tasques i habilitats. Desactivar un plugin desactiva i amaga el seu bot; la configuració es conserva per reactivar-lo.",
-          "reasoning": "Pots ajustar el nivell de raonament de cada assistent amb models compatibles d’OpenRouter; es desa automàticament i també s’aplica quan utilitza eines."
+          "reasoning": "Pots ajustar el nivell de raonament de cada assistent amb models compatibles d’OpenRouter; es desa automàticament i també s’aplica quan utilitza eines.",
+          "processing_progress": "Segueix el processament de les fonts des d’una targeta compacta de progrés després de tancar el diàleg o canviar de pàgina."
         },
         "fixes": {
           "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",
           "preservation": "Diferencia els preus i les capacitats desconeguts dels models dels valors confirmats quan compares ofertes.",
           "model_comparison": "La comparativa preserva els canvis simultanis, diferencia les ofertes exactes i les variants que comparteixen oferta, i aplica els filtres de rol a les capacitats declarades de l’oferta seleccionada. També millora l’actualització, l’ordenació, el recompte filtrat i la revisió de paràmetres.",
           "settings_keyboard": "Les tecles de navegació desplacen el formulari des del text i dels interruptors; els camps de text i desplegables conserven les seves tecles d’edició i selecció.",
-          "optional_team_help": "Demanar ajuda a l’equip és opcional: cada assistent conserva el seu model i fa la feina habitual; només delega quan necessita suport, sense cadenes de delegació."
+          "optional_team_help": "Demanar ajuda a l’equip és opcional: cada assistent conserva el seu model i fa la feina habitual; només delega quan necessita suport, sense cadenes de delegació.",
+          "source_processing": "Reprèn el processament de fonts llargues conservant el context global del document i corregeix les referències invàlides sense reescriure les notes vàlides."
         }
       }
     }

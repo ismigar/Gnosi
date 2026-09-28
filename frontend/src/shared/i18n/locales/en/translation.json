@@ -6823,14 +6823,16 @@
           "role_names": "Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.",
           "team_setup": "Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.",
           "model_guidance": "Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.",
-          "reasoning": "Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use."
+          "reasoning": "Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.",
+          "processing_progress": "Follow source processing from a compact progress card after closing the dialog or moving to another page."
         },
         "fixes": {
           "reader": "Open attached documents in the internal reader with the PDF resources included in desktop builds.",
           "preservation": "Distinguish unknown model prices and capabilities from confirmed values when comparing offers.",
           "model_comparison": "Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.",
           "settings_keyboard": "Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.",
-          "optional_team_help": "Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation."
+          "optional_team_help": "Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.",
+          "source_processing": "Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes."
         }
       }
     }

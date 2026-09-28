@@ -2,7 +2,7 @@
 
 ## Gnosi 3.2.0
 
-_2026-09-27 · Release candidate_
+_2026-09-28 · Release candidate_
 
 ### Highlights
 
@@ -19,6 +19,7 @@ _2026-09-27 · Release candidate_
 - Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.
 - Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.
 - Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.
+- Follow source processing from a compact progress card after closing the dialog or moving to another page.
 
 ### Fixes
 
@@ -27,6 +28,7 @@ _2026-09-27 · Release candidate_
 - Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.
 - Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.
 - Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.
+- Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.
 
 ## Gnosi 3.1.0
 
