@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 195 | 41700 |
+| `services` | 195 | 41707 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **871 modules** and **175139 source lines**.
+Total: **871 modules** and **175146 source lines**.
 
 ## agent
 
@@ -822,7 +822,7 @@ Total: **871 modules** and **175139 source lines**.
 | [`backend/services/agent_team_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_policy.py) | 105 | 0 | 5 | 0 | 1 | Model-free eligibility and economic routing. Labels never grant capabilities. |
 | [`backend/services/agent_team_resume.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_resume.py) | 45 | 0 | 1 | 1 | 0 | Resume a frozen team plan without regenerating or replaying completed work. |
 | [`backend/services/agent_team_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_retention.py) | 35 | 0 | 2 | 0 | 0 | Reviewable retention evidence; task instructions never become permanent defaults. |
-| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 453 | 0 | 18 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
+| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 460 | 0 | 19 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 131 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 742 | 1 | 31 | 0 | 27 | Artificial Analysis model-comparison feed. |

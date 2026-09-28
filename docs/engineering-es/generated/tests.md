@@ -12,7 +12,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 590 | 2507 |
-| pytest | 564 | 4055 |
+| pytest | 564 | 4058 |
 
 ## Archivos
 
@@ -675,7 +675,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_agent_skill_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_skill_runtime.py) | 38 | Python AST |
 | pytest | [`backend/tests/test_agent_skills_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_skills_api.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_structured_output.py) | 7 | Python AST |
-| pytest | [`backend/tests/test_agent_team.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team.py) | 38 | Python AST |
+| pytest | [`backend/tests/test_agent_team.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_team.py) | 41 | Python AST |
 | pytest | [`backend/tests/test_agent_turn_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_turn_contract.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_agent_universal_runtime_phase2.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_agent_universal_runtime_phase2.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_ai_content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_ai_content_routes.py) | 6 | Python AST |

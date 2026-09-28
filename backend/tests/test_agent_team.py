@@ -641,3 +641,81 @@ def test_optional_help_never_falls_back_after_a_plan_exists(optional_runtime, mo
         run_operation(fixture)
     assert fixture[2] == ["director"]
     assert not artifacts.list_artifacts(fixture[0], "declined_help")
+
+
+@pytest.fixture
+def planning_runtime(optional_runtime):
+    from langchain_core.messages import AIMessage
+    fixture, _ = optional_runtime
+    _, snapshot, _, config = fixture
+    snapshot.profile["team"].update(director_id="planner", direct_routes=[])
+    config["agents"][0]["team"] = snapshot.profile["team"]
+    config["agents"].append({"id": "planner", "provider": "local", "model": "expensive",
+                             "skill_ids": [TEAM_SKILL], "_execution_detailed_persona": ""})
+    valid = {"tasks": [{"id": "read", "agent_id": "worker", "objective": "Read the source",
+                         "skill_ids": snapshot.skill_ids}], "result_task": "read"}
+    config["_responses"] = {"director": [help_message()], "planner": [AIMessage(content=json.dumps(valid))]}
+    return fixture, valid
+
+
+@pytest.mark.parametrize("violation", ["missing_executor", "invalid_dependencies", "missing_result"])
+def test_team_plan_repairs_domain_errors_before_executing(planning_runtime, violation):
+    from copy import deepcopy
+    from jsonschema import validate
+    from langchain_core.messages import AIMessage
+    from backend.services import agent_execution_store as store, agent_team_store as artifacts
+    fixture, valid = planning_runtime
+    scope, _, calls, config = fixture
+    invalid = deepcopy(valid)
+    if violation == "missing_executor":
+        invalid["tasks"][0].pop("agent_id")
+    elif violation == "invalid_dependencies":
+        invalid["tasks"][0]["depends_on"] = ["read"]
+    else:
+        invalid["result_task"] = "absent"
+    validate(invalid, TeamPlan.model_json_schema())  # These constraints require domain validation.
+    config["_responses"]["planner"] = [AIMessage(content=json.dumps(invalid)), AIMessage(content=json.dumps(valid))]
+    run = run_operation(fixture, schema={"type": "object"})
+    assert run.status == "completed" and calls == ["director", "planner", "planner", "worker"]
+    planner_messages = [messages for identifier, messages in config["_model_messages"] if identifier == "planner"]
+    assert "agent_team_" + violation in str(planner_messages[1][-1].content)
+    phase = artifacts.list_artifacts(scope, "phase", run.run_id)[0]
+    assert phase["status"] == "completed" and json.loads(phase["result"]) == valid
+    planner = next(row for row in store.list_runs(scope) if row.agent_id == "planner")
+    assert planner.status == "completed" and planner.model_calls == 2
+
+
+def test_team_plan_stops_after_two_invalid_responses_without_assignments(planning_runtime):
+    from langchain_core.messages import AIMessage
+    from backend.services import agent_execution_store as store, agent_team_store as artifacts
+    fixture, invalid = planning_runtime
+    invalid["tasks"][0].pop("agent_id")
+    fixture[3]["_responses"]["planner"] = [AIMessage(content=json.dumps(invalid))]
+    with pytest.raises(ValueError, match="agent_team_missing_executor"):
+        run_operation(fixture)
+    assert fixture[2] == ["director", "planner", "planner"]
+    assert not artifacts.list_artifacts(fixture[0], "task")
+    assert not artifacts.list_artifacts(fixture[0], "plan")
+    assert artifacts.list_artifacts(fixture[0], "phase")[0]["status"] == "failed"
+    planner = next(row for row in store.list_runs(fixture[0]) if row.agent_id == "planner")
+    assert planner.status == "failed" and planner.model_calls == 2
+
+
+@pytest.mark.parametrize("operation", ["team.plan", "team.replan"])
+def test_cached_plan_is_validated_without_repeating_calls(planning_runtime, operation):
+    from backend.services import agent_team_runtime as teams, agent_team_store as artifacts
+    from backend.services.agent_execution_scope import execution_scope
+    fixture, valid = planning_runtime
+    scope, snapshot, calls, _ = fixture
+    run = run_operation(fixture)
+    phase = {"id": "phase:" + operation, "status": "completed", "result": json.dumps(valid)}
+    artifacts.put(scope, run.run_id, phase["id"], "phase", phase)
+    with execution_scope(scope):
+        assert json.loads(asyncio.run(teams._phase(snapshot.profile, run.run_id, scope, "",
+            TeamPlan.model_json_schema(), operation))) == valid
+        valid["tasks"][0].pop("agent_id")
+        phase["result"] = json.dumps(valid)
+        artifacts.put(scope, run.run_id, phase["id"], "phase", phase)
+        with pytest.raises(ValueError, match="agent_team_missing_executor"):
+            asyncio.run(teams._phase(snapshot.profile, run.run_id, scope, "", TeamPlan.model_json_schema(), operation))
+    assert calls == ["director", "planner", "worker"]
