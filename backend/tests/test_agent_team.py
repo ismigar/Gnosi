@@ -422,12 +422,12 @@ def test_optional_help_calls_team_once_and_never_recurses(optional_runtime):
 
 @pytest.mark.parametrize("reason,extra", [("", False), ("Need support", True)])
 def test_invalid_or_mixed_help_executes_no_assignments(optional_runtime, reason, extra):
-    from jsonschema import ValidationError
+    from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services import agent_team_store as artifacts
     fixture, _ = optional_runtime
     fixture[3]["_responses"] = {"director": [help_message(reason, extra=extra)]}
-    with pytest.raises((ValueError, ValidationError)):
-        run_operation(fixture)
+    with pytest.raises(OptionalTeamHelpDeclined):
+        run_operation(fixture, max_model_calls=1)
     assert fixture[2] == ["director"]
     assert not artifacts.list_artifacts(fixture[0], "task")
 

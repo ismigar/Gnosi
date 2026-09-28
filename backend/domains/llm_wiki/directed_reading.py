@@ -54,6 +54,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
             },
         }
         request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
+                             "read": key in state["read"], "saved": key in state["plans"],
                              "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
         answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=ACTION_SCHEMA)
         action, args = str(answer["action"]), answer["arguments"]

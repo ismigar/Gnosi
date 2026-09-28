@@ -157,16 +157,18 @@ def test_slow_calls_share_an_overall_deadline(clock: Clock) -> None:
     assert clock.now == 360
 
 
-def test_long_source_can_complete_after_the_short_request_timeout(clock: Clock) -> None:
+@pytest.mark.parametrize("sizes", [{"input_bytes": 356_022}, {"input_bytes": 2_000, "source_bytes": 356_022}])
+def test_long_source_can_complete_after_the_short_request_timeout(clock: Clock, sizes: dict[str, int]) -> None:
     def call(timeout: int) -> str:
         assert timeout == recovery.LONG_REQUEST_TIMEOUT_SECONDS
         clock.now += 300
         return "complete source processed"
 
-    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), input_bytes=356_022) == "complete source processed"
+    assert recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), **sizes) == "complete source processed"
 
 
-def test_long_source_retry_budget_is_finite_and_allows_two_full_attempts(clock: Clock) -> None:
+@pytest.mark.parametrize("sizes", [{"input_bytes": 356_022}, {"input_bytes": 2_000, "source_bytes": 356_022}])
+def test_long_source_retry_budget_is_finite_and_allows_two_full_attempts(clock: Clock, sizes: dict[str, int]) -> None:
     timeouts = []
     def call(timeout: int) -> str:
         timeouts.append(timeout)
@@ -174,7 +176,7 @@ def test_long_source_retry_budget_is_finite_and_allows_two_full_attempts(clock: 
         raise TimeoutError()
 
     with pytest.raises(TimeoutError):
-        recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), input_bytes=356_022)
+        recovery.call_with_retry(call, on_wait=Mock(), on_attempt=Mock(), **sizes)
     assert timeouts[:2] == [900, 900]
     assert clock.now == 2 * recovery.LONG_REQUEST_TIMEOUT_SECONDS + recovery.MAX_WAIT_SECONDS
 

@@ -267,6 +267,11 @@ def test_directed_reading_checkpoint_resumes_without_duplicate_notes():
     result, _ = reader.run()
     assert len(result["notes"]) == 2
     assert checkpoints[("resumed", "agent-state")]["plans"]
+    assert [[(item["read"], item["saved"]) for item in request["index"]] for request in calls] == [
+        [(True, False), (True, False)],
+        [(True, True), (True, False)],
+        [(True, True), (True, True)],
+    ]
 
 
 def test_directed_reading_keeps_saved_plans_when_the_first_resumed_call_fails():
@@ -325,6 +330,19 @@ def test_directed_steps_keep_exact_chunk_ids_and_distinct_cache_inputs():
     for request in calls:
         assert [item["id"] for item in request["index"]] == [chunk["id"] for chunk in reader.chunks]
         assert all(item["primary_segment_count"] == 1 for item in request["index"])
+
+
+@pytest.mark.parametrize("source_size,expected_timeout", [(1_000, 240), (120_000, 900)])
+def test_resumed_review_keeps_source_timeout_when_request_is_short(source_size, expected_timeout):
+    reader, _, _ = setup_reader(resume="previous-job")
+    reader.origins = [finalize_origin({"kind": "text", "label": "Source", "input_order": 0,
+        "segments": [{"text": "A" * source_size, "locator": {}}]})]
+    def generate(prompt, **kwargs):
+        assert len(prompt.encode("utf-8")) < 96_000
+        assert kwargs["timeout"] == expected_timeout
+        return '{"summary":"Reviewed"}', "test-model"
+    reader.dependencies.generate_text = generate
+    assert reader.ask("review-saved", "agent-actions", {"saved_plan_count": 3}, lambda _: None)["summary"] == "Reviewed"
 
 
 @pytest.mark.parametrize("action,arguments", [

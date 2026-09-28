@@ -24,12 +24,41 @@ HELP_TOOL: dict[str, Any] = {
 }
 
 
-class OptionalTeamContextUnavailable(RuntimeError):
+class OptionalTeamHelpDeclined(RuntimeError):
     """Return an unstarted handoff to its owner within the operation call limit."""
 
-    def __init__(self, messages: list[BaseMessage]) -> None:
-        super().__init__("agent_team_planning_context_unavailable")
+    def __init__(self, reason: str, messages: list[BaseMessage]) -> None:
+        super().__init__(reason)
         self.messages = messages
+
+
+class OptionalTeamContextUnavailable(OptionalTeamHelpDeclined):
+    def __init__(self, messages: list[BaseMessage]) -> None:
+        super().__init__("agent_team_planning_context_unavailable", messages)
+
+
+def _checked_help_call(state: AgentState, *, operation_mode: bool) -> dict[str, Any]:
+    import jsonschema  # type: ignore[import-untyped]
+
+    message = state["messages"][-1]
+    calls: list[dict[str, Any]] = list(getattr(message, "tool_calls", ()))
+    try:
+        if len(calls) != 1 or calls[0].get("name") != HELP_NAME:
+            raise ValueError("agent_team_help_requires_single_call")
+        call = calls[0]
+        jsonschema.validate(call["args"], HELP_TOOL["function"]["parameters"])
+        if not call["args"]["reason"].strip():
+            raise ValueError("agent_team_help_reason_required")
+        return call
+    except (ValueError, jsonschema.ValidationError) as error:
+        if not operation_mode:
+            raise
+        # No tool or assignment has executed. Resolve every rejected call so
+        # the owner can answer directly within its existing repair allowance.
+        replies = [ToolMessage(content="This request for team help was invalid. No tools or team assignments ran. "
+            "Complete the original request yourself using the full supplied context and required output format.",
+            name=call["name"], tool_call_id=call["id"]) for call in calls]
+        raise OptionalTeamHelpDeclined("agent_team_help_invalid_request", [message, *replies]) from error
 
 
 def requested_help(state: AgentState) -> bool:
@@ -58,7 +87,6 @@ class TeamHelp:
         return resource("system/team-help.md")
 
     async def execute(self, state: AgentState) -> dict[str, Any]:
-        import jsonschema  # type: ignore[import-untyped]
         from backend.services import agent_team_store as artifacts, agent_execution_store as runs
         from backend.services.agent_execution import _run
         from backend.services.agent_execution_scope import current_scope, revalidate_scope
@@ -67,13 +95,7 @@ class TeamHelp:
 
         if not can_request_help(state):
             raise ValueError("agent_team_help_must_precede_execution")
-        calls: list[dict[str, Any]] = list(getattr(state["messages"][-1], "tool_calls", ()))
-        if len(calls) != 1 or calls[0].get("name") != HELP_NAME:
-            raise ValueError("agent_team_help_requires_single_call")
-        call = calls[0]
-        jsonschema.validate(call["args"], HELP_TOOL["function"]["parameters"])
-        if not call["args"]["reason"].strip():
-            raise ValueError("agent_team_help_reason_required")
+        call = _checked_help_call(state, operation_mode=self.operation_mode)
         scope, run_id = current_scope(), _run.get()
         revalidate_scope(scope)
         if not run_id:

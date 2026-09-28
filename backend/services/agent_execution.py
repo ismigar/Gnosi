@@ -367,7 +367,7 @@ def _operation_output(text: str, request: AgentOperation, validator: Callable[[s
 
 
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
-    from backend.domains.agent.team_help import OptionalTeamContextUnavailable
+    from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
     snapshot, ai, runtime = _operation_context(request, snapshot)
@@ -410,7 +410,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                 async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
                     text = await _operation_response(application, inputs, request, previous_text,
                                                      str(messages[-1].content) if attempt and partial_repair is None else "")
-            except OptionalTeamContextUnavailable as handoff:
+            except OptionalTeamHelpDeclined as handoff:
                 if attempt + 1 >= request.max_model_calls:
                     raise
                 messages = [*messages, *handoff.messages]

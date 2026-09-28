@@ -93,11 +93,14 @@ def call_with_retry(
     on_wait: Callable[[], None],
     on_attempt: Callable[[], None],
     input_bytes: int = 0,
+    source_bytes: int = 0,
 ) -> T:
     """Bound retries while allowing full-source reading to take longer than short phases."""
     # Capacity and latency are separate: a valid long-context request can take
     # more than four minutes. Keep its evidence intact and allow two full calls.
-    long_input = input_bytes > LONG_INPUT_BYTES
+    # Recalled plans and final review can have a short request while still
+    # requiring reasoning or team coordination over the entire long source.
+    long_input = max(input_bytes, source_bytes) > LONG_INPUT_BYTES
     request_timeout = LONG_REQUEST_TIMEOUT_SECONDS if long_input else REQUEST_TIMEOUT_SECONDS
     budget = 2 * request_timeout + MAX_WAIT_SECONDS if long_input else CALL_BUDGET_SECONDS
     deadline = time.monotonic() + budget
