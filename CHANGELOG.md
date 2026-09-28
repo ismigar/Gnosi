@@ -20,7 +20,7 @@ _2026-09-28 · Release candidate_
 - Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.
 - Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.
 - Follow source processing from a compact progress card after closing the dialog or moving to another page.
-- Read gallery notes in full-width cards that grow with their content, one below another.
+- Read gallery notes in full-width cards that grow with their content, one below another. Choose limited or content-sized height for any view embedded in a page.
 
 ### Fixes
 

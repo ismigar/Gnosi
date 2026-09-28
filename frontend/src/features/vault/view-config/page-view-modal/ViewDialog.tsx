@@ -3,6 +3,7 @@ import { TABS } from './constants';
 import { ViewIdentity } from './ViewIdentity';
 import { ViewJoins } from './ViewJoins';
 import { ViewTypePicker } from './ViewTypePicker';
+import { ViewHeightOptions } from './ViewHeightOptions';
 import { ViewReadingOptions } from './ViewReadingOptions';
 import { ViewGalleryOptions } from './ViewGalleryOptions';
 import { ViewDateOptions } from './ViewDateOptions';
@@ -93,6 +94,7 @@ export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElem
                         <ViewJoins {...view} />
 
                         <ViewTypePicker {...view} />
+                        <ViewHeightOptions {...view} />
 
                         {/* Type-specific options for the chosen view type: they appear
                                 contextually right below the type selector. */}

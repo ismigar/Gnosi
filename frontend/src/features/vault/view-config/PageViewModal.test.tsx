@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PageViewModal } from './PageViewModal';
@@ -122,7 +123,7 @@ const renderModal = async (
     const rerender = async (patch: Partial<PageViewModalProps> = {}) => {
         props = { ...props, ...patch };
         await act(async () => {
-            currentRoot.render(<PageViewModal {...props} />);
+            currentRoot.render(<MemoryRouter><PageViewModal {...props} /></MemoryRouter>);
             await Promise.resolve();
         });
         await settle();
@@ -179,6 +180,22 @@ const actAndFlush = async (action: () => void): Promise<void> => {
 
 // Rendering the full modal can exceed five seconds on the shared CI machine.
 describe('PageViewModal editing', { timeout: 15_000 }, () => {
+    it.each(['gallery', 'table', 'feed'])('restores and saves the common height setting for a %s view', async type => {
+        const view = { ...existingView, type, heightMode: 'limited' };
+        const { api } = await renderModal(undefined,
+            { editingBlock: { props: { view_id: view.id }, view } }, prepared => {
+                prepared.fetchVaultViews.mockResolvedValue([view]);
+                prepared.fetchVaultView.mockResolvedValue(view);
+            });
+        const modal = requireContainer();
+        expect(requireButton(modal, 'Limited').getAttribute('aria-pressed')).toBe('true');
+        await actAndFlush(() => { requireButton(modal, 'Fit content').click(); });
+        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
+        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
+            id: view.id, type, heightMode: 'content',
+        }));
+    });
+
     it('opens with the displayed view configuration and persists full-width reading without losing filters', async () => {
         const view = { ...existingView, name: 'Notes by source', cardSize: 'large', galleryPreview: 'content',
             groupBy: 'Note type', filters: [{ field: 'Source', operator: 'equals', value: 'this' }],

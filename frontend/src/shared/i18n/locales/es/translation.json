@@ -4282,6 +4282,11 @@
     "title_edit": "Editar la vista de BD"
   },
   "view": {
+    "height_label": "Altura dentro de la página",
+    "height_limited": "Limitada",
+    "height_content": "Según el contenido",
+    "height_limited_hint": "Crece hasta el 70% de la altura de la ventana; después, el desplazamiento se hace dentro de la vista.",
+    "height_content_hint": "Crece con el contenido. Desplaza la página para leerlo todo seguido.",
     "column_title": "Título",
     "filter_this": "Esta página",
     "filter_pick": "Elige…",
@@ -6883,7 +6888,7 @@
           "model_guidance": "Cada bot muestra el perfil LLM recomendado según sus tareas y habilidades. Desactivar un plugin desactiva y oculta su bot; la configuración se conserva para reactivarlo.",
           "reasoning": "Puedes ajustar el nivel de razonamiento de cada asistente con modelos compatibles de OpenRouter; se guarda automáticamente y también se aplica cuando utiliza herramientas.",
           "processing_progress": "Sigue el procesamiento de las fuentes desde una tarjeta compacta de progreso después de cerrar el diálogo o cambiar de página.",
-          "gallery_reading": "Lee las notas de la galería en tarjetas de ancho completo que crecen con su contenido, una debajo de otra."
+          "gallery_reading": "Lee las notas de la galería en tarjetas de ancho completo que crecen con su contenido, una debajo de otra. Elige una altura limitada o según el contenido para cualquier vista dentro de una página."
         },
         "fixes": {
           "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",

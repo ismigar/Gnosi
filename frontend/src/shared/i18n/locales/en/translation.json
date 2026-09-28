@@ -4306,6 +4306,11 @@
     "title_edit": "Edit database view"
   },
   "view": {
+    "height_label": "Height within a page",
+    "height_limited": "Limited",
+    "height_content": "Fit content",
+    "height_limited_hint": "Grows up to 70% of the window height, then scrolls within the view.",
+    "height_content_hint": "Grows with the content. Scroll the page to read everything in sequence.",
     "column_title": "Title",
     "filter_this": "This page",
     "filter_pick": "Pick…",
@@ -6829,7 +6834,7 @@
           "model_guidance": "Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.",
           "reasoning": "Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.",
           "processing_progress": "Follow source processing from a compact progress card after closing the dialog or moving to another page.",
-          "gallery_reading": "Read gallery notes in full-width cards that grow with their content, one below another."
+          "gallery_reading": "Read gallery notes in full-width cards that grow with their content, one below another. Choose limited or content-sized height for any view embedded in a page."
         },
         "fixes": {
           "reader": "Open attached documents in the internal reader with the PDF resources included in desktop builds.",

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ViewHeightMode } from '../../../../shared/records/model/viewHeight';
 import { configValue } from '../../../genograms';
 import { emptyFilterTree } from './filter-tree';
 import type { ModalInput } from './useViewController';
@@ -47,6 +48,7 @@ export function useViewState({
     // View-type-specific options (gallery/kanban/calendar/timeline).
     // They are saved to the view and the renderer honors them; views that are not of the
     // corresponding type simply ignore them.
+    const [heightMode, setHeightMode] = useState<ViewHeightMode>();
     const [cardSize, setCardSize] = useState('medium');
     const [galleryPreview, setGalleryPreview] = useState('cover');
     const [coverField, setCoverField] = useState('');
@@ -109,7 +111,7 @@ export function useViewState({
         discoveredByTable, setDiscoveredByTable, viewType, setViewType,
         filterTree, setFilterTree, sorts, setSorts,
         resultSnapshot, setResultSnapshot, resultSnapshotLimit, setResultSnapshotLimit,
-        cardSize, setCardSize, galleryPreview, setGalleryPreview,
+        heightMode, setHeightMode, cardSize, setCardSize, galleryPreview, setGalleryPreview,
         coverField, setCoverField, imageFit, setImageFit,
         groupBy, setGroupBy, groupSort, setGroupSort,
         groupSortDir, setGroupSortDir, dateField, setDateField,

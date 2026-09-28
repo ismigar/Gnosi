@@ -110,6 +110,24 @@ async function inputValue(input: HTMLInputElement | null, value: string): Promis
 async function tabMenu(): Promise<void> { await click(container.querySelectorAll('button[aria-label="View options"]')[1]); }
 
 describe('embedded view data and editor navigation', () => {
+    it.each(['table', 'list', 'gallery', 'board', 'calendar', 'timeline', 'chart', 'feed', 'genogram'])(
+        'uses the saved height policy when loading a %s view', async type => {
+            context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type, heightMode: 'content' }] } };
+            vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, type, heightMode: 'content' }]);
+            await render();
+            expect(fixture.body?.maxHeight).toBe('none');
+            expect(fixture.body?.activeView).toMatchObject({ heightMode: 'content' });
+            expect(container.querySelector('.max-h-\\[70vh\\]')).toBeNull();
+        },
+    );
+    it('limits an explicitly bounded feed', async () => {
+        context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type: 'feed', heightMode: 'limited' }] } };
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, type: 'feed', heightMode: 'limited' }]);
+        await render();
+        expect(fixture.body?.maxHeight).toBe('70vh');
+        expect(container.querySelector('.max-h-\\[70vh\\]')).not.toBeNull();
+    });
+
     it('provides Brain tools on the configured embedded table and refreshes its records', async () => {
         context = { ...context, brainTableId: 'books' };
         await render();

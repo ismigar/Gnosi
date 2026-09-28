@@ -4336,6 +4336,11 @@
     "title_edit": "Edita la vista de BD"
   },
   "view": {
+    "height_label": "Alçada dins de la pàgina",
+    "height_limited": "Limitada",
+    "height_content": "Segons el contingut",
+    "height_limited_hint": "Creix fins al 70% de l’alçada de la finestra; després, el desplaçament es fa dins de la vista.",
+    "height_content_hint": "Creix amb el contingut. Desplaça la pàgina per llegir-ho tot seguit.",
     "column_title": "Títol",
     "filter_this": "Aquesta pàgina",
     "filter_pick": "Tria…",
@@ -6883,7 +6888,7 @@
           "model_guidance": "Cada bot mostra el perfil LLM recomanat segons les seves tasques i habilitats. Desactivar un plugin desactiva i amaga el seu bot; la configuració es conserva per reactivar-lo.",
           "reasoning": "Pots ajustar el nivell de raonament de cada assistent amb models compatibles d’OpenRouter; es desa automàticament i també s’aplica quan utilitza eines.",
           "processing_progress": "Segueix el processament de les fonts des d’una targeta compacta de progrés després de tancar el diàleg o canviar de pàgina.",
-          "gallery_reading": "Llegeix les notes de la galeria en targetes d’ample complet que creixen amb el contingut, una sota l’altra."
+          "gallery_reading": "Llegeix les notes de la galeria en targetes d’ample complet que creixen amb el contingut, una sota l’altra. Tria una alçada limitada o segons el contingut per a qualsevol vista dins d’una pàgina."
         },
         "fixes": {
           "reader": "Obre els documents adjunts al lector intern amb els recursos PDF inclosos a les versions d’escriptori.",
