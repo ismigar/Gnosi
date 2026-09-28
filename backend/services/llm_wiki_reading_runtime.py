@@ -69,6 +69,8 @@ class ReadingRuntime:
 
     def generate_structured(self, prompt: str, validate: Callable[[dict[str, object]], None], timeout: int) -> tuple[str, str]:
         from backend.services.agent_execution import run_sync
+        from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+        from backend.services.agent_output_repair import OutputRepair
         if self.count_tokens(prompt) > self.input_budget:
             raise RuntimeError("The reading input exceeds the selected model's context budget")
         try:
@@ -87,9 +89,14 @@ class ReadingRuntime:
             except (TypeError, KeyError) as error:
                 raise ValueError(str(error)) from error
             return text
+        def repair(text: str, error: Exception) -> OutputRepair | None:
+            plan = build_reading_repair(prompt, text, error)
+            if plan is not None and self.count_tokens(plan.input) > self.input_budget:
+                return None
+            return plan
         result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
             input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
-            output_schema=schema), snapshot=self.snapshot, output_validator=checked)
+            output_schema=schema), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
         return result.result, result.model
 
 

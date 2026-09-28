@@ -97,6 +97,81 @@ def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     assert not row.result
 
 
+@pytest.mark.parametrize("valid_patch", [True, False])
+def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runtime, monkeypatch, valid_patch):
+    from backend.agent import factory
+    from backend.domains.llm_wiki.reading_contracts import validate_notes
+    from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+    from backend.tests.test_llm_wiki_reading_repairs import repair_fixture
+    scope, snapshot = runtime
+    action, passages, _, patch = repair_fixture()
+    if not valid_patch:
+        patch["patches"][1]["value"][0]["quote"] = "Invented"
+    calls = install_workflow(monkeypatch, [json.dumps(action), json.dumps(patch)])
+    create = factory.create_agent_workflow
+    configurations = []
+    async def capture(*args, **kwargs):
+        configurations.append(kwargs)
+        return await create(*args, **kwargs)
+    monkeypatch.setattr(factory, "create_agent_workflow", capture)
+    def validate(text):
+        validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
+        return text
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="All original context",
+                             output_schema={"type": "object"}, max_model_calls=2)
+    with execution_scope(scope):
+        work = execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
+            output_repair=lambda text, error: build_reading_repair(request.input, text, error))
+        if valid_patch:
+            result = asyncio.run(work)
+            assert result.status == "completed"
+            assert json.loads(result.result)["arguments"]["plan"]["notes"][1] == action["arguments"]["plan"]["notes"][1]
+            assert json.loads(result.result)["action"] == "save_plan"
+        else:
+            with pytest.raises(ValueError, match="literal|exact substrings"):
+                asyncio.run(work)
+            assert store.list_runs(scope)[0].status == "failed"
+            assert not store.list_runs(scope)[0].result
+    assert len(calls) == 2
+    assert calls[1]["team_help_allowed"] is False
+    assert configurations[0]["prepared_agent_data"] == configurations[1]["prepared_agent_data"]
+    assert configurations[0]["output_schema"] == request.output_schema
+    assert "patches" in configurations[1]["output_schema"]["properties"]
+    assert "All original context" in calls[1]["messages"][0].content
+
+
+def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
+    from backend.agent import factory
+    from backend.domains.llm_wiki.reading_contracts import validate_notes
+    from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+    from backend.tests.test_llm_wiki_reading_repairs import repair_fixture
+    scope, snapshot = runtime
+    action, passages, _, patch = repair_fixture()
+    calls = []
+    class Application:
+        async def astream(self, inputs, **kwargs):
+            calls.append(inputs)
+            await asyncio.sleep(0.6)
+            answer = action if len(calls) == 1 else patch
+            yield {"operation": {"messages": [AIMessage(content=json.dumps(answer))]}}
+        def compile(self):
+            return self
+    async def create(*args, **kwargs):
+        return Application(), {"model": "fake", "provider": "test"}
+    monkeypatch.setattr(factory, "create_agent_workflow", create)
+    def validate(text):
+        validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
+        return text
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="Original context",
+                             timeout_seconds=1, output_schema={"type": "object"})
+    with execution_scope(scope), pytest.raises(TimeoutError):
+        asyncio.run(execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
+            output_repair=lambda text, error: build_reading_repair(request.input, text, error)))
+    assert len(calls) == 2
+    assert store.list_runs(scope)[0].status == "failed"
+    assert not store.list_runs(scope)[0].result
+
+
 @pytest.mark.parametrize("fault", ["unknown_chunk", "coverage", "citation", "early_finish"])
 @pytest.mark.parametrize("repair_succeeds", [True, False])
 def test_reader_repairs_invalid_actions_with_original_evidence_before_checkpoint(runtime, monkeypatch, fault, repair_succeeds):

@@ -23,6 +23,7 @@ from backend.services.agent_execution_models import AgentExecutionSnapshot, Agen
 from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
+from backend.services.agent_output_repair import OutputRepair, RepairBuilder
 
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
@@ -344,8 +345,28 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
     return text
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None) -> AgentRun:
+async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
+    workflow, selection = await create_agent_workflow(
+        [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
+        timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
+        vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
+        prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
+        memory_user_id=snapshot.scope.user_id, operation_mode=True,
+        output_schema=request.output_schema,
+    )
+    if workflow is None:
+        raise RuntimeError("principal_agent_model_unavailable")
+    return workflow.compile(), selection
+
+
+def _operation_output(text: str, request: AgentOperation, validator: Callable[[str], str] | None, repair: OutputRepair | None) -> str:
+    if repair is not None:
+        text = _validate_output(repair.restore(text), request.output_schema)
+    return validator(text) if validator is not None else text
+
+
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
     from backend.domains.agent.team_help import OptionalTeamContextUnavailable
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
@@ -372,21 +393,13 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     cancel_token = create_cancel_token()
     _tokens[run_id] = cancel_token
     try:
-        workflow, selection = await create_agent_workflow(
-            [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
-            timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
-            vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
-            prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
-            memory_user_id=snapshot.scope.user_id, operation_mode=True,
-            output_schema=request.output_schema,
-        )
-        if workflow is None:
-            raise RuntimeError("principal_agent_model_unavailable")
+        application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request))]
-        application = workflow.compile()
         deadline = time.monotonic() + request.timeout_seconds
         text = ""
+        partial_repair: OutputRepair | None = None
+        response_schema = request.output_schema
         for attempt in range(request.max_model_calls):
             previous_text = text if attempt else ""
             text = ""
@@ -396,23 +409,30 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             try:
                 async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
                     text = await _operation_response(application, inputs, request, previous_text,
-                                                     str(messages[-1].content) if attempt else "")
+                                                     str(messages[-1].content) if attempt and partial_repair is None else "")
             except OptionalTeamContextUnavailable as handoff:
                 if attempt + 1 >= request.max_model_calls:
                     raise
                 messages = [*messages, *handoff.messages]
                 continue
             try:
-                text = _validate_output(text, request.output_schema)
-                if output_validator is not None:
-                    text = output_validator(text)
+                text = _validate_output(text, response_schema)
+                text = _operation_output(text, request, output_validator, partial_repair)
                 revalidate_scope(snapshot.scope)
                 if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
                     raise AgentTurnCancelled("agent_run_cancelled")
                 return store.update(snapshot.scope, run_id, status="completed", result=text)
             except (ValueError, jsonschema.ValidationError) as validation_error:
-                if attempt + 1 >= request.max_model_calls:
+                if attempt + 1 >= request.max_model_calls or partial_repair is not None:
                     raise
+                partial_repair = output_repair(text, validation_error) if output_repair is not None else None
+                if partial_repair is not None:
+                    response_schema = partial_repair.output_schema
+                    repair_request = request.model_copy(update={"input": partial_repair.input, "output_schema": partial_repair.output_schema})
+                    async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+                        application, _ = await _operation_application(repair_request, snapshot, ai, runtime)
+                    messages = [HumanMessage(content=operation_input(repair_request))]
+                    continue
                 repair = snapshot.behavior_resources.get("system/repair.md", resource("system/repair.md"))
                 messages = [*messages, AIMessage(content=text), HumanMessage(content=repair + "\n" + json.dumps({"validation_error": str(validation_error)}, ensure_ascii=False))]
         raise RuntimeError("agent_invalid_result")
@@ -433,12 +453,12 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         _run.reset(run_token)
 
 
-def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None) -> AgentRun:
+def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
     # Sync services run in worker threads. Reject accidental event-loop blocking.
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator))
+        return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator, output_repair=output_repair))
     raise RuntimeError("Use execute_operation from asynchronous handlers")
 
 

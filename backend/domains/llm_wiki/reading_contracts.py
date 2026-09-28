@@ -7,6 +7,17 @@ from collections import Counter
 from backend.domains.llm_wiki.chunking import record, records
 
 
+class ReadingPlanError(ValueError):
+    """Keep repair evidence in memory, never in the persisted error message."""
+    def __init__(self, errors: list[str], note_indices: list[int], coverage_invalid: bool,
+                 primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> None:
+        super().__init__("Invalid reading plan: " + "; ".join(errors))
+        self.note_indices = note_indices
+        self.coverage_invalid = coverage_invalid
+        self.primary = primary
+        self.evidence = evidence
+
+
 def _citations(
     note: dict[str, object], primary: list[dict[str, object]], evidence: list[dict[str, object]]
 ) -> list[str]:
@@ -73,14 +84,19 @@ def validate_notes(
                 raise ValueError("Evidence requests must be lists of strings")
         return
     errors = _coverage_errors(answer, {str(segment["id"]) for segment in primary})
+    coverage_invalid = bool(errors)
+    note_indices = []
     notes = answer.get("notes")
     if not isinstance(notes, list):
         errors.append("notes must be a list")
     else:
         for index, note in enumerate(notes):
-            errors.extend(f"notes[{index}]: {error}" for error in _note_errors(note, primary, evidence))
+            note_errors = _note_errors(note, primary, evidence)
+            if note_errors:
+                note_indices.append(index)
+            errors.extend(f"notes[{index}]: {error}" for error in note_errors)
     warnings = answer.get("warnings", [])
     if not isinstance(warnings, list) or any(not isinstance(item, str) for item in warnings):
         errors.append("warnings must be a list of strings")
     if errors:
-        raise ValueError("Invalid reading plan: " + "; ".join(errors))
+        raise ReadingPlanError(errors, note_indices, coverage_invalid, primary, evidence)
