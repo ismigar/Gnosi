@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 592 | 2531 |
+| Vitest | 593 | 2531 |
 | pytest | 568 | 4087 |
 
 ## Files
@@ -355,7 +355,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/features/vault/editor/block-editor/media.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/media.test.ts) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/modeHandoff.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/modeHandoff.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageContracts.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageContracts.test.ts) | 6 | call-pattern estimate |
-| Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx) | 32 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test.tsx) | 23 | call-pattern estimate |
+| Vitest | [`frontend/src/features/vault/editor/block-editor/page-editor/pageProperties.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageProperties.test.tsx) | 9 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/MultiSelectPills.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/MultiSelectPills.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/PropertyDropdownPortal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/PropertyDropdownPortal.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/vault/editor/block-editor/property-controls/SingleSelectPill.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/SingleSelectPill.test.tsx) | 3 | call-pattern estimate |

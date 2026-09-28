@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1141 | 127750 | 32 |
+| `features` | 1143 | 128050 | 37 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 269 | 31560 | 426 |
 
@@ -849,6 +849,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/editor/block-editor/page-editor/ZoteroPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/ZoteroPropertyValue.tsx) | 24 | `ZoteroPropertyValue` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/contextBridge.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/contextBridge.ts) | 56 | `pageContextCallbacks` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/internalMetadata.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/internalMetadata.ts) | 11 | `INTERNAL_METADATA_KEYS`, `INTERNAL_METADATA_KEY_SET` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/pageEditor.test-harness.tsx) | 120 | `advance`, `container`, `element`, `initialMetadata`, `innerProps`, `mount`, `pageViewClose`, `patches`, `requests`, `root`, `setPatchResponse`, `state` | `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/open-resource`, `/api/vault/outlinks`, `/api/vault/unlinked-mentions` |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/preferences.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/preferences.ts) | 5 | `spellEnabledKey`, `vaultContrastKey`, `vaultTextSizeKey` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/propertyCoercion.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/propertyCoercion.ts) | 21 | `coercePageProperty` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/propertyModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/propertyModel.ts) | 75 | `isPagePropertyReadOnly`, `namedPropertyMetadata`, `pagePropertyConfig`, `pagePropertyValue`, `propertyDisplayText`, `storedPropertyValue` | — |
@@ -1026,6 +1027,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/vault/schema/schema-config/useSchemaKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaKeyboard.ts) | 137 | `useSchemaKeyboard` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaState.ts) | 52 | `useSchemaState` | — |
 | [`frontend/src/features/vault/schema/schema-config/validate-schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/validate-schema.ts) | 13 | `validateSchema` | — |
+| [`frontend/src/features/vault/view-config/PageViewModal.test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/PageViewModal.test-harness.tsx) | 180 | `actAndFlush`, `existingView`, `renderModal`, `requireButton`, `requireContainer`, `requireElement`, `settle`, `updateInput` | — |
 | [`frontend/src/features/vault/view-config/PageViewModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/PageViewModal.tsx) | 8 | `PageViewModal` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/FilterGroupEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/FilterGroupEditor.tsx) | 84 | `FilterGroupEditor` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/FilterRuleRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/FilterRuleRow.tsx) | 63 | `FilterRuleRow` | — |
