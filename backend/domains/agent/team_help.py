@@ -5,7 +5,7 @@ import copy
 from dataclasses import dataclass
 from typing import Any
 
-from langchain_core.messages import ToolMessage, messages_to_dict
+from langchain_core.messages import BaseMessage, ToolMessage, messages_to_dict
 
 from backend.domains.agent.policy import AgentState
 from backend.services.agent_behavior import resource
@@ -22,6 +22,14 @@ HELP_TOOL: dict[str, Any] = {
         }, "required": ["reason"], "additionalProperties": False},
     },
 }
+
+
+class OptionalTeamContextUnavailable(RuntimeError):
+    """Return an unstarted handoff to its owner within the operation call limit."""
+
+    def __init__(self, messages: list[BaseMessage]) -> None:
+        super().__init__("agent_team_planning_context_unavailable")
+        self.messages = messages
 
 
 def requested_help(state: AgentState) -> bool:
@@ -55,6 +63,7 @@ class TeamHelp:
         from backend.services.agent_execution import _run
         from backend.services.agent_execution_scope import current_scope, revalidate_scope
         from backend.services.agent_team_runtime import coordinate
+        from backend.services.agent_context_budget import OperationContextExceeded
 
         if not can_request_help(state):
             raise ValueError("agent_team_help_must_precede_execution")
@@ -83,8 +92,21 @@ class TeamHelp:
                           "current_user_role": scope.role},
             }, create_only=True)
         runs.update(scope, run_id, resumable=True)
-        result = await coordinate(self.owner, {**state, "messages": evidence},
-                                  operation_mode=self.operation_mode, original=original)
+        try:
+            result = await coordinate(self.owner, {**state, "messages": evidence},
+                                      operation_mode=self.operation_mode, original=original)
+        except OperationContextExceeded as error:
+            # Only initial planning is safe to decline: never repeat assignments,
+            # uncertain effects, permission failures or cancelled work.
+            if not self.operation_mode or artifacts.list_artifacts(scope, "plan", run_id):
+                raise
+            saved_help = artifacts.get(scope, run_id, "help")
+            artifacts.put(scope, run_id, "help", "declined_help", {
+                **saved_help, "reason_declined": "planning_context_unavailable"})
+            raise OptionalTeamContextUnavailable([state["messages"][-1], ToolMessage(
+                content="The team planner cannot fit this request. No team assignments ran. "
+                        "Complete the original request yourself using the full supplied context and required output format.",
+                name=HELP_NAME, tool_call_id=call["id"])]) from error
         # Resolve the control call in history, including pending confirmation results.
         return {**result, "messages": [ToolMessage(content="Team handoff completed; the following messages contain its result.",
                                                    name=HELP_NAME, tool_call_id=call["id"]), *result["messages"]]}

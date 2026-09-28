@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 470 | 99862 |
+| `domains` | 470 | 99884 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 195 | 41679 |
+| `services` | 195 | 41700 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **871 modules** and **175096 source lines**.
+Total: **871 modules** and **175139 source lines**.
 
 ## agent
 
@@ -238,7 +238,7 @@ Total: **871 modules** and **175096 source lines**.
 | [`backend/domains/agent/sources/scopes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/scopes.py) | 393 | 0 | 15 | 0 | 6 | Normalization and containment for internal source scopes. |
 | [`backend/domains/agent/stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/stream_protocol.py) | 279 | 1 | 7 | 4 | 2 | Versioned, bounded protocol for streamed agent events. |
 | [`backend/domains/agent/structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/structured_output.py) | 32 | 0 | 1 | 0 | 1 | Provider-enforced JSON for OpenRouter operations, with local validation retained. |
-| [`backend/domains/agent/team_help.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/team_help.py) | 97 | 1 | 3 | 0 | 0 | Optional, bounded handoff from an assistant to its configured team. |
+| [`backend/domains/agent/team_help.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/team_help.py) | 119 | 2 | 3 | 0 | 1 | Optional, bounded handoff from an assistant to its configured team. |
 | [`backend/domains/agent/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/tool_runtime.py) | 246 | 0 | 12 | 0 | 5 | Runtime contract for bounded, observable agent tool calls. |
 | [`backend/domains/agent/turn_citations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_citations.py) | 552 | 1 | 12 | 0 | 5 | Citation extraction and validation for governed agent turns. |
 | [`backend/domains/agent/turn_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_evidence.py) | 343 | 1 | 9 | 0 | 1 | Deterministic evidence verification for governed agent turns. |
@@ -785,11 +785,11 @@ Total: **871 modules** and **175096 source lines**.
 | [`backend/services/agent_capability_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 258 | 0 | 13 | 0 | 7 | Persistent, bounded health checks for governed runtime capabilities. |
 | [`backend/services/agent_catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_catalog_models.py) | 30 | 2 | 0 | 0 | 2 | Immutable catalog registration and resolved runtime capability values. |
 | [`backend/services/agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_commands.py) | 50 | 0 | 3 | 0 | 0 | Explicit per-turn agent selection; command text is never an authority grant. |
-| [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 66 | 1 | 3 | 0 | 0 | Offline token accounting with an explicit conservative fallback. |
+| [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 73 | 2 | 3 | 0 | 1 | Offline token accounting with an explicit conservative fallback. |
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
 | [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 139 | 0 | 4 | 0 | 0 | Shared, replayable read-only action loop for complete source synthesis. |
 | [`backend/services/agent_evidence_security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Bounded semantic taint analysis for untrusted agent evidence. |
-| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 526 | 0 | 20 | 3 | 8 | One principal-agent executor for application operations and graph streams. |
+| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 540 | 0 | 21 | 4 | 8 | One principal-agent executor for application operations and graph streams. |
 | [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 76 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 137 | 0 | 8 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
 | [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 264 | 0 | 16 | 0 | 4 | Private, scope-bound execution records shared by every application entrypoint. |

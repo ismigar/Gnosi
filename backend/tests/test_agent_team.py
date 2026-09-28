@@ -132,13 +132,14 @@ def test_team_artifacts_are_private(team_runtime):
         artifacts.get(other, "root", "private")
 
 
-def run_operation(fixture, *, schema=None):
+def run_operation(fixture, *, schema=None, input_text="Summarize this", max_model_calls=2):
     from backend.services.agent_execution_scope import execution_scope
     from backend.services.agent_execution import execute_operation
     from backend.services.agent_execution_models import AgentOperation
     scope, snapshot, _, _ = fixture
     with execution_scope(scope):
-        return asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input="Summarize this", output_schema=schema), snapshot=snapshot))
+        return asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input=input_text,
+            max_model_calls=max_model_calls, output_schema=schema), snapshot=snapshot))
 
 
 def test_direct_route_does_not_escape_configured_shortlist(team_runtime):
@@ -367,6 +368,7 @@ def optional_runtime(team_runtime, monkeypatch):
 
         def _generate(self, *args, **kwargs):
             calls.append(self.model_name)
+            config.setdefault("_model_messages", []).append((self.model_name, args[0]))
             return super()._generate(*args, **kwargs)
 
     def resolve(profile, **kwargs):
@@ -541,3 +543,101 @@ def test_resume_ordinary_operation_does_not_look_for_team_plan(optional_runtime)
         resumed = asyncio.run(resume_run(run.run_id))
     assert resumed.status == "completed" and resumed.agent_id == "director"
     assert "worker" not in fixture[2]
+
+
+@pytest.fixture
+def undersized_planner(optional_runtime, monkeypatch):
+    from backend.domains.agent import workflow, runtime_tools
+    from backend.domains.agent.workflow_setup import PromptSetup
+    from langchain_core.messages import AIMessage
+    fixture, _ = optional_runtime
+    _, snapshot, _, config = fixture
+    config["agents"].append({"id": "planner", "provider": "local", "model": "small",
+        "skill_ids": [TEAM_SKILL], "_execution_detailed_persona": ""})
+    snapshot.profile["team"].update(director_id="planner", direct_routes=[])
+    config["agents"][0]["team"] = snapshot.profile["team"]
+    config["_responses"] = {"director": [help_message(), AIMessage(content='{"result":"complete"}')]}
+    monkeypatch.setattr(runtime_tools, "_model_context_window", lambda provider, model: 32000)
+    monkeypatch.setattr(workflow, "build_prompts", lambda profile, model, **kwargs: PromptSetup(
+        "Complete the request", "Complete the request", "General", [],
+        4096 if profile.agent_data["id"] == "planner" else 32000, 24000,
+        tuple(profile.resolved_runtime.active_skill_ids), tuple(profile.resolved_runtime.assigned_skill_ids), False))
+    return fixture
+
+
+def test_optional_planner_context_failure_returns_full_request_to_owner(undersized_planner):
+    from backend.services import agent_execution_store as store, agent_team_store as artifacts
+    source = "BEGIN source " + "complete original text " * 250 + " END source"
+    scope, _, calls, config = undersized_planner
+    run = run_operation(undersized_planner, schema={"type": "object"}, input_text=source)
+    assert json.loads(run.result) == {"result": "complete"}
+    assert calls == ["director", "director"] and run.model_calls == 2
+    first, second = [messages for _, messages in config["_model_messages"]]
+    assert first[1].content == second[1].content and source in second[1].content
+    assert second[-2].tool_calls[0]["id"] == second[-1].tool_call_id
+    assert config["agents"][0]["team"]["director_id"] == "planner"
+    children = [child for child in store.list_runs(scope) if child.parent_run_id == run.run_id]
+    assert len(children) == 1 and children[0].model_calls == 0
+    assert children[0].operation == "team.plan" and children[0].status == "failed"
+    assert not artifacts.list_artifacts(scope, "help", run.run_id)
+    assert not artifacts.list_artifacts(scope, "plan", run.run_id)
+    assert not artifacts.list_artifacts(scope, "task", run.run_id)
+    assert artifacts.list_artifacts(scope, "declined_help", run.run_id)[0]["reason_declined"] == "planning_context_unavailable"
+
+
+def test_declined_help_resumes_on_owner_without_reusing_failed_team_phase(undersized_planner):
+    from backend.services import agent_execution_store as store
+    from backend.services.agent_execution import resume_run
+    from backend.services.agent_execution_scope import execution_scope
+    scope, _, calls, config = undersized_planner
+    run = run_operation(undersized_planner, input_text="full original " * 450)
+    store.update(scope, run.run_id, status="interrupted")
+    config["_responses"] = {}
+    with execution_scope(scope):
+        resumed = asyncio.run(resume_run(run.run_id))
+    assert resumed.status == "completed" and resumed.agent_id == "director"
+    assert calls == ["director", "director", "director"]
+
+
+@pytest.mark.parametrize("max_calls", [1, 2])
+def test_declined_help_does_not_expand_operation_call_limit(undersized_planner, max_calls):
+    from backend.domains.agent.team_help import OptionalTeamContextUnavailable
+    from langchain_core.messages import AIMessage
+    fixture = undersized_planner
+    fixture[3]["_responses"]["director"][1] = AIMessage(content="invalid JSON")
+    with pytest.raises(OptionalTeamContextUnavailable if max_calls == 1 else ValueError):
+        run_operation(fixture, schema={"type": "object"}, input_text="full original " * 450, max_model_calls=max_calls)
+    assert fixture[2] == ["director"] * max_calls
+
+
+@pytest.mark.parametrize("kind", ["permission", "cancelled", "untyped_context"])
+def test_optional_help_preserves_non_planning_failures(optional_runtime, monkeypatch, kind):
+    from backend.services import agent_team_runtime as teams, agent_team_store as artifacts
+    from backend.services.agent_cancellation import AgentTurnCancelled
+    failure = {"permission": PermissionError("revoked"), "cancelled": AgentTurnCancelled("cancelled"),
+               "untyped_context": RuntimeError("agent_operation_context_exceeded")}[kind]
+    fixture, _ = optional_runtime
+    fixture[3]["_responses"] = {"director": [help_message()]}
+    async def fail(*args, **kwargs):
+        raise failure
+    monkeypatch.setattr(teams, "coordinate", fail)
+    with pytest.raises(type(failure)):
+        run_operation(fixture)
+    assert fixture[2] == ["director"]
+    assert not artifacts.list_artifacts(fixture[0], "declined_help")
+
+
+def test_optional_help_never_falls_back_after_a_plan_exists(optional_runtime, monkeypatch):
+    from backend.services import agent_team_runtime as teams, agent_team_store as artifacts
+    from backend.services.agent_execution import _run
+    from backend.services.agent_context_budget import OperationContextExceeded
+    fixture, _ = optional_runtime
+    fixture[3]["_responses"] = {"director": [help_message()]}
+    async def fail(*args, **kwargs):
+        artifacts.put(fixture[0], _run.get(), "plan", "plan", {"plan": {}})
+        raise OperationContextExceeded()
+    monkeypatch.setattr(teams, "coordinate", fail)
+    with pytest.raises(OperationContextExceeded):
+        run_operation(fixture)
+    assert fixture[2] == ["director"]
+    assert not artifacts.list_artifacts(fixture[0], "declined_help")

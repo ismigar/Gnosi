@@ -328,8 +328,24 @@ def _checked_checkpoint(request: AgentOperation, snapshot: AgentExecutionSnapsho
     return cached
 
 
+async def _operation_response(application: Any, inputs: dict[str, Any], request: AgentOperation,
+                              previous_text: str, repair_error: str = "") -> str:
+    from backend.services import agent_team_store as team_artifacts
+    if repair_error and team_artifacts.list_artifacts(current_scope(), "plan", _run.get()):
+        from backend.services.agent_team_runtime import repair_output
+        return await repair_output(_run.get(), current_scope(), previous_text, repair_error, request)
+    text = ""
+    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
+        for update in event.values():
+            for message in update.get("messages", []):
+                if getattr(message, "type", "") == "ai":
+                    text = str(message.content)
+    return text
+
+
 async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None) -> AgentRun:
     from backend.agent.factory import create_agent_workflow
+    from backend.domains.agent.team_help import OptionalTeamContextUnavailable
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
     snapshot, ai, runtime = _operation_context(request, snapshot)
@@ -375,17 +391,15 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
             inputs = {"messages": messages, "cancel_token": cancel_token, "trace_id": run_id,
                       "active_skill_ids": snapshot.skill_ids, "current_user_role": snapshot.scope.role,
                       "turn_authorized_tool_names": [], "team_help_allowed": attempt == 0}
-            async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                from backend.services import agent_team_store as team_artifacts
-                if attempt and team_artifacts.list_artifacts(snapshot.scope, "plan", run_id):
-                    from backend.services.agent_team_runtime import repair_output
-                    text = await repair_output(run_id, snapshot.scope, previous_text, str(messages[-1].content), request)
-                else:
-                    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
-                        for update in event.values():
-                            for message in update.get("messages", []):
-                                if getattr(message, "type", "") == "ai":
-                                    text = str(message.content)
+            try:
+                async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+                    text = await _operation_response(application, inputs, request, previous_text,
+                                                     str(messages[-1].content) if attempt else "")
+            except OptionalTeamContextUnavailable as handoff:
+                if attempt + 1 >= request.max_model_calls:
+                    raise
+                messages = [*messages, *handoff.messages]
+                continue
             try:
                 text = _validate_output(text, request.output_schema)
                 if output_validator is not None:
