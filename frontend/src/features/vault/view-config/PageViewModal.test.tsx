@@ -82,11 +82,7 @@ const settle = async (): Promise<void> => {
     });
 };
 
-const renderModal = async (
-    onClose: CloseHandler = vi.fn<CloseHandler>(),
-    overrides: Partial<PageViewModalProps> = {},
-) => {
-    const api = {
+const createApi = () => ({
         createVaultView: vi.fn((view: CreateViewInput) => Promise.resolve(
             { ...view, id: view.id || 'view-2' },
         )),
@@ -96,42 +92,45 @@ const renderModal = async (
         fetchVaultPages: vi.fn(() => Promise.resolve([])),
         fetchVaultPagesByTable: vi.fn(() => Promise.resolve([])),
         fetchVaultSummarySettings: vi.fn(() => Promise.resolve({})),
-        fetchVaultView: vi.fn((viewId: string) => Promise.resolve(
+        fetchVaultView: vi.fn<(viewId: string) => Promise<unknown>>((viewId) => Promise.resolve(
             viewId === existingView.id ? existingView : null,
         )),
-        fetchVaultViews: vi.fn(() => Promise.resolve([existingView])),
+        fetchVaultViews: vi.fn<() => Promise<unknown>>(() => Promise.resolve([existingView])),
         fetchVaultViewUsage: vi.fn(() => Promise.resolve({ count: 0, pages: [], view_id: 'view-1' })),
         updateVaultView: vi.fn((_viewId: string, _view: CreateViewInput) => Promise.resolve({ status: 'success' })),
         upsertPageView: vi.fn(() => Promise.resolve({ status: 'success' })),
-    };
+});
+
+const renderModal = async (
+    onClose: CloseHandler = vi.fn<CloseHandler>(),
+    overrides: Partial<PageViewModalProps> = {},
+    prepareApi?: (api: ReturnType<typeof createApi>) => void,
+) => {
+    const api = createApi();
+    prepareApi?.(api);
 
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
     const currentRoot = root;
-    await act(async () => {
-        currentRoot.render(
-            <PageViewModal
-                isOpen
-                onClose={onClose}
-                pageId="page-1"
-                allTables={[{
-                    id: 'resources',
-                    name: 'Resources',
-                    properties: [{ name: 'title', type: 'title' }],
-                }]}
-                api={api}
-                preselectedTableId="resources"
-                editingBlock={{ props: { view_id: 'view-1' } }}
-                {...overrides}
-            />,
-        );
-        await Promise.resolve();
-    });
-    await settle();
-    await settle();
+    let props: PageViewModalProps = {
+        isOpen: true, onClose, pageId: 'page-1', api,
+        allTables: [{ id: 'resources', name: 'Resources', properties: [{ name: 'title', type: 'title' }] }],
+        preselectedTableId: 'resources', editingBlock: { props: { view_id: 'view-1' } },
+        ...overrides,
+    };
+    const rerender = async (patch: Partial<PageViewModalProps> = {}) => {
+        props = { ...props, ...patch };
+        await act(async () => {
+            currentRoot.render(<PageViewModal {...props} />);
+            await Promise.resolve();
+        });
+        await settle();
+        await settle();
+    };
+    await rerender();
 
-    return { api, onClose };
+    return { api, onClose, rerender };
 };
 
 const requireContainer = (): HTMLDivElement => {
@@ -180,6 +179,57 @@ const actAndFlush = async (action: () => void): Promise<void> => {
 
 // Rendering the full modal can exceed five seconds on the shared CI machine.
 describe('PageViewModal editing', { timeout: 15_000 }, () => {
+    it('opens with the displayed view configuration and persists full-width reading without losing filters', async () => {
+        const view = { ...existingView, name: 'Notes by source', cardSize: 'large', galleryPreview: 'content',
+            groupBy: 'Note type', filters: [{ field: 'Source', operator: 'equals', value: 'this' }],
+            sorts: [{ field: 'Position', direction: 'asc' }] };
+        const { api, rerender } = await renderModal(undefined,
+            { isOpen: false, preselectedTableId: '', editingBlock: null });
+        api.fetchVaultView.mockRejectedValue(new Error('Network unavailable'));
+        await rerender({ isOpen: true, preselectedTableId: 'resources',
+            editingBlock: { props: { view_id: view.id }, view } });
+        const modal = requireContainer();
+        expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(view.name);
+        expect(requireButton(modal, 'Large').getAttribute('aria-pressed')).toBe('true');
+        expect(api.fetchVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { requireButton(modal, 'Full width').click(); });
+        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
+        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
+            id: view.id, name: view.name, type: 'gallery', cardSize: 'full', galleryPreview: 'content',
+            groupBy: 'Note type', filters: view.filters, sorts: view.sorts,
+        }));
+    });
+
+    it('keeps the edited view and user changes when the catalog arrives later', async () => {
+        let resolveCatalog: ((views: unknown) => void) | undefined;
+        const pendingCatalog = new Promise<unknown>((resolve) => { resolveCatalog = resolve; });
+        await renderModal(undefined, { editingBlock: { props: { view_id: existingView.id }, view: existingView } },
+            (api) => { api.fetchVaultViews.mockReturnValue(pendingCatalog); });
+        const modal = requireContainer();
+        const name = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
+        await actAndFlush(() => { updateInput(name, 'My updated view'); });
+        await actAndFlush(() => { resolveCatalog?.([{ ...existingView, name: 'Old catalog name' }]); });
+        expect(name.value).toBe('My updated view');
+        expect(requireElement(modal, 'select', HTMLSelectElement).value).toBe(existingView.id);
+    });
+
+    it('reports a failed lookup, prevents saving defaults, and reloads the same view on retry', async () => {
+        const { api } = await renderModal(undefined, {}, (prepared) => {
+            prepared.fetchVaultView.mockRejectedValueOnce(new Error('Network unavailable'));
+        });
+        const modal = requireContainer();
+        expect(modal.textContent).toContain("Couldn't load this view's settings. Try again.");
+        expect(modal.querySelector('input[placeholder="e.g. By area"]')).toBeNull();
+        expect(requireButton(modal, 'Insert').disabled).toBe(true);
+        expect(api.updateVaultView).not.toHaveBeenCalled();
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { requireButton(modal, 'Retry').click(); });
+        await settle();
+        expect(api.fetchVaultView).toHaveBeenLastCalledWith(existingView.id);
+        expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(existingView.name);
+        expect(requireButton(modal, 'Insert').disabled).toBe(false);
+    });
+
     it('mirrors a renamed view in the existing-view picker while typing and after blur', async () => {
         await renderModal();
         const modal = requireContainer();

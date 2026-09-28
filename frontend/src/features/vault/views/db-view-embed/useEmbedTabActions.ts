@@ -89,10 +89,11 @@ export function useEmbedTabActions({ pageId, viewId, tableId, ctx, setTableViews
         if (!onOpenPageViewModal || !tableId) return;
         const sectionVid = block?.props?.view_id || '';
         if (!v.id || v.id === sectionVid) {
-            onOpenPageViewModal(tableId, block);
+            onOpenPageViewModal(tableId, { ...block, view: v });
         } else {
             onOpenPageViewModal(tableId, {
                 id: block?.id,
+                view: v,
                 props: { view_id: v.id, heading: headingProp || '', heading_level: headingLevelProp || 1 },
             });
         }

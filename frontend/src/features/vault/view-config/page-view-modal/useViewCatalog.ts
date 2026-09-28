@@ -8,7 +8,7 @@ import type { useViewFieldsResult } from './useViewFields';
 export function useViewCatalog({
     sourceTableId, setExistingViews, setSelectedExistingViewId, setExistingViewsStatus,
     setExistingViewsTableId, existingViewsRequestRef, api, sourceTableName,
-    existingViewsReloadKey
+    existingViewsReloadKey, editingBlock
 }: Pick<
     useViewStateResult & useViewSessionResult & ModalInput & useViewFieldsResult,
     'sourceTableId'
@@ -21,6 +21,7 @@ export function useViewCatalog({
     | 'sourceTableName'
     | 'visibleProperties'
     | 'existingViewsReloadKey'
+    | 'editingBlock'
 >) {
     const hydrate1 = useEffectEvent(() => {
         if (!sourceTableId) {
@@ -32,7 +33,7 @@ export function useViewCatalog({
         }
         let cancelled = false;
         const requestId = ++existingViewsRequestRef.current;
-        setExistingViews([]);
+        setExistingViews(prev => prev.filter(view => view.table_id === sourceTableId));
         setExistingViewsTableId(sourceTableId);
         setExistingViewsStatus('loading');
         api.fetchVaultViews(sourceTableId)
@@ -57,20 +58,24 @@ export function useViewCatalog({
                         visibleProperties: [],
                     });
                 }
-                setExistingViews(list);
+                setExistingViews(prev => {
+                    const edited = prev.find(view => view.id === editingBlock?.props?.view_id
+                        && view.table_id === sourceTableId);
+                    return edited && !list.some(view => view.id === edited.id)
+                        ? [edited, ...list] : list;
+                });
                 // If the currently selected view does NOT belong to the new
                 // table (user-initiated change), reset. If it DOES belong (pre-filling
                 // edit mode), we keep the selection.
                 setSelectedExistingViewId(prev => {
                     if (!prev) return '';
-                    return list.some(v => v.id === prev) ? prev : '';
+                    return list.some(v => v.id === prev) || prev === editingBlock?.props?.view_id ? prev : '';
                 });
                 setExistingViewsTableId(sourceTableId);
                 setExistingViewsStatus('ready');
             })
             .catch(() => {
                 if (!cancelled && requestId === existingViewsRequestRef.current) {
-                    setExistingViews([]);
                     setExistingViewsTableId(sourceTableId);
                     setExistingViewsStatus('error');
                 }

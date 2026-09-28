@@ -42,16 +42,17 @@ function isSort(value: unknown): value is ViewSort {
 export function decodeView(value: unknown): ViewConfig {
     const src = isRecord(value) ? value : {};
     const tree = node(src.filterTree);
+    const columns = src.visibleProperties ?? src.visible_properties ?? src.columns;
     return {
         ...src,
         genogram: src.genogram ? configValue(src.genogram) : undefined,
-        id: nullableText(src.id), name: nullableText(src.name), table_id: nullableText(src.table_id),
-        source_table_id: text(src.source_table_id), type: nullableText(src.type),
+        id: nullableText(src.id), name: nullableText(src.name === undefined ? src.heading : src.name), table_id: nullableText(src.table_id === undefined ? src.source_table_id : src.table_id),
+        source_table_id: text(src.source_table_id), type: nullableText(src.type === undefined || src.type === 'db_view' ? src.view_type : src.type),
         is_main: src.is_main === null || typeof src.is_main === 'boolean' ? src.is_main : undefined,
         is_default: typeof src.is_default === 'boolean' ? src.is_default : undefined,
-        visibleProperties: Array.isArray(src.visibleProperties) ? src.visibleProperties.filter(isColumn) : undefined,
+        visibleProperties: Array.isArray(columns) ? columns.filter(isColumn) : undefined,
         joins: Array.isArray(src.joins) ? src.joins.filter(isJoin) : undefined,
-        filters: Array.isArray(src.filters) ? src.filters.map(rule) : undefined,
+        filters: Array.isArray(src.filters) ? src.filters.map(rule) : isRecord(src.filter) ? [rule(src.filter)] : undefined,
         filterTree: isFilterGroup(tree) ? tree : undefined,
         sorts: Array.isArray(src.sorts) ? src.sorts.filter(isSort) : undefined,
         sort: isSort(src.sort) ? src.sort : undefined,

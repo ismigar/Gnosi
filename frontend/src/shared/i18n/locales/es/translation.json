@@ -4350,6 +4350,10 @@
     "card_small": "Pequeña",
     "card_medium": "Mediana",
     "card_large": "Grande",
+    "card_full": "Ancho completo",
+    "card_full_hint": "Una tarjeta por fila. Con la vista previa de Contenido, las notas se amplían para leerlas seguidas.",
+    "loading_view": "Cargando la configuración de la vista…",
+    "load_settings_error": "No se ha podido cargar la configuración de esta vista. Inténtalo de nuevo.",
     "card_preview": "Previsualización de la tarjeta",
     "gp_cover": "Portada",
     "gp_cover_hint": "Imagen de portada de la página y propiedades.",
@@ -6878,7 +6882,8 @@
           "team_setup": "La configuración del equipo guarda automáticamente los cambios completos. Las tareas, modelos y habilidades de temporales permiten varias selecciones con nombres claros, ayuda cuando no hay opciones y explicaciones coherentes en los cuatro idiomas.",
           "model_guidance": "Cada bot muestra el perfil LLM recomendado según sus tareas y habilidades. Desactivar un plugin desactiva y oculta su bot; la configuración se conserva para reactivarlo.",
           "reasoning": "Puedes ajustar el nivel de razonamiento de cada asistente con modelos compatibles de OpenRouter; se guarda automáticamente y también se aplica cuando utiliza herramientas.",
-          "processing_progress": "Sigue el procesamiento de las fuentes desde una tarjeta compacta de progreso después de cerrar el diálogo o cambiar de página."
+          "processing_progress": "Sigue el procesamiento de las fuentes desde una tarjeta compacta de progreso después de cerrar el diálogo o cambiar de página.",
+          "gallery_reading": "Lee las notas de la galería en tarjetas de ancho completo que crecen con su contenido, una debajo de otra."
         },
         "fixes": {
           "reader": "Abre los documentos adjuntos en el lector interno con los recursos PDF incluidos en las versiones de escritorio.",
@@ -6886,7 +6891,8 @@
           "model_comparison": "La comparativa preserva los cambios simultáneos, diferencia las ofertas exactas y las variantes que comparten oferta, y aplica los filtros de rol a las capacidades declaradas de la oferta seleccionada. También mejora la actualización, la ordenación, el recuento filtrado y la revisión de parámetros.",
           "settings_keyboard": "Las teclas de navegación desplazan el formulario desde el texto y los interruptores; los campos de texto y selectores conservan sus teclas de edición y selección.",
           "optional_team_help": "Pedir ayuda al equipo es opcional: cada asistente conserva su modelo y realiza el trabajo habitual; solo delega cuando necesita apoyo, sin cadenas de delegación.",
-          "source_processing": "Reanuda el procesamiento de fuentes extensas conservando el contexto global del documento y corrige las referencias inválidas sin reescribir las notas válidas."
+          "source_processing": "Reanuda el procesamiento de fuentes extensas conservando el contexto global del documento y corrige las referencias inválidas sin reescribir las notas válidas.",
+          "view_editing": "La configuración de las vistas conserva sus valores y cambios; Espacio entra en las notas agrupadas y Esc vuelve al grupo y lo pliega. Los archivos lentos de la nube ya no bloquean otras peticiones al comprobar el uso de una vista."
         }
       }
     }

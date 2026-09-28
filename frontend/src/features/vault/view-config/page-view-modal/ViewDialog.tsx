@@ -22,7 +22,7 @@ import type { useViewController } from './useViewController';
 type ViewData = Omit<ReturnType<typeof useViewController>, 'panelRef'>;
 
 export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElement | null>; view: ViewData }) {
-    const { isTableMode, editingView, t, editingBlock, requestClose, activeTab, setActiveTab, error } = view;
+    const { isTableMode, editingView, t, editingBlock, requestClose, activeTab, setActiveTab, error, viewLoadStatus, setViewLoadRetryKey } = view;
     return (<>        <div
         className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 backdrop-blur-sm"
     >
@@ -42,6 +42,15 @@ export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElem
                 </button>
             </div>
 
+            {viewLoadStatus !== 'ready' ? <div className="p-5 space-y-3" role="status">
+                <p className="text-sm text-[var(--text-secondary)]">{viewLoadStatus === 'loading'
+                    ? t('view.loading_view', 'Loading view settings…')
+                    : t('view.load_settings_error', "Couldn't load this view's settings. Try again.")}</p>
+                {viewLoadStatus === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary"
+                    onClick={() => { setViewLoadRetryKey(key => key + 1); }}>
+                    {t('common.retry', 'Retry')}
+                </button>}
+            </div> : <>
             {/* Existing View Dropdown - Moved to the top for better UX */}
             <ViewExistingPicker {...view} />
 
@@ -120,6 +129,7 @@ export function ViewDialog({ panelRef, view }: { panelRef: RefObject<HTMLDivElem
                 )}
             </div>
 
+            </>}
             {/* Footer: the primary action persists; Cancel discards local edits. */}
             <ViewFooter {...view} />
         </div>

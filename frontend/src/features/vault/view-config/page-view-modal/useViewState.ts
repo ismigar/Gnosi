@@ -74,6 +74,8 @@ export function useViewState({
     const [aggregation, setAggregation] = useState('count');
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [error, setError] = useState('');
+    const [viewLoadStatus, setViewLoadStatus] = useState<'ready' | 'loading' | 'error'>('ready');
+    const [viewLoadRetryKey, setViewLoadRetryKey] = useState(0);
     // Views saved on the selected table — the user can choose one when
     // stead of having to configure everything from scratch.
     const [existingViews, setExistingViews] = useState<RegistryView[]>([]);
@@ -118,7 +120,7 @@ export function useViewState({
         summaryModels, setSummaryModels, chartType, setChartType,
         xField, setXField, yField, setYField,
         genogram, setGenogram, aggregation, setAggregation, saveToTableViews, setSaveToTableViews,
-        error, setError, existingViews, setExistingViews,
+        error, setError, viewLoadStatus, setViewLoadStatus, viewLoadRetryKey, setViewLoadRetryKey, existingViews, setExistingViews,
         selectedExistingViewId, setSelectedExistingViewId, existingViewsStatus, setExistingViewsStatus,
         existingViewsTableId, setExistingViewsTableId, existingViewsReloadKey, setExistingViewsReloadKey,
         viewUsage, setViewUsage, editScope, setEditScope,

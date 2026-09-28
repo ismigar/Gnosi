@@ -92,6 +92,7 @@ export function VaultGalleryCard({
     const showContent = previewMode === 'content';
     const showProperties = previewMode === 'cover' || previewMode === 'properties';
     const embeddedPreview = showContent || showProperties;
+    const fullWidth = cardSize === 'full';
     return (
         <div
             style={showProperties ? { minHeight: showCover ? (cardSize === 'small' ? '13rem' : cardSize === 'large' ? '21rem' : '17rem') : '9rem' } : undefined}
@@ -149,12 +150,13 @@ export function VaultGalleryCard({
                             size={18}
                         />
                     </span> : null}
-                    <span className="truncate" {...titlePreviewProps}>
+                    <span className={fullWidth ? 'whitespace-normal break-words' : 'truncate'} {...titlePreviewProps}>
                         {note.title || t('common.untitled', { defaultValue: 'Untitled' })}
                     </span>
                 </h3>
                 {showContent ? <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden">
                     <GalleryContentPreview
+                        scrollMode={fullWidth ? 'page' : 'card'}
                         idToTitle={{ ...idToTitle }}
                         note={note}
                         onNoteSelect={(pageId) => {

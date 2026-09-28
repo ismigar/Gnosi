@@ -20,6 +20,8 @@ Un Vault accessible en écriture. Les vues générales font partie des connaissa
 
 6. Consultez l’aide à côté de la contrainte de date pour comprendre la règle. Comparez la fin calculée aux jours ouvrés attendus.
 
+Pour lire les notes à la suite, ouvrez les paramètres de la galerie et choisissez **Taille des cartes → Pleine largeur** et **Aperçu → Contenu**. Les cartes occupent toute la largeur de la vue, se placent les unes sous les autres et grandissent selon le texte. Dans une galerie groupée, **Espace** développe le groupe ciblé et entre dans sa première note ; **Échap** depuis une note revient à l’en-tête du groupe et le replie. Un second **Échap** revient à la vue. Le clic sur l’en-tête continue de développer et de replier le groupe.
+
 ## Résultat attendu {#expected-result}
 
 Vous savez consulter les fiches sous différentes vues et expliquer la date calculée d’une tâche.

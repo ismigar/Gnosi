@@ -371,3 +371,7 @@ critiques et le rendu E2E des tableaux de bord.
 ## Génogrammes
 
 Le [plugin Génogrammes](genograms.md), facultatif par Vault, ajoute des tables familiales liées, des vues SVG et des exports locaux SVG/PNG/PDF, sans service externe ni IA.
+
+## Lecture en galerie et paramètres des vues
+
+Les paramètres des vues intégrées partent de la configuration effective déjà affichée et conservent filtres, tri et apparence pendant le chargement du catalogue. Les recherches échouées permettent de réessayer et ne peuvent pas enregistrer des valeurs par défaut. Les cartes de galerie acceptent la pleine largeur et une hauteur adaptée au contenu, avec un seul défilement de page. Espace entre dans le groupe développé ; Échap revient à son en-tête et le replie. Les vérifications d’utilisation des vues passent par `asyncio.to_thread`, conservent le contexte du vault et maintiennent les lectures de fichiers cloud hors de la boucle HTTP. Les régressions couvrent le chargement du dialogue, les réponses tardives du catalogue, le focus clavier et le fil de vérification d’utilisation.

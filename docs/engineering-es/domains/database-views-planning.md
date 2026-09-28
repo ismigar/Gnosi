@@ -361,3 +361,7 @@ los caminos críticos y la representación de los paneles mediante pruebas E2E.
 ## Genogramas
 
 El [plugin Genogramas](genograms.md), opcional por Vault, añade tablas familiares enlazadas, vistas SVG y exportación local a SVG/PNG/PDF, sin servicios externos ni IA.
+
+## Lectura en galería y configuración de vistas
+
+La configuración de las vistas incrustadas parte de los valores efectivos que ya se muestran y conserva filtros, ordenación y apariencia mientras carga el catálogo. Las consultas fallidas permiten reintentar y no pueden guardar valores por defecto. Las tarjetas de galería admiten ancho completo y altura según el contenido, con un único desplazamiento de página. Espacio entra en el grupo desplegado; Esc vuelve a la cabecera y lo pliega. Las comprobaciones de uso de vistas pasan por `asyncio.to_thread`, conservan el contexto del vault y mantienen las lecturas de archivos de la nube fuera del bucle HTTP. Las regresiones cubren la carga del modal, las respuestas tardías del catálogo, el foco del teclado y el hilo de comprobación de uso.

@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `application root` | 2 | 52 |
 | `config` | 13 | 1347 |
 | `data` | 2 | 214 |
-| `domains` | 472 | 100120 |
+| `domains` | 472 | 100130 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **874 modules** and **175429 source lines**.
+Total: **874 modules** and **175439 source lines**.
 
 ## agent
 
@@ -638,7 +638,7 @@ Total: **874 modules** and **175429 source lines**.
 | [`backend/domains/vault/trash/purge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/purge.py) | 166 | 2 | 7 | 0 | 2 | Permanent trash purge and best-effort trace cleanup. |
 | [`backend/domains/vault/trash/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/trash/repository.py) | 236 | 2 | 2 | 0 | 3 | Filesystem repository for soft-deleted vault pages. |
 | [`backend/domains/vault/views/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault saved views and legacy folder schemas. |
-| [`backend/domains/vault/views/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/api.py) | 265 | 1 | 10 | 7 | 0 | Saved-view operations backed by the central registry. |
+| [`backend/domains/vault/views/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/api.py) | 275 | 1 | 11 | 7 | 0 | Saved-view operations backed by the central registry. |
 | [`backend/domains/vault/views/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/contracts.py) | 67 | 7 | 0 | 0 | 1 | Public HTTP contracts for saved Vault views. |
 | [`backend/domains/vault/views/filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/filters.py) | 295 | 0 | 18 | 0 | 2 | Saved-view filter evaluation with frontend-compatible coercion. |
 | [`backend/domains/vault/views/row_resolution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/row_resolution.py) | 194 | 0 | 12 | 0 | 3 | Saved-view filtering, sorting and in-memory joins. |

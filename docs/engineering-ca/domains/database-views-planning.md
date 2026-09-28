@@ -368,3 +368,7 @@ els camins crítics i la renderització E2E dels quadres de comandament.
 ## Genogrames
 
 El [plugin Genogrames](genograms.md), opcional per Vault, afegeix taules familiars enllaçades, vistes SVG i exportació local a SVG/PNG/PDF, sense serveis externs ni IA.
+
+## Lectura en galeria i configuració de vistes
+
+La configuració de les vistes incrustades parteix dels valors efectius que ja es mostren i conserva filtres, ordenació i aparença mentre es carrega el catàleg. Les consultes fallides permeten reintentar i no poden desar valors per defecte. Les targetes de galeria admeten ample complet i alçada segons el contingut, amb un sol desplaçament de pàgina. Espai entra al grup desplegat; Esc torna a la capçalera i el plega. Les comprovacions d’ús de vistes passen per `asyncio.to_thread`, conserven el context del vault i mantenen les lectures de fitxers del núvol fora del bucle HTTP. Les regressions cobreixen la càrrega del modal, les respostes tardanes del catàleg, el focus del teclat i el fil de comprovació d’ús.

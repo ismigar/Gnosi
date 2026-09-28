@@ -316,3 +316,7 @@ rendering.
 
 The optional [Genograms plugin](genograms.md) adds linked family-network tables,
 per-view SVG diagrams and local SVG/PNG/PDF exports through the native view renderer.
+
+## Gallery reading and view settings
+
+Embedded view settings start from the effective configuration already displayed, preserving filters, sorting and appearance while the catalog loads. Failed lookups offer retry and cannot save defaults. Gallery cards support full width and content-driven height, with one page scroll. Space enters an expanded group; Escape returns to its header and collapses it. View-usage scans run through `asyncio.to_thread`, retaining vault context while keeping cloud-backed file reads off the HTTP event loop. Regression coverage includes modal hydration, delayed catalog responses, keyboard focus, and the usage-scan worker.

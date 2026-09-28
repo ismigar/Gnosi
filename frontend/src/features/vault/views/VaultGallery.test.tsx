@@ -11,6 +11,7 @@ import type { GalleryNote } from './vault-gallery/vaultGalleryModel';
 
 const mocks = vi.hoisted(() => ({
     onNoteSelect: vi.fn(),
+    openKeyboardPreview: vi.fn(),
     contentPreview: vi.fn<(props: ComponentProps<typeof GalleryContentPreview>) => void>(),
     bulkActions: vi.fn<(props: VaultBulkActionsBarProps) => void>(),
 }));
@@ -42,7 +43,7 @@ vi.mock('../../../shared/i18n/useLocaleSettings', () => ({
 vi.mock('../../../shared/editor/useTitlePreview', () => ({
     useTitlePreview: () => ({
         getTitleProps: () => ({}),
-        openForKeyboard: vi.fn(),
+        openForKeyboard: mocks.openKeyboardPreview,
         preview: null,
     }),
 }));
@@ -65,6 +66,7 @@ vi.mock('./GalleryCardPreview', () => ({
 describe('VaultGallery', () => {
     let container: HTMLDivElement;
     let root: Root;
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
 
     beforeEach(() => {
         reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
@@ -80,6 +82,10 @@ describe('VaultGallery', () => {
         container.remove();
         delete reactTestGlobal.IS_REACT_ACT_ENVIRONMENT;
         vi.clearAllMocks();
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+        if (originalScrollIntoView) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
+        else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
     });
 
     it('opens only through the arrow, not the card or title', () => {
@@ -234,6 +240,68 @@ describe('VaultGallery', () => {
         act(() => { bulk?.onApplyTemplate?.('template'); });
         expect(onApplyTemplate).toHaveBeenCalledWith(new Set(['n1']), 'template');
         expect(checkbox.checked).toBe(false);
+    });
+
+    it.each([false, true])('enters a group with Space and folds it with Escape (already expanded: %s)', (expanded) => {
+        vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+        const onFocusShell = vi.fn();
+        act(() => {
+            root.render(<VaultGallery activeView={{ groupBy: 'Status', galleryPreview: 'none' }}
+                notes={[
+                    { id: 'index', title: 'Index', metadata: { Status: 'Index notes' } },
+                    { id: 'reading-1', title: 'First reading', metadata: { Status: 'Reading notes' } },
+                    { id: 'reading-2', title: 'Second reading', metadata: { Status: 'Reading notes' } },
+                ]} onFocusShell={onFocusShell} searchTerm="" />);
+        });
+        const headers = container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]');
+        const indexHeader = headers[0];
+        const readingHeader = headers[1];
+        if (!indexHeader || !readingHeader) throw new Error('Group headers missing');
+        const scrollIntoView = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+        act(() => {
+            indexHeader.click();
+            if (expanded) readingHeader.click();
+            readingHeader.focus();
+        });
+        const press = (element: Element, key: string) => {
+            const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+            act(() => { element.dispatchEvent(event); });
+            act(() => { vi.advanceTimersToNextFrame(); });
+            expect(event.defaultPrevented).toBe(true);
+        };
+        press(readingHeader, ' ');
+        expect(readingHeader.getAttribute('aria-expanded')).toBe('true');
+        expect(document.activeElement?.textContent).toContain('First reading');
+        const firstCard = document.activeElement;
+        if (!firstCard) throw new Error('First card not focused');
+        press(firstCard, ' ');
+        expect(mocks.openKeyboardPreview).toHaveBeenCalledWith('reading-1', firstCard.getBoundingClientRect());
+        press(firstCard, 'ArrowRight');
+        expect(document.activeElement?.textContent).toContain('Second reading');
+        const secondCard = document.activeElement;
+        if (!secondCard) throw new Error('Second card not focused');
+        press(secondCard, 'Escape');
+        expect(document.activeElement).toBe(readingHeader);
+        expect(readingHeader.getAttribute('aria-expanded')).toBe('false');
+        expect(indexHeader.getAttribute('aria-expanded')).toBe('true');
+        expect(onFocusShell).not.toHaveBeenCalled();
+        press(readingHeader, 'Escape');
+        expect(onFocusShell).toHaveBeenCalledOnce();
+    });
+
+    it('renders full-width cards in a single column with page scrolling for their content', () => {
+        act(() => {
+            root.render(<VaultGallery activeView={{ cardSize: 'full', galleryPreview: 'content' }}
+                notes={[{ id: 'one', title: 'First note' }, { id: 'two', title: 'Second note' }]}
+                searchTerm="" />);
+        });
+        const cards = [...container.querySelectorAll<HTMLDivElement>('div[tabindex="-1"]')];
+        expect(cards).toHaveLength(2);
+        expect(cards[0]?.parentElement?.classList.contains('grid-cols-1')).toBe(true);
+        expect(cards[0]?.parentElement?.className).not.toMatch(/(?:sm|lg|xl|2xl):grid-cols/);
+        expect(cards.every(card => card.classList.contains('h-auto') && card.classList.contains('min-h-96'))).toBe(true);
+        expect(mocks.contentPreview.mock.calls.map(([props]) => props.scrollMode)).toEqual(['page', 'page']);
     });
 
     it('forwards optional callbacks and deletes scalar or absent titles without changing the notes', () => {

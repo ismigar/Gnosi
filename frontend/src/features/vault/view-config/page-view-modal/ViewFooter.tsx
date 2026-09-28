@@ -4,7 +4,7 @@ import type { useViewClosingResult } from './useViewClosing';
 
 export function ViewFooter({
     autosaveStatus, flushing, t, isTableMode,
-    requestDiscardChanges, closeWithFlush, selectedExistingViewId
+    requestDiscardChanges, closeWithFlush, selectedExistingViewId, viewLoadStatus
 }: Pick<
     useViewStateResult & ModalInput & useViewClosingResult,
     'autosaveStatus'
@@ -14,6 +14,7 @@ export function ViewFooter({
     | 'requestDiscardChanges'
     | 'closeWithFlush'
     | 'selectedExistingViewId'
+    | 'viewLoadStatus'
 >) {
     return (<>                <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between gap-3 rounded-b-xl shrink-0">
         {/* Autosave status pill (table mode shows live state; embed mode
@@ -51,7 +52,7 @@ export function ViewFooter({
             )}
             <button
                 onClick={() => void closeWithFlush()}
-                disabled={flushing}
+                disabled={flushing || viewLoadStatus !== 'ready'}
                 className="btn-gnosi btn-gnosi-primary px-6"
             >
                 {flushing ? t('view.saving', "Saving…") : (

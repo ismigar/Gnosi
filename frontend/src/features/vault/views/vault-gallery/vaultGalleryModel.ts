@@ -3,7 +3,7 @@ import { normalizeOptions, optionColorHex } from '../../../../shared/records/mod
 import { getFieldConfig } from '../../../../shared/records/model/schemaUtils';
 
 
-export type GalleryCardSize = 'large' | 'medium' | 'small';
+export type GalleryCardSize = 'full' | 'large' | 'medium' | 'small';
 export type GalleryPreviewMode = 'content' | 'cover' | 'none' | 'properties';
 export type GalleryArrowDirection = 'down' | 'left' | 'right' | 'up';
 export type GallerySchema = Readonly<Record<string, unknown>>;
@@ -70,7 +70,7 @@ export function galleryGroupField(view: GalleryView): string {
 
 
 export function galleryCardSize(value: unknown): GalleryCardSize {
-    return value === 'small' || value === 'large' ? value : 'medium';
+    return value === 'small' || value === 'large' || value === 'full' ? value : 'medium';
 }
 
 
@@ -183,6 +183,7 @@ export function buildGallerySections(
 
 
 export function galleryGridClass(size: GalleryCardSize): string {
+    if (size === 'full') return 'grid-cols-1';
     if (size === 'small') {
         return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8';
     }
@@ -194,10 +195,12 @@ export function galleryGridClass(size: GalleryCardSize): string {
 
 
 export function galleryCardHeightClass(size: GalleryCardSize): string {
+    if (size === 'full') return 'min-h-96 h-auto';
     return size === 'small' ? 'h-40' : size === 'large' ? 'h-80' : 'h-64';
 }
 
 
 export function galleryCoverHeightClass(size: GalleryCardSize): string {
+    if (size === 'full') return 'h-56';
     return size === 'small' ? 'h-16' : size === 'large' ? 'h-48' : 'h-32';
 }

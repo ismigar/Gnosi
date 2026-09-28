@@ -20,6 +20,7 @@ _2026-09-28 · Release candidate_
 - Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.
 - Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.
 - Follow source processing from a compact progress card after closing the dialog or moving to another page.
+- Read gallery notes in full-width cards that grow with their content, one below another.
 
 ### Fixes
 
@@ -29,6 +30,7 @@ _2026-09-28 · Release candidate_
 - Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.
 - Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.
 - Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.
+- View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage.
 
 ## Gnosi 3.1.0
 

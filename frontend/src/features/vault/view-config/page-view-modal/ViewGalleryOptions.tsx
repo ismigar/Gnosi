@@ -28,11 +28,12 @@ export function ViewGalleryOptions({
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.gallery_options', "Gallery options")}</p>
             <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.card_size', "Card size")}</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {CARD_SIZES.map(cs => (
                         <button
                             key={cs.value}
                             type="button"
+                            aria-pressed={cardSize === cs.value}
                             onClick={() => { setCardSize(cs.value); }}
                             className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${cardSize === cs.value
                                     ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
@@ -43,6 +44,9 @@ export function ViewGalleryOptions({
                         </button>
                     ))}
                 </div>
+                {cardSize === 'full' && <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
+                    {t('view.card_full_hint', 'One card per row. With Content preview, notes expand for continuous reading.')}
+                </p>}
             </div>
             <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.card_preview', "Card preview")}</label>

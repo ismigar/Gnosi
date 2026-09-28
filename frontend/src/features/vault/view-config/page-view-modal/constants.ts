@@ -15,6 +15,7 @@ export const CARD_SIZES = [
     { value: 'small', label: 'Small' },
     { value: 'medium', label: 'Medium' },
     { value: 'large', label: 'Large' },
+    { value: 'full', label: 'Full width' },
 ];
 export const GALLERY_PREVIEWS = [
     { value: 'cover', label: 'Cover', hint: 'Page cover image and properties.' },

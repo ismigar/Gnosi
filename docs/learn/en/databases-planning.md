@@ -20,6 +20,8 @@ A writable Vault. General table views are part of the knowledge workflow; advanc
 
 6. Use the help beside a date constraint to understand the selected rule. Check the calculated finish against the expected working days.
 
+For continuous reading, open the gallery settings and choose **Card size → Full width** and **Card preview → Content**. Cards use the entire view width, appear one below another and grow to fit their text. In a grouped gallery, **Space** expands the focused group and enters its first note; **Escape** from a note returns to the group header and collapses it. A second **Escape** returns to the view. Clicking the group header still toggles it.
+
 ## Expected result {#expected-result}
 
 You can view the same records as a table or a filtered view and explain a calculated task date.
