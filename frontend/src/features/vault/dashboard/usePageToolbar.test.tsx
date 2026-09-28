@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { usePageToolbar } from './usePageToolbar';
 import type { DashboardActions } from './useDashboardActions';
-import { fetchResourceProcessingStatus, type ResourceProcessingJob } from '../../../shared/api/resource-processing';
+import { fetchResourceProcessingStatus } from '../../../shared/api/resource-processing';
 
 vi.mock('./useVaultHome', () => ({ useVaultHome: () => ({ homeReady: false, homeId: null }) }));
 vi.mock('../../../shared/api/resource-processing', () => ({ fetchResourceProcessingStatus: vi.fn() }));
@@ -13,7 +13,7 @@ it.each([
     ['done', true, true], ['idle', false, false],
 ] as const)('uses durable %s status after reload (processed=%s)', async (phase, processed, force) => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-    vi.mocked(fetchResourceProcessingStatus).mockResolvedValue({ phase, running: false } as ResourceProcessingJob);
+    vi.mocked(fetchResourceProcessingStatus).mockResolvedValue({ phase, running: false });
     const setResourceToProcess = vi.fn();
     const sourceConfig = { source_tables: [{ table_id: 'resources' }] };
     const isPluginEnabled = () => true;
@@ -33,7 +33,7 @@ it.each([
     }
     const root = createRoot(document.createElement('div'));
     try {
-        await act(async () => { root.render(<Harness />); });
+        await act(async () => { root.render(<Harness />); await Promise.resolve(); });
         expect(actions?.canProcessResource).toBe(true);
         if (phase === 'error' || phase === 'partial') {
             expect(actions?.processResourceLabel).toBe('Resume interrupted processing');
@@ -43,7 +43,7 @@ it.each([
             noteId: 'source', title: 'Book', sourceTableId: 'resources', force,
         });
     } finally {
-        await act(async () => { root.unmount(); });
+        act(() => { root.unmount(); });
         vi.unstubAllGlobals();
     }
 });
