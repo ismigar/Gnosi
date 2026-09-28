@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1137 | 127462 | 32 |
+| `features` | 1137 | 127466 | 32 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 266 | 31486 | 426 |
 
@@ -1044,7 +1044,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewReadingOptions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewReadingOptions.tsx) | 74 | `ViewReadingOptions` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewRegistryOptions.tsx) | 155 | `ViewRegistryOptions` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewSnapshotOptions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewSnapshotOptions.tsx) | 53 | `ViewSnapshotOptions` | — |
-| [`frontend/src/features/vault/view-config/page-view-modal/ViewSort.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewSort.tsx) | 93 | `ViewSort` | — |
+| [`frontend/src/features/vault/view-config/page-view-modal/ViewSort.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewSort.tsx) | 96 | `ViewSort` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/ViewTypePicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/ViewTypePicker.tsx) | 42 | `ViewTypePicker` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/api.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/api.ts) | 26 | `PAGE_VIEW_MODAL_API` | — |
 | [`frontend/src/features/vault/view-config/page-view-modal/constants.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/page-view-modal/constants.ts) | 37 | `CARD_SIZES`, `DATE_FIELD_TYPES`, `FILTER_OPERATORS`, `GALLERY_PREVIEWS`, `GROUP_FIELD_TYPES`, `MAX_FILTER_DEPTH`, `NO_VALUE_OPS`, `NUMERIC_FIELD_TYPES`, `TABS` | — |
@@ -1129,7 +1129,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/views/vault-chart/vaultChartModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-chart/vaultChartModel.ts) | 127 | `aggregateChartValues`, `buildChartData`, `chartCategoryLabels`, `chartNumber`, `chartScalarText`, `formatChartNumber`, `truncateChartLabel` | — |
 | [`frontend/src/features/vault/views/vault-gallery/VaultGalleryCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGalleryCard.tsx) | 208 | `VaultGalleryCard` | — |
 | [`frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGalleryPropertyValue.tsx) | 214 | `VaultGalleryPropertyValue` | `/api/vault/open-resource` |
-| [`frontend/src/features/vault/views/vault-gallery/VaultGallerySections.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGallerySections.tsx) | 102 | `VaultGallerySections` | — |
+| [`frontend/src/features/vault/views/vault-gallery/VaultGallerySections.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/VaultGallerySections.tsx) | 103 | `VaultGallerySections` | — |
 | [`frontend/src/features/vault/views/vault-gallery/useVaultGalleryNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/useVaultGalleryNavigation.ts) | 244 | `useVaultGalleryNavigation` | — |
 | [`frontend/src/features/vault/views/vault-gallery/vaultGalleryModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-gallery/vaultGalleryModel.ts) | 206 | `buildGallerySections`, `galleryCardHeightClass`, `galleryCardSize`, `galleryCoverFitClass`, `galleryCoverHeightClass`, `galleryGridClass`, `galleryGroupField`, `galleryMetadataValue`, `galleryPreviewMode`, `galleryText`, `galleryVisibleProperties`, `normalizeGalleryMetadataKey` | — |
 | [`frontend/src/features/vault/views/vault-kanban/VaultKanbanCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/views/vault-kanban/VaultKanbanCard.tsx) | 235 | `VaultKanbanCard` | — |

@@ -261,9 +261,10 @@ describe('VaultGallery', () => {
         Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
         act(() => {
             indexHeader.click();
-            if (expanded) readingHeader.click();
-            readingHeader.focus();
+            readingHeader.click();
+            if (!expanded) readingHeader.click();
         });
+        expect(document.activeElement).toBe(readingHeader);
         const press = (element: Element, key: string) => {
             const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
             act(() => { element.dispatchEvent(event); });

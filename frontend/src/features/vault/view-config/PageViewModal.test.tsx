@@ -192,6 +192,10 @@ describe('PageViewModal editing', { timeout: 15_000 }, () => {
         expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(view.name);
         expect(requireButton(modal, 'Large').getAttribute('aria-pressed')).toBe('true');
         expect(api.fetchVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { requireButton(modal, 'Sort').click(); });
+        const position = requireElement(modal, 'select option[value="Position"]', HTMLOptionElement);
+        expect(position.selected).toBe(true);
+        await actAndFlush(() => { requireButton(modal, 'General').click(); });
         await actAndFlush(() => { requireButton(modal, 'Full width').click(); });
         await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
         expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({

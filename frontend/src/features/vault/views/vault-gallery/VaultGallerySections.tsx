@@ -52,7 +52,8 @@ export function VaultGallerySections({
                     <button
                         aria-expanded={expanded}
                         className="flex items-center gap-2 rounded px-1 text-left outline-none transition-opacity hover:opacity-80 focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)]"
-                        onClick={() => {
+                        onClick={(event) => {
+                            event.currentTarget.focus({ preventScroll: true });
                             toggleGroup(section.id);
                         }}
                         onKeyDown={(event) => {
