@@ -31,6 +31,7 @@ _2026-09-28 · Release candidate_
 - Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.
 - Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.
 - View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage.
+- First-start configuration is stored outside the app so its installed signature remains intact.
 
 ## Gnosi 3.1.0
 

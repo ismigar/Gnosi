@@ -555,3 +555,7 @@ from the notice if the first installation attempt fails. Background checks and
 the renderer action are intentionally guarded so they do not run concurrently.
 
 The `3.2.0` candidate adds assistant teams and specialist roles, provider-specific model comparison and multilingual workspace templates. Root, frontend, desktop, Python and backend runtime versions match. OpenAPI is regenerated with the new version; both dependency locks remain unchanged. The catalog stays unpublished until the source-matched installers pass first-install, persistence and upgrade acceptance on all four supported targets.
+
+## Packaged first-start configuration
+
+Before a vault is selected, a frozen backend persists configuration and provider-reference migrations under `GNOSI_DATA_DIR/config/params.yaml`. Signed application resources remain read-only; later requests still save to the active vault’s `.gnosi/params.yaml`. First-launch and restart acceptance must verify the installed signature after the app exits, since startup readiness alone does not detect bundle writes.

@@ -154,3 +154,41 @@ def test_cached_base_is_not_changed_by_vault_merges(tmp_path, monkeypatch):
         "language": "ca", "inherited": True, "only_first": True,
     }
     assert second_config.settings == {"language": "fr", "inherited": True}
+
+
+def test_frozen_bootstrap_migration_preserves_signed_resources(tmp_path, monkeypatch):
+    bundle = tmp_path / "signed-bundle"
+    local = bundle / "config" / "params.yaml"
+    local.parent.mkdir(parents=True)
+    local.write_text("settings: {language: fr}\n", encoding="utf-8")
+    original = local.read_bytes()
+    data = tmp_path / "device-data"
+    bootstrap = data / "config" / "params.yaml"
+    monkeypatch.setattr(app_config, "__file__", str(bundle / "backend/config/app_config.py"))
+    monkeypatch.setattr(app_config, "load_env", lambda: None)
+    monkeypatch.setattr(app_config, "is_frozen_runtime", lambda: True)
+    monkeypatch.setattr(app_config, "resolve_data_dir", lambda: data)
+    monkeypatch.setattr(app_config, "validation_runtime_enabled", lambda: False)
+    monkeypatch.setattr(app_config, "_active_params_path", lambda: None)
+    monkeypatch.setattr(app_config, "_user_params_path", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_config, "get_paths", lambda *_args, **_kwargs: {})
+    for key in app_config.ENV_PROVIDER_MIGRATIONS:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "synthetic-bootstrap-test")
+
+    first = app_config.load_params(strict_env=False)
+    assert first.params_source == bootstrap
+    assert bootstrap.is_file()
+    assert local.read_bytes() == original
+    assert "synthetic-bootstrap-test" not in bootstrap.read_text()
+
+    bootstrap.write_text("settings: {language: ca}\n", encoding="utf-8")
+    monkeypatch.delenv("OPENAI_API_KEY")
+    reloaded = app_config.load_params(strict_env=False)
+    assert reloaded.settings["language"] == "ca"
+    assert reloaded.params_source == bootstrap
+    assert local.read_bytes() == original
+
+    vault_params = tmp_path / "vault" / ".gnosi" / "params.yaml"
+    monkeypatch.setattr(app_config, "_active_params_path", lambda: vault_params)
+    assert app_config.load_params(strict_env=False).params_source == vault_params

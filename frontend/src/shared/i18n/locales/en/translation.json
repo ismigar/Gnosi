@@ -6838,7 +6838,8 @@
           "settings_keyboard": "Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.",
           "optional_team_help": "Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.",
           "source_processing": "Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.",
-          "view_editing": "View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage."
+          "view_editing": "View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage.",
+          "desktop_bootstrap": "First-start configuration is stored outside the app so its installed signature remains intact."
         }
       }
     }

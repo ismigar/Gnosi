@@ -5,7 +5,8 @@ import logging
 from pathlib import Path
 from collections.abc import Mapping
 from typing import Any, cast
-from .env_config import get_env, load_env
+from .data_dir import resolve_data_dir
+from .env_config import get_env, is_frozen_runtime, load_env
 from .paths_config import get_paths
 from .schema_keys import get_schema_keys
 from .validation_runtime import validation_runtime_enabled
@@ -222,7 +223,11 @@ def load_params(strict_env: bool = True) -> Config:
     if not validation_runtime_enabled() and local_path.exists():
         params = _CONFIG_YAML_CACHE.read(local_path, _CONFIG_YAML_LOADER)
 
-    params_path = local_path
+    # A frozen application's resources are signed and may be read-only. Before
+    # a vault is selected, migrations/settings belong to per-device data.
+    params_path = resolve_data_dir() / "config" / "params.yaml" if is_frozen_runtime() else local_path
+    if params_path != local_path and _exists_tolerant(params_path):
+        params, params_path = _merge_user_params(params, params_path, params_path)
 
     # ── 2. Determine the user source (active vault > vault environment > home) ──
     active_params_path = _active_params_path()

@@ -6892,7 +6892,8 @@
           "settings_keyboard": "Les touches de navigation font défiler le formulaire depuis le texte et les interrupteurs ; les champs de texte et listes conservent leurs touches d’édition et de sélection.",
           "optional_team_help": "L’aide de l’équipe est facultative : chaque assistant conserve son modèle et effectue le travail courant, en déléguant seulement si un soutien est nécessaire, sans chaîne de délégation.",
           "source_processing": "Reprenez le traitement des sources longues en préservant le contexte global du document et corrigez les références invalides sans réécrire les notes valides.",
-          "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue."
+          "view_editing": "Les paramètres des vues conservent leurs valeurs et modifications ; Espace entre dans les notes groupées et Échap revient au groupe et le replie. Les fichiers lents du cloud ne bloquent plus les autres requêtes lors de la vérification de l’utilisation d’une vue.",
+          "desktop_bootstrap": "La configuration initiale est enregistrée hors de l’app afin de préserver la signature de l’installation au premier démarrage."
         }
       }
     }
