@@ -102,6 +102,7 @@ beforeEach(() => {
       { id: 'related', title: 'Related', kind: 'relation' },
     ]);
     if (path === '/api/vault/outlinks') return Response.json({ links: [], relations: [{ id: 'related', title: 'Related' }, { id: 'second', title: 'Second' }], unresolved: [] });
+    if (path === '/api/vault/option-catalogs') return Response.json({ catalogs: { status: [{ name: 'Esborrany', color: 'gray' }, { name: 'Publicat', color: 'green' }] } });
     if (path === '/api/vault/unlinked-mentions') return Response.json([{ id: 'mention', title: 'Mention', count: 2, snippet: 'Fixture text' }]);
     if (path === '/api/vault/link-unlinked-mentions') return Response.json({ status: 'success', target_id: 'fixture', target_title: 'Fixture page', notes_changed: 1, total_replacements: 2, changed_notes: [{ id: 'mention', title: 'Mention', replacements: 2 }] });
     throw new Error(`Unexpected fixture request ${path}`);

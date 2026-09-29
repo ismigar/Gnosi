@@ -166,6 +166,16 @@ describe('page shell, navigation and knowledge contracts', () => {
     expect(state().getPropOptions(property)).toEqual([]);
     expect(state().zoteroExtras).toEqual({ keep: true });
   });
+  it('loads shared catalog options for status properties', async () => {
+    const property = { id: 'status', name: 'Estat', type: 'status', config: { catalog_ref: 'status' } };
+    await mount({ initialMetadata: { title: 'Fixture', table_id: 'table' }, allTables: [{ id: 'table', properties: [property] }] });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(requests.some(request => request.path === '/api/vault/option-catalogs')).toBe(true);
+    expect(state().getPropOptions(property)).toEqual([
+      { name: 'Esborrany', color: 'gray' },
+      { name: 'Publicat', color: 'green' },
+    ]);
+  });
   it('preserves history and focus-mode signals', async () => {
     await mount({ view: true, historyOpenSignal: 1 });
     expect(state().isHistoryOpen).toBe(true);

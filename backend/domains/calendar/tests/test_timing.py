@@ -142,6 +142,7 @@ def test_route_checks_run_in_an_isolated_process(tmp_path: Path) -> None:
         [
             sys.executable, "-m", "pytest", "-q", "--tb=short",
             "-o", "python_functions=check_*", "-p", "no:cacheprovider",
+            "-o", "faulthandler_timeout=90",
             "--basetemp", str(root / "tests"),
             str(Path(__file__).resolve()),
         ],
@@ -149,7 +150,10 @@ def test_route_checks_run_in_an_isolated_process(tmp_path: Path) -> None:
         env=environment,
         capture_output=True,
         text=True,
-        timeout=120,
+        # This bounds the complete interpreter lifecycle, including cold route
+        # imports and pytest teardown on the shared ARM64 runner, not a route's
+        # response time. Keep thread diagnostics enabled for genuine stalls.
+        timeout=300,
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr

@@ -1,15 +1,18 @@
-import type { PageProperty, PropertyEntry } from './types';
+import type { PageOption, PageProperty, PropertyEntry } from './types';
 import { isRecord, legacyText } from './valueBoundaries';
 import { INTERNAL_METADATA_KEY_SET } from './internalMetadata';
 import { getPdfSourceUri } from '../media';
 import { isManagedInternalMetadataKey } from '../../metadataVisibilityUtils';
 import { serializeCellForClipboard } from '../../../properties/cellGridUtils';
 import { sortFieldItems } from '../../../../../shared/schema/fieldOrdering';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { namedPropertyMetadata, pagePropertyConfig, pagePropertyValue } from './propertyModel';
+import { fetchOptionCatalogs } from '../../../../../shared/api/vault-schema';
+import { normalizeOptions, STATUS_CATALOG_REF } from '../../../../../shared/records/model/optionCatalogUtils';
 import type { usePageEditorState } from './usePageEditorState';
 import type { usePageMetadata } from './usePageMetadata';
 type Input = Pick<ReturnType<typeof usePageEditorState>, 'metadata' | 'allTables' | 'allNotes' | 't' | 'referenceTableId' | 'newPropName' | 'setIsAddingProp' | 'setNewPropName' | 'idToTitle'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
+
 export function usePageProperties(state: Input) {
   const { metadata, allTables, allNotes, t, referenceTableId, newPropName, setIsAddingProp, handleMetaChange, setNewPropName, idToTitle } = state;
 
@@ -18,6 +21,35 @@ export function usePageProperties(state: Input) {
   const currentTableId = (rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
 
   const currentTable = allTables.find(t => t.id === currentTableId);
+
+  const catalogReferences = useMemo(() => {
+    const references = new Set<string>();
+    for (const prop of currentTable?.properties || []) {
+      const configuredReference = prop.config?.catalog_ref;
+      const reference = typeof configuredReference === 'string' ? configuredReference.trim() : '';
+      if (reference) references.add(reference);
+      else if (prop.type === 'status') references.add(STATUS_CATALOG_REF);
+    }
+    return Array.from(references).sort();
+  }, [currentTable]);
+
+  const [sharedOptionCatalogs, setSharedOptionCatalogs] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    if (catalogReferences.length === 0) return undefined;
+    const controller = new AbortController();
+    fetchOptionCatalogs(controller.signal)
+      .then((response) => {
+        if (controller.signal.aborted || !isRecord(response.catalogs)) return;
+        setSharedOptionCatalogs(response.catalogs);
+      })
+      .catch(() => {
+        // Local property options remain available when the shared catalog cannot be read.
+      });
+    return () => {
+      controller.abort();
+    };
+  }, [catalogReferences]);
 
   // The current record is a bibliographic source if it belongs to the
   // references table designated in Settings (`referenceTableId`). It's the same source
@@ -36,8 +68,15 @@ export function usePageProperties(state: Input) {
   // if `config.options` exists it's the fresh value and takes priority; if not,
   // the top level. (Previously the top level was prioritized and an option
   // created inline wouldn't appear because the top level stayed stale.)
-  const getPropOptions = (prop: PageProperty | null) => {
+  const getPropOptions = (prop: PageProperty | null): PageOption[] => {
     if (!prop) return [];
+    const configuredReference = prop.config?.catalog_ref;
+    const reference = typeof configuredReference === 'string' && configuredReference.trim()
+      ? configuredReference.trim()
+      : (prop.type === 'status' ? STATUS_CATALOG_REF : '');
+    if (reference && Object.prototype.hasOwnProperty.call(sharedOptionCatalogs, reference)) {
+      return normalizeOptions(sharedOptionCatalogs[reference]).map(option => ({ ...option }));
+    }
     // `config.options` always takes precedence when it EXISTS (i.e., is an array), even if
     // it's empty: if the last inline option is deleted, config.options remains []
     // and we must NOT show the old top-level `prop.options` again.
