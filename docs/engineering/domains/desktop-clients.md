@@ -559,3 +559,5 @@ The `3.2.0` candidate adds assistant teams and specialist roles, provider-specif
 ## Packaged first-start configuration
 
 Before a vault is selected, a frozen backend persists configuration and provider-reference migrations under `GNOSI_DATA_DIR/config/params.yaml`. Signed application resources remain read-only; later requests still save to the active vault’s `.gnosi/params.yaml`. First-launch and restart acceptance must verify the installed signature after the app exits, since startup readiness alone does not detect bundle writes.
+
+The frontend Docker image includes the shared PDF asset verifier imported by Vite and checks that it loads during image construction. This prevents a successfully built image from failing at server startup because the verifier is missing.

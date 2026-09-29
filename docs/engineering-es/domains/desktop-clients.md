@@ -624,3 +624,5 @@ La candidata `3.2.0` añade equipos de asistentes y roles especializados, compar
 ## Configuración del primer inicio empaquetado
 
 Antes de seleccionar un vault, el servicio empaquetado guarda la configuración y las migraciones de referencias de proveedores en `GNOSI_DATA_DIR/config/params.yaml`. Los recursos firmados de la aplicación permanecen en solo lectura; las solicitudes posteriores siguen guardando en el archivo `.gnosi/params.yaml` del vault activo. Las pruebas del primer inicio y del reinicio deben verificar la firma instalada después de salir de la app, ya que un arranque correcto por sí solo no detecta escrituras dentro del paquete.
+
+La imagen Docker del frontend incluye el verificador compartido de recursos PDF que importa Vite y comprueba que se cargue durante la construcción. Esto evita que una imagen construida correctamente falle al iniciar el servidor porque falta el verificador.

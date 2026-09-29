@@ -613,3 +613,5 @@ La candidata `3.2.0` afegeix equips d’assistents i rols especialitzats, compar
 ## Configuració del primer inici empaquetat
 
 Abans de seleccionar un vault, el servei empaquetat desa la configuració i les migracions de referències de proveïdors a `GNOSI_DATA_DIR/config/params.yaml`. Els recursos signats de l’aplicació es mantenen de només lectura; les peticions posteriors continuen desant al fitxer `.gnosi/params.yaml` del vault actiu. Les proves del primer inici i del reinici han de comprovar la firma de la instal·lació després de sortir de l’app, perquè l’arrencada correcta per si sola no detecta escriptures dins del paquet.
+
+La imatge Docker del frontend inclou el verificador compartit dels recursos PDF que importa Vite i comprova que es carregui durant la construcció. Això evita que una imatge construïda correctament falli en arrencar el servidor perquè falta el verificador.

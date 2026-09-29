@@ -639,3 +639,5 @@ La candidate `3.2.0` ajoute des équipes d’assistants et des rôles spécialis
 ## Configuration du premier démarrage empaqueté
 
 Avant la sélection d’un vault, le service empaqueté enregistre la configuration et les migrations de références des fournisseurs dans `GNOSI_DATA_DIR/config/params.yaml`. Les ressources signées de l’application restent en lecture seule ; les requêtes suivantes continuent à enregistrer dans le fichier `.gnosi/params.yaml` du vault actif. Les tests du premier démarrage et du redémarrage doivent vérifier la signature de l’installation après la fermeture de l’app, car un démarrage réussi ne détecte pas à lui seul les écritures dans le paquet.
+
+L’image Docker du frontend inclut le vérificateur partagé des ressources PDF importé par Vite et vérifie son chargement pendant la construction. Cela évite qu’une image construite correctement échoue au démarrage du serveur parce que le vérificateur manque.
