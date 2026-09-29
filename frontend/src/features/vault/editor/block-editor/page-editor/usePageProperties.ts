@@ -1,4 +1,4 @@
-import type { PageProperty, PropertyEntry } from './types';
+import type { PageOption, PageProperty, PropertyEntry } from './types';
 import { isRecord, legacyText } from './valueBoundaries';
 import { INTERNAL_METADATA_KEY_SET } from './internalMetadata';
 import { getPdfSourceUri } from '../media';
@@ -68,14 +68,14 @@ export function usePageProperties(state: Input) {
   // if `config.options` exists it's the fresh value and takes priority; if not,
   // the top level. (Previously the top level was prioritized and an option
   // created inline wouldn't appear because the top level stayed stale.)
-  const getPropOptions = (prop: PageProperty | null) => {
+  const getPropOptions = (prop: PageProperty | null): PageOption[] => {
     if (!prop) return [];
     const configuredReference = prop.config?.catalog_ref;
     const reference = typeof configuredReference === 'string' && configuredReference.trim()
       ? configuredReference.trim()
       : (prop.type === 'status' ? STATUS_CATALOG_REF : '');
     if (reference && Object.prototype.hasOwnProperty.call(sharedOptionCatalogs, reference)) {
-      return normalizeOptions(sharedOptionCatalogs[reference]);
+      return normalizeOptions(sharedOptionCatalogs[reference]).map(option => ({ ...option }));
     }
     // `config.options` always takes precedence when it EXISTS (i.e., is an array), even if
     // it's empty: if the last inline option is deleted, config.options remains []
