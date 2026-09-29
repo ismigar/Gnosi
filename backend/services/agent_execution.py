@@ -23,10 +23,12 @@ from backend.services.agent_execution_models import AgentExecutionSnapshot, Agen
 from backend.services.agent_execution_scope import current_origin, current_scope, execution_scope, revalidate_scope
 from backend.services.agent_operation_catalog import skill_id
 from backend.services.agent_behavior import operation_input, resource, inventory, frozen_resources
+from backend.services.agent_output_repair import OutputRepair, RepairBuilder
 
 _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_execution_snapshot", default=None)
 _tokens: dict[str, str] = {}
 _call_limit: ContextVar[int] = ContextVar("agent_execution_call_limit", default=2)
+_operation_timeout: ContextVar[int] = ContextVar("agent_operation_timeout", default=120)
 _run: ContextVar[str] = ContextVar("agent_execution_run", default="")
 
 
@@ -278,8 +280,20 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         return text
     cleaned = text.strip()
     if cleaned.startswith("```"):
-        cleaned = cleaned.partition("\n")[2].rsplit("```", 1)[0].strip()
-    value = json.loads(cleaned)
+        opening, _, body = cleaned.partition("\n")
+        if opening.lower() in {"```", "```json"} and body.endswith("```"):
+            cleaned = body[:-3].strip()
+    try:
+        value = json.loads(cleaned)
+    except json.JSONDecodeError as error:
+        if error.msg != "Extra data":
+            raise
+        value, end = json.JSONDecoder().raw_decode(cleaned)
+        # Preserve the complete result when the model repeats one root closer.
+        # Never discard a second value, prose, or an incomplete nested payload.
+        closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
+        if not closer or cleaned[end:].strip() != closer:
+            raise
     jsonschema.validate(value, schema)
     return json.dumps(value, ensure_ascii=False)
 
@@ -316,8 +330,44 @@ def _checked_checkpoint(request: AgentOperation, snapshot: AgentExecutionSnapsho
     return cached
 
 
-async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None) -> AgentRun:
+async def _operation_response(application: Any, inputs: dict[str, Any], request: AgentOperation,
+                              previous_text: str, repair_error: str = "") -> str:
+    from backend.services import agent_team_store as team_artifacts
+    if repair_error and team_artifacts.list_artifacts(current_scope(), "plan", _run.get()):
+        from backend.services.agent_team_runtime import repair_output
+        return await repair_output(_run.get(), current_scope(), previous_text, repair_error, request)
+    text = ""
+    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
+        for update in event.values():
+            for message in update.get("messages", []):
+                if getattr(message, "type", "") == "ai":
+                    text = str(message.content)
+    return text
+
+
+async def _operation_application(request: AgentOperation, snapshot: AgentExecutionSnapshot, ai: Any, runtime: Any) -> tuple[Any, Any]:
     from backend.agent.factory import create_agent_workflow
+    workflow, selection = await create_agent_workflow(
+        [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
+        timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
+        vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
+        prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
+        memory_user_id=snapshot.scope.user_id, operation_mode=True,
+        output_schema=request.output_schema,
+    )
+    if workflow is None:
+        raise RuntimeError("principal_agent_model_unavailable")
+    return workflow.compile(), selection
+
+
+def _operation_output(text: str, request: AgentOperation, validator: Callable[[str], str] | None, repair: OutputRepair | None) -> str:
+    if repair is not None:
+        text = _validate_output(repair.restore(text), request.output_schema)
+    return validator(text) if validator is not None else text
+
+
+async def execute_operation(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
+    from backend.domains.agent.team_help import OptionalTeamHelpDeclined
     from backend.services.agent_cancellation import AgentTurnCancelled, create_cancel_token, release, cancel
 
     snapshot, ai, runtime = _operation_context(request, snapshot)
@@ -339,50 +389,50 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     snapshot_token = _snapshot.set(snapshot)
     resource_token = frozen_resources.set(snapshot.behavior_resources)
     call_limit_token = _call_limit.set(8 if team_enabled else request.max_model_calls)
+    timeout_token = _operation_timeout.set(request.timeout_seconds)
     cancel_token = create_cancel_token()
     _tokens[run_id] = cancel_token
     try:
-        workflow, selection = await create_agent_workflow(
-            [], None, agent_id=snapshot.agent_id, user_message=operation_input(request),
-            timeout=request.timeout_seconds, active_skill_ids=snapshot.skill_ids,
-            vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
-            prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
-            memory_user_id=snapshot.scope.user_id, operation_mode=True,
-        )
-        if workflow is None:
-            raise RuntimeError("principal_agent_model_unavailable")
+        application, selection = await _operation_application(request, snapshot, ai, runtime)
         store.update(snapshot.scope, run_id, provider=str(selection.get("provider") or ""), model=str(selection.get("model") or ""))
         messages: list[BaseMessage] = [HumanMessage(content=operation_input(request))]
-        application = workflow.compile()
         deadline = time.monotonic() + request.timeout_seconds
         text = ""
+        partial_repair: OutputRepair | None = None
+        response_schema = request.output_schema
         for attempt in range(request.max_model_calls):
             previous_text = text if attempt else ""
             text = ""
             inputs = {"messages": messages, "cancel_token": cancel_token, "trace_id": run_id,
                       "active_skill_ids": snapshot.skill_ids, "current_user_role": snapshot.scope.role,
-                      "turn_authorized_tool_names": []}
-            async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                if team_enabled and attempt:
-                    from backend.services.agent_team_runtime import repair_output
-                    text = await repair_output(run_id, snapshot.scope, previous_text, str(messages[-1].content), request)
-                else:
-                    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
-                        for update in event.values():
-                            for message in update.get("messages", []):
-                                if getattr(message, "type", "") == "ai":
-                                    text = str(message.content)
+                      "turn_authorized_tool_names": [], "team_help_allowed": attempt == 0}
             try:
-                text = _validate_output(text, request.output_schema)
-                if output_validator is not None:
-                    text = output_validator(text)
+                async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+                    text = await _operation_response(application, inputs, request, previous_text,
+                                                     str(messages[-1].content) if attempt and partial_repair is None else "")
+            except OptionalTeamHelpDeclined as handoff:
+                if attempt + 1 >= request.max_model_calls:
+                    raise
+                messages = [*messages, *handoff.messages]
+                continue
+            try:
+                text = _validate_output(text, response_schema)
+                text = _operation_output(text, request, output_validator, partial_repair)
                 revalidate_scope(snapshot.scope)
                 if store.cancelled(snapshot.scope, run_id) or (row.parent_run_id and store.cancelled(snapshot.scope, row.parent_run_id)):
                     raise AgentTurnCancelled("agent_run_cancelled")
                 return store.update(snapshot.scope, run_id, status="completed", result=text)
             except (ValueError, jsonschema.ValidationError) as validation_error:
-                if attempt + 1 >= request.max_model_calls:
+                if attempt + 1 >= request.max_model_calls or partial_repair is not None:
                     raise
+                partial_repair = output_repair(text, validation_error) if output_repair is not None else None
+                if partial_repair is not None:
+                    response_schema = partial_repair.output_schema
+                    repair_request = request.model_copy(update={"input": partial_repair.input, "output_schema": partial_repair.output_schema})
+                    async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+                        application, _ = await _operation_application(repair_request, snapshot, ai, runtime)
+                    messages = [HumanMessage(content=operation_input(repair_request))]
+                    continue
                 repair = snapshot.behavior_resources.get("system/repair.md", resource("system/repair.md"))
                 messages = [*messages, AIMessage(content=text), HumanMessage(content=repair + "\n" + json.dumps({"validation_error": str(validation_error)}, ensure_ascii=False))]
         raise RuntimeError("agent_invalid_result")
@@ -397,17 +447,18 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         _tokens.pop(run_id, None)
         release(cancel_token)
         _call_limit.reset(call_limit_token)
+        _operation_timeout.reset(timeout_token)
         _snapshot.reset(snapshot_token)
         frozen_resources.reset(resource_token)
         _run.reset(run_token)
 
 
-def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None) -> AgentRun:
+def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None = None, output_validator: Callable[[str], str] | None = None, output_repair: RepairBuilder | None = None) -> AgentRun:
     # Sync services run in worker threads. Reject accidental event-loop blocking.
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator))
+        return asyncio.run(execute_operation(request, snapshot=snapshot, output_validator=output_validator, output_repair=output_repair))
     raise RuntimeError("Use execute_operation from asynchronous handlers")
 
 
@@ -459,7 +510,8 @@ async def resume_run(run_id: str) -> AgentRun:
     scope = current_scope()
     revalidate_scope(scope)
     request_data, snapshot_data = store.resume_data(scope, run_id)
-    if snapshot_data.get("profile", {}).get("team", {}).get("enabled"):
+    from backend.services import agent_team_store as team_artifacts
+    if team_artifacts.list_artifacts(scope, "help", run_id) or team_artifacts.list_artifacts(scope, "plan", run_id):
         from backend.services.agent_team_resume import resume_team
         return await resume_team(run_id, request_data, AgentExecutionSnapshot.model_validate(snapshot_data))
     if request_data.get("mode") == "job":
@@ -483,7 +535,7 @@ async def resume_run(run_id: str) -> AgentRun:
             store.update(scope, run_id, status="failed", error=str(error))
             raise
         return store.read(scope, run_id)
-    request = AgentOperation.model_validate(request_data)
+    request = AgentOperation.model_validate({key: value for key, value in request_data.items() if key not in {"max_calls", "checkpoint_key"}})
     snapshot = AgentExecutionSnapshot.model_validate(snapshot_data)
     if snapshot.scope != scope:
         raise PermissionError("agent_execution_scope_changed")

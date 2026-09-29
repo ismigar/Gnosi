@@ -3,7 +3,7 @@ import { createServer, IncomingMessage, ServerResponse, type Server } from 'node
 import { Socket } from 'node:net';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   build, loadConfigFromFile, preview,
@@ -153,6 +153,13 @@ it('serves real hashed Vite output with immutable 200/304 while HTML, API, misse
   writeFileSync(join(root, 'style.css'), 'body { color: rgb(10, 20, 30); }');
   mkdirSync(join(root, 'public'));
   writeFileSync(join(root, 'public/plain.js'), 'public fixture');
+  for (const file of ['host.html', 'reader.js', 'reader.css', 'pdf/build/pdf.mjs',
+    'pdf/build/pdf.worker.mjs', 'pdf/web/viewer.html', 'pdf/web/viewer.css',
+    'locales/en-US/zotero.ftl', 'locales/en-US/reader.ftl']) {
+    const target = join(root, 'public/zotero-reader', file);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, 'reader fixture');
+  }
   const buildOptions = {
     configFile: configPath, configLoader: 'native' as const, root, envFile: false as const,
     logLevel: 'silent' as const, base: '/fixture/',

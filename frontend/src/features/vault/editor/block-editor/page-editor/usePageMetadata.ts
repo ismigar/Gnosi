@@ -1,3 +1,4 @@
+import { isPagePropertyReadOnly, namedPropertyMetadata } from './propertyModel';
 import type { ChangeEvent } from 'react';
 import type { PageMetadata, PagePatch, SaveMetadataOptions } from './types';
 import { relationInput } from './valueBoundaries';
@@ -11,9 +12,9 @@ import { useCallback } from 'react';
 import { useEffect } from 'react';
 import { withoutRelationValue } from '../../../properties/relationItemUtils';
 import type { usePageEditorState } from './usePageEditorState';
-type Input = Pick<ReturnType<typeof usePageEditorState>, 'noteFilename' | 'metaSaveInFlightRef' | 'pendingMetaRef' | 'pendingRemoveKeysRef' | 'setSaveStatus' | 't' | 'metadata' | 'onUpdate' | 'metadataRef' | 'metaSaveTimerRef' | 'setMetadata' | 'onUpdatePageMetadata'>;
+type Input = Pick<ReturnType<typeof usePageEditorState>, 'allTables' | 'isEditor' | 'noteFilename' | 'metaSaveInFlightRef' | 'pendingMetaRef' | 'pendingRemoveKeysRef' | 'setSaveStatus' | 't' | 'metadata' | 'onUpdate' | 'metadataRef' | 'metaSaveTimerRef' | 'setMetadata' | 'onUpdatePageMetadata'>;
 export function usePageMetadata(state: Input) {
-  const { noteFilename, metaSaveInFlightRef, pendingMetaRef, pendingRemoveKeysRef, setSaveStatus, t, metadata, onUpdate, metadataRef, metaSaveTimerRef, setMetadata, onUpdatePageMetadata } = state;
+  const { allTables, isEditor, noteFilename, metaSaveInFlightRef, pendingMetaRef, pendingRemoveKeysRef, setSaveStatus, t, metadata, onUpdate, metadataRef, metaSaveTimerRef, setMetadata, onUpdatePageMetadata } = state;
 
   const _doSaveMetadata = useCallback(async function saveMetadata(currentMetadata: PageMetadata, removeKeys: string[] | null = null): Promise<boolean> {
     if (!noteFilename) return false;
@@ -110,7 +111,14 @@ export function usePageMetadata(state: Input) {
   };
 
   const handleMetaChange = (key: string, value: unknown) => {
-    const nextMeta = { ...metadata, [key]: value };
+    if (!isEditor) return;
+    const currentMetadata = metadataRef.current;
+    const tableId = currentMetadata.table_id || currentMetadata.database_table_id || currentMetadata.resolved_table_id;
+    const properties = allTables.find(table => table.id === tableId)?.properties || [];
+    const property = properties.find(prop => prop.name === key || prop.id === key);
+    if (property && isPagePropertyReadOnly(property)) return;
+    const nextMeta = { ...namedPropertyMetadata(currentMetadata, properties), [property?.name || key]: value };
+    metadataRef.current = nextMeta;
     setMetadata(nextMeta);
     // Icon and cover are discrete actions (a single click): skip the
     // debounce and immediately updates the sidebar with an optimistic patch
@@ -123,7 +131,13 @@ export function usePageMetadata(state: Input) {
   };
 
   const handleRelationRemove = useCallback(async (key: string, relationId: string, relatedMap?: Readonly<Record<string, string>>) => {
-    const previousMetadata = metadataRef.current;
+    if (!isEditor) return false;
+    const rawMetadata = metadataRef.current;
+    const tableId = rawMetadata.table_id || rawMetadata.database_table_id || rawMetadata.resolved_table_id;
+    const properties = allTables.find(table => table.id === tableId)?.properties || [];
+    const property = properties.find(prop => prop.name === key || prop.id === key);
+    if (property && isPagePropertyReadOnly(property)) return false;
+    const previousMetadata = namedPropertyMetadata(rawMetadata, properties);
     const previousValue = normalizeRelationValues(relationInput(previousMetadata[key]));
     const nextValue = withoutRelationValue(previousValue, relationId);
     if (nextValue.length === previousValue.length) return false;
@@ -153,7 +167,7 @@ export function usePageMetadata(state: Input) {
       nextValue,
     });
     return true;
-  }, [_doSaveMetadata, metaSaveTimerRef, metadataRef, noteFilename, setMetadata]);
+  }, [_doSaveMetadata, allTables, isEditor, metaSaveTimerRef, metadataRef, noteFilename, setMetadata]);
 
 
   useEffect(() => {
@@ -174,6 +188,27 @@ export function usePageMetadata(state: Input) {
   // Removing a property is a structural change → save immediately so the
   // server-side state can never have a "stale" property removed only
   // locally if the user navigates away within 600ms.
-  const handleRemoveProperty = (key: string) => { const { [key]: _removed, ...nextMeta } = metadata; setMetadata(nextMeta); handleSaveMetadata(nextMeta, { immediate: true, removeKeys: [key] }); };
+  const handleRemoveProperty = async (key: string): Promise<boolean> => {
+    if (!isEditor) return false;
+    // Serialize removals so a queued metadata edit cannot drop their explicit keys.
+    while (metaSaveInFlightRef.current) await metaSaveInFlightRef.current;
+    const previous = metadataRef.current;
+    if (!Object.hasOwn(previous, key)) return false;
+    const tableId = previous.table_id || previous.database_table_id || previous.resolved_table_id;
+    const schema = allTables.find(table => table.id === tableId)?.properties || [];
+    if (schema.some(prop => prop.name === key || prop.id === key)) return false;
+    if (metaSaveTimerRef.current) clearTimeout(metaSaveTimerRef.current);
+    metaSaveTimerRef.current = null;
+    const { [key]: removed, ...nextMeta } = previous;
+    metadataRef.current = nextMeta;
+    setMetadata(nextMeta);
+    const saved = await _doSaveMetadata(nextMeta, [key]);
+    if (!saved && !Object.hasOwn(metadataRef.current, key)) {
+      const restored = { ...metadataRef.current, [key]: removed };
+      metadataRef.current = restored;
+      setMetadata(restored);
+    }
+    return saved;
+  };
   return { _doSaveMetadata, handleSaveMetadata, handleTitleChange, handleMetaChange, handleRelationRemove, handleRemoveProperty };
 }

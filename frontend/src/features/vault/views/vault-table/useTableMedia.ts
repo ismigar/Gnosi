@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { parseVaultResourceValue } from '../../../../shared/resources/parseVaultResourceValue';
 import { canonicalStorageFolder, getImageSrc, isImageFieldName, parseImageField, withActiveVault } from '../../../../shared/resources/fileResource';
 import { toast } from '../../../../shared/notifications/toast';
 import { transportFetch } from '../../../../shared/api/transports';
@@ -88,31 +89,8 @@ export function useTableMedia({
 
     return '';
   }, [toImagePreviewUrl]);
-  const parseResourceValue = useCallback((rawValue: unknown) => {
-    if (rawValue === undefined || rawValue === null) return null;
-    const text = displayString(rawValue).trim();
-    if (!text) return null;
-
-    const markdownMatch = text.match(/\(([^)]+)\)/);
-    const candidate = markdownMatch ? (markdownMatch[1] ?? '').trim() : text;
-
-    if (candidate.startsWith('zotero://')) {
-      return { zotero_uri: candidate, file_path: null, attachments: null };
-    }
-
-    if (candidate.startsWith('file://')) {
-      return { zotero_uri: null, file_path: candidate, attachments: null };
-    }
-
-    const embeddedZotero = candidate.match(/zotero:\/\/\S+/i);
-    if (embeddedZotero?.[0]) {
-      return { zotero_uri: embeddedZotero[0], file_path: null, attachments: null };
-    }
-
-    return { zotero_uri: null, file_path: candidate, attachments: null };
-  }, []);
   const handleOpenZoteroValue = useCallback(async (rawValue: unknown) => {
-    const payload = parseResourceValue(rawValue);
+    const payload = parseVaultResourceValue(rawValue);
     if (!payload || (!payload.zotero_uri && !payload.file_path)) {
       toast.error(t('table.zotero_empty_error'));
       return;
@@ -133,7 +111,7 @@ export function useTableMedia({
       const message = error instanceof Error ? error.message : t('table.zotero_open_error');
       toast.error(message);
     }
-  }, [parseResourceValue, t]);
+  }, [t]);
   const getRelationContext = (field: string) => {
     const config = getTableFieldConfig(schema, field);
     const relatedTableId = config.relation_database_id;

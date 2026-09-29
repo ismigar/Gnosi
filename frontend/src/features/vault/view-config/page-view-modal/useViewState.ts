@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ViewHeightMode } from '../../../../shared/records/model/viewHeight';
 import { configValue } from '../../../genograms';
 import { emptyFilterTree } from './filter-tree';
 import type { ModalInput } from './useViewController';
@@ -47,6 +48,8 @@ export function useViewState({
     // View-type-specific options (gallery/kanban/calendar/timeline).
     // They are saved to the view and the renderer honors them; views that are not of the
     // corresponding type simply ignore them.
+    const [heightMode, setHeightMode] = useState<ViewHeightMode>();
+    const [heightPercent, setHeightPercent] = useState(70);
     const [cardSize, setCardSize] = useState('medium');
     const [galleryPreview, setGalleryPreview] = useState('cover');
     const [coverField, setCoverField] = useState('');
@@ -74,6 +77,8 @@ export function useViewState({
     const [aggregation, setAggregation] = useState('count');
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [error, setError] = useState('');
+    const [viewLoadStatus, setViewLoadStatus] = useState<'ready' | 'loading' | 'error'>('ready');
+    const [viewLoadRetryKey, setViewLoadRetryKey] = useState(0);
     // Views saved on the selected table — the user can choose one when
     // stead of having to configure everything from scratch.
     const [existingViews, setExistingViews] = useState<RegistryView[]>([]);
@@ -107,7 +112,7 @@ export function useViewState({
         discoveredByTable, setDiscoveredByTable, viewType, setViewType,
         filterTree, setFilterTree, sorts, setSorts,
         resultSnapshot, setResultSnapshot, resultSnapshotLimit, setResultSnapshotLimit,
-        cardSize, setCardSize, galleryPreview, setGalleryPreview,
+        heightMode, setHeightMode, heightPercent, setHeightPercent, cardSize, setCardSize, galleryPreview, setGalleryPreview,
         coverField, setCoverField, imageFit, setImageFit,
         groupBy, setGroupBy, groupSort, setGroupSort,
         groupSortDir, setGroupSortDir, dateField, setDateField,
@@ -118,7 +123,7 @@ export function useViewState({
         summaryModels, setSummaryModels, chartType, setChartType,
         xField, setXField, yField, setYField,
         genogram, setGenogram, aggregation, setAggregation, saveToTableViews, setSaveToTableViews,
-        error, setError, existingViews, setExistingViews,
+        error, setError, viewLoadStatus, setViewLoadStatus, viewLoadRetryKey, setViewLoadRetryKey, existingViews, setExistingViews,
         selectedExistingViewId, setSelectedExistingViewId, existingViewsStatus, setExistingViewsStatus,
         existingViewsTableId, setExistingViewsTableId, existingViewsReloadKey, setExistingViewsReloadKey,
         viewUsage, setViewUsage, editScope, setEditScope,

@@ -52,3 +52,19 @@ test('Scroll respects focus, activation, composites, modifiers and reduced motio
  vi.stubGlobal('matchMedia', () => ({matches: true})); press(panel, 'ArrowDown'); expect(scroll).toHaveBeenCalledExactlyOnceWith({top: 80, behavior: 'auto'});
  const handled = new KeyboardEvent('keydown', {key: 'ArrowDown', bubbles: true, cancelable: true}); handled.preventDefault(); panel.dispatchEvent(handled); expect(scroll).toHaveBeenCalledOnce();
 });
+test('Vertical navigation scrolls from standalone toggles while activation and editing keep their keys', () => {
+ function Panel() { const ref = useRef<HTMLDivElement>(null); useKeyboardScroll(ref); return <div ref={ref}><button role="switch" aria-checked="false">Switch</button><button role="checkbox" aria-checked="false">Checkbox</button><input/><textarea/><select><option>Choice</option></select></div>; }
+ act(() => { root.render(<Panel/>); });
+ const panel = host.firstElementChild as HTMLElement, scroll = vi.fn(); panel.scrollBy = scroll; panel.scrollTo = scroll;
+ for (const toggle of host.querySelectorAll('button')) {
+  toggle.focus();
+  for (const key of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End']) expect(press(toggle, key).defaultPrevented).toBe(true);
+  expect(press(toggle, ' ').defaultPrevented).toBe(false);
+  expect(press(toggle, 'Enter').defaultPrevented).toBe(false);
+ }
+ expect(scroll).toHaveBeenCalledTimes(12);
+ for (const field of host.querySelectorAll<HTMLElement>('input, textarea, select')) {
+  field.focus(); expect(press(field, 'ArrowDown').defaultPrevented).toBe(false);
+ }
+ expect(scroll).toHaveBeenCalledTimes(12);
+});

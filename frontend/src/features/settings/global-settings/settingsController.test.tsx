@@ -152,6 +152,29 @@ afterEach(() => {
 });
 
 describe('settings controller persistence contracts', () => {
+  it('scrolls the form from toggles and focuses reading areas without activating controls', async () => {
+    await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="general" showView />); await Promise.resolve(); });
+    const main = container.querySelector<HTMLElement>('.settings-main');
+    if (!main) throw new Error('Missing settings form');
+    const toggle = document.createElement('button');
+    toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', 'false');
+    const text = document.createElement('p'); text.textContent = 'Explanation';
+    main.append(toggle, text);
+    const press = (key: string) => {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      act(() => { document.activeElement?.dispatchEvent(event); });
+      return event;
+    };
+    toggle.focus();
+    expect(press('ArrowDown').defaultPrevented).toBe(true);
+    expect(main.scrollTop).toBe(40);
+    expect(press(' ').defaultPrevented).toBe(false);
+    act(() => { text.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    expect(document.activeElement).toBe(main);
+    expect(press('ArrowDown').defaultPrevented).toBe(true);
+    expect(main.scrollTop).toBe(80);
+    toggle.remove(); text.remove();
+  });
   it('refreshes the connected account on return from Google while preserving the open form', async () => {
     await mount({ initialTab: 'calendar' });
     act(() => {
@@ -174,14 +197,10 @@ describe('settings controller persistence contracts', () => {
     expect(snapshot().draft).toEqual(draftBefore);
   });
 
-  it('shows the principal first and preserves optional profiles behind advanced settings', async () => {
+  it('shows one list with a principal choice on each profile', async () => {
     await act(async () => { root.render(<Harness isOpen onClose={vi.fn()} initialTab="ai" showAgents />); await Promise.resolve(); });
     act(() => { snapshot().setDraft(previous => ({ ...previous, ai: { ...previous.ai, agents: [...previous.ai.agents, { ...agent, id: 'other-profile', name: 'Other profile' }] } })); });
     expect(container.textContent).toContain('Fixture agent');
-    expect(container.textContent).not.toContain('Other profile');
-    const advanced = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')].find(button => button.textContent.includes('assistant.advanced'));
-    if (!advanced) throw new Error('Missing advanced profiles control');
-    act(() => { advanced.click(); });
     expect(container.textContent).toContain('Other profile');
     const promote = [...container.querySelectorAll('button')].find(button => button.textContent.includes('make_principal'));
     if (!promote) throw new Error('Missing principal selection');

@@ -18,7 +18,7 @@ export function useViewPersistence({
     visiblePropertiesToPersist, resultSnapshot, resultSnapshotLimit, buildViewExtras,
     api, lastSavedViewRef, existingViews, editScope,
     saveToTableViews, heading, headingLevel, pageId,
-    modalPinnedViewIds
+    modalPinnedViewIds, viewLoadStatus
 }: Pick<
     useViewStateResult & ModalInput & useViewSessionResult & useViewFieldsResult & useViewAppearanceResult,
     'sourceTableId'
@@ -50,8 +50,10 @@ export function useViewPersistence({
     | 'headingLevel'
     | 'pageId'
     | 'modalPinnedViewIds'
+    | 'viewLoadStatus'
 >) {
     const persistView: PersistView = async ({ closeAfter = false } = {}) => {
+        if (viewLoadStatus !== 'ready') return null;
         if (!sourceTableId) {
             setError(t('view.error_no_table', "You must select a source table"));
             setActiveTab('general');

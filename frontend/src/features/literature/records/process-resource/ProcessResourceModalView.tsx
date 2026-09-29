@@ -52,7 +52,8 @@ export function ProcessResourceModalView({
     return (
         <div
             aria-modal="true"
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
+            aria-label={translate('modal_title', 'Process resource into the Brain')}
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 font-sans backdrop-blur-sm"
             role="dialog"
         >
             <div
@@ -112,7 +113,7 @@ export function ProcessResourceModalView({
                                 className="text-[var(--gnosi-primary)] animate-spin shrink-0"
                                 size={18}
                             />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <div className="text-sm font-semibold text-[var(--text-primary)]">
                                     {translate(
                                         `phase_${phase.key}`,
@@ -238,7 +239,7 @@ export function ProcessResourceModalView({
                             {t('common.close', 'Close')}
                         </button>
                     ) : null}
-                    {state === 'error' && job?.job_id ? (
+                    {state === 'error' ? (
                         <button
                             className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity"
                             onClick={onStart}
@@ -250,7 +251,7 @@ export function ProcessResourceModalView({
                         <span className="text-xs text-[var(--text-secondary)]/60 self-center">
                             {translate(
                                 'running_hint',
-                                'You can close; it will continue in the background.',
+                                'You can close; follow progress in the corner of the window.',
                             )}
                         </span>
                     ) : null}

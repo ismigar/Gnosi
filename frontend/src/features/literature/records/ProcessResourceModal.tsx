@@ -12,7 +12,7 @@ export type { ProcessResourceModalProps } from './process-resource/processResour
 export function ProcessResourceModal(
     props: ProcessResourceModalProps,
 ) {
-    const { force = false, isOpen, onClose, title } = props;
+    const { force = false, isOpen, title } = props;
     const modalRef = useRef<HTMLDivElement>(null);
     const processState = useProcessResourceController(props);
 
@@ -37,7 +37,7 @@ export function ProcessResourceModal(
             force={force}
             job={processState.job}
             modalRef={modalRef}
-            onCancel={onClose}
+            onCancel={processState.dismiss}
             onDismiss={processState.dismiss}
             onStart={() => {
                 void processState.start();

@@ -156,9 +156,36 @@ export function useVaultGalleryNavigation({
         } else if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
+            let firstCardIndex = 0;
+            for (const [headerIndex, section] of (groupedSections ?? []).entries()) {
+                if (!expandedGroups.has(section.id)) continue;
+                const endCardIndex = firstCardIndex + section.notes.length;
+                if (flatIndex >= firstCardIndex && flatIndex < endCardIndex) {
+                    focusGroupHeaderAt(headerIndex);
+                    setExpandedGroups((current) => {
+                        const next = new Set(current);
+                        next.delete(section.id);
+                        return next;
+                    });
+                    return;
+                }
+                firstCardIndex = endCardIndex;
+            }
             (onFocusShell ?? onExitTop)?.();
         }
-    }, [moveByArrow, onExitTop, onFocusShell, onNoteSelect, openKeyboardPreview]);
+    }, [expandedGroups, focusGroupHeaderAt, groupedSections, moveByArrow, onExitTop, onFocusShell, onNoteSelect, openKeyboardPreview, setExpandedGroups]);
+
+    const focusFirstCardInGroup = useCallback((groupId: string): boolean => {
+        let cardIndex = 0;
+        for (const section of groupedSections ?? []) {
+            if (section.id === groupId) {
+                return expandedGroups.has(groupId) && section.notes.length > 0
+                    && focusCardAt(cardIndex);
+            }
+            if (expandedGroups.has(section.id)) cardIndex += section.notes.length;
+        }
+        return false;
+    }, [expandedGroups, focusCardAt, groupedSections]);
 
     const handleGroupHeaderKeyDown = useCallback((
         event: KeyboardEvent<HTMLButtonElement>,
@@ -172,38 +199,41 @@ export function useVaultGalleryNavigation({
         } else if (event.key === 'ArrowUp') {
             event.preventDefault();
             if (index > 0) focusGroupHeaderAt(index - 1); else onExitTop?.();
-        } else if (event.key === 'ArrowRight' || event.key === 'Enter') {
+        } else if (['ArrowRight', 'Enter', ' ', 'Spacebar'].includes(event.key)) {
             event.preventDefault();
-            const wasExpanded = expandedGroups.has(groupId);
+            event.stopPropagation();
+            if (expandedGroups.has(groupId)) {
+                focusFirstCardInGroup(groupId);
+            } else {
+                pendingEnterGroupRef.current = groupId;
+                setExpandedGroups((current) => new Set(current).add(groupId));
+            }
+        } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            event.stopPropagation();
             setExpandedGroups((current) => {
                 const next = new Set(current);
-                if (wasExpanded) next.delete(groupId); else next.add(groupId);
+                next.delete(groupId);
                 return next;
             });
-            if (!wasExpanded) pendingEnterGroupRef.current = groupId;
         } else if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
             (onFocusShell ?? onExitTop)?.();
         }
-    }, [expandedGroups, focusGroupHeaderAt, onExitTop, onFocusShell, setExpandedGroups]);
+    }, [expandedGroups, focusFirstCardInGroup, focusGroupHeaderAt, onExitTop, onFocusShell, setExpandedGroups]);
 
     useEffect(() => {
         const groupId = pendingEnterGroupRef.current;
-        if (!groupId || !groupedSections) return undefined;
-        let cardIndex = 0;
-        for (const section of groupedSections) {
-            if (section.id === groupId) break;
-            if (expandedGroups.has(section.id)) cardIndex += section.notes.length;
-        }
-        pendingEnterGroupRef.current = null;
+        if (!groupId || !expandedGroups.has(groupId)) return undefined;
         const frame = requestAnimationFrame(() => {
-            focusCardAt(cardIndex);
+            pendingEnterGroupRef.current = null;
+            focusFirstCardInGroup(groupId);
         });
         return () => {
             cancelAnimationFrame(frame);
         };
-    }, [expandedGroups, focusCardAt, groupedSections]);
+    }, [expandedGroups, focusFirstCardInGroup]);
 
     return {
         cardRefs,

@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
+  - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/agent/team_help.py
+  - backend/services/agent_team_runtime.py
+  - backend/tests/test_agent_team.py
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +83,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1070,7 +1078,7 @@ Conversation checkpoint ownership remains in `agent_id` and `session_id`. The op
 
 ## Plugin profiles
 
-Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.
+Each AI plugin declares an editable profile and the skills its actions use. Settings → Plugins → AI → Assistants shows one list of personal and plugin profiles, with one primary profile selected on its card. An explicitly selected, enabled plugin profile can be primary while preserving plugin ownership and skill assignments. Existing conversations and plugin actions retain their own profiles. Disabled, suspended or retired profiles fail explicitly when selected as primary. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.
 
 
 ## Indicative score — weighted_catalog_v1
@@ -1106,3 +1114,58 @@ Provider context and capabilities are displayed per route, including input/outpu
 Registry matching uses exact provider/model routes, never names or substrings. Active-state filtering and aliases respect the selected provider. Director and all-rounder filters exclude routes declaring no tool support. Activation retains every distinct provider/model offer and probes the selected route. Comparison edits are serialized and re-read the persisted registry before saving, preserving intervening model and budget changes. Restoring cached metrics recalculates role assessments against the restored feed.
 
 Comparison writes include an optimistic registry revision; a stale writer receives HTTP 409 instead of overwriting another window’s changes. Explicit Refresh bypasses the benchmark and provider catalog caches, retaining fallback provenance on failure. Benchmark variants sharing an executable route remain informative views of one offer: activation and aliases apply to the shared offer, and the setup explains that it does not configure reasoning options or reproduce benchmark conditions. Unrated means no numeric role score; known limitations and below-threshold scores retain distinct labels. Compact context previews show the largest window; each price preview shows the minimum for that column, matching sorting. Sort headers expose aria-sort, filtered result counts are announced, and parameter inspection prepopulates existing evidence without reporting a saved change.
+
+
+## Assistant settings and team participation
+
+One always-visible card per profile contains its configuration, the explicit primary selection, and team participation. The primary coordinates the team; other profiles independently receive assignments, request help, do both, or work alone. Changing the primary transfers the existing team state and removes the new primary from executor routes. It does not create another agent or silently enable a disabled team.
+
+Complete participation, direct-route and temporary-policy changes save automatically. Incomplete changes remain local, explain what is missing, and never replace the last complete saved configuration. Removing the last receiver disables collaboration and request permissions. Named independent switches support multiple model, skill and route selections; empty receiver lists explain how to add recipients. Coordination is added only while enabling a team. Profile editing merges the latest team state to avoid overwriting simultaneous participation changes.
+
+The settings reading area accepts keyboard focus. Scrolling keys work from text and standalone toggles while editable fields, selectors and composite widgets retain their own keyboard interactions.
+
+## Model recommendations and plugin lifecycle
+
+Each visible assistant card derives an advisory model role from its principal status, built-in plugin operations, known assigned skills (including customized derivatives), team specialties and explicit task routes. The most demanding recognized role wins; unknown tasks use All-rounder guidance. This never changes the assigned route, grants a capability or treats the recommendation as a measured model score. Labels and reasons use the four UI locales.
+
+Plugin suspension remains authoritative on the server and blocks execution. A successful lifecycle mutation invalidates configuration caches and notifies settings and chat. Settings merge only plugin lifecycle fields and newly created owned profiles, preserving local instructions and model edits. Suspended plugin profiles are hidden rather than deleted; active team membership and routes are pruned and collaboration stops when the principal or last receiver is suspended. A suspended principal produces an explicit selection prompt, without silently replacing the configured principal or existing conversations. Late refreshes after closing settings or changing vaults are discarded.
+
+## Reasoning effort
+
+Profiles persist optional `reasoning_effort`. The editor discovers exact OpenRouter model choices through `GET /api/ai/model-reasoning`; absent metadata exposes no choices, explicit null accepts the gateway effort set, and mandatory reasoning excludes `none`. Metadata is cached outside the vault, with a verified Luna fallback for offline first use. Settings validation rejects unsupported choices. The default-model and workflow factories forward effort only when the selected provider/model matches the profile. Explicit OpenRouter reasoning, and Luna’s default reasoning, use stateless Responses with `store=false`, full history and encrypted reasoning across tool calls. Other model defaults are unchanged.
+
+## Optional team help
+
+Team permission no longer intercepts every workflow. The factory resolves the selected profile’s own model first, including its reasoning setting, then offers `request_team_help` as an optional control call in chat and structured operations. Native function calling and validated JSON transport use the same contract. Ordinary work adds no routing call. A handoff must be the only tool call and must precede tool execution; format repair cannot request help. The bounded coordinator reuses the current turn input, snapshots, confirmation grants, cancellation and total-call limits. Executors cannot request nested help or route an assignment back to its requester. Member specialties are included in the planning catalog. Repair and resumption enter team handling only when a saved handoff or plan exists; otherwise they retain the original assistant. No team permissions are enabled by migration.
+
+Read-only reasoning metadata lives in `backend/domains/configuration/ai/model_metadata_routes.py`; the AI settings router includes it under the unchanged `/api/ai/model-reasoning` path and public contract. This keeps the main router within the project source-size guardrail.
+
+## Background resource progress
+
+Closing the processing dialog leaves a compact, nonmodal progress card in the lower-right corner. It shows the resource title, phase, fragment count and available progress, and reopens details without starting a second job. The application-level task store owns pending starts and non-overlapping polling, so both table actions and open-resource actions survive page navigation. Completed or interrupted results remain until dismissed; retry resumes saved work. The monitor resets on Vault or account changes and ignores stale responses. This frontend session state is not persisted across application reloads.
+
+## Structured operation output
+
+OpenRouter structured operations send their output contract to the provider, with strict schema mode for detailed contracts and JSON-object mode for generic objects. Routing requires parameter support and preserves existing provider preferences and reasoning settings. Optional native tools use strict function contracts; fallback JSON tools constrain their outer envelope and validate the extracted answer locally. Other providers retain local validation. Directed source reading forwards its action schema, including the explicit action type.
+
+Provider acceptance is not proof of compliance: local schema and domain validation remain mandatory, with the existing bounded repair attempt. A complete JSON object or array followed only by one repeated root closing delimiter can be recovered without changing any field; extra values, prose, mismatched closers and incomplete content are rejected. Citation matching, source coverage and note validation are unchanged. Structural validity does not guarantee factual accuracy or identical wording between runs.
+
+If an optional team planner rejects the context before any model call or assignment, a structured operation can continue on its original model within the same deadline and call limit. The full request and resolved help call are retained; the declined handoff remains auditable and does not redirect resumption into the failed team phase. Permission failures, cancellation and failures after a plan exists still stop execution. Resuming interrupted resource processing from the page toolbar uses saved progress, including after an application reload, rather than forcing a new run.
+
+Team planning and replanning validate executors, ordered dependencies and the result task before completing the planning phase or starting assignments. Domain errors participate in the canonical repair loop, with at most two planning calls within the existing total budget. A second invalid response fails the phase without executing its assignments. Completed cached plans are also validated before reuse.
+
+Directed reading constrains each action payload, including nested notes, coverage and citations. It validates source references, complete coverage and exact quotations before accepting or caching an action, so one bounded repair keeps the original evidence and rejected answer together. Validation previews do not modify reading state. Every step carries exact chunk identifiers and primary-segment counts, and a step identity prevents an identical response from being reused across distinct iterations.
+
+Team phases inherit the enclosing operation timeout while remaining inside its existing deadline. A delegated repair receives the original input and data alongside the rejected output and validation error, so it can check evidence rather than repairing an isolated answer.
+
+Reading validation reports independent coverage and citation errors together, identifying note and citation positions without echoing source text. The single permitted repair can therefore correct all known inconsistencies against the original evidence, rather than discovering only the next error after each attempt. Invalid plans never advance reading state.
+
+Reference repairs for directed reading return a schema-constrained patch for rejected notes and coverage. The original request, global memory, affected notes and original reference passages remain available. Only enumerated reference fields can change; note titles, bodies, order and unrelated fields are copied unchanged from the draft. Duplicate, missing and unauthorized patch paths fail locally. The original profile performs this repair within the reading step’s limit of three model calls and its original deadline, without further delegation. The restored action must pass the original schema and complete evidence validation before it can be cached or saved.
+
+Before any handoff work starts, invalid or repeated help calls in a structured operation are rejected together. Their tool-call records are resolved as unexecuted, and the original assistant can answer directly using the full request within the existing repair allowance and deadline. No team assignment or mixed tool call executes. A reading step also carries the read and saved status of each listed source chunk, including after resumption, so counts cannot hide which plans remain pending.
+
+Long-source reading retains the longer bounded timeout during later action selection, recalled-plan review and resumption, even when the current request is short. The source size determines the work allowance; input context limits, finite retry budgets, cancellation and validation are unchanged.
+
+Each directed reading step exposes the current saved-plan review flags and note counts, alongside the action and chunk that produced its last result. These persisted progress facts take precedence over conflicting claims in the model’s working memory; the memory itself remains unchanged and carries its recorded step when available. A review flag records the reader’s declaration, not semantic correctness. Older checkpoints remain resumable. Reading steps allow at most three model calls so a JSON syntax correction can still be followed by one reference-only repair, without extending the operation deadline or permitting another delegation. A failed reference patch stops the step without saving the invalid plan.
+
+Reading-note property rules remain in the Brain plugin configuration: copy a source field, use a fixed value, infer with AI, or leave empty. The skill classifies each note only against the supplied existing labels. Every AI-configured field is explicit in the provider action schema and must appear in each note; both reading paths reject omissions, unknown fields, invented values and multiple values in a single-value field before writing. An explicit empty list remains valid when evidence supports no category. The application resolves labels and applies source/fixed mappings. Installing this correction does not reclassify existing notes. Configured Tags ignore the legacy free-form tag list, including when classification explicitly abstains or a copied source value is empty.

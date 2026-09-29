@@ -4,7 +4,7 @@ import { reportEmbedError } from './diagnostics';
 import type { EmbedInputs } from './inputs';
 import type { EmbedDerived } from './useEmbedDerived';
 import type { Metadata, EmbedRow } from './types';
-export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, headingProp, headingLevelProp, reload }: EmbedInputs & EmbedDerived & { reload: () => void ;}) {
+export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, effectiveView, headingProp, headingLevelProp, reload }: EmbedInputs & EmbedDerived & { reload: () => void ;}) {
     const { onOpenPage, onOpenPageViewModal } = ctx;
     const isCreatingRef = useRef(false);
     const handleCreate = useCallback(async (extra: Metadata = {}, template: EmbedRow | null = null) => {
@@ -55,7 +55,7 @@ export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, headi
         const sectionVid = block?.props?.view_id || '';
         if (!activeViewId || activeViewId === sectionVid) {
             // The active tab is the section's view → the block's config as-is.
-            onOpenPageViewModal(tableId, block);
+            onOpenPageViewModal(tableId, { ...block, view: effectiveView });
         } else {
             // Config for the ACTIVE tab's view: we pass an editingBlock
             // synthetic one with its view_id. When saving, PageViewModal updates
@@ -63,10 +63,11 @@ export function useEmbedRecordActions({ ctx, tableId, block, activeViewId, headi
             // shows the view you configured).
             onOpenPageViewModal(tableId, {
                 id: block?.id,
+                view: effectiveView,
                 props: { view_id: activeViewId, heading: headingProp || '', heading_level: headingLevelProp || 1 },
             });
         }
-    }, [onOpenPageViewModal, tableId, block, activeViewId, headingProp, headingLevelProp]);
+    }, [onOpenPageViewModal, tableId, block, activeViewId, effectiveView, headingProp, headingLevelProp]);
     return { handleCreate, handleOpenConfig };
 }
 export type EmbedRecordActions = ReturnType<typeof useEmbedRecordActions>;

@@ -9,6 +9,8 @@ import { updatePluginSettings } from '../api/plugin-runtime';
 import { subscribeAppEvent } from '../platform/app-events';
 import { getActiveVaultId } from '../api/vault-context';
 import { GnosiApiError } from '../api/errors';
+import { invalidateConfigurationCache } from '../api/configuration';
+import { emitConfigChanged } from '../platform/configEvents';
 
 import { BUILTIN_PLUGINS } from './registry';
 import type { BuiltinPluginDefinition } from './registry';
@@ -207,7 +209,11 @@ export function usePlugins(): PluginsState {
             confirm_dependencies: options.confirmDependencies === true,
             confirm_disable: options.confirmDisable === true,
         });
-        if (_isCurrentVault(generation, vaultId)) _apply(payload);
+        if (_isCurrentVault(generation, vaultId)) {
+            _apply(payload);
+            await invalidateConfigurationCache();
+            if (_isCurrentVault(generation, vaultId)) emitConfigChanged();
+        }
         return payload;
     }, []);
 

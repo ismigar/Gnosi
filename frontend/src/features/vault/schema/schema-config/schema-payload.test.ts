@@ -43,14 +43,14 @@ describe('schema configuration persistence contracts', () => {
     it('round-trips rollup, relation, virtual, period, file and display-format payloads', () => {
         const schema = {
             Links: 'relation', Links_config: { id: 'fld_00000001', relation_database_id: 'other', cardinality: 'many-to-one' },
-            Total: 'rollup', Total_config: { id: 'fld_00000002', relationField: 'Links', targetProperty: 'Cost', aggregation: 'sum', limit: 4, fallbackValue: 'none' },
+            Total: 'rollup', Total_config: { id: 'fld_00000002', relationField: 'Links', targetProperty: 'Cost', aggregation: 'sum', format: { display: 'bar' }, limit: 4, fallbackValue: 'none' },
             Count: 'rollup', Count_config: { id: 'fld_00000003', relationField: 'Links', aggregation: 'count_all' },
             File: 'files', File_config: { id: 'fld_00000004', file_mode: 'upload', storage_folder: 'library', name_pattern: '{Title}' },
-            Price: 'number', Price_config: { id: 'fld_00000005', format: { kind: 'currency', decimals: 2, currency: 'EUR (€)' } },
+            Price: 'number', Price_config: { id: 'fld_00000005', format: { kind: 'currency', display: 'number', decimals: 2, currency: 'EUR (€)' } },
             Day: 'date', Day_config: { id: 'fld_00000006', format: { dateFormat: 'YYYY-MM-DD' } },
             Period: 'period', Period_config: { id: 'fld_00000007', duration_enabled: false, predecessors_enabled: true, skip_non_working_days: false, period_unit: 'hours' },
             Derived: 'virtual', Derived_config: { id: 'fld_00000008', compute: 'graph.degree' },
-            Formula: 'formula', Formula_config: { id: 'fld_00000009', formula: '{Price} * 2', defaultFormula: 'today()' },
+            Formula: 'formula', Formula_config: { id: 'fld_00000009', formula: '{Price} * 2', defaultFormula: 'today()', format: { kind: 'percent', display: 'ring', progressMax: 1 } },
         };
         expect(buildPayload(hydrateFields(schema, null), false).newSchemaObj).toEqual(schema);
     });

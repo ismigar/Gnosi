@@ -47,8 +47,10 @@ describe('legacy property value boundaries', () => {
     expect(() => coercePageProperty('other', 'select', { options: [{ name: 'rich' }] })).toThrow(TypeError);
   });
   it('keeps primitive display coercion and relation normalization input', () => {
-    expect(inputValue(0)).toBe('');
-    expect(inputValue(false)).toBe('');
+    expect(inputValue(0)).toBe(0);
+    expect(inputValue(false)).toBe('false');
+    expect(inputValue(null)).toBe('');
+    expect(inputValue(undefined)).toBe('');
     expect(inputValue({ custom: true })).toBe('[object Object]');
     expect(relationInput(['page', 7, null])).toEqual(['page', 7, null]);
     expect(previewTitle({ title: ' Fixture ' })).toBe('Fixture');

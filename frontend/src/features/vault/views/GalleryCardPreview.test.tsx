@@ -74,6 +74,15 @@ async function render(element: ReactElement): Promise<HTMLDivElement> {
 }
 
 describe('GalleryCardPreview', () => {
+    it('lets full-width text grow with the page instead of adding a nested vertical scroller', async () => {
+        const content = 'A complete paragraph for continuous reading.';
+        const container = await render(<GalleryContentPreview scrollMode="page" note={{ content }} />);
+        const preview = container.querySelector('[data-gallery-content-source]');
+        expect(preview?.textContent).toContain(content);
+        expect(preview?.classList.contains('h-full')).toBe(false);
+        expect(preview?.classList.contains('overflow-y-auto')).toBe(false);
+        expect(preview?.classList.contains('overscroll-contain')).toBe(false);
+    });
     it('reads opaque Markdown with native coercion while preserving metadata and failures', () => {
         const content = { prefix: 'Native', toString() { return `${this.prefix} content`; } };
         const metadata: Record<string, unknown> = { description: content };

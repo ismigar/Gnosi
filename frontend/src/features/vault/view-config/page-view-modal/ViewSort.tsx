@@ -63,6 +63,9 @@ export function ViewSort({
                                         value={s.field}
                                         onChange={e => { updateSort(idx, { field: e.target.value }); }}
                                     >
+                                        {s.field && !sortedTableFields.some(tf => tf.name === s.field) && (
+                                            <option value={s.field}>{fieldLabel(s.field)}</option>
+                                        )}
                                         {sortedTableFields.map(tf => (
                                             <option key={tf.name} value={tf.name}>{tf.displayName || fieldLabel(tf.name)}</option>
                                         ))}

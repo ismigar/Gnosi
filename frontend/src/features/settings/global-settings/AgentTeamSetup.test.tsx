@@ -12,27 +12,24 @@ const agents = [{ id: 'd', name: 'director', model: 'large', persona: 'Original'
 beforeEach(() => {
     vi.clearAllMocks(); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     host = document.createElement('div'); root = createRoot(host);
-    act(() => { root.render(<AgentTeamSetup agents={agents} principalId="d" registry={[]} onApply={apply} />); });
+    act(() => { root.render(<AgentTeamSetup agents={agents} principalId="d" registry={[]} onChange={apply} />); });
 });
 afterEach(() => { act(() => { root.unmount(); }); vi.unstubAllGlobals(); });
-function click(text: string) {
-    const button = [...host.querySelectorAll('button')].find(item => item.textContent === text);
-    expect(button).toBeDefined(); act(() => { button?.click(); });
-}
-it('reviews three steps before changing the draft and keeps agent settings', () => {
-    click('agent_team.setup');
-    const member = host.querySelector<HTMLElement>('[aria-label="agent_team.member:worker"]');
-    expect(member).not.toBeNull(); act(() => { member?.click(); });
-    click('agent_team.next'); click('agent_team.next');
+it('configures participation in one card without mandatory advanced steps and keeps agent settings', () => {
+    const member = host.querySelector<HTMLSelectElement>('[aria-label="agent_team.participation_for:worker"]');
+    expect(member).not.toBeNull(); act(() => { if (member) { member.value = 'member'; member.dispatchEvent(new Event('change', { bubbles: true })); } });
+    expect(host.querySelector('details')?.open).toBe(false);
+    expect(host.textContent).not.toContain('agent_team.entrypoints');
     expect(host.textContent).toContain('agent_team.review_help');
-    expect(apply).not.toHaveBeenCalled();
-    click('agent_team.apply');
+    expect(host.textContent).not.toContain('agent_team.apply');
+    expect(host.querySelector('section')).not.toBeNull();
     expect(apply).toHaveBeenCalledOnce();
     const updated = apply.mock.calls[0]?.[0] as typeof agents;
     expect(updated[0]).toMatchObject({ persona: 'Original', model: 'large', skill_ids: ['read', TEAM_SKILL], team: { enabled: true, director_id: 'd' } });
     expect(updated[1]).toEqual(agents[1]);
 });
-it('cancelling leaves the configuration untouched', () => {
-    click('agent_team.setup'); click('common.cancel');
+it('renders the saved list without changing configuration or requiring a setup step', () => {
+    expect(host.querySelectorAll('.agent-team-setup__card')).toHaveLength(2);
+    expect(host.textContent).not.toContain('agent_team.setup');
     expect(apply).not.toHaveBeenCalled();
 });

@@ -197,6 +197,7 @@ async def create_agent_workflow(
     memory_user_id: str = "",
     reviewed_memory_rows: Iterable[dict[str, Any]] | None = None,
     operation_mode: bool = False,
+    output_schema: dict[str, Any] | None = None,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Delegate to the canonical workflow with explicit compatibility seams."""
     dependencies = WorkflowDependencies(
@@ -228,6 +229,7 @@ async def create_agent_workflow(
         memory_user_id=memory_user_id,
         reviewed_memory_rows=reviewed_memory_rows,
         operation_mode=operation_mode,
+        output_schema=output_schema,
         dependencies=dependencies,
     )
     return workflow, dict(metadata)

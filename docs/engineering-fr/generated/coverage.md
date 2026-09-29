@@ -8,12 +8,12 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
-| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 724 | 248 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1004 | 267 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 445 | 114 | 0 |
+| `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 743 | 256 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1019 | 272 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 456 | 119 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 130 | 52 | 0 |
-| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 258 | 93 | 0 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 134 | 53 | 0 |
+| `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 261 | 96 | 0 |
 | `notebooks` | **covered** | [`Source-grounded notebooks`](../domains/notebooks.md) | 50 | 13 | 0 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 98 | 49 | 0 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 82 | 33 | 0 |
@@ -22,7 +22,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 151 | 46 | 0 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 41 | 28 | 0 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 18 | 10 | 0 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 139 | 44 | 0 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 140 | 45 | 0 |
 
 ## Platform foundation and runtime
 
@@ -62,7 +62,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 ## AI agents, models, tools, and skills
 
 - Guide: [`AI agents, models, tools, and skills`](../domains/ai-agent.md)
-- Motifs des sources: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
+- Motifs des sources: `backend/agent/**/*.py`, `backend/api/agent*.py`, `backend/api/ai_routes.py`, `backend/api/tools_routes.py`, `backend/services/ai*.py`, `backend/services/model_reasoning.py`, `backend/domains/agent/team_help.py`, `backend/domains/configuration/ai/model_metadata_routes.py`, `frontend/src/features/agent/**/*`, `frontend/src/features/agent-context/**/*`, `frontend/src/features/settings/AI/**/*`, `frontend/src/features/settings/AI*.ts*`, `frontend/src/features/settings/*Comparison*.ts*`, `frontend/src/features/settings/model-comparison/**/*`
 - Motifs des tests: `backend/tests/test_agent*.py`, `backend/tests/test_ai*.py`, `backend/tests/test_generated_tool*.py`, `frontend/src/features/agent/**/*.test.*`, `frontend/src/features/agent-context/**/*.test.*`, `frontend/src/features/settings/AI/**/*.test.*`, `frontend/src/features/settings/AI*.test.*`, `frontend/src/features/settings/*Comparison*.test.*`
 - Directives: none found
 

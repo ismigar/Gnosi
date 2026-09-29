@@ -1,14 +1,31 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-module.exports = async function verifyFrontendAssets() {
-  const dist = path.resolve(__dirname, '../../frontend/dist');
-  const required = ['zotero-reader/host.html', 'zotero-reader/reader.js', 'zotero-reader/reader.css'];
-  const missing = required.filter(file => !fs.existsSync(path.join(dist, file)));
+const requiredReaderAssets = [
+  'host.html', 'reader.js', 'reader.css',
+  'pdf/build/pdf.mjs', 'pdf/build/pdf.worker.mjs',
+  'pdf/web/viewer.html', 'pdf/web/viewer.css',
+  'locales/en-US/zotero.ftl', 'locales/en-US/reader.ftl',
+];
+
+function verifyReaderAssets(frontendDirectory) {
+  const missing = requiredReaderAssets.filter(file => {
+    try {
+      const stat = fs.statSync(path.join(frontendDirectory, 'zotero-reader', file));
+      return !stat.isFile() || stat.size === 0;
+    } catch {
+      return true;
+    }
+  });
   if (missing.length) {
     throw new Error(
-      `Packaged PDF reader assets are missing: ${missing.join(', ')}. `
-      + 'Run `bash scripts/runtime/build-zotero-reader.sh` and rebuild the frontend before packaging.',
+      `PDF reader assets are missing or empty in ${frontendDirectory}: ${missing.join(', ')}. `
+      + 'Run `bash scripts/runtime/build-zotero-reader.sh` before building the frontend.',
     );
   }
+}
+
+module.exports = async function verifyFrontendAssets() {
+  verifyReaderAssets(path.resolve(__dirname, '../../frontend/dist'));
 };
+module.exports.verifyReaderAssets = verifyReaderAssets;

@@ -19,10 +19,13 @@ export function useViewInitialization({
     setVisibleProperties, setFilterTree, setSorts, setResultSnapshot,
     setResultSnapshotLimit, applyTypeOptions, resetTypeOptions, editingBlock,
     setHeading, setHeadingLevel, setModalPinnedViewIds, pageId,
+    viewLoadRetryKey, setViewLoadStatus,
     api, setExistingViews, setExistingViewsStatus
 }: Pick<
     ModalInput & useViewSessionResult & useViewStateResult & useViewAppearanceResult,
     'isOpen'
+    | 'viewLoadRetryKey'
+    | 'setViewLoadStatus'
     | 'initializedRef'
     | 'createdViewIdRef'
     | 'lastSavedViewRef'
@@ -78,6 +81,7 @@ export function useViewInitialization({
             setFormBaselineSnapshot('');
             return;
         }
+        setViewLoadStatus('ready');
         // TABLE mode: we configure a registry view directly (not an
         // embed). We pre-fill from `editingView` (or defaults if we're creating one).
         if (isTableMode) {
@@ -148,7 +152,7 @@ export function useViewInitialization({
 
             // Inline fallback (disconnected local view)
             let inline: ViewConfig | null = null;
-            if (!vid && p.section) {
+            if (p.section) {
                 try { inline = decodeView(JSON.parse(p.section)); } catch { /* malformat */ }
             }
             setViewName('');
@@ -157,65 +161,63 @@ export function useViewInitialization({
             setEditScope('shared');
 
             if (vid) {
-                // Preload via a direct fetch so the chained useEffects don't
-                // (sourceTableId → existingViews → selectedExistingViewId) no
-                // end up clearing the selection before the view has been read.
                 let cancelled = false;
-                initializedRef.current = true; // async prefill below will re-arm skip
+                initializedRef.current = false;
+                setViewLoadStatus('loading');
+                setSelectedExistingViewId(vid);
+                const applyView = (v: ViewConfig) => {
+                    setSourceTableId(v.table_id || preselectedTableId || '');
+                    setViewName(v.name || '');
+                    setViewType(v.type || 'table');
+                    setVisibleProperties(v.visibleProperties?.length ? v.visibleProperties : ['title']);
+                    setJoins(v.joins || []);
+                    setFilterTree(treeFromSource(v));
+                    setResultSnapshot(v.resultSnapshot !== false);
+                    setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
+                    applyTypeOptions(v);
+                    setSorts(v.sorts?.length ? v.sorts : v.sort?.field ? [v.sort] : []);
+                    setExistingViews(prev => [{ ...v, id: vid }, ...prev.filter(x => x.id !== vid)]);
+                    initializedRef.current = true;
+                    skipNextAutosaveRef.current = true;
+                    setViewLoadStatus('ready');
+                    setFormBaselineRevision(revision => revision + 1);
+                };
+                // The embed already knows the complete effective view. Reuse it so
+                // opening its settings does not depend on a second network request.
+                const loaded = editingBlock.view ? decodeView(editingBlock.view) : null;
+                if (loaded?.table_id && (!loaded.id || loaded.id === vid)) {
+                    applyView(loaded);
+                    return;
+                }
                 api.fetchVaultView(vid)
                     .then(payload => {
+                        if (cancelled) return;
                         const v = payload ? decodeView(payload) : null;
-                        if (cancelled || !v) return;
-                        setSourceTableId((v.table_id || ''));
-                        setViewName((v.name || ''));
-                        setViewType((v.type || 'table'));
-                        setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
-                        setJoins(Array.isArray(v.joins) ? v.joins : []);
-                        setFilterTree(treeFromSource(v));
-                        setResultSnapshot(v.resultSnapshot !== false);
-                        setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
-                        applyTypeOptions(v);
-                        if (Array.isArray(v.sorts) && v.sorts.length > 0) {
-                            setSorts(v.sorts);
-                        } else if (v.sort && v.sort.field) {
-                            setSorts([{ field: v.sort.field, direction: v.sort.direction || 'asc' }]);
-                        } else {
-                            setSorts([]);
+                        if (!v?.table_id || (v.id && v.id !== vid)) {
+                            setViewLoadStatus('error');
+                            return;
                         }
-                        // We put the view directly into the existing list
-                        // so the dropdown shows it selected.
-                        setExistingViews(prev => {
-                            if (prev.some(x => x.id === v.id)) return prev;
-                            return [{ ...v, id: vid }, ...prev];
-                        });
-                        setSelectedExistingViewId(vid);
-                        // Async prefill finished: the state writes above would
-                        // otherwise look like a user edit and trigger autosave.
-                        skipNextAutosaveRef.current = true;
-                        setFormBaselineRevision(revision => revision + 1);
+                        applyView(v);
                     })
                     .catch(() => {
-                        // If we fail, we leave the modal in create-new mode.
-                        if (!cancelled) {
-                            setSourceTableId(preselectedTableId || '');
-                            setSelectedExistingViewId('');
-                            skipNextAutosaveRef.current = true;
-                            setFormBaselineRevision(revision => revision + 1);
-                        }
+                        if (!cancelled) setViewLoadStatus('error');
                     });
                 return () => { cancelled = true; };
             }
 
             // Local view (inline). We pre-fill from the serialized JSON.
             setSelectedExistingViewId('');
-            setSourceTableId(inline?.source_table_id || preselectedTableId || '');
-            setViewType(inline?.type || 'table');
-            setFilterTree(treeFromSource(inline || {}));
-            setSorts(Array.isArray(inline?.sorts) ? inline.sorts : []);
-            setVisibleProperties(Array.isArray(inline?.visibleProperties) && inline.visibleProperties.length ? inline.visibleProperties : ['title']);
-            setResultSnapshot(inline?.resultSnapshot !== false);
-            setResultSnapshotLimit(Number.isFinite(Number(inline?.resultSnapshotLimit)) ? Number(inline?.resultSnapshotLimit) : 500);
-            applyTypeOptions(inline);
+            const local = editingBlock.view ? decodeView(editingBlock.view) : inline;
+            setSourceTableId(local?.table_id || local?.source_table_id || preselectedTableId || '');
+            setViewName(local?.name || '');
+            setJoins(local?.joins || []);
+            setViewType(local?.type || 'table');
+            setFilterTree(treeFromSource(local || {}));
+            setSorts(local?.sorts?.length ? local.sorts : local?.sort?.field ? [local.sort] : []);
+            setVisibleProperties(Array.isArray(local?.visibleProperties) && local.visibleProperties.length ? local.visibleProperties : ['title']);
+            setResultSnapshot(local?.resultSnapshot !== false);
+            setResultSnapshotLimit(Number.isFinite(Number(local?.resultSnapshotLimit)) ? Number(local?.resultSnapshotLimit) : 500);
+            applyTypeOptions(local);
             setExistingViews([]);
             initializedRef.current = true;
             skipNextAutosaveRef.current = true;
@@ -252,7 +254,7 @@ export function useViewInitialization({
         let release: (() => void) | undefined;
         queueMicrotask(() => { if (active) release = hydrate1(); });
         return () => { active = false; release?.(); };
-    }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
+    }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab, viewLoadRetryKey]);
     return {};
 }
 export type useViewInitializationResult = ReturnType<typeof useViewInitialization>;

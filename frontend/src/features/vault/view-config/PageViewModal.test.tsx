@@ -1,185 +1,163 @@
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
-import type { Root } from 'react-dom/client';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { PageViewModal } from './PageViewModal';
-import type { PageViewModalProps } from './page-view-modal/types';
-
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (
-            key: string,
-            fallbackOrOptions?: string | { readonly defaultValue?: string },
-        ) => {
-            if (typeof fallbackOrOptions === 'string') return fallbackOrOptions;
-            return fallbackOrOptions?.defaultValue || key;
-        },
-    }),
-}));
-
-interface TestView {
-    readonly filters: readonly unknown[];
-    readonly id: string;
-    readonly name: string;
-    readonly sorts: readonly unknown[];
-    readonly table_id: string;
-    readonly type: string;
-    readonly visibleProperties: readonly string[];
-}
-
-type CloseHandler = (saved?: boolean, result?: unknown) => void;
-
-interface CreateViewInput {
-    readonly [key: string]: unknown;
-    readonly id?: string | null;
-    readonly name?: string | null;
-}
-
-let container: HTMLDivElement | undefined;
-let root: Root | undefined;
-
-const existingView: TestView = {
-    id: 'view-1',
-    table_id: 'resources',
-    name: 'Alphabetical',
-    type: 'gallery',
-    visibleProperties: ['title'],
-    filters: [],
-    sorts: [],
-};
-
-beforeAll(() => {
-    const reactTestGlobal = globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-    };
-    reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-});
-
-beforeEach(() => {
-    // Advance the autosave debounce explicitly instead of waiting on a busy CI host.
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-});
-
-afterEach(async () => {
-    if (root) {
-        await act(async () => {
-            root?.unmount();
-            await Promise.resolve();
-        });
-    }
-    document.body.replaceChildren();
-    container = undefined;
-    root = undefined;
-    vi.useRealTimers();
-    vi.clearAllMocks();
-});
-
-const settle = async (): Promise<void> => {
-    await act(async () => {
-        await vi.advanceTimersByTimeAsync(0);
-        await Promise.resolve();
-    });
-};
-
-const renderModal = async (
-    onClose: CloseHandler = vi.fn<CloseHandler>(),
-    overrides: Partial<PageViewModalProps> = {},
-) => {
-    const api = {
-        createVaultView: vi.fn((view: CreateViewInput) => Promise.resolve(
-            { ...view, id: view.id || 'view-2' },
-        )),
-        deleteVaultView: vi.fn(() => Promise.resolve({ status: 'success' })),
-        fetchAiModels: vi.fn(() => Promise.resolve({ models: [], budget: {}, configured_models: [], default: [],
-            currency: { code: 'EUR', symbol: '€', source: 'fixture', fetched_at: '', usd_rate: 1 } })),
-        fetchVaultPages: vi.fn(() => Promise.resolve([])),
-        fetchVaultPagesByTable: vi.fn(() => Promise.resolve([])),
-        fetchVaultSummarySettings: vi.fn(() => Promise.resolve({})),
-        fetchVaultView: vi.fn((viewId: string) => Promise.resolve(
-            viewId === existingView.id ? existingView : null,
-        )),
-        fetchVaultViews: vi.fn(() => Promise.resolve([existingView])),
-        fetchVaultViewUsage: vi.fn(() => Promise.resolve({ count: 0, pages: [], view_id: 'view-1' })),
-        updateVaultView: vi.fn((_viewId: string, _view: CreateViewInput) => Promise.resolve({ status: 'success' })),
-        upsertPageView: vi.fn(() => Promise.resolve({ status: 'success' })),
-    };
-
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
-    const currentRoot = root;
-    await act(async () => {
-        currentRoot.render(
-            <PageViewModal
-                isOpen
-                onClose={onClose}
-                pageId="page-1"
-                allTables={[{
-                    id: 'resources',
-                    name: 'Resources',
-                    properties: [{ name: 'title', type: 'title' }],
-                }]}
-                api={api}
-                preselectedTableId="resources"
-                editingBlock={{ props: { view_id: 'view-1' } }}
-                {...overrides}
-            />,
-        );
-        await Promise.resolve();
-    });
-    await settle();
-    await settle();
-
-    return { api, onClose };
-};
-
-const requireContainer = (): HTMLDivElement => {
-    if (!container) throw new Error('PageViewModal container is not mounted');
-    return container;
-};
-
-const requireElement = <T extends Element>(
-    parent: ParentNode,
-    selector: string,
-    constructor: { new (): T },
-): T => {
-    const element = parent.querySelector(selector);
-    if (!(element instanceof constructor)) {
-        throw new Error(`Element not found: ${selector}`);
-    }
-    return element;
-};
-
-const requireButton = (parent: ParentNode, label: string): HTMLButtonElement => {
-    const button = Array.from(parent.querySelectorAll('button'))
-        .find((candidate) => candidate.textContent.trim() === label);
-    if (!(button instanceof HTMLButtonElement)) {
-        throw new Error(`Button not found: ${label}`);
-    }
-    return button;
-};
-
-const updateInput = (input: HTMLInputElement, value: string): void => {
-    const didSetValue = Reflect.set(
-        HTMLInputElement.prototype,
-        'value',
-        value,
-        input,
-    );
-    if (!didSetValue) throw new Error('Native input value setter is unavailable');
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-};
-
-const actAndFlush = async (action: () => void): Promise<void> => {
-    await act(async () => {
-        action();
-        await Promise.resolve();
-    });
-};
+import { describe, expect, it, vi } from 'vitest';
+import {
+    actAndFlush, existingView, renderModal, requireButton, requireContainer,
+    requireElement, settle, updateInput,
+} from './PageViewModal.test-harness';
 
 // Rendering the full modal can exceed five seconds on the shared CI machine.
 describe('PageViewModal editing', { timeout: 15_000 }, () => {
+    it('selects a source table for a new registry view opened without active table context', async () => {
+        const { api, onClose } = await renderModal(undefined, {
+            mode: 'table', preselectedTableId: '', editingBlock: null, editingView: { type: 'gallery' },
+            allTables: [{ id: 'resources', name: 'Resources', properties: [
+                { name: 'title', type: 'title' }, { name: 'Area', type: 'select', options: ['Research'] },
+            ] }],
+        });
+        const modal = requireContainer();
+        const source = requireElement(modal, 'select[aria-label="Source table"]', HTMLSelectElement);
+        expect(source.disabled).toBe(false);
+        expect(source.value).toBe('');
+        await actAndFlush(() => { updateInput(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement), 'By area'); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { source.value = 'resources'; source.dispatchEvent(new Event('change', { bubbles: true })); });
+        await settle();
+        await actAndFlush(() => { requireButton(modal, 'Fields').click(); });
+        expect(modal.textContent).toContain('Area');
+        expect(modal.textContent).not.toContain('Select a table first in the General tab.');
+        await actAndFlush(() => { requireButton(modal, 'Sort').click(); });
+        expect(requireButton(modal, 'Add criterion').disabled).toBe(false);
+        await actAndFlush(() => { requireButton(modal, 'Add criterion').click(); });
+        expect(Array.from(modal.querySelectorAll('select option')).some(option => option.textContent === 'Area')).toBe(true);
+        await actAndFlush(() => { requireButton(modal, 'Grouping').click(); });
+        const group = requireElement(modal, 'select', HTMLSelectElement);
+        expect(Array.from(group.options).some(option => option.value === 'Area')).toBe(true);
+        await actAndFlush(() => { group.value = 'Area'; group.dispatchEvent(new Event('change', { bubbles: true })); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({ name: 'By area', table_id: 'resources', type: 'gallery', groupBy: 'Area' }));
+        expect(onClose).toHaveBeenCalledWith(true, expect.objectContaining({ table_id: 'resources' }));
+    });
+
+    it('offers and persists grouping for every field type, including relations', async () => {
+        const types = ['relation', 'checkbox', 'text', 'rich_text', 'number', 'date', 'period',
+            'files', 'image', 'url', 'email', 'phone', 'formula', 'rollup', 'autoria',
+            'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'virtual', 'button'];
+        const { api } = await renderModal(undefined, {
+            mode: 'table', editingView: { ...existingView }, editingBlock: null,
+            allTables: [{ id: 'resources', name: 'Resources', properties: types.map(type => ({ name: type, type })) }],
+        });
+        const modal = requireContainer();
+        await actAndFlush(() => { requireButton(modal, 'Grouping').click(); });
+        const group = requireElement(modal, 'select', HTMLSelectElement);
+        expect(Array.from(group.options).map(option => option.value)).toEqual(expect.arrayContaining(['title', ...types]));
+        await actAndFlush(() => { group.value = 'relation'; group.dispatchEvent(new Event('change', { bubbles: true })); });
+        await actAndFlush(() => { requireButton(modal, 'Close').click(); });
+        expect(api.updateVaultView).toHaveBeenCalledWith(existingView.id, expect.objectContaining({ groupBy: 'relation' }));
+    });
+
+    it('shows the fixed source table when configuring an existing registry view', async () => {
+        await renderModal(undefined, { mode: 'table', editingView: { ...existingView }, editingBlock: null });
+        const source = requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement);
+        expect(source.value).toBe('resources');
+        expect(source.disabled).toBe(true);
+    });
+
+    it('can recover an unavailable preselected table by choosing a current source', async () => {
+        await renderModal(undefined, { mode: 'table', editingView: null, editingBlock: null, preselectedTableId: 'removed-table' });
+        expect(requireElement(requireContainer(), 'select[aria-label="Source table"]', HTMLSelectElement).disabled).toBe(false);
+    });
+
+    it.each(['gallery', 'table', 'feed'])('restores and saves the common height setting for a %s view', async type => {
+        const view = { ...existingView, type, heightMode: 'limited', heightPercent: 45 };
+        const { api } = await renderModal(undefined,
+            { editingBlock: { props: { view_id: view.id }, view } }, prepared => {
+                prepared.fetchVaultViews.mockResolvedValue([view]);
+                prepared.fetchVaultView.mockResolvedValue(view);
+            });
+        const modal = requireContainer();
+        expect(requireButton(modal, 'Limited').getAttribute('aria-pressed')).toBe('true');
+        const height = requireElement(modal, 'input[type="number"][max="100"]', HTMLInputElement);
+        expect(height.value).toBe('45');
+        await actAndFlush(() => { updateInput(height, '85'); });
+        await actAndFlush(() => { requireButton(modal, 'Fit content').click(); });
+        expect(modal.querySelector('input[type="number"][max="100"]')).toBeNull();
+        await actAndFlush(() => { requireButton(modal, 'Limited').click(); });
+        expect(requireElement(modal, 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('85');
+        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
+        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
+            id: view.id, type, heightMode: 'limited', heightPercent: 85,
+        }));
+    });
+
+    it('autosaves the chosen height percentage and restores it on reopening', async () => {
+        const view = { ...existingView, heightMode: 'limited' };
+        const { api, rerender } = await renderModal(undefined, { mode: 'table', editingView: view, editingBlock: null });
+        const height = requireElement(requireContainer(), 'input[type="number"][max="100"]', HTMLInputElement);
+        expect(height.value).toBe('70');
+        await actAndFlush(() => { updateInput(height, '55'); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+        expect(api.updateVaultView).toHaveBeenLastCalledWith(view.id, expect.objectContaining({ heightPercent: 55 }));
+        await rerender({ isOpen: false });
+        await rerender({ isOpen: true, editingView: { ...view, heightPercent: 55 } });
+        expect(requireElement(requireContainer(), 'input[type="number"][max="100"]', HTMLInputElement).value).toBe('55');
+    });
+
+    it('opens with the displayed view configuration and persists full-width reading without losing filters', async () => {
+        const view = { ...existingView, name: 'Notes by source', cardSize: 'large', galleryPreview: 'content',
+            groupBy: 'Note type', filters: [{ field: 'Source', operator: 'equals', value: 'this' }],
+            sorts: [{ field: 'Position', direction: 'asc' }] };
+        const { api, rerender } = await renderModal(undefined,
+            { isOpen: false, preselectedTableId: '', editingBlock: null });
+        api.fetchVaultView.mockRejectedValue(new Error('Network unavailable'));
+        await rerender({ isOpen: true, preselectedTableId: 'resources',
+            editingBlock: { props: { view_id: view.id }, view } });
+        const modal = requireContainer();
+        expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(view.name);
+        expect(requireButton(modal, 'Large').getAttribute('aria-pressed')).toBe('true');
+        expect(api.fetchVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { requireButton(modal, 'Sort').click(); });
+        const position = requireElement(modal, 'select option[value="Position"]', HTMLOptionElement);
+        expect(position.selected).toBe(true);
+        await actAndFlush(() => { requireButton(modal, 'General').click(); });
+        await actAndFlush(() => { requireButton(modal, 'Full width').click(); });
+        await actAndFlush(() => { requireButton(modal, 'Insert').click(); });
+        expect(api.createVaultView).toHaveBeenCalledWith(expect.objectContaining({
+            id: view.id, name: view.name, type: 'gallery', cardSize: 'full', galleryPreview: 'content',
+            groupBy: 'Note type', filters: view.filters, sorts: view.sorts,
+        }));
+    });
+
+    it('keeps the edited view and user changes when the catalog arrives later', async () => {
+        let resolveCatalog: ((views: unknown) => void) | undefined;
+        const pendingCatalog = new Promise<unknown>((resolve) => { resolveCatalog = resolve; });
+        await renderModal(undefined, { editingBlock: { props: { view_id: existingView.id }, view: existingView } },
+            (api) => { api.fetchVaultViews.mockReturnValue(pendingCatalog); });
+        const modal = requireContainer();
+        const name = requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement);
+        await actAndFlush(() => { updateInput(name, 'My updated view'); });
+        await actAndFlush(() => { resolveCatalog?.([{ ...existingView, name: 'Old catalog name' }]); });
+        expect(name.value).toBe('My updated view');
+        expect(requireElement(modal, 'select', HTMLSelectElement).value).toBe(existingView.id);
+    });
+
+    it('reports a failed lookup, prevents saving defaults, and reloads the same view on retry', async () => {
+        const { api } = await renderModal(undefined, {}, (prepared) => {
+            prepared.fetchVaultView.mockRejectedValueOnce(new Error('Network unavailable'));
+        });
+        const modal = requireContainer();
+        expect(modal.textContent).toContain("Couldn't load this view's settings. Try again.");
+        expect(modal.querySelector('input[placeholder="e.g. By area"]')).toBeNull();
+        expect(requireButton(modal, 'Insert').disabled).toBe(true);
+        expect(api.updateVaultView).not.toHaveBeenCalled();
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        await actAndFlush(() => { requireButton(modal, 'Retry').click(); });
+        await settle();
+        expect(api.fetchVaultView).toHaveBeenLastCalledWith(existingView.id);
+        expect(requireElement(modal, 'input[placeholder="e.g. By area"]', HTMLInputElement).value).toBe(existingView.name);
+        expect(requireButton(modal, 'Insert').disabled).toBe(false);
+    });
+
     it('mirrors a renamed view in the existing-view picker while typing and after blur', async () => {
         await renderModal();
         const modal = requireContainer();

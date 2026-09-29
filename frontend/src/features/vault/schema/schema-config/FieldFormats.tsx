@@ -6,7 +6,7 @@ export function FieldFormats({ field, idx, handleUpdateField, projectPlanningEna
     const { t } = useTranslation();
     return <>
             {/* Number: format (number / currency / percentage + decimals) */}
-            {field.type === 'number' && (
+            {['number', 'formula', 'rollup', 'virtual'].includes(field.type) && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 block">
@@ -49,6 +49,18 @@ export function FieldFormats({ field, idx, handleUpdateField, projectPlanningEna
                                 </select>
                             )}
                         </div>
+                        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                            {t('schema.number_display', 'Display')}
+                            <select value={field.format?.display || ((field.format?.kind === 'percent' || field.aggregation === 'percent_checked') ? 'bar' : 'number')} onChange={event => { handleUpdateField(idx, 'format', { ...(field.format || {}), display: event.target.value }); }} className="rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] p-1.5 text-[var(--text-primary)]">
+                                <option value="number">{t('schema.number_plain', 'Number')}</option>
+                                <option value="bar">{t('schema.progress_bar', 'Progress bar')}</option>
+                                <option value="ring">{t('schema.progress_ring', 'Progress ring')}</option>
+                            </select>
+                        </label>
+                        {(field.format?.display === 'bar' || field.format?.display === 'ring' || (!field.format?.display && (field.format?.kind === 'percent' || field.aggregation === 'percent_checked'))) && <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                            {t('schema.progress_max', 'Value representing 100%')}
+                            <input type="number" min="0.000001" step="any" value={field.format?.progressMax ?? 100} onChange={event => { const max = event.target.valueAsNumber; if (Number.isFinite(max) && max > 0) handleUpdateField(idx, 'format', { ...(field.format || {}), progressMax: max }); }} className="w-24 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] p-1.5 text-[var(--text-primary)]" />
+                        </label>}
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
                             {t('schema.number_format_hint', "Empty/“Number” = global Settings format. Percent shows the value as-is with “%”. “Year” drops the thousands separator (2024, not 2,024).")}
                         </p>

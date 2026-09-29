@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
+  - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/agent/team_help.py
+  - backend/services/agent_team_runtime.py
+  - backend/tests/test_agent_team.py
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +83,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1264,7 +1272,7 @@ L’identité de l’historique reste dans `agent_id` et `session_id`. Le champ 
 
 ## Profils des plugins
 
-Chaque plugin d’IA déclare un profil modifiable et les compétences utilisées par ses actions. Paramètres → IA → Assistant présente les profils des plugins séparément des profils personnels. Vous pouvez modifier le modèle unique, les instructions, les sources et les compétences affectées. Les profils initiaux copient uniquement le modèle par défaut actuel ; les mises à jour préservent les modifications. Désactiver un plugin suspend son profil sans supprimer la configuration. Si le modèle ou une compétence nécessaire manque, l’action échoue explicitement sans utiliser le profil personnel. Les nouvelles actions autonomes et les compétences planifiées utilisent le profil du plugin ; les travaux commencés conservent leur instantané. Le profil choisi manuellement dans une conversation continue de gouverner cette conversation.
+Chaque plugin d’IA possède un profil modifiable dans la même liste que les profils personnels, avec le nom du plugin qui l’utilise. Vous pouvez modifier son modèle, ses instructions, ses sources et ses compétences, et le choisir explicitement comme principal. Cela ne change pas le profil utilisé par les actions du plugin. Désactiver le plugin suspend son bot et conserve la configuration. Si le modèle ou une compétence manque, l’action le signale sans remplacer le profil. Les exécutions en cours gardent la configuration avec laquelle elles ont commencé.
 
 
 ## Évaluation indicative — weighted_catalog_v1
@@ -1301,3 +1309,58 @@ Le contexte et les capacités sont affichés par fournisseur, avec les modalité
 La correspondance du registre utilise les routes exactes fournisseur/modèle, jamais des noms ou fragments. Le filtre d’activation et les alias respectent le fournisseur sélectionné. Les filtres Directeur et Polyvalent excluent les routes déclarant ne pas prendre en charge les outils. L’activation conserve chaque offre fournisseur/modèle et vérifie la route sélectionnée. Les modifications sont enregistrées en série et relisent le registre persistant avant l’enregistrement, préservant les changements intermédiaires de modèles et de budget. La restauration des métriques en cache recalcule les évaluations des rôles avec les données restaurées.
 
 Les enregistrements de la comparaison incluent une révision optimiste du registre : un enregistrement obsolète reçoit HTTP 409 au lieu d’écraser les changements d’une autre fenêtre. Actualiser contourne les caches des benchmarks et des fournisseurs, en conservant la provenance de secours en cas d’échec. Les variantes partageant une route exécutable sont des vues informatives d’une offre unique : activation et alias concernent l’offre partagée, et le formulaire précise qu’il ne configure pas le raisonnement ni ne reproduit les conditions des évaluations. Sans score signifie qu’aucun rôle n’a de score numérique ; limites et scores insuffisants ont des libellés distincts. L’aperçu compact montre le contexte maximal et le prix minimal de chaque colonne, conformément au tri. Les en-têtes exposent aria-sort, le nombre filtré est annoncé et l’inspection des paramètres remplit les données existantes sans signaler un enregistrement.
+
+
+## Configuration des assistants et participation à l’équipe
+
+Chaque profil possède une seule fiche toujours visible avec sa configuration, le choix explicite du principal et sa participation à l’équipe. Le principal coordonne ; les autres profils reçoivent des tâches, demandent de l’aide, combinent les deux fonctions ou travaillent seuls. Changer le principal transfère l’état de l’équipe et retire le nouveau principal des attributions d’exécution. Cela ne crée aucun agent et ne réactive pas une collaboration désactivée.
+
+Les sélections complètes de participation, d’attributions et de permissions temporaires sont enregistrées automatiquement. Les changements incomplets restent dans le formulaire, indiquent ce qui manque et ne remplacent pas la dernière configuration complète. Retirer le dernier destinataire désactive la collaboration et les permissions de demander de l’aide. Les interrupteurs nommés permettent plusieurs sélections de modèles, compétences et destinataires ; les listes vides expliquent comment en ajouter. La coordination n’est ajoutée qu’en activant l’équipe. La modification d’un profil incorpore l’état récent de l’équipe pour préserver les changements simultanés de participation.
+
+La zone de lecture des paramètres accepte le focus du clavier. Les touches de défilement fonctionnent depuis le texte et les interrupteurs individuels ; les champs éditables, listes et contrôles composites conservent leurs interactions.
+
+## Recommandations de modèles et cycle de vie des plugins
+
+Chaque fiche visible recommande un rôle de modèle selon le principal, les opérations du plugin, les compétences connues et leurs copies, les spécialités et les routes. Le rôle le plus exigeant l’emporte ; les tâches inconnues reçoivent une orientation Polyvalent. Il s’agit d’un conseil, pas d’un score du modèle ni d’un changement de route ou de permissions.
+
+Après un changement de plugin, les caches de configuration sont invalidés et le chat et le formulaire sont notifiés. Seuls les champs de cycle de vie et les nouveaux profils sont fusionnés, en préservant les modifications locales. Les profils suspendus sont masqués et ne peuvent pas exécuter de tâches ; ils sont retirés des destinataires et routes actifs. La collaboration s’arrête si le principal ou le dernier destinataire est suspendu. Le principal n’est pas remplacé automatiquement. Les réponses tardives après fermeture des paramètres ou changement de vault sont ignorées.
+
+## Niveau de raisonnement
+
+Les profils enregistrent `reasoning_effort` facultatif. L’éditeur consulte les choix exacts d’OpenRouter via `GET /api/ai/model-reasoning` : des métadonnées absentes ne proposent aucun choix, null explicite accepte les niveaux de la passerelle et le raisonnement obligatoire exclut `none`. Le cache est conservé hors du vault, avec une valeur vérifiée de Luna pour une première utilisation hors ligne. L’enregistrement refuse les choix incompatibles. Les fabriques du modèle par défaut et du workflow transmettent le niveau uniquement si le fournisseur et le modèle correspondent au profil. Le raisonnement explicite OpenRouter et le raisonnement par défaut de Luna utilisent Responses sans état, `store=false`, l’historique complet et le raisonnement chiffré entre appels d’outils. Les valeurs par défaut des autres modèles restent inchangées.
+
+## Aide facultative de l’équipe
+
+La permission de collaboration n’intercepte plus tous les flux. Le modèle du profil sélectionné, y compris son niveau de raisonnement, est résolu en premier ; `request_team_help` devient ensuite un appel de contrôle facultatif dans le chat et les opérations structurées. Les outils natifs et le transport JSON validé partagent le même contrat. Le travail courant n’ajoute aucun appel de routage. La délégation doit être le seul appel et précéder toute exécution d’outil ; la correction de format ne peut pas demander d’aide. Le coordinateur conserve la demande du tour actuel, les configurations figées, les confirmations, l’annulation et le plafond global d’appels. Les exécutants ne peuvent pas enchaîner les délégations ni renvoyer la tâche au demandeur. Le catalogue du plan comprend les spécialités des membres. La correction et la reprise utilisent l’équipe seulement si une demande d’aide ou un plan est enregistré ; sinon elles conservent l’assistant initial. La migration n’active aucune permission d’équipe.
+
+Les métadonnées de raisonnement en lecture seule se trouvent dans `backend/domains/configuration/ai/model_metadata_routes.py` ; le routeur des réglages IA les inclut sous `/api/ai/model-reasoning`, avec le même contrat public. Cette séparation respecte la limite de taille des fichiers du projet.
+
+## Progression des ressources en arrière-plan
+
+Fermer la boîte de dialogue laisse une carte compacte et non modale dans le coin inférieur droit. Elle affiche le titre, la phase, les fragments et la progression disponible, et permet de rouvrir les détails sans lancer une autre tâche. Le magasin global conserve les démarrages en attente et les requêtes de suivi sans chevauchement, depuis une ligne de tableau ou une ressource ouverte, même lors de la navigation. Les résultats terminés ou interrompus restent visibles jusqu’à leur fermeture ; réessayer reprend le travail enregistré. Le suivi se réinitialise lors d’un changement de Vault ou de compte et ignore les réponses obsolètes. Cet état de session de l’interface ne persiste pas lors du rechargement de l’application.
+
+## Format des opérations structurées
+
+Les opérations structurées OpenRouter transmettent leur contrat de sortie au fournisseur, en mode schéma strict pour les contrats détaillés et en mode objet JSON pour les objets génériques. Le routage exige la prise en charge des paramètres et conserve les préférences du fournisseur et le raisonnement. Les outils natifs facultatifs utilisent des contrats de fonction stricts ; les outils JSON de remplacement contraignent leur enveloppe et valident localement la réponse extraite. Les autres fournisseurs conservent la validation locale. La lecture dirigée des sources transmet son schéma d’actions, avec le type explicite de l’action.
+
+L’acceptation de la requête par le fournisseur ne prouve pas sa conformité : les validations locales du schéma et du contenu restent obligatoires, avec la tentative de réparation limitée existante. Un objet ou une liste JSON complet suivi uniquement d’un délimiteur final répété peut être récupéré sans modifier aucun champ ; les valeurs supplémentaires, la prose, les fermetures incohérentes et le contenu incomplet sont rejetés. La vérification des citations, la couverture des sources et la validation des notes sont conservées. La validité structurelle ne garantit ni l’exactitude factuelle ni une rédaction identique entre les exécutions.
+
+Si le planificateur d’une équipe facultative refuse le contexte avant tout appel au modèle ou toute tâche, l’opération structurée peut continuer avec le modèle initial dans les mêmes limites de temps et d’appels. La requête complète et la réponse à la demande d’aide sont conservées ; le transfert refusé reste traçable et ne redirige pas la reprise vers la phase échouée de l’équipe. Les erreurs de permissions, les annulations et les erreurs survenant après la création d’un plan arrêtent toujours l’exécution. La reprise du traitement interrompu depuis la barre de la page utilise la progression sauvegardée, y compris après un redémarrage de l’application, sans imposer une nouvelle exécution.
+
+La planification et la replanification des équipes valident les exécutants, l’ordre des dépendances et la tâche de résultat avant de terminer la phase ou de lancer les tâches. Les erreurs de cohérence entrent dans le processus habituel de réparation, avec au maximum deux appels de planification dans le budget total existant. Une seconde réponse invalide fait échouer la phase sans exécuter ses tâches. Les plans terminés récupérés du cache sont également validés avant réutilisation.
+
+La lecture dirigée contraint les champs de chaque action, y compris les notes, la couverture et les citations. Elle valide les références à la source, la couverture complète et les citations exactes avant d’accepter ou de mettre en cache une action, afin que la réparation limitée conserve ensemble les preuves originales et la réponse rejetée. La validation préalable ne modifie pas l’état de lecture. Chaque étape contient les identifiants exacts des fragments et le nombre de passages principaux ; une identité d’étape empêche de réutiliser une réponse identique entre des itérations différentes.
+
+Les phases de l’équipe héritent du délai d’attente de l’opération principale tout en restant limitées par son échéance existante. Une réparation déléguée reçoit l’entrée et les données originales avec la réponse rejetée et l’erreur de validation, afin de vérifier les preuves en corrigeant la réponse.
+
+La validation de lecture signale ensemble les erreurs indépendantes de couverture et de citation, en indiquant la position des notes et citations sans reproduire le texte source. La seule tentative de réparation autorisée peut ainsi corriger toutes les incohérences connues à partir des preuves originales, au lieu de découvrir uniquement l’erreur suivante après chaque tentative. Les plans invalides ne font pas avancer l’état de lecture.
+
+Les réparations de références de la lecture dirigée renvoient des modifications limitées par un schéma pour les notes rejetées et la couverture. La demande originale, la mémoire globale, les notes concernées et les passages originaux de référence restent disponibles. Seuls les champs de référence énumérés peuvent changer ; les titres, corps, ordre et champs non concernés des notes sont copiés sans modification depuis le brouillon. Les chemins dupliqués, absents ou non autorisés sont rejetés localement. Le profil original effectue cette réparation dans la limite de trois appels au modèle par étape de lecture et son échéance initiale, sans délégation supplémentaire. L’action reconstruite doit respecter le schéma original et la validation complète des preuves avant toute mise en cache ou sauvegarde.
+
+Avant tout début de délégation, les demandes d’aide invalides ou répétées d’une opération structurée sont rejetées ensemble. Les appels sont enregistrés comme non exécutés, et l’assistant initial peut répondre directement avec la demande complète dans les limites de correction et de temps existantes. Aucune mission ni aucun appel combiné à un outil ne sont exécutés. Chaque étape de lecture indique également si chaque fragment répertorié a été lu et si son plan a été enregistré, y compris après une reprise, afin que les totaux ne masquent pas les plans encore en attente.
+
+La lecture de sources longues conserve le délai étendu mais borné lors du choix des actions suivantes, de la révision des plans récupérés et de la reprise, même si la demande actuelle est courte. La taille de la source détermine le temps disponible ; les limites de contexte, le budget fini de nouvelles tentatives, l’annulation et la validation restent inchangés.
+
+Chaque étape de lecture dirigée expose les indicateurs de révision et le nombre de notes des plans enregistrés, ainsi que l’action et le fragment ayant produit le dernier résultat. Ces faits de progression enregistrés prévalent sur les affirmations contradictoires de la mémoire de travail du modèle ; la mémoire reste intacte et indique son étape d’enregistrement lorsqu’elle est disponible. L’indicateur de révision consigne la déclaration du lecteur, sans garantir la justesse sémantique. Les anciens points de reprise restent compatibles. Chaque étape autorise au maximum trois appels au modèle pour qu’une correction de syntaxe JSON puisse être suivie d’une seule réparation des références, sans prolonger le délai de l’opération ni autoriser une nouvelle délégation. L’échec de cette réparation arrête l’étape sans enregistrer le plan invalide.
+
+Les règles des propriétés des notes de lecture restent dans la configuration du plugin Cerveau : copier un champ de la ressource, utiliser une valeur fixe, déduire avec l’IA ou laisser vide. La skill classe chaque note uniquement parmi les étiquettes existantes fournies. Chaque champ configuré pour l’IA figure explicitement dans le schéma de réponse et doit apparaître dans chaque note ; les deux parcours de lecture rejettent les omissions, les champs inconnus, les valeurs inventées et plusieurs valeurs dans un champ à valeur unique avant l’enregistrement. Une liste explicitement vide reste valide lorsque les preuves ne justifient aucune catégorie. L’application résout les étiquettes et applique les règles de copie et de valeur fixe. Installer cette correction ne reclasse pas les notes existantes. Les Tags configurés ignorent l’ancienne liste d’étiquettes libres, y compris lorsque la classification s’abstient explicitement ou que la valeur copiée de la ressource est vide.

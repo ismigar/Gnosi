@@ -22,7 +22,7 @@ def principal_profile(ai: dict[str, Any]) -> dict[str, Any]:
     profile = next((a for a in agents if a.get("id") == active), None) if active else next(
         (a for a in agents if a.get("enabled", True) and not a.get("managed_by")), None,
     )
-    if not profile or not profile.get("enabled", True) or profile.get("managed_by"):
+    if not profile or not profile.get("enabled", True) or profile.get("plugin_suspended") or profile.get("managed_by") == "llm-wiki":
         raise RuntimeError("principal_agent_unavailable")
     return dict(profile)
 
@@ -54,6 +54,10 @@ def migrate(params: dict[str, Any], enabled: set[str]) -> tuple[dict[str, Any], 
         return result, bool(legacy)
     profile = next(a for a in agents if a.get("id") == selected["id"])
     ai["active_agent_id"] = profile["id"]
+    if profile.get("managed_by"):
+        # Choosing a plugin profile as the default does not add unrelated skills.
+        ai["principal_execution_version"] = VERSION
+        return result, result != params
     assigned = list(profile.get("skill_ids") or []) if "skill_ids" in profile else ["core.legacy-default-v1"]
     if "llm-wiki" in enabled:
         from backend.domains.llm_wiki.reading_skill import SKILL_ID

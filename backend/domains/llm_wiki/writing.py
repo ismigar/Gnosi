@@ -277,8 +277,14 @@ def _apply_role_values(
         metadata[context.role_names["verification"]] = "provisional"
     if context.role_names.get("last_reviewed"):
         metadata[context.role_names["last_reviewed"]] = context.dependencies.today()
-    if context.role_names.get("tags") and note.get("tags"):
-        metadata[context.role_names["tags"]] = list(
+    tags_name = context.role_names.get("tags")
+    tags_id = str(_mapping(context.config.get("brain_roles")).get("tags") or "")
+    if tags_name and tags_id in iterable_values(context.config.get("index_field_ids") or []):
+        # Only validated dimensions or explicit source/fixed mappings may fill
+        # configured Tags. The legacy free-form list must not bypass an abstention.
+        metadata[tags_name] = []
+    elif tags_name and note.get("tags"):
+        metadata[tags_name] = list(
             dict.fromkeys(str(tag) for tag in iterable_values(note["tags"]) if tag)
         )
 

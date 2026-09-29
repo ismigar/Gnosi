@@ -28,7 +28,7 @@ export function ViewGrouping({
             {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && (
                 <div className="space-y-2">
                     <p className="text-xs text-[var(--text-secondary)]">
-                        {t('view.grouping_intro', "Group records by a select or status field.")}
+                        {t('view.grouping_intro', "Group records by any field.")}
                     </p>
                     <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', "Group by")}</label>
                     {!selectedTable ? (
@@ -46,7 +46,7 @@ export function ViewGrouping({
                                 ))}
                             </select>
                             {groupFieldOptions.length === 0 && (
-                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields', "No select/status field in the table to group by.")}</p>
+                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields', "No fields in the table to group by.")}</p>
                             )}
                         </>
                     )}
@@ -99,7 +99,7 @@ export function ViewGrouping({
                                 ))}
                             </select>
                             {groupFieldOptions.length === 0 && (
-                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields_auto', "No select/status field in the table; it will group automatically.")}</p>
+                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields_auto', "No fields in the table; it will group automatically.")}</p>
                             )}
                         </>
                     )}

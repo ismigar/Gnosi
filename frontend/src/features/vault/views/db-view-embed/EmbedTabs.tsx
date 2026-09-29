@@ -18,14 +18,15 @@ export function EmbedTabs({ model }: { model: EmbedModel ;}) {
                         try { writeText(selectedKey(pageId, viewId), legacyText(v.id)); } catch { /* noop */ }
                     }}
                     onDoubleClick={() => { handleRenameView(v); }}
-                    title={t('views_header.tab_tooltip', "Click to switch · double-click to rename")}
+                    title={tabMenuFor != null ? '' : t('views_header.tab_tooltip', "Click to switch · double-click to rename")}
                 >
                     <span>{v.name || v.heading || t('views_header.default_view_name', "View")}</span>
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
                         className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
-                        title={t('views_header.view_options', "View options")}
+                        title={tabMenuFor != null ? '' : t('views_header.view_options', "View options")}
+                        aria-expanded={tabMenuFor === v.id}
                         aria-label={t('views_header.view_options', "View options")}
                     >
                         <MoreHorizontal size={13} />

@@ -1,3 +1,4 @@
+import { getFieldType } from '../../../../shared/records/model/schemaUtils';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { buildTableRowDescriptors } from './rowDescriptors';
 import { buildTableGroupMetadata } from './rowTree';
@@ -50,8 +51,13 @@ export function useTableRows({
   }, [ROWS_BATCH_SIZE, activeView?.id, searchTerm, setVisibleRowsCount, sortedNotes.length]);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const groupMeta = useMemo(
-    () => buildTableGroupMetadata(groupByField, schema, allNotes, idToTitle),
-    [groupByField, schema, allNotes, idToTitle],
+    () => {
+      const result = buildTableGroupMetadata(groupByField, schema, allNotes, idToTitle);
+      return result && getFieldType(schema, groupByField) === 'checkbox'
+        ? { ...result, labelMap: { true: t('common.yes', 'Yes'), false: t('common.no', 'No') } }
+        : result;
+    },
+    [groupByField, schema, allNotes, idToTitle, t],
   );
   const toggleGroup = useCallback((groupKey: string) => {
     setExpandedGroups(prev => {

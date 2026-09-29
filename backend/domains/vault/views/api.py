@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections.abc import Callable
@@ -156,6 +157,15 @@ async def get_view(
 
 
 async def get_view_usage(
+    view_id: str,
+    dependencies: ViewDependencies,
+) -> RegistryData:
+    # Cloud-backed files can block while being materialized. Keep that scan off
+    # the HTTP event loop so view settings and pending page saves remain usable.
+    return await asyncio.to_thread(_scan_view_usage, view_id, dependencies)
+
+
+def _scan_view_usage(
     view_id: str,
     dependencies: ViewDependencies,
 ) -> RegistryData:

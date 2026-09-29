@@ -571,12 +571,14 @@ def start_ingest(
                 index_report=index_report,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.error("llm_wiki ingest failed for %s: %s", source_page_id, exc)
+            from backend.domains.llm_wiki.recovery import processing_error_message
+            error_message = processing_error_message(exc)
+            logger.exception("llm_wiki ingest failed for %s: %s", source_page_id, error_message)
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
             status = llm_wiki_storage.get_job_status(job_id)
             phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") else PHASE_ERROR
             llm_wiki_storage.finish_job(
-                job_id, phase=phase, error=str(exc), progress=status.get("progress", 0),
+                job_id, phase=phase, error=error_message, progress=status.get("progress", 0),
             )
         finally:
             if token is not None:

@@ -38,6 +38,7 @@ class AgentState(TypedDict):
     cancel_token: str
     trace_id: str
     turn_started_at: float
+    team_help_allowed: bool
 
 
 def _turn_is_cancelled(state: Any) -> bool:

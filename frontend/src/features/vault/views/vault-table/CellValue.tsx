@@ -1,9 +1,10 @@
+import { NumberValue } from '../../../../shared/records/NumberValue';
 import { Calendar, CheckSquare, Clock, Link as LinkIcon, Unlock } from 'lucide-react';
 import { filenameFromTarget } from '../../../../shared/resources/fileResource';
 import { asBool } from '../../../../shared/filtering/vaultFilters';
 import { AutoriaDisplay } from '../../properties/AutoriaField';
 import { FileFieldValue } from '../../properties/FileFieldValue';
-import { formatDate, formatNumber, resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
+import { formatDate, resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
 import { ImageHoverPreview } from '../../../../shared/ui/previews/ImageHoverPreview';
 import { optionChipStyle } from '../../../../shared/records/model/optionCatalogUtils';
 import { RelationItem } from '../../properties/RelationItem';
@@ -37,7 +38,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
       const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
       return (
         <span className="tabular-nums" title={displayString(value)}>
-          {formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}
+          <NumberValue value={value} format={fmt} />
         </span>
       );
     }
@@ -50,7 +51,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
       const vfmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
       return (
         <span className="tabular-nums" title={displayString(value)}>
-          {formatNumber(value, { kind: vfmt.kind, decimals: vfmt.decimals, currencyCode: vfmt.currencyCode, locale: vfmt.numberLocale })}
+          <NumberValue value={value} format={vfmt} />
         </span>
       );
     }
@@ -239,11 +240,11 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
     case 'formula':
     case 'rollup': {
       const fmt = resolveFieldFormat(getTableFieldConfig(schema, field), localeSettings);
-      const display = formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale });
+      const display = <NumberValue value={value} format={fmt} />;
       return (
         <div className="flex items-center gap-1.5 text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 font-mono text-[11px] w-fit">
           <span className="text-[10px] opacity-50">{type === 'rollup' ? 'r' : 'ƒ'}</span>
-          <span>{display || '0'}</span>
+          <span>{display}</span>
         </div>
       );
     }

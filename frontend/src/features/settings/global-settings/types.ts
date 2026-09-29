@@ -24,6 +24,7 @@ export interface SettingsAgent extends Record<string, unknown> {
   command?: string;
   provider?: string;
   model?: string;
+  reasoning_effort?: string | null;
   icon?: string;
   persona?: string;
   context?: string;

@@ -37,6 +37,20 @@ The session supplies a phase and a JSON output contract:
   complete corrected notes for these primary segments, not just a change list.
   Preserve all valid ideas and account for every primary segment again.
 
+READING-NOTE PROPERTIES
+The plugin configuration owns which properties are copied from the source, fixed,
+inferred, or left empty. Do not replace those rules with your own defaults. The
+supplied dimensions contain only the fields you must infer from each note's idea.
+In every note, return dimensions keyed by the exact field_id, with an array of
+allowed_labels for EVERY supplied field. Use at most one label when multiple is
+false. Choose only existing labels supported by the note and its original context;
+do not assign a broad resource topic to every note indiscriminately. If no allowed
+label is justified, explicitly return [] and explain the uncertainty in warnings.
+Never invent properties, labels or relation IDs. The application resolves labels
+to stored values and applies copied/fixed fields. In particular, do not bypass a
+configured Tags rule with a separate free-form tags list. Preserve these assignments
+through review and when replacing a saved plan.
+
 In extract and review, request more ORIGINAL evidence before resolving distant
 definitions or cross-references: return requests with segment_ids and/or search
 queries instead of notes. The worker supplies matching passages with their ids

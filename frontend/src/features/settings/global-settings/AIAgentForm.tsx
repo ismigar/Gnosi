@@ -10,7 +10,8 @@ import { FormGroup } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Loader2 } from 'lucide-react';
 import { MODEL_FAULT_REASONS } from '../AI/modelReliability';
 import { findModelFault } from '../AI/modelReliability';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { fetchAiModelReasoning, type AiModelReasoning } from '../../../shared/api/ai';
 import { useModelReliability } from '../AI/modelReliability';
 import { useState } from 'react';
 import { AgentBehaviorInspection } from '../AI/AgentBehaviorInspection';
@@ -61,6 +62,17 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
   // safe — neither provider ids nor model ids contain that pattern.
   const selectedKey = (provider && model) ? `${provider}||${model}` : '';
   const registryEmpty = grouped.size === 0;
+  const [reasoning, setReasoning] = useState<{ key: string; options: AiModelReasoning } | null>(null);
+  useEffect(() => {
+    if (provider !== 'openrouter' || !model) return;
+    const controller = new AbortController();
+    void fetchAiModelReasoning(provider, model, controller.signal).then(options => {
+      if (!controller.signal.aborted) setReasoning({ key: selectedKey, options });
+    }).catch(() => { /* Existing selections remain intact if discovery is offline. */ });
+    return () => { controller.abort(); };
+  }, [provider, model, selectedKey]);
+  const reasoningOptions = reasoning?.key === selectedKey ? reasoning.options : null;
+  const efforts = reasoningOptions?.supported_efforts ?? [];
 
   // Evidence about the chosen model, recorded from its own past failures.
   // Only reasons the backend attributes to the MODEL land here: a rate limit
@@ -111,7 +123,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
           <select className="gnosi-select" value={selectedKey} aria-label={t('settings.ai.assistant.profile_model')}
             onChange={e => {
               const [p, m] = e.target.value.split('||');
-              update({ provider: p || '', model: m || '' });
+              update({ provider: p || '', model: m || '', reasoning_effort: null });
             }}>
             <option value="">{t('settings.ai.select_model_option')}</option>
             {[...grouped.entries()].flatMap(([prov, modelIds]) => modelIds.map(mid => (
@@ -145,6 +157,22 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
         </FormGroup>
 
 
+
+        {(efforts.length > 0 || form.reasoning_effort) && <FormGroup
+          label={t('settings.ai.assistant.reasoning_effort')}
+          description={t('settings.ai.assistant.reasoning_help')}
+        >
+          <select className="gnosi-select" aria-label={t('settings.ai.assistant.reasoning_effort')}
+            value={form.reasoning_effort ?? ''} disabled={!reasoningOptions}
+            onChange={e => { update({ reasoning_effort: e.target.value || null }); }}>
+            <option value="">{reasoningOptions?.default_effort
+              ? t('settings.ai.assistant.reasoning_default_level', { level: t(`settings.ai.assistant.reasoning_levels.${reasoningOptions.default_effort}`) })
+              : t('settings.ai.assistant.reasoning_default')}</option>
+            {form.reasoning_effort && !efforts.includes(form.reasoning_effort) &&
+              <option value={form.reasoning_effort} disabled>{t(`settings.ai.assistant.reasoning_levels.${form.reasoning_effort}`)}</option>}
+            {efforts.map(effort => <option key={effort} value={effort}>{t(`settings.ai.assistant.reasoning_levels.${effort}`)}</option>)}
+          </select>
+        </FormGroup>}
 
         <nav className="flex flex-wrap gap-2" aria-label={t('agent_behavior.navigation')}>
           {['instructions', 'skills', 'context', 'operations', 'preview'].map(key => <button type="button" key={key} className={`btn-gnosi ${section === key ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'}`} aria-pressed={section === key} onClick={() => { setSection(key); }}>{t(`agent_behavior.${key}`)}</button>)}
@@ -211,6 +239,7 @@ export function AIAgentForm({ agent, otherCommands = [], purpose = 'profile', on
                   command: command.trim(),
                   provider,
                   model,
+                  reasoning_effort: form.reasoning_effort ?? null,
                   icon,
                   persona,
                   context,

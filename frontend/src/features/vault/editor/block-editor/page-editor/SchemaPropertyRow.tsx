@@ -1,4 +1,4 @@
-import { Calendar } from 'lucide-react';
+import { Calendar, CalendarRange, CheckSquare, Clock, FileText, FunctionSquare, Image, Link, ListChecks, Paperclip, Sigma, Sparkles, User, Users } from 'lucide-react';
 import { Hash } from 'lucide-react';
 import { PropertyValue } from './PropertyValue';
 import React from 'react';
@@ -22,10 +22,10 @@ export function SchemaPropertyRow({ context, prop }: { context: PageEditorContro
         onClick={() => { setActiveProp(prop.name); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
         title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
-        className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period'].includes(prop.type) ? 'self-start' : ''}`}
+        className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period', 'rich_text', 'image', 'formula', 'rollup', 'virtual'].includes(prop.type) ? 'self-start' : ''}`}
       >
         <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors shrink-0">
-          {['date', 'datetime', 'period'].includes(prop.type) ? <Calendar size={14} /> : (['select', 'status'].includes(prop.type) ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
+          <PropertyIcon type={prop.type} />
         </div>
         <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
         {propDesc && (
@@ -48,10 +48,10 @@ export function SchemaPropertyRow({ context, prop }: { context: PageEditorContro
           </button>
         )}
       </div>
-      <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
+      <div data-prop-value={prop.name} className={`min-w-0 flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period', 'rich_text', 'image', 'formula', 'rollup', 'virtual'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
         <PropertyValue prop={prop} context={context} />
         {!currentTable && (
-          <button onClick={() => { handleRemoveProperty(prop.name); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_property')}><X size={14} /></button>
+          <button onClick={() => { void handleRemoveProperty(prop.name); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_property')}><X size={14} /></button>
         )}
       </div>
       {isHelpOpen && propDesc && (
@@ -62,4 +62,12 @@ export function SchemaPropertyRow({ context, prop }: { context: PageEditorContro
       )}
     </React.Fragment>
   )
+}
+
+function PropertyIcon({ type }: { type: string }) {
+  const icons = { text: Type, rich_text: FileText, number: Hash, checkbox: CheckSquare, date: Calendar, datetime: Clock, period: CalendarRange,
+    created_time: Clock, last_edited_time: Clock, select: Tag, status: ListChecks, multi_select: Tag, relation: Link, url: Link, zotero: Link,
+    autoria: Users, created_by: User, last_edited_by: User, files: Paperclip, image: Image, formula: FunctionSquare, rollup: Sigma, virtual: Sparkles };
+  const Icon = Object.entries(icons).find(([key]) => key === type)?.[1] || Type;
+  return <Icon size={14} aria-hidden="true" />;
 }

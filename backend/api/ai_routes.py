@@ -34,6 +34,7 @@ from backend.domains.configuration.ai.content_routes import (
     generate_content,
     router as content_router,
 )
+from backend.domains.configuration.ai.model_metadata_routes import router as model_metadata_router
 from backend.security.ai_credentials import (
     env_keys_for_provider,
     get_ai_catalog_with_status,
@@ -49,6 +50,7 @@ from backend.utils.safe_io import safe_write_text
 
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
+router.include_router(model_metadata_router)
 JsonObject = dict[str, Any]
 
 

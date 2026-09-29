@@ -4,6 +4,7 @@ import {
   getActiveVaultSlug,
   setActiveVaultCookie as writeActiveVaultCookie,
 } from '../api/vault-context';
+import { canonicalDocumentSource } from './documentSourceIdentity';
 
 export type DocumentKind = 'epub' | 'pdf' | 'snapshot';
 export type FileKind = 'audio' | 'document' | 'file' | 'image' | 'url' | 'video';
@@ -227,7 +228,7 @@ export function parseFileEntries(value: unknown): FileEntry[] {
 }
 
 export function fileTargetKey(value: unknown): string {
-  let normalized = fileResourceString(value).trim();
+  let normalized = canonicalDocumentSource(fileResourceString(value).trim());
   if (!normalized) return '';
   const markdown = normalized.match(/\[[^\]]*\]\(([^)]+)\)/);
   if (markdown) normalized = (markdown[1] ?? '').trim();

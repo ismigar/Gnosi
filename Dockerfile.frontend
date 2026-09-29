@@ -22,6 +22,9 @@ RUN pnpm install --frozen-lockfile --filter @gnosi/frontend...
 # Source is image-owned. Rebuild after code/lock changes; do not mask installed
 # workspace dependencies with host node_modules or anonymous dependency volumes.
 COPY frontend/ frontend/
+# Vite imports this shared verifier when loading its configuration.
+COPY desktop/scripts/verify-frontend-assets.cjs desktop/scripts/verify-frontend-assets.cjs
+RUN node -e "require('./desktop/scripts/verify-frontend-assets.cjs')"
 
 WORKDIR /app/frontend
 

@@ -12,12 +12,16 @@ const mocks = vi.hoisted(() => ({
     fetchPluginState: vi.fn(),
     setPluginLifecycle: vi.fn(),
     updatePluginSettings: vi.fn(),
+    invalidateConfigurationCache: vi.fn().mockResolvedValue(undefined),
+    emitConfigChanged: vi.fn(),
 }));
 vi.mock('../api/plugins', () => ({
     fetchPluginState: mocks.fetchPluginState,
     setPluginLifecycle: mocks.setPluginLifecycle,
 }));
 vi.mock('../api/plugin-runtime', () => ({updatePluginSettings: mocks.updatePluginSettings}));
+vi.mock('../api/configuration', () => ({invalidateConfigurationCache: mocks.invalidateConfigurationCache}));
+vi.mock('../platform/configEvents', () => ({emitConfigChanged: mocks.emitConfigChanged}));
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
@@ -129,10 +133,15 @@ it('ignores late activation, settings success and settings rollback from a previ
     });
     expectVaultB();
 
+    expect(mocks.invalidateConfigurationCache).not.toHaveBeenCalled();
+    expect(mocks.emitConfigChanged).not.toHaveBeenCalled();
+
     // The same-vault success and rejection contracts remain unchanged.
     mocks.setPluginLifecycle.mockResolvedValueOnce({enabled_builtin: ['calendar'], settings: {mail: settingsB}});
     await act(async () => {await pluginsValue().setPluginEnabled('calendar', true);});
     expect(pluginsValue().isEnabled('calendar')).toBe(true);
+    expect(mocks.invalidateConfigurationCache).toHaveBeenCalledOnce();
+    expect(mocks.emitConfigChanged).toHaveBeenCalledOnce();
     mocks.updatePluginSettings.mockResolvedValueOnce({settings: {folder: 'B saved'}});
     await act(async () => {await pluginsValue().setPluginSettings('mail', {folder: 'B optimistic'});});
     expect(pluginsValue().getPluginSettings('mail')).toEqual({folder: 'B saved'});

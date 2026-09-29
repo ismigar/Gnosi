@@ -1,3 +1,5 @@
+import { readGroupFieldValue } from '../groupFieldValue';
+import { groupValueKeys, groupValueLabel, readGroupValue } from '../groupValueUtils';
 import type { VaultViewPage } from '../../../../shared/records/hooks/useVaultViewData';
 import { orderGroupKeys } from '../groupOrderUtils';
 import { normalizeOptions, optionColorHex } from '../../../../shared/records/model/optionCatalogUtils';
@@ -80,16 +82,14 @@ export function kanbanGroupValues(
     note: KanbanNote,
     field: string,
     pendingMoves: ReadonlyMap<string, unknown>,
+    fieldId?: string | null,
+    schema?: KanbanSchema,
+    allNotes: readonly KanbanNote[] = [],
 ): string[] {
     const raw = pendingMoves.has(note.id)
         ? pendingMoves.get(note.id)
-        : readKanbanCardValue(note, field).value;
-    if (isFilterValueArray(raw)) return raw.flatMap((value) => {
-        const scalar = stringifyScalar(value);
-        return scalar?.trim() ? [scalar] : [];
-    });
-    const scalar = stringifyScalar(raw);
-    return scalar?.trim() ? [scalar] : [];
+        : schema ? readGroupFieldValue(note, field, schema, allNotes) : readGroupValue(note, field, fieldId);
+    return groupValueKeys(raw);
 }
 
 
@@ -120,6 +120,7 @@ export function buildKanbanColumns(
     view: KanbanView,
     pendingMoves: ReadonlyMap<string, unknown>,
     idToTitle: Readonly<Record<string, string>>,
+    allNotes: readonly KanbanNote[] = notes,
 ): KanbanColumnModel[] {
     const groupBy = readKanbanGroupBy(view);
     const config = getFieldConfig(schema, groupBy);
@@ -133,7 +134,7 @@ export function buildKanbanColumns(
             : [];
     const customStatuses = new Set<string>();
     notes.forEach((note) => {
-        kanbanGroupValues(note, groupBy, pendingMoves).forEach((status) => {
+        kanbanGroupValues(note, groupBy, pendingMoves, config.id, schema, allNotes).forEach((status) => {
             if (!predefinedStatuses.includes(status)) customStatuses.add(status);
         });
     });
@@ -145,7 +146,7 @@ export function buildKanbanColumns(
         statuses.map((status) => [status, []]),
     );
     notes.forEach((note) => {
-        const values = kanbanGroupValues(note, groupBy, pendingMoves);
+        const values = kanbanGroupValues(note, groupBy, pendingMoves, config.id, schema, allNotes);
         if (values.length === 0) {
             groupedNotes[EMPTY_KANBAN_BUCKET]?.push(note);
             return;
@@ -158,14 +159,14 @@ export function buildKanbanColumns(
         direction: (view.groupSortDir ?? view.group_sort_dir) === 'desc' ? 'desc' : 'asc',
         emptyKey: EMPTY_KANBAN_BUCKET,
         getCount: (status) => groupedNotes[status]?.length ?? 0,
-        getLabel: (status) => idToTitle[status] ?? status,
+        getLabel: (status) => idToTitle[status] ?? groupValueLabel(status),
         keys: statuses,
         mode: readKanbanGroupSort(view),
     });
     const colors = Object.fromEntries(options.map(({ color, name }) => [name, color]));
     return orderedStatuses.map((status) => ({
         color: colors[status] ? optionColorHex(colors[status]) : null,
-        label: idToTitle[status] ?? status,
+        label: idToTitle[status] ?? groupValueLabel(status),
         notes: groupedNotes[status] ?? [],
         status,
     }));

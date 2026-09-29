@@ -20,6 +20,8 @@ Un Vault con escritura. Las vistas generales forman parte del conocimiento; la p
 
 6. Consulta la ayuda junto a la restricción de fecha para entender la regla. Comprueba el final calculado según los días laborables.
 
+Para leer las notas seguidas, abre la configuración de la galería y elige **Tamaño de las tarjetas → Ancho completo** y **Vista previa → Contenido**. Las tarjetas ocupan todo el ancho de la vista, quedan una debajo de otra y crecen según el texto. En una galería agrupada, **Espacio** despliega el grupo enfocado y entra en la primera nota; **Esc** desde una nota vuelve a la cabecera del grupo y lo pliega. Un segundo **Esc** vuelve a la vista. El clic en la cabecera sigue plegando y desplegando el grupo.
+
 ## Resultado esperado {#expected-result}
 
 Puedes consultar registros en distintas vistas y explicar la fecha calculada de una tarea.
