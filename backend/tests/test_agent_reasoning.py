@@ -1,7 +1,6 @@
 """Reasoning settings reach OpenRouter, including stateless tool round trips."""
 
 import json
-import time
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -20,7 +19,10 @@ LUNA = "openai/gpt-6-luna"
 @pytest.fixture(autouse=True)
 def offline_metadata(monkeypatch, tmp_path):
     monkeypatch.setattr(reasoning, "_cached", dict(reasoning._VERIFIED))
-    monkeypatch.setattr(reasoning, "_checked_at", time.monotonic())
+    # A fresh VM may have less uptime than the metadata TTL.
+    clock = SimpleNamespace(monotonic=lambda: reasoning._TTL + 100.0)
+    monkeypatch.setattr(reasoning, "time", clock)
+    monkeypatch.setattr(reasoning, "_checked_at", clock.monotonic())
     monkeypatch.setattr(reasoning, "_cache_path", lambda: tmp_path / "reasoning.json")
 
 
