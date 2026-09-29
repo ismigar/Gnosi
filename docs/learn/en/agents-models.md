@@ -1,6 +1,6 @@
-# Configure the assistant and its profiles
+# Configure bots and profiles
 
-The default profile is used for new conversations. Each conversation can choose another profile without affecting the others.
+All bots and profiles appear in one list. Exactly one is primary: it is the default for new conversations and coordinates the team. Plugin actions continue to use their own profiles.
 
 ## Before you begin {#before-you-begin}
 
@@ -10,7 +10,7 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 1. Open the model/provider settings and configure a supported provider or local endpoint. Save its credentials in Settings and select an available model.
 
-2. Open Settings → Plugins → AI → Assistant and choose **Set up assistant**. Select the model, name the profile and assign the required skills.
+2. Open Settings → Plugins → AI → Assistants. Choose **Create the first assistant** when the list is empty, or **Create profile** to add one. Select its model, name the profile and assign the required skills.
 
 3. Open chat and confirm the selected agent and model. Start with a short question to check the connection.
 
@@ -22,7 +22,7 @@ Enable the AI feature. A cloud provider requires valid credentials and may charg
 
 ### Profiles and conversations
 
-Create profiles under **Additional profiles (advanced)**. In chat, open the selector at the assistant name and choose the **Conversation profile**. The change applies to subsequent requests and preserves history. Each conversation remembers its profile. **Use as default** in Settings selects the profile for new conversations; it does not change existing chats.
+Each card has a settings icon and, unless it is already primary, **Make principal**. Choosing another preserves the bots and their configurations; the new primary takes over team coordination. Existing conversations keep their profiles. In chat, the **Conversation profile** selector changes the profile for subsequent requests without losing history or affecting other conversations.
 
 ### One model per profile
 
@@ -43,13 +43,30 @@ A model may chat successfully while lacking tool support. For authentication, ti
 
 ## Plugin profiles
 
-Each AI plugin declares an editable profile and the skills its actions use. Settings → AI → Assistant shows plugin profiles separately from personal profiles. Edit the single model, instructions, sources and skill assignments there. Initial profiles copy only the current default model; plugin updates preserve user edits. Disabling a plugin suspends its profile without deleting settings. A missing model or required skill fails explicitly instead of falling back to the personal default. New standalone actions and scheduled plugin skills resolve the plugin profile; existing jobs retain their frozen snapshot. A manually selected conversation profile still governs that conversation.
+Each AI plugin has an editable profile in the same list as personal profiles, labelled with the plugin that uses it. You can edit its model, instructions, sources and skills, and explicitly make it primary. This does not change which profile handles the plugin’s actions. Disabling the plugin suspends its bot while preserving configuration. A missing model or required skill is reported without substituting another profile. Executions already in progress retain the configuration they started with.
 
-## Director and specialist team
+## Primary assistant and team participation
 
-In **Configure team**, choose the Director, members and their roles. An agent can have several roles. Select which plugin profiles may delegate; their actions remain owned by the plugin. Coordination takes effect when you save settings. Only the coordination skill is added to the Director; existing models, instructions and other skills are preserved.
+Every bot, including team participants, keeps handling its tasks with its own model, instructions and skills. Asking for help is optional: the assistant chooses it only when another specialty or coordinated work is needed. It decides before executing tools; received assignments cannot be delegated again.
 
-Direct routes associate known operations with executor lists. The server checks availability, skills, context and limits before comparing estimated assignment cost. Unknown cost remains unknown. Direct routes bypass the Director; ambiguous requests require a plan. Valid results are delivered without automatic Director review.
+The primary assistant belongs to the same list and coordinates the team when other bots receive tasks. On every other bot’s card, **Team participation** offers:
+
+- **Works independently**: Handles its tasks with its own model and skills. It neither receives team tasks nor asks the team for help.
+- **Receives team tasks**: Keeps handling its tasks with its own model. It can also receive assignments from the primary assistant, but does not ask the team for help.
+- **Asks the team for help**: Handles its tasks with its own model and asks the team for help only when another specialty is needed. It does not receive assignments from the primary assistant.
+- **Receives tasks and asks for help**: Handles its tasks with its own model. It also receives assignments and can ask for help when another specialty is needed; it does not automatically delegate all work.
+
+The settings icon on each card opens its model, instructions, sources and skills. Specialties are selected inside the same card. Task assignments and temporary specialists are optional, in a collapsed advanced section.
+
+Complete selections save automatically. If task receivers or temporary permissions are missing, the form explains what is pending; closing it keeps the last complete configuration. Removing the last task receiver disables collaboration. There is no second place to activate the same bots. Only the coordination skill is added to the primary assistant when collaboration is active.
+
+Open a task type and select one or more bots. With no selection, the primary coordinates it; if there are no receivers, guidance explains how to add them. Temporary models and skills also allow multiple selections, with a separate switch for each option. These are available permissions, not tasks that all run at once.
+
+With focus on reading text or a switch, Up/Down and page keys scroll the form. Text fields and selectors retain their editing and selection keys.
+
+
+
+Advanced assignments and direct routes apply only after an assistant requests help. Direct routes associate known operations with executor lists. The server checks availability, skills, context and limits before comparing estimated assignment cost. Unknown cost remains unknown. Direct routes bypass the primary assistant; ambiguous requests require a plan. Valid results are delivered without automatic Director review.
 
 Limits are four assignments, two temporary specialists and two simultaneous reading tasks. Modifications run sequentially. Structured operations allow eight total calls within the original budget. Format repair gets one attempt and never repeats actions. Automatic replanning is limited to reading work; uncertain effects require review.
 
@@ -59,7 +76,7 @@ Confirmations identify the executor and do not authorize additional actions. Res
 
 The catalog provides independent assessments for Director, All-rounder, Documentalist, Expert, Administrative and Worker, with evidence and missing tests. Declared compatibility does not certify Catalan, citations or delegation economy. Legacy labels remain for compatibility but do not select executors. Automated tests use simulated providers, with no paid evaluations. Compare quality and total cost on identical cases before expanding routes.
 
-The optional **Command** field in each agent’s settings assigns a unique command such as `/traductor`. Write `/traductor Translate this text…` in chat to send that turn directly to the agent with its own model, instructions and skills, without consulting the Director. The conversation’s usual selection stays unchanged. Commands do not expand permissions or allow disabled agents to run. After `/`, use 1–32 unaccented letters, digits, hyphens or underscores, starting with a letter; commands are case-insensitive.
+The optional **Command** field in each agent’s settings assigns a unique command such as `/traductor`. Write `/traductor Translate this text…` in chat to send that turn directly to the agent with its own model, instructions and skills, without consulting the primary assistant. The conversation’s usual selection stays unchanged. Commands do not expand permissions or allow disabled agents to run. After `/`, use 1–32 unaccented letters, digits, hyphens or underscores, starting with a letter; commands are case-insensitive.
 
 ## Role assessments and missing evidence
 
@@ -89,3 +106,13 @@ Each result records version, date, model, provider and per-case checks within it
 Retention proposals show reusable skills, coverage/model differences from existing agents and completed executions. Completion does not certify every task-specific acceptance criterion. Permanent instructions start from a registered-skill template without copying the assignment; users can review them. Acceptance can also add the personal profile to the team. An existing equivalent configuration prevents a duplicate proposal. Rejection prevents repeating the same proposal.
 
 For an unresolved parameter count, select **Pending verification** in the Parameters column. **Consult the official source** attempts an exact-version match against supported manufacturer model cards. An unavailable source or no match leaves the value pending. You can instead record total and active billions, or a reviewed non-disclosure, with an HTTPS source and explicit confirmation that you checked the exact model. Manually reviewed values retain their provenance and date; merely failing to find a number never establishes non-disclosure. Supplied links are not fetched by the server.
+
+## Recommended LLM profile and disabled plugins
+
+Each card shows a recommended LLM profile and its reason. The principal recommends Director; other bots consider plugin tasks, assigned skills —including customized copies—, team specialties and task assignments. When several requirements apply, the most demanding is shown. For example, literature research recommends Documentalist, mail Administrative and complex analysis Expert. Unknown tasks receive All-rounder guidance. Check the evidence for this profile in the model comparison before choosing a model. The recommendation does not change the assigned model or certify its quality.
+
+Disabling a plugin makes its bot inactive and hides it from the list and selectors. Its model, instructions, sources and skills are kept for reactivation. The bot is removed from active team recipients and task assignments; collaboration is disabled if it was the last recipient or the principal. If it was the principal, choose another or enable the plugin again. Existing conversations keep their profile and report unavailability instead of switching automatically.
+
+## Reasoning effort
+
+When an OpenRouter model supports selecting reasoning effort, its settings show **Reasoning effort** with that model’s supported choices. **Model default** keeps the provider’s behavior; **Medium** explicitly requests that level. More effort can increase latency and token use. Changes save automatically, apply only to this assistant, and also apply when it uses tools. Changing models resets effort to the new model’s default.

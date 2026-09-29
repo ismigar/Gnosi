@@ -131,7 +131,14 @@ function VaultGalleryContent({
         visibleNotes,
         schema,
         activeView,
-    ), [activeView, schema, visibleNotes]);
+        {
+            ...idToTitle,
+            ...Object.fromEntries(allNotes.map(note => [note.id, String(note.title ?? idToTitle[note.id] ?? note.id)])),
+            ...(getFieldType(schema, galleryGroupField(activeView)) === 'checkbox'
+                ? { true: t('common.yes', 'Yes'), false: t('common.no', 'No') } : {}),
+        },
+        allNotes,
+    ), [activeView, schema, visibleNotes, idToTitle, allNotes, t]);
     const navigation = useVaultGalleryNavigation({
         expandedGroups,
         groupedSections,

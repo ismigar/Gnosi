@@ -29,7 +29,7 @@ class AgentOperation(BaseModel):
     context_refs: list[dict[str, Any]] = Field(default_factory=list)
     output_schema: dict[str, Any] | None = None
     timeout_seconds: int = Field(default=120, ge=1, le=3600)
-    max_model_calls: int = Field(default=2, ge=1, le=2)
+    max_model_calls: int = Field(default=2, ge=1, le=3)
     parent_run_id: str = ""
     resume_requires_parent: bool = False
 

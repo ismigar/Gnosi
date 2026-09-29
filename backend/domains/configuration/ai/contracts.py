@@ -144,6 +144,14 @@ class ModelRegistryUpdateResponse(BaseModel):
     count: int
 
 
+class ModelReasoningResponse(BaseModel):
+    """Effort choices explicitly supported by this provider/model route."""
+
+    supported_efforts: list[str]
+    default_effort: str | None
+    source: Literal["openrouter", "verified_snapshot", "unavailable"]
+
+
 class ModelCatalogModel(BaseModel):
     """Normalized model metadata from models.dev or the local Ollama overlay."""
 

@@ -92,10 +92,11 @@ export function VaultGalleryCard({
     const showContent = previewMode === 'content';
     const showProperties = previewMode === 'cover' || previewMode === 'properties';
     const embeddedPreview = showContent || showProperties;
+    const fullWidth = cardSize === 'full';
     return (
         <div
-            style={showProperties ? { minHeight: showCover ? (cardSize === 'small' ? '13rem' : cardSize === 'large' ? '21rem' : '17rem') : '9rem' } : undefined}
-            className={`group relative flex flex-col overflow-hidden rounded-xl border bg-[var(--bg-primary)] shadow-sm outline-none transition-all hover:shadow-md focus:border-[var(--gnosi-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)] ${embeddedPreview ? galleryCardHeightClass(cardSize) : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+            style={showProperties && !fullWidth ? { minHeight: showCover ? (cardSize === 'small' ? '13rem' : cardSize === 'large' ? '21rem' : '17rem') : '9rem' } : undefined}
+            className={`group relative flex flex-col ${fullWidth ? 'overflow-clip' : 'overflow-hidden'} rounded-xl border bg-[var(--bg-primary)] shadow-sm outline-none transition-all hover:shadow-md focus:border-[var(--gnosi-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)] ${embeddedPreview ? galleryCardHeightClass(cardSize) : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             onClick={() => {
                 if (selectedCount > 0) toggleSelect(note.id);
             }}
@@ -135,9 +136,9 @@ export function VaultGalleryCard({
                     />
                 </div>
             </div> : null}
-            <div className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden p-4 ${showCover ? 'pt-6' : ''}`} style={showProperties ? { minHeight: '9rem' } : undefined}>
+            <div className={`flex min-w-0 flex-col p-4 ${fullWidth ? 'overflow-x-clip' : 'min-h-0 flex-1 overflow-x-hidden'} ${showCover ? 'pt-6' : ''}`} style={showProperties && !fullWidth ? { minHeight: '9rem' } : undefined}>
                 <h3
-                    className={`mb-2 flex items-center gap-2 truncate text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)] ${embeddedPreview && !showCover ? 'pr-8' : ''}`}
+                    className={`mb-2 flex items-center gap-2 ${fullWidth ? '' : 'truncate'} text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--gnosi-primary)] ${embeddedPreview && !showCover ? 'pr-8' : ''}`}
                     title={note.title == null || typeof note.title === 'boolean'
                         ? undefined : String(note.title)}
                 >
@@ -149,12 +150,13 @@ export function VaultGalleryCard({
                             size={18}
                         />
                     </span> : null}
-                    <span className="truncate" {...titlePreviewProps}>
+                    <span className={fullWidth ? 'whitespace-normal break-words' : 'truncate'} {...titlePreviewProps}>
                         {note.title || t('common.untitled', { defaultValue: 'Untitled' })}
                     </span>
                 </h3>
-                {showContent ? <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden">
+                {showContent ? <div className={`relative min-w-0 ${fullWidth ? 'overflow-x-clip' : 'min-h-0 flex-1 overflow-x-hidden'}`}>
                     <GalleryContentPreview
+                        scrollMode={fullWidth ? 'page' : 'card'}
                         idToTitle={{ ...idToTitle }}
                         note={note}
                         onNoteSelect={(pageId) => {
@@ -164,7 +166,7 @@ export function VaultGalleryCard({
                     />
                 </div> : null}
                 {showProperties ? <div
-                    className="custom-scrollbar flex min-w-0 flex-1 cursor-auto flex-col gap-1.5 overflow-y-auto overflow-x-hidden overscroll-contain pr-1"
+                    className={`flex min-w-0 cursor-auto flex-col gap-1.5 pr-1 ${fullWidth ? 'overflow-x-clip' : 'custom-scrollbar flex-1 overflow-y-auto overflow-x-hidden overscroll-contain'}`}
                     onClick={(event) => {
                         event.stopPropagation();
                     }}

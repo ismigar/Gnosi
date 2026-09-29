@@ -1,7 +1,7 @@
 // @vitest-environment node
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EventEmitter } from 'node:events';
 import { loadConfigFromFile, type ConfigEnv, type Plugin, type UserConfig } from 'vite';
@@ -209,3 +209,30 @@ for (const hookName of ['configureServer', 'configurePreviewServer'] as const) {
     expect(httpServer.listeners('connection')).toEqual([tls]);
   });
 }
+
+it('blocks raw frontend builds and incomplete outputs when PDF runtime assets are absent', async () => {
+  const config = await configured({ command: 'build', mode: 'production' });
+  const plugin = config.plugins?.flat().find(item =>
+    item && typeof item === 'object' && 'name' in item && item.name === 'gnosi:required-reader-assets',
+  ) as Plugin;
+  expect(plugin.apply).toBe('build');
+  const { configResolved, buildStart, writeBundle } = plugin;
+  if (typeof configResolved !== 'function' || typeof buildStart !== 'function' || typeof writeBundle !== 'function') {
+    throw new Error('Missing reader asset validation hooks');
+  }
+  const publicDir = join(temporaryDirectory, 'public');
+  const outDir = join(temporaryDirectory, 'dist');
+  Reflect.apply(configResolved, plugin, [{ root: temporaryDirectory, publicDir, build: { outDir } }]);
+  expect(() => { Reflect.apply(buildStart, plugin, []); }).toThrow(/build-zotero-reader.sh/);
+  for (const file of ['host.html', 'reader.js', 'reader.css', 'pdf/build/pdf.mjs',
+    'pdf/build/pdf.worker.mjs', 'pdf/web/viewer.html', 'pdf/web/viewer.css',
+    'locales/en-US/zotero.ftl', 'locales/en-US/reader.ftl']) {
+    const target = join(publicDir, 'zotero-reader', file);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, 'fixture');
+  }
+  expect(() => { Reflect.apply(buildStart, plugin, []); }).not.toThrow();
+  expect(() => { Reflect.apply(writeBundle, plugin, []); }).toThrow(/host.html/);
+  cpSync(publicDir, outDir, { recursive: true });
+  expect(() => { Reflect.apply(writeBundle, plugin, []); }).not.toThrow();
+});

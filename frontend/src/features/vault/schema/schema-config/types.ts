@@ -23,6 +23,8 @@ export interface Functionality {
     config: ActionConfig;
 }
 export interface EditorFormat extends Record<string, unknown> {
+    display?: string;
+    progressMax?: number;
     kind?: string;
     currency?: string;
     decimals?: number | string | null;

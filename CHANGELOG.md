@@ -2,11 +2,11 @@
 
 ## Gnosi 3.2.0
 
-_2026-09-27 · Release candidate_
+_2026-09-28 · Release candidate_
 
 ### Highlights
 
-- Configure assistant teams with a director, specialist roles and economical delegation, and select an assistant for a single turn with its command.
+- Configure bots and profiles in one list, choose the primary assistant on its card, and set how each participates in the team. Select an assistant for a single turn with its command.
 - Compare provider-specific prices, context windows and capabilities, inspect role suitability and run explicitly authorized synthetic evaluations.
 - Browse and search workspace templates with localized previews, and inspect included files and possible sensitive content before sharing.
 
@@ -16,12 +16,23 @@ _2026-09-27 · Release candidate_
 - Navigate dialogs, settings, tables and lists more consistently with the keyboard and clearer focus indicators.
 - Create resources with visible progress, type-specific templates and automatic covers.
 - Role names now clearly distinguish the Director, who coordinates the team, from the Expert, who provides specialist knowledge.
+- Team settings save complete changes automatically. Task recipients and temporary models and skills use named multiple selections, with guidance when no options are available and consistent explanations in all four languages.
+- Each bot shows a recommended LLM profile based on its tasks and skills. Disabling a plugin disables and hides its bot; its settings are kept for reactivation.
+- Set reasoning effort per assistant for compatible OpenRouter models, with automatic saving and support for tool use.
+- Follow source processing from a compact progress card after closing the dialog or moving to another page.
+- Read gallery notes in full-width cards that grow with their content, one below another. Choose limited or content-sized height for any view embedded in a page.
 
 ### Fixes
 
 - Open attached documents in the internal reader with the PDF resources included in desktop builds.
 - Distinguish unknown model prices and capabilities from confirmed values when comparing offers.
 - Model comparison now preserves concurrent edits, distinguishes exact provider offers and shared benchmark variants, and applies role filters to the selected offer’s declared capabilities. Refresh, sorting, filtered counts and parameter review are more consistent.
+- Settings scroll with navigation keys from reading text and standalone switches while text fields and selectors retain their own keyboard controls.
+- Team help is optional: each assistant keeps its model and handles ordinary work, delegating only when support is needed, without chains of delegation.
+- Resume long-source processing with the document’s global context preserved, and repair invalid references without rewriting valid notes.
+- View settings retain their values and edits; Space enters grouped notes and Escape returns to and collapses the group. Slow cloud files no longer block other requests while checking view usage. New views allow choosing a source table when no table is active, making its fields available in every settings tab. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes. Grouping supports every field type, and tab hints stay hidden while the menu is open.
+- First-start configuration is stored outside the app so its installed signature remains intact.
+- Page properties correctly display checkboxes, zero values, field icons and calculated results. Dates and selections respect the page lock, and Zotero resources can be opened from their property. Fields follow their configured order, and Manage Fields lets you inspect and remove page-only properties without duplicating the title. Numeric fields can display progress bars or rings across pages and views, with a configurable scale and visible percentage.
 
 ## Gnosi 3.1.0
 

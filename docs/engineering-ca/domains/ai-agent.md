@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/structured_output.py
+  - backend/tests/test_agent_structured_output.py
+  - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/agent/team_help.py
+  - backend/services/agent_team_runtime.py
+  - backend/tests/test_agent_team.py
+  - backend/services/model_reasoning.py
   - backend/services/agent_execution.py
   - backend/services/principal_agent_migration.py
   - backend/services/plugin_agent_profiles.py
@@ -76,6 +83,7 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
   - frontend/src/features/vault/views/vault-views-header/HeaderTitle.brain.test.tsx
@@ -1176,7 +1184,7 @@ La identitat de l’historial es manté a `agent_id` i `session_id`. El camp opc
 
 ## Perfils dels plugins
 
-Cada plugin d’IA declara un perfil editable i les habilitats que utilitzen les seves accions. Configuració → IA → Assistent mostra els perfils dels plugins separats dels personals. Hi pots editar l’únic model, les instruccions, les fonts i les habilitats assignades. Els perfils inicials copien només el model predeterminat actual; les actualitzacions preserven les edicions. Desactivar un plugin suspèn el seu perfil sense eliminar la configuració. Si falta el model o una habilitat necessària, l’acció falla explícitament sense recórrer al perfil personal. Les accions independents noves i les habilitats programades utilitzen el perfil del plugin; els treballs iniciats conserven la seva instantània. El perfil triat manualment en una conversa continua governant aquella conversa.
+Cada plugin d’IA té un perfil editable a la mateixa llista que els perfils personals, amb el nom del plugin que l’utilitza. Pots canviar-ne el model, les instruccions, les fonts i les habilitats, i triar-lo explícitament com a principal. Això no canvia quin perfil utilitzen les accions del plugin. Desactivar el plugin suspèn el seu bot i en conserva la configuració. Si falta el model o una habilitat necessària, l’acció ho indica sense substituir el perfil. Les execucions ja iniciades mantenen la configuració amb què van començar.
 
 
 ## Valoració orientativa — weighted_catalog_v1
@@ -1212,3 +1220,58 @@ El context i les capacitats es mostren per proveïdor, incloent modes d’entrad
 La coincidència del registre utilitza rutes exactes de proveïdor/model, mai noms ni fragments. El filtre d’activació i els àlies respecten el proveïdor seleccionat. Els filtres Directiu i Polivalent exclouen les rutes que declaren no admetre eines. L’activació conserva cada oferta de proveïdor/model i verifica la ruta seleccionada. Els canvis de la comparativa es desen en sèrie i rellegeixen el registre persistent abans de desar, preservant els canvis intermedis de models i pressupost. Recuperar mètriques de la memòria cau recalcula les valoracions de rol amb les dades recuperades.
 
 Els desaments de la comparativa inclouen una revisió optimista del registre: un desament obsolet rep HTTP 409 en lloc de sobreescriure els canvis d’una altra finestra. Refrescar evita les memòries cau dels benchmarks i del catàleg de proveïdors, i conserva la procedència alternativa si falla. Les variants que comparteixen una ruta executable són vistes informatives d’una única oferta: l’activació i els àlies afecten l’oferta compartida, i el formulari explica que no configura el raonament ni reprodueix les condicions de les avaluacions. Sense puntuació significa que no hi ha cap puntuació numèrica de rol; les limitacions i puntuacions baixes tenen etiquetes diferenciades. La vista compacta mostra el context màxim i el preu mínim de cada columna, igual que l’ordenació. Les capçaleres exposen aria-sort, s’anuncia el recompte filtrat i la inspecció de paràmetres preomple les dades existents sense indicar un desament.
+
+
+## Configuració dels assistents i participació en l’equip
+
+Cada perfil té una única fitxa sempre visible amb la configuració, l’elecció explícita del principal i la participació en l’equip. El principal coordina; els altres perfils reben encàrrecs, demanen ajuda, combinen les dues funcions o treballen sols. Canviar el principal transfereix l’estat de l’equip i retira el nou principal de les assignacions d’execució. No crea cap agent ni reactiva una col·laboració desactivada.
+
+Les seleccions completes de participació, assignacions i permisos de temporals es desen automàticament. Els canvis incomplets queden al formulari, indiquen què falta i no substitueixen la darrera configuració completa. Retirar l’últim destinatari desactiva la col·laboració i els permisos per demanar ajuda. Els interruptors amb noms permeten seleccionar diversos models, habilitats i destinataris; les llistes buides expliquen com afegir-ne. La coordinació només s’afegeix en activar l’equip. L’edició d’un perfil incorpora l’estat més recent de l’equip per preservar els canvis simultanis de participació.
+
+L’àrea de lectura de la configuració admet el focus del teclat. Les tecles de desplaçament funcionen des del text i dels interruptors individuals; els camps editables, desplegables i controls compostos conserven les seves interaccions.
+
+## Recomanacions de models i cicle de vida dels plugins
+
+Cada fitxa visible recomana un paper de model segons el principal, les operacions del plugin, les habilitats conegudes i les seves còpies, les especialitats i les rutes. Guanya el paper de major exigència; les tasques desconegudes reben orientació Tot terreny. És una recomanació, no una puntuació del model ni un canvi de ruta o permisos.
+
+Després d’un canvi de plugin es renoven les memòries cau de configuració i s’avisa el xat i el formulari. Només es fusionen els camps de cicle de vida i els perfils nous, preservant les edicions locals. Els perfils suspesos queden ocults i no poden executar feina; es retiren dels destinataris i les rutes actives. Si se suspèn el principal o l’últim destinatari, la col·laboració s’atura. El principal no es reemplaça automàticament. Es descarten respostes tardanes després de tancar la configuració o canviar de vault.
+
+## Nivell de raonament
+
+Els perfils desen `reasoning_effort` opcional. L’editor consulta les opcions exactes d’OpenRouter amb `GET /api/ai/model-reasoning`: les metadades absents no habiliten opcions, null explícit admet els nivells de la passarel·la i el raonament obligatori exclou `none`. La memòria cau és fora del vault i inclou una alternativa verificada de Luna per al primer ús sense connexió. El desament rebutja opcions incompatibles. Les fàbriques del model predeterminat i del flux només propaguen el nivell quan proveïdor i model coincideixen amb el perfil. El raonament explícit d’OpenRouter i el predeterminat de Luna utilitzen Responses sense estat, `store=false`, historial complet i raonament xifrat entre crides d’eines. Els valors predeterminats dels altres models es conserven.
+
+## Ajuda opcional de l’equip
+
+El permís de col·laboració ja no intercepta tots els fluxos. Primer es resol el model del perfil seleccionat, inclòs el nivell de raonament, i després s’ofereix `request_team_help` com a crida de control opcional al xat i a les operacions estructurades. Les eines natives i el transport JSON validat comparteixen contracte. La feina habitual no afegeix cap crida d’encaminament. La delegació ha de ser l’única crida i precedir qualsevol execució d’eines; la reparació de format no pot demanar ajuda. El coordinador conserva l’entrada del torn actual, les configuracions fixades, els permisos de confirmació, la cancel·lació i el límit total de crides. Els executors no poden encadenar ajuda ni retornar l’encàrrec al sol·licitant. El catàleg del pla inclou les especialitats dels membres. La reparació i la represa només usen el tractament d’equip si s’ha desat una petició d’ajuda o un pla; altrament mantenen l’assistent original. La migració no activa permisos d’equip.
+
+Les metadades de raonament de només lectura són a `backend/domains/configuration/ai/model_metadata_routes.py`; l’encaminador de configuració d’IA les inclou a `/api/ai/model-reasoning`, amb el mateix contracte públic. Així es respecta el límit de mida dels fitxers del projecte.
+
+## Progrés dels recursos en segon pla
+
+Tancar el diàleg de processament deixa una targeta compacta, no modal, al racó inferior dret. Mostra el títol del recurs, la fase, els fragments i el progrés disponible, i permet reobrir els detalls sense iniciar un altre treball. El magatzem global de tasques manté els inicis pendents i les consultes de seguiment sense solapaments, tant des de les files de taula com des d’un recurs obert, encara que es canviï de pàgina. Els resultats completats o interromputs continuen visibles fins que s’amaguen; reintentar reprèn la feina desada. El seguiment es reinicia en canviar de Vault o de compte i ignora respostes antigues. Aquest estat de sessió de la interfície no persisteix quan es recarrega l’aplicació.
+
+## Format de les operacions estructurades
+
+Les operacions estructurades d’OpenRouter envien el contracte de sortida al proveïdor, amb mode d’esquema estricte per als contractes detallats i mode d’objecte JSON per als objectes genèrics. La selecció de ruta exigeix compatibilitat amb els paràmetres i conserva les preferències del proveïdor i el raonament. Les eines natives opcionals utilitzen contractes de funció estrictes; les eines JSON alternatives restringeixen l’embolcall i validen localment la resposta extreta. Els altres proveïdors mantenen la validació local. La lectura dirigida de fonts transmet l’esquema d’accions, amb el tipus de l’acció explícit.
+
+Que el proveïdor accepti la petició no demostra que compleixi el contracte: les validacions locals d’esquema i contingut continuen sent obligatòries, amb l’intent de reparació limitat existent. Es pot recuperar un objecte o una llista JSON complets seguits únicament d’un delimitador final repetit, sense canviar cap camp; es rebutgen valors addicionals, prosa, tancaments incoherents i contingut incomplet. La comprovació de cites, la cobertura de fonts i la validació de notes es mantenen. La validesa estructural no garanteix exactitud factual ni una redacció idèntica entre execucions.
+
+Si el planificador d’un equip opcional rebutja el context abans de fer cap crida al model o executar cap tasca, l’operació estructurada pot continuar amb el model original dins del mateix termini i límit de crides. Es conserven la petició completa i la resposta a la sol·licitud d’ajuda; la delegació rebutjada queda registrada i no redirigeix la represa cap a la fase fallida de l’equip. Els errors de permisos, les cancel·lacions i els errors posteriors a l’existència d’un pla continuen aturant l’execució. Reprendre el processament interromput des de la barra de la pàgina aprofita el progrés guardat, també després de reiniciar l’aplicació, sense forçar una execució nova.
+
+La planificació i la replanificació dels equips validen els executors, l’ordre de les dependències i la tasca de resultat abans de completar la fase o iniciar les tasques. Els errors de coherència entren al procés de reparació habitual, amb un màxim de dues crides de planificació dins del pressupost total existent. Una segona resposta invàlida fa fallar la fase sense executar-ne les tasques. Els plans completats que es recuperen de la memòria cau també es validen abans de reutilitzar-los.
+
+La lectura dirigida restringeix els camps de cada acció, incloses les notes, la cobertura i les cites. Valida les referències a la font, la cobertura completa i les citacions exactes abans d’acceptar o guardar una acció, perquè la reparació limitada conservi juntes les evidències originals i la resposta rebutjada. La validació prèvia no modifica l’estat de lectura. Cada pas inclou els identificadors exactes dels fragments i el nombre de passatges principals, i una identitat de pas impedeix reutilitzar una resposta idèntica entre iteracions diferents.
+
+Les fases de l’equip hereten el temps d’espera de l’operació principal i continuen limitades pel seu termini existent. Una reparació delegada rep l’entrada i les dades originals juntament amb la resposta rebutjada i l’error de validació, per poder comprovar les evidències en corregir la resposta.
+
+La validació de lectura comunica conjuntament els errors independents de cobertura i citació, identificant la posició de les notes i cites sense reproduir el text de la font. Així, l’únic intent de reparació permès pot corregir totes les incoherències conegudes amb l’evidència original, en lloc de descobrir només l’error següent després de cada intent. Els plans invàlids no fan avançar l’estat de lectura.
+
+Les reparacions de referències de la lectura dirigida retornen canvis limitats per un esquema per a les notes rebutjades i la cobertura. Es conserven la petició original, la memòria global, les notes afectades i els passatges originals de referència. Només poden canviar els camps de referència enumerats; els títols, cossos, ordre i camps no afectats de les notes es copien intactes de l’esborrany. Les rutes duplicades, absents o no autoritzades es rebutgen localment. El perfil original fa aquesta reparació dins del límit de tres crides al model del pas de lectura i del termini original, sense delegacions addicionals. L’acció reconstruïda ha de superar l’esquema original i la validació completa d’evidències abans de desar-se o entrar a la memòria cau.
+
+Abans que comenci cap delegació, les peticions d’ajuda invàlides o repetides d’una operació estructurada es rebutgen conjuntament. Els registres de crida queden resolts com a no executats, i l’assistent original pot respondre directament amb la petició completa dins del límit de reparació i del termini existents. No s’executa cap encàrrec a l’equip ni cap eina combinada. Cada pas de lectura també inclou l’estat de lectura i de desament de cada fragment enumerat, fins i tot després d’una represa, perquè el recompte no amagui quins plans queden pendents.
+
+La lectura de fonts llargues conserva el termini ampliat i limitat durant la selecció d’accions posterior, la revisió de plans recuperats i la represa, encara que la petició actual sigui breu. La mida de la font determina el temps disponible; els límits de context, el pressupost finit de reintents, la cancel·lació i la validació es mantenen.
+
+Cada pas de lectura dirigida mostra els indicadors de revisió i el nombre de notes dels plans desats, juntament amb l’acció i el fragment que han produït l’últim resultat. Aquests fets de progrés desats prevalen sobre afirmacions contradictòries de la memòria de treball del model; la memòria es conserva intacta i inclou el pas en què es va registrar quan està disponible. L’indicador de revisió recull la declaració del lector, no la correcció semàntica. Els punts de represa antics continuen sent compatibles. Cada pas permet com a màxim tres crides al model perquè, després de corregir la sintaxi JSON, encara es pugui reparar una vegada només les referències, sense ampliar el termini de l’operació ni permetre una altra delegació. Si aquesta reparació falla, el pas s’atura sense desar el pla invàlid.
+
+Les regles de les propietats de les notes de lectura es mantenen a la configuració del plugin Cervell: copiar un camp del recurs, usar un valor fix, deduir-lo amb IA o deixar-lo buit. L’skill classifica cada nota només entre les etiquetes existents proporcionades. Cada camp configurat amb IA apareix explícitament a l’esquema de resposta i ha de constar a cada nota; les dues vies de lectura rebutgen omissions, camps desconeguts, valors inventats i diversos valors en un camp de valor únic abans de desar. Una llista explícitament buida és vàlida quan l’evidència no justifica cap categoria. L’aplicació resol les etiquetes i aplica les regles de còpia i de valor fix. Instal·lar aquesta correcció no reclassifica les notes existents. Els Tags configurats ignoren la llista antiga d’etiquetes lliures, també quan la classificació s’absté explícitament o el valor copiat del recurs és buit.

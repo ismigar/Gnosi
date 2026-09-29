@@ -85,7 +85,7 @@ describe('table virtual row descriptors', () => {
       ]
     }));
     expect(rows).toMatchObject([
-      { groupKey: 'Todo', count: 1 }, { groupKey: 'Done', count: 1 },
+      { groupKey: 'Todo', count: 2 }, { groupKey: 'Done', count: 1 },
       { groupKey: ' empty', label: 'Sense valor', count: 2 },
     ]);
   });

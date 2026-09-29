@@ -50,6 +50,8 @@ export interface FilterContext {
     t: TFunction;
 }
 export interface ViewAppearance {
+    heightMode?: string;
+    heightPercent?: number;
     genogram?: import('../../../genograms').Config | null;
     cardSize?: string | null;
     galleryPreview?: string | null;
@@ -95,6 +97,8 @@ export type Usage = Pick<ViewUsage, 'count' | 'pages'>;
 export type SavedView = Record<string, unknown>;
 export type PersistView = (options?: { closeAfter?: boolean }) => Promise<SavedView | null>;
 export interface EditingBlock {
+    /** Configuration already loaded by the view being edited; never persisted as block props. */
+    view?: unknown;
     props?: { heading?: string; heading_level?: number; view_id?: string; section?: string };
 }
 export interface PageViewModalProps {

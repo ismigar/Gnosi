@@ -27,6 +27,8 @@ export interface DateFormatOptions {
 }
 
 export interface FieldFormat {
+    readonly display?: string | null;
+    readonly progressMax?: number | null;
     readonly currency?: unknown;
     readonly dateFormat?: string | null;
     readonly decimals?: number | null;
@@ -34,6 +36,7 @@ export interface FieldFormat {
 }
 
 export interface FieldFormatConfig {
+    readonly aggregation?: unknown;
     readonly format?: FieldFormat | null;
 }
 
@@ -45,6 +48,8 @@ export interface GlobalFormatDefaults {
 }
 
 export interface ResolvedFieldFormat {
+    readonly display?: string;
+    readonly progressMax?: number;
     readonly currencyCode: string;
     readonly dateFormat: string;
     readonly dateLocale?: string;
@@ -84,7 +89,7 @@ function isEmpty(value: unknown): boolean {
         || (typeof value === 'string' && value.trim() === '');
 }
 
-function toNumber(value: unknown): number | null {
+export function toNumber(value: unknown): number | null {
     if (typeof value === 'number') return value;
     const t = stringifyFormatValue(value).trim();
     // ca/es locale: a clean number with a comma decimal ("1,5", "-2,75") is stored
@@ -193,7 +198,9 @@ export function resolveFieldFormat(
 ): ResolvedFieldFormat {
     const f = fieldConfig.format ?? {};
     return {
-        kind: f.kind || 'number',
+        kind: f.kind || (fieldConfig.aggregation === 'percent_checked' ? 'percent' : 'number'),
+        progressMax: typeof f.progressMax === 'number' && Number.isFinite(f.progressMax) && f.progressMax > 0 ? f.progressMax : 100,
+        display: f.display || ((f.kind === 'percent' || fieldConfig.aggregation === 'percent_checked') ? 'bar' : 'number'),
         decimals: f.decimals,
         currencyCode: f.currency ? parseCurrencyCode(f.currency) : (global.currencyCode || 'EUR'),
         dateFormat: f.dateFormat || global.dateFormat || 'locale',

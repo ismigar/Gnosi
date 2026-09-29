@@ -11,6 +11,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './navigation/AppSidebar';
+import { ResourceProcessingMonitor } from '../features/literature';
 import { NotebookCreateDialog } from '../features/notebooks';
 import { MeetingRecorder, MeetingReminderWatcher } from '../features/meetings';
 
@@ -283,6 +284,7 @@ function App() {
       </main>
       {/* Toasts use the registered global notification layer. */}
       <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
+      <ResourceProcessingMonitor key={`processing-${String(vaultRevision)}-${user?.id || 'personal'}`} />
       <DesktopUpdateNotice />
       <CommandPalette />
       <PageOutline key={`outline-${String(vaultRevision)}`} />

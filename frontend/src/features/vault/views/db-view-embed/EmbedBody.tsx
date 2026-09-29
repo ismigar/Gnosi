@@ -1,11 +1,14 @@
 import { VaultViewBody, type VaultViewBodyProps } from '../VaultViewBody';
 import { GraphRender } from './GraphRender';
-import { TableBox, FeedFlowBox, ScrollBox } from './ViewContainers';
+import { EmbeddedViewBox } from './ViewContainers';
+import { viewHeightMode, viewHeightPercent } from '../../../../shared/records/model/viewHeight';
 import type { EmbedModel } from './useEmbedController';
 import type { EmbedNavigation } from './useEmbedNavigation';
 import { ViewSearchEmptyState } from '../ViewSearchScope';
 export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedModel ;} & Pick<EmbedNavigation, 'registerNavApi' | 'focusShell'>) {
     const { rows, columnsAsKeys, embeddedSchema, ctx, allRows, embeddedView, searchTerm, setSearchTerm, feedGroupMode, block, feedDensity, viewType, templates, reload, table, onEditSchemaAdapter, onCreateRecordAdapter, onDeletePageAdapter, onDeleteSelectedAdapter, onApplyTemplateAdapter, onUpdateViewAdapter, onUpdateNoteAdapter } = model;
+    const heightMode = viewHeightMode(embeddedView.heightMode, viewType);
+    const heightPercent = viewHeightPercent(embeddedView.heightPercent);
     if (searchTerm.trim() && rows.length === 0 && viewType !== 'genogram') {
         return <ViewSearchEmptyState scope={model.searchScope} onScopeChange={model.setSearchScope} />;
     }
@@ -18,7 +21,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
         activeView: embeddedView,
         // Maximum cap on the embedded table/list height: below that, it grows with
         // the content (without empty space); above that it scrolls internally.
-        maxHeight: '70vh',
+        maxHeight: heightMode === 'content' ? 'none' : `${String(heightPercent)}vh`,
         searchTerm,
         onSearchChange: setSearchTerm,
         feedGroupMode,
@@ -44,15 +47,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
     const renderBody = () => {
         // The `graph` has no equivalent editable component → bespoke render.
         if (viewType === 'graph') return <GraphRender rows={rows} columns={columnsAsKeys} onOpenPage={ctx.onOpenPage} />;
-        // The rest of the types are delegated to the shared body (VaultViewBody), which
-        // same one used by the full table. The table/list use a
-        // container that lets it do the internal scroll (sticky column); the
-        // for the rest, a box with its own scroll.
-        const Box = (viewType === 'table' || viewType === 'list') ? TableBox
-            : (viewType === 'feed') ? FeedFlowBox
-                : ScrollBox;
         return (
-            <Box>
                 <VaultViewBody
                     type={viewType}
                     {...sharedViewProps}
@@ -66,8 +61,7 @@ export function EmbedBody({ model, registerNavApi, focusShell }: { model: EmbedM
                     actionRules={table?.action_rules}
                     functionalities={table?.functionalities}
                 />
-            </Box>
         );
     };
-    return renderBody();
+    return <EmbeddedViewBox viewType={viewType} heightMode={heightMode} heightPercent={heightPercent}>{renderBody()}</EmbeddedViewBox>;
 }

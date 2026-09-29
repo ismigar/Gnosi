@@ -1,4 +1,4 @@
-import type { PageProperty, PagePropertyConfig, PropertyEntry } from './types';
+import type { PageProperty, PropertyEntry } from './types';
 import { isRecord, legacyText } from './valueBoundaries';
 import { INTERNAL_METADATA_KEY_SET } from './internalMetadata';
 import { getPdfSourceUri } from '../media';
@@ -6,11 +6,12 @@ import { isManagedInternalMetadataKey } from '../../metadataVisibilityUtils';
 import { serializeCellForClipboard } from '../../../properties/cellGridUtils';
 import { sortFieldItems } from '../../../../../shared/schema/fieldOrdering';
 import { useMemo } from 'react';
+import { namedPropertyMetadata, pagePropertyConfig, pagePropertyValue } from './propertyModel';
 import type { usePageEditorState } from './usePageEditorState';
 import type { usePageMetadata } from './usePageMetadata';
-type Input = Pick<ReturnType<typeof usePageEditorState>, 'metadata' | 'allTables' | 't' | 'referenceTableId' | 'newPropName' | 'setIsAddingProp' | 'setNewPropName' | 'idToTitle'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
+type Input = Pick<ReturnType<typeof usePageEditorState>, 'metadata' | 'allTables' | 'allNotes' | 't' | 'referenceTableId' | 'newPropName' | 'setIsAddingProp' | 'setNewPropName' | 'idToTitle'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
 export function usePageProperties(state: Input) {
-  const { metadata, allTables, t, referenceTableId, newPropName, setIsAddingProp, handleMetaChange, setNewPropName, idToTitle } = state;
+  const { metadata, allTables, allNotes, t, referenceTableId, newPropName, setIsAddingProp, handleMetaChange, setNewPropName, idToTitle } = state;
 
   const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
 
@@ -46,25 +47,16 @@ export function usePageProperties(state: Input) {
     return [];
   };
 
-  // Period settings are stored as top-level property fields by the schema
-  // modal, while inline option edits may live under `config`. Merge both
-  // shapes before handing the field to the structured period editor.
-  const getPropConfig = (prop: PageProperty | null): PagePropertyConfig => {
-    if (!prop) return {};
-    const config: PagePropertyConfig = { ...(prop.config || {}) };
-    ['period_unit', 'duration_enabled', 'predecessors_enabled', 'skip_non_working_days', 'format'].forEach((key) => {
-      if (prop[key] !== undefined) config[key] = prop[key];
-    });
-    if (prop.id && config.id === undefined) config.id = prop.id;
-    return config;
-  };
+  const getPropConfig = pagePropertyConfig;
+  const propertyMetadata = useMemo(() => namedPropertyMetadata(metadata, currentTable?.properties || []), [metadata, currentTable]);
+  const getPropValue = (prop: PageProperty) => pagePropertyValue(prop, propertyMetadata, allNotes, allTables);
 
   // `properties` is the filtered schema list shown above the body. Memoized
   // because the title input rerenders on every keystroke and recomputing
   // this 10-key filter for every table with 100+ properties was visible in
   // profiling.
   const properties = useMemo(() => {
-    return sortFieldItems((currentTable?.properties || []).filter(prop => {
+    return (currentTable?.properties || []).filter(prop => {
       const normalizedName = (prop.name || '').toLowerCase();
       return (
         prop.type !== 'title' &&
@@ -77,7 +69,7 @@ export function usePageProperties(state: Input) {
         !normalizedName.startsWith('icon_') &&
         !normalizedName.startsWith('cover_')
       );
-    }));
+    });
   }, [currentTable]);
 
 
@@ -85,7 +77,7 @@ export function usePageProperties(state: Input) {
   // schema. Memoized for the same reason; also we rebuild a Set for O(1)
   // schema lookup instead of `properties.find` per key (was O(n*m)).
   const adhocProperties = useMemo(() => {
-    const schemaNames = new Set(properties.map(p => p.name));
+    const schemaNames = new Set((currentTable?.properties || []).flatMap(p => [p.name, pagePropertyConfig(p).id]));
     return sortFieldItems(Object.keys(metadata).filter(key => {
       const normalizedKey = (key || '').toLowerCase();
       return (
@@ -102,7 +94,7 @@ export function usePageProperties(state: Input) {
         !schemaNames.has(key)
       );
     }), (name) => name);
-  }, [metadata, properties]);
+  }, [metadata, currentTable]);
 
 
   // L3.4 / UI: dict with rare Zotero fields (patentNumber, conferenceName, …)
@@ -149,7 +141,7 @@ export function usePageProperties(state: Input) {
   };
 
   const compactPropertyPreviewItems = useMemo(() => navProps.slice(0, 8).map((entry) => {
-    const rawValue = metadata[entry.name];
+    const rawValue = entry.prop ? pagePropertyValue(entry.prop, propertyMetadata, allNotes, allTables) : metadata[entry.name];
     const value = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
       ? Object.values(rawValue).filter(Boolean).map(legacyText).join(', ')
       : serializeCellForClipboard(rawValue, entry.type, idToTitle);
@@ -157,6 +149,6 @@ export function usePageProperties(state: Input) {
       name: entry.name,
       value: value || t('common.empty'),
     };
-  }), [idToTitle, metadata, navProps, t]);
-  return { rawTableId, currentTableId, currentTable, isReferenceRecord, getPropOptions, getPropConfig, properties, adhocProperties, zoteroExtras, pdfSourceUri, pdfCitationKey, navProps, propIndexByName, handleAddAdhocProperty, compactPropertyPreviewItems };
+  }), [allNotes, allTables, idToTitle, metadata, navProps, propertyMetadata, t]);
+  return { rawTableId, currentTableId, currentTable, isReferenceRecord, getPropOptions, getPropConfig, getPropValue, propertyMetadata, properties, adhocProperties, zoteroExtras, pdfSourceUri, pdfCitationKey, navProps, propIndexByName, handleAddAdhocProperty, compactPropertyPreviewItems };
 }

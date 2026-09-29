@@ -32,16 +32,7 @@ import {
 } from './vault-kanban/vaultKanbanModel';
 
 
-const NON_DRAGGABLE_GROUP_TYPES = new Set([
-    'button',
-    'created_by',
-    'created_time',
-    'formula',
-    'last_edited_by',
-    'last_edited_time',
-    'rollup',
-    'virtual',
-]);
+const DRAGGABLE_GROUP_TYPES = new Set(['select', 'status', 'multi_select', 'relation', 'text', 'rich_text']);
 
 
 interface KanbanUpdatePatch {
@@ -50,6 +41,7 @@ interface KanbanUpdatePatch {
 
 
 export interface VaultKanbanProps {
+    readonly allNotes?: readonly KanbanNote[];
     readonly activeView?: KanbanView;
     readonly idToTitle?: Readonly<Record<string, string>>;
     readonly isEmbedded?: boolean;
@@ -89,6 +81,7 @@ function parseDragPayload(value: string): DragPayload | null {
 
 export function VaultKanban({
     activeView = {},
+    allNotes = [],
     idToTitle = {},
     isEmbedded = false,
     notes = [],
@@ -123,7 +116,7 @@ export function VaultKanban({
     const selection = useVaultSelection(visibleNotes);
     const groupBy = readKanbanGroupBy(activeView);
     const groupByType = getFieldType(schema, groupBy);
-    const canDrag = Boolean(onUpdateNote) && !NON_DRAGGABLE_GROUP_TYPES.has(groupByType);
+    const canDrag = Boolean(onUpdateNote) && DRAGGABLE_GROUP_TYPES.has(groupByType);
     const configuredProperties = readKanbanVisibleProperties(activeView.visibleProperties)
         ?? (isMainView(activeView) ? getSchemaFieldNames(schema) : getSchemaFieldNames(schema).slice(0, 3));
     const fields = configuredProperties
@@ -134,8 +127,11 @@ export function VaultKanban({
         schema,
         activeView,
         pendingMoves,
-        idToTitle,
-    ), [activeView, idToTitle, pendingMoves, schema, visibleNotes]);
+        groupByType === 'checkbox'
+            ? { ...idToTitle, true: t('common.yes', 'Yes'), false: t('common.no', 'No') }
+            : idToTitle,
+        allNotes,
+    ), [allNotes, activeView, idToTitle, pendingMoves, schema, visibleNotes, groupByType, t]);
 
     const handleBulkDelete = useCallback((): void => {
         if (selection.selectedIds.size === 0) return;

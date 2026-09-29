@@ -27,6 +27,7 @@ export function ConfigurationDialogs(dashboard: DashboardController) {
     onViewConfigSavedRef,
     registry,
     setActiveViewId,
+    setActiveTableId,
     setCommentsOpen,
     setIsSchemaModalOpen,
     setIsViewConfigOpen,
@@ -106,7 +107,7 @@ export function ConfigurationDialogs(dashboard: DashboardController) {
     {isViewConfigOpen && viewToConfigure && (
       // The SAME modal as for the embed (PageViewModal), in mode
       // "table": configures/creates a table view with fewer
-      // options (no source table, heading, scope, or "save
+      // options (fixed source table when supplied, no heading, scope, or "save
       // to views"). `editingView` with id → updates; without
       // id (e.g. {type}) → creates a new view.
       <PageViewModal
@@ -124,6 +125,9 @@ export function ConfigurationDialogs(dashboard: DashboardController) {
           setViewToConfigure(null);
           if (saved && savedView) {
             void fetchRegistry();
+            if (!viewToConfigure.id && typeof savedView.table_id === 'string' && savedView.table_id) {
+              setActiveTableId(savedView.table_id);
+            }
             if (savedView.id)
               setActiveViewId(stringValue(savedView.id));
             if (onViewConfigSavedRef.current) {

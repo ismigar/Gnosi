@@ -1,3 +1,4 @@
+import { GlobalTooltip } from '../../../../shared/ui/tooltip/GlobalTooltip';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -79,8 +80,8 @@ afterEach(async () => {
     container.remove(); vi.unstubAllGlobals();
     for (const key of [pinnedKey('page', 'anchor'), selectedKey('page', 'anchor'), 'gnosi.view.quickPresets.desktop.page.anchor', 'gnosi.view.lastLoad.page.anchor']) removeStorage(defineStorageKey(key, stringStorageCodec));
 });
-async function render(value: EmbedBlock = block): Promise<void> {
-    await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} /></VaultEditorContext.Provider>); });
+async function render(value: EmbedBlock = block, tooltip = false): Promise<void> {
+    await act(async () => { await Promise.resolve(); root.render(<VaultEditorContext.Provider value={context}><DbViewEmbed block={value} />{tooltip && <GlobalTooltip />}</VaultEditorContext.Provider>); });
     await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
 }
 it('forwards parallel opening from an embedded view to its editor', async () => {
@@ -109,7 +110,98 @@ async function inputValue(input: HTMLInputElement | null, value: string): Promis
 }
 async function tabMenu(): Promise<void> { await click(container.querySelectorAll('button[aria-label="View options"]')[1]); }
 
+it('dismisses tab hints while its options menu is open', async () => {
+    await render(block, true);
+    const option = container.querySelectorAll('button[aria-label="View options"]')[1];
+    const tab = option?.parentElement;
+    if (!tab) throw new Error('Missing tab fixture');
+    act(() => { tab.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain('double-click');
+    await click(option);
+    await act(async () => { await Promise.resolve(); });
+    act(() => { tab.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    expect(button('Configure')).toBeDefined();
+    expect(option.getAttribute('aria-expanded')).toBe('true');
+});
+
+describe('adding embedded view tabs', () => {
+    it('adds an existing view without rewriting its configuration and restores it on reload', async () => {
+        const unpinned = { ...anchor, tabs: [] };
+        context = { ...context, registry: { ...context.registry, views: [unpinned, other] } };
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([unpinned, other]);
+        await render();
+        await click(button('Add view'));
+        expect(button('Create a new view')).toBeDefined();
+        expect(button('Other')).toBeDefined();
+        expect(button('Main')).toBeUndefined();
+        await click(button('Other'));
+        expect(fixture.body?.type).toBe('feed');
+        expect(fixture.body?.notes?.map(note => note.title)).toEqual(['Beta']);
+        expect(api.createVaultView).not.toHaveBeenCalled();
+        expect(api.updateVaultView).toHaveBeenCalledExactlyOnceWith('anchor', { tabs: ['other'] });
+        expect(readText(selectedKey('page', 'anchor'))).toBe('other');
+        act(() => { root.unmount(); });
+        root = createRoot(container);
+        await render();
+        expect(fixture.body?.type).toBe('feed');
+        await click(button('Add view'));
+        expect(button('Other')).toBeUndefined();
+        await click(button('Close'));
+        expect(document.querySelector('[role="dialog"]')).toBeNull();
+    });
+
+    it('offers creation separately and preserves the embedded source table', async () => {
+        context = { ...context, onOpenViewConfig: openConfig };
+        await render();
+        await click(button('Add view'));
+        expect(openConfig).not.toHaveBeenCalled();
+        await click(button('Create a new view'));
+        expect(openConfig).toHaveBeenCalledWith({ type: 'table', name: '', table_id: 'books' }, expect.any(Function));
+        expect(document.querySelector('[role="dialog"]')).toBeNull();
+        expect(api.createVaultView).not.toHaveBeenCalled();
+    });
+});
+
 describe('embedded view data and editor navigation', () => {
+    it.each(['table', 'list', 'gallery', 'board', 'calendar', 'timeline', 'chart', 'feed', 'genogram'])(
+        'uses the saved height policy when loading a %s view', async type => {
+            context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type, heightMode: 'content' }] } };
+            vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, type, heightMode: 'content' }]);
+            await render();
+            expect(fixture.body?.maxHeight).toBe('none');
+            expect(fixture.body?.activeView).toMatchObject({ heightMode: 'content' });
+            expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('');
+        },
+    );
+    it('limits an explicitly bounded feed', async () => {
+        context = { ...context, registry: { ...context.registry, views: [{ ...anchor, type: 'feed', heightMode: 'limited' }] } };
+        vi.mocked(api.fetchVaultViews).mockResolvedValue([{ ...anchor, type: 'feed', heightMode: 'limited' }]);
+        await render();
+        expect(fixture.body?.maxHeight).toBe('70vh');
+        expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('70vh');
+    });
+
+    it.each(['table', 'list', 'gallery', 'board', 'calendar', 'timeline', 'chart', 'feed', 'genogram'])(
+        'applies the saved window percentage to a limited %s view', async type => {
+            const view = { ...anchor, type, heightMode: 'limited', heightPercent: 45 };
+            context = { ...context, registry: { ...context.registry, views: [view] } };
+            vi.mocked(api.fetchVaultViews).mockResolvedValue([view]);
+            await render();
+            expect(fixture.body?.maxHeight).toBe('45vh');
+            expect(fixture.body?.activeView).toMatchObject({ heightPercent: 45 });
+            if (type !== 'table' && type !== 'list') {
+                expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('45vh');
+            }
+        },
+    );
+    it('keeps the height percentage of an inline section without a registry view', async () => {
+        vi.mocked(api.fetchPageViews).mockResolvedValue({ page_id: 'page', sections: [] });
+        await render({ id: 'inline', props: { section: JSON.stringify({ source_table_id: 'books', view_type: 'gallery', heightMode: 'limited', heightPercent: 35 }) } });
+        expect(fixture.body?.maxHeight).toBe('35vh');
+        expect(container.querySelector('[data-testid="body"]')?.parentElement?.style.maxHeight).toBe('35vh');
+    });
+
     it('provides Brain tools on the configured embedded table and refreshes its records', async () => {
         context = { ...context, brainTableId: 'books' };
         await render();
@@ -289,7 +381,8 @@ describe('embedded record and view actions', () => {
         await click(button('New record options')); await click(button('views_header.new_from_source'));
         expect(createFromSource).toHaveBeenCalledWith('books');
         await click(button('Add view'));
-        expect(configure).toHaveBeenCalledWith({ type: 'table', name: '' }, expect.any(Function));
+        await click(button('Create a new view'));
+        expect(configure).toHaveBeenCalledWith({ type: 'table', name: '', table_id: 'books' }, expect.any(Function));
         expect(api.updateVaultView).toHaveBeenCalledWith('anchor', { tabs: ['other', 'new-tab'] });
     });
     it('duplicates all view options but removes main/default identity before pinning', async () => {
@@ -346,7 +439,15 @@ describe('embedded record and view actions', () => {
     });
     it('renames the full registry view and opens config with a synthetic block', async () => {
         await render(); await tabMenu(); await click(button('Configure'));
-        expect(openConfig).toHaveBeenCalledWith('books', { id: 'block', props: { view_id: 'other', heading: '', heading_level: 1 } });
+        expect(openConfig).toHaveBeenCalledTimes(1);
+        expect(openConfig.mock.calls[0]).toMatchObject(['books', {
+            id: 'block',
+            props: { view_id: 'other', heading: '', heading_level: 1 },
+            view: {
+                id: 'other', name: 'Other',
+                filters: [{ field: 'title', operator: 'contains', value: 'Beta' }],
+            },
+        }]);
         await tabMenu(); await click(button('Rename'));
         await act(async () => { await Promise.resolve(); await new Promise(resolve => setTimeout(resolve, 5)); });
         await inputValue(document.querySelector('input[type="text"]'), 'Renamed'); await click(button('Rename'));

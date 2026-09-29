@@ -316,3 +316,21 @@ rendering.
 
 The optional [Genograms plugin](genograms.md) adds linked family-network tables,
 per-view SVG diagrams and local SVG/PNG/PDF exports through the native view renderer.
+
+## Gallery reading and view settings
+
+Embedded view settings start from the effective configuration already displayed, preserving filters, sorting and appearance while the catalog loads. Failed lookups offer retry and cannot save defaults. Gallery cards support full width and content-driven height, with one page scroll. Space enters an expanded group; Escape returns to its header and collapses it. View-usage scans run through `asyncio.to_thread`, retaining vault context while keeping cloud-backed file reads off the HTTP event loop. Regression coverage includes modal hydration, delayed catalog responses, keyboard focus, and the usage-scan worker.
+
+Every embedded view type offers a saved height policy in General settings: limited (up to 70% of the window, then internal scrolling) or content-sized (the page scrolls). The setting follows the active tab and works with shared registry views and inline sections. Existing views keep their previous behavior; feeds default to content-sized and other types to limited. Full-width gallery cards have no minimum height, so short notes remain compact. Table/list horizontal scrolling and sticky columns remain owned by the table. The height limit is adjustable from 1 to 100% of the window (70% by default) and is retained when switching modes. `heightPercent` is validated on load and save and applied as a viewport-height cap.
+
+Page properties use the registered field type for controls and icons. Checkboxes preserve both boolean states, and numeric zero remains visible. Edits persist numeric and boolean values without converting them to text. Stable field IDs take precedence over legacy names when reading and are saved under the current name. Formula and rollup results use the shared evaluators; derived fields and audit values remain read-only. A page lock or viewer role also disables empty dates, periods and option selectors. Rich text retains line breaks, and Zotero properties offer the same resource-opening action as table cells.
+
+The page keeps the field order saved in the table configuration, including keyboard navigation and compact previews. The title field is not duplicated as a local property. Manage Fields lists page-only properties separately, shows their values and can remove them from this page without changing the table schema. Local deletions save immediately, restore their value on failure and preserve pending property edits.
+
+The view dialog always shows its source table. A new view opened without an active table allows selecting one and enables the corresponding fields, filters, sorting and grouping options. Views with a configured table keep that source.
+
+The embedded Add view action offers a new view or an existing view from the same table. Existing views are added as tabs without duplication or configuration changes; already displayed tabs are excluded. The selected tab and membership persist when reopening the page. New views inherit the embedded source table.
+
+Grouping selectors include every registered or discovered field type. Gallery, table/list and Kanban grouping preserve zero and false, split and deduplicate multi-value fields, resolve stable field IDs and page titles, and keep empty values separate. Relations retain distinct IDs while displaying page names; structured values use canonical keys and readable labels. Formulas and rollups use the shared evaluators, and checkbox labels are localized. Kanban dragging is limited to writable string-valued fields so grouping by a number, date or computed result cannot corrupt its type. Embedded tab hints are suppressed while an options menu is open.
+
+Numeric fields now share progress rendering on pages, tables, gallery, Kanban and feed. Field configuration offers a number, progress bar or progress ring. Percent fields and checked-percentage rollups default to a bar; zero is visible and empty values remain empty. The indicator bounds its drawing to 0–100 without changing the stored value, and computed percentages with a percent suffix are supported. The configurable maximum supports both fractional values (0.5 of 1 is 50%) and values already expressed out of 100.

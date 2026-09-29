@@ -42,7 +42,7 @@ export function VaultGallerySections({
 }: VaultGallerySectionsProps) {
     const { t } = useTranslation();
     let flatIndex = 0;
-    return <div className="mx-auto max-w-[1400px]">
+    return <div className={cardSize === 'full' ? 'w-full' : 'mx-auto max-w-[1400px]'}>
         {groupedSections ? groupedSections.map((section, headerIndex) => {
             const expanded = expandedGroups.has(section.id);
             const firstCardIndex = flatIndex;
@@ -50,8 +50,10 @@ export function VaultGallerySections({
             return <section key={section.id} className="mb-8">
                 <div className="sticky top-0 z-10 mb-3 flex items-center gap-2 bg-[var(--bg-secondary)] py-1">
                     <button
+                        aria-expanded={expanded}
                         className="flex items-center gap-2 rounded px-1 text-left outline-none transition-opacity hover:opacity-80 focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)]"
-                        onClick={() => {
+                        onClick={(event) => {
+                            event.currentTarget.focus({ preventScroll: true });
                             toggleGroup(section.id);
                         }}
                         onKeyDown={(event) => {

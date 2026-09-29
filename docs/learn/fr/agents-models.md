@@ -1,6 +1,6 @@
-# Configurer l’assistant et ses profils
+# Configurer les bots et profils
 
-Le profil par défaut est utilisé pour les nouvelles conversations et les actions de l’application. Chaque conversation peut choisir un autre profil sans modifier les autres.
+Tous les bots et profils apparaissent dans une seule liste. Un seul est principal : il est utilisé par défaut pour les nouvelles conversations et coordonne l’équipe. Les actions des plugins continuent d’utiliser leurs propres profils.
 
 ## Avant de commencer {#before-you-begin}
 
@@ -10,7 +10,7 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 
 1. Ouvrez les paramètres des modèles et fournisseurs et configurez un fournisseur compatible ou un service local. Enregistrez les identifiants dans les paramètres et sélectionnez un modèle disponible.
 
-2. Ouvrez Paramètres → Plugins → IA → Assistant et choisissez **Configurer l’assistant**. Sélectionnez le modèle, nommez le profil et attribuez les compétences nécessaires.
+2. Ouvrez Paramètres → Plugins → IA → Assistants. Choisissez **Créer le premier assistant** si la liste est vide, ou **Créer un profil** pour en ajouter un. Sélectionnez le modèle, nommez le profil et attribuez les compétences nécessaires.
 
 3. Ouvrez la conversation et vérifiez l’agent et le modèle. Posez une question courte pour tester la connexion.
 
@@ -22,7 +22,7 @@ Activez la fonction IA. Un fournisseur cloud nécessite des identifiants valides
 
 ### Profils et conversations
 
-Créez des profils dans **Profils supplémentaires (avancé)**. Dans le chat, ouvrez le sélecteur du nom de l’assistant et choisissez le **Profil de la conversation**. Ce changement s’applique aux demandes suivantes et conserve l’historique. Chaque conversation mémorise son profil. **Utiliser par défaut**, dans les paramètres, choisit le profil des nouvelles conversations, sans modifier les conversations existantes.
+Chaque fiche possède une icône de configuration et, si elle n’est pas principale, **Définir comme principal**. Choisir un autre bot conserve les bots et leurs configurations ; le nouveau principal reprend la coordination de l’équipe. Les conversations existantes conservent leur profil. Dans le chat, **Profil de la conversation** permet de le changer pour les demandes suivantes sans perdre l’historique ni affecter les autres conversations.
 
 ### Un seul modèle par profil
 
@@ -43,13 +43,30 @@ Un modèle peut converser sans prendre en charge les outils. En cas d’erreur d
 
 ## Profils des plugins
 
-Chaque plugin d’IA déclare un profil modifiable et les compétences utilisées par ses actions. Paramètres → IA → Assistant présente les profils des plugins séparément des profils personnels. Vous pouvez modifier le modèle unique, les instructions, les sources et les compétences affectées. Les profils initiaux copient uniquement le modèle par défaut actuel ; les mises à jour préservent les modifications. Désactiver un plugin suspend son profil sans supprimer la configuration. Si le modèle ou une compétence nécessaire manque, l’action échoue explicitement sans utiliser le profil personnel. Les nouvelles actions autonomes et les compétences planifiées utilisent le profil du plugin ; les travaux commencés conservent leur instantané. Le profil choisi manuellement dans une conversation continue de gouverner cette conversation.
+Chaque plugin d’IA possède un profil modifiable dans la même liste que les profils personnels, avec le nom du plugin qui l’utilise. Vous pouvez modifier son modèle, ses instructions, ses sources et ses compétences, et le choisir explicitement comme principal. Cela ne change pas le profil utilisé par les actions du plugin. Désactiver le plugin suspend son bot et conserve la configuration. Si le modèle ou une compétence manque, l’action le signale sans remplacer le profil. Les exécutions en cours gardent la configuration avec laquelle elles ont commencé.
 
-## Directeur et équipe de spécialistes
+## Assistant principal et participation à l’équipe
 
-Dans **Configurer l’équipe**, choisissez le Directeur, les membres et leurs rôles. Un agent peut avoir plusieurs rôles. Indiquez quels profils de plugins peuvent déléguer ; leurs actions restent la propriété du plugin. La coordination prend effet après enregistrement. Seule la compétence de coordination est ajoutée au Directeur ; les modèles, instructions et autres compétences sont conservés.
+Tous les bots, y compris les membres de l’équipe, continuent à effectuer leurs tâches avec leur propre modèle, leurs instructions et leurs compétences. Demander de l’aide est facultatif : l’assistant le choisit seulement si une autre spécialité ou un travail coordonné est nécessaire. Il décide avant d’exécuter des outils ; les missions reçues ne peuvent pas être déléguées à nouveau.
 
-Les routes directes associent des opérations connues à des listes d’exécutants. Le serveur vérifie disponibilité, compétences, contexte et limites avant de comparer le coût estimé de la mission. Un coût inconnu reste inconnu. Une route directe évite l’appel au Directeur ; une demande ambiguë nécessite un plan. Un résultat valide est livré sans révision automatique du Directeur.
+L’assistant principal appartient à la même liste et coordonne l’équipe lorsque d’autres bots reçoivent des tâches. Sur la fiche de chaque autre bot, **Participation à l’équipe** propose :
+
+- **Travaille de façon autonome** : Effectue ses tâches avec son propre modèle et ses compétences. Il ne reçoit pas de missions de l’équipe et ne lui demande pas d’aide.
+- **Reçoit des tâches de l’équipe** : Continue à effectuer ses tâches avec son propre modèle. Il peut aussi recevoir des missions du principal, mais ne demande pas d’aide à l’équipe.
+- **Demande de l’aide à l’équipe** : Effectue ses tâches avec son propre modèle et ne demande de l’aide que si une autre spécialité est nécessaire. Il ne reçoit pas de missions du principal.
+- **Reçoit des tâches et demande de l’aide** : Effectue ses tâches avec son propre modèle. Il reçoit aussi des missions du principal et peut demander de l’aide si une autre spécialité est nécessaire ; il ne délègue pas automatiquement tout le travail.
+
+L’icône de configuration de chaque fiche ouvre le modèle, les instructions, les sources et les compétences. Les spécialités se choisissent dans la même fiche. Les attributions par tâche et les spécialistes temporaires sont facultatifs, dans une section avancée repliée.
+
+Les sélections complètes sont enregistrées automatiquement. Si des destinataires ou des permissions temporaires manquent, le formulaire indique ce qui reste en attente ; sa fermeture conserve la dernière configuration complète. Retirer le dernier destinataire désactive la collaboration. Il n’est pas nécessaire d’activer les mêmes bots ailleurs. Seule la compétence de coordination est ajoutée au principal lorsque la collaboration est active.
+
+Ouvrez un type de tâche et sélectionnez un ou plusieurs bots. Sans sélection, le principal la coordonne ; sans destinataires, des indications expliquent comment en ajouter. Les modèles et compétences temporaires permettent également plusieurs sélections, avec un interrupteur par option. Ce sont des permissions disponibles, et non des tâches exécutées toutes à la fois.
+
+Lorsque le texte ou un interrupteur a le focus, les flèches haut/bas et les touches de page font défiler le formulaire. Les champs de texte et les listes conservent leurs touches d’édition et de sélection.
+
+
+
+Les attributions avancées et les routes directes ne s’appliquent qu’après une demande d’aide. Les routes directes associent des opérations connues à des listes d’exécutants. Le serveur vérifie disponibilité, compétences, contexte et limites avant de comparer le coût estimé de la mission. Un coût inconnu reste inconnu. Une route directe évite l’appel à l’assistant principal ; une demande ambiguë nécessite un plan. Un résultat valide est livré sans révision automatique de l’assistant principal.
 
 Les limites sont quatre missions, deux spécialistes temporaires et deux tâches de lecture simultanées. Les modifications s’exécutent successivement. Les opérations structurées disposent de huit appels au total dans le budget initial. Une seule correction de format est permise, sans répétition des actions. Seul le travail de lecture peut être replanifié automatiquement ; les effets incertains exigent une vérification.
 
@@ -59,7 +76,7 @@ Les confirmations identifient l’exécutant sans autoriser d’autres actions. 
 
 Le catalogue présente des évaluations indépendantes pour Directeur, Polyvalent, Documentaliste, Expert, Administratif et Ouvrier, avec éléments probants et tests manquants. La compatibilité déclarée ne certifie ni le catalan, ni les citations, ni l’économie de délégation. Les anciennes étiquettes restent compatibles mais ne choisissent pas les exécutants. Les tests automatiques utilisent des fournisseurs simulés, sans évaluation payante. Comparez qualité et coût total sur les mêmes cas avant d’élargir les routes.
 
-Le champ facultatif **Commande** de chaque agent permet de définir une commande unique, comme `/traductor`. Écrivez `/traductor Traduis ce texte…` dans le chat pour envoyer ce tour directement à cet agent, avec son modèle, ses instructions et ses compétences, sans consulter le Directeur. La sélection habituelle de la conversation reste inchangée. Les commandes ne modifient pas les permissions et ne permettent pas d’appeler un agent désactivé. Après `/`, utilisez de 1 à 32 lettres sans accent, chiffres, tirets ou traits de soulignement, en commençant par une lettre ; la casse est ignorée.
+Le champ facultatif **Commande** de chaque agent permet de définir une commande unique, comme `/traductor`. Écrivez `/traductor Traduis ce texte…` dans le chat pour envoyer ce tour directement à cet agent, avec son modèle, ses instructions et ses compétences, sans consulter l’assistant principal. La sélection habituelle de la conversation reste inchangée. Les commandes ne modifient pas les permissions et ne permettent pas d’appeler un agent désactivé. Après `/`, utilisez de 1 à 32 lettres sans accent, chiffres, tirets ou traits de soulignement, en commençant par une lettre ; la casse est ignorée.
 
 ## Évaluation des rôles et données manquantes
 
@@ -89,3 +106,13 @@ Chaque résultat conserve version, date, modèle, fournisseur et contrôles par 
 Les propositions de conservation affichent les compétences réutilisables, les différences de couverture et de modèle avec les agents existants et les exécutions terminées. Terminer ne certifie pas tous les critères particuliers. Les instructions permanentes proviennent d’un modèle de compétences enregistrées sans copier la mission ; l’utilisateur peut les réviser. L’acceptation permet aussi d’ajouter le profil personnel à l’équipe. Une configuration équivalente existante évite une proposition en double. Le rejet empêche de répéter la même proposition.
 
 Pour résoudre une taille inconnue, sélectionnez **À vérifier** dans la colonne Paramètres. **Consulter la source officielle** recherche une correspondance de version exacte dans les fiches des fabricants pris en charge. Si la source est indisponible ou sans correspondance, la donnée reste à vérifier. Vous pouvez aussi enregistrer les milliards totaux et actifs, ou une absence de publication vérifiée, avec une source HTTPS et la confirmation explicite du modèle exact. Les données vérifiées manuellement conservent leur provenance et leur date ; ne pas trouver de chiffre ne prouve pas son absence de publication. Le serveur ne consulte pas les liens saisis.
+
+## Profil LLM recommandé et plugins désactivés
+
+Chaque fiche affiche un profil LLM recommandé et sa raison. Le principal recommande Directeur ; les autres bots tiennent compte des tâches du plugin, des compétences attribuées —y compris les copies personnalisées—, des spécialités et des affectations de l’équipe. Si plusieurs exigences s’appliquent, la plus élevée est affichée. Par exemple, la recherche bibliographique recommande Documentaliste, le courrier Administratif et les analyses complexes Expert. Pour les tâches inconnues, l’orientation est Polyvalent. Consultez les preuves de ce profil dans le comparatif avant de choisir un modèle. La recommandation ne change pas le modèle attribué et ne certifie pas sa qualité.
+
+Désactiver un plugin rend son bot inactif et le masque dans la liste et les sélecteurs. Son modèle, ses instructions, ses sources et ses compétences sont conservés pour sa réactivation. Le bot est retiré des destinataires et affectations actifs de l’équipe ; la collaboration est désactivée s’il était le dernier destinataire ou le principal. S’il était le principal, choisissez-en un autre ou réactivez le plugin. Les conversations existantes conservent leur profil et signalent son indisponibilité au lieu d’en changer automatiquement.
+
+## Niveau de raisonnement
+
+Si le modèle OpenRouter permet de choisir l’effort de raisonnement, ses réglages affichent **Niveau de raisonnement** avec les choix compatibles. **Valeur par défaut du modèle** conserve le comportement du fournisseur ; **Moyen** demande explicitement ce niveau. Un effort accru peut augmenter le délai et la consommation de tokens. Le réglage est enregistré automatiquement, concerne uniquement cet assistant et s’applique aussi aux outils. Changer de modèle rétablit la valeur par défaut du nouveau modèle.

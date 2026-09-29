@@ -22445,6 +22445,45 @@
         "title": "ModelParameterMetadata",
         "type": "object"
       },
+      "ModelReasoningResponse": {
+        "description": "Effort choices explicitly supported by this provider/model route.",
+        "properties": {
+          "default_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Effort"
+          },
+          "source": {
+            "enum": [
+              "openrouter",
+              "verified_snapshot",
+              "unavailable"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "supported_efforts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Efforts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "supported_efforts",
+          "default_effort",
+          "source"
+        ],
+        "title": "ModelReasoningResponse",
+        "type": "object"
+      },
       "ModelRegistryEntry": {
         "additionalProperties": true,
         "description": "One configured router model, preserving provider-specific JSON metadata.",
@@ -43935,6 +43974,139 @@
           }
         },
         "summary": "Review Model Parameters",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
+      }
+    },
+    "/api/ai/model-reasoning": {
+      "get": {
+        "description": "Public provider metadata, without accessing credentials or calling an LLM.",
+        "operationId": "get_model_reasoning_api_ai_model_reasoning_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelReasoningResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model Reasoning",
         "tags": [
           "AI Settings",
           "AI Settings"

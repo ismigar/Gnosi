@@ -3,14 +3,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AIAgentForm } from './AIAgentForm';
 import type { AgentDraft, SettingsModel } from './types';
-import { fetchAiCatalog } from '../../../shared/api/ai';
+import { fetchAiCatalog, fetchAiModelReasoning } from '../../../shared/api/ai';
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('./AgentIconSelect', () => ({ AgentIconSelect: () => null }));
 vi.mock('../../agent-context/AgentContextSources', () => ({ default: () => null }));
 vi.mock('../AI/AIResourcesSettings', () => ({ AgentSkillsField: () => null }));
 vi.mock('../AI/modelReliability', () => ({ MODEL_FAULT_REASONS: {}, findModelFault: () => null, useModelReliability: () => [] }));
-vi.mock('../../../shared/api/ai', () => ({ fetchAiCatalog: vi.fn().mockResolvedValue({ config: { providers: {} } }), setAiProviderCredentials: vi.fn(), setAiProviderStatus: vi.fn() }));
+vi.mock('../../../shared/api/ai', () => ({ fetchAiModelReasoning: vi.fn(), fetchAiCatalog: vi.fn().mockResolvedValue({ config: { providers: {} } }), setAiProviderCredentials: vi.fn(), setAiProviderStatus: vi.fn() }));
 
 const registry = [
   { provider: 'alpha', model_id: 'small', enabled: true, tags: ['tools'] },
@@ -30,6 +30,7 @@ beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
   onSave.mockResolvedValue();
+  vi.mocked(fetchAiModelReasoning).mockResolvedValue({ supported_efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'], default_effort: 'medium', source: 'openrouter' });
   vi.mocked(fetchAiCatalog).mockResolvedValue({ catalog: { providers: [] }, config: { providers: {} } });
 });
 afterEach(() => { act(() => { root.unmount(); }); host.remove(); vi.unstubAllGlobals(); });
@@ -117,4 +118,49 @@ it('does not persist invalid or duplicate commands', () => {
   enterCommand('/OTHER');
   expect(host.textContent).toContain('agent_commands.agent_command_duplicate');
   expect(onSave).not.toHaveBeenCalled();
+});
+
+const luna = { ...agent, provider: 'openrouter', model: 'openai/gpt-6-luna' };
+const reasoningModels = [...registry, { provider: luna.provider, model_id: luna.model, enabled: true }] as SettingsModel[];
+
+it('offers only provider-supported efforts and autosaves medium without changing the model', async () => {
+  await act(async () => { render(luna, reasoningModels); await Promise.resolve(); });
+  const field = host.querySelector<HTMLSelectElement>('select[aria-label="settings.ai.assistant.reasoning_effort"]');
+  expect([...(field?.options ?? [])].map(option => option.value)).toEqual(['', 'none', 'low', 'medium', 'high', 'xhigh', 'max']);
+  expect(onSave).not.toHaveBeenCalled();
+  select('reasoning_effort', 'medium');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ ...luna, reasoning_effort: 'medium' }));
+  select('reasoning_effort', '');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ reasoning_effort: null }));
+});
+
+it('restores saved effort and clears it when choosing a different model', async () => {
+  await act(async () => { render({ ...luna, reasoning_effort: 'medium' }, reasoningModels); await Promise.resolve(); });
+  expect(host.querySelector<HTMLSelectElement>('select[aria-label="settings.ai.assistant.reasoning_effort"]')?.value).toBe('medium');
+  select('profile_model', 'beta||large');
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ provider: 'beta', model: 'large', reasoning_effort: null }));
+  expect(host.querySelector('select[aria-label="settings.ai.assistant.reasoning_effort"]')).toBeNull();
+});
+
+it('does not invent choices for a model without effort metadata', async () => {
+  vi.mocked(fetchAiModelReasoning).mockResolvedValue({ supported_efforts: [], default_effort: null, source: 'openrouter' });
+  await act(async () => { render(luna, reasoningModels); await Promise.resolve(); });
+  expect(host.querySelectorAll('select')).toHaveLength(1);
+});
+
+it('saves reasoning when creating an assistant', async () => {
+  await act(async () => { render({ ...luna, id: undefined }, reasoningModels); await Promise.resolve(); });
+  select('reasoning_effort', 'medium');
+  expect(onSave).not.toHaveBeenCalled();
+  await click('settings.ai.assistant.create_profile');
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ provider: luna.provider, model: luna.model, reasoning_effort: 'medium' }));
+});
+
+it('ignores a late metadata response after the user changes model', async () => {
+  let resolve!: (value: Awaited<ReturnType<typeof fetchAiModelReasoning>>) => void;
+  vi.mocked(fetchAiModelReasoning).mockReturnValue(new Promise(done => { resolve = done; }));
+  render(luna, reasoningModels);
+  select('profile_model', 'beta||large');
+  await act(async () => { resolve({ supported_efforts: ['medium'], default_effort: 'medium', source: 'openrouter' }); await Promise.resolve(); });
+  expect(host.querySelectorAll('select')).toHaveLength(1);
 });

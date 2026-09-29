@@ -15,6 +15,7 @@ export const CARD_SIZES = [
     { value: 'small', label: 'Small' },
     { value: 'medium', label: 'Medium' },
     { value: 'large', label: 'Large' },
+    { value: 'full', label: 'Full width' },
 ];
 export const GALLERY_PREVIEWS = [
     { value: 'cover', label: 'Cover', hint: 'Page cover image and properties.' },
@@ -22,7 +23,6 @@ export const GALLERY_PREVIEWS = [
     { value: 'properties', label: 'Properties only', hint: 'No image; title and properties.' },
     { value: 'none', label: 'Title only', hint: 'Minimal card with cover and title, without properties.' },
 ];
-export const GROUP_FIELD_TYPES = new Set(['select', 'status', 'multi_select']);
 export const DATE_FIELD_TYPES = new Set(['date', 'datetime', 'period']);
 export const NUMERIC_FIELD_TYPES = new Set(['number', 'formula', 'rollup', 'currency', 'percent']);
 export const TABS = [

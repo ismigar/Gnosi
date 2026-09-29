@@ -115,8 +115,10 @@ def _openai_family_llm(
     api_key: str | None,
     base_url: str | None,
     timeout: float | None,
+    reasoning_effort: str | None = None,
 ) -> BaseChatModel | None:
     from langchain_openai import ChatOpenAI
+    from backend.services.model_reasoning import reasoning_client_kwargs
 
     key = api_key or os.environ.get(f"{provider.upper()}_API_KEY")
     if not key and provider == "openai":
@@ -140,6 +142,7 @@ def _openai_family_llm(
         api_key=SecretStr(key or "no-key"),
         base_url=base_url or default_urls[provider],
         **_timeout_kwargs(timeout),
+        **reasoning_client_kwargs(provider, model, reasoning_effort),
     )
 
 
@@ -235,6 +238,7 @@ def get_llm(
     api_key: str | None = None,
     base_url: str | None = None,
     timeout: float | None = None,
+    reasoning_effort: str | None = None,
 ) -> BaseChatModel | None:
     """
         Instantiate an LLM according to the provider and configuration.
@@ -258,7 +262,7 @@ def get_llm(
         if provider == "ollama":
             return _ollama_llm(model, base_url, timeout)
         if provider in {"openai", "deepseek", "mistral", "openrouter"}:
-            return _openai_family_llm(provider, model, api_key, base_url, timeout)
+            return _openai_family_llm(provider, model, api_key, base_url, timeout, reasoning_effort)
         if provider == "groq":
             return _groq_llm(model, api_key, base_url, timeout)
         if provider == "anthropic":
@@ -375,6 +379,7 @@ def get_default_llm_with_meta(
 
     llm = None
     if provider_name:
+        from backend.services.model_reasoning import agent_reasoning_kwargs
         p_cfg = providers.get(provider_name, {})
         key = resolve_provider_api_key(provider_name, p_cfg)
         llm = get_llm(
@@ -383,6 +388,7 @@ def get_default_llm_with_meta(
             api_key=key,
             base_url=p_cfg.get("base_url"),
             timeout=timeout,
+            **agent_reasoning_kwargs(agent_data or {}, provider_name, model_name),
         )
 
     if not llm and not agent_id:

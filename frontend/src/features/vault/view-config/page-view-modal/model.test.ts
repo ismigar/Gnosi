@@ -6,6 +6,14 @@ import { defineStorageKey, removeStorage, stringStorageCodec, writeStorage } fro
 import { inputValue } from './input-value';
 
 describe('PageViewModal persisted configuration models', () => {
+    it('restores embedded section names, view types, columns and legacy filters', () => {
+        expect(decodeView({ heading: 'Reading notes', source_table_id: 'brain', type: 'db_view', view_type: 'gallery',
+            visible_properties: ['title', 'Source'], filter: { field: 'Source', operator: 'equals', value: 'this' },
+            cardSize: 'full', galleryPreview: 'content' })).toMatchObject({
+            name: 'Reading notes', table_id: 'brain', type: 'gallery', visibleProperties: ['title', 'Source'],
+            filters: [{ field: 'Source', operator: 'equals', value: 'this' }], cardSize: 'full', galleryPreview: 'content',
+        });
+    });
     it('preserves nested OR groups, filters empty nodes and keeps the legacy flat mirror honest', () => {
         const source = decodeView({
             filterTree: {

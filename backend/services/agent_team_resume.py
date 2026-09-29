@@ -20,7 +20,10 @@ async def resume_team(run_id: str, request: dict[str, Any], snapshot: AgentExecu
     limit = execution._call_limit.set(int(request.get("max_calls") or 8))
     snap = execution._snapshot.set(snapshot)
     try:
-        saved = artifacts.get(scope, run_id, "plan")
+        try:
+            saved = artifacts.get(scope, run_id, "plan")
+        except LookupError:
+            saved = artifacts.get(scope, run_id, "help")
         saved["state"]["messages"] = messages_from_dict(saved.get("messages", []))
         saved["state"]["cancel_token"] = cancel_token
         runs.update(scope, run_id, status="running", error="")

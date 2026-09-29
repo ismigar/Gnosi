@@ -3,8 +3,13 @@ export function principalAssistant<T extends { readonly id: string }>(
     agents: readonly T[], activeId = '',
 ): T | undefined {
     const personal = agents.filter(agent => !('managed_by' in agent) || !agent.managed_by);
-    if (activeId) return personal.find(agent => agent.id === activeId);
+    if (activeId) return agents.find(agent => agent.id === activeId && (!('managed_by' in agent) || agent.managed_by !== 'llm-wiki'));
     return personal.find(agent => !('enabled' in agent) || agent.enabled !== false);
+}
+
+/** Plugin lifecycle owns suspension; personal profiles remain editable. */
+export function isSuspendedPluginProfile(profile: { managed_by?: string; plugin_suspended?: boolean }): boolean {
+    return Boolean(profile.plugin_suspended && /^(builtin:|plugin:)/.test(profile.managed_by ?? ''));
 }
 
 /** Translate shipped profile names without renaming user or third-party profiles. */

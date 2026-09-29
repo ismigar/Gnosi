@@ -4,7 +4,7 @@ import type { useViewStateResult } from './useViewState';
 export function useViewSnapshot({
     heading, headingLevel, sourceTableId, viewName,
     visibleProperties, joins, viewType, filterTree,
-    sorts, resultSnapshot, resultSnapshotLimit, cardSize,
+    sorts, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize,
     galleryPreview, coverField, imageFit, groupBy,
     groupSort, groupSortDir, dateField, endDateField,
     calendarView, colorField, rowHeight, feedPillLimit,
@@ -24,6 +24,8 @@ export function useViewSnapshot({
     | 'sorts'
     | 'resultSnapshot'
     | 'resultSnapshotLimit'
+    | 'heightMode'
+    | 'heightPercent'
     | 'cardSize'
     | 'galleryPreview'
     | 'coverField'
@@ -62,7 +64,7 @@ export function useViewSnapshot({
         sorts,
         resultSnapshot,
         resultSnapshotLimit,
-        cardSize,
+        heightMode, heightPercent, cardSize,
         galleryPreview,
         coverField,
         imageFit,
@@ -87,7 +89,7 @@ export function useViewSnapshot({
         editScope,
         pinnedViewIds: [...modalPinnedViewIds].sort(),
     }), [heading, headingLevel, sourceTableId, viewName, visibleProperties, joins,
-        viewType, filterTree, sorts, resultSnapshot, resultSnapshotLimit, cardSize,
+        viewType, filterTree, sorts, resultSnapshot, resultSnapshotLimit, heightMode, heightPercent, cardSize,
         galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir,
         dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit,
         feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField,

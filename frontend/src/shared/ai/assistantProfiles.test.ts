@@ -5,6 +5,11 @@ describe('principal assistant', () => {
     it('uses the configured principal regardless of ordering', () => {
         expect(principalAssistant(profiles, 'chosen')?.id).toBe('chosen');
     });
+    it('honors an explicitly selected plugin bot while keeping the legacy fallback personal', () => {
+        const plugin = { id: 'mail', managed_by: 'builtin:mail' };
+        expect(principalAssistant([plugin, ...profiles], 'mail')).toBe(plugin);
+        expect(principalAssistant([plugin, ...profiles])?.id).toBe('first');
+    });
     it('supports older configurations without a principal', () => {
         expect(principalAssistant(profiles)?.id).toBe('first');
         expect(principalAssistant([{ id: 'disabled', enabled: false }])).toBeUndefined();

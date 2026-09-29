@@ -1,9 +1,10 @@
+import { NumberValue } from '../../../../shared/records/NumberValue';
 import type { ComponentProps, ReactNode } from 'react';
 import { GalleryOpenButton } from '../GalleryCardPreview';
 import { Calendar, CheckSquare, Clock, FileText, Link as LinkIcon } from 'lucide-react';
 
 import type { LocaleFormatSettings } from '../../../../shared/i18n/useLocaleSettings';
-import { formatDate, formatNumber, resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
+import { formatDate, resolveFieldFormat } from '../../../../shared/records/model/formatUtils';
 import { RelationItem } from '../../properties/RelationItem';
 import { unlinkRelationFromRecord } from '../../properties/relationItemUtils';
 import { getFieldConfig } from '../../../../shared/records/model/schemaUtils';
@@ -101,14 +102,9 @@ function renderCardValue(
             })}
         </span>;
     }
-    if (type === 'number') {
+    if (['number', 'formula', 'rollup', 'virtual'].includes(type)) {
         const format = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-        return <span className="tabular-nums">{formatNumber(value, {
-            currencyCode: format.currencyCode,
-            decimals: format.decimals,
-            kind: format.kind,
-            locale: format.numberLocale,
-        })}</span>;
+        return <span className="tabular-nums"><NumberValue value={value} format={format} /></span>;
     }
     if (type === 'status' || type === 'select') {
         return <span className="rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[var(--text-secondary)]">

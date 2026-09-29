@@ -9,6 +9,7 @@ import { useSettingsLoaders } from './useSettingsLoaders';
 import { useSettingsMailEffects } from './useSettingsMailEffects';
 import { useSettingsModels } from './useSettingsModels';
 import { useSettingsPersistence } from './useSettingsPersistence';
+import { useSettingsPluginProfiles } from './useSettingsPluginProfiles';
 import { useSettingsReader } from './useSettingsReader';
 import { useSettingsSnippets } from './useSettingsSnippets';
 import { useSettingsSocial } from './useSettingsSocial';
@@ -29,6 +30,7 @@ export function useGlobalSettingsController(props: GlobalSettingsModalProps) {
   const mail = useSettingsMailEffects(state);
   const persistence = useSettingsPersistence({ ...state, ...mail });
   useSettingsLifecycle({ ...state, ...loaders, ...models, ...reader, ...social });
+  useSettingsPluginProfiles(state);
   const podcastProvider = draft.settings.reader?.podcast?.provider || '';
   const podcastModelId = draft.settings.reader?.podcast?.model || '';
   const podcastModelRoutes = useMemo(() => groupEnabledModelRoutes(aiRegistry, { provider: podcastProvider, model: podcastModelId }), [aiRegistry, podcastProvider, podcastModelId]);

@@ -3,7 +3,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AgentsPanel } from './AgentsPanel';
 import type { AgentDraft, SettingsAgent } from './types';
+import { EMPTY_TEAM, TEAM_SKILL, type AgentTeam } from '../../../shared/ai/agentTeams';
 
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { resolvedLanguage: 'ca' }, t: (key: string, values?: { name?: string }) => values?.name ? `${key}:${values.name}` : key }) }));
 vi.mock('./AIAgentForm', () => ({
   AIAgentForm: ({ agent, purpose, onSave, onChange }: { onChange: (value: AgentDraft) => void; agent: AgentDraft; purpose: string; onSave: (value: AgentDraft) => Promise<void> }) => <div data-purpose={purpose}>
     <input aria-label="Profile name" defaultValue={agent.name || ''} />
@@ -23,7 +25,7 @@ function Harness({ editing = false, empty = false, profiles, activeId, onOpenAct
   const context = {
     draft, setDraft, handleDeleteAIAgent: deleteProfile,
     editingAgent, setEditingAgent, agentEditorTarget, setAgentEditorTarget,
-    aiRegistry: [], aiResources: { skills: [], tools: [] },
+    aiRegistry: [], aiResources: { skills: [], tools: [], assignAgentSkills: (_id: string, ids: string[]) => Promise.resolve(ids) },
     t: (key: string, values?: { name?: string }) => values?.name ? `${key}:${values.name}` : key, tn: (key: string) => key,
   } as unknown as ComponentProps<typeof AgentsPanel>['context'];
   return <><AgentsPanel focusedProfileId={focusedProfileId} context={context} onOpenActivity={onOpenActivity} /><output>{JSON.stringify(draft.ai)}</output></>;
@@ -42,7 +44,6 @@ beforeEach(() => {
 afterEach(() => { act(() => { root.unmount(); }); vi.unstubAllGlobals(); });
 it.each([false, true])('opens an empty creation form with principal editing=%s', editing => {
   act(() => { root.render(<Harness editing={editing} />); });
-  click('settings.ai.assistant.advanced');
   click('settings.ai.assistant.create_profile');
   expect(host.querySelector('[data-settings-editor-for="agent:new"]')).not.toBeNull();
   expect(host.querySelector<HTMLInputElement>('input[aria-label="Profile name"]')?.value).toBe('');
@@ -71,12 +72,37 @@ function savedAi() {
   return JSON.parse(host.querySelector('output')?.textContent || '{}') as { active_agent_id: string; agents: SettingsAgent[] };
 }
 
-it('shows no switch or delete action for the principal and separates saved profiles', () => {
+it('shows a task-based model recommendation on each visible profile without changing its model', () => {
+  const profiles = [principal, { id: 'mail', name: 'Mail', managed_by: 'builtin:mail', model: 'chosen' }];
+  act(() => { root.render(<Harness profiles={profiles} />); });
+  expect(host.querySelectorAll('.agent-model-recommendation')).toHaveLength(2);
+  expect(host.textContent).toContain('settings.ai.assistant.recommendation_reasons.director');
+  expect(host.textContent).toContain('settings.ai.assistant.recommendation_reasons.administrative');
+  expect(savedAi().agents).toEqual(profiles);
+});
+
+it('hides suspended plugin profiles while preserving their saved configuration', () => {
+  const suspended = { id: 'mail', name: 'Mail', managed_by: 'builtin:mail', plugin_suspended: true, model: 'chosen', persona: 'Keep' };
+  act(() => { root.render(<Harness profiles={[principal, suspended]} />); });
+  expect(host.querySelector('[data-settings-item-id="agent:mail"]')).toBeNull();
+  expect(savedAi().agents[1]).toEqual(suspended);
+});
+
+it('asks for another principal when its plugin is disabled without silently choosing one', () => {
+  const suspended = { id: 'mail', name: 'Custom Mail', managed_by: 'builtin:mail', plugin_suspended: true };
+  act(() => { root.render(<Harness profiles={[principal, suspended]} activeId="mail" />); });
+  expect(host.querySelector('[data-settings-item-id="agent:mail"]')).toBeNull();
+  expect(host.querySelector('[role="status"]')?.textContent).toContain('settings.ai.assistant.principal_plugin_suspended:Custom Mail');
+  expect(savedAi().active_agent_id).toBe('mail');
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.make_principal_for:Cervell"]')?.click(); });
+  expect(savedAi().active_agent_id).toBe('brain');
+  expect(host.textContent).not.toContain('settings.ai.assistant.principal_plugin_suspended');
+});
+
+it('shows every profile once and protects the selected principal from deletion', () => {
   act(() => { root.render(<Harness profiles={[principal, { id: 'other', name: 'Other' }]} />); });
-  expect(host.querySelector('.gnosi-toggle')).toBeNull();
-  expect(host.querySelector('[aria-label^="settings.ai.assistant.delete_profile"]')).toBeNull();
-  click('settings.ai.assistant.advanced');
-  expect(host.querySelector('.gnosi-toggle')).toBeNull();
+  expect(host.querySelectorAll('[data-settings-item-id="agent:brain"]')).toHaveLength(1);
+  expect(host.querySelectorAll('[data-settings-item-id="agent:other"]')).toHaveLength(1);
   expect(host.querySelectorAll('[aria-label^="settings.ai.assistant.delete_profile"]')).toHaveLength(1);
   const rows = host.querySelectorAll('.ai-agent-row');
   expect(rows[0]?.textContent).toContain('settings.ai.assistant.principal_profile');
@@ -97,7 +123,6 @@ it('configures and enables the first profile as principal', async () => {
 
 it('creates a saved profile without replacing the principal', async () => {
   act(() => { root.render(<Harness />); });
-  click('settings.ai.assistant.advanced');
   click('settings.ai.assistant.create_profile');
   expect(host.querySelector('[data-purpose]')?.getAttribute('data-purpose')).toBe('profile');
   await act(async () => { click('Save fixture'); await Promise.resolve(); });
@@ -108,7 +133,6 @@ it('creates a saved profile without replacing the principal', async () => {
 it.each([principal.id, 'missing'])('can adopt a previously disabled profile with principal=%s', activeId => {
   const alternate = { id: 'other', name: 'Other', enabled: false, persona: 'Keep instructions', skill_ids: ['research'], extension: { keep: true } };
   act(() => { root.render(<Harness profiles={[principal, alternate]} activeId={activeId} />); });
-  click('settings.ai.assistant.advanced');
   const row = host.querySelector('[data-settings-item-id="agent:other"]');
   const useProfile = [...(row?.querySelectorAll('button') || [])].find(button => button.textContent === 'settings.ai.assistant.make_principal');
   act(() => { useProfile?.click(); });
@@ -127,10 +151,10 @@ it('restores a disabled principal through an explicit action', () => {
 });
 
 
-it('shows editable plugin profiles without making them the personal default', async () => {
+it('shows editable plugin profiles in the same list without implicitly making them principal', async () => {
   const plugin = { id: 'builtin.mail.default', name: 'Mail profile', managed_by: 'builtin:mail', model: 'mail-model' };
   act(() => { root.render(<Harness profiles={[principal, plugin]} />); });
-  const section = host.querySelector('section[aria-label="settings.ai.assistant.plugin_profiles"]');
+  const section = host.querySelector('[data-settings-item-id="agent:builtin.mail.default"]');
   expect(section?.textContent).toContain('Mail profile');
   expect(section?.textContent).toContain('settings.ai.assistant.plugin_profile');
   expect(section?.querySelector('[aria-label^="settings.ai.assistant.delete_profile"]')).toBeNull();
@@ -170,4 +194,60 @@ it('shows only the assigned profile when opened from a plugin', () => {
   expect(host.querySelector('[data-settings-item-id="agent:other"]')).toBeNull();
   expect(host.querySelector('[data-settings-editor-for="agent:brain"]')).not.toBeNull();
   expect(host.textContent).not.toContain('settings.ai.assistant.advanced');
+});
+
+it('organizes personal and plugin assistants in one editable card each without duplicate lists', () => {
+  const plugin = { id: 'mail', name: 'Mail helper', managed_by: 'builtin:mail', model: 'mail-model', persona: 'Keep mail instructions' };
+  act(() => { root.render(<Harness profiles={[principal, { id: 'other', name: 'Other' }, plugin]} />); });
+  for (const id of ['brain', 'other', 'mail']) {
+    expect(host.querySelectorAll(`[data-settings-item-id="agent:${id}"]`)).toHaveLength(1);
+  }
+  expect(host.querySelector('section[aria-label="settings.ai.assistant.plugin_profiles"]')).toBeNull();
+  expect(host.textContent).not.toContain('agent_team.entrypoints');
+  expect(host.textContent).not.toContain('settings.ai.assistant.advanced');
+  const card = host.querySelector('[data-settings-item-id="agent:mail"]')?.closest('.agent-team-setup__card');
+  const participation = card?.querySelector<HTMLSelectElement>('.agent-team-setup__participation select');
+  expect(participation).toBeTruthy();
+  act(() => { card?.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.configure_profile:Mail helper"]')?.click(); });
+  expect(card?.querySelector('[data-settings-editor-for="agent:mail"]')).not.toBeNull();
+  act(() => { if (participation) { participation.value = 'both'; participation.dispatchEvent(new Event('change', { bubbles: true })); } });
+  expect(savedAi().agents.find(agent => agent.id === 'mail')?.team?.enabled).toBe(true);
+  click('Edit fixture');
+  const ai = savedAi();
+  expect(ai.agents.find(agent => agent.id === 'mail')).toMatchObject({ ...plugin, name: 'Auto saved', team: { enabled: true, director_id: 'brain' } });
+  expect(ai.agents.find(agent => agent.id === 'brain')?.team?.members).toEqual([{ agent_id: 'mail', roles: ['allrounder'] }]);
+  click('common.close');
+  expect(host.querySelector('[data-settings-editor-for]')).toBeNull();
+  expect(host.querySelectorAll('[data-settings-item-id="agent:mail"]')).toHaveLength(1);
+});
+
+it('preserves autosaved team settings and coordination while an older director editor remains open', async () => {
+  act(() => { root.render(<Harness profiles={[principal, { id: 'other', name: 'Other' }]} />); });
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.configure_profile:Cervell"]')?.click(); });
+  const participation = host.querySelector<HTMLSelectElement>('[aria-label="agent_team.participation_for:Other"]');
+  expect(participation).not.toBeNull();
+  act(() => { if (participation) { participation.value = 'member'; participation.dispatchEvent(new Event('change', { bubbles: true })); } });
+  click('Edit fixture');
+  expect(savedAi().agents[0]).toMatchObject({ name: 'Auto saved', skill_ids: [TEAM_SKILL], team: { enabled: true, members: [{ agent_id: 'other', roles: ['allrounder'] }] } });
+  await act(async () => { click('Save fixture'); await Promise.resolve(); });
+  expect(savedAi().agents[0]).toMatchObject({ skill_ids: [TEAM_SKILL], team: { enabled: true, members: [{ agent_id: 'other', roles: ['allrounder'] }] } });
+});
+
+it('selects a plugin bot as the only principal from its card and transfers the existing team', () => {
+  const team: AgentTeam = { ...EMPTY_TEAM, enabled: true, director_id: principal.id, members: [{ agent_id: 'helper', roles: ['allrounder'] }] };
+  const plugin = { id: 'mail', name: 'Mail helper', managed_by: 'builtin:mail', persona: 'Keep instructions', skill_ids: ['mail'] };
+  act(() => { root.render(<Harness profiles={[{ ...principal, team }, plugin, { id: 'helper', name: 'Helper' }]} />); });
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.configure_profile:Cervell"]')?.click(); });
+  click('Edit fixture');
+  act(() => { host.querySelector<HTMLButtonElement>('[aria-label="settings.ai.assistant.make_principal_for:Mail helper"]')?.click(); });
+  expect(savedAi().active_agent_id).toBe('mail');
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Profile name"]')?.value).toBe('Auto saved');
+  expect(savedAi().agents.find(agent => agent.id === principal.id)?.name).toBe('Auto saved');
+  expect(savedAi().agents.find(agent => agent.id === 'mail')).toMatchObject({ ...plugin, skill_ids: ['mail', TEAM_SKILL], team: { enabled: true, director_id: 'mail', members: team.members } });
+  const cards = [...host.querySelectorAll('[data-settings-item-id]')];
+  expect(cards).toHaveLength(3);
+  expect(cards.filter(card => card.textContent.includes('settings.ai.assistant.principal_profile'))).toHaveLength(1);
+  expect(cards[0]?.getAttribute('data-settings-item-id')).toBe('agent:mail');
+  expect(host.textContent).not.toContain('agent_team.setup');
+  expect(host.querySelector('[aria-label="agent_team.director"]')).toBeNull();
 });

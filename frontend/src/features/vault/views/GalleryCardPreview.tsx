@@ -12,6 +12,7 @@ interface GalleryOpenButtonProps {
 }
 
 interface GalleryContentPreviewProps {
+    readonly scrollMode?: 'card' | 'page';
     readonly idToTitle?: Record<string, string>;
     readonly note?: GalleryPreviewNote | null;
     readonly onNoteSelect?: (pageId?: string | null) => void;
@@ -64,6 +65,7 @@ export function GalleryOpenButton({ pageId, onOpen }: GalleryOpenButtonProps) {
 }
 
 export function GalleryContentPreview({
+    scrollMode = 'card',
     note,
     idToTitle = {},
     onNoteSelect,
@@ -135,7 +137,7 @@ export function GalleryContentPreview({
                     event.stopPropagation();
                 }
             }}
-            className="gallery-card-preview h-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-md px-1 text-xs leading-relaxed text-[var(--text-secondary)] outline-none custom-scrollbar focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-xs [&_img]:max-h-40 [&_img]:object-contain [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_td]:break-words"
+            className={`gallery-card-preview ${scrollMode === 'page' ? 'overflow-x-clip text-sm' : 'h-full overflow-x-hidden overflow-y-auto overscroll-contain text-xs custom-scrollbar'} rounded-md px-1 leading-relaxed text-[var(--text-secondary)] outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-xs [&_img]:max-h-40 [&_img]:object-contain [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_td]:break-words`}
         >
             {markdown ? (
                 <VaultMarkdown

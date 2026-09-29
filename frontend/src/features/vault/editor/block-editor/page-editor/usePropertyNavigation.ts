@@ -1,3 +1,4 @@
+import { isPagePropertyReadOnly, pagePropertyConfig } from './propertyModel';
 import type { KeyboardEvent } from 'react';
 import type { PropertyEntry } from './types';
 import { coercePageProperty, type PageCoercionContext } from './propertyCoercion';
@@ -9,12 +10,13 @@ import { serializeCellForClipboard } from '../../../properties/cellGridUtils';
 import { toast } from '../../../../../shared/notifications/toast';
 import { useCallback } from 'react';
 import { useEffect } from 'react';
+import { hasOpenModal } from '../../../../../shared/hooks/useModalKeyboard';
 import type { usePageProperties } from './usePageProperties';
 import type { usePageEditorState } from './usePageEditorState';
 import type { usePageMetadata } from './usePageMetadata';
-type Input = Pick<ReturnType<typeof usePageProperties>, 'getPropOptions' | 'navProps' | 'propIndexByName'> & Pick<ReturnType<typeof usePageEditorState>, 'idToTitle' | 'allNotes' | 'metadata' | 'propClipboardRef' | 't' | 'isEditor' | 'activeProp' | 'setActiveProp' | 'isPropertiesOpen' | 'propertiesPanelRef' | 'titleInputRef' | 'editorApiRef' | 'didAutofocusTitleRef' | 'setIsPropertiesOpen' | 'linksHeaderRef' | 'propertiesHeaderRef' | 'setIsLinksInfoOpen'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
+type Input = Pick<ReturnType<typeof usePageProperties>, 'getPropOptions' | 'getPropValue' | 'navProps' | 'propIndexByName'> & Pick<ReturnType<typeof usePageEditorState>, 'idToTitle' | 'allNotes' | 'metadata' | 'propClipboardRef' | 't' | 'isEditor' | 'activeProp' | 'setActiveProp' | 'isPropertiesOpen' | 'propertiesPanelRef' | 'titleInputRef' | 'editorApiRef' | 'didAutofocusTitleRef' | 'setIsPropertiesOpen' | 'linksHeaderRef' | 'propertiesHeaderRef' | 'setIsLinksInfoOpen'> & Pick<ReturnType<typeof usePageMetadata>, 'handleMetaChange'>;
 export function usePropertyNavigation(state: Input) {
-  const { getPropOptions, idToTitle, allNotes, metadata, navProps, propClipboardRef, t, isEditor, handleMetaChange, activeProp, propIndexByName, setActiveProp, isPropertiesOpen, propertiesPanelRef, titleInputRef, editorApiRef, didAutofocusTitleRef, setIsPropertiesOpen, linksHeaderRef, propertiesHeaderRef, setIsLinksInfoOpen } = state;
+  const { getPropOptions, getPropValue, idToTitle, allNotes, metadata, navProps, propClipboardRef, t, isEditor, handleMetaChange, activeProp, propIndexByName, setActiveProp, isPropertiesOpen, propertiesPanelRef, titleInputRef, editorApiRef, didAutofocusTitleRef, setIsPropertiesOpen, linksHeaderRef, propertiesHeaderRef, setIsLinksInfoOpen } = state;
 
 
   // Coercion context (options) for a select/multi/relation property.
@@ -24,7 +26,7 @@ export function usePropertyNavigation(state: Input) {
             return { options: getPropOptions(prop), idToTitle };
     }
     if (type === 'relation') {
-      const relatedTableId = prop?.relation_database_id;
+      const relatedTableId = pagePropertyConfig(prop).relation_database_id;
       const relatedNotes = allNotes.filter(n => {
         const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
         return nTableId === relatedTableId;
@@ -38,18 +40,18 @@ export function usePropertyNavigation(state: Input) {
   const copyPropValue = useCallback((name: string) => {
     const entry = navProps.find(p => p.name === name);
     if (!entry) return;
-    const value = metadata[name];
+    const value = entry.prop ? getPropValue(entry.prop) : metadata[name];
     propClipboardRef.current = { value, type: entry.type };
     const text = serializeCellForClipboard(value, entry.type, idToTitle);
     void writeClipboardText(text).catch(() => { });
     toast.success(t('editor.property_copied', { name, defaultValue: `Copiat: ${name}` }));
-  }, [navProps, metadata, propClipboardRef, idToTitle, t]);
+  }, [navProps, metadata, getPropValue, propClipboardRef, idToTitle, t]);
 
 
   const pastePropValue = useCallback(async (name: string) => {
     if (!isEditor) return;
     const entry = navProps.find(p => p.name === name);
-    if (!entry) return;
+    if (!entry || (entry.prop && isPagePropertyReadOnly(entry.prop))) return;
     let raw;
     if (propClipboardRef.current != null) {
       raw = propClipboardRef.current.value;
@@ -212,6 +214,7 @@ export function usePropertyNavigation(state: Input) {
   useEffect(() => {
     if (!activeProp || !isPropertiesOpen) return undefined;
     const onKey = (e: globalThis.KeyboardEvent) => {
+      if (hasOpenModal()) return;
       const el = document.activeElement;
       const tag = el?.tagName;
       const inputType = el?.getAttribute('type') || '';

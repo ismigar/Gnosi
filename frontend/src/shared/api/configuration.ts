@@ -63,6 +63,15 @@ export async function fetchEditorConfiguration(
   });
 }
 
+/** Plugin lifecycle changes also change the configured assistant inventory. */
+export async function invalidateConfigurationCache(): Promise<void> {
+  await Promise.all([
+    invalidateCachedQuery(bootstrapQueryKeys.configuration),
+    invalidateCachedQuery(bootstrapQueryKeys.interfaceSettings()),
+    invalidateCachedQuery(bootstrapQueryKeys.editorConfiguration()),
+  ]);
+}
+
 
 export async function updateConfiguration(
   input: ConfigurationUpdateInput,

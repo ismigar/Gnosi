@@ -3,6 +3,25 @@ from types import SimpleNamespace
 import pytest
 from backend.services import llm_wiki_agent as profiles
 from backend.services import plugin_agent_profiles
+from backend.services.principal_agent_migration import migrate, principal_profile
+
+
+def test_explicit_plugin_principal_preserves_ownership_and_skills():
+    plugin = {"id": "mail", "managed_by": "builtin:mail", "skill_ids": ["mail"], "persona": "Keep mail instructions"}
+    ai = {"active_agent_id": "mail", "agents": [{"id": "personal"}, plugin]}
+    assert principal_profile(ai) == plugin
+    migrated, changed = migrate({"ai": ai}, {"mail", "llm-wiki"})
+    assert changed
+    assert migrated["ai"]["agents"][1] == plugin
+    assert migrated["ai"]["active_agent_id"] == "mail"
+    assert migrate(migrated, {"mail", "llm-wiki"}) == (migrated, False)
+
+
+@pytest.mark.parametrize("flags", [{"plugin_suspended": True}, {"enabled": False}, {"managed_by": "llm-wiki"}])
+def test_unavailable_plugin_principal_has_no_silent_fallback(flags):
+    ai = {"active_agent_id": "mail", "agents": [{"id": "personal"}, {"id": "mail", "managed_by": "builtin:mail", **flags}]}
+    with pytest.raises(RuntimeError, match="principal_agent_unavailable"):
+        principal_profile(ai)
 
 
 def test_activation_does_not_create_or_assign_profiles(tmp_path, monkeypatch):

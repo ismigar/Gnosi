@@ -1,6 +1,10 @@
 import { logError } from '../../../shared/notifications/notifyError';
 import { transportFetch } from '../../../shared/api/transports';
 import {
+  canonicalDocumentSource,
+  documentAnnotationSources,
+} from '../../../shared/resources/documentSourceIdentity';
+import {
   isUnknownArray,
   isUnknownRecord,
   pdfAnnotationToZotero,
@@ -39,15 +43,22 @@ export async function fetchPersistedAnnotations(
   state: AnnotationPersistenceState,
 ): Promise<ZoteroAnnotation[] | null> {
   if (!rawSrc) return [];
-  const response = await transportFetch(
-    `/api/vault/pdf-annotations?source_uri=${encodeURIComponent(rawSrc)}`,
-    { signal },
-  );
-  if (signal?.aborted || !response.ok) return null;
-  const data: unknown = await response.json();
+  const responses = await Promise.all(documentAnnotationSources(rawSrc).map(async (source) => {
+    const response = await transportFetch(
+      `/api/vault/pdf-annotations?source_uri=${encodeURIComponent(source)}`,
+      { signal },
+    );
+    if (!response.ok) return null;
+    const data: unknown = await response.json();
+    return isUnknownArray(data) ? data.map(pdfAnnotationToZotero) : [];
+  }));
   if (signal?.aborted) return null;
-  if (!isUnknownArray(data)) return [];
-  const mapped = data.map(pdfAnnotationToZotero);
+  if (responses.every((items) => items === null)) return null;
+  const byId = new Map<string, ZoteroAnnotation>();
+  for (const annotation of responses.flatMap((items) => items ?? [])) {
+    if (typeof annotation.id === 'string') byId.set(annotation.id, annotation);
+  }
+  const mapped = [...byId.values()];
   state.annotations.current = mapped;
   for (const annotation of mapped) {
     if (typeof annotation.id === 'string' && annotation.id.startsWith('gnosi:')) {
@@ -74,7 +85,7 @@ export async function persistSaveAnnotations(
     } else if (annotationId && state.idMap.current.has(annotationId)) {
       dbId = state.idMap.current.get(annotationId) ?? null;
     }
-    const body = zoteroToPdfAnnotation(annotation, rawSrc);
+    const body = zoteroToPdfAnnotation(annotation, canonicalDocumentSource(rawSrc));
     try {
       if (dbId !== null) {
         const response = await transportFetch(`/api/vault/pdf-annotations/${String(dbId)}`, {

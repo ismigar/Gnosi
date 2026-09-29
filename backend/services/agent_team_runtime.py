@@ -98,6 +98,7 @@ def execution_profile(snapshot: AgentExecutionSnapshot) -> dict[str, Any]:
 
 
 def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], skills: list[str], text: str, *, preferred: str = "", tools: bool = False) -> tuple[dict[str, Any] | None, str, float | None]:
+    ids = [identifier for identifier in ids if identifier != owner["id"]]
     from backend.agent.model_router import load_registry
     from backend.domains.agent.llm import _provider_is_available
     from backend.agent.model_router import UsageStore, budget_status
@@ -136,13 +137,20 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     return snapshot, runtime
 
 
+def _validate_plan_result(text: str) -> str:
+    TeamPlan.model_validate_json(text)
+    return text
+
+
 async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, text: str, schema: dict[str, Any] | None, operation: str) -> str:
-    from backend.services.agent_execution import execute_operation
+    from backend.services.agent_execution import execute_operation, _operation_timeout
+    plan_validator = _validate_plan_result if operation in {"team.plan", "team.replan"} else None
     identifier = "phase:" + operation
     previous = next((p for p in artifacts.list_artifacts(scope, "phase", root_id) if p["id"] == identifier), None)
     if previous:
         if previous["status"] == "completed":
-            return str(previous["result"])
+            cached = str(previous["result"])
+            return plan_validator(cached) if plan_validator else cached
         raise RuntimeError("agent_team_phase_requires_review")
     phase = {"id": identifier, "status": "running", "result": ""}
     artifacts.put(scope, root_id, identifier, "phase", phase, create_only=True)
@@ -151,8 +159,8 @@ async def _phase(owner: dict[str, Any], root_id: str, scope: ExecutionScope, tex
     token = delegating.set(True)
     try:
         result = await execute_operation(AgentOperation(skill_id=TEAM_SKILL, operation=operation, input=text,
-            output_schema=schema, max_model_calls=1, parent_run_id=root_id, origin=snapshot.origin,
-            resume_requires_parent=True), snapshot=snapshot)
+            output_schema=schema, max_model_calls=2 if plan_validator else 1, parent_run_id=root_id, origin=snapshot.origin,
+            timeout_seconds=_operation_timeout.get(), resume_requires_parent=True), snapshot=snapshot, output_validator=plan_validator)
         phase.update(status="completed", result=result.result)
         return result.result
     except BaseException:
@@ -342,9 +350,10 @@ async def coordinate(owner: dict[str, Any], state: dict[str, Any], *, operation_
             skill_ids=required, read_only=operation_mode or bool(chat_operation(original)))], result_task="direct")
     else:
         record("team.route", {"mode": "director", "reason": reason})
-        member_ids = {m.agent_id for m in team.members}
+        member_ids = {m.agent_id for m in team.members if m.agent_id != owner["id"]}
         members = [p for p in _config().get("agents", []) if p.get("id") in member_ids and p.get("enabled", True) and not p.get("plugin_suspended")]
-        catalog = [{"id": p["id"], "name": p.get("name"), "skills": p.get("skill_ids", []), "provider": p.get("provider"), "model": p.get("model")} for p in members]
+        roles = {m.agent_id: m.roles for m in team.members}
+        catalog = [{"id": p["id"], "name": p.get("name"), "roles": roles[p["id"]], "skills": p.get("skill_ids", []), "provider": p.get("provider"), "model": p.get("model")} for p in members]
         plan_data = {"request": original, "members": catalog, "temporary_policy": team.temporary.model_dump(),
             "conversation_evidence": [str(m.content) for m in state.get("messages", []) if getattr(m, "type", "") in {"human", "ai"}]}
         raw = await _phase(owner, root_id, scope, json.dumps(plan_data, ensure_ascii=False), TeamPlan.model_json_schema(), "team.plan")
@@ -413,9 +422,10 @@ async def repair_output(root_id: str, scope: ExecutionScope, text: str, error: s
     token = delegating.set(True)
     try:
         result = await execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="team.repair",
-            input=text, data={"validation_error": error, "instruction": "Repair output format only; preserve the facts."},
+            input=text, data={"original_input": request.input, "original_data": request.data,
+                "validation_error": error, "instruction": "Repair the output contract using the original evidence; preserve supported facts."},
             output_schema=request.output_schema, max_model_calls=1, origin=request.origin,
-            parent_run_id=root_id, resume_requires_parent=True), snapshot=snapshot)
+            timeout_seconds=request.timeout_seconds, parent_run_id=root_id, resume_requires_parent=True), snapshot=snapshot)
         return result.result
     finally:
         delegating.reset(token)

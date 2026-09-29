@@ -1,22 +1,24 @@
 """Durable JSON actions over immutable source passages and validated draft notes."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.contextual_reading import fingerprint
+from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA as ACTION_SCHEMA, action_schemas
 
-ACTION_SCHEMA = {
-    "type": "object", "required": ["action", "arguments"],
-    "properties": {"action": {"enum": ["index", "read", "search", "remember", "save_plan", "recall", "finish"]},
-                   "arguments": {"type": "object"}}, "additionalProperties": False,
-}
+
+def _chunk_status(state: dict[str, Any], key: str) -> dict[str, object]:
+    plan = state["plans"].get(key, {})
+    return {"read": key in state["read"], "saved": key in state["plans"],
+            "reviewed": plan.get("reviewed") is True, "note_count": len(records(plan.get("notes")))}
 
 
 def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     from backend.services.agent_execution_trace import record
     deps = reader.dependencies
+    output_schema, _ = action_schemas(reader.dimensions)
     chunks = {str(chunk["id"]): chunk for chunk in reader.chunks}
     identity = fingerprint([deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index])
     saved = deps.load_checkpoint(reader.resume_job_id, "agent-state") if reader.resume_job_id else None
@@ -26,7 +28,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     if not chunks:
         raise RuntimeError("No readable source segments were extracted")
     complete = list(chunks.values())
-    if state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, ACTION_SCHEMA])) + 2048 <= reader.budget:
+    if state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, output_schema])) + 2048 <= reader.budget:
         state["read"] = list(chunks)
         state["last_result"] = {"sources": complete, "delivery": "complete"}
 
@@ -36,16 +38,26 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
             deps.update_job(reader.job_id, chunks_done=len(state["plans"]), phase="planning")
 
     def checked(answer: dict[str, object]) -> None:
-        import jsonschema  # type: ignore[import-untyped]
-        jsonschema.validate(answer, ACTION_SCHEMA)
+        validate_action(reader, state, chunks, answer)
+
+    # Carry resumed plans into the new job before a provider call can fail.
+    checkpoint()
 
     # A per-resume execution allowance, not a prescribed intellectual sequence.
     for _ in range(deps.max_action_steps):
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
-            "language": reader.language, "output_schema": ACTION_SCHEMA,
+            "step": state["step"],
+            "language": reader.language, "output_schema": output_schema,
             "source_count": len(chunks), "read_count": len(state["read"]),
             "saved_plan_count": len(state["plans"]), "memory": state["memory"],
+            "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
+            "state_contract": (
+                "The index and counts report the current persisted state, after evidence and coverage validation. "
+                "reviewed is the saved reader-declared review flag, not a guarantee of correct interpretation. "
+                "These current progress facts supersede conflicting progress claims in model-authored memory, "
+                "which may describe an earlier step. last_action identifies the operation that produced last_result."
+            ),
             "last_result": state["last_result"], "dimensions": reader.dimensions,
             "available_actions": {
                 "index": {"offset": "integer", "limit": "integer, maximum 100"},
@@ -55,9 +67,10 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "recall": {"chunk_id": "string"}, "finish": {"summary": "string"},
             },
         }
-        if state["step"] == 0:
-            request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section")} for key, chunk in list(chunks.items())[:100]]
-        answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=ACTION_SCHEMA)
+        request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
+                             **_chunk_status(state, key),
+                             "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
+        answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
         action, args = str(answer["action"]), answer["arguments"]
         record("reading.action", {"step": state["step"], **answer})
         result: Any = {}
@@ -81,9 +94,33 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         if deps.count_tokens(encoded(result)) > reader.budget // 2:
             raise RuntimeError("agent_action_result_context_exceeded")
         state["last_result"] = result
+        state["last_action"] = {"name": action, "chunk_id": args.get("chunk_id"), "step": state["step"]}
         state["step"] += 1
         checkpoint()
     raise RuntimeError("agent_reading_incomplete_resume_required")
+
+
+def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], answer: dict[str, object]) -> None:
+    import jsonschema  # type: ignore[import-untyped]
+    output_schema, argument_schemas = action_schemas(reader.dimensions)
+    try:
+        jsonschema.validate(answer, output_schema)
+        jsonschema.validate(answer["arguments"], argument_schemas[str(answer["action"])])
+    except jsonschema.ValidationError as error:
+        raise ValueError(error.message) from error
+    action, args = str(answer["action"]), cast(dict[str, Any], answer["arguments"])
+    if action in {"read", "recall", "save_plan"} and args["chunk_id"] not in chunks:
+        raise ValueError("unknown_chunk_id: use an exact chunk id from the supplied index")
+    if action == "recall" and args["chunk_id"] not in state["plans"]:
+        raise ValueError("plan_not_saved: read the original chunk before drafting a plan")
+    if action == "finish":
+        if set(state["plans"]) != set(chunks) or set(state["read"]) != set(chunks):
+            raise ValueError("source_coverage_incomplete")
+    else:
+        # Keep invalid answers out of checkpoints and retain original evidence
+        # in the executor's bounded repair conversation. Preview changes only.
+        preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
+        _apply_action(reader, preview, chunks, action, args)
 
 
 def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], action: str, args: dict[str, Any]) -> Any:
@@ -93,7 +130,7 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         offset = max(0, int(args.get("offset", 0)))
         limit = max(1, min(100, int(args.get("limit", 100))))
         keys = list(chunks)[offset:offset + limit]
-        result = {"chunks": [{"id": key, "read": key in state["read"], "saved": key in state["plans"]} for key in keys], "next_offset": offset + len(keys), "total": len(chunks)}
+        result = {"chunks": [{"id": key, **_chunk_status(state, key)} for key in keys], "next_offset": offset + len(keys), "total": len(chunks)}
     elif action == "read":
         key = str(args["chunk_id"])
         result = chunks[key]
@@ -111,6 +148,7 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         if deps.count_tokens(memory) > reader.budget // 8:
             raise ValueError("memory_budget_exceeded")
         state["memory"] = memory
+        state["memory_step"] = state["step"]
         result = {"saved": True}
     elif action == "recall":
         result = state["plans"][str(args["chunk_id"]) ]

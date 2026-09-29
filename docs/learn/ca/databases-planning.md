@@ -20,6 +20,8 @@ Un Vault amb escriptura. Les vistes generals formen part del coneixement; la pro
 
 6. Consulta l’ajuda al costat de la restricció de data per entendre la regla seleccionada. Comprova la data final calculada segons els dies laborables.
 
+Per llegir les notes seguides, obre la configuració de la galeria i tria **Mida de les targetes → Ample complet** i **Previsualització → Contingut**. Les targetes ocupen tot l’ample de la vista, queden una sota l’altra i creixen segons el text. En una galeria agrupada, **Espai** desplega el grup enfocat i entra a la primera nota; **Esc** des d’una nota torna a la capçalera del grup i el plega. Un segon **Esc** torna a la vista. El clic a la capçalera continua plegant i desplegant el grup.
+
 ## Resultat esperat {#expected-result}
 
 Pots consultar els registres en diferents vistes i explicar la data calculada d’una tasca.

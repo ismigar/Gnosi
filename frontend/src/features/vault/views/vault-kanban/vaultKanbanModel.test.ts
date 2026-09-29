@@ -121,10 +121,10 @@ describe('vaultKanbanModel', () => {
         expect(openNotes[0]?.metadata).toBe(metadata);
     });
 
-    it('retains scalar-only grouping and multivalue drop behavior for opaque entries', () => {
+    it('groups structured values without changing multivalue drop behavior', () => {
         const value = ['Idea', 0, false, 5n, '  ', { nested: true }, Symbol('opaque')];
         const note: KanbanNote = { id: 'open', metadata: { Status: value } };
-        expect(kanbanGroupValues(note, 'Status', new Map())).toEqual(['Idea', '0', 'false', '5']);
+        expect(kanbanGroupValues(note, 'Status', new Map())).toEqual(['Idea', '0', 'false', '5', '{"nested":["true"]}']);
         expect(resolveKanbanDropValue(value, 'Idea', 'Done')).toEqual(['0', 'false', '5', 'Done']);
         expect(readKanbanCardValue(note, 'Status').value).toBe(value);
         expect(value[0]).toBe('Idea');

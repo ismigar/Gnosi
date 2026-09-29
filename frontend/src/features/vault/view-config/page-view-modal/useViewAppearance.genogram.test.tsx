@@ -22,10 +22,10 @@ describe('genogram view configuration', () => {
     try {
       act(() => { root.render(<Harness />); });
       act(() => { current().state.setViewType('genogram'); current().applyTypeOptions({ genogram: config }); });
-      expect(current().buildViewExtras()).toEqual({ genogram: config });
+      expect(current().buildViewExtras()).toEqual({ genogram: config, heightMode: 'limited', heightPercent: 70 });
       expect(current().formSnapshot).toContain('person-a');
       act(() => { current().resetTypeOptions(); });
-      expect(current().buildViewExtras({ genogram: config })).toEqual({ genogram: config });
+      expect(current().buildViewExtras({ genogram: config })).toEqual({ genogram: config, heightMode: 'limited', heightPercent: 70 });
       expect(current().state.genogram.root_id).toBe('');
     } finally { act(() => { root.unmount(); }); }
   });

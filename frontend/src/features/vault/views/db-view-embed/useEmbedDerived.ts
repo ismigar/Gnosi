@@ -104,6 +104,8 @@ export function useEmbedDerived({ view, tableViews, activeViewId, headingProp, h
         type: viewType === 'genogram' ? 'genogram' : viewType === 'list' ? 'list' : 'table',
         table_id: tableId,
         genogram: effectiveView?.genogram,
+        heightMode: effectiveView?.heightMode,
+        heightPercent: effectiveView?.heightPercent,
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
         visibleProperties: columnsAsKeys,

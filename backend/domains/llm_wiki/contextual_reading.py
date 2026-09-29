@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
 from backend.domains.llm_wiki.chunking import encoded, split_segment, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
+from backend.domains.llm_wiki.reading_action_contracts import validate_note_dimensions
 from backend.domains.llm_wiki.reading_skill import MAP_CONTRACT, NOTE_CONTRACT, REQUEST_CONTRACT
 from backend.domains.llm_wiki.recovery import call_with_retry
 
@@ -39,6 +41,11 @@ class ContextualReader:
     @property
     def budget(self) -> int:
         return self.dependencies.input_budget
+
+    @cached_property
+    def source_bytes(self) -> int:
+        return sum(len(str(segment.get("text", "")).encode("utf-8"))
+                   for origin in self.origins for segment in records(origin.get("segments")))
 
     def phase(self, phase: str, progress: int | None = None) -> None:
         if self.job_id:
@@ -105,6 +112,8 @@ class ContextualReader:
                 ),
                 on_wait=lambda: self.phase("retrying"),
                 on_attempt=lambda: self.phase(display_phase),
+                input_bytes=len(prompt.encode("utf-8")),
+                source_bytes=self.source_bytes,
             )
             try:
                 cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
@@ -247,6 +256,7 @@ class ContextualReader:
 
         def validate(answer: dict[str, object]) -> None:
             validate_notes(answer, primary, evidence)
+            validate_note_dimensions(answer, self.dimensions)
             if any(
                 self.dependencies.count_tokens(encoded(note)) > self.budget // 4
                 for note in records(answer.get("notes"))

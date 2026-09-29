@@ -8,6 +8,7 @@ export interface TableRowRecord {
 }
 
 export interface TableGroupMetadata {
+  readonly readValue?: (note: TableRowRecord) => unknown;
   readonly fieldId: string | null;
   readonly optionOrder: readonly string[];
   readonly colorMap: Readonly<Record<string, string>>;
