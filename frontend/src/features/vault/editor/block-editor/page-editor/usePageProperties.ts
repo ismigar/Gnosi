@@ -46,7 +46,9 @@ export function usePageProperties(state: Input) {
       .catch(() => {
         // Local property options remain available when the shared catalog cannot be read.
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+    };
   }, [catalogReferences]);
 
   // The current record is a bibliographic source if it belongs to the
