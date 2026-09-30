@@ -379,3 +379,16 @@ La acción Añadir vista de una vista incrustada permite crear una vista nueva o
 Los selectores de agrupación incluyen todos los tipos de campos registrados o descubiertos. Galería, tabla/lista y Kanban conservan cero y falso, separan y deduplican valores múltiples, resuelven identificadores estables y títulos y mantienen separados los valores vacíos. Las relaciones muestran nombres sin fusionar identificadores distintos; los valores estructurados tienen claves canónicas y etiquetas legibles. Fórmulas y rollups usan los evaluadores compartidos y las casillas tienen etiquetas traducidas. El arrastre de Kanban se limita a campos de texto editables para no corromper números, fechas o resultados calculados. La ayuda de las pestañas se oculta mientras el menú está abierto.
 
 Los campos numéricos comparten la visualización del progreso en páginas, tablas, galería, Kanban y feed. La configuración del campo permite elegir número, barra o anillo de progreso. Los porcentajes y los porcentajes de casillas marcadas muestran una barra por defecto; el cero es visible y los valores vacíos siguen vacíos. El dibujo se limita a 0–100 sin modificar el valor guardado y admite porcentajes calculados con el símbolo de porcentaje. El máximo configurable admite valores fraccionarios (0,5 sobre 1 es el 50%) y valores expresados sobre 100.
+
+### Catálogos de estados propios de cada tabla
+
+Los campos de estado conservan sus opciones salvo que `config.catalog_ref` los
+vincule explícitamente a un catálogo compartido. Los vínculos existentes al
+catálogo global `status` siguen siendo válidos. Seleccionar el catálogo propio
+del campo en el editor de esquema copia las opciones compartidas sin modificar
+otras tablas. El editor guarda este cambio antes de renombrar o eliminar
+valores. El mantenimiento de catálogos, los editores de registros y la
+persistencia de reglas respetan la referencia explícita; las opciones locales
+no se fusionan automáticamente con el catálogo global.
+Pruebas: `backend/tests/test_status_catalog_isolation.py` y
+`frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.

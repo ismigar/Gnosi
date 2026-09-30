@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 52 |
 | `config` | 13 | 1352 |
 | `data` | 2 | 214 |
-| `domains` | 474 | 100298 |
+| `domains` | 474 | 100300 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **876 modules** and **175616 source lines**.
+Total: **876 modules** and **175618 source lines**.
 
 ## agent
 
@@ -600,8 +600,8 @@ Total: **876 modules** and **175616 source lines**.
 | [`backend/domains/vault/tables/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault databases, tables, properties and option catalogs. |
 | [`backend/domains/vault/tables/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/api.py) | 131 | 1 | 7 | 4 | 0 | Database and table collection operations. |
 | [`backend/domains/vault/tables/catalogs/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/__init__.py) | 73 | 0 | 0 | 0 | 0 | Typed option catalogs, semantic roles and status seeds. |
-| [`backend/domains/vault/tables/catalogs/core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/core.py) | 129 | 0 | 10 | 0 | 5 | Option normalization and property-level catalog access. |
-| [`backend/domains/vault/tables/catalogs/global_status.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/global_status.py) | 132 | 0 | 9 | 0 | 1 | Registry-wide status catalog migration. |
+| [`backend/domains/vault/tables/catalogs/core.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/core.py) | 132 | 0 | 10 | 0 | 5 | Option normalization and property-level catalog access. |
+| [`backend/domains/vault/tables/catalogs/global_status.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/global_status.py) | 131 | 0 | 9 | 0 | 1 | Maintenance of explicitly shared status catalogs. |
 | [`backend/domains/vault/tables/catalogs/roles.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/roles.py) | 109 | 0 | 6 | 0 | 2 | Semantic role discovery and assignment for table properties. |
 | [`backend/domains/vault/tables/catalogs/seeds.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/seeds.py) | 149 | 0 | 8 | 0 | 3 | Per-table option normalization and feature-aware status seeds. |
 | [`backend/domains/vault/tables/catalogs/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/catalogs/types.py) | 20 | 1 | 0 | 0 | 1 | Shared option-catalog value types. |

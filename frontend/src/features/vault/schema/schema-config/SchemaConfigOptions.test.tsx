@@ -68,6 +68,41 @@ describe('schema option catalog contracts', () => {
         expect(schemaApi.updateOptionCatalog).not.toHaveBeenCalled();
     });
 
+    it('unlinks a status catalog before a rapid rename can rewrite other tables', async () => {
+        let finishSave: (() => void) | undefined;
+        const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>(() => new Promise<void>(resolve => { finishSave = resolve; }));
+        await modal.render({ onSave: save });
+        const catalog = [...document.querySelectorAll('select')].find(select => select.title.startsWith('Shares the same option list'));
+        if (!catalog) throw new Error('Missing status catalog selector');
+        await change(catalog, '');
+        await change(input('Open'), 'Local review');
+        await interact(() => { input('Local review').dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+        expect(save).toHaveBeenCalledTimes(1);
+        expect(save.mock.calls[0]?.[0].Status_config).toEqual({
+            id: 'fld_00000002', role: 'status', options: [{ name: 'Open', color: 'blue' }, { name: 'Done', color: 'green' }],
+        });
+        expect(schemaApi.renameTableOption).not.toHaveBeenCalled();
+        await interact(() => { finishSave?.(); });
+        expect(schemaApi.renameTableOption).toHaveBeenCalledExactlyOnceWith('table-1', 'fld_00000002', 'Open', 'Local review');
+        expect(schemaApi.updateOptionCatalog).not.toHaveBeenCalled();
+        await advance();
+        expect(save).toHaveBeenCalledTimes(2);
+        expect(save.mock.calls.at(-1)?.[0].Status_config).toMatchObject({ options: [expect.objectContaining({ name: 'Local review' }), expect.objectContaining({ name: 'Done' })] });
+        await interact(() => { finishSave?.(); });
+    });
+
+    it('keeps options local when changing a select field to status', async () => {
+        const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
+        await modal.render({ onSave: save, currentSchema: localSchema });
+        const type = [...document.querySelectorAll('select')].find(select => select.value === 'select');
+        if (!type) throw new Error('Missing field type selector');
+        await change(type, 'status');
+        await advance();
+        expect(save.mock.calls.at(-1)?.[0]).toMatchObject({ Tags: 'status', Tags_config: localSchema.Tags_config });
+        expect(save.mock.calls.at(-1)?.[0].Tags_config).not.toHaveProperty('catalog_ref');
+        expect(schemaApi.updateOptionCatalog).not.toHaveBeenCalled();
+    });
+
     it('adds a colored status option to the shared catalog rather than the field schema', async () => {
         const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
         await modal.render({ onSave: save });

@@ -389,3 +389,16 @@ L’action Ajouter une vue d’une vue intégrée permet de créer une nouvelle 
 Les sélecteurs de regroupement incluent tous les types de champs enregistrés ou découverts. Galerie, tableau/liste et Kanban conservent zéro et faux, séparent et dédupliquent les valeurs multiples, résolvent les identifiants stables et les titres et séparent les valeurs vides. Les relations affichent les noms sans fusionner les identifiants distincts ; les valeurs structurées utilisent des clés canoniques et des libellés lisibles. Les formules et agrégations utilisent les évaluateurs partagés, et les cases ont des libellés traduits. Le glissement Kanban est limité aux champs textuels modifiables pour préserver les nombres, dates et résultats calculés. Les infobulles des onglets sont masquées tant que le menu est ouvert.
 
 Les champs numériques partagent l’affichage de la progression dans les pages, tableaux, galeries, Kanban et flux. La configuration du champ propose un nombre, une barre ou un anneau de progression. Les pourcentages et les pourcentages de cases cochées affichent une barre par défaut ; le zéro reste visible et les valeurs vides restent vides. Le dessin est limité à 0–100 sans modifier la valeur enregistrée et accepte les pourcentages calculés avec leur symbole. Le maximum configurable accepte les valeurs fractionnaires (0,5 sur 1 représente 50 %) et les valeurs exprimées sur 100.
+
+### Catalogues de statuts propres à chaque table
+
+Les champs de statut conservent leurs options sauf si `config.catalog_ref` les
+relie explicitement à un catalogue partagé. Les liens existants vers le
+catalogue global `status` restent valides. Sélectionner le catalogue propre au
+champ dans l'éditeur de schéma copie les options partagées sans modifier les
+autres tables. L'éditeur enregistre ce changement avant de renommer ou supprimer
+des valeurs. La maintenance des catalogues, les éditeurs de fiches et la
+persistance des règles respectent la référence explicite ; les options locales
+ne sont jamais fusionnées automatiquement dans le catalogue global.
+Tests : `backend/tests/test_status_catalog_isolation.py` et
+`frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.

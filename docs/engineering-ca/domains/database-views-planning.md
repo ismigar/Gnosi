@@ -386,3 +386,16 @@ L’acció Afegir vista d’una vista incrustada permet crear una vista nova o a
 Els selectors d’agrupació inclouen tots els tipus de camps registrats o descoberts. Galeria, taula/llista i Kanban conserven el zero i el fals, separen i dedupliquen valors múltiples, resolen identificadors estables i títols, i mantenen els buits separats. Les relacions mostren noms sense fusionar identificadors diferents; els valors estructurats tenen claus canòniques i etiquetes llegibles. Fórmules i rollups fan servir els avaluadors compartits i les caselles tenen etiquetes traduïdes. L’arrossegament de Kanban es limita a camps de text editables per no corrompre números, dates o resultats calculats. L’ajuda de les pestanyes s’amaga mentre el menú d’opcions és obert.
 
 Els camps numèrics comparteixen la visualització del progrés a pàgines, taules, galeria, Kanban i feed. La configuració del camp permet triar número, barra o anell de progrés. Els percentatges i els percentatges de caselles marcades mostren una barra per defecte; el zero és visible i els valors buits continuen buits. El dibuix es limita a 0–100 sense modificar el valor desat i admet percentatges calculats amb el símbol de percentatge. El màxim configurable admet tant valors fraccionaris (0,5 sobre 1 és el 50%) com valors expressats sobre 100.
+
+### Catàlegs d'estats propis de cada taula
+
+Els camps d'estat conserven les opcions pròpies llevat que `config.catalog_ref`
+els vinculi explícitament a un catàleg compartit. Els vincles existents al catàleg
+global `status` continuen sent vàlids. Seleccionar el catàleg propi del camp a
+l'editor d'esquema copia les opcions compartides al camp sense modificar altres
+taules. L'editor desa aquest canvi abans de reanomenar o eliminar valors. El
+manteniment de catàlegs, els editors de registres i la persistència de regles
+respecten la referència explícita; les opcions locals no es fusionen
+automàticament amb el catàleg global.
+Proves: `backend/tests/test_status_catalog_isolation.py` i
+`frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.

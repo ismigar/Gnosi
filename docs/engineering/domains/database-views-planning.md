@@ -334,3 +334,15 @@ The embedded Add view action offers a new view or an existing view from the same
 Grouping selectors include every registered or discovered field type. Gallery, table/list and Kanban grouping preserve zero and false, split and deduplicate multi-value fields, resolve stable field IDs and page titles, and keep empty values separate. Relations retain distinct IDs while displaying page names; structured values use canonical keys and readable labels. Formulas and rollups use the shared evaluators, and checkbox labels are localized. Kanban dragging is limited to writable string-valued fields so grouping by a number, date or computed result cannot corrupt its type. Embedded tab hints are suppressed while an options menu is open.
 
 Numeric fields now share progress rendering on pages, tables, gallery, Kanban and feed. Field configuration offers a number, progress bar or progress ring. Percent fields and checked-percentage rollups default to a bar; zero is visible and empty values remain empty. The indicator bounds its drawing to 0–100 without changing the stored value, and computed percentages with a percent suffix are supported. The configurable maximum supports both fractional values (0.5 of 1 is 50%) and values already expressed out of 100.
+
+### Table-local status catalogs
+
+Status fields keep their own options unless `config.catalog_ref` explicitly links
+them to a shared catalog. Existing links to the global `status` catalog remain
+valid. Choosing the field's own catalog in the schema editor copies the shared
+options into the field without changing other tables. The editor saves this
+scope change before renaming or removing option values. Catalog maintenance,
+record editors and action-rule persistence all honor the explicit reference;
+local status options are never merged into the global catalog automatically.
+Regression coverage: `backend/tests/test_status_catalog_isolation.py` and
+`frontend/src/features/vault/schema/schema-config/SchemaConfigOptions.test.tsx`.
