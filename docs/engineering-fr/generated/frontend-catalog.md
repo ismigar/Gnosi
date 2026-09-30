@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1147 | 128335 | 38 |
+| `features` | 1148 | 128391 | 38 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 270 | 31586 | 426 |
 
@@ -716,7 +716,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/dashboard/useBreadcrumbs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBreadcrumbs.ts) | 94 | `useBreadcrumbs` | — |
 | [`frontend/src/features/vault/dashboard/useBrowserHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useBrowserHistory.ts) | 30 | `browserHistoryIndex`, `historyMaximum`, `useBrowserHistory` | — |
 | [`frontend/src/features/vault/dashboard/useContentCreation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useContentCreation.ts) | 205 | `useContentCreation` | — |
-| [`frontend/src/features/vault/dashboard/useDashboardActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardActions.ts) | 41 | `useDashboardActions` | — |
+| [`frontend/src/features/vault/dashboard/useDashboardActions.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardActions.ts) | 56 | `useDashboardActions` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardController.ts) | 22 | `useDashboardController` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardEvents.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardEvents.tsx) | 150 | `useDashboardEvents` | — |
 | [`frontend/src/features/vault/dashboard/useDashboardLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDashboardLifecycle.ts) | 150 | `useDashboardLifecycle` | — |
@@ -724,6 +724,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/dashboard/useDataLoading.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDataLoading.ts) | 162 | `useDataLoading` | — |
 | [`frontend/src/features/vault/dashboard/useDocumentTabs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useDocumentTabs.ts) | 164 | `useDocumentTabs` | — |
 | [`frontend/src/features/vault/dashboard/useEditorUpdates.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useEditorUpdates.ts) | 135 | `useEditorUpdates` | — |
+| [`frontend/src/features/vault/dashboard/useExternalCatalogRefresh.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useExternalCatalogRefresh.ts) | 45 | `useExternalCatalogRefresh` | — |
 | [`frontend/src/features/vault/dashboard/useGlobalIndex.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useGlobalIndex.ts) | 28 | `useGlobalIndex` | — |
 | [`frontend/src/features/vault/dashboard/useNavigationHistory.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/useNavigationHistory.ts) | 43 | `useNavigationHistory` | — |
 | [`frontend/src/features/vault/dashboard/usePageDeletion.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/usePageDeletion.tsx) | 206 | `usePageDeletion` | — |
@@ -963,7 +964,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/navigation/vault-sidebar/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/types.ts) | 107 | — | — |
 | [`frontend/src/features/vault/navigation/vault-sidebar/useFavorites.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useFavorites.ts) | 39 | `useFavorites` | — |
 | [`frontend/src/features/vault/navigation/vault-sidebar/useMenuDismissal.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useMenuDismissal.ts) | 17 | `useMenuDismissal` | — |
-| [`frontend/src/features/vault/navigation/vault-sidebar/useSidebarController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useSidebarController.ts) | 176 | `useSidebarController` | — |
+| [`frontend/src/features/vault/navigation/vault-sidebar/useSidebarController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useSidebarController.ts) | 172 | `useSidebarController` | — |
 | [`frontend/src/features/vault/navigation/vault-sidebar/useSidebarPreferences.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vault-sidebar/useSidebarPreferences.ts) | 30 | `useSidebarPreferences` | — |
 | [`frontend/src/features/vault/navigation/vaultSidebarTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultSidebarTree.ts) | 181 | `buildVaultSidebarTrees` | — |
 | [`frontend/src/features/vault/navigation/vaultTagTree.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/navigation/vaultTagTree.ts) | 72 | `buildTagTree`, `noteTags`, `tagNoteIcon` | — |
