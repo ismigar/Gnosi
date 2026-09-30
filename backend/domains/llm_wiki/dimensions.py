@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from backend.domains.vault.registry.records import RecordReader
 from backend.utils.open_values import iterable_values
 from backend.domains.llm_wiki.field_assignments import canonical_scalar, field_value_schema, is_assignable
-from backend.services.llm_wiki_options import categorical_options
+from backend.domains.llm_wiki.options import categorical_options
 
 TableLookup = Callable[[str], RecordReader | None]
 PagesForTable = Callable[[str], Iterable[object]]

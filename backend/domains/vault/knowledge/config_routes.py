@@ -243,7 +243,7 @@ def _llm_wiki_config_response(cfg: RecordReader) -> dict[str, object]:
 
 def _llm_wiki_property_options(prop: RecordReader) -> list[dict[str, str]]:
     """Return canonical existing values for one categorical Brain property."""
-    from backend.services.llm_wiki_options import categorical_options
+    from backend.domains.llm_wiki.options import categorical_options
 
     if str(prop.get("type") or "") == "relation":
         target_id = str(prop.get("relation_database_id") or "")
