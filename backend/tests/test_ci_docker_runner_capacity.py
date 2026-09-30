@@ -240,19 +240,23 @@ def test_scoped_cleanup_removes_ci_images_before_unused_build_cache(
 
 
 @pytest.mark.parametrize("available", [1, 12 * 1024**3])
-def test_final_cleanup_always_runs_and_enforces_capacity(
+def test_final_cleanup_keeps_layers_unless_capacity_is_low(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, available: int,
 ) -> None:
-    prune = Mock()
-    monkeypatch.setattr(prepare_docker_runner, "_prune_unused_docker", prune)
+    images = Mock()
+    cache = Mock()
+    monkeypatch.setattr(prepare_docker_runner, "_remove_ci_images", images)
+    monkeypatch.setattr(prepare_docker_runner, "_prune_build_cache", cache)
     monkeypatch.setattr(prepare_docker_runner, "_free_bytes", lambda _path: available)
 
     if available < prepare_docker_runner.MINIMUM_FREE_BYTES:
         with pytest.raises(RuntimeError, match="less than 12 GiB"):
             prepare_docker_runner.cleanup({"RUNNER_TEMP": str(tmp_path)})
+        cache.assert_called_once_with()
     else:
         assert prepare_docker_runner.cleanup({"RUNNER_TEMP": str(tmp_path)}) == available
-    prune.assert_called_once_with()
+        cache.assert_not_called()
+    images.assert_called_once_with()
 
 
 def test_cleanup_requires_valid_runner_temp_before_mutating(monkeypatch: pytest.MonkeyPatch) -> None:

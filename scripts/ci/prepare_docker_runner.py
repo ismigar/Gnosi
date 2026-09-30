@@ -126,10 +126,12 @@ def _require_capacity(path: Path, minimum_free_bytes: int) -> int:
 def cleanup(
     environment: Mapping[str, str], *, minimum_free_bytes: int = MINIMUM_FREE_BYTES,
 ) -> int:
-    """Always clean CI images/cache, then verify capacity; never prune volumes."""
+    """Remove CI image tags, retaining build layers when capacity permits."""
     path = runner_temp(environment)
-    _prune_unused_docker()
-    _release_optional_snapshots(environment, path, minimum_free_bytes)
+    _remove_ci_images()
+    if _free_bytes(path) < minimum_free_bytes:
+        _prune_build_cache()
+        _release_optional_snapshots(environment, path, minimum_free_bytes)
     return _require_capacity(path, minimum_free_bytes)
 
 
