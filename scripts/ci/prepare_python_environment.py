@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 import os
+import platform
 from pathlib import Path
 import re
 import shutil
@@ -59,6 +61,30 @@ def cache_path(environment: Mapping[str, str]) -> Path:
     return environment_candidate.parent / f"{CACHE_PREFIX}{suffix}"
 
 
+def persistent_cache_path(environment: Mapping[str, str]) -> Path | None:
+    """Select uv's native append-only package cache, never a shared environment."""
+    if environment.get("GNOSI_CI_PACKAGE_CACHE") != "1":
+        return None
+    raw = environment.get("RUNNER_TOOL_CACHE")
+    if not raw:
+        LOG.warning("Runner tool cache unavailable; using job-private downloads")
+        return None
+    root = Path(raw).expanduser().resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("RUNNER_TOOL_CACHE must be an existing directory")
+    identity = "|".join((
+        environment.get("GITHUB_REPOSITORY", "Gnosi"), platform.system(),
+        platform.machine(), f"{sys.version_info.major}.{sys.version_info.minor}",
+    ))
+    cache = root / "gnosi-uv-packages-v1" / hashlib.sha256(identity.encode()).hexdigest()
+    # Reject aliases before creating directories or handing the path to uv.
+    for candidate in (cache.parent, cache):
+        if candidate.is_symlink():
+            raise ValueError("Persistent package cache must not be a symlink")
+    cache.mkdir(parents=True, exist_ok=True)
+    return cache
+
+
 def _remove_scoped_path(path: Path) -> None:
     if path.is_symlink() or path.is_file():
         path.unlink()
@@ -69,15 +95,17 @@ def _remove_scoped_path(path: Path) -> None:
 def prepare(environment: Mapping[str, str]) -> Path:
     """Remove only the validated job environment and export its fresh location."""
     candidate = environment_path(environment)
-    cache = cache_path(environment)
+    persistent = persistent_cache_path(environment)
+    cache = persistent or cache_path(environment)
     github_env = Path(_required(environment, "GITHUB_ENV")).expanduser().resolve(strict=True)
     if not github_env.is_file():
         raise ValueError("GITHUB_ENV must be an existing regular file")
 
     _remove_scoped_path(candidate)
-    _remove_scoped_path(cache)
+    if persistent is None:
+        _remove_scoped_path(cache)
 
-    if environment.get("GNOSI_CI_SEALED_CACHE") == "1":
+    if persistent is None and environment.get("GNOSI_CI_SEALED_CACHE") == "1":
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from scripts.ci.python_cache import restore_for_job
         restore_for_job(environment, cache)
@@ -87,6 +115,7 @@ def prepare(environment: Mapping[str, str]) -> Path:
         handle.write(f"UV_CACHE_DIR={cache}\n")
         handle.write("UV_LINK_MODE=copy\n")
     LOG.info("Prepared isolated uv environment at %s", candidate)
+    LOG.info("Python package cache: %s (%s)", cache, "persistent" if persistent else "job-private")
     return candidate
 
 

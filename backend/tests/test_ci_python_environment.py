@@ -13,6 +13,7 @@ from scripts.ci.prepare_python_environment import (
     cache_path,
     environment_path,
     prepare,
+    persistent_cache_path,
 )
 
 
@@ -182,3 +183,49 @@ def test_job_scoped_uv_caches_are_not_uploaded_by_setup_uv() -> None:
                     workflow_path.name,
                     job_name,
                 )
+
+
+def test_native_cache_survives_jobs_but_virtual_environments_do_not(tmp_path: Path) -> None:
+    environment = ci_environment(tmp_path)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    environment.update(GNOSI_CI_PACKAGE_CACHE="1", RUNNER_TOOL_CACHE=str(tools))
+    cache = persistent_cache_path(environment)
+    assert cache is not None
+    (cache / "downloaded-wheel").write_text("keep")
+    stale = environment_path(environment)
+    stale.mkdir()
+    prepare(environment)
+    next_job = {**environment, "GITHUB_JOB": "native-smoke", "GITHUB_RUN_ID": "123"}
+    prepare(next_job)
+    assert persistent_cache_path(next_job) == cache
+    assert (cache / "downloaded-wheel").read_text() == "keep"
+    assert not stale.exists()
+    assert environment_path(next_job) != stale
+    assert persistent_cache_path({**environment, "GITHUB_REPOSITORY": "other/repo"}) != cache
+    assert f"UV_CACHE_DIR={cache}" in Path(environment["GITHUB_ENV"]).read_text()
+
+
+def test_native_cache_missing_tool_directory_falls_back_cold(tmp_path: Path) -> None:
+    environment = {**ci_environment(tmp_path), "GNOSI_CI_PACKAGE_CACHE": "1"}
+    prepare(environment)
+    assert f"UV_CACHE_DIR={cache_path(environment)}" in Path(environment["GITHUB_ENV"]).read_text()
+
+
+def test_native_cache_rejects_store_symlink(tmp_path: Path) -> None:
+    environment = ci_environment(tmp_path)
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    target = tmp_path / "preserved"
+    target.mkdir()
+    (tools / "gnosi-uv-packages-v1").symlink_to(target, target_is_directory=True)
+    environment.update(GNOSI_CI_PACKAGE_CACHE="1", RUNNER_TOOL_CACHE=str(tools))
+    with pytest.raises(ValueError, match="symlink"):
+        prepare(environment)
+    assert list(target.iterdir()) == []
+
+
+def test_dependency_workflows_enable_native_package_reuse() -> None:
+    for filename in ("ci.yml", "learn-quality.yml", "documentation-pages.yml", "build-release.yml"):
+        document = yaml.safe_load((REPOSITORY / ".github/workflows" / filename).read_text())
+        assert document["env"]["GNOSI_CI_PACKAGE_CACHE"] == "1"
