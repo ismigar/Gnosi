@@ -257,6 +257,8 @@ def sync_source_dimensions(
         metadata, body = _read_page(path)
         changed = False
         for field_id, mapping in (source_config.get("dimension_mappings") or {}).items():
+            if "assignment_field_ids" in source_config and field_id not in source_config["assignment_field_ids"]:
+                continue
             if str((mapping or {}).get("mode") or "ai") != "source":
                 continue
             prop = brain_props.get(str(field_id))

@@ -325,3 +325,35 @@ def test_invalid_legacy_position_keeps_existing_skip(tmp_path: Path, value: obje
     page = _Page("page", tmp_path / "synthetic.md", metadata)
     dependencies = replace(_dependencies(tmp_path), get_pages_for_table=lambda table_id: [page])
     assert writing._collect_existing_notes("brain", "source", dependencies).legacy_by_position == {}
+
+
+def test_explicit_assignments_override_defaults_and_clear_old_values_on_reprocessing(tmp_path: Path) -> None:
+    saved: list[PageMetadata] = []
+    props = [
+        {"id": "done", "name": "Done", "type": "checkbox"},
+        {"id": "score", "name": "Score", "type": "number"},
+        {"id": "summary", "name": "Summary", "type": "text"},
+        {"id": "tags", "name": "Tags", "type": "multi_select"},
+    ]
+    dependencies = replace(_dependencies(tmp_path), table_by_id=lambda _id: {"properties": props},
+                           save_page_md=lambda path, metadata, body: saved.append(dict(metadata)))
+    note = {"title": "Note", "managed_key": "key", "dimensions": {"summary": "Idea"}, "tags": ["Unrequested"]}
+    writing.apply_plan({"notes": [note]}, "source", "Source", "brain",
+                       config={"brain_roles": {"tags": "tags"}},
+                       source_config={"assignment_field_ids": ["done", "score", "summary"]},
+                       source_dimensions={"done": False, "score": 0}, dependencies=dependencies)
+    assert saved[0]["Done"] is False and saved[0]["Score"] == 0 and saved[0]["Summary"] == "Idea"
+    assert "Tags" not in saved[0]
+    path = tmp_path / "Note.md"
+    path.write_text("Old note")
+    old = {**saved[0], "Tags": ["Manual tag"]}
+    page = _Page(str(old["id"]), path, old)
+    dependencies = replace(dependencies, get_pages_for_table=lambda _id: [page],
+                           parse_frontmatter=lambda content, path: (dict(old), "Old body"))
+    writing.apply_plan({"notes": [{**note, "dimensions": {}}]}, "source", "Source", "brain",
+                       config={"brain_roles": {"tags": "tags"}},
+                       source_config={"assignment_field_ids": ["summary"]},
+                       source_dimensions={"summary": None}, dependencies=dependencies)
+    assert saved[1]["Summary"] is None
+    assert saved[1]["Tags"] == ["Manual tag"]
+    assert saved[1]["Done"] is False and saved[1]["Score"] == 0
