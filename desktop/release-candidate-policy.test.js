@@ -183,7 +183,7 @@ function assertSharedPythonDownloadBudget(workflow) {
 
 function assertReviewedCIRunners(workflow) {
   const expectedRunners = {
-    documentation: ['self-hosted', 'macOS', 'X64'],
+    documentation: ['self-hosted', 'macOS', 'ARM64'],
     frontend: ['self-hosted', 'macOS', 'ARM64'],
     backend: ['self-hosted', 'Linux', 'ARM64'],
     'native-smoke': ['self-hosted', 'Linux', 'ARM64'],
