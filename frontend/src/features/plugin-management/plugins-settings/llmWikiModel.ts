@@ -8,12 +8,13 @@ import { isRecord } from './pluginSettingsModel';
 export type DimensionMode = 'ai' | 'source' | 'fixed' | 'empty';
 
 export interface DimensionMapping {
-    readonly fixed_value: string | readonly string[] | null;
+    readonly fixed_value: string | number | boolean | readonly string[] | null;
     readonly mode: DimensionMode;
     readonly source_property_id: string;
 }
 
 export interface LlmWikiSource {
+    readonly assignment_field_ids?: readonly string[];
     readonly attachment_property_ids: readonly string[];
     readonly dimension_mappings: Readonly<Record<string, DimensionMapping>>;
     readonly include_body: boolean;
@@ -83,7 +84,7 @@ function mapping(value: unknown): DimensionMapping {
     if (!isRecord(value)) return { fixed_value: null, mode: 'ai', source_property_id: '' };
     const fixed = value.fixed_value;
     return {
-        fixed_value: typeof fixed === 'string' || fixed === null || stringList(fixed).length > 0
+        fixed_value: typeof fixed === 'number' || typeof fixed === 'boolean' ? fixed : typeof fixed === 'string' || fixed === null || stringList(fixed).length > 0
             ? (typeof fixed === 'string' || fixed === null ? fixed : stringList(fixed))
             : null,
         mode: mode(value.mode),
@@ -101,6 +102,7 @@ function source(value: unknown): LlmWikiSource | null {
     return {
         attachment_property_ids: stringList(value.attachment_property_ids),
         dimension_mappings: mappings(value.dimension_mappings),
+        assignment_field_ids: Array.isArray(value.assignment_field_ids) ? stringList(value.assignment_field_ids) : undefined,
         include_body: value.include_body === true,
         language_property_id: stringValue(value.language_property_id),
         relation_property_id: stringValue(value.relation_property_id),
@@ -131,7 +133,6 @@ export function normalizeLlmWikiDraft(value: unknown): LlmWikiDraft {
 
 export function serializeLlmWikiDraft(draft: LlmWikiDraft): PluginLlmWikiSettingsDocument {
     return {
-        agent_id: draft.agent_id,
         brain_roles: draft.brain_roles,
         brain_table_id: draft.brain_table_id,
         configured: draft.configured,
@@ -146,6 +147,17 @@ export function serializeLlmWikiDraft(draft: LlmWikiDraft): PluginLlmWikiSetting
         ui_locale: draft.ui_locale ?? 'en',
         version: draft.version,
     };
+}
+
+export function isLlmWikiDraftComplete(draft: LlmWikiDraft): boolean {
+    return Boolean(draft.brain_table_id) && draft.source_tables.length > 0
+        && draft.source_tables.every(source => (source.assignment_field_ids ?? draft.index_field_ids).every(id => {
+            const mapping = source.dimension_mappings[id];
+            if (mapping?.mode === 'source') return Boolean(mapping.source_property_id);
+            if (mapping?.mode !== 'fixed') return true;
+            const value = mapping.fixed_value;
+            return value !== null && value !== '' && (!Array.isArray(value) || value.length > 0);
+        }));
 }
 
 export function normalizeFieldName(value: string | undefined): string {
@@ -181,6 +193,7 @@ export function detectLlmWikiSource(
     return {
         attachment_property_ids: files.map((property) => property.id),
         dimension_mappings: dimensionMappings,
+        assignment_field_ids: [...indexFieldIds],
         include_body: false,
         language_property_id: language?.id ?? '',
         relation_property_id: '',

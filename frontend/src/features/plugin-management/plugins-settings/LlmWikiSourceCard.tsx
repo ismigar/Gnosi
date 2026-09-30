@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next';
 
 import type { PluginLlmWikiSettingsResponse } from '../../../shared/api/plugins';
 import { sortFieldItems } from '../../../shared/schema/fieldOrdering';
-import type { LlmWikiDraft, LlmWikiSource, DimensionMode } from './llmWikiModel';
+import type { LlmWikiDraft, LlmWikiSource } from './llmWikiModel';
+import { LlmWikiFieldAssignments } from './LlmWikiFieldAssignments';
 import { SELECT_STYLE, type VaultTable } from './pluginSettingsModel';
 
 interface LlmWikiSourceCardProps {
@@ -93,43 +94,8 @@ export function LlmWikiSourceCard({
                     ))}
                 </div>
             </div>
-            {sortFieldItems(draft.index_field_ids, (fieldId) => brainTable.properties.find((property) => property.id === fieldId)?.name || fieldId).map((fieldId) => {
-                const brainProperty = brainTable.properties.find((property) => property.id === fieldId);
-                const mapping = source.dimension_mappings[fieldId] ?? { fixed_value: null, mode: 'ai', source_property_id: '' };
-                const fixedOptions = serverState?.index_options[fieldId] ?? [];
-                const updateMapping = (patch: Partial<typeof mapping>): void => {
-                    updateSource((item) => ({
-                        ...item,
-                        dimension_mappings: {
-                            ...item.dimension_mappings,
-                            [fieldId]: { ...mapping, ...patch },
-                        },
-                    }));
-                };
-                return (
-                    <div key={fieldId} style={{ alignItems: 'end', display: 'grid', gap: 8, gridTemplateColumns: 'minmax(120px, 1fr) 145px minmax(150px, 1fr)', marginTop: 9 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600 }}>{brainProperty?.name || fieldId}</span>
-                        <select style={SELECT_STYLE} value={mapping.mode} onChange={(event) => { updateMapping({ mode: event.target.value as DimensionMode }); }}>
-                            <option value="ai">{tp('llm_wiki_map_ai', 'Infer with AI')}</option>
-                            <option value="source">{tp('llm_wiki_map_source', 'Copy source field')}</option>
-                            <option value="fixed">{tp('llm_wiki_map_fixed', 'Fixed value')}</option>
-                            <option value="empty">{tp('llm_wiki_map_empty', 'Leave empty')}</option>
-                        </select>
-                        {mapping.mode === 'source' && (
-                            <select style={SELECT_STYLE} value={mapping.source_property_id} onChange={(event) => { updateMapping({ source_property_id: event.target.value }); }}>
-                                <option value="">—</option>
-                                {properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
-                            </select>
-                        )}
-                        {mapping.mode === 'fixed' && (
-                            <select style={SELECT_STYLE} value={typeof mapping.fixed_value === 'string' || mapping.fixed_value === null ? mapping.fixed_value ?? '' : mapping.fixed_value.at(0) ?? ''} onChange={(event) => { updateMapping({ fixed_value: event.target.value }); }}>
-                                <option value="">—</option>
-                                {fixedOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            </select>
-                        )}
-                    </div>
-                );
-            })}
+            <LlmWikiFieldAssignments brainTable={brainTable} draft={draft} source={source}
+                properties={properties} serverState={serverState} updateSource={updateSource} />
         </div>
     );
 }

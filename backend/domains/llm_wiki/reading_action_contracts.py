@@ -45,11 +45,11 @@ def dimension_schema(dimensions: list[dict[str, object]]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     for spec in dimensions:
         labels = spec.get("allowed_labels")
-        if not isinstance(labels, list) or not labels:
+        item_schema = ({"type": "string", "enum": labels} if isinstance(labels, list) and labels
+                       else spec.get("value_schema"))
+        if not item_schema:
             continue
-        value: dict[str, Any] = {
-            "type": "array", "items": {"type": "string", "enum": labels},
-        }
+        value: dict[str, Any] = {"type": "array", "items": item_schema}
         if not spec.get("multiple"):
             value["maxItems"] = 1
         properties[str(spec["field_id"])] = value
@@ -83,9 +83,9 @@ def validate_note_dimensions(
         if not isinstance(note, dict):
             continue  # The reading contract reports malformed notes.
         try:
-            jsonschema.validate(note.get("dimensions"), schema)
+            jsonschema.validate(note.get("dimensions"), schema, format_checker=jsonschema.FormatChecker())
         except jsonschema.ValidationError as error:
             raise ValueError(
                 f"notes[{index}].dimensions: {error.message}. Return every configured field "
-                "with existing labels; use [] only when no category is supported by the evidence."
+                "using its declared type and allowed labels; use [] when evidence is insufficient."
             ) from error

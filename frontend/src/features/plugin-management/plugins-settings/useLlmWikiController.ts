@@ -12,6 +12,7 @@ import { loadLlmWikiSettings } from './loadLlmWikiSettings';
 import { normalizeVaultTables, type VaultTable } from './pluginSettingsModel';
 import {
     EMPTY_LLM_WIKI_DRAFT,
+    isLlmWikiDraftComplete,
     normalizeLlmWikiDraft,
     serializeLlmWikiDraft,
     type LlmWikiController,
@@ -66,6 +67,7 @@ export function useLlmWikiController(): LlmWikiController {
     }, [reload]);
 
     const save = useCallback(async (nextDraft: LlmWikiDraft): Promise<void> => {
+        if (!isLlmWikiDraftComplete(nextDraft)) return;
         const payload = serializeLlmWikiDraft(nextDraft);
         const signature = JSON.stringify(payload);
         setBusy(true);
@@ -112,7 +114,7 @@ export function useLlmWikiController(): LlmWikiController {
     useEffect(() => {
         if (loading || busy) return undefined;
         const payload = serializeLlmWikiDraft(draft);
-        const isComplete = Boolean(draft.brain_table_id) && draft.source_tables.length > 0;
+        const isComplete = isLlmWikiDraftComplete(draft);
         const signature = JSON.stringify(payload);
         if (!isComplete || signature === persistedDraftRef.current || signature === failedDraftRef.current) return undefined;
         autosaveTimerRef.current = setTimeout(() => {
@@ -133,7 +135,7 @@ export function useLlmWikiController(): LlmWikiController {
             await inFlightSaveRef.current?.catch(() => {});
             const pending = latestDraftRef.current;
             const signature = JSON.stringify(serializeLlmWikiDraft(pending));
-            if (pending.brain_table_id && pending.source_tables.length > 0
+            if (isLlmWikiDraftComplete(pending)
                 && signature !== persistedDraftRef.current && signature !== failedDraftRef.current) {
                 await save(pending);
             }

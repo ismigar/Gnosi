@@ -24,6 +24,12 @@ Enable Resources for reference management and Feeds Reader for feeds. Identifier
 
 You have a verified reference, a traceable annotation and a note connected to your writing.
 
+### Fields in generated notes
+
+In **Settings → Plugins → Knowledge**, under each resource table, use **Fields to fill in reading notes → Add field**. Choose a Brain field and select **Infer with AI**, **Copy source field**, **Fixed value** or **Leave empty**. Removing a rule does not delete the table field. This selection is independent of indexed fields.
+
+AI assigns values based on each note and only uses existing labels and relations. Fixed values respect the field type, including numbers, checkboxes and dates; attachments and other structured fields can be copied from the resource. Calculated and system fields are managed automatically. Rules apply when processing or reprocessing a resource. **Leave empty** clears the value in reprocessed notes; removing the rule preserves previous values.
+
 ## If something goes wrong {#troubleshooting}
 
 An identifier supplies metadata, not guaranteed access to the full text. If import fails, check the identifier and provider, then try a supported file export. Inspect citation metadata before editing the rendered bibliography by hand.

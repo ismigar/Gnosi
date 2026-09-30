@@ -118,28 +118,22 @@ def test_source_titles_and_relations_keep_opaque_values() -> None:
     assert jobs._resource_processed_value({jobs.LLM_WIKI_PROCESSED_COL: 0}) == "0"
 
 
-@pytest.mark.parametrize("options", [7, True, object()])
-def test_property_options_retain_native_iteration_errors(options: object) -> None:
+@pytest.mark.parametrize("options", [7, True, object(), [None, {}, "  "]])
+def test_property_options_ignore_invalid_catalog_entries(options: object) -> None:
     from backend.domains.vault.knowledge import config_routes as config
 
-    with pytest.raises(TypeError) as actual:
-        config._llm_wiki_property_options({"options": options})
-    with pytest.raises(TypeError) as expected:
-        eval("[item for item in options]", {}, {"options": options})
-    assert actual.value.args == expected.value.args
+    assert config._llm_wiki_property_options({"options": options}) == []
 
 
-def test_property_options_keep_mapping_values_and_fallback_order() -> None:
+def test_property_options_follow_table_catalog_precedence() -> None:
     from backend.domains.vault.knowledge import config_routes as config
 
-    assert config._llm_wiki_property_options({"options": [None, {}, "  ", {"name": 0}]}) == [
-        {"label": "None", "value": "None"},
-        {"label": "None", "value": "None"},
-        {"label": "0", "value": "0"},
+    assert config._llm_wiki_property_options({"options": ["Old"], "config": {"options": ["Current"]}}) == [
+        {"label": "Current", "value": "Current"},
     ]
-    assert config._llm_wiki_property_options({"options": [], "config": {"options": "ab"}}) == [
-        {"label": "a", "value": "a"},
-        {"label": "b", "value": "b"},
+    assert config._llm_wiki_property_options({"options": ["Old"], "config": {"options": []}}) == []
+    assert config._llm_wiki_property_options({"select": {"options": [{"name": "Imported"}]}}) == [
+        {"label": "Imported", "value": "Imported"},
     ]
 
 

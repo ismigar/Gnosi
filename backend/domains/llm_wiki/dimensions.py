@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 from backend.domains.vault.registry.records import RecordReader
 from backend.utils.open_values import iterable_values
+from backend.domains.llm_wiki.field_assignments import canonical_scalar, field_value_schema, is_assignable
+from backend.domains.llm_wiki.options import categorical_options
 
 TableLookup = Callable[[str], RecordReader | None]
 PagesForTable = Callable[[str], Iterable[object]]
@@ -46,17 +48,18 @@ def build_dimension_context(
     ai_specs: list[dict[str, object]] = []
     raw_mappings = source_config.get("dimension_mappings") or {}
     mappings = raw_mappings if isinstance(raw_mappings, dict) else {}
-    raw_field_ids = config.get("index_field_ids") or []
+    raw_field_ids = source_config.get("assignment_field_ids", config.get("index_field_ids")) or []
     field_ids = raw_field_ids if isinstance(raw_field_ids, list) else []
     for raw_field_id in field_ids:
         field_id = str(raw_field_id)
         prop = brain_props.get(field_id)
-        if not prop:
+        if not prop or not is_assignable(prop):
             continue
         raw_mapping = mappings.get(field_id) or {"mode": "ai"}
         mapping = raw_mapping if isinstance(raw_mapping, dict) else {"mode": "ai"}
         mode = str(mapping.get("mode") or "ai")
         if mode == "empty":
+            mapped[field_id] = None
             continue
         options = dependencies.dimension_options(prop, dependencies.pages_for_table)
         if _copy_configured_dimension(
@@ -71,7 +74,7 @@ def build_dimension_context(
             dependencies,
         ):
             continue
-        if options:
+        if options or field_value_schema(str(prop.get("type") or "")):
             ai_specs.append(_ai_spec(field_id, prop, options))
     return mapped, ai_specs
 
@@ -82,6 +85,8 @@ def canonical_dimension_value(
     options: list[dict[str, object]],
 ) -> object:
     """Map source/fixed values only to options that already exist."""
+    if str(prop.get("type") or "") not in {"select", "status", "multi_select", "relation"}:
+        return canonical_scalar(str(prop.get("type") or ""), raw)
     if raw in (None, "", [], {}) or not options:
         return None
     allowed: dict[str, object] = {}
@@ -131,18 +136,7 @@ def dimension_options(
             for page in list(pages_for_table(target_id) or [])[:150]
             if getattr(page, "title", None) and getattr(page, "id", None)
         ]
-    raw_options = (
-        prop.get("options")
-        or _mapping(prop.get("config")).get("options")
-        or _mapping(prop.get("select")).get("options")
-        or []
-    )
-    output: list[dict[str, object]] = []
-    for option in raw_options if isinstance(raw_options, list) else []:
-        label = str(option.get("name") if isinstance(option, dict) else option).strip()
-        if label:
-            output.append({"label": label, "value": label})
-    return output
+    return [{"label": item["label"], "value": item["value"]} for item in categorical_options(prop)]
 
 
 def metadata_property_value(
@@ -169,20 +163,19 @@ def _copy_configured_dimension(
 ) -> bool:
     if mode == "fixed":
         value = dependencies.canonical_value(prop, mapping.get("fixed_value"), options)
-        if value not in (None, "", [], {}):
-            mapped[field_id] = value
+        mapped[field_id] = value
         return True
     if mode != "source":
         return False
     source_prop = source_props.get(str(mapping.get("source_property_id") or ""))
+    mapped[field_id] = None
     if source_prop:
         value = dependencies.canonical_value(
             prop,
             dependencies.metadata_value(metadata, source_prop),
             options,
         )
-        if value not in (None, "", [], {}):
-            mapped[field_id] = value
+        mapped[field_id] = value
     return True
 
 
@@ -202,15 +195,13 @@ def _ai_spec(
 ) -> dict[str, object]:
     return {
         "field_id": field_id,
+        "type": str(prop.get("type") or ""),
+        "value_schema": field_value_schema(str(prop.get("type") or "")),
         "name": str(prop.get("name") or field_id),
         "allowed_labels": [item["label"] for item in options],
         "by_label": {str(item["label"]).casefold(): item["value"] for item in options},
         "multiple": str(prop.get("type") or "") in {"multi_select", "relation"},
     }
-
-
-def _mapping(value: object) -> dict[str, object]:
-    return dict(value) if isinstance(value, dict) else {}
 
 
 __all__ = [

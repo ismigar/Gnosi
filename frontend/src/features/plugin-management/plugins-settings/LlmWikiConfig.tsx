@@ -5,9 +5,6 @@ import { sortFieldItems } from '../../../shared/schema/fieldOrdering';
 import { LlmWikiSourceCard } from './LlmWikiSourceCard';
 import {
     detectLlmWikiSource,
-    normalizeFieldName,
-    type DimensionMapping,
-    type LlmWikiSource,
 } from './llmWikiModel';
 import { SELECT_STYLE, type PluginConfigProps } from './pluginSettingsModel';
 import { LlmWikiAgentSettings } from './LlmWikiAgentSettings';
@@ -32,7 +29,7 @@ export function LlmWikiConfig({ onOpenAISettings }: PluginConfigProps = {}) {
             ...current,
             brain_table_id: tableId,
             index_field_ids: [],
-            source_tables: current.source_tables.filter((source) => source.table_id !== tableId),
+            source_tables: current.source_tables.filter((source) => source.table_id !== tableId).map(source => ({ ...source, assignment_field_ids: [], dimension_mappings: {} })),
             target_table: tableId,
         }));
     };
@@ -57,24 +54,10 @@ export function LlmWikiConfig({ onOpenAISettings }: PluginConfigProps = {}) {
             const nextIds = enabled
                 ? current.index_field_ids.filter((id) => id !== fieldId)
                 : [...current.index_field_ids, fieldId];
-            const brainProperty = brainTable?.properties.find((property) => property.id === fieldId);
-            const nextSources = current.source_tables.map((source): LlmWikiSource => {
-                const sourceTable = tables.find((table) => table.id === source.table_id);
-                const sourceProperty = sourceTable?.properties.find((property) => (
-                    normalizeFieldName(property.name) === normalizeFieldName(brainProperty?.name)
-                ));
-                const retainedMappings = Object.fromEntries(Object.entries(source.dimension_mappings)
-                    .filter(([key]) => key !== fieldId));
-                const newMapping: DimensionMapping = sourceProperty
-                    ? { fixed_value: null, mode: 'source', source_property_id: sourceProperty.id }
-                    : { fixed_value: null, mode: 'ai', source_property_id: '' };
-                return {
-                    ...source,
-                    dimension_mappings: enabled
-                        ? retainedMappings
-                        : { ...retainedMappings, [fieldId]: newMapping },
-                };
-            });
+            const nextSources = current.source_tables.map((source) => ({
+                ...source,
+                assignment_field_ids: source.assignment_field_ids ?? [...current.index_field_ids],
+            }));
             return { ...current, index_field_ids: nextIds, source_tables: nextSources };
         });
     };

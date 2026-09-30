@@ -1412,7 +1412,8 @@ def test_new_reading_note_writes_portable_frontmatter_and_managed_sidecar(
     assert state["llm_wiki_resource_id"] == "resource-1"
 
 
-def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: Path):
+@pytest.mark.parametrize("agent_payload", [{}, {"agent_id": ""}])
+def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: Path, agent_payload):
     from backend.api import vault_routes
     from backend.services.workspace_service import WorkspaceContext
 
@@ -1424,6 +1425,7 @@ def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: 
         "id": "brain",
         "name": "Brain",
         "properties": [
+            {"id": "status", "name": "Estat", "type": "status", "config": {"catalog_ref": "status_global"}},
             {"id": "note-type", "name": "Note type", "type": "select"},
             {
                 "id": "area",
@@ -1444,6 +1446,9 @@ def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: 
         ],
     }
     tables = {"brain": brain, "papers": source}
+    monkeypatch.setattr(vault_routes, "load_registry", lambda: {
+        "option_catalogs": {"status_global": [{"name": "Draft"}, {"name": "Reviewed"}]},
+    })
     monkeypatch.setattr(
         vault_routes,
         "get_p",
@@ -1477,6 +1482,7 @@ def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: 
     app.dependency_overrides[vault_routes.get_workspace_context] = lambda: context
     client = TestClient(app)
     payload = {
+        **agent_payload,
         "version": 2,
         "ui_locale": "en",
         "brain_table_id": "brain",
@@ -1488,7 +1494,9 @@ def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: 
             "language_property_id": "",
             "include_body": False,
             "relation_property_id": "",
+            "assignment_field_ids": ["area", "status"],
             "dimension_mappings": {
+                "status": {"mode": "fixed", "fixed_value": "Draft"},
                 "area": {
                     "mode": "source",
                     "source_property_id": "area-source",
@@ -1507,6 +1515,16 @@ def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: 
     assert saved["config"]["source_tables"][0]["relation_property_id"] == "relation-papers"
     assert saved["validation"]["valid"] is True
     assert saved["index_options"]["area"] == [{"label": "Research", "value": "Research"}]
+    assert saved["index_options"]["status"] == [
+        {"label": "Draft", "value": "Draft"}, {"label": "Reviewed", "value": "Reviewed"},
+    ]
+    assert saved["config"]["index_field_ids"] == ["area"]
+    assignments = saved["config"]["source_tables"][0]
+    copied, _ = llm_wiki._dimension_context(saved["config"], source, assignments, {})
+    assert copied["status"] == "Draft"
+    ai_source = {**assignments, "dimension_mappings": {"status": {"mode": "ai"}}}
+    _, specs = llm_wiki._dimension_context(saved["config"], source, ai_source, {})
+    assert next(spec for spec in specs if spec["field_id"] == "status")["allowed_labels"] == ["Draft", "Reviewed"]
     assert saved["capabilities"]["modules"]["yt_dlp"] is True
 
     loaded = client.get("/api/vault/llm-wiki/config")

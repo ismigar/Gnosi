@@ -245,6 +245,8 @@ def normalize_config(raw: object, *, reference_table_id: str = "") -> Config:
                 "dimension_mappings": _normalize_dimension_mappings(item.get("dimension_mappings")),
             }
         )
+        if "assignment_field_ids" in item:
+            normalized["assignment_field_ids"] = _unique_strings(item["assignment_field_ids"])
         sources.append(normalized)
         seen.add(table_id)
 
@@ -442,7 +444,7 @@ def auto_detect_source(
     }
     source_by_name = {_norm(prop.get("name")): prop for prop in props}
     mappings = _normalize_dimension_mappings(result.get("dimension_mappings"))
-    for brain_field_id in _unique_strings(list(index_field_ids or [])):
+    for brain_field_id in _unique_strings(result.get("assignment_field_ids", list(index_field_ids or []))):
         brain_prop = brain_props.get(brain_field_id)
         if not brain_prop:
             continue
