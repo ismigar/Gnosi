@@ -2651,6 +2651,7 @@
         "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved.",
         "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved.",
         "active_skills_only": "Only enabled skills",
+        "active_tools_only": "Only enabled tools",
         "back_to_profile": "Back to profile"
       },
       "catalog": {

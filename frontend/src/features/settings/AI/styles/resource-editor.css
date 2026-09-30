@@ -64,16 +64,15 @@
     padding: 12px;
     border: 1px solid var(--settings-border);
     border-radius: 12px;
-    cursor: pointer;
 }
 
 .ai-resource-tool-option.is-unavailable {
     opacity: 0.7;
 }
 
-.ai-resource-tool-option > input {
+.ai-resource-tool-option > .gnosi-toggle {
     margin-top: 4px;
-    accent-color: var(--gnosi-primary);
+    flex-shrink: 0;
 }
 
 .ai-resource-tool-option__copy {

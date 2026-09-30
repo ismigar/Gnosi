@@ -102,7 +102,12 @@
   {
     "file": "src/features/settings/AI/styles/resource-editor.css",
     "before": "\n.ai-resource-tool-option > input {\n    margin-top: 4px;\n    accent-color: var(--gnosi-blue);\n}\n\n.ai-resource-tool-option__copy {\n",
-    "after": "\n.ai-resource-tool-option > input {\n    margin-top: 4px;\n    accent-color: var(--gnosi-primary);\n}\n\n.ai-resource-tool-option__copy {\n"
+    "after": "\n.ai-resource-tool-option > .gnosi-toggle {\n    margin-top: 4px;\n    flex-shrink: 0;\n}\n\n.ai-resource-tool-option__copy {\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-editor.css",
+    "before": ".ai-resource-tool-option {\n    display: flex;\n    align-items: flex-start;\n    gap: 10px;\n    padding: 12px;\n    border: 1px solid var(--settings-border);\n    border-radius: 12px;\n    cursor: pointer;\n}\n",
+    "after": ".ai-resource-tool-option {\n    display: flex;\n    align-items: flex-start;\n    gap: 10px;\n    padding: 12px;\n    border: 1px solid var(--settings-border);\n    border-radius: 12px;\n}\n"
   },
   {
     "file": "src/features/settings/AI/styles/resource-editor.css",

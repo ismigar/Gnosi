@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1148 | 128380 | 38 |
+| `features` | 1148 | 128391 | 38 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 270 | 31586 | 426 |
 
@@ -529,7 +529,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/settings/AI/AISkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillEditor.tsx) | 251 | `SkillEditor` | — |
 | [`frontend/src/features/settings/AI/AISkillUsage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillUsage.tsx) | 58 | `SkillUsage` | — |
 | [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 353 | `SkillsSettingsPanel` | — |
-| [`frontend/src/features/settings/AI/AIToolPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolPicker.tsx) | 53 | `ToolPicker` | — |
+| [`frontend/src/features/settings/AI/AIToolPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolPicker.tsx) | 64 | `ToolPicker` | — |
 | [`frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx) | 178 | `ToolsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/ActivityHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityHistory.tsx) | 123 | `ActivityHistory` | — |
 | [`frontend/src/features/settings/AI/ActivityJobResult.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityJobResult.tsx) | 31 | `ActivityJobResult` | — |
