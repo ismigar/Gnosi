@@ -12,6 +12,17 @@ beforeEach(() => { fixtureRole.value = 'admin'; resetPreferences(); });
 afterEach(cleanup);
 
 describe('VaultSidebar navigation', () => {
+    it('keeps the shared sidebar scroll position when expanding Wiki', async () => {
+        saveSections(false, { favorites: false, dashboards: false, data: true, wiki: false });
+        const { container } = await renderSidebar({ pages: [{ id: 'a', title: 'Note' }] });
+        const sidebar = container.querySelector<HTMLElement>('.vault-sidebar');
+        if (!sidebar) throw new Error('Missing sidebar');
+        sidebar.scrollTop = 420;
+        await click(button('Wiki'));
+        await settle();
+        expect(sidebar.scrollTop).toBe(420);
+        expect(pageRow('a')).not.toBeNull();
+    });
     it('preserves routes, daily actions and role visibility', async () => {
         const daily = vi.fn();
         const { props, container } = await renderSidebar({ onOpenDaily: daily });
