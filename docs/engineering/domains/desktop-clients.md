@@ -528,6 +528,8 @@ The reviewed desktop resource list includes `personal_memory_0002`, so installed
 
 Python package snapshots remain disabled: compressing the full runtime previously delayed required checks. CI now reuses the native uv package cache on each runner, scoped by repository, operating system, architecture and Python version. uv owns concurrent cache access; provisioning never deletes this cache. Every job still gets a fresh virtual environment with copied files and frozen dependency resolution. Missing runner cache configuration falls back to job-private downloads. pnpm already reuses its local store; remote cache uploads remain disabled. Docker removes CI image tags after smoke cleanup but retains build layers while at least 12 GiB remains free; low capacity triggers the existing scoped cache pruning. The first run on each runner downloads dependencies, and later runs download only missing artifacts. Runner timings still need measurement. Snapshot restoration and archive creation remain disabled.
 
+If Docker still lacks 12 GiB after pruning its layers and old snapshots, uv releases downloaded prebuilt wheels from the owned package cache; source-built wheels remain cached. This recovery uses uv’s cache command, rejects symlinked or unrelated directories, and stops once capacity is sufficient. A small runner may therefore redownload packages after disk pressure; package reuse cannot replace adequate disk capacity.
+
 ESLint uses content-based caching and mypy retains incremental analysis between
 jobs, with platform, dependency and configuration changes invalidating the cache.
 Frontend tests use two workers. The local comparison of 27 representative tests
