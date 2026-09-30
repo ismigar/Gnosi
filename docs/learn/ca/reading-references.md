@@ -24,7 +24,7 @@ Activa Recursos per gestionar referències i Lector de canals per seguir canals.
 
 Tens una referència revisada, una anotació rastrejable i una nota connectada amb el teu escrit.
 
-## Camps de les notes generades {#generated-note-fields}
+### Camps de les notes generades
 
 A **Configuració → Plugins → Coneixement**, dins de cada taula de recursos, utilitza **Camps a omplir a les notes de lectura → Afegir camp**. Tria un camp del Cervell i selecciona **Inferir amb IA**, **Copiar camp font**, **Valor fix** o **Deixar buit**. Pots treure una regla sense eliminar el camp de la taula. Aquesta selecció és independent dels camps amb índex.
 

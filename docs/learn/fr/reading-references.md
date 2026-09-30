@@ -24,7 +24,7 @@ Activez Ressources pour les références et Lecteur de flux pour les abonnements
 
 Vous avez une référence vérifiée, une annotation traçable et une note reliée à votre rédaction.
 
-## Champs des notes générées {#generated-note-fields}
+### Champs des notes générées
 
 Dans **Paramètres → Plugins → Connaissance**, sous chaque table de ressources, utilisez **Champs à remplir dans les notes de lecture → Ajouter un champ**. Choisissez un champ du Cerveau puis **Inférer avec l’IA**, **Copier le champ source**, **Valeur fixe** ou **Laisser vide**. Retirer une règle ne supprime pas le champ de la table. Cette sélection est indépendante des champs indexés.
 

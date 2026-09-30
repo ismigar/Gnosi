@@ -24,7 +24,7 @@ Activa Recursos para referencias y Lector de canales para suscripciones. Consult
 
 Tienes una referencia revisada, una anotación rastreable y una nota conectada con tu escrito.
 
-## Campos de las notas generadas {#generated-note-fields}
+### Campos de las notas generadas
 
 En **Configuración → Plugins → Conocimiento**, dentro de cada tabla de recursos, utiliza **Campos a rellenar en las notas de lectura → Añadir campo**. Elige un campo del Cerebro y selecciona **Inferir con IA**, **Copiar campo fuente**, **Valor fijo** o **Dejar vacío**. Quitar una regla no elimina el campo de la tabla. Esta selección es independiente de los campos con índice.
 

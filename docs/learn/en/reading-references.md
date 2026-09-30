@@ -24,7 +24,7 @@ Enable Resources for reference management and Feeds Reader for feeds. Identifier
 
 You have a verified reference, a traceable annotation and a note connected to your writing.
 
-## Fields in generated notes {#generated-note-fields}
+### Fields in generated notes
 
 In **Settings → Plugins → Knowledge**, under each resource table, use **Fields to fill in reading notes → Add field**. Choose a Brain field and select **Infer with AI**, **Copy source field**, **Fixed value** or **Leave empty**. Removing a rule does not delete the table field. This selection is independent of indexed fields.
 
