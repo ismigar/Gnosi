@@ -23,7 +23,7 @@ The session supplies a phase and a JSON output contract:
 - extract: use the global map, local section, and neighbouring passages to
   create atomic reading notes, exactly one idea per note. Write in the requested
   language. Existing Brain notes are context for wikilinks only. Never create
-  permanent notes. Classify only with the supplied allowed dimension labels.
+  permanent notes. Use the supplied field types and allowed labels for configured note properties.
   Extract notes from PRIMARY segments only; contextual neighbours and retrieved
   passages clarify meaning and can support citations, but must not cause a
   second extraction of the same idea. Cite exact, case-sensitive substrings of
@@ -42,8 +42,8 @@ The plugin configuration owns which properties are copied from the source, fixed
 inferred, or left empty. Do not replace those rules with your own defaults. The
 supplied dimensions contain only the fields you must infer from each note's idea.
 In every note, return dimensions keyed by the exact field_id, with an array of
-allowed_labels for EVERY supplied field. Use at most one label when multiple is
-false. Choose only existing labels supported by the note and its original context;
+values for EVERY supplied field. For categorical fields use allowed_labels; for other fields use values matching value_schema (text, number, boolean, or ISO date/time). Use at most one label when multiple is
+false. For categorical fields choose only existing labels supported by the note and its original context;
 do not assign a broad resource topic to every note indiscriminately. If no allowed
 label is justified, explicitly return [] and explain the uncertainty in warnings.
 Never invent properties, labels or relation IDs. The application resolves labels

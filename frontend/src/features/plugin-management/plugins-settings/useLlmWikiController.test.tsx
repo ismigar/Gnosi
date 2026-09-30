@@ -120,3 +120,23 @@ it('flushes a complete pending edit when the settings close before debounce', as
     await act(async () => { root.render(null); await Promise.resolve(); });
     expect(api.savePluginLlmWikiConfig).toHaveBeenCalledTimes(1);
 });
+
+it('waits for a fixed value and saves the field without an obsolete agent override', async () => {
+    api.savePluginLlmWikiConfig.mockImplementation((payload: Record<string, unknown>) => Promise.resolve({ config: payload }));
+    act(() => { controller.setDraft(current => ({ ...current, agent_id: '', source_tables: [{
+        table_id: 'resources', title_property_id: '', language_property_id: '',
+        relation_property_id: '', include_body: false, attachment_property_ids: [],
+        url_property_ids: [], assignment_field_ids: ['status'],
+        dimension_mappings: { status: { mode: 'fixed', source_property_id: '', fixed_value: null } },
+    }] })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+    expect(api.savePluginLlmWikiConfig).not.toHaveBeenCalled();
+    act(() => { controller.setDraft(current => ({ ...current, source_tables: current.source_tables.map(source => ({
+        ...source, dimension_mappings: { status: { mode: 'fixed', source_property_id: '', fixed_value: 'Draft' } },
+    })) })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    expect(api.savePluginLlmWikiConfig).toHaveBeenCalledTimes(1);
+    expect(api.savePluginLlmWikiConfig.mock.calls[0]?.[0]).not.toHaveProperty('agent_id');
+    expect(controller.draft.source_tables[0]?.dimension_mappings.status?.fixed_value).toBe('Draft');
+    expect(controller.error).toBe('');
+});

@@ -381,7 +381,7 @@ def _apply_dimensions_to_metadata(
 ) -> None:
     for field_id, value in dimensions.items():
         prop = props_by_id.get(str(field_id))
-        if not prop or value in (None, "", [], {}):
+        if not prop:
             continue
         metadata[str(prop.get("name") or field_id)] = value
 

@@ -78,6 +78,8 @@ class _WriteContext:
     brain_dir: Path
     config: dict[str, object]
     source_dimensions: dict[str, object]
+    assignment_ids: list[str]
+    explicit_assignments: bool
     props_by_id: dict[str, RegistryData]
     role_names: dict[str, str]
     relation_name: str
@@ -126,6 +128,8 @@ def apply_plan(
         brain_dir=brain_dir,
         config=resolved_config,
         source_dimensions=resolved_source_dimensions,
+        explicit_assignments="assignment_field_ids" in resolved_source_config,
+        assignment_ids=[str(value) for value in iterable_values(resolved_source_config.get("assignment_field_ids", resolved_config.get("index_field_ids")) or [])],
         props_by_id=props_by_id,
         role_names=role_names,
         relation_name=relation_name,
@@ -167,10 +171,10 @@ def _apply_note(
     metadata = _build_note_metadata(note, title, managed_key, context)
     context.dependencies.apply_dimensions(
         metadata,
-        context.dependencies.effective_dimensions(
+        {**dict.fromkeys(context.assignment_ids), **context.dependencies.effective_dimensions(
             note.get("dimensions"),
             context.source_dimensions,
-        ),
+        )},
         context.props_by_id,
     )
     citations = context.dependencies.render_citations(
@@ -234,6 +238,10 @@ def _build_note_metadata(
         }
     )
     _replace_role_metadata(metadata, note, position, context)
+    tags_id = str(_mapping(context.config.get("brain_roles")).get("tags") or "")
+    if context.explicit_assignments and tags_id not in context.assignment_ids:
+        metadata.pop("Tags", None)
+        metadata.pop(context.role_names.get("tags", "Tags"), None)
     return metadata
 
 

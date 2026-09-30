@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.services import llm_wiki_config, llm_wiki_indices
+from backend.domains.llm_wiki.field_assignments import canonical_scalar, field_value_schema, is_assignable
 from backend.utils.open_values import get_value, iterable_values, set_value
 
 
@@ -131,9 +132,16 @@ def _fixed_values(
     brain_property: Table,
     dependencies: LlmWikiConfigDependencies,
 ) -> object:
+    field_type = str(brain_property.get("type") or "")
+    if field_type not in {"select", "status", "multi_select", "relation"}:
+        value = canonical_scalar(field_type, get_value(mapping, "fixed_value"))
+        if value is None:
+            raise HTTPException(status_code=400, detail=f"Invalid fixed value for {field_id}")
+        return value
     canonical = {
-        str(item["label"]).strip().casefold(): item["value"]
+        str(key).strip().casefold(): item["value"]
         for item in dependencies.property_options(brain_property)
+        for key in (item["label"], item["value"])
     }
     raw_values = get_value(mapping, "fixed_value")
     raw_values = raw_values if isinstance(raw_values, list) else [raw_values]
@@ -170,7 +178,7 @@ def _validate_dimension_mapping(
         ):
             raise HTTPException(
                 status_code=400,
-                detail=(f"Incompatible categorical mapping for {field_id} in table {source_id}"),
+                detail=(f"Incompatible field mapping for {field_id} in table {source_id}"),
             )
         if source_property.get("type") == "relation" and str(
             source_property.get("relation_database_id") or ""
@@ -179,6 +187,11 @@ def _validate_dimension_mapping(
                 status_code=400,
                 detail=f"Relation mapping for {field_id} points to a different table",
             )
+    elif mode in {"ai", "fixed"} and not (
+        str(brain_property.get("type") or "") in {"select", "status", "multi_select", "relation"}
+        or field_value_schema(str(brain_property.get("type") or ""))
+    ):
+        raise HTTPException(status_code=400, detail=f"Field {field_id} supports copying from source or leaving empty")
     elif mode == "fixed":
         fixed = _fixed_values(
             field_id,
@@ -210,7 +223,17 @@ def _prepare_source(
     prepared: Config = prepared_raw
     _validate_source_fields(source_id, prepared, source_properties)
     mappings = prepared.get("dimension_mappings") or {}
-    for field_id in requested_index_ids:
+    assignment_ids = prepared.get("assignment_field_ids", requested_index_ids)
+    protected = {str(value) for role, value in dependencies.infer_brain_roles(brain).items()
+                 if role in {"note_type", "position", "verification", "last_reviewed"}}
+    protected.add(str(prepared.get("relation_property_id") or ""))
+    protected.update(pid for pid, prop in brain_properties.items()
+                     if prop.get("type") == "relation" and prop.get("relation_database_id") == source_id)
+    for raw_id in iterable_values(assignment_ids):
+        field_id = str(raw_id)
+        prop = brain_properties.get(field_id)
+        if not prop or not is_assignable(prop) or field_id in protected:
+            raise HTTPException(status_code=400, detail=f"Field {field_id} cannot be assigned by processing")
         mapping = get_value(mappings, field_id) or {"mode": "ai"}
         _validate_dimension_mapping(
             field_id=field_id,
@@ -256,7 +279,9 @@ async def put_config(
     incoming: Config = {str(key): value for key, value in payload.items()} if is_record(payload) else {}
     merged: Config = {**current, **incoming}
     normalized = llm_wiki_config.normalize_config(merged)
-    if "agent_id" in incoming:
+    # Empty is the migrated default: execution uses the principal agent.
+    # Only an explicit legacy profile selection needs profile validation.
+    if "agent_id" in incoming and normalized["agent_id"]:
         try:
             selected_agent(str(normalized["agent_id"]))
         except LlmWikiAgentError as error:

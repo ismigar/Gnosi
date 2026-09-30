@@ -164,6 +164,10 @@ def validate_ai_dimensions(
         if not spec:
             continue
         candidates = values if isinstance(values, list) else [values]
+        if spec.get("value_schema"):
+            from backend.domains.llm_wiki.field_assignments import canonical_scalar
+            output[field_id] = canonical_scalar(str(spec.get("type") or ""), candidates[0] if candidates else None)
+            continue
         labels = spec.get("by_label")
         by_label = labels if isinstance(labels, dict) else {}
         mapped = [
@@ -171,8 +175,7 @@ def validate_ai_dimensions(
             for value in candidates
             if str(value).strip().casefold() in by_label
         ]
-        if mapped:
-            output[field_id] = mapped if bool(spec.get("multiple")) else mapped[0]
+        output[field_id] = (mapped if bool(spec.get("multiple")) else mapped[0]) if mapped else None
     return output
 
 
