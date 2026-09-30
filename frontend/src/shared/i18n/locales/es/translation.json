@@ -2615,6 +2615,7 @@
         "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original.",
         "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
         "active_skills_only": "Solo habilidades activadas",
+        "active_tools_only": "Solo herramientas activadas",
         "back_to_profile": "Volver al perfil"
       },
       "catalog": {

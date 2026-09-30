@@ -824,6 +824,7 @@
         "instructions_translation_rate_limit": "Le fournisseur IA a limité les requêtes ou épuisé son quota. Réessayez plus tard ou vérifiez son quota. Le texte original est conservé.",
         "instructions_translation_authentication": "Le fournisseur IA a rejeté la clé d’accès du profil de traduction. Vérifiez la connexion du fournisseur, ou choisissez un modèle d’un fournisseur connecté dans le profil Traduction. Réessayez ensuite. Le texte original est conservé.",
         "active_skills_only": "Uniquement les compétences activées",
+        "active_tools_only": "Uniquement les outils activés",
         "back_to_profile": "Retour au profil"
       },
       "catalog": {
