@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1146 | 128246 | 38 |
+| `features` | 1147 | 128324 | 38 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 270 | 31586 | 426 |
 
@@ -476,8 +476,9 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/index.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/index.ts) | 6 | — | — |
 | [`frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/DailyNotesConfig.tsx) | 127 | `DailyNotesConfig` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiAgentSettings.tsx) | 14 | `LlmWikiAgentSettings` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx) | 173 | `LlmWikiConfig` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx) | 135 | `LlmWikiSourceCard` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiConfig.tsx) | 156 | `LlmWikiConfig` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiFieldAssignments.tsx) | 114 | `LlmWikiFieldAssignments` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/LlmWikiSourceCard.tsx) | 101 | `LlmWikiSourceCard` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningAssignments.tsx) | 88 | `PlanningAssignments` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PlanningCalendarsResources.tsx) | 110 | `PlanningCalendarsResources` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/PluginCatalogGallery.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/PluginCatalogGallery.tsx) | 68 | `PluginCatalogGallery` | — |
@@ -490,12 +491,12 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/plugin-management/plugins-settings/ThirdPartyInstalled.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/ThirdPartyInstalled.tsx) | 97 | `ThirdPartyInstalled` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/ThirdPartyPlugins.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/ThirdPartyPlugins.tsx) | 24 | `ThirdPartyPlugins` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/WebClipperConfig.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/WebClipperConfig.tsx) | 167 | `WebClipperConfig` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts) | 191 | `EMPTY_LLM_WIKI_DRAFT`, `detectLlmWikiSource`, `normalizeFieldName`, `normalizeLlmWikiDraft`, `serializeLlmWikiDraft` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/llmWikiModel.ts) | 204 | `EMPTY_LLM_WIKI_DRAFT`, `detectLlmWikiSource`, `isLlmWikiDraftComplete`, `normalizeFieldName`, `normalizeLlmWikiDraft`, `serializeLlmWikiDraft` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/loadLlmWikiSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/loadLlmWikiSettings.ts) | 27 | `loadLlmWikiSettings` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/pluginSettingsModel.ts) | 211 | `SELECT_STYLE`, `apiErrorMessage`, `isNewerVersion`, `isPluginSection`, `isRecord`, `lifecycleConflict`, `normalizeBuiltinPlugins`, `normalizeVaultTables`, `numberSetting`, `readPendingPluginId`, `settingsRecord`, `sortPluginsByName`, `stringArraySetting`, `stringSetting` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/projectPlanningModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/projectPlanningModel.ts) | 107 | `EMPTY_ASSIGNMENT`, `EMPTY_RESOURCE`, `holidayRowsForYear`, `isValidIsoDate`, `planningAssignment` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/thirdPartyModel.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/thirdPartyModel.ts) | 67 | `downloadBlob` | — |
-| [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts) | 182 | `useLlmWikiController` | — |
+| [`frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useLlmWikiController.ts) | 184 | `useLlmWikiController` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useProjectPlanningController.ts) | 408 | `useProjectPlanningController` | — |
 | [`frontend/src/features/plugin-management/plugins-settings/useThirdPartyPlugins.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/plugin-management/plugins-settings/useThirdPartyPlugins.ts) | 260 | `useThirdPartyPlugins` | — |
 | [`frontend/src/features/reader/ReaderDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/reader/ReaderDashboard.tsx) | 274 | `ReaderDashboard`, `function` | — |
