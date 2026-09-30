@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent } from 'react';
 import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { getActiveVaultId } from '../../../shared/api/vault-context';
+import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 
 /** Refresh projections only: callers must never reload an open document. */
 export function useExternalCatalogRefresh<T>(
@@ -31,14 +32,14 @@ export function useExternalCatalogRefresh<T>(
         };
         const onVisible = () => { void refresh(); };
         const timer = window.setInterval(onVisible, 15_000);
-        window.addEventListener('focus', onVisible);
-        document.addEventListener('visibilitychange', onVisible);
+        const stopFocus = subscribeWindowEvent('focus', onVisible);
+        const stopVisibility = subscribeDocumentEvent('visibilitychange', onVisible);
         return () => {
             disposed = true;
             pending?.abort();
             window.clearInterval(timer);
-            window.removeEventListener('focus', onVisible);
-            document.removeEventListener('visibilitychange', onVisible);
+            stopFocus();
+            stopVisibility();
         };
     }, [vaultId]);
 }

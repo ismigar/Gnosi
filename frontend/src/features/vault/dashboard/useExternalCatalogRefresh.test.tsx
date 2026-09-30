@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useExternalCatalogRefresh } from './useExternalCatalogRefresh';
+import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
 
 const scope = vi.hoisted(() => ({ id: 'a' }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => scope.id }));
@@ -35,7 +36,7 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 it('refreshes on focus and visible ticks without touching an editor draft', async () => {
-    await act(async () => { window.dispatchEvent(new Event('focus')); await Promise.resolve(); });
+    await act(async () => { dispatchWindowEvent(new Event('focus')); await Promise.resolve(); });
     expect(apply).toHaveBeenCalledWith(['external-page']);
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(load).toHaveBeenCalledTimes(2);
@@ -55,7 +56,7 @@ it('does not poll hidden windows and retries after a failed request', async () =
 it('prevents overlapping refresh and ignores a previous vault response', async () => {
     let finish!: (rows: string[]) => void;
     load.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-    await act(async () => { window.dispatchEvent(new Event('focus')); await Promise.resolve(); });
+    await act(async () => { dispatchWindowEvent(new Event('focus')); await Promise.resolve(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
     expect(load).toHaveBeenCalledOnce();
     scope.id = 'b';
