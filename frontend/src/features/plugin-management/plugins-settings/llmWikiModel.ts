@@ -133,7 +133,6 @@ export function normalizeLlmWikiDraft(value: unknown): LlmWikiDraft {
 
 export function serializeLlmWikiDraft(draft: LlmWikiDraft): PluginLlmWikiSettingsDocument {
     return {
-        agent_id: draft.agent_id,
         brain_roles: draft.brain_roles,
         brain_table_id: draft.brain_table_id,
         configured: draft.configured,
@@ -148,6 +147,17 @@ export function serializeLlmWikiDraft(draft: LlmWikiDraft): PluginLlmWikiSetting
         ui_locale: draft.ui_locale ?? 'en',
         version: draft.version,
     };
+}
+
+export function isLlmWikiDraftComplete(draft: LlmWikiDraft): boolean {
+    return Boolean(draft.brain_table_id) && draft.source_tables.length > 0
+        && draft.source_tables.every(source => (source.assignment_field_ids ?? draft.index_field_ids).every(id => {
+            const mapping = source.dimension_mappings[id];
+            if (mapping?.mode === 'source') return Boolean(mapping.source_property_id);
+            if (mapping?.mode !== 'fixed') return true;
+            const value = mapping.fixed_value;
+            return value !== null && value !== '' && (!Array.isArray(value) || value.length > 0);
+        }));
 }
 
 export function normalizeFieldName(value: string | undefined): string {

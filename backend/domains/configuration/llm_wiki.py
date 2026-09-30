@@ -279,7 +279,9 @@ async def put_config(
     incoming: Config = {str(key): value for key, value in payload.items()} if is_record(payload) else {}
     merged: Config = {**current, **incoming}
     normalized = llm_wiki_config.normalize_config(merged)
-    if "agent_id" in incoming:
+    # Empty is the migrated default: execution uses the principal agent.
+    # Only an explicit legacy profile selection needs profile validation.
+    if "agent_id" in incoming and normalized["agent_id"]:
         try:
             selected_agent(str(normalized["agent_id"]))
         except LlmWikiAgentError as error:

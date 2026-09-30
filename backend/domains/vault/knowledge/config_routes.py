@@ -243,6 +243,8 @@ def _llm_wiki_config_response(cfg: RecordReader) -> dict[str, object]:
 
 def _llm_wiki_property_options(prop: RecordReader) -> list[dict[str, str]]:
     """Return canonical existing values for one categorical Brain property."""
+    from backend.services.llm_wiki_options import categorical_options
+
     if str(prop.get("type") or "") == "relation":
         target_id = str(prop.get("relation_database_id") or "")
         return (
@@ -257,20 +259,7 @@ def _llm_wiki_property_options(prop: RecordReader) -> list[dict[str, str]]:
             if target_id
             else []
         )
-    raw_options = (
-        prop.get("options")
-        or get_value(prop.get("config") or {}, "options")
-        or get_value(prop.get("select") or {}, "options")
-        or []
-    )
-    return [
-        {
-            "label": str(option.get("name") if isinstance(option, dict) else option),
-            "value": str(option.get("name") if isinstance(option, dict) else option),
-        }
-        for option in iterable_values(raw_options)
-        if str(option.get("name") if isinstance(option, dict) else option).strip()
-    ]
+    return categorical_options(prop)
 
 
 @router.get(

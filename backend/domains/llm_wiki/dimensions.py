@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from backend.domains.vault.registry.records import RecordReader
 from backend.utils.open_values import iterable_values
 from backend.domains.llm_wiki.field_assignments import canonical_scalar, field_value_schema, is_assignable
+from backend.services.llm_wiki_options import categorical_options
 
 TableLookup = Callable[[str], RecordReader | None]
 PagesForTable = Callable[[str], Iterable[object]]
@@ -135,18 +136,7 @@ def dimension_options(
             for page in list(pages_for_table(target_id) or [])[:150]
             if getattr(page, "title", None) and getattr(page, "id", None)
         ]
-    raw_options = (
-        prop.get("options")
-        or _mapping(prop.get("config")).get("options")
-        or _mapping(prop.get("select")).get("options")
-        or []
-    )
-    output: list[dict[str, object]] = []
-    for option in raw_options if isinstance(raw_options, list) else []:
-        label = str(option.get("name") if isinstance(option, dict) else option).strip()
-        if label:
-            output.append({"label": label, "value": label})
-    return output
+    return [{"label": item["label"], "value": item["value"]} for item in categorical_options(prop)]
 
 
 def metadata_property_value(
@@ -212,10 +202,6 @@ def _ai_spec(
         "by_label": {str(item["label"]).casefold(): item["value"] for item in options},
         "multiple": str(prop.get("type") or "") in {"multi_select", "relation"},
     }
-
-
-def _mapping(value: object) -> dict[str, object]:
-    return dict(value) if isinstance(value, dict) else {}
 
 
 __all__ = [

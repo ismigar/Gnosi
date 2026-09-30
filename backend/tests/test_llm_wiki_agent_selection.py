@@ -87,6 +87,19 @@ def test_select_agent_without_tables_preserves_other_config_and_validates_before
     assert (tmp_path / "wiki.json").read_bytes() == before
 
 
+def test_empty_legacy_agent_uses_principal_without_selecting_a_profile(tmp_path, monkeypatch):
+    from backend.domains.configuration.llm_wiki import put_config
+
+    monkeypatch.setattr(llm_wiki_config, "config_path", lambda: tmp_path / "wiki.json")
+    monkeypatch.setattr(llm_wiki_config, "_legacy_reference_table_id", lambda: "")
+    profiles = Mock(side_effect=AssertionError("Settings must not require a model"))
+    monkeypatch.setattr(llm_wiki_generation, "agent_profiles", profiles)
+    dependencies = SimpleNamespace(config_response=lambda config: {"config": config})
+    result = asyncio.run(put_config({"agent_id": ""}, dependencies))
+    assert result["config"]["agent_id"] == ""
+    profiles.assert_not_called()
+
+
 def test_generation_enters_shared_executor_without_feature_agent_override(monkeypatch):
     from backend.services import agent_execution
 
