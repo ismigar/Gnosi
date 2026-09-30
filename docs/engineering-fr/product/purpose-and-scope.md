@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-09-30
 source_paths:
+  - README.md
+  - backend/services/builtin_plugins.py
   - ARCHITECTURE.md
   - CONTRIBUTING.md
 tests: []
@@ -11,9 +13,23 @@ tests: []
 
 ## Objectif du produit
 
-Gnosi transforme un dossier de fichiers Markdown contrôlé par l'utilisateur en un espace de travail connecté, sans confier ses connaissances à une base hébergée opaque. Il combine la portabilité des fichiers avec des fonctions applicatives de plus haut niveau : vues structurées, édition, recherche, parcours de graphe, références, communication, automatisation, publication et assistance par IA.
+Gnosi est un espace de recherche local-first qui accompagne les sources
+jusqu’aux éléments probants, à la synthèse et aux citations vérifiables. Un vault
+Markdown contrôlé par l’utilisateur conserve des connaissances portables et
+récupérables indépendamment de l’application. Le noyau comprend l’édition, les
+bases de données typées et leurs vues de base, la recherche, le graphe de
+connaissances, les références, la lecture PDF/EPUB, les annotations et les citations.
 
-L'objectif principal de l'ingénierie est la souveraineté des données avec une collaboration et une automatisation utiles. Les utilisateurs doivent être en mesure d'inspecter, sauvegarder, synchroniser et récupérer leurs connaissances indépendamment de Gnosi.
+Le courrier, les calendriers de fournisseurs, les contacts, la publication,
+l’IA et les autres intégrations restent des capacités facultatives. Les fonctions
+existantes sont conservées ; désactiver un module doit laisser utilisable la
+recherche qui n’en dépend pas. Les vues calendrier des bases de données, les
+pièces jointes ordinaires et les formules locales restent dans le noyau.
+
+Le registre actuel active uniquement `resources` par défaut pour un nouvel état.
+Cela ne modifie pas les choix explicites d’activation des utilisateurs existants.
+Séparer la distribution de futurs plugins ne nécessite pas d’extraire d’abord
+tous les modules intégrés.
 
 ## Principes de conception
 

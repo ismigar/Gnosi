@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-09-30
 source_paths:
+  - README.md
+  - backend/services/builtin_plugins.py
   - ARCHITECTURE.md
   - CONTRIBUTING.md
 tests: []
@@ -11,15 +13,21 @@ tests: []
 
 ## Product objective
 
-Gnosi turns a user-controlled folder of Markdown into a connected workspace
-without making an opaque hosted database the owner of the user's knowledge. It
-combines the portability of files with higher-level application behavior:
-structured views, editing, search, graph traversal, references, communication,
-automation, publishing, and AI assistance.
+Gnosi is a local-first research workspace that takes sources through evidence,
+synthesis and verifiable citation. A user-controlled Markdown vault keeps
+knowledge portable and recoverable independently of the application. The core
+includes editing, typed databases and basic views, search, the knowledge graph,
+references, PDF/EPUB reading, annotations and citations.
 
-The primary engineering goal is data sovereignty with useful collaboration and
-automation. Users must be able to inspect, back up, synchronize, and recover
-their knowledge independently of Gnosi.
+Mail, provider calendars, contacts, publishing, AI and other integrations remain
+optional capabilities. Existing functionality is preserved; disabling a module
+must leave unrelated research work usable. Database calendar views, ordinary
+attachments and local formulas remain core behavior.
+
+The registry currently enables only `resources` by default in a new state.
+This default must not be confused with changing existing users' explicit
+activation choices. Separating distribution of future plugins does not require
+extracting all integrated modules first.
 
 ## Design principles
 

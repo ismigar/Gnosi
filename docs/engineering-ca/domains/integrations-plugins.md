@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-26
+last_verified: 2026-09-30
 source_paths:
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
@@ -33,6 +33,15 @@ source_paths:
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
+  - backend/app/lifespan.py
+  - backend/domains/calendar/google.py
+  - backend/domains/mail/sync/idle.py
+  - backend/scheduler/manager.py
+  - backend/domains/vault/tables/rules/automations.py
+  - backend/api/share_routes.py
+  - backend/api/public_routes.py
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/App.tsx
   - backend/services/plugin_catalog.py
   - backend/services/plugin_signing.py
   - backend/services/plugin_sandbox.py
@@ -66,6 +75,10 @@ tests:
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
+  - backend/tests/test_optional_runtime_boundaries.py
+  - backend/tests/test_google_calendar_event_updates.py
+  - backend/tests/test_vault_runtime_calendar_contract.py
+  - backend/tests/test_app_lifespan.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_network_guard.py
@@ -261,8 +274,8 @@ vida per vault. El registre autoritatiu declara dependències, rutes, superfíci
 d'interfície i destinacions de Configuració. La versió 2 de l'esquema
 `.gnosi/plugins.json` desa les llistes explícites `enabled_builtin` i
 `enabled_third_party`, conservant `disabled` per als clients antics. Migrar
-des d'un esquema antic o absent és atòmic i idempotent: totes les capacitats
-opcionals comencen desactivades i es conserven la configuració, els permisos
+des d'un esquema antic o absent és atòmic i idempotent: resources comença activat,
+les altres capacitats opcionals comencen desactivades i es conserven la configuració, els permisos
 i els registres desconeguts compatibles amb versions futures.
 
 Els canvis passen pel contracte general `POST /api/vault/plugins/{id}/lifecycle`.
@@ -382,3 +395,52 @@ En mode personal, Configuració → General → Estructura de fitxers → Vaults
 El generador prepara Research Starter Workspace 2.1.0, Study Workspace 1.0.0 i Project Workspace 1.0.0 en català, anglès, castellà i francès. Els paquets generats només estan disponibles després de la signatura oficial i la publicació; instal·lar la interfície no publica els fitxers del catàleg.
 
 El panell privat de moderació posa els enviaments en quarantena i registra una aprovació o un rebuig definitius. Les plantilles de Vault aprovades ofereixen un comprovant vinculat al ZIP exacte mitjançant SHA-256 i mida. L’operador de publicació descarrega tots dos des del panell autenticat, executa `python -m extensions.marketplace.reviewed_templates` i passa `--reviewed-dir` al generador del catàleg. La validació rebutja arxius insegurs, identitats discrepants, credencials i identificadors de plantilla duplicats abans de carregar la clau oficial. Els comprovants són registres d’auditoria, no aprovacions criptogràfiques: només s’accepten pel procés de manteniment de confiança. Aprovar no signa ni publica; els complements tenen un procés de publicació separat.
+
+
+## Contracte d’activació dels mòduls opcionals
+
+L’activació és per vault. Desactivar retira la interfície opcional i rebutja
+noves peticions protegides; conserva la configuració i les dades locals. La feina
+ajornada ha de conservar el vault d’origen i comprovar l’estat vigent abans d’una
+operació externa. Una petició ja enviada al proveïdor no es pot desfer: la
+cancel·lació es produeix al següent límit segur, sense eliminar dades locals.
+
+Els callbacks de desament de Calendar ara comproven l’activació abans de
+programar i executar la tasca, i abans del patch de l’esdeveniment a Google.
+IMAP IDLE comprova l’estat vigent de Mail en iniciar, reiniciar després de canviar
+credencials i reconnectar; inici i aturada comparteixen un bloqueig, i la
+reconciliació ignora respostes d’activació antigues. Els workers pendents reben
+un senyal d’aturada. Una sessió IDLE existent pot trigar fins al timeout del socket
+(actualment 60 segons) a sortir d’una lectura bloquejant; no es permet cap nova
+reconnexió mentre el mòdul està desactivat.
+
+La matriu recull els controls d’entrada revisats i les excepcions del nucli
+compartit. No certifica cada implementació de proveïdor ni cada tasca programada
+prèviament. La configuració compartida de comptes, OAuth i les proves explícites
+de connexió continuen disponibles independentment de l’activació; no han de
+reactivar workers opcionals silenciosament. Les referències i la lectura formen
+part de la promesa de recerca, tot i que la ruta de recursos actual utilitza
+l’interruptor del mòdul integrat.
+
+| Capacitat | Frontera revisada |
+|---|---|
+| `genograms` | Endpoint del graf i interfície; les relacions genèriques són del nucli. |
+| `daily-notes` | Endpoint de creació i interfície; crear pàgines normals és del nucli. |
+| `tags-page` | Paleta i vistes; les metadades i lectures agregades d’etiquetes són del nucli. |
+| `page-comments` | Endpoints de comentaris i interfície. |
+| `share-links` | Controls de creació, gestió i lectura pública de comparticions. |
+| `canvas-cards` | Interfície de targetes; dibuixos i adjunts són del nucli. |
+| `web-clipper` | Control d’estat a l’endpoint públic de captura. |
+| `project-planning` | Router i interfície. |
+| `resources` | Router i interfície; activat per defecte, frontera de recerca conservada. |
+| `feeds-reader` | Router, scheduler de feeds/butlletins i catàleg de fonts. |
+| `translation` | Endpoints de traducció i interfície. |
+| `contacts` | Router, scheduler i catàleg; els camps genèrics són del nucli. |
+| `mail` | Router, scheduler, catàleg i lifecycle IDLE amb estat vigent. |
+| `calendar` | Router, scheduler, catàleg i sincronització ajornada; les vistes de bases de dades són del nucli. |
+| `social-publishing` | Router, scheduler de publicació i interfície; els adjunts ordinaris són del nucli. |
+| `notion-import` | Routers d’importació/OAuth i catàleg de fonts. |
+| `ai-platform` | Routers d’IA, superfícies globals i scheduler; la feina en curs pot acabar. |
+| `llm-wiki` | Prerequisit d’IA, transició de lifecycle i scheduler de manteniment. |
+| `grounded-notebooks` | Prerequisit d’IA, router i superfícies globals. |
+| `automations` | Rutes del scheduler i tasques governades; fórmules i regles locals són del nucli. |

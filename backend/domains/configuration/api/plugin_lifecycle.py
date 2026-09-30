@@ -188,10 +188,7 @@ async def _refresh_mail_runtime(state: PluginState, logger: logging.Logger) -> N
     try:
         from backend.services.imap_idle_service import idle_manager
 
-        if builtin_plugins.is_enabled(state, "mail"):
-            await asyncio.to_thread(idle_manager.start_all)
-        else:
-            await asyncio.to_thread(idle_manager.stop_all)
+        await asyncio.to_thread(idle_manager.refresh)
     except Exception as exc:
         logger.warning("Could not refresh Mail background workers: %s", exc)
 

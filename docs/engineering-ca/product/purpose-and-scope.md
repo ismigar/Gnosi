@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-09-30
 source_paths:
+  - README.md
+  - backend/services/builtin_plugins.py
   - ARCHITECTURE.md
   - CONTRIBUTING.md
 tests: []
@@ -11,15 +13,22 @@ tests: []
 
 ## Objectiu del producte
 
-Gnosi converteix una carpeta de Markdown controlada per l'usuari en un espai de
-treball connectat, sense deixar el seu coneixement en mans d'una base de dades
-allotjada opaca. Combina la portabilitat dels fitxers amb funcions d'aplicació
-de nivell superior: vistes estructurades, edició, cerca, recorregut del graf,
-referències, comunicació, automatització, publicació i assistència d'IA.
+Gnosi és un espai de recerca local-first que acompanya les fonts fins a
+l’evidència, la síntesi i la citació verificable. Un vault Markdown controlat
+per l’usuari manté el coneixement portable i recuperable independentment de
+l’aplicació. El nucli inclou edició, bases de dades tipades i vistes bàsiques,
+cerca, graf de coneixement, referències, lectura PDF/EPUB, anotacions i citacions.
 
-L'objectiu principal d'enginyeria és la sobirania de les dades amb col·laboració
-útil i automatització. Els usuaris han de poder inspeccionar, fer còpies de
-seguretat, sincronitzar i recuperar el seu coneixement independentment de Gnosi.
+Correu, calendaris de proveïdors, contactes, publicació, IA i altres integracions
+continuen sent capacitats opcionals. Es conserva la funcionalitat existent;
+desactivar un mòdul ha de mantenir usable la recerca que no en depèn. Les vistes
+de calendari de bases de dades, els adjunts ordinaris i les fórmules locals
+continuen formant part del nucli.
+
+El registre actual només activa `resources` per defecte en un estat nou.
+Aquest valor no implica canviar les decisions explícites d’activació dels
+usuaris existents. Separar la distribució de futurs plugins no exigeix extreure
+primer tots els mòduls integrats.
 
 ## Principis de disseny
 
