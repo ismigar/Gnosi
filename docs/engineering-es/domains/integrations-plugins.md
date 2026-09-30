@@ -79,6 +79,8 @@ tests:
   - backend/tests/test_google_calendar_event_updates.py
   - backend/tests/test_vault_runtime_calendar_contract.py
   - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_async_boundaries.py
+  - backend/tests/test_agent_factory_facade.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_network_guard.py

@@ -83,10 +83,10 @@ def test_queued_calendar_uses_current_origin_state(vault, tmp_path, monkeypatch,
 
 def test_google_update_does_not_open_credentials_when_disabled(vault):
     set_enabled(vault, "calendar", False)
-    factory = MagicMock()
+    provider_factory = MagicMock()
     assert not google.update_google_event("fixture@example.invalid", "fixture", {},
-                                          service_factory=factory)
-    factory.assert_not_called()
+                                          service_factory=provider_factory)
+    provider_factory.assert_not_called()
 
 
 def test_google_update_rechecks_before_patch(vault):
