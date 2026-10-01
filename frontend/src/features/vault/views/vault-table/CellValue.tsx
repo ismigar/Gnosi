@@ -168,7 +168,7 @@ export function CellValue({ model, value, type, noteId, field, originalMetaKey }
     }
     case 'relation': {
       const items = normalizeTableRelations(value);
-      const displayMap = getRelationContext(field).displayMap;
+      const displayMap = getRelationContext(field, model.noteById.get(noteId)).displayMap;
       return (
         <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-1 py-0.5">
           {items.map(relationId => (

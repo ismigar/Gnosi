@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-27
 source_paths:
+  - backend/domains/configuration/source_sections_schema.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
   - backend/services/llm_wiki.py
   - backend/services/llm_wiki_reading_runtime.py
@@ -37,6 +39,8 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_source_sections.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
   - backend/tests/test_llm_wiki_contextual_reading.py
   - backend/tests/test_llm_wiki_reading_runtime.py
@@ -369,3 +373,23 @@ Lorsque l’adresse source de la preuve d’une citation est vide, le document j
 Chaque source sélectionne `assignment_field_ids` indépendamment de `index_field_ids`. Une liste absente conserve le comportement historique fondé sur les index ; une liste vide désactive les attributions. Les règles acceptent `ai`, `source`, `fixed` et `empty`. Seuls les champs modifiables peuvent être attribués. Les valeurs IA suivent des schémas typés et les valeurs catégorielles doivent appartenir aux options existantes. La copie et les valeurs fixes conservent zéro et faux ; les règles vides effacent la valeur lors du retraitement, tandis que supprimer une règle conserve les métadonnées existantes.
 
 Le résolveur partagé `backend/domains/llm_wiki/options.py` consulte `config.catalog_ref` du vault actif avant les options locales : la configuration et le traitement utilisent ainsi les mêmes valeurs catégorielles. Un ancien `agent_id` vide sélectionne l’agent principal. L’éditeur attend que les règles de copie et de valeur fixe soient complètes avant de sauvegarder. Les tests de régression comprennent `backend/tests/test_llm_wiki_field_assignments.py` et `backend/tests/test_llm_wiki_processing_domain_contract.py`.
+
+## Sections des sources et paratexte
+
+Le traitement exclut des notes les couvertures, les métadonnées éditoriales,
+les épigraphes initiales et les avant-propos, prologues ou préfaces, sauf demande
+explicite. La couverture consigne ces passages, conservés comme contexte.
+
+Le Brain conserve `Position` numérique et ajoute une relation unique `Section`
+vers une table gérée de sections des sources. Les titres originaux conservent
+leur hiérarchie, leur texte et des identités distinctes, même sans numérotation
+ou avec des titres répétés. Chaque section appartient à une source et à un
+document d'entrée ; les sélecteurs rejettent celles d'autres sources. Les filtres
+d'égalité sélectionnent une section ; ceux d'inclusion ses descendants aussi.
+Les pages et horodatages restent des repères de citation. L'audio et la vidéo
+utilisent les chapitres natifs disponibles ; aucun chapitre n'est inventé.
+
+La mise à jour du schéma conserve les notes et ne lance aucun traitement.
+Le retraitement explicite attribue les sections et marque celles disparues comme
+anciennes, tout en conservant les relations historiques. L'application dérive
+les attributions des segments vérifiés, y compris lors d'une reprise révisée.

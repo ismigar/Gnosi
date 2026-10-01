@@ -34,6 +34,7 @@ source_paths:
   - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
+  - desktop/backend-proxy.js
   - desktop/preload.js
   - desktop/update-policy.js
   - desktop/sparkle-updater.js
@@ -67,6 +68,7 @@ tests:
   - desktop/vault-recovery.test.js
   - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
+  - desktop/backend-proxy.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
@@ -169,6 +171,21 @@ el sistema de fitxers fora de les rutes permeses i utilitza el magatzem de galet
 de la sessió en lloc de reenviar les capçaleres de galetes en brut del renderer.
 Conserva aquest comportament quan canviïs l’encaminament o els adaptadors de
 transmissió en continu.
+
+El mòdul empaquetat `backend-proxy.js` limita les peticions individuals
+`GET /pages/:pageId/preview` a 15 segons, incloses les capçaleres de resposta i
+tot el cos JSON. Una previsualització encallada d’un fitxer al núvol retorna
+HTTP `504` i allibera la connexió HTTP, de manera que les previsualitzacions de
+la galeria no poden deixar el desament de vistes indefinidament en espera de
+connexions ocupades. Aquest límit no interromp una lectura bloquejada del
+sistema de fitxers al backend ni garanteix la disponibilitat dels fitxers al núvol.
+
+La cancel·lació del renderer es propaga a les peticions cap al backend. Les
+altres respostes de l’API, incloses les transmissions dels agents i les
+escriptures, conserven la durada i el comportament de transmissió habituals.
+El contracte d’empaquetatge exigeix el mòdul proxy; les proves de regressió
+cobreixen sis previsualitzacions encallades simultànies, cossos bloquejats,
+cancel·lació i transmissions en continu.
 
 Els vuit gestors extrets tenen contractes de petició i resposta comprovats.
 L'emplenament de formularis és a `ipc-handlers.js`, que ja s'empaquetava; el procés

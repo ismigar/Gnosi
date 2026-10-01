@@ -41,17 +41,18 @@ def test_schema_dependency_keeps_late_registry_and_property_callbacks(
 
     def new_property(role: str, name: str, ptype: str, brain_table_id: str = "") -> RegistryData:
         events.append(role)
-        return {"id": role, "name": name, "type": ptype, "extension": opaque}
+        return {"id": role, "name": name, "type": ptype, "extension": opaque,
+                **({"config": {"source_sections": True}} if role == "section" else {})}
 
     monkeypatch.setattr(facade, "registry_mutation", mutation)
     monkeypatch.setattr(facade, "load_registry", lambda: registry)
     monkeypatch.setattr(facade, "save_registry", save)
     monkeypatch.setattr(schema, "_brain_property", new_property)
-    assert schema.ensure_brain_table_schema("brain", "ca") == 8
+    assert schema.ensure_brain_table_schema("brain", "ca") == 9
     assert events[0] == "enter" and events[-2:] == ["save", "exit"]
     events.clear()
     assert schema.ensure_brain_table_schema("brain", "ca") == 0
-    assert events == ["enter", "exit"]
+    assert events == ["enter", "exit", "enter", "exit"]
 
 
 @pytest.mark.parametrize("entry", [None, 7, False, "bad", []])

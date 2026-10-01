@@ -34,6 +34,7 @@ source_paths:
   - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
+  - desktop/backend-proxy.js
   - desktop/preload.js
   - desktop/update-policy.js
   - desktop/sparkle-updater.js
@@ -67,6 +68,7 @@ tests:
   - desktop/vault-recovery.test.js
   - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
+  - desktop/backend-proxy.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
@@ -157,6 +159,18 @@ The packaged protocol serves frontend assets and proxies `/api/` to the local
 backend. It validates the application authority, prevents filesystem traversal
 and uses the session cookie jar instead of forwarding raw renderer cookie
 headers. Preserve this behavior when changing routing or streaming adapters.
+
+The packaged `backend-proxy.js` bounds individual `GET /pages/:pageId/preview`
+requests to 15 seconds, including response headers and the complete JSON body.
+A stalled cloud-backed preview returns HTTP `504` and releases its HTTP
+connection, so gallery previews cannot indefinitely queue view saves behind
+occupied connections. This deadline does not terminate a blocked filesystem
+read in the backend or guarantee that cloud files are available.
+
+Renderer cancellation propagates to upstream requests. Other API responses,
+including agent streams and writes, retain their normal lifetime and streaming
+behavior. The packaging contract requires the proxy helper; regression tests
+cover six concurrent stalled previews, stalled bodies, cancellation and streams.
 
 All eight extracted handlers have checked request/response contracts.
 Form filling lives in the already packaged `ipc-handlers.js`; the main process
