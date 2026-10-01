@@ -222,9 +222,11 @@ def _repair_main_views() -> None:
         log.warning("⚠️ Could not run main-view repair pass: %s", error)
 
 
-def _start_mail_idle(*, enabled: bool) -> None:
+def _start_mail_idle() -> None:
     """Start IMAP IDLE workers only while the mail plugin is enabled."""
-    if not enabled:
+    from backend.services.plugin_access import plugins_enabled_now
+
+    if not plugins_enabled_now("mail"):
         return
     try:
         from backend.services.imap_idle_service import idle_manager
@@ -238,7 +240,6 @@ def _start_mail_idle(*, enabled: bool) -> None:
 async def _start_deferred_integrations(
     *,
     scheduler_enabled: bool,
-    mail_enabled: bool,
 ) -> None:
     """Start external background integrations only after HTTP startup can finish."""
     delay = max(
@@ -258,7 +259,7 @@ async def _start_deferred_integrations(
             raise
     else:
         log.info("Scheduler startup disabled by GNOSI_DISABLE_SCHEDULER.")
-    await asyncio.to_thread(_start_mail_idle, enabled=mail_enabled)
+    await asyncio.to_thread(_start_mail_idle)
 
 
 async def _shutdown_runtime(
@@ -330,7 +331,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     plugin_state = vault_routes._load_plugins_state()
     ai_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "ai-platform")
-    mail_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "mail")
     _reconcile_plugin_contributions(plugin_state, ai_platform_enabled=ai_enabled)
 
     mcp_client = MultiServerMCPClient(MCP_SERVERS)
@@ -344,7 +344,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         integration_startup_task = asyncio.create_task(
             _start_deferred_integrations(
                 scheduler_enabled=_scheduler_start_enabled(),
-                mail_enabled=mail_enabled,
             )
         )
         yield

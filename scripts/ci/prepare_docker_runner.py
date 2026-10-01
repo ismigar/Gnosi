@@ -7,6 +7,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
+import re
 import shutil
 from subprocess import PIPE, CalledProcessError, TimeoutExpired, run
 from time import sleep
@@ -113,6 +114,25 @@ def _release_optional_snapshots(environment: Mapping[str, str], path: Path, mini
             LOG.info("Released an optional Python cache snapshot for Docker capacity")
 
 
+def _release_package_cache(environment: Mapping[str, str], path: Path, minimum: int) -> None:
+    """Let uv reclaim downloaded wheels only when Docker still lacks capacity."""
+    raw = environment.get("RUNNER_TOOL_CACHE")
+    if not raw or _free_bytes(path) >= minimum:
+        return
+    store = Path(raw).resolve(strict=True) / "gnosi-uv-packages-v1"
+    if store.is_symlink() or not store.is_dir():
+        return
+    for cache in sorted(store.iterdir()):
+        if _free_bytes(path) >= minimum:
+            break
+        if cache.is_symlink() or not cache.is_dir() or not re.fullmatch(r"[0-9a-f]{64}", cache.name):
+            continue
+        # Use uv's cache API rather than deleting shared package files ourselves.
+        # --ci retains expensive source-built wheels and releases prebuilt ones.
+        run(("uv", "cache", "prune", "--ci", "--cache-dir", str(cache)), check=True, timeout=120)
+        LOG.info("Pruned optional Python downloads for Docker capacity")
+
+
 def _require_capacity(path: Path, minimum_free_bytes: int) -> int:
     available = _free_bytes(path)
     if available < minimum_free_bytes:
@@ -126,10 +146,13 @@ def _require_capacity(path: Path, minimum_free_bytes: int) -> int:
 def cleanup(
     environment: Mapping[str, str], *, minimum_free_bytes: int = MINIMUM_FREE_BYTES,
 ) -> int:
-    """Always clean CI images/cache, then verify capacity; never prune volumes."""
+    """Remove CI image tags, retaining build layers when capacity permits."""
     path = runner_temp(environment)
-    _prune_unused_docker()
-    _release_optional_snapshots(environment, path, minimum_free_bytes)
+    _remove_ci_images()
+    if _free_bytes(path) < minimum_free_bytes:
+        _prune_build_cache()
+        _release_optional_snapshots(environment, path, minimum_free_bytes)
+        _release_package_cache(environment, path, minimum_free_bytes)
     return _require_capacity(path, minimum_free_bytes)
 
 
@@ -151,6 +174,7 @@ def prepare(
     )
     _prune_unused_docker()
     _release_optional_snapshots(environment, path, minimum_free_bytes)
+    _release_package_cache(environment, path, minimum_free_bytes)
     return _require_capacity(path, minimum_free_bytes)
 
 

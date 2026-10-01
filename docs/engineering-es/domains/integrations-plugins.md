@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-26
+last_verified: 2026-09-30
 source_paths:
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
@@ -33,6 +33,15 @@ source_paths:
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
+  - backend/app/lifespan.py
+  - backend/domains/calendar/google.py
+  - backend/domains/mail/sync/idle.py
+  - backend/scheduler/manager.py
+  - backend/domains/vault/tables/rules/automations.py
+  - backend/api/share_routes.py
+  - backend/api/public_routes.py
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/App.tsx
   - backend/services/plugin_catalog.py
   - backend/services/plugin_signing.py
   - backend/services/plugin_sandbox.py
@@ -66,6 +75,12 @@ tests:
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
+  - backend/tests/test_optional_runtime_boundaries.py
+  - backend/tests/test_google_calendar_event_updates.py
+  - backend/tests/test_vault_runtime_calendar_contract.py
+  - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_async_boundaries.py
+  - backend/tests/test_agent_factory_facade.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_network_guard.py
@@ -238,7 +253,7 @@ de plugins del vault actual, solo después de identificar el destino como extern
 esto mantiene deterministas la selección del vault por petición y las llamadas
 aisladas al ciclo de vida.
 
-Las capacidades secundarias integradas utilizan el mismo límite de ciclo de vida por vault. El registro autoritativo declara dependencias, rutas, áreas de interfaz y destinos de Configuración. La versión 2 del esquema de `.gnosi/plugins.json` registra listas explícitas `enabled_builtin` y `enabled_third_party`, y conserva `disabled` para clientes antiguos. La migración desde un esquema anterior o ausente es atómica e idempotente: todas las capacidades opcionales comienzan desactivadas y se conservan los ajustes, permisos y registros desconocidos compatibles con versiones futuras.
+Las capacidades secundarias integradas utilizan el mismo límite de ciclo de vida por vault. El registro autoritativo declara dependencias, rutas, áreas de interfaz y destinos de Configuración. La versión 2 del esquema de `.gnosi/plugins.json` registra listas explícitas `enabled_builtin` y `enabled_third_party`, y conserva `disabled` para clientes antiguos. La migración desde un esquema anterior o ausente es atómica e idempotente: resources comienza activado, las demás capacidades opcionales comienzan desactivadas y se conservan los ajustes, permisos y registros desconocidos compatibles con versiones futuras.
 
 Los cambios de ciclo de vida pasan por el contrato general `POST /api/vault/plugins/{id}/lifecycle`. Un cambio con requisitos previos o dependientes activos devuelve primero un conflicto estructurado; después, un administrador confirma la activación agrupada o en cascada. Las rutas desactivadas fallan antes de ejecutar la implementación de la funcionalidad, y el trabajo externo programado comprueba el mismo registro. El mantenimiento básico, Markdown, las vistas de calendario de bases de datos, los campos de contacto, los adjuntos multimedia y los dibujos no dependen de estos plugins.
 
@@ -318,3 +333,52 @@ En modo personal, Configuración → General → Estructura de archivos → Vaul
 El generador prepara Research Starter Workspace 2.1.0, Study Workspace 1.0.0 y Project Workspace 1.0.0 en catalán, inglés, español y francés. Los paquetes generados solo están disponibles tras la firma oficial y la publicación; instalar la interfaz no publica los archivos del catálogo.
 
 El panel privado de moderación pone los envíos en cuarentena y registra una aprobación o un rechazo definitivos. Las plantillas de Vault aprobadas ofrecen un comprobante vinculado al ZIP exacto mediante SHA-256 y tamaño. El operador de publicación descarga ambos desde el panel autenticado, ejecuta `python -m extensions.marketplace.reviewed_templates` y pasa `--reviewed-dir` al generador del catálogo. La validación rechaza archivos inseguros, identidades discrepantes, credenciales e identificadores duplicados antes de cargar la clave oficial. Los comprobantes son registros de auditoría, no aprobaciones criptográficas: solo se aceptan mediante el proceso de mantenimiento de confianza. Aprobar no firma ni publica; los complementos tienen un proceso de publicación separado.
+
+
+## Contrato de activación de los módulos opcionales
+
+La activación es por vault. Desactivar retira la interfaz opcional y rechaza
+nuevas peticiones protegidas; conserva configuración y datos locales. El trabajo
+aplazado debe conservar el vault de origen y comprobar el estado vigente antes
+de una operación externa. Una petición ya enviada al proveedor no se puede
+deshacer: la cancelación ocurre en el siguiente límite seguro, sin borrar datos.
+
+Los callbacks de guardado de Calendar comprueban ahora la activación antes de
+programar y ejecutar la tarea, y antes del patch del evento en Google. IMAP IDLE
+comprueba el estado vigente de Mail al iniciar, reiniciar tras cambiar credenciales
+y reconectar; inicio y parada comparten un bloqueo, y la reconciliación ignora
+respuestas de activación antiguas. Los workers pendientes reciben una señal de
+parada. Una sesión IDLE existente puede tardar hasta el timeout del socket
+(actualmente 60 segundos) en salir de una lectura bloqueante; no se permite
+ninguna nueva reconexión mientras el módulo esté desactivado.
+
+La matriz recoge controles de entrada revisados y excepciones del núcleo
+compartido. No certifica cada implementación de proveedor ni cada tarea
+programada previamente. La configuración compartida de cuentas, OAuth y las
+pruebas explícitas de conexión siguen disponibles independientemente de la
+activación; no deben reactivar workers opcionales silenciosamente. Referencias
+y lectura forman parte de la promesa de investigación, aunque la ruta actual
+de recursos utiliza el interruptor del módulo integrado.
+
+| Capacidad | Frontera revisada |
+|---|---|
+| `genograms` | Endpoint del grafo e interfaz; las relaciones genéricas son del núcleo. |
+| `daily-notes` | Endpoint de creación e interfaz; crear páginas normales es del núcleo. |
+| `tags-page` | Paleta y vistas; los metadatos y lecturas agregadas de etiquetas son del núcleo. |
+| `page-comments` | Endpoints de comentarios e interfaz. |
+| `share-links` | Controles de creación, gestión y lectura pública de comparticiones. |
+| `canvas-cards` | Interfaz de tarjetas; dibujos y adjuntos son del núcleo. |
+| `web-clipper` | Control de estado en el endpoint público de captura. |
+| `project-planning` | Router e interfaz. |
+| `resources` | Router e interfaz; activado por defecto, frontera de investigación conservada. |
+| `feeds-reader` | Router, scheduler de feeds/boletines y catálogo de fuentes. |
+| `translation` | Endpoints de traducción e interfaz. |
+| `contacts` | Router, scheduler y catálogo; los campos genéricos son del núcleo. |
+| `mail` | Router, scheduler, catálogo y lifecycle IDLE con estado vigente. |
+| `calendar` | Router, scheduler, catálogo y sincronización aplazada; las vistas de bases de datos son del núcleo. |
+| `social-publishing` | Router, scheduler de publicación e interfaz; los adjuntos ordinarios son del núcleo. |
+| `notion-import` | Routers de importación/OAuth y catálogo de fuentes. |
+| `ai-platform` | Routers de IA, superficies globales y scheduler; el trabajo en curso puede finalizar. |
+| `llm-wiki` | Prerrequisito de IA, transición de lifecycle y scheduler de mantenimiento. |
+| `grounded-notebooks` | Prerrequisito de IA, router y superficies globales. |
+| `automations` | Rutas del scheduler y tareas gobernadas; fórmulas y reglas locales son del núcleo. |

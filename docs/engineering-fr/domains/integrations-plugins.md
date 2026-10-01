@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-26
+last_verified: 2026-09-30
 source_paths:
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
@@ -33,6 +33,15 @@ source_paths:
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
+  - backend/app/lifespan.py
+  - backend/domains/calendar/google.py
+  - backend/domains/mail/sync/idle.py
+  - backend/scheduler/manager.py
+  - backend/domains/vault/tables/rules/automations.py
+  - backend/api/share_routes.py
+  - backend/api/public_routes.py
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/App.tsx
   - backend/services/plugin_catalog.py
   - backend/services/plugin_signing.py
   - backend/services/plugin_sandbox.py
@@ -66,6 +75,12 @@ tests:
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
+  - backend/tests/test_optional_runtime_boundaries.py
+  - backend/tests/test_google_calendar_event_updates.py
+  - backend/tests/test_vault_runtime_calendar_contract.py
+  - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_async_boundaries.py
+  - backend/tests/test_agent_factory_facade.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_network_guard.py
@@ -253,8 +268,8 @@ Le registre de référence déclare les dépendances, routes, interfaces et
 destinations des paramètres. Le schéma version 2 de `.gnosi/plugins.json`
 enregistre les listes explicites `enabled_builtin` et `enabled_third_party`
 tout en gardant `disabled` pour les anciens clients. La migration depuis un
-schéma ancien ou absent est atomique et idempotente : chaque capacité facultative
-démarre désactivée, et tous les paramètres, permissions et enregistrements
+schéma ancien ou absent est atomique et idempotente : resources démarre activé,
+les autres capacités facultatives démarrent désactivées, et tous les paramètres, permissions et enregistrements
 inconnus compatibles avec les versions futures sont conservés.
 
 Les changements de cycle de vie utilisent le contrat général
@@ -378,3 +393,54 @@ En mode personnel, Paramètres → Général → Structure des fichiers → Vaul
 Le générateur prépare Research Starter Workspace 2.1.0, Study Workspace 1.0.0 et Project Workspace 1.0.0 en catalan, anglais, espagnol et français. Les paquets générés ne deviennent disponibles qu’après signature officielle et publication ; installer l’interface ne publie pas les fichiers du catalogue.
 
 Le tableau privé de modération place les envois en quarantaine et enregistre une approbation ou un rejet définitifs. Les modèles de Vault approuvés proposent un reçu lié au ZIP exact par SHA-256 et taille. L’opérateur de publication télécharge les deux depuis le tableau authentifié, exécute `python -m extensions.marketplace.reviewed_templates`, puis transmet `--reviewed-dir` au générateur du catalogue. La validation rejette les archives dangereuses, les identités divergentes, les identifiants secrets et les identités de modèle dupliquées avant de charger la clé officielle. Les reçus sont des traces d’audit, pas des approbations cryptographiques : ils doivent provenir du processus de maintenance de confiance. Approuver ne signe ni ne publie ; les extensions suivent leur propre processus de publication.
+
+
+## Contrat d’activation des modules facultatifs
+
+L’activation est propre au vault. La désactivation retire l’interface facultative
+et rejette les nouvelles requêtes protégées ; elle conserve configuration et
+données locales. Le travail différé doit conserver son vault d’origine et relire
+l’état courant avant une opération externe. Une requête déjà envoyée au
+fournisseur ne peut pas être annulée : l’arrêt intervient à la prochaine limite
+sûre, sans supprimer les données locales.
+
+Les callbacks de sauvegarde de Calendar vérifient désormais l’activation avant
+la programmation et l’exécution, puis avant le patch de l’événement Google.
+IMAP IDLE vérifie l’état courant de Mail au démarrage, lors du redémarrage après
+modification des identifiants et avant reconnexion ; démarrage et arrêt partagent
+un verrou, et la réconciliation ignore les anciennes réponses d’activation.
+Les workers en attente reçoivent un signal d’arrêt. Une session IDLE existante
+peut attendre le timeout du socket (actuellement 60 secondes) avant de sortir
+d’une lecture bloquante ; aucune nouvelle reconnexion n’est autorisée lorsque
+le module est désactivé.
+
+La matrice recense les contrôles d’entrée examinés et les exceptions du noyau
+partagé. Elle ne certifie ni chaque fournisseur ni chaque tâche déjà programmée.
+La configuration partagée des comptes, OAuth et les tests explicites de connexion
+restent disponibles indépendamment de l’activation ; ils ne doivent pas relancer
+silencieusement les workers facultatifs. Références et lecture font partie de
+la promesse de recherche, même si la route actuelle des ressources utilise
+l’interrupteur du module intégré.
+
+| Capacité | Limite examinée |
+|---|---|
+| `genograms` | Endpoint du graphe et interface ; les relations génériques restent centrales. |
+| `daily-notes` | Endpoint de création et interface ; la création de pages normales reste centrale. |
+| `tags-page` | Palette et vues ; métadonnées et lectures agrégées des tags restent centrales. |
+| `page-comments` | Endpoints de commentaires et interface. |
+| `share-links` | Contrôles de création, gestion et lecture publique des partages. |
+| `canvas-cards` | Interface des cartes ; dessins et pièces jointes restent centraux. |
+| `web-clipper` | Contrôle d’état dans l’endpoint public de capture. |
+| `project-planning` | Router et interface. |
+| `resources` | Router et interface ; actif par défaut, frontière de recherche conservée. |
+| `feeds-reader` | Router, scheduler des flux/bulletins et catalogue de sources. |
+| `translation` | Endpoints de traduction et interface. |
+| `contacts` | Router, scheduler et catalogue ; les champs génériques restent centraux. |
+| `mail` | Router, scheduler, catalogue et lifecycle IDLE selon l’état courant. |
+| `calendar` | Router, scheduler, catalogue et synchronisation différée ; les vues des bases restent centrales. |
+| `social-publishing` | Router, scheduler de publication et interface ; les médias ordinaires restent centraux. |
+| `notion-import` | Routers d’importation/OAuth et catalogue de sources. |
+| `ai-platform` | Routers IA, surfaces globales et scheduler ; le travail en cours peut terminer. |
+| `llm-wiki` | Prérequis IA, transition du lifecycle et scheduler de maintenance. |
+| `grounded-notebooks` | Prérequis IA, router et surfaces globales. |
+| `automations` | Routes du scheduler et tâches gouvernées ; formules et règles locales restent centrales. |

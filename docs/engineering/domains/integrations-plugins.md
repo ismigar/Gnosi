@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-09-26
+last_verified: 2026-09-30
 source_paths:
   - extensions/marketplace/build_vault_templates.py
   - extensions/marketplace/catalog_content.py
@@ -33,6 +33,15 @@ source_paths:
   - backend/services/plugin_system.py
   - backend/services/builtin_plugins.py
   - backend/services/plugin_access.py
+  - backend/app/lifespan.py
+  - backend/domains/calendar/google.py
+  - backend/domains/mail/sync/idle.py
+  - backend/scheduler/manager.py
+  - backend/domains/vault/tables/rules/automations.py
+  - backend/api/share_routes.py
+  - backend/api/public_routes.py
+  - frontend/src/app/routes.tsx
+  - frontend/src/app/App.tsx
   - backend/services/plugin_catalog.py
   - backend/services/plugin_signing.py
   - backend/services/plugin_sandbox.py
@@ -66,6 +75,12 @@ tests:
   - backend/tests/test_configuration_plugins_route_contract.py
   - backend/tests/test_plugin_domain_contract.py
   - backend/tests/test_builtin_plugins.py
+  - backend/tests/test_optional_runtime_boundaries.py
+  - backend/tests/test_google_calendar_event_updates.py
+  - backend/tests/test_vault_runtime_calendar_contract.py
+  - backend/tests/test_app_lifespan.py
+  - backend/tests/test_app_async_boundaries.py
+  - backend/tests/test_agent_factory_facade.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_network_guard.py
@@ -247,7 +262,8 @@ authoritative registry declares dependencies, routes, UI surfaces and Settings
 destinations. `.gnosi/plugins.json` schema version 2 records explicit
 `enabled_builtin` and `enabled_third_party` lists while retaining `disabled` for
 older clients. Migration from an older or missing schema is atomic and
-idempotent: every optional capability starts disabled and all settings,
+idempotent: resources starts enabled, other optional capabilities start disabled,
+and all settings,
 permissions and unknown forward-compatible records are retained.
 
 Lifecycle changes go through the general
@@ -361,3 +377,50 @@ In personal mode, Settings → General → File structure → Vaults → From re
 The catalog builder produces Research Starter Workspace 2.1.0, Study Workspace 1.0.0 and Project Workspace 1.0.0 in Catalan, English, Spanish and French. Generated packages become available only after official signing and release publication; installing the interface does not publish catalog assets.
 
 The private moderation dashboard quarantines uploads and records final approval or rejection. Approved Vault templates expose a review receipt bound to the exact ZIP by SHA-256 and size. The release operator downloads both through the authenticated dashboard, runs `python -m extensions.marketplace.reviewed_templates`, then supplies `--reviewed-dir` to the catalog builder. Validation rejects unsafe archives, mismatched identities, credentials and duplicate template identities before loading the official signing key. Receipts are audit records, not cryptographic approval: accept them only through the trusted maintainer process. Approval does not sign or publish; plugin packages use their separate release process.
+
+
+## Optional module activation contract
+
+Activation is per vault. Disabling removes optional UI and rejects new guarded
+requests; it preserves configuration and local data. Deferred work must retain
+its originating vault and recheck current state before an external operation.
+An already dispatched provider request cannot be undone: cancellation happens
+at the next safe boundary, not by deleting local data.
+
+Calendar page-save callbacks now check activation before queuing and executing,
+and again before the Google event patch. IMAP IDLE checks current Mail state
+at startup, credential restart and reconnect; start/stop transitions share a
+lock, and runtime refresh ignores stale lifecycle responses. Pending workers
+receive a stop signal. An existing IDLE session may take up to its socket timeout
+(currently 60 seconds) to leave a blocking read; no new reconnect is allowed
+while disabled.
+
+The matrix records reviewed entry guards and shared-core exceptions. It does
+not certify every provider implementation or every previously queued job.
+Shared account configuration, OAuth and explicit connection tests remain
+available independently of module activation; they must not silently wake
+optional workers. References and reading remain part of the research promise,
+although the resources application route currently uses the builtin switch.
+
+| Capability | Reviewed boundary |
+|---|---|
+| `genograms` | Graph endpoint and UI; generic relations remain core. |
+| `daily-notes` | Creation endpoint and UI; normal page creation remains core. |
+| `tags-page` | Palette and tag views; generic tag metadata and aggregate reads remain core. |
+| `page-comments` | Comment endpoints and UI. |
+| `share-links` | Share creation, management and public-read checks. |
+| `canvas-cards` | Card UI; drawings and attachments remain core. |
+| `web-clipper` | Public clip endpoint state check. |
+| `project-planning` | Router and UI. |
+| `resources` | Router and UI; enabled by default, research boundary preserved. |
+| `feeds-reader` | Router, feed/newsletter scheduler and source catalog. |
+| `translation` | Translation endpoints and UI. |
+| `contacts` | Router, scheduler and source catalog; generic fields remain core. |
+| `mail` | Router, scheduler, source catalog and current-state IDLE lifecycle. |
+| `calendar` | Router, scheduler, source catalog and deferred page sync; database views remain core. |
+| `social-publishing` | Router, publishing scheduler and UI; ordinary media remains core. |
+| `notion-import` | Import/OAuth routers and source catalog. |
+| `ai-platform` | AI routers, global surfaces and scheduler; existing provider work may finish. |
+| `llm-wiki` | AI prerequisite, lifecycle transition and maintenance scheduler. |
+| `grounded-notebooks` | AI prerequisite, router and global surfaces. |
+| `automations` | Scheduler routes and governed jobs; local formulas and property rules remain core. |
