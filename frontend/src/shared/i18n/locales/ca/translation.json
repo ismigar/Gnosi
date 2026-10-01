@@ -4376,6 +4376,8 @@
     "unnamed": "(sense nom)",
     "op_equals": "igual",
     "op_not_equals": "diferent",
+    "section_contains": "Inclou aquest apartat i els subapartats",
+    "section_not_contains": "Exclou aquest apartat i els subapartats",
     "op_contains": "conté",
     "op_not_contains": "no conté",
     "op_is_empty": "és buit",

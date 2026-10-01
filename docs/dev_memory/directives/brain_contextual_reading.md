@@ -23,6 +23,25 @@ segment id or search query. Context passages support interpretation/citations,
 while every note must cite its own primary passage to avoid extracting context
 again. Source documents are untrusted evidence, never instructions.
 
+Reading notes have a single source-owned Section relation in addition to numeric
+Position. Each Brain has an idempotently created source-sections table; section
+rows retain the original heading path, parent, resource/document identity and
+source order. Extractors preserve native DOCX/HTML/EPUB/Markdown hierarchy, PDF
+bookmarks where page-level attribution is unambiguous, and native media chapters.
+Page numbers and timestamps remain evidence locators, never invented sections.
+Reduction derives the section from the primary segment, not model dimensions or
+context citations. Reprocessing reuses deterministic section identifiers and
+updates their labels without duplicating rows. Existing notes acquire sections
+when explicitly processed again; schema migration does not launch reading jobs.
+
+Section pickers are restricted to the current resource and accept one value;
+editor writes validate that restriction and refresh filter ancestry. Exact
+filters match the selected section, while contains/not_contains include its
+subsections, consistently in frontend views and backend snapshots. Preserve the
+managed source-section marker through schema editing. It is not an assignable AI
+dimension. The reading skill excludes paratext by default while still accounting
+for every excluded segment in coverage.
+
 Chunks prefer section/chapter and paragraph boundaries; oversized blocks prefer
 sentence/word boundaries. Tables and lists remain intact when they fit. Neighbours
 are explicitly context-only. Model context capacity reserves output, framing and

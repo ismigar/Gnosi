@@ -1,4 +1,5 @@
 import { isPagePropertyReadOnly, pagePropertyConfig } from './propertyModel';
+import { sourceSectionOptions } from '../../../properties/sourceSectionRelations';
 import type { KeyboardEvent } from 'react';
 import type { PropertyEntry } from './types';
 import { coercePageProperty, type PageCoercionContext } from './propertyCoercion';
@@ -26,15 +27,11 @@ export function usePropertyNavigation(state: Input) {
             return { options: getPropOptions(prop), idToTitle };
     }
     if (type === 'relation') {
-      const relatedTableId = pagePropertyConfig(prop).relation_database_id;
-      const relatedNotes = allNotes.filter(n => {
-        const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
-        return nTableId === relatedTableId;
-      });
+      const relatedNotes = sourceSectionOptions(allNotes, pagePropertyConfig(prop), metadata);
       return { relatedNotes, idToTitle };
     }
     return {};
-  }, [getPropOptions, idToTitle, allNotes]);
+  }, [getPropOptions, idToTitle, allNotes, metadata]);
 
 
   const copyPropValue = useCallback((name: string) => {

@@ -15,6 +15,9 @@ COPY_TYPES = {"files", "file", "attachment", "attachments", "image", "autoria", 
 
 def is_assignable(prop: RecordReader) -> bool:
     """Calculated fields and the generated page title are owned by the application."""
+    config = prop.get("config")
+    if isinstance(config, dict) and config.get("source_sections"):
+        return False
     name = str(prop.get("name") or "").casefold()
     if name in {"id", "title", "table_id", "parent_id", "note_type"} or name.startswith("llm_wiki_"):
         return False
