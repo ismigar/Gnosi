@@ -99,6 +99,7 @@ export interface SchemaConfigModalProps {
     availableTables?: readonly RelationTable[] | null;
 }
 export interface OptionTools {
+    tableId?: string | null;
     sharedCatalogs: Catalogs;
     fetchUsage?: ((fieldId: string) => Promise<Record<string, number>>) | null;
     renameEverywhere?: ((fieldId: string, oldValue: string, newValue: string, usage?: number | null) => Promise<unknown>) | null;
