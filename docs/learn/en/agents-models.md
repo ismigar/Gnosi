@@ -28,7 +28,7 @@ Each card has a settings icon and, unless it is already primary, **Make principa
 
 Each profile has exactly one LLM. To use another model, choose another profile or edit the profile model. There is no automatic model selection or fallback to alternative models. If a profile is deleted or its model becomes unavailable, choose another profile in chat. To delete the default profile, first set another default. Disable the AI plugin to turn off AI.
 
-### Edit instructions in Markdown {#markdown-instructions}
+### Edit instructions in Markdown
 
 Agent and skill instructions share a block editor that is active by default. The formatting toolbar formats selected text; type **/** to insert a heading, list, quote, table or code block. **Markdown** shows the original source and **Preview** shows the result; press the same button again to return to the editor. **Expand editor** opens a larger view; press **Esc** or **Reduce editor** to return to the form. Switching views does not change the text. In Markdown mode, **Ctrl/Cmd + ]** indents selected lines and **Ctrl/Cmd + [** removes indentation. Save using the usual form.
 

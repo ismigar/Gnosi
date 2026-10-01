@@ -28,7 +28,7 @@ Cada fitxa té una roda de configuració i, si no és el principal, **Fes-lo pri
 
 Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfil o edita el model del perfil. No hi ha selecció automàtica ni models alternatius en cas de fallada. Si el perfil s’elimina o el model no està disponible, tria un altre perfil des del xat. Per eliminar el predeterminat, primer estableix-ne un altre. Per desactivar la IA, desactiva el plugin.
 
-### Edita les instruccions en Markdown {#markdown-instructions}
+### Edita les instruccions en Markdown
 
 Les instruccions dels agents i de les habilitats comparteixen un editor de blocs, actiu per defecte. La barra de format permet donar format al text seleccionat; escriu **/** per inserir un títol, una llista, una citació, una taula o un bloc de codi. **Markdown** mostra el text original i **Previsualització** mostra el resultat; prem el mateix botó de nou per tornar a l’editor. **Amplia l’editor** obre una vista més gran; prem **Esc** o **Redueix l’editor** per tornar al formulari. Canviar de vista no modifica el text. En el mode Markdown, **Ctrl/Cmd + ]** sagna les línies seleccionades i **Ctrl/Cmd + [** treu el sagnat. Desa des del formulari habitual.
 

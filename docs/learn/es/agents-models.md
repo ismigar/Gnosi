@@ -28,7 +28,7 @@ Cada ficha tiene una rueda de configuración y, si no es el principal, **Hacer p
 
 Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
 
-### Edita las instrucciones en Markdown {#markdown-instructions}
+### Edita las instrucciones en Markdown
 
 Las instrucciones de los agentes y las habilidades comparten un editor de bloques, activo por defecto. La barra de formato permite dar formato al texto seleccionado; escribe **/** para insertar un título, una lista, una cita, una tabla o un bloque de código. **Markdown** muestra el texto original y **Vista previa** muestra el resultado; pulsa el mismo botón de nuevo para volver al editor. **Ampliar el editor** abre una vista más grande; pulsa **Esc** o **Reducir el editor** para volver al formulario. Cambiar de vista no modifica el texto. En el modo Markdown, **Ctrl/Cmd + ]** sangra las líneas seleccionadas y **Ctrl/Cmd + [** quita la sangría. Guarda desde el formulario habitual.
 
