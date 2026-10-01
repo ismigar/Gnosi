@@ -15,6 +15,7 @@ vi.mock('../../../shared/api/ai', () => ({ generateAiContent: vi.fn() }));
 import { normalizeSkill, normalizeTool } from './aiSettingsUtils';
 
 
+vi.mock('../../../shared/editor/InstructionRichEditor', () => ({ default: () => null }));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         i18n: { language: 'en', resolvedLanguage: 'en' },

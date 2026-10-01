@@ -1,5 +1,8 @@
 {
   "instruction_editor": {
+    "source_required": "No s’ha pogut carregar l’edició visual. Obre Markdown per editar el text original.",
+    "rich_help": "Escriu directament. Selecciona text per donar-li format o escriu / per inserir un títol, una llista o un bloc de codi.",
+    "too_long": "Les instruccions no poden superar els {{count}} caràcters.",
     "controls": "Controls de l’editor Markdown",
     "edit": "Editar",
     "preview": "Previsualització",

@@ -30,7 +30,7 @@ Each profile has exactly one LLM. To use another model, choose another profile o
 
 ### Edit instructions in Markdown {#markdown-instructions}
 
-Agent and skill instructions share a Markdown editor. **Edit** shows the original text with syntax highlighting; **Preview** displays headings, lists and code blocks. **Expand editor** opens a larger view; press **Esc** or **Reduce editor** to return to the form. Switching views does not change the text. Use **Ctrl/Cmd + ]** to indent selected lines and **Ctrl/Cmd + [** to remove indentation. Save using the usual form.
+Agent and skill instructions share a block editor that is active by default. The formatting toolbar formats selected text; type **/** to insert a heading, list, quote, table or code block. **Markdown** shows the original source and **Preview** shows the result; press the same button again to return to the editor. **Expand editor** opens a larger view; press **Esc** or **Reduce editor** to return to the form. Switching views does not change the text. In Markdown mode, **Ctrl/Cmd + ]** indents selected lines and **Ctrl/Cmd + [** removes indentation. Save using the usual form.
 
 ## Expected result {#expected-result}
 

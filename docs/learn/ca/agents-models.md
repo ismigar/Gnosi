@@ -30,7 +30,7 @@ Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfi
 
 ### Edita les instruccions en Markdown {#markdown-instructions}
 
-Les instruccions dels agents i de les habilitats comparteixen un editor Markdown. **Editar** mostra el text original amb ressaltat de sintaxi; **Previsualització** mostra els títols, les llistes i els blocs de codi. El botó **Amplia l’editor** obre una vista més gran; prem **Esc** o **Redueix l’editor** per tornar al formulari. Canviar de vista no modifica el text. Per sagnar les línies seleccionades, utilitza **Ctrl/Cmd + ]**; per treure el sagnat, **Ctrl/Cmd + [**. Desa des del formulari habitual.
+Les instruccions dels agents i de les habilitats comparteixen un editor de blocs, actiu per defecte. La barra de format permet donar format al text seleccionat; escriu **/** per inserir un títol, una llista, una citació, una taula o un bloc de codi. **Markdown** mostra el text original i **Previsualització** mostra el resultat; prem el mateix botó de nou per tornar a l’editor. **Amplia l’editor** obre una vista més gran; prem **Esc** o **Redueix l’editor** per tornar al formulari. Canviar de vista no modifica el text. En el mode Markdown, **Ctrl/Cmd + ]** sagna les línies seleccionades i **Ctrl/Cmd + [** treu el sagnat. Desa des del formulari habitual.
 
 ## Resultat esperat {#expected-result}
 

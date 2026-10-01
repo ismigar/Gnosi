@@ -30,7 +30,7 @@ Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edit
 
 ### Edita las instrucciones en Markdown {#markdown-instructions}
 
-Las instrucciones de los agentes y las habilidades comparten un editor Markdown. **Editar** muestra el texto original con resaltado de sintaxis; **Vista previa** muestra los títulos, las listas y los bloques de código. **Ampliar el editor** abre una vista más grande; pulsa **Esc** o **Reducir el editor** para volver al formulario. Cambiar de vista no modifica el texto. Usa **Ctrl/Cmd + ]** para sangrar las líneas seleccionadas y **Ctrl/Cmd + [** para quitar la sangría. Guarda desde el formulario habitual.
+Las instrucciones de los agentes y las habilidades comparten un editor de bloques, activo por defecto. La barra de formato permite dar formato al texto seleccionado; escribe **/** para insertar un título, una lista, una cita, una tabla o un bloque de código. **Markdown** muestra el texto original y **Vista previa** muestra el resultado; pulsa el mismo botón de nuevo para volver al editor. **Ampliar el editor** abre una vista más grande; pulsa **Esc** o **Reducir el editor** para volver al formulario. Cambiar de vista no modifica el texto. En el modo Markdown, **Ctrl/Cmd + ]** sangra las líneas seleccionadas y **Ctrl/Cmd + [** quita la sangría. Guarda desde el formulario habitual.
 
 ## Resultado esperado {#expected-result}
 
