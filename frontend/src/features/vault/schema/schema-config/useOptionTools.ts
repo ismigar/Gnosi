@@ -24,7 +24,11 @@ export function useOptionTools(state: SchemaState, props: ResolvedProps) {
     };
     const enqueueMutation = <T,>(run: () => Promise<T>): Promise<T> => {
         const next = (optionMutationRef.current || Promise.resolve()).then(run);
-        optionMutationRef.current = next.catch(() => undefined);
+        const tail = next.catch(() => undefined);
+        optionMutationRef.current = tail;
+        void tail.then(() => {
+            if (optionMutationRef.current === tail) optionMutationRef.current = null;
+        });
         return next;
     };
     const optionTools: OptionTools = {
@@ -65,7 +69,7 @@ export function useOptionTools(state: SchemaState, props: ResolvedProps) {
             };
             // No record values need rewriting. Let the schema autosave coalesce
             // rapid local edits instead of scanning every file for each click.
-            if (!reference && usage === 0) {
+            if (!reference && usage === 0 && optionMutationRef.current === null) {
                 removeLocal();
                 return true;
             }
