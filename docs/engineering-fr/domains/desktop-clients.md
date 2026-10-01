@@ -34,6 +34,7 @@ source_paths:
   - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
+  - desktop/backend-proxy.js
   - desktop/preload.js
   - desktop/update-policy.js
   - desktop/sparkle-updater.js
@@ -67,6 +68,7 @@ tests:
   - desktop/vault-recovery.test.js
   - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
+  - desktop/backend-proxy.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
@@ -174,6 +176,20 @@ empêche de sortir des répertoires autorisés et utilise le magasin de cookies 
 la session au lieu de transmettre les en-têtes bruts de cookies du processus
 de rendu. Préservez ce comportement lors de la modification du routage ou des
 adaptateurs de diffusion en continu.
+
+Le module empaqueté `backend-proxy.js` limite les requêtes individuelles
+`GET /pages/:pageId/preview` à 15 secondes, y compris les en-têtes de réponse et
+le corps JSON complet. Un aperçu bloqué d’un fichier dans le cloud renvoie
+HTTP `504` et libère sa connexion HTTP : les aperçus de la galerie ne peuvent
+donc pas laisser l’enregistrement des vues indéfiniment en attente de connexions
+occupées. Ce délai n’interrompt pas une lecture bloquée du système de fichiers
+dans le backend et ne garantit pas la disponibilité des fichiers dans le cloud.
+
+L’annulation par le processus de rendu se propage aux requêtes vers le backend.
+Les autres réponses de l’API, y compris les flux des agents et les écritures,
+conservent leur durée et leur comportement de diffusion habituels. Le contrat
+d’empaquetage exige le module proxy ; les tests de régression couvrent six
+aperçus bloqués simultanés, les corps bloqués, l’annulation et les flux.
 
 Les huit gestionnaires extraits disposent de contrats de requête et de réponse
 vérifiés. Le remplissage de formulaires réside dans `ipc-handlers.js`, déjà inclus
