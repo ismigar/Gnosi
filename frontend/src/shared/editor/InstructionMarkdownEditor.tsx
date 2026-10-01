@@ -1,9 +1,8 @@
 import { lazy, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Code2, Maximize2, Minimize2 } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
-import { VaultMarkdown } from './VaultMarkdown';
 import { indentInstructionLines, instructionMarkdownTokens } from './instructionMarkdown';
 import './styles/instruction-markdown.css';
 
@@ -19,11 +18,11 @@ interface Props {
     readonly maxLength?: number;
 }
 
-/** A controlled Markdown source editor: preview never changes its original text. */
+/** Switching between visual and source editing preserves the original Markdown. */
 export function InstructionMarkdownEditor({ label, description, value, onChange, placeholder, disabled = false, maxLength }: Props) {
     const { t } = useTranslation();
     const id = useId();
-    const [mode, setMode] = useState<'edit' | 'source' | 'preview'>('edit');
+    const [mode, setMode] = useState<'edit' | 'source'>('edit');
     const [expanded, setExpanded] = useState(false);
     const textarea = useRef<HTMLTextAreaElement>(null);
     const highlighted = useRef<HTMLPreElement>(null);
@@ -62,9 +61,11 @@ export function InstructionMarkdownEditor({ label, description, value, onChange,
             <span className="settings-label" id={`${id}-label`}>{label}</span>
             <div className="instruction-markdown__actions" role="group" aria-label={t('instruction_editor.controls')}>
                 <button type="button" className={`btn-gnosi ${mode === 'source' ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'}`}
-                    aria-pressed={mode === 'source'} onClick={() => { setMode(current => current === 'source' ? 'edit' : 'source'); }}>Markdown</button>
-                <button type="button" className={`btn-gnosi ${mode === 'preview' ? 'btn-gnosi-primary' : 'btn-gnosi-secondary'}`}
-                    aria-pressed={mode === 'preview'} onClick={() => { setMode(current => current === 'preview' ? 'edit' : 'preview'); }}>{t('instruction_editor.preview')}</button>
+                    aria-label={t(mode === 'source' ? 'shell.switch_normal_view' : 'shell.switch_code_view')}
+                    title={t(mode === 'source' ? 'shell.switch_normal_view' : 'shell.switch_code_view')}
+                    aria-pressed={mode === 'source'} onClick={() => { setMode(current => current === 'source' ? 'edit' : 'source'); }}>
+                    <Code2 size={16} />
+                </button>
                 <button ref={expandButton} type="button" className="btn-gnosi btn-gnosi-secondary" aria-label={t(expanded ? 'instruction_editor.reduce' : 'instruction_editor.expand')}
                     title={t(expanded ? 'instruction_editor.reduce' : 'instruction_editor.expand')}
                     onClick={() => { setExpanded(current => !current); }}>
@@ -90,10 +91,7 @@ export function InstructionMarkdownEditor({ label, description, value, onChange,
                     highlighted.current.scrollLeft = event.currentTarget.scrollLeft;
                 }} />
         </div>
-        {mode === 'preview' && <div className="instruction-markdown__preview feed-md" role="region" aria-label={t('instruction_editor.preview')}>
-            {value ? <VaultMarkdown md={value} /> : <p>{t('instruction_editor.empty')}</p>}
-        </div>}
-        {mode !== 'preview' && <p className="instruction-markdown__help">{t(mode === 'edit' ? 'instruction_editor.rich_help' : 'instruction_editor.help')}</p>}
+        <p className="instruction-markdown__help">{t(mode === 'edit' ? 'instruction_editor.rich_help' : 'instruction_editor.help')}</p>
     </div>;
 
     return expanded ? createPortal(<div className="instruction-markdown__backdrop">
