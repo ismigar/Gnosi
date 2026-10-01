@@ -216,16 +216,16 @@ def test_table_has_social_column():
     assert not oc.table_has_social_column(_table([{"name": "XXSS", "type": "text"}]))
 
 
-def test_status_type_uses_one_global_catalog_and_migrates_local_options():
+def test_explicitly_linked_status_fields_keep_the_global_catalog():
     registry = {
         "tables": [
             _table([
                 {"id": "f1", "name": "Estat", "type": "status",
-                 "config": {"options": [{"name": "En revisió", "color": "red"}]}},
+                 "config": {"catalog_ref": "status"}},
             ]),
             _table([
                 {"id": "f2", "name": "Lifecycle", "type": "status",
-                 "config": {"options": ["Arxivat"]}},
+                 "config": {"catalog_ref": "status"}},
             ], translation_enabled=True),
         ],
         "option_catalogs": {oc.STATUS_CATALOG_REF: [{"name": "Custom", "color": "blue"}]},
@@ -234,7 +234,7 @@ def test_status_type_uses_one_global_catalog_and_migrates_local_options():
     assert oc.ensure_global_status_catalog(registry) is True
     assert registry["option_catalogs"][oc.STATUS_CATALOG_REF][0] == {"name": "Custom", "color": "blue"}
     names = oc.option_names(registry["option_catalogs"][oc.STATUS_CATALOG_REF])
-    assert names[:3] == ["Custom", "En revisió", "Arxivat"]
+    assert names[0] == "Custom"
     assert oc.STATUS_DRAFT in names
     assert oc.STATUS_REVIEWED in names
     assert oc.STATUS_TRANSLATED in names
@@ -253,3 +253,31 @@ def test_select_named_status_remains_table_local():
     assert oc.ensure_global_status_catalog(registry) is False
     assert "option_catalogs" not in registry
     assert "catalog_ref" not in registry["tables"][0]["properties"][0]["config"]
+
+
+def test_status_catalogs_remain_local_unless_explicitly_linked():
+    from copy import deepcopy
+
+    registry = {
+        "tables": [
+            _table([{"id": "a", "name": "Estat", "type": "status",
+                     "config": {"options": ["Pendent", "Fet"]}}]),
+            _table([{"id": "b", "name": "Estat", "type": "status",
+                     "config": {"options": ["Acceptat", "Rebutjat"]}}]),
+            _table([{"id": "c", "name": "Estat", "type": "status",
+                     "config": {"catalog_ref": "custom"}}]),
+            _table([{"id": "d", "name": "Estat", "type": "status",
+                     "config": {"catalog_ref": "status"}}]),
+        ],
+        "option_catalogs": {"status": ["Global"], "custom": ["Custom"]},
+    }
+    local_tables = deepcopy(registry["tables"][:3])
+    oc.ensure_global_status_catalog(registry)
+    assert registry["tables"][:3] == local_tables
+    assert oc.option_names(registry["option_catalogs"]["status"]) == [
+        "Global", oc.STATUS_DRAFT, oc.STATUS_REVIEWED,
+    ]
+    assert registry["option_catalogs"]["custom"] == ["Custom"]
+    for table in registry["tables"][:3]:
+        assert not oc.is_global_status_prop(table["properties"][0])
+    assert oc.is_global_status_prop(registry["tables"][3]["properties"][0])

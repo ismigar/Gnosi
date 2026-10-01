@@ -163,6 +163,8 @@ def test_effect_preserves_config_identity_and_normalizer_capture(
     prop: RegistryData = {"id": "status", "type": "status", "config": config}
     table: RegistryData = {"translation_enabled": True}
     monkeypatch.setattr(oc, "find_role_prop", lambda _table, _role: prop)
+    # Exercise the shared-catalog branch independently of malformed config input.
+    monkeypatch.setattr(oc, "is_global_status_prop", lambda _prop: True)
     monkeypatch.setattr(oc, "normalize_options", normalize)
     result = (
         ar.on_stale_effect(table)
@@ -184,6 +186,8 @@ def test_effect_keeps_native_config_failure(
     prop: RegistryData = {"type": "status", "config": config}
     table: RegistryData = {"translation_enabled": True}
     monkeypatch.setattr(oc, "find_role_prop", lambda _table, _role: prop)
+    # Exercise the shared-catalog branch independently of malformed config input.
+    monkeypatch.setattr(oc, "is_global_status_prop", lambda _prop: True)
     operation = (
         (lambda: ar.on_stale_effect(table))
         if stale

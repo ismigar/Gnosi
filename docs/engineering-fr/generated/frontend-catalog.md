@@ -48,7 +48,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Fichiers | Lignes | Références littérales à l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1148 | 128391 | 38 |
+| `features` | 1148 | 128411 | 38 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 270 | 31586 | 426 |
 
@@ -862,7 +862,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/editor/block-editor/page-editor/usePageLayout.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/usePageLayout.ts) | 156 | `usePageLayout` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/usePageLinks.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/usePageLinks.ts) | 237 | `usePageLinks` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/usePageMetadata.ts) | 214 | `usePageMetadata` | — |
-| [`frontend/src/features/vault/editor/block-editor/page-editor/usePageProperties.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/usePageProperties.ts) | 193 | `usePageProperties` | — |
+| [`frontend/src/features/vault/editor/block-editor/page-editor/usePageProperties.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/usePageProperties.ts) | 192 | `usePageProperties` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/usePropertyNavigation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/usePropertyNavigation.ts) | 250 | `usePropertyNavigation` | — |
 | [`frontend/src/features/vault/editor/block-editor/page-editor/valueBoundaries.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/page-editor/valueBoundaries.ts) | 66 | `arrayValues`, `dateValue`, `inputValue`, `isRecord`, `legacyText`, `periodInput`, `planningNotes`, `planningSettings`, `previewTitle`, `relationInput` | — |
 | [`frontend/src/features/vault/editor/block-editor/property-controls/MultiSelectPills.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/editor/block-editor/property-controls/MultiSelectPills.tsx) | 21 | `MultiSelectPills` | — |
@@ -1021,13 +1021,13 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | [`frontend/src/features/vault/schema/schema-config/useAiAction.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useAiAction.ts) | 77 | `useAiAction` | — |
 | [`frontend/src/features/vault/schema/schema-config/useDrupalCatalogs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useDrupalCatalogs.ts) | 60 | `useDrupalCatalogs` | — |
 | [`frontend/src/features/vault/schema/schema-config/useFeatureToggles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useFeatureToggles.ts) | 191 | `useFeatureToggles` | — |
-| [`frontend/src/features/vault/schema/schema-config/useOptionTools.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useOptionTools.ts) | 58 | `useOptionTools` | — |
-| [`frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts) | 58 | `useSchemaAutosave` | — |
+| [`frontend/src/features/vault/schema/schema-config/useOptionTools.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useOptionTools.ts) | 68 | `useOptionTools` | — |
+| [`frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts) | 67 | `useSchemaAutosave` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaConfig.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaConfig.ts) | 40 | `useSchemaConfig` | — |
-| [`frontend/src/features/vault/schema/schema-config/useSchemaEdits.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaEdits.ts) | 155 | `useSchemaEdits` | — |
-| [`frontend/src/features/vault/schema/schema-config/useSchemaInitialization.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaInitialization.ts) | 86 | `useSchemaInitialization` | — |
+| [`frontend/src/features/vault/schema/schema-config/useSchemaEdits.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaEdits.ts) | 154 | `useSchemaEdits` | — |
+| [`frontend/src/features/vault/schema/schema-config/useSchemaInitialization.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaInitialization.ts) | 87 | `useSchemaInitialization` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaKeyboard.ts) | 137 | `useSchemaKeyboard` | — |
-| [`frontend/src/features/vault/schema/schema-config/useSchemaState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaState.ts) | 52 | `useSchemaState` | — |
+| [`frontend/src/features/vault/schema/schema-config/useSchemaState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaState.ts) | 54 | `useSchemaState` | — |
 | [`frontend/src/features/vault/schema/schema-config/validate-schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/validate-schema.ts) | 13 | `validateSchema` | — |
 | [`frontend/src/features/vault/view-config/PageViewModal.test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/PageViewModal.test-harness.tsx) | 180 | `actAndFlush`, `existingView`, `renderModal`, `requireButton`, `requireContainer`, `requireElement`, `settle`, `updateInput` | — |
 | [`frontend/src/features/vault/view-config/PageViewModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/PageViewModal.tsx) | 8 | `PageViewModal` | — |

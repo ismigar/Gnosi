@@ -31,13 +31,23 @@ describe('schema configuration persistence contracts', () => {
 
     it('persists global status references without copying catalogs and retains shared defaults', () => {
         const fields = hydrateFields({
-            Status: 'status', Status_config: { id: 'fld_00000002', options: ['Open'], default_option: 'Outside' },
+            Status: 'status', Status_config: { id: 'fld_00000002', catalog_ref: 'status', options: ['Open'], default_option: 'Outside' },
             Tags: 'multi_select', Tags_config: { id: 'fld_00000003', options: ['one'], default_option: 'missing' },
         }, null);
         expect(buildPayload(fields, false).newSchemaObj).toEqual({
             Status: 'status', Status_config: { id: 'fld_00000002', catalog_ref: 'status', default_option: 'Outside' },
             Tags: 'multi_select', Tags_config: { id: 'fld_00000003', options: [expect.objectContaining({ name: 'one' })] },
         });
+    });
+
+    it('keeps independent status options when hydrating and saving two tables', () => {
+        for (const names of [['Pending', 'Done'], ['Accepted', 'Rejected']]) {
+            const fields = hydrateFields({ Status: 'status', Status_config: { id: 'fld_00000002', options: names } }, null);
+            expect(fields[0]?.catalogRef).toBe('');
+            expect(buildPayload(fields, false).newSchemaObj.Status_config).toMatchObject({
+                id: 'fld_00000002', options: names.map(name => ({ name })),
+            });
+        }
     });
 
     it('round-trips rollup, relation, virtual, period, file and display-format payloads', () => {
