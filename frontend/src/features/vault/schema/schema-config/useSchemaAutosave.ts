@@ -9,7 +9,7 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
     const { t } = useTranslation();
     const { isOpen, onSave, onSchemaUpdated, folder } = props;
     const {
-        initializedRef, isInitializedForSave, pendingSaveRef, activeSaveRef, savedCatalogRefsRef, fields, functionalities, enableSubitems,
+        saveErrorRef, initializedRef, isInitializedForSave, pendingSaveRef, activeSaveRef, savedCatalogRefsRef, fields, functionalities, enableSubitems,
         enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping,
     } = state;
     const scheduleSave = useEffectEvent(() => {
@@ -39,9 +39,11 @@ export function useSchemaAutosave(state: SchemaState, props: ResolvedProps, vali
                     } else {
                         await saveVaultFolderSchema(folder, newSchemaObj);
                     }
+                    saveErrorRef.current = null;
                     savedCatalogRefsRef.current = Object.fromEntries(fields.map(field => [field.id, field.catalogRef || '']));
                     void onSchemaUpdated?.(newSchemaObj);
                 } catch (err) {
+                    saveErrorRef.current = err;
                     console.error(err);
                     toast.error(t('schema.error_saving'));
                 }

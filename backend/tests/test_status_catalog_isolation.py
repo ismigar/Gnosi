@@ -4,6 +4,7 @@ import asyncio
 from contextlib import nullcontext
 from copy import deepcopy
 from unittest.mock import AsyncMock, Mock
+from types import SimpleNamespace
 
 import pytest
 
@@ -67,3 +68,31 @@ def test_status_mutations_rewrite_only_the_selected_catalog(monkeypatch, operati
     else:
         effective = registry["option_catalogs"]["status"]
     assert catalogs.option_names(effective) == (["Review", "Done"] if operation == "rename" else ["Done"])
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_usage_counts_only_records_in_the_selected_catalog(shared):
+    def table(identifier, linked):
+        return {"id": identifier, "properties": [{
+            "id": "field", "type": "status",
+            "config": {"catalog_ref": "status"} if linked else {"options": ["Open"]},
+        }]}
+
+    registry = {"tables": [table("current", shared), table("other-shared", True), table("other-local", False)]}
+    rows = {
+        "current": [SimpleNamespace(metadata={"field": "Done"})],
+        "other-shared": [SimpleNamespace(metadata={"field": "Open"})] * 3,
+        "other-local": [SimpleNamespace(metadata={"field": "Open"})] * 5,
+    }
+    pages_for_table = Mock(side_effect=lambda table_id: rows[table_id])
+    dependencies = SimpleNamespace(
+        load_registry=lambda: registry,
+        pages_for_table=pages_for_table,
+        is_global_status_prop=catalogs.is_global_status_prop,
+        read_prop_value=lambda metadata, prop: metadata.get(prop["id"]),
+    )
+    result = asyncio.run(options.table_option_usage("current", "field", dependencies))
+    assert result["counts"] == ({"Done": 1, "Open": 3} if shared else {"Done": 1})
+    assert [call.args[0] for call in pages_for_table.call_args_list] == (
+        ["current", "other-shared"] if shared else ["current"]
+    )
