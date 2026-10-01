@@ -341,7 +341,7 @@ El procesamiento excluye de las notas las portadas, los metadatos editoriales,
 las citas iniciales y los prólogos o prefacios, salvo petición explícita del
 usuario. La cobertura registra estos pasajes y se conservan como contexto.
 
-El Brain conserva `Posición` numérica y añade una relación única `Apartado` con
+El Brain conserva `Position` (Posición) numérica y añade una relación única `Section` (Apartado) con
 una tabla gestionada de apartados de las fuentes. Los encabezados originales
 conservan su jerarquía, texto e identidades distintas aunque no estén numerados
 o repitan título. Cada apartado pertenece a una fuente y un documento de entrada;

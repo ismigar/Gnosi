@@ -396,7 +396,7 @@ El processament exclou de les notes les portades, les metadades editorials, les
 cites inicials i els pròlegs o prefacis, tret que l'usuari els demani explícitament.
 La cobertura registra aquests passatges i es mantenen com a context.
 
-El Brain conserva `Posició` numèrica i afegeix una relació única `Apartat` amb una
+El Brain conserva `Position` (Posició) numèrica i afegeix una relació única `Section` (Apartat) amb una
 taula gestionada d'apartats de les fonts. Els encapçalaments originals conserven
 la jerarquia, el text i identificadors diferents encara que no estiguin numerats
 o repeteixin títol. Cada apartat pertany a una font i un document d'entrada; els
