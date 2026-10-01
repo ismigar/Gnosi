@@ -1,4 +1,13 @@
 {
+  "instruction_editor": {
+    "controls": "Controles del editor Markdown",
+    "edit": "Editar",
+    "preview": "Vista previa",
+    "expand": "Ampliar el editor",
+    "reduce": "Reducir el editor",
+    "empty": "Todavía no hay instrucciones.",
+    "help": "Escribe en Markdown. Ctrl/Cmd + ] sangra las líneas seleccionadas; Ctrl/Cmd + [ quita la sangría."
+  },
   "_meta": {
     "nativeName": "Español",
     "intlLocale": "es-ES",

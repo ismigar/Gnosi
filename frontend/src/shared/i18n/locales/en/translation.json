@@ -1,4 +1,13 @@
 {
+  "instruction_editor": {
+    "controls": "Markdown editor controls",
+    "edit": "Edit",
+    "preview": "Preview",
+    "expand": "Expand editor",
+    "reduce": "Reduce editor",
+    "empty": "No instructions yet.",
+    "help": "Write in Markdown. Ctrl/Cmd + ] indents selected lines; Ctrl/Cmd + [ removes indentation."
+  },
   "_meta": {
     "nativeName": "English",
     "intlLocale": "en-US",

@@ -28,6 +28,10 @@ Cada ficha tiene una rueda de configuración y, si no es el principal, **Hacer p
 
 Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
 
+### Edita las instrucciones en Markdown {#markdown-instructions}
+
+Las instrucciones de los agentes y las habilidades comparten un editor Markdown. **Editar** muestra el texto original con resaltado de sintaxis; **Vista previa** muestra los títulos, las listas y los bloques de código. **Ampliar el editor** abre una vista más grande; pulsa **Esc** o **Reducir el editor** para volver al formulario. Cambiar de vista no modifica el texto. Usa **Ctrl/Cmd + ]** para sangrar las líneas seleccionadas y **Ctrl/Cmd + [** para quitar la sangría. Guarda desde el formulario habitual.
+
 ## Resultado esperado {#expected-result}
 
 El agente responde con el contexto previsto y muestra las capacidades disponibles.

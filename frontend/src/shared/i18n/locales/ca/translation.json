@@ -1,4 +1,13 @@
 {
+  "instruction_editor": {
+    "controls": "Controls de l’editor Markdown",
+    "edit": "Editar",
+    "preview": "Previsualització",
+    "expand": "Amplia l’editor",
+    "reduce": "Redueix l’editor",
+    "empty": "Encara no hi ha instruccions.",
+    "help": "Escriu en Markdown. Ctrl/Cmd + ] sagna les línies seleccionades; Ctrl/Cmd + [ treu el sagnat."
+  },
   "_meta": {
     "nativeName": "Català",
     "intlLocale": "ca-ES",
