@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
+from backend.domains.vault.pages import patch_helpers, save_helpers
 from backend.domains.vault.pages.foundation_values import PageMetadata
 
 
@@ -64,3 +66,26 @@ def validate_source_section_metadata(metadata: PageMetadata, table: Mapping[obje
             for page in legacy_ports.table_pages(str(prop.get("relation_database_id") or ""))]
     normalize_assignment(metadata, prop, rows,
                          existing_section_id=str(state.get("llm_wiki_section_id") or ""))
+
+
+SectionValidator = Callable[[PageMetadata, PageMetadata | None, Path | None], None]
+
+
+def prepare_save_metadata(
+    metadata: PageMetadata, path: Path | None,
+    dependencies: save_helpers.SaveHelperDependencies, validate: SectionValidator,
+) -> tuple[PageMetadata, PageMetadata | None]:
+    """Compose complete-save normalization with source-scoped provenance checks."""
+    prepared, table = save_helpers.prepare_save_metadata(metadata, path, dependencies)
+    validate(prepared, table, path)
+    return prepared, table
+
+
+def prepare_patch_metadata(
+    metadata: PageMetadata, path: Path,
+    dependencies: patch_helpers.PatchHelperDependencies, validate: SectionValidator,
+) -> tuple[PageMetadata, PageMetadata | None]:
+    """Compose PATCH normalization with the same source-scoped provenance checks."""
+    prepared, table = patch_helpers.prepare_patch_metadata(metadata, path, dependencies)
+    validate(prepared, table, None)
+    return prepared, table

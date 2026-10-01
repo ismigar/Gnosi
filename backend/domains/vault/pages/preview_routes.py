@@ -9,6 +9,10 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 
+from backend.domains.llm_wiki.section_assignment import (
+    prepare_patch_metadata as prepare_section_patch_metadata,
+    prepare_save_metadata as prepare_section_save_metadata,
+)
 from backend.domains.vault.api.pages_commands import PatchHandler, SaveHandler
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.pages.patch_helpers import PatchReadResult
@@ -280,11 +284,9 @@ _SAVE_HELPER_DEPENDENCIES = _legacy.page_save_helpers.SaveHelperDependencies(
 def _prepare_save_metadata(
     metadata: PageMetadata, file_path: Path | None
 ) -> tuple[PageMetadata, PageMetadata | None]:
-    prepared, table = _legacy.page_save_helpers.prepare_save_metadata(
-        metadata, file_path, _SAVE_HELPER_DEPENDENCIES
+    return prepare_section_save_metadata(
+        metadata, file_path, _SAVE_HELPER_DEPENDENCIES, _validate_source_section
     )
-    _validate_source_section(prepared, table, file_path)
-    return prepared, table
 
 
 def _locate_save_file(
@@ -409,11 +411,9 @@ def _find_and_read_patch_page(
 def _prepare_patch_metadata(
     metadata: PageMetadata, file_path: Path
 ) -> tuple[PageMetadata, PageMetadata | None]:
-    prepared, table = _legacy.page_patch_helpers.prepare_patch_metadata(
-        metadata, file_path, _PATCH_HELPER_DEPENDENCIES
+    return prepare_section_patch_metadata(
+        metadata, file_path, _PATCH_HELPER_DEPENDENCIES, _validate_source_section
     )
-    _validate_source_section(prepared, table)
-    return prepared, table
 
 
 def _validate_source_section(metadata: PageMetadata, table: PageMetadata | None,
