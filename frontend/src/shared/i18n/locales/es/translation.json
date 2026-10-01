@@ -3743,7 +3743,9 @@
     "option_removed_rows_many": "{{count}} registros actualizados",
     "option_usage_many": "{{count}} registros usan esta opción",
     "option_renamed_many": "{{count}} registros actualizados",
-    "remove_option_in_use_many": "La opción «{{name}}» la usan {{count}} registros. ¿Qué hacemos con sus valores?"
+    "remove_option_in_use_many": "La opción «{{name}}» la usan {{count}} registros. ¿Qué hacemos con sus valores?",
+    "plugin_required_field": "Este campo es necesario para {{plugins}}. Puedes cambiarle el nombre, pero no eliminarlo ni cambiar su tipo.",
+    "plugin_required_option": "Esta opción es necesaria para el complemento. Puedes cambiarle el nombre, pero no eliminarla."
   },
   "translate": {
     "title": "Traducir fila",

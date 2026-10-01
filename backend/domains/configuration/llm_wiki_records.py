@@ -8,10 +8,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.domains.llm_wiki.brain_fields import role_id
+from backend.domains.llm_wiki.field_catalogs import catalog_value
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import RecordReader, is_object_list, is_record
 from backend.domains.vault.schemas.pages import PageInfo
-
+from backend.services.field_resolver import get_meta_value, to_response_names
+from backend.utils.open_values import iterable_values
 
 Metadata = PageMetadata
 SourceTitles = dict[tuple[str, str], str]
@@ -145,6 +148,25 @@ def normalize_brain_page_contract(
 ) -> bool:
     """Normalize visible note types, source cardinality, and source labels."""
     before = _serialized(metadata)
+    normalized = to_response_names(metadata, brain_table)
+    metadata.clear()
+    metadata.update(normalized)
+    for role in ("idea_type", "verification"):
+        field_id = role_id(brain_table, config, role)
+        prop = next(
+            (
+                p
+                for p in iterable_values(brain_table.get("properties") or [])
+                if is_record(p) and p.get("id") == field_id
+            ),
+            None,
+        )
+        if not prop:
+            continue
+        value = get_meta_value(metadata, brain_table, field_id)
+        option_map = _mapping(_mapping(prop.get("config")).get("plugin_option_values"))
+        if isinstance(value, str) and value in option_map:
+            metadata[str(prop.get("name"))] = catalog_value(prop, str(value))
     properties = _properties_by_id(brain_table)
     stored_kind, semantic_kind = _normalize_note_type(
         metadata,

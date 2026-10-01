@@ -7,6 +7,24 @@ import type { SchemaConfigModalProps } from './types';
 describe('SchemaConfigModal public behavior', { timeout: 15_000 }, () => {
     const modal = setupModal();
 
+    it('allows renaming a required plugin field while blocking removal and type changes', async () => {
+        const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
+        await modal.render({ onSave: save, currentSchema: {
+            ...baseSchema, Status_config: {
+                id: 'fld_00000002', plugin_roles: { 'llm-wiki': 'verification' },
+            },
+        } });
+        const remove = document.querySelector<HTMLButtonElement>('button[title="schema.plugin_required_field"]');
+        expect(remove?.disabled).toBe(true);
+        expect([...document.querySelectorAll<HTMLSelectElement>('select')]
+            .find(element => element.value === 'status')?.disabled).toBe(true);
+        await change(input('Status'), 'Evidence checked');
+        await advance();
+        expect(save.mock.calls.at(-1)?.[0]).toMatchObject({
+            'Evidence checked_config': { id: 'fld_00000002', plugin_roles: { 'llm-wiki': 'verification' } },
+        });
+    });
+
     it('hydrates before autosaving, keeps edits across parent rerenders and flushes the final payload', async () => {
         const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
         await modal.render({ onSave: save });

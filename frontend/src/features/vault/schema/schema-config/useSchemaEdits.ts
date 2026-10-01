@@ -51,6 +51,7 @@ export function useSchemaEdits(state: SchemaState, _props: ResolvedProps) {
             const newFields = [...currentFields];
             const currentField = newFields[index];
             if (!currentField) return currentFields;
+            if (key === 'type' && currentField.requiredBy?.length) return currentFields;
             const updatedField = { ...currentField };
             newFields[index] = updatedField;
             updatedField[key] = value;
@@ -105,13 +106,14 @@ export function useSchemaEdits(state: SchemaState, _props: ResolvedProps) {
         });
     };
     const handleRemoveField = (index: number) => {
+        if (fields[index]?.requiredBy?.length) return;
         const name = fields[index]?.name.trim() || t('schema.untitled_property', "unnamed");
         setConfirmRemoveField({ isOpen: true, index, name });
     };
 
     const executeRemoveField = () => {
         if (confirmRemoveField.index !== null) {
-            setFields((curr) => curr.filter((_, i) => i !== confirmRemoveField.index));
+            setFields((curr) => curr.filter((field, i) => i !== confirmRemoveField.index || !!field.requiredBy?.length));
         }
         setConfirmRemoveField({ isOpen: false, index: null, name: '' });
     };

@@ -3772,7 +3772,9 @@
     "rollup_latest": "Latest",
     "rollup_show_original": "Show original",
     "option_rename_error": "Could not rename the option in the records",
-    "type_zotero": "Zotero"
+    "type_zotero": "Zotero",
+    "plugin_required_field": "This field is required by {{plugins}}. You can rename it, but cannot delete it or change its type.",
+    "plugin_required_option": "This option is required by the plugin. You can rename it, but cannot delete it."
   },
   "translate": {
     "title": "Translate row",

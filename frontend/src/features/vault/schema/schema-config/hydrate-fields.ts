@@ -1,7 +1,7 @@
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from '../../../../shared/records/model/schemaUtils';
 import { normalizeOptions } from '../../../../shared/records/model/optionCatalogUtils';
 import { generateFieldId } from './field-id';
-import { readString, readNumberOrString, readFormat } from './readers';
+import { readString, readNumberOrString, readFormat, readRecord } from './readers';
 import type { Field } from './types';
 import type { VaultSchema } from '../../../../shared/records/model/schemaTypes';
 export function hydrateFields(currentSchema: VaultSchema | null | undefined, initialVisibleProperties: readonly string[] | null): Field[] {
@@ -29,6 +29,7 @@ export function hydrateFields(currentSchema: VaultSchema | null | undefined, ini
                     name_pattern: readString(cfg.name_pattern) || '',
                     translatable: !!cfg.translatable,
                     system: !!cfg.system,
+                    requiredBy: Object.keys(readRecord(cfg.plugin_roles)),
                     button_action: readString(cfg.button_action) || '',
                     button_label: readString(cfg.button_label) || '',
                     duration_enabled: cfg.duration_enabled !== false,

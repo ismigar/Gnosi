@@ -2575,7 +2575,9 @@
     "option_removed_rows_many": "{{count}} enregistrements mis à jour",
     "option_usage_many": "{{count}} enregistrements utilisent cette option",
     "option_renamed_many": "{{count}} enregistrements mis à jour",
-    "remove_option_in_use_many": "L'option « {{name}} » est utilisée par {{count}} enregistrements. Que faire de leurs valeurs ?"
+    "remove_option_in_use_many": "L'option « {{name}} » est utilisée par {{count}} enregistrements. Que faire de leurs valeurs ?",
+    "plugin_required_field": "Ce champ est nécessaire pour {{plugins}}. Vous pouvez le renommer, mais pas le supprimer ni modifier son type.",
+    "plugin_required_option": "Cette option est nécessaire pour le plugin. Vous pouvez la renommer, mais pas la supprimer."
   },
   "translate": {
     "title": "Traduire la ligne",

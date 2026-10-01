@@ -17,6 +17,7 @@ class PluginLifecycleRequest(BaseModel):
     """Explicit lifecycle request for a built-in or installed plugin."""
 
     enabled: bool
+    ui_locale: str | None = None
     confirm_dependencies: bool = False
     confirm_disable: bool = False
 
