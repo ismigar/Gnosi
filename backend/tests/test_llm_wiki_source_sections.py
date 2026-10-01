@@ -195,3 +195,21 @@ def test_assignment_and_hierarchy_filters_are_source_scoped() -> None:
         normalize_assignment(dict(metadata), prop, [{**row, "llm_wiki_section_stale": True}])
     normalize_assignment(dict(metadata), prop, [{**row, "llm_wiki_section_stale": True}], existing_section_id="child")
     normalize_assignment({**metadata, "Apartat": []}, prop, [row])
+
+
+def test_full_schema_upgrade_preserves_a_same_named_custom_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    from contextlib import nullcontext
+    from backend.api import vault_routes as facade
+    from backend.domains.vault.knowledge import schema_service
+    custom = {"id": "custom", "name": "Apartat", "type": "text"}
+    brain = {"id": "brain", "properties": [custom]}
+    registry = {"tables": [brain], "views": []}
+    monkeypatch.setattr(facade, "registry_mutation", nullcontext)
+    monkeypatch.setattr(facade, "load_registry", lambda: registry)
+    monkeypatch.setattr(facade, "save_registry", lambda value: None)
+    assert schema_service.ensure_brain_table_schema("brain", "ca") == 9
+    assert schema_service.ensure_brain_table_schema("brain", "ca") == 0
+    assert custom == {"id": "custom", "name": "Apartat", "type": "text"}
+    relation = next(p for p in brain["properties"] if p.get("config", {}).get("source_sections"))
+    assert relation["name"] != custom["name"]
+    assert schema_service._infer_brain_roles(brain)["section"] == relation["id"]

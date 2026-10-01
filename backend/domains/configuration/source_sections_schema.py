@@ -52,7 +52,7 @@ def ensure_source_sections(registry: RegistryData, brain: RegistryData, locale: 
             field = f"{field} ({table_name})"
         managed = {"id": str(uuid5(NAMESPACE_URL, f"gnosi:{brain_id}:section-property")),
                            "name": field, "type": "relation", "relation_database_id": table_id,
-                           "cardinality": "many-to-one", "config": {"source_sections": True}}
+                           "cardinality": "many-to-one", "config": {"source_sections": True, "plugin_roles": {"llm-wiki": "section"}}}
         properties.append(managed)
         changed = True
     elif managed.get("relation_database_id") != table_id:

@@ -35,7 +35,6 @@ _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
         {"ca": "Tipus d’idea", "en": "Idea type", "es": "Tipo de idea", "fr": "Type d’idée"},
     ),
     ("position", "number", {"ca": "Posició", "en": "Position", "es": "Posición", "fr": "Position"}),
-    ("section", "relation", {"ca": "Apartat", "en": "Section", "es": "Apartado", "fr": "Section"}),
     (
         "based_on",
         "relation",
@@ -105,11 +104,6 @@ def _brain_property(role: str, name: str, ptype: str, brain_table_id: str = "") 
     """Build a localized seed property while keeping relation targets stable."""
     prop: PageMetadata = {"id": str(_legacy.uuid.uuid4()), "name": name, "type": ptype}
     if ptype == "relation":
-        if role == "section":
-            from backend.domains.llm_wiki.source_structure import sections_table_id
-            prop["relation_database_id"] = sections_table_id(brain_table_id)
-            prop["cardinality"] = "many-to-one"
-            prop["config"] = {"source_sections": True}
         if role == "based_on":
             if brain_table_id:
                 prop["relation_database_id"] = brain_table_id
@@ -188,8 +182,11 @@ def ensure_brain_table_schema(
         registry = _legacy.load_registry()
         table = next((item for item in iterable_values(registry.get("tables"))
                       if is_record(item) and item.get("id") == table_id), None)
-        if table and ensure_source_sections(registry, table, locale):
-            _legacy.save_registry(registry)
+        if table:
+            previous_count = len(list(iterable_values(table.get("properties") or [])))
+            if ensure_source_sections(registry, table, locale):
+                added += len(list(iterable_values(table.get("properties") or []))) - previous_count
+                _legacy.save_registry(registry)
     return added
 
 
