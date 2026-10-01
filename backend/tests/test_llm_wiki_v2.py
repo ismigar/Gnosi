@@ -511,10 +511,10 @@ def test_document_extractors_keep_structured_locators(tmp_path: Path):
     pdf_segments = llm_wiki_extractors._extract_pdf(pdf_path)  # noqa: SLF001
 
     assert [segment["locator"]["line_start"] for segment in text_segments] == [1, 3, 5]
-    assert docx_segments == [{
-        "text": "DOCX paragraph evidence.",
-        "locator": {"section": "Section one", "paragraph": 1},
-    }]
+    assert len(docx_segments) == 1 and docx_segments[0]["text"] == "DOCX paragraph evidence."
+    assert docx_segments[0]["locator"]["section"] == "Section one"
+    assert docx_segments[0]["locator"]["paragraph"] == 1
+    assert docx_segments[0]["locator"]["section_path"][0]["title"] == "Section one"
     assert epub_segments[0]["locator"]["chapter"] == "Chapter one"
     assert epub_segments[0]["text"] == "EPUB paragraph evidence."
     assert pdf_segments[0]["locator"] == {"page": 1, "paragraph": 1}
@@ -1137,13 +1137,15 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
     from types import SimpleNamespace
     from backend.domains.llm_wiki.chunking import reading_chunks
     from backend.domains.llm_wiki.contextual_reading import fingerprint
+    from backend.domains.llm_wiki.source_structure import document_key
     from backend.services.llm_wiki_reading_runtime import token_bound
     monkeypatch.setattr("backend.services.llm_wiki_reading_runtime.prepare_reading_runtime",
                         lambda *_: SimpleNamespace(
                             generate=lambda *_a, **_k: pytest.fail("Matching reviewed checkpoint must be reused"),
                             identity="v2", metadata={}, input_budget=24000))
     revision = fingerprint(["v2", "Resource", "English", {}, [], [],
-                            reading_chunks([origin], budget=4800, count=token_bound)])
+                            reading_chunks([origin], budget=4800, count=token_bound),
+                            [document_key(origin)]])
     report = llm_wiki.process_resource(
         "resource-1",
         "Resource",

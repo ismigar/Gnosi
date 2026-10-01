@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-27
 source_paths:
+  - backend/domains/configuration/source_sections_schema.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
   - backend/services/llm_wiki.py
   - backend/services/llm_wiki_reading_runtime.py
@@ -37,6 +39,8 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_source_sections.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
   - backend/tests/test_llm_wiki_contextual_reading.py
   - backend/tests/test_llm_wiki_reading_runtime.py
@@ -330,3 +334,23 @@ Cuando la evidencia de una cita tiene vacía la dirección de la fuente, se util
 Cada fuente selecciona `assignment_field_ids` independientemente de `index_field_ids`. Si la lista no existe, se conserva el comportamiento anterior basado en índices; una lista vacía desactiva las asignaciones. Las reglas admiten `ai`, `source`, `fixed` y `empty`. Solo se pueden asignar campos editables. Los valores de IA siguen esquemas tipados y los valores categóricos deben pertenecer a las opciones existentes. La copia y los valores fijos conservan cero y falso; las reglas vacías borran el valor al reprocesar, mientras que eliminar una regla conserva los metadatos existentes.
 
 El resolvedor compartido `backend/domains/llm_wiki/options.py` consulta `config.catalog_ref` del vault activo antes de las opciones locales, de modo que la configuración y el procesamiento utilizan los mismos valores categóricos. Un `agent_id` antiguo vacío selecciona el agente principal. El editor espera que las reglas de copia y valor fijo estén completas antes de guardar. Las pruebas de regresión incluyen `backend/tests/test_llm_wiki_field_assignments.py` y `backend/tests/test_llm_wiki_processing_domain_contract.py`.
+
+## Apartados de las fuentes y paratexto
+
+El procesamiento excluye de las notas las portadas, los metadatos editoriales,
+las citas iniciales y los prólogos o prefacios, salvo petición explícita del
+usuario. La cobertura registra estos pasajes y se conservan como contexto.
+
+El Brain conserva `Posición` numérica y añade una relación única `Apartado` con
+una tabla gestionada de apartados de las fuentes. Los encabezados originales
+conservan su jerarquía, texto e identidades distintas aunque no estén numerados
+o repitan título. Cada apartado pertenece a una fuente y un documento de entrada;
+los selectores rechazan apartados de otras fuentes. Los filtros de igualdad
+seleccionan un apartado; los de inclusión también sus descendientes. Las páginas
+y marcas de tiempo permanecen en las citas. El audio y el vídeo utilizan los
+capítulos originales disponibles; no se inventan capítulos.
+
+La actualización del esquema conserva las notas y no inicia procesamiento.
+El reprocesamiento explícito asigna apartados y marca los desaparecidos como
+antiguos, conservando las relaciones históricas. La aplicación deriva las
+asignaciones de segmentos verificados, también al reanudar un punto revisado.

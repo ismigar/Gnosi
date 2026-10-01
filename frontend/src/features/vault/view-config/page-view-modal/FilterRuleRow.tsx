@@ -47,7 +47,10 @@ export function FilterRuleRow({ rule, onChange, onRemove, ctx }: { rule: FilterR
                 onChange={e => { onChange({ ...rule, operator: e.target.value }); }}
             >
                 {FILTER_OPERATORS.map(op => (
-                    <option key={op.value} value={op.value}>{t(`view.op_${op.value}`, op.label)}</option>
+                    <option key={op.value} value={op.value}>{meta?.config?.source_sections
+                        && ['contains', 'not_contains'].includes(op.value)
+                        ? t(`view.section_${op.value}`)
+                        : t(`view.op_${op.value}`, op.label)}</option>
                 ))}
             </select>
             <FilterValueControl rule={rule} meta={meta} relOpts={relOpts} onValue={v => { onChange({ ...rule, value: v }); }} t={t} />

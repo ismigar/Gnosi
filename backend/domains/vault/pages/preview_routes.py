@@ -280,9 +280,11 @@ _SAVE_HELPER_DEPENDENCIES = _legacy.page_save_helpers.SaveHelperDependencies(
 def _prepare_save_metadata(
     metadata: PageMetadata, file_path: Path | None
 ) -> tuple[PageMetadata, PageMetadata | None]:
-    return _legacy.page_save_helpers.prepare_save_metadata(
+    prepared, table = _legacy.page_save_helpers.prepare_save_metadata(
         metadata, file_path, _SAVE_HELPER_DEPENDENCIES
     )
+    _validate_source_section(prepared, table, file_path)
+    return prepared, table
 
 
 def _locate_save_file(
@@ -407,9 +409,25 @@ def _find_and_read_patch_page(
 def _prepare_patch_metadata(
     metadata: PageMetadata, file_path: Path
 ) -> tuple[PageMetadata, PageMetadata | None]:
-    return _legacy.page_patch_helpers.prepare_patch_metadata(
+    prepared, table = _legacy.page_patch_helpers.prepare_patch_metadata(
         metadata, file_path, _PATCH_HELPER_DEPENDENCIES
     )
+    _validate_source_section(prepared, table)
+    return prepared, table
+
+
+def _validate_source_section(metadata: PageMetadata, table: PageMetadata | None,
+                             file_path: Path | None = None) -> None:
+    from backend.domains.llm_wiki.section_assignment import section_property, validate_source_section_metadata
+    if table is None or section_property(table) is None:
+        return
+    if not metadata.get("id") and file_path is not None and file_path.exists():
+        original, _body = _legacy.parse_frontmatter(file_path.read_text(encoding="utf-8"), file_path)
+        metadata["id"] = original.get("id")
+    try:
+        validate_source_section_metadata(metadata, table or {})
+    except ValueError as error:
+        raise _legacy.HTTPException(status_code=400, detail=str(error)) from error
 
 
 def _relocate_patch_file(

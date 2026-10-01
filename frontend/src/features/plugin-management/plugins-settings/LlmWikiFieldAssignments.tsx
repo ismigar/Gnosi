@@ -29,7 +29,7 @@ export function LlmWikiFieldAssignments({ brainTable, draft, source, properties,
     const { t } = useTranslation();
     const tp = (key: string, fallback: string): string => t(`settings.plugins.${key}`, { defaultValue: fallback });
     const ids = source.assignment_field_ids ?? draft.index_field_ids;
-    const protectedIds = new Set(['note_type', 'position', 'verification', 'last_reviewed'].map(role => draft.brain_roles[role]));
+    const protectedIds = new Set(['note_type', 'position', 'section', 'verification', 'last_reviewed'].map(role => draft.brain_roles[role]));
     draft.source_tables.forEach(item => { protectedIds.add(item.relation_property_id); });
     const available = sortFieldItems(brainTable.properties.filter(prop => !protectedIds.has(prop.id)
         && !(prop.type === 'relation' && draft.source_tables.some(item => item.table_id === prop.relation_database_id))

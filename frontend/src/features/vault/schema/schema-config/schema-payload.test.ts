@@ -87,4 +87,16 @@ describe('schema configuration persistence contracts', () => {
         expect(validateSchema(fields, [], false, i18n.t)).toBe('schema.error_target_property_required');
         expect(field.id).toMatch(/^fld_[0-9a-f]{8}$/);
     });
+
+    it('preserves the source-section relation when editing its name', () => {
+        const fields = hydrateFields({ Apartat: 'relation', Apartat_config: {
+            id: 'fld_00000004', relation_database_id: 'sections', cardinality: 'many-to-one', source_sections: true,
+        } }, ['Apartat']);
+        const section = fields[0];
+        if (!section) throw new Error('Missing section field');
+        section.name = 'Chapter';
+        expect(buildPayload(fields, false).newSchemaObj.Chapter_config).toEqual({
+            id: 'fld_00000004', relation_database_id: 'sections', cardinality: 'many-to-one', source_sections: true,
+        });
+    });
 });

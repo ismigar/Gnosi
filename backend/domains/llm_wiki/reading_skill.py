@@ -7,7 +7,7 @@ Keep interpretive policy here; the worker only enforces budgets and contracts.
 from backend.services.agent_behavior import resource as behavior_resource
 
 SKILL_ID = "plugin.llm-wiki.process-source"
-SKILL_VERSION = "3"
+SKILL_VERSION = "4"
 
 INSTRUCTIONS = behavior_resource('skills/plugin.llm-wiki.process-source/SKILL.md')
 
