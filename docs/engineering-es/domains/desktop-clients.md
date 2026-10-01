@@ -34,6 +34,7 @@ source_paths:
   - frontend/src/app/navigation/sidebar/HelpMenu.tsx
   - desktop/backend-launch.js
   - desktop/main.js
+  - desktop/backend-proxy.js
   - desktop/preload.js
   - desktop/update-policy.js
   - desktop/sparkle-updater.js
@@ -67,6 +68,7 @@ tests:
   - desktop/vault-recovery.test.js
   - backend/tests/test_vault_recovery_identity.py
   - desktop/main-startup.test.js
+  - desktop/backend-proxy.test.js
   - desktop/ipc-handlers.test.js
   - desktop/packaging-resources.test.js
   - desktop/tests/test_backend_resources.py
@@ -170,6 +172,22 @@ la aplicación, impide salir de los directorios permitidos y usa el almacén de
 cookies de la sesión en lugar de reenviar las cabeceras de cookies sin procesar
 del proceso de renderizado. Conserva este comportamiento al modificar el
 enrutamiento o los adaptadores de transmisión en continuo.
+
+El módulo empaquetado `backend-proxy.js` limita las solicitudes individuales
+`GET /pages/:pageId/preview` a 15 segundos, incluidas las cabeceras de respuesta
+y todo el cuerpo JSON. Una vista previa bloqueada de un archivo en la nube
+devuelve HTTP `504` y libera su conexión HTTP, de modo que las vistas previas
+de la galería no pueden dejar el guardado de vistas indefinidamente a la espera
+de conexiones ocupadas. Este límite no interrumpe una lectura bloqueada del
+sistema de archivos en el backend ni garantiza la disponibilidad de los archivos
+en la nube.
+
+La cancelación del proceso de renderizado se propaga a las solicitudes al
+backend. Las demás respuestas de la API, incluidas las transmisiones de los
+agentes y las escrituras, conservan su duración y comportamiento de transmisión
+habituales. El contrato de empaquetado exige el módulo proxy; las pruebas de
+regresión cubren seis vistas previas bloqueadas simultáneas, cuerpos bloqueados,
+cancelación y transmisiones en continuo.
 
 Los ocho gestores extraídos tienen contratos de solicitud y respuesta comprobados.
 El rellenado de formularios reside en `ipc-handlers.js`, ya incluido en el paquete;

@@ -111,6 +111,7 @@ test('the packaged archive check accepts normalized Windows entries', () => {
     '\\microsoft-sign-in.js',
     '\\ipc-handlers.js',
     '\\backend-process.js',
+    '\\backend-proxy.js',
     '\\vault-folders.js',
     '\\installer-cleanup.js',
     '\\vault-startup.js',
