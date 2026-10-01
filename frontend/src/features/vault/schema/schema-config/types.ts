@@ -103,7 +103,7 @@ export interface OptionTools {
     sharedCatalogs: Catalogs;
     fetchUsage?: ((fieldId: string) => Promise<Record<string, number>>) | null;
     renameEverywhere?: ((fieldId: string, oldValue: string, newValue: string, usage?: number | null) => Promise<unknown>) | null;
-    removeEverywhere?: ((fieldId: string, value: string, reassignTo: string | null) => Promise<unknown>) | null;
+    removeEverywhere?: ((fieldId: string, value: string, reassignTo: string | null, usage?: number | null) => Promise<boolean>) | null;
     updateSharedCatalog?: (name: string, options: NormalizedOption[]) => Promise<void>;
 }
 export interface RemoveOptionState {
@@ -131,6 +131,7 @@ export interface OptionRowProps {
     groups: string[];
     usageCount?: number;
     isDefault: boolean;
+    isRemoving?: boolean;
     onRename: (oldName: string, newName: string) => void;
     onRemove: (name: string) => void;
     onSetColor: (name: string, color: OptionColorName) => void;

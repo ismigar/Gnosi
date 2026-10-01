@@ -12,6 +12,7 @@ import { RemoveOptionDialog } from './RemoveOptionDialog';
 import type { OptionsEditorProps, RemoveOptionState } from './types';
 export function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }: OptionsEditorProps) {
     const { t } = useTranslation();
+    const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(new Set());
     const [newOption, setNewOption] = useState('');
     const usageScope = JSON.stringify([optionTools?.tableId, fieldId, fieldType, catalogRef]);
     const [usageSnapshot, setUsageSnapshot] = useState<{ scope: string; counts: Record<string, number> } | null>(null);
@@ -97,12 +98,13 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
     // Local options only affect this table. Ask about record values only when
     // the option is in use (or usage could not be determined).
     const requestRemoveOption = (val: string) => {
+        if (pendingRemovals.has(val)) return;
         if (isShared && !isGlobalStatus) {
             toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
             return;
         }
         if (!isShared && usage !== null && !usage[val]) {
-            removeOption(val, null);
+            void removeOption(val, null);
             return;
         }
         setConfirmRemove({
@@ -114,17 +116,28 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
                 : '',
         });
     };
-    const removeOption = (val: string, reassignTo: string | null) => {
-        if (!isGlobalStatus) onChange(richOptions.filter((o) => o.name !== val));
-        if (defaultOption === val) onDefaultOptionChange?.('');
-        void optionTools?.removeEverywhere?.(fieldId, val, reassignTo);
-        if (usage) {
-            setUsageSnapshot((snapshot) => {
-                if (!snapshot || snapshot.scope !== usageScope) return snapshot;
-                const next = { ...snapshot.counts };
-                if (reassignTo && next[val]) next[reassignTo] = (next[reassignTo] || 0) + next[val];
-                Reflect.deleteProperty(next, val);
-                return { scope: usageScope, counts: next };
+    const removeOption = async (val: string, reassignTo: string | null) => {
+        setPendingRemovals(current => new Set([...current, val]));
+        try {
+            if (optionTools?.removeEverywhere) {
+                const removed = await optionTools.removeEverywhere(fieldId, val, reassignTo, usage ? (usage[val] || 0) : null);
+                if (!removed) return;
+            } else if (!isGlobalStatus) onChange(richOptions.filter((o) => o.name !== val));
+            if (defaultOption === val) onDefaultOptionChange?.('');
+            if (usage) {
+                setUsageSnapshot((snapshot) => {
+                    if (!snapshot || snapshot.scope !== usageScope) return snapshot;
+                    const next = { ...snapshot.counts };
+                    if (reassignTo && next[val]) next[reassignTo] = (next[reassignTo] || 0) + next[val];
+                    Reflect.deleteProperty(next, val);
+                    return { scope: usageScope, counts: next };
+                });
+            }
+        } finally {
+            setPendingRemovals(current => {
+                const next = new Set(current);
+                next.delete(val);
+                return next;
             });
         }
     };
@@ -132,7 +145,7 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
     const executeRemoveOption = (reassignTo: string | null) => {
         const val = confirmRemove.value;
         setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
-        if (val !== null) removeOption(val, reassignTo);
+        if (val !== null) void removeOption(val, reassignTo);
     };
 
     const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -193,6 +206,7 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
                                         fieldType={fieldType}
                                         groups={groups}
                                         usageCount={usage ? (usage[opt.name] || 0) : undefined}
+                                        isRemoving={pendingRemovals.has(opt.name)}
                                         isDefault={defaultOption === opt.name}
                                         onRename={renameOption}
                                         onRemove={requestRemoveOption}

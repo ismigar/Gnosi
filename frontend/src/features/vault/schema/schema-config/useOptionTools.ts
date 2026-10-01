@@ -8,15 +8,24 @@ import { apiErrorDetail, readCounts } from './readers';
 import type { OptionTools } from './types';
 export function useOptionTools(state: SchemaState, props: ResolvedProps) {
     const { t } = useTranslation();
-    const { sharedCatalogs, setSharedCatalogs, fields, pendingSaveRef, activeSaveRef, savedCatalogRefsRef } = state;
+    const { sharedCatalogs, setSharedCatalogs, fields, setFields, saveErrorRef, optionMutationRef, pendingSaveRef, activeSaveRef, savedCatalogRefsRef } = state;
     const { tableId } = props;
     const ensureCatalogSaved = async (fieldId: string) => {
         const reference = fields.find(field => field.id === fieldId)?.catalogRef || '';
         await pendingSaveRef.current?.();
         await activeSaveRef.current;
+        if (saveErrorRef.current) {
+            const error = saveErrorRef.current;
+            throw error instanceof Error ? error : new Error(apiErrorDetail(error, t('schema.error_saving')));
+        }
         if (savedCatalogRefsRef.current[fieldId] !== reference) {
             throw new Error(t('schema.error_saving'));
         }
+    };
+    const enqueueMutation = <T,>(run: () => Promise<T>): Promise<T> => {
+        const next = (optionMutationRef.current || Promise.resolve()).then(run);
+        optionMutationRef.current = next.catch(() => undefined);
+        return next;
     };
     const optionTools: OptionTools = {
         sharedCatalogs,
@@ -46,19 +55,35 @@ export function useOptionTools(state: SchemaState, props: ResolvedProps) {
                 toast.error(apiErrorDetail(err, t('schema.option_rename_error', "Could not rename the option in the records")));
             }
         } : null,
-        removeEverywhere: tableId ? async (fieldId, value, reassignTo) => {
-            if (!fieldId) return;
+        removeEverywhere: tableId ? async (fieldId, value, reassignTo, usage) => {
+            if (!fieldId) return false;
+            const reference = fields.find(field => field.id === fieldId)?.catalogRef || '';
+            const removeLocal = () => {
+                setFields(current => current.map(field => field.id === fieldId && !field.catalogRef
+                    ? { ...field, options: field.options.filter(option => option.name !== value), defaultOption: field.defaultOption === value ? '' : field.defaultOption }
+                    : field));
+            };
+            // No record values need rewriting. Let the schema autosave coalesce
+            // rapid local edits instead of scanning every file for each click.
+            if (!reference && usage === 0) {
+                removeLocal();
+                return true;
+            }
             try {
-                await ensureCatalogSaved(fieldId);
-                const data = await removeTableOption(tableId, fieldId, value, reassignTo || undefined);
-                const n = typeof data.files_changed === 'number' ? data.files_changed : 0;
-                if (Array.isArray(data.options)) {
-                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: normalizeOptions(data.options) }));
-                }
-                if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: "{{count}} records updated" }));
-                return data;
+                return await enqueueMutation(async () => {
+                    await ensureCatalogSaved(fieldId);
+                    const data = await removeTableOption(tableId, fieldId, value, reassignTo || undefined);
+                    const n = typeof data.files_changed === 'number' ? data.files_changed : 0;
+                    if (Array.isArray(data.options)) {
+                        setSharedCatalogs(prev => ({ ...prev, [STATUS_CATALOG_REF]: normalizeOptions(data.options) }));
+                    }
+                    if (!reference) removeLocal();
+                    if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: "{{count}} records updated" }));
+                    return true;
+                });
             } catch (err) {
                 toast.error(apiErrorDetail(err, t('schema.option_remove_error', "Could not remove the option from the records")));
+                return false;
             }
         } : null,
         updateSharedCatalog: async (name, options) => {
