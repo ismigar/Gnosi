@@ -41,8 +41,7 @@ def test_schema_dependency_keeps_late_registry_and_property_callbacks(
 
     def new_property(role: str, name: str, ptype: str, brain_table_id: str = "") -> RegistryData:
         events.append(role)
-        return {"id": role, "name": name, "type": ptype, "extension": opaque,
-                **({"config": {"source_sections": True}} if role == "section" else {})}
+        return {"id": role, "name": name, "type": ptype, "extension": opaque}
 
     monkeypatch.setattr(facade, "registry_mutation", mutation)
     monkeypatch.setattr(facade, "load_registry", lambda: registry)
