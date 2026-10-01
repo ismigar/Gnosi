@@ -2634,7 +2634,7 @@
           "notification": "Notification"
         },
         "customize": "Customize",
-        "customize_help": "Create your own editable version. The original is preserved. Nothing is created until you save.",
+        "customize_help": "Create your own editable version. Changes save automatically when you start editing it.",
         "compare_original": "Compare with the original",
         "edit_permission": "An administrator can edit or customize these skills.",
         "instructions_help": "These are the actual instructions given to the agent. Describe the goal, steps, expected result and limits. Tool permissions remain enforced.",

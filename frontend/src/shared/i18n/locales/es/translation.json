@@ -2598,7 +2598,7 @@
           "notification": "Notificación"
         },
         "customize": "Personaliza",
-        "customize_help": "Crea una versión propia editable. Se conserva el original. No se crea nada hasta guardar.",
+        "customize_help": "Crea tu propia versión editable. Los cambios se guardan automáticamente cuando empiezas a modificarla.",
         "compare_original": "Compara con el original",
         "edit_permission": "Un administrador puede editar o personalizar estas habilidades.",
         "instructions_help": "Estas son las instrucciones reales que recibe el agente. Describe el objetivo, los pasos, el resultado esperado y los límites. Se mantienen los permisos de las herramientas.",
