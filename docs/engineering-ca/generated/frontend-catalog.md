@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1148 | 128411 | 38 |
+| `features` | 1149 | 128478 | 38 |
 | `generated` | 2 | 48148 | 495 |
 | `shared` | 270 | 31586 | 426 |
 
@@ -694,7 +694,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/content/insert-content/insertContentTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/content/insert-content/insertContentTypes.ts) | 132 | — | — |
 | [`frontend/src/features/vault/content/insert-content/useInsertContentController.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/content/insert-content/useInsertContentController.ts) | 367 | `useInsertContentController` | — |
 | [`frontend/src/features/vault/dashboard/BrowseDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/BrowseDialogs.tsx) | 140 | `BrowseDialogs` | — |
-| [`frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx) | 154 | `ConfigurationDialogs` | — |
+| [`frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfigurationDialogs.tsx) | 79 | `ConfigurationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/ConfirmationDialogs.tsx) | 108 | `ConfirmationDialogs` | — |
 | [`frontend/src/features/vault/dashboard/Dashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/Dashboard.tsx) | 56 | `Dashboard`, `function` | — |
 | [`frontend/src/features/vault/dashboard/DashboardContent.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardContent.tsx) | 149 | `DashboardContent` | — |
@@ -702,6 +702,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/dashboard/DashboardWelcome.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/DashboardWelcome.tsx) | 28 | `DashboardWelcome` | — |
 | [`frontend/src/features/vault/dashboard/EditorPane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/EditorPane.tsx) | 163 | `EditorPane` | — |
 | [`frontend/src/features/vault/dashboard/TablePane.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TablePane.tsx) | 142 | `TablePane` | — |
+| [`frontend/src/features/vault/dashboard/TableSchemaDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/TableSchemaDialog.tsx) | 79 | `TableSchemaDialog` | — |
 | [`frontend/src/features/vault/dashboard/__tests__/controller-support.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/__tests__/controller-support.tsx) | 47 | `renderController` | — |
 | [`frontend/src/features/vault/dashboard/consumer-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/consumer-readers.ts) | 12 | `viewTables` | — |
 | [`frontend/src/features/vault/dashboard/editor-readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/dashboard/editor-readers.ts) | 48 | `editorMetadata`, `editorNote`, `editorTable` | — |
@@ -1004,11 +1005,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/schema/schema-config/FunctionalitiesSection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/FunctionalitiesSection.tsx) | 49 | `FunctionalitiesSection` | — |
 | [`frontend/src/features/vault/schema/schema-config/FunctionalityEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/FunctionalityEditor.tsx) | 117 | `FunctionalityEditor` | — |
 | [`frontend/src/features/vault/schema/schema-config/HelpToggleHint.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/HelpToggleHint.tsx) | 23 | `HelpToggleHint` | — |
-| [`frontend/src/features/vault/schema/schema-config/OptionsEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/OptionsEditor.tsx) | 267 | `OptionsEditor` | — |
+| [`frontend/src/features/vault/schema/schema-config/OptionsEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/OptionsEditor.tsx) | 287 | `OptionsEditor` | — |
 | [`frontend/src/features/vault/schema/schema-config/RemoveOptionDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/RemoveOptionDialog.tsx) | 57 | `RemoveOptionDialog` | — |
 | [`frontend/src/features/vault/schema/schema-config/SchemaConfigDialog.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/SchemaConfigDialog.tsx) | 134 | `SchemaConfigDialog` | — |
 | [`frontend/src/features/vault/schema/schema-config/SortableField.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/SortableField.tsx) | 204 | `SortableField` | — |
-| [`frontend/src/features/vault/schema/schema-config/SortableOptionRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/SortableOptionRow.tsx) | 108 | `SortableOptionRow` | — |
+| [`frontend/src/features/vault/schema/schema-config/SortableOptionRow.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/SortableOptionRow.tsx) | 109 | `SortableOptionRow` | — |
 | [`frontend/src/features/vault/schema/schema-config/TableSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/TableSettings.tsx) | 96 | `TableSettings` | — |
 | [`frontend/src/features/vault/schema/schema-config/constants.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/constants.ts) | 38 | `ASSIGNMENT_DATETIME_TYPES`, `ASSIGNMENT_DATE_TYPES`, `ASSIGNMENT_NUMERIC_TYPES`, `FUNCTIONALITY_ACTIONS`, `OPTION_FIELD_TYPES`, `ROLLUP_AGGREGATIONS`, `RULE_PROTECTED_OPTIONS`, `TRANSLATABLE_FIELD_TYPES` | — |
 | [`frontend/src/features/vault/schema/schema-config/field-id.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/field-id.ts) | 14 | `generateFieldId`, `generateFunctionalityId` | — |
@@ -1017,17 +1018,17 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/vault/schema/schema-config/readers.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/readers.ts) | 71 | `apiErrorDetail`, `readActionConfig`, `readCatalogs`, `readCounts`, `readFormat`, `readNumberOrString`, `readRecord`, `readString`, `readStringArray` | — |
 | [`frontend/src/features/vault/schema/schema-config/schema-payload.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/schema-payload.ts) | 126 | `buildPayload` | — |
 | [`frontend/src/features/vault/schema/schema-config/test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/test-harness.tsx) | 110 | `advance`, `baseSchema`, `button`, `change`, `click`, `input`, `interact`, `key`, `setupModal` | — |
-| [`frontend/src/features/vault/schema/schema-config/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/types.ts) | 185 | — | — |
+| [`frontend/src/features/vault/schema/schema-config/types.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/types.ts) | 187 | — | — |
 | [`frontend/src/features/vault/schema/schema-config/useAiAction.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useAiAction.ts) | 77 | `useAiAction` | — |
 | [`frontend/src/features/vault/schema/schema-config/useDrupalCatalogs.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useDrupalCatalogs.ts) | 60 | `useDrupalCatalogs` | — |
 | [`frontend/src/features/vault/schema/schema-config/useFeatureToggles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useFeatureToggles.ts) | 191 | `useFeatureToggles` | — |
-| [`frontend/src/features/vault/schema/schema-config/useOptionTools.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useOptionTools.ts) | 68 | `useOptionTools` | — |
-| [`frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts) | 67 | `useSchemaAutosave` | — |
+| [`frontend/src/features/vault/schema/schema-config/useOptionTools.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useOptionTools.ts) | 104 | `useOptionTools` | — |
+| [`frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaAutosave.ts) | 69 | `useSchemaAutosave` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaConfig.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaConfig.ts) | 40 | `useSchemaConfig` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaEdits.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaEdits.ts) | 154 | `useSchemaEdits` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaInitialization.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaInitialization.ts) | 87 | `useSchemaInitialization` | — |
 | [`frontend/src/features/vault/schema/schema-config/useSchemaKeyboard.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaKeyboard.ts) | 137 | `useSchemaKeyboard` | — |
-| [`frontend/src/features/vault/schema/schema-config/useSchemaState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaState.ts) | 54 | `useSchemaState` | — |
+| [`frontend/src/features/vault/schema/schema-config/useSchemaState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/useSchemaState.ts) | 56 | `useSchemaState` | — |
 | [`frontend/src/features/vault/schema/schema-config/validate-schema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/schema/schema-config/validate-schema.ts) | 13 | `validateSchema` | — |
 | [`frontend/src/features/vault/view-config/PageViewModal.test-harness.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/PageViewModal.test-harness.tsx) | 180 | `actAndFlush`, `existingView`, `renderModal`, `requireButton`, `requireContainer`, `requireElement`, `settle`, `updateInput` | — |
 | [`frontend/src/features/vault/view-config/PageViewModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/vault/view-config/PageViewModal.tsx) | 8 | `PageViewModal` | — |

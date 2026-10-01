@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { OPTION_COLOR_PALETTE, optionColorHex } from '../../../../shared/records/model/optionCatalogUtils';
 import type { OptionRowProps } from './types';
-export function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, onRename, onRemove, onSetColor, onSetGroup, onSetDefault }: OptionRowProps) {
+export function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, isRemoving = false, onRename, onRemove, onSetColor, onSetGroup, onSetDefault }: OptionRowProps) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option.name });
     // The row is remounted via key={option.name} when the option is renamed, so
@@ -97,6 +97,7 @@ export function SortableOptionRow({ option, fieldType, groups, usageCount, isDef
             </button>
             <button
                 type="button"
+                disabled={isRemoving}
                 onClick={() => { onRemove(option.name); }}
                 className="btn-gnosi-danger !p-1"
                 title={t('common.delete', "Delete")}
