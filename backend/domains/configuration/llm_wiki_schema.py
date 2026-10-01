@@ -6,9 +6,34 @@ import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+
+from backend.domains.llm_wiki.field_catalogs import ensure_catalog
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.domains.vault.tables.catalogs.core import get_prop_options
+from backend.services.plugin_fields import bind, bindings
 from backend.utils.open_values import iterable_values
+
+
+def _semantic_mapping(prop: Metadata) -> object:
+    config = prop.get("config")
+    values = config.get("plugin_option_values") if is_record(config) else None
+    return dict(values) if is_record(values) else None
+
+
+def _contract_state(properties: list[Metadata]) -> list[object]:
+    return [
+        (
+            prop.get("id"),
+            prop.get("name"),
+            prop.get("cardinality"),
+            list(iterable_values(prop.get("aliases") or [])),
+            bindings(prop),
+            get_prop_options(prop),
+            _semantic_mapping(prop),
+        )
+        for prop in properties
+    ]
 
 
 Metadata = RegistryData
@@ -50,15 +75,75 @@ def _add_missing_properties(
     locale: str,
     properties: list[Metadata],
     dependencies: BrainSchemaDependencies,
+    property_id_hints: dict[str, str],
 ) -> int:
-    existing = {dependencies.schema_token(prop.get("name")) for prop in properties}
     added = 0
     for role, name, property_type in dependencies.schema(locale):
-        if dependencies.role_tokens(role) & existing:
-            continue
-        properties.append(dependencies.new_property(role, name, property_type, table_id))
-        existing.add(dependencies.schema_token(name))
-        added += 1
+        tokens = dependencies.role_tokens(role)
+        hints = {property_id_hints[token] for token in tokens if token in property_id_hints}
+        candidate = next(
+            (prop for prop in properties if bindings(prop).get("llm-wiki") == role), None
+        )
+        candidate = candidate or next(
+            (prop for prop in properties if prop.get("id") in hints), None
+        )
+        candidate = candidate or next(
+            (
+                prop
+                for prop in properties
+                if tokens
+                & {
+                    dependencies.schema_token(value)
+                    for value in [prop.get("name"), *iterable_values(prop.get("aliases") or [])]
+                }
+            ),
+            None,
+        )
+        if candidate is None:
+            candidate = dependencies.new_property(role, name, property_type, table_id)
+            properties.append(candidate)
+            added += 1
+        elif (
+            not bindings(candidate).get("llm-wiki")
+            and candidate.get("name")
+            == next(
+                (item[1] for item in dependencies.schema("en") if item[0] == role),
+                "",
+            )
+            and candidate.get("name") != name
+        ):
+            # Repair fields previously seeded in English regardless of the UI.
+            # Once bound, future language changes preserve every displayed name.
+            candidate["aliases"] = [
+                *iterable_values(candidate.get("aliases") or []),
+                candidate["name"],
+            ]
+            candidate["name"] = name
+        # Optional organizational dimensions are selectable in settings. Core
+        # processing fields retain their role even after arbitrary renames.
+        if role not in {"areas", "tags"}:
+            bind(candidate, "llm-wiki", role)
+            from backend.domains.llm_wiki.brain_fields import LEGACY_NAMES
+
+            aliases = list(iterable_values(candidate.get("aliases") or []))
+            names = [
+                item[1]
+                for lang in ("ca", "en", "es", "fr")
+                for item in dependencies.schema(lang)
+                if item[0] == role
+            ]
+            for alias in [*names, *LEGACY_NAMES.get(role, ())]:
+                if (
+                    alias != candidate.get("name")
+                    and alias not in aliases
+                    and not any(
+                        prop is not candidate and prop.get("name") == alias for prop in properties
+                    )
+                ):
+                    aliases.append(alias)
+            if aliases:
+                candidate["aliases"] = aliases
+        ensure_catalog(candidate, role, locale)
     return added
 
 
@@ -92,7 +177,10 @@ def _repair_based_on_relations(
     for prop in properties:
         if prop.get("type") != "relation":
             continue
-        if dependencies.schema_token(prop.get("name")) not in based_on_tokens:
+        if (
+            bindings(prop).get("llm-wiki") != "based_on"
+            and dependencies.schema_token(prop.get("name")) not in based_on_tokens
+        ):
             continue
         if not prop.get("relation_database_id"):
             prop["relation_database_id"] = table_id
@@ -119,14 +207,17 @@ def ensure_brain_table_schema(
             return 0
         raw_properties = table.setdefault("properties", [])
         properties = [prop for prop in iterable_values(raw_properties) if is_record(prop)]
-        added = _add_missing_properties(table_id, locale, properties, dependencies)
+        before = _contract_state(properties)
+        added = _add_missing_properties(
+            table_id, locale, properties, dependencies, property_id_hints or {}
+        )
         repaired = _repair_property_ids(
             properties,
             property_id_hints or {},
             dependencies,
         )
         repaired += _repair_based_on_relations(table_id, properties, dependencies)
-        if added or repaired:
+        if added or repaired or before != _contract_state(properties):
             table["properties"] = properties
             dependencies.save_registry(registry)
             dependencies.logger.info(
@@ -149,10 +240,12 @@ def _compatible_relations(
         for prop in properties
         if prop.get("type") == "relation"
         and str(prop.get("relation_database_id") or "") == source_table_id
+        and bindings(prop).get("llm-wiki") != "based_on"
         and dependencies.schema_token(prop.get("name")) not in based_on_tokens
     ]
     compatible.sort(
         key=lambda prop: (
+            bindings(prop).get("llm-wiki") != f"source:{source_table_id}",
             dependencies.schema_token(prop.get("name")) not in dependencies.source_singular_tokens,
             dependencies.schema_token(prop.get("name")) in dependencies.source_plural_tokens,
         )
@@ -314,6 +407,7 @@ def ensure_brain_source_relation(
             dependencies,
         )
         changed = normalized or changed
+        changed = bind(canonical, "llm-wiki", f"source:{source_table_id}") or changed
         source_names.add(canonical_name)
         changed = (
             _merge_duplicates(

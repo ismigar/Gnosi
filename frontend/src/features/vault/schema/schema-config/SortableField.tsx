@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Languages, Globe, Trash2 } from 'lucide-react';
 import { OPTION_FIELD_TYPES, TRANSLATABLE_FIELD_TYPES } from './constants';
 import { OptionsEditor } from './OptionsEditor';
-import { readStringArray } from './readers';
+import { readStringArray, readRecord } from './readers';
 import { FieldFormats } from './FieldFormats';
 import { ButtonFieldConfig } from './ButtonFieldConfig';
 import { FilesFieldConfig } from './FilesFieldConfig';
@@ -17,6 +17,10 @@ export function SortableField(props: SortableFieldProps) {
         drupalBundle, drupalFields, drupalFieldMapping, setDrupalFieldMapping, optionTools,
     } = props;
     const { t } = useTranslation();
+    const required = !!field.requiredBy?.length;
+    const requiredHint = t('schema.plugin_required_field', {
+        plugins: field.requiredBy?.map(id => t(`settings.plugins.${id}.name`, id)).join(', '),
+    });
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
     const style = {
@@ -64,7 +68,8 @@ export function SortableField(props: SortableFieldProps) {
                         value={field.type}
                         onChange={(e) => { handleUpdateField(idx, 'type', e.target.value); }}
                         className="w-full text-xs font-medium border border-[var(--border-primary)] rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-secondary)] text-[var(--text-primary)] disabled:opacity-50"
-                        disabled={field.type === 'title'}
+                        disabled={field.type === 'title' || required}
+                        title={required ? requiredHint : undefined}
                     >
                         {[
                             { value: 'text', label: t('schema.type_text') },
@@ -150,7 +155,8 @@ export function SortableField(props: SortableFieldProps) {
                     <button
                         onClick={() => { handleRemoveField(idx); }}
                         className="btn-gnosi-danger !p-1.5"
-                        title={t('schema.remove_property')}
+                        disabled={required}
+                        title={required ? requiredHint : t('schema.remove_property')}
                     >
                         <Trash2 size={18} />
                     </button>
@@ -168,6 +174,7 @@ export function SortableField(props: SortableFieldProps) {
             {/* Options Section (select / multi_select / status) */}
             {OPTION_FIELD_TYPES.has(field.type) && (
                 <OptionsEditor
+                    requiredOptions={Object.values(readRecord(field.rawConfig?.plugin_option_values)).filter((value): value is string => typeof value === 'string')}
                     options={field.options}
                     onChange={(opts) => { handleUpdateField(idx, 'options', opts); }}
                     fieldType={field.type}

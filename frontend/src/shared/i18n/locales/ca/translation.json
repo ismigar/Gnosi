@@ -3785,7 +3785,9 @@
     "option_removed_rows_many": "{{count}} registres actualitzats",
     "option_usage_many": "{{count}} registres usen aquesta opció",
     "option_renamed_many": "{{count}} registres actualitzats",
-    "remove_option_in_use_many": "L'opció «{{name}}» l'usen {{count}} registres. Què en fem, dels seus valors?"
+    "remove_option_in_use_many": "L'opció «{{name}}» l'usen {{count}} registres. Què en fem, dels seus valors?",
+    "plugin_required_field": "Aquest camp és necessari per a {{plugins}}. Pots canviar-ne el nom, però no eliminar-lo ni canviar-ne el tipus.",
+    "plugin_required_option": "Aquesta opció és necessària per al connector. Pots canviar-ne el nom, però no eliminar-la."
   },
   "translate": {
     "title": "Traduir fila",

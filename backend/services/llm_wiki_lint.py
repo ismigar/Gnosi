@@ -24,6 +24,7 @@ import re
 
 from backend.config.logger_config import get_logger
 from backend.domains.llm_wiki import legacy_ports
+from backend.domains.llm_wiki.brain_fields import role_value
 from backend.domains.llm_wiki.lint_contracts import (
     BrokenCitation,
     DuplicateManagedKey,
@@ -85,6 +86,8 @@ def _read_body(path: str | None) -> str:
 def _load_notes(brain_table_id: str) -> list[LintNote]:
     from backend.services import llm_wiki_config, llm_wiki_storage
 
+    config = llm_wiki_config.load_config()
+    table = legacy_ports.table_by_id(brain_table_id) or {}
     notes: list[LintNote] = []
     for p in legacy_ports.table_pages(brain_table_id):
         meta = llm_wiki_storage.page_metadata(p)
@@ -103,9 +106,7 @@ def _load_notes(brain_table_id: str) -> list[LintNote]:
                 "body": body,
                 "out_ids": ids,
                 "out_titles": titles,
-                "review": str(
-                    meta.get("Última revisió") or meta.get("última revisió") or ""
-                ).strip(),
+                "review": str(role_value(meta, table, config, "last_reviewed") or "").strip(),
                 "note_type": llm_wiki_config.metadata_note_type(meta),
                 "managed_key": str(meta.get("llm_wiki_key") or ""),
                 "managed_role": str(meta.get("llm_wiki_role") or ""),
@@ -292,12 +293,12 @@ def _reprocess_candidates(reference_table_id: str) -> list[ReprocessCandidate]:
     import datetime
     from pathlib import Path
 
-    from backend.api.vault_routes import LLM_WIKI_PROCESSED_COL
+    from backend.domains.vault.knowledge.jobs_routes import _resource_processed_value
 
     out: list[ReprocessCandidate] = []
     for p in legacy_ports.table_pages(reference_table_id):
         meta = getattr(p, "metadata", None) or {}
-        processed = str(meta.get(LLM_WIKI_PROCESSED_COL) or "").strip()
+        processed = _resource_processed_value({**meta, "table_id": reference_table_id}).strip()
         if not processed:
             continue
         path = getattr(p, "path", None)

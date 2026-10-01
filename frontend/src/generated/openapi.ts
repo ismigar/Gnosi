@@ -17174,6 +17174,8 @@ export interface components {
             confirm_disable: boolean;
             /** Enabled */
             enabled: boolean;
+            /** Ui Locale */
+            ui_locale?: string | null;
         };
         /** LlmWikiLintCountsResponse */
         LlmWikiLintCountsResponse: {
@@ -20629,6 +20631,8 @@ export interface components {
             confirm_disable: boolean;
             /** Enabled */
             enabled: boolean;
+            /** Ui Locale */
+            ui_locale?: string | null;
         };
         /**
          * PluginNetworkFetchRequest

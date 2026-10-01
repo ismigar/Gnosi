@@ -6,8 +6,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from backend.utils.open_values import iterable_values
+from backend.domains.llm_wiki.brain_fields import role_value
 from backend.domains.vault.registry.records import RecordReader
+from backend.services.field_resolver import get_meta_value
+from backend.utils.open_values import iterable_values
 
 
 class UpsertManagedPage(Protocol):
@@ -58,7 +60,8 @@ def upsert_resource_index(
     dependencies: RenderingDependencies,
 ) -> dict[str, object]:
     """Render and persist one ordered resource index."""
-    ordered = sorted(readings, key=lambda page: _reading_order(page, dependencies))
+    table = {"properties": list(props_by_id.values())}
+    ordered = sorted(readings, key=lambda page: _reading_order(page, dependencies, table, config))
     resource_title = next(
         (
             str(dependencies.metadata(page).get("llm_wiki_resource_title") or "")
@@ -68,7 +71,7 @@ def upsert_resource_index(
         resource_id,
     )
     lines = [
-        f"{dependencies.metadata(page).get('Posició') or dependencies.metadata(page).get('position') or '—'}. "
+        f"{role_value(dependencies.metadata(page), table, config, 'position') or '—'}. "
         f"{dependencies.page_wikilink(page)}"
         for page in ordered
     ]
@@ -113,6 +116,7 @@ def rebuild_dimension_indexes(
         readings,
         permanents,
         dependencies,
+        prop,
     )
     output: list[dict[str, object]] = []
     ordered_groups = sorted(
@@ -121,7 +125,9 @@ def rebuild_dimension_indexes(
     )
     for value_key, item in ordered_groups:
         label = _value_label(item["value"])
-        content = _dimension_content(item, dependencies)
+        content = _dimension_content(
+            item, dependencies, dependencies.table(brain_table_id) or {}, config
+        )
         metadata = {field_name: item["value"]}
         props_by_id = _properties_by_id(dependencies.table(brain_table_id) or {})
         dependencies.set_visible_note_type(
@@ -211,9 +217,17 @@ def _resource_metadata(
         name = str(prop.get("name") or "")
         value = next(
             (
-                dependencies.metadata(page).get(name)
+                get_meta_value(
+                    dependencies.metadata(page),
+                    {"properties": list(props_by_id.values())},
+                    str(raw_field_id),
+                )
                 for page in readings
-                if dependencies.metadata(page).get(name)
+                if get_meta_value(
+                    dependencies.metadata(page),
+                    {"properties": list(props_by_id.values())},
+                    str(raw_field_id),
+                )
             ),
             None,
         )
@@ -236,10 +250,15 @@ def _group_dimension_pages(
     readings: list[object],
     permanents: list[object],
     dependencies: RenderingDependencies,
+    prop: dict[str, object] | None = None,
 ) -> dict[str, dict[str, object]]:
     grouped: dict[str, dict[str, object]] = {}
     for page in [*readings, *permanents]:
-        value = dependencies.metadata(page).get(field_name)
+        value = (
+            get_meta_value(dependencies.metadata(page), {"properties": [prop]}, str(prop.get("id")))
+            if prop
+            else dependencies.metadata(page).get(field_name)
+        )
         for raw_value in _as_values(value):
             value_key = _value_key(raw_value)
             item = grouped.setdefault(
@@ -259,6 +278,8 @@ def _group_dimension_pages(
 def _dimension_content(
     item: dict[str, object],
     dependencies: RenderingDependencies,
+    table: RecordReader | None = None,
+    config: RecordReader | None = None,
 ) -> str:
     readings = item.get("readings")
     permanents = item.get("permanents")
@@ -278,6 +299,8 @@ def _dimension_content(
             key=lambda candidate: _dimension_reading_order(
                 candidate,
                 dependencies,
+                table,
+                config,
             ),
         ):
             lines.append(f"- {dependencies.page_wikilink(page)}")
@@ -299,11 +322,13 @@ def _dimension_content(
 def _reading_order(
     page: object,
     dependencies: RenderingDependencies,
+    table: RecordReader | None = None,
+    config: RecordReader | None = None,
 ) -> tuple[int, int, str]:
     metadata = dependencies.metadata(page)
     return (
         dependencies.sortable_integer(metadata.get("llm_wiki_origin_order")),
-        dependencies.sortable_integer(metadata.get("Posició") or metadata.get("position")),
+        dependencies.sortable_integer(role_value(metadata, table or {}, config or {}, "position")),
         dependencies.title(page).casefold(),
     )
 
@@ -311,11 +336,13 @@ def _reading_order(
 def _dimension_reading_order(
     page: object,
     dependencies: RenderingDependencies,
+    table: RecordReader | None = None,
+    config: RecordReader | None = None,
 ) -> tuple[int, int]:
     metadata = dependencies.metadata(page)
     return (
         dependencies.sortable_integer(metadata.get("llm_wiki_origin_order")),
-        dependencies.sortable_integer(metadata.get("Posició")),
+        dependencies.sortable_integer(role_value(metadata, table or {}, config or {}, "position")),
     )
 
 

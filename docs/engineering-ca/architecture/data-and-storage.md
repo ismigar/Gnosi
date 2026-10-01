@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-10-01
 source_paths:
+  - backend/services/plugin_fields.py
+  - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
   - backend/data/management_db.py
   - backend/models/management.py
@@ -10,6 +12,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
@@ -54,6 +57,28 @@ Les vistes de tipus base de dades són projeccions sobre pàgines i registres. N
 substitueixen Markdown per un magatzem relacional opac. La capa de serveis del
 vault resol les definicions de vista, els esquemes, les fórmules, els rollups,
 les relacions i l'estat de presentació.
+
+## Camps obligatoris dels plugins
+
+Els contractes de camp desen `config.plugin_roles` al costat de l'ID immutable.
+Els processos resolen cada rol per ID i llegeixen el nom actual o els àlies
+històrics. El servidor rebutja amb HTTP 409 l'eliminació, la substitució de l'ID,
+el canvi de tipus i el canvi de taula d'una relació obligatòria. Es pot canviar
+el nom i les vinculacions es conserven quan es desa l'esquema.
+
+L'activació de LLM Wiki rep l'idioma de la interfície: català, anglès, castellà
+o francès. La reconciliació repara els ID obsolets, vincula els camps existents,
+crea els que falten i completa els catàlegs. Conserva els noms personalitzats.
+No es poden eliminar les opcions necessàries; canviar-ne el nom actualitza la
+correspondència semàntica i els registres existents.
+
+El tipus d'idea classifica Entitat, Concepte, Resum o Síntesi. La verificació
+indica Provisional, Verificat, Per revisar o Refutat, independentment de l'estat
+del flux de treball. L'última revisió registra la revisió del coneixement i és
+diferent de qualsevol modificació del fitxer. La generació actualitza tipus,
+verificació provisional, ordre i data de revisió per ID. La revisió automàtica,
+l'ordenació dels índexs i la marca de processament dels recursos utilitzen els
+mateixos ID estables.
 
 ## Concurrència d'escriptura
 
