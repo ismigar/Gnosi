@@ -248,7 +248,6 @@ def test_lifespan_preserves_startup_and_shutdown_order(
         "worker.start",
         "plugins.load",
         "plugin.enabled:ai-platform",
-        "plugin.enabled:mail",
         "plugins.reconcile",
         "mcp.create",
         "vault.config",

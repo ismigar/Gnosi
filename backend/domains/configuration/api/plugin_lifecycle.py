@@ -141,6 +141,10 @@ def _apply_lifecycle_mutation(
     agent_result: PluginState = {}
     if "llm-wiki" in affected:
         agent_result = transition_agent(builtin_plugins.is_enabled(state, "llm-wiki"))
+        if builtin_plugins.is_enabled(state, "llm-wiki"):
+            from backend.services.plugin_field_migration import ensure_knowledge_fields
+
+            ensure_knowledge_fields(payload.ui_locale)
 
     saved = dependencies.save_state(state)
     if "llm-wiki" in affected:
@@ -188,10 +192,7 @@ async def _refresh_mail_runtime(state: PluginState, logger: logging.Logger) -> N
     try:
         from backend.services.imap_idle_service import idle_manager
 
-        if builtin_plugins.is_enabled(state, "mail"):
-            await asyncio.to_thread(idle_manager.start_all)
-        else:
-            await asyncio.to_thread(idle_manager.stop_all)
+        await asyncio.to_thread(idle_manager.refresh)
     except Exception as exc:
         logger.warning("Could not refresh Mail background workers: %s", exc)
 

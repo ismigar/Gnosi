@@ -29,6 +29,9 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  GNOSI_CI_PACKAGE_CACHE: '1'
+
 jobs:
   build:
     runs-on: [self-hosted, Linux, ARM64]

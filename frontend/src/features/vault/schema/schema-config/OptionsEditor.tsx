@@ -10,7 +10,7 @@ import { RULE_PROTECTED_OPTIONS } from './constants';
 import { SortableOptionRow } from './SortableOptionRow';
 import { RemoveOptionDialog } from './RemoveOptionDialog';
 import type { OptionsEditorProps, RemoveOptionState } from './types';
-export function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }: OptionsEditorProps) {
+export function OptionsEditor({ options = [], requiredOptions = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }: OptionsEditorProps) {
     const { t } = useTranslation();
     const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(new Set());
     const [newOption, setNewOption] = useState('');
@@ -99,6 +99,10 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
     // the option is in use (or usage could not be determined).
     const requestRemoveOption = (val: string) => {
         if (pendingRemovals.has(val)) return;
+        if (requiredOptions.includes(val)) {
+            toast.error(t('schema.plugin_required_option'));
+            return;
+        }
         if (isShared && !isGlobalStatus) {
             toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
             return;

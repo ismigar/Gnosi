@@ -2,6 +2,25 @@ import { createInstance } from 'i18next';
 import { describe, expect, it } from 'vitest';
 import { hydrateFields } from './hydrate-fields';
 import { buildPayload } from './schema-payload';
+import { buildSchemaFromTableProperties } from '../../../../shared/records/model/schemaUtils';
+
+it('round-trips plugin bindings, catalogs and imported UUID field IDs through the schema editor', () => {
+    const schema = buildSchemaFromTableProperties([{ id: 'a32d7804-a606-42d3-ad85-5de4d5391e06',
+        name: 'Verification', type: 'select', config: {
+            plugin_roles: { 'llm-wiki': 'verification' },
+            plugin_option_values: { provisional: 'Provisional' },
+            options: [{ name: 'Provisional', color: 'gray' }],
+        },
+    }]);
+    const fields = hydrateFields(schema, null);
+    expect(fields[0]?.requiredBy).toEqual(['llm-wiki']);
+    if (fields[0]) fields[0].name = 'Evidence status';
+    expect(buildPayload(fields, false).newSchemaObj['Evidence status_config']).toMatchObject({
+        id: 'a32d7804-a606-42d3-ad85-5de4d5391e06',
+        plugin_roles: { 'llm-wiki': 'verification' },
+        plugin_option_values: { provisional: 'Provisional' },
+    });
+});
 import { readActionConfig } from './readers';
 import { validateSchema } from './validate-schema';
 import { normalizeTableFunctionalities } from '../../properties/tableFunctionalityUtils';

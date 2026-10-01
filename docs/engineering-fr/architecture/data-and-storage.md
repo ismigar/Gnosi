@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-10-01
 source_paths:
+  - backend/services/plugin_fields.py
+  - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
   - backend/data/management_db.py
   - backend/models/management.py
@@ -10,6 +12,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
@@ -54,6 +57,27 @@ Les vues de type base de données sont des projections sur les pages et registre
 Elles ne remplacent pas Markdown par un stockage relationnel opaque. La couche de
 services du vault résout les définitions de vues, schémas, formules, rollups,
 relations et états de présentation.
+
+## Champs obligatoires des plugins
+
+Les contrats enregistrent `config.plugin_roles` avec l'identifiant immuable.
+Les processus résolvent les rôles par identifiant et lisent le nom actuel ou
+les anciens alias. Le serveur refuse avec HTTP 409 la suppression, le changement
+d'identifiant, de type ou de cible d'une relation obligatoire. Le renommage reste
+possible et les associations survivent à l'enregistrement du schéma.
+
+L'activation de LLM Wiki reçoit la langue de l'interface : catalan, anglais,
+espagnol ou français. La réconciliation corrige les identifiants obsolètes,
+associe les champs existants, crée les champs manquants et complète les catalogues.
+Les noms personnalisés sont conservés. Les choix nécessaires ne peuvent pas être
+supprimés ; leur renommage actualise la correspondance sémantique et les données.
+
+Le type d'idée classe Entité, Concept, Résumé ou Synthèse. La vérification indique
+Provisoire, Vérifié, À revoir ou Réfuté, indépendamment de l'état du travail.
+La dernière révision concerne le savoir et se distingue de toute modification
+du fichier. La génération écrit type, vérification provisoire, ordre et date par
+identifiant. Le contrôle automatique, les index et la marque de traitement des
+ressources utilisent les mêmes identifiants stables.
 
 ## Écritures concurrentes
 

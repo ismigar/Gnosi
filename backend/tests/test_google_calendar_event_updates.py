@@ -1,6 +1,15 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from backend.services import google_calendar_service
+
+
+@pytest.fixture(autouse=True)
+def enabled_calendar(monkeypatch):
+    from backend.services import plugin_access
+
+    monkeypatch.setattr(plugin_access, "plugins_enabled_now", lambda *args, **kwargs: True)
 
 
 def _calendar_service(*existing_events):

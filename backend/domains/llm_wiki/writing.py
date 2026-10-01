@@ -7,10 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from backend.domains.llm_wiki.brain_fields import role_id, role_value
+from backend.domains.llm_wiki.field_catalogs import catalog_value
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import is_record
 from backend.domains.vault.registry.state import RegistryData
+from backend.services.plugin_fields import bindings
 from backend.utils.open_values import integer_value, iterable_values
+
 
 class SavePage(Protocol):
     def __call__(
@@ -129,7 +133,15 @@ def apply_plan(
         config=resolved_config,
         source_dimensions=resolved_source_dimensions,
         explicit_assignments="assignment_field_ids" in resolved_source_config,
-        assignment_ids=[str(value) for value in iterable_values(resolved_source_config.get("assignment_field_ids", resolved_config.get("index_field_ids")) or [])],
+        assignment_ids=[
+            str(value)
+            for value in iterable_values(
+                resolved_source_config.get(
+                    "assignment_field_ids", resolved_config.get("index_field_ids")
+                )
+                or []
+            )
+        ],
         props_by_id=props_by_id,
         role_names=role_names,
         relation_name=relation_name,
@@ -171,10 +183,13 @@ def _apply_note(
     metadata = _build_note_metadata(note, title, managed_key, context)
     context.dependencies.apply_dimensions(
         metadata,
-        {**dict.fromkeys(context.assignment_ids), **context.dependencies.effective_dimensions(
-            note.get("dimensions"),
-            context.source_dimensions,
-        )},
+        {
+            **dict.fromkeys(context.assignment_ids),
+            **context.dependencies.effective_dimensions(
+                note.get("dimensions"),
+                context.source_dimensions,
+            ),
+        },
         context.props_by_id,
     )
     citations = context.dependencies.render_citations(
@@ -278,11 +293,29 @@ def _apply_role_values(
     context: _WriteContext,
 ) -> None:
     if context.role_names.get("idea_type"):
-        metadata[context.role_names["idea_type"]] = metadata.get("Tipus")
+        idea_type = str(note.get("type") or "").strip().lower()
+        semantic = (
+            idea_type if idea_type in {"entitat", "concepte", "resum", "síntesi"} else "concepte"
+        )
+        prop = context.props_by_id.get(
+            role_id(
+                {"properties": list(context.props_by_id.values())},
+                context.config,
+                "idea_type",
+            )
+        )
+        metadata[context.role_names["idea_type"]] = catalog_value(prop, semantic)
     if context.role_names.get("position"):
         metadata[context.role_names["position"]] = position
     if context.role_names.get("verification"):
-        metadata[context.role_names["verification"]] = "provisional"
+        prop = context.props_by_id.get(
+            role_id(
+                {"properties": list(context.props_by_id.values())},
+                context.config,
+                "verification",
+            )
+        )
+        metadata[context.role_names["verification"]] = catalog_value(prop, "provisional")
     if context.role_names.get("last_reviewed"):
         metadata[context.role_names["last_reviewed"]] = context.dependencies.today()
     tags_name = context.role_names.get("tags")
@@ -315,7 +348,15 @@ def _collect_existing_notes(
             and str(metadata.get("note_type") or "").casefold() == "lectura"
         ):
             try:
-                position = integer_value(metadata.get("Posició") or 0)
+                position = integer_value(
+                    role_value(
+                        metadata,
+                        dependencies.table_by_id(brain_table_id) or {},
+                        dependencies.load_config(),
+                        "position",
+                    )
+                    or 0
+                )
             except (TypeError, ValueError):
                 continue
             existing.legacy_by_position.setdefault(position, []).append(page)
@@ -406,10 +447,15 @@ def _role_names(
     config: dict[str, object],
     props_by_id: dict[str, RegistryData],
 ) -> dict[str, str]:
-    return {
+    names = {
         str(role): str((props_by_id.get(str(prop_id)) or {}).get("name") or "")
         for role, prop_id in _mapping(config.get("brain_roles")).items()
     }
+    for prop in props_by_id.values():
+        role = bindings(prop).get("llm-wiki")
+        if role and not names.get(role):
+            names[role] = str(prop.get("name") or "")
+    return names
 
 
 def _relation_name(

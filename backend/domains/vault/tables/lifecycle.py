@@ -23,8 +23,8 @@ from backend.domains.vault.tables.schema import (
     ensure_main_view,
     reconcile_table_schema_revision,
 )
+from backend.services.plugin_fields import preserve_required_properties
 from backend.utils.open_values import iterable_values, list_values
-
 
 AssetMoves = list[tuple[Path, Path]]
 DeferredRewrite = tuple[Path, str, str] | None
@@ -100,8 +100,16 @@ def _preserve_property_aliases(
     }
     for prop in _registry_items(incoming_table, "properties"):
         old_property = old_by_id.get(prop.get("id"))
-        if old_property and old_property.get("aliases") and not prop.get("aliases"):
-            prop["aliases"] = list_values(old_property["aliases"])
+        if old_property:
+            aliases = list_values(old_property.get("aliases") or [])
+            old_name = old_property.get("name")
+            if old_name and old_name != prop.get("name") and old_name not in aliases:
+                aliases.append(old_name)
+            for alias in list_values(prop.get("aliases") or []):
+                if alias not in aliases:
+                    aliases.append(alias)
+            if aliases:
+                prop["aliases"] = aliases
 
 
 def _asset_property_names(
@@ -150,6 +158,7 @@ def _upsert_table(
         tables.append(table)
     else:
         old_table = tables[existing_index]
+        preserve_required_properties(old_table, table)
         _preserve_property_aliases(old_table, table)
         reconcile_table_schema_revision(old_table, table)
         _delete_removed_asset_properties(old_table, table, registry, dependencies)

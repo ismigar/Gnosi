@@ -26,7 +26,7 @@ export function buildPayload(fields: Field[], enableTranslation: boolean) {
         // Persists the immutable field_id: it's the stable key for
         // referencing the field in notes, views, filters and sections.
         // It is never regenerated once assigned.
-        if (f.id && /^fld_[0-9a-f]{8}$/.test(f.id)) {
+        if (f.id) {
             config.id = f.id;
         }
         if (f.description?.trim()) {

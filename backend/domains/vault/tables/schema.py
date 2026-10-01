@@ -17,8 +17,8 @@ from backend.domains.vault.registry.names import (
 from backend.domains.vault.registry.records import is_object_list, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.tables.catalogs.types import Option
+from backend.services.plugin_fields import preserve_required_properties
 from backend.utils.open_values import iterable_values
-
 
 _VIEW_REF_LIST_KEYS = ("visibleProperties", "visible_properties", "columns")
 _VIEW_REF_SCALAR_KEYS = ("groupBy", "dateField", "coverField", "groupSort")
@@ -359,6 +359,24 @@ def patch_table_property_locked(
 ) -> RegistryData:
     registry = dependencies.load_registry()
     target_table, target_property, properties = _find_target_property(registry, table_id, field_id)
+    from copy import deepcopy
+
+    candidate = deepcopy(target_property)
+    if isinstance(data.get("type"), str):
+        candidate["type"] = data["type"]
+    requested_config = data.get("config")
+    prior_config = candidate.get("config")
+    if is_record(requested_config):
+        candidate["config"] = {
+            **(prior_config if is_record(prior_config) else {}),
+            **requested_config,
+        }
+        if "relation_database_id" in requested_config:
+            candidate["relation_database_id"] = requested_config["relation_database_id"]
+    preserve_required_properties(
+        {"properties": [target_property]},
+        {"properties": [candidate]},
+    )
     _apply_property_name(
         registry,
         table_id,
@@ -371,6 +389,18 @@ def patch_table_property_locked(
     if isinstance(requested_type, str):
         target_property["type"] = requested_type
     _apply_property_config(target_property, data.get("config"), dependencies)
+    from backend.services.plugin_fields import bind, bindings
+
+    for plugin, role in bindings(candidate).items():
+        bind(target_property, plugin, role)
+    candidate_config = candidate.get("config")
+    target_config = target_property.get("config")
+    if (
+        is_record(candidate_config)
+        and is_record(target_config)
+        and candidate_config.get("plugin_option_values")
+    ):
+        target_config["plugin_option_values"] = candidate_config["plugin_option_values"]
     dependencies.save_registry(registry)
     return {
         "status": "success",

@@ -17,6 +17,9 @@ from backend.services import google_calendar_service
 def test_calendar_task_retains_raw_id_and_payload(
     monkeypatch: pytest.MonkeyPatch, uid: object
 ) -> None:
+    from backend.services import plugin_access
+
+    monkeypatch.setattr(plugin_access, "plugins_enabled_now", lambda *args, **kwargs: True)
     tasks = BackgroundTasks()
     title = {"opaque": True}
     start = ["raw-date"]
@@ -33,10 +36,10 @@ def test_calendar_task_retains_raw_id_and_payload(
     )
     assert len(tasks.tasks) == 1
     task = tasks.tasks[0]
-    assert task.func is update
-    assert task.args[0] == "fixture@example.invalid"
-    assert task.args[1] is uid
-    patch = task.args[2]
+    assert task.func is runtime._sync_google_calendar_for_vault
+    assert task.args[1] == "fixture@example.invalid"
+    assert task.args[2] is uid
+    patch = task.args[3]
     assert isinstance(patch, dict)
     assert patch["summary"] is title
     assert patch["start"] is start
@@ -44,7 +47,12 @@ def test_calendar_task_retains_raw_id_and_payload(
 
 
 @pytest.mark.parametrize("source", [None, 7, object()])
-def test_calendar_source_retains_native_membership_error(source: object) -> None:
+def test_calendar_source_retains_native_membership_error(
+    source: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from backend.services import plugin_access
+
+    monkeypatch.setattr(plugin_access, "plugins_enabled_now", lambda *args, **kwargs: True)
     with pytest.raises(TypeError):
         runtime.sync_to_google_calendar_if_needed({"source": source, "uid": "id"}, BackgroundTasks())
 

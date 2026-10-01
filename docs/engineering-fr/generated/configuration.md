@@ -63,7 +63,7 @@ Discovered **125 variables** across **243 source references**.
 | `GNOSI_HOST_PICK_HELPER_URL` | Python | unset | [`backend/api/system_routes.py:316`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py#L316) |
 | `GNOSI_HOST_SEARCH_HELPER_URL` | Python | unset | [`backend/api/system_routes.py:453`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py#L453) |
 | `GNOSI_HOST_TRASH_HELPER_URL` | Python | _HOST_OPEN_HELPER_URL.rsplit('/', 1)[0] + '/trash' | [`backend/domains/vault/registry/runtime.py:235`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/runtime.py#L235) |
-| `GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS` | Python | '5' | [`backend/app/lifespan.py:246`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py#L246) |
+| `GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS` | Python | '5' | [`backend/app/lifespan.py:247`](https://github.com/ismigar/Gnosi/blob/main/backend/app/lifespan.py#L247) |
 | `GNOSI_JWT_SECRET` | Python | redacted | [`backend/services/auth_service.py:44`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py#L44) |
 | `GNOSI_LITERATURE_CONTACT_EMAIL` | Python | 'gnosi-ci@example.org' | [`backend/tests/test_literature_live_smoke.py:20`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_literature_live_smoke.py#L20) |
 | `GNOSI_LLM_WIKI_MAX_DOWNLOAD_MB` | Python | '500' | [`backend/services/llm_wiki_extractors.py:36`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py#L36) |

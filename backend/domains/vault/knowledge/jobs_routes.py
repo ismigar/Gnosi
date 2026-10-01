@@ -9,6 +9,9 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 from backend.domains.llm_wiki.lint_contracts import LintReport
 from backend.domains.vault.knowledge.native_calls import capture_append
 from backend.domains.vault.pages.foundation_values import PageMetadata
+from backend.domains.vault.registry.records import is_record
+from backend.services.field_resolver import get_meta_value, set_meta_value
+from backend.services.plugin_fields import bind, bindings, role_property
 from backend.utils.open_values import get_value, iterable_values
 
 if TYPE_CHECKING:
@@ -236,7 +239,7 @@ class BrainGlossaryRequest(BaseModel):
     meant: object | None = None
 
 
-def ensure_llm_wiki_column(reference_table_id: str) -> bool:
+def ensure_llm_wiki_column(reference_table_id: str, locale: str | None = None) -> bool:
     """Add the `Processat pel Cervell` system date column when missing.
 
     Return True when the column was added.
@@ -259,22 +262,45 @@ def ensure_llm_wiki_column(reference_table_id: str) -> bool:
 
         props: object = methodcaller("setdefault", "properties", [])(table)
         append_property = capture_append(props)
-        norm = LLM_WIKI_PROCESSED_COL.lower().replace(" ", "")
-        if any(
+        from backend.services.plugin_field_migration import active_ui_locale
+
+        names = {
+            "ca": "Processat pel Cervell",
+            "en": "Processed by Brain",
+            "es": "Procesado por el Cerebro",
+            "fr": "Traité par le Cerveau",
+        }
+        name = names[active_ui_locale(locale)]
+        existing = next(
             (
-                str(get_value(p, "name") or "").lower().replace(" ", "") == norm
-                for p in iterable_values(props)
-            )
-        ):
-            return False
-        append_property(
-            {
-                "id": str(_legacy.uuid.uuid4()),
-                "name": LLM_WIKI_PROCESSED_COL,
-                "type": "date",
-                "system": True,
-            },
+                prop
+                for prop in iterable_values(props)
+                if is_record(prop) and bindings(prop).get("llm-wiki") == "resource_processed"
+            ),
+            None,
         )
+        existing = existing or next(
+            (
+                prop
+                for prop in iterable_values(props)
+                if is_record(prop) and prop.get("name") in names.values()
+            ),
+            None,
+        )
+        if existing is not None:
+            changed = bind(existing, "llm-wiki", "resource_processed")
+            if changed:
+                _legacy.save_registry(reg)
+            return False
+        prop: PageMetadata = {
+            "id": str(_legacy.uuid.uuid4()),
+            "name": name,
+            "type": "date",
+            "system": True,
+            "aliases": [value for value in names.values() if value != name],
+        }
+        bind(prop, "llm-wiki", "resource_processed")
+        append_property(prop)
         _legacy.save_registry(reg)
         _legacy.log.info(
             "🧠 Column «%s» added to the Resources table %s",
@@ -286,6 +312,10 @@ def ensure_llm_wiki_column(reference_table_id: str) -> bool:
 
 def _resource_processed_value(metadata: PageMetadata) -> str:
     """The `Processat pel Cervell` value in a row's metadata, or ''."""
+    table = _legacy._table_by_id(str(metadata.get("table_id") or "")) or {}
+    prop = role_property(table, "llm-wiki", "resource_processed")
+    if prop:
+        return str(get_meta_value(metadata, table, str(prop["id"])) or "")
     for k in (LLM_WIKI_PROCESSED_COL, LLM_WIKI_PROCESSED_COL.lower()):
         v = (metadata or {}).get(k)
         if v not in (None, "", [], {}):
@@ -327,8 +357,7 @@ def _llm_wiki_source_title(
     )
     title_property_name = str(get_value(title_property or {}, "name") or "")
     candidates = [
-        metadata.get(title_property_name) if title_property_name else None,
-        metadata.get(title_property_id) if title_property_id else None,
+        get_meta_value(metadata, source_table, title_property_id) if title_property_id else None,
         metadata.get("title"),
         metadata.get("Title"),
         path.stem,
@@ -345,7 +374,14 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
         return False
     raw = path.read_text(encoding="utf-8")
     metadata, body = _legacy.parse_frontmatter(raw, path)
-    metadata[LLM_WIKI_PROCESSED_COL] = date_str
+    table_id = str(metadata.get("table_id") or "")
+    ensure_llm_wiki_column(table_id)
+    table = _legacy._table_by_id(table_id) or {}
+    prop = role_property(table, "llm-wiki", "resource_processed")
+    if prop:
+        set_meta_value(metadata, table, str(prop["id"]), date_str)
+    else:
+        metadata[LLM_WIKI_PROCESSED_COL] = date_str
     _legacy.save_page_md(path, metadata, body)
     _legacy.register_page_in_index(path)
     return True

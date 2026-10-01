@@ -8,6 +8,9 @@ on:
       - 'desktop/help-links.json'
       - 'scripts/check_learn.py'
       - '.github/workflows/learn-quality.yml'
+env:
+  GNOSI_CI_PACKAGE_CACHE: '1'
+
 jobs:
   help:
     if: github.event.pull_request.head.repo.full_name == github.repository

@@ -304,6 +304,11 @@ def _rename_local_option(
             option = {**option, "name": new}
         renamed.append(option)
     dependencies.set_prop_options(prop, renamed)
+    semantic_values = config.get("plugin_option_values")
+    if is_record(semantic_values):
+        config["plugin_option_values"] = {
+            key: new if label == old else label for key, label in semantic_values.items()
+        }
     if str(config.get("default_option") or "") == old:
         config["default_option"] = new
     dependencies.save_registry(registry)
@@ -396,6 +401,15 @@ def _remove_local_option(
     value: str,
     dependencies: OptionDependencies,
 ) -> list[tuple[RegistryData, RegistryData]]:
+    semantic_values = config.get("plugin_option_values")
+    if is_record(semantic_values) and value in semantic_values.values():
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "plugin_required_option",
+                "field_id": prop.get("id"),
+            },
+        )
     options = [
         option for option in dependencies.get_prop_options(prop, None) if option["name"] != value
     ]

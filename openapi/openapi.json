@@ -18054,6 +18054,17 @@
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
           }
         },
         "required": [
@@ -27275,6 +27286,17 @@
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ui Locale"
           }
         },
         "required": [

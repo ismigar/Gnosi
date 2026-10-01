@@ -5,10 +5,13 @@ from typing import TYPE_CHECKING, TypeVar
 
 from backend.domains.configuration import (
     llm_wiki_records as _llm_wiki_records,
+)
+from backend.domains.configuration import (
     llm_wiki_schema as _llm_wiki_schema,
 )
 from backend.domains.vault.pages.foundation_values import PageMetadata
 from backend.domains.vault.registry.records import RecordReader, is_record
+from backend.services.plugin_fields import bindings
 from backend.utils.open_values import (
     append_value,
     get_value,
@@ -75,6 +78,7 @@ Config = dict[str, object]
 ConfigT = TypeVar("ConfigT", Config, PageMetadata)
 _BRAIN_VIEW_DEF_RE = _legacy.re.compile("<!--\\s*gnosi-view:def\\s+(?P<payload>\\{.*?\\})\\s*-->")
 _BRAIN_ROLE_SPECS: dict[str, tuple[set[str], str]] = {
+    "based_on": ({"basedon", "basadaen", "baseesur"}, "relation"),
     "note_type": ({"tipusdenota", "notetype", "tipodenota", "typedenote"}, "select"),
     "idea_type": (
         {"tipus", "tipusdidea", "ideatype", "tipodeidea", "typedidee", "classe"},
@@ -197,10 +201,16 @@ def _infer_brain_roles(table: RecordReader | None) -> dict[str, str]:
     roles = {}
     for role, (tokens, expected_type) in _BRAIN_ROLE_SPECS.items():
         candidate = next(
+            (prop for prop in properties if bindings(prop).get("llm-wiki") == role), None
+        )
+        candidate = candidate or next(
             (
                 prop
                 for prop in properties
-                if _brain_schema_token(prop.get("name")) in tokens
+                if any(
+                    _brain_schema_token(name) in tokens
+                    for name in [prop.get("name"), *iterable_values(prop.get("aliases") or [])]
+                )
                 and (
                     str(prop.get("type") or "") == expected_type
                     or (
@@ -462,9 +472,14 @@ def ensure_brain_source_relation(
     A singular relation is preferred, duplicate plural relations are merged and
     removed, and resource-page views are normalized to filter by the host page.
     """
-    return _llm_wiki_schema.ensure_brain_source_relation(
+    relation_id = _llm_wiki_schema.ensure_brain_source_relation(
         brain_table_id, source_table_id, locale, _BRAIN_SCHEMA_DEPENDENCIES
     )
+    if relation_id:
+        from backend.domains.vault.knowledge.jobs_routes import ensure_llm_wiki_column
+
+        ensure_llm_wiki_column(source_table_id, locale)
+    return relation_id
 
 
 def _brain_record_dependencies() -> _llm_wiki_records.BrainRecordDependencies:
