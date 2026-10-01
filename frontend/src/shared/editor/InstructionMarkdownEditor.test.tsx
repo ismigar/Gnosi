@@ -45,16 +45,16 @@ function field() {
     return textarea;
 }
 
-it('preserves original Markdown, whitespace and identifiers through preview and expansion', () => {
+it('preserves original Markdown, whitespace and identifiers through visual/source switching and expansion', () => {
     render();
     expect(field().value).toBe(original);
     expect(host.querySelector('pre')?.textContent).toBe(`${original}\n`);
-    click('instruction_editor.preview');
-    expect(host.querySelector('h1')?.textContent).toBe('Instruccions');
-    expect(host.querySelector('code')?.textContent).toContain('source_segment_id');
+    click('shell.switch_code_view');
+    expect(host.querySelector('.instruction-markdown__source')?.hasAttribute('hidden')).toBe(false);
+    expect(host.querySelector('[aria-label="shell.switch_normal_view"]')?.getAttribute('aria-pressed')).toBe('true');
     click('instruction_editor.expand');
     expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-modal')).toBe('true');
-    click('Markdown');
+    click('shell.switch_normal_view');
     expect(field().value).toBe(original);
     click('instruction_editor.reduce');
     expect(host.querySelector('textarea')?.value).toBe(original);
@@ -69,9 +69,9 @@ it('edits the controlled original text without interpreting HTML or normalizing 
         field().dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(changed).toHaveBeenLastCalledWith(next);
-    click('instruction_editor.preview');
+    click('shell.switch_code_view');
     expect(host.querySelector('script')).toBeNull();
-    click('Markdown');
+    click('shell.switch_normal_view');
     expect(field().value).toBe(next);
 });
 

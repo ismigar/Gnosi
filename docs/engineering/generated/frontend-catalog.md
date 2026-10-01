@@ -50,7 +50,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `app` | 21 | 2657 | 0 |
 | `features` | 1150 | 128057 | 38 |
 | `generated` | 2 | 48148 | 495 |
-| `shared` | 275 | 32313 | 426 |
+| `shared` | 275 | 32311 | 426 |
 
 ## app
 
@@ -1356,7 +1356,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/citations/zoteroSchema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/citations/zoteroSchema.ts) | 9 | — | — |
 | [`frontend/src/shared/dates/calendarUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/calendarUtils.ts) | 98 | `buildOccurrenceKey`, `exclusiveToInclusiveAllDayEnd`, `inclusiveToExclusiveAllDayEnd`, `shiftCalendarDay`, `truncateRruleBefore` | — |
 | [`frontend/src/shared/dates/projectPlanning.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/projectPlanning.ts) | 499 | `addPeriodDuration`, `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `normalizePeriodUnit`, `parsePeriod`, `periodBoundary`, `periodDaysInclusive`, `periodDurationFromBoundaries`, `periodDurationToWorkingDays`, `serializePeriod`, `withPeriodBoundaries`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
-| [`frontend/src/shared/editor/InstructionMarkdownEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.tsx) | 104 | `InstructionMarkdownEditor` | — |
+| [`frontend/src/shared/editor/InstructionMarkdownEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.tsx) | 102 | `InstructionMarkdownEditor` | — |
 | [`frontend/src/shared/editor/InstructionRichEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionRichEditor.tsx) | 107 | `InstructionRichEditor`, `function` | — |
 | [`frontend/src/shared/editor/PageHoverCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.tsx) | 254 | `PageHoverCard` | — |
 | [`frontend/src/shared/editor/VaultEditorContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultEditorContext.ts) | 41 | `VaultEditorContext` | — |

@@ -30,7 +30,7 @@ Chaque profil possède un seul LLM. Pour utiliser un autre modèle, choisissez u
 
 ### Modifier les instructions en Markdown
 
-Les instructions des agents et des compétences partagent un éditeur de blocs, actif par défaut. La barre de mise en forme permet de formater le texte sélectionné ; tapez **/** pour insérer un titre, une liste, une citation, un tableau ou un bloc de code. **Markdown** affiche le texte original et **Aperçu** affiche le résultat ; appuyez à nouveau sur le même bouton pour revenir à l’éditeur. **Agrandir l’éditeur** ouvre une vue plus grande ; appuyez sur **Échap** ou **Réduire l’éditeur** pour revenir au formulaire. Changer de vue ne modifie pas le texte. En mode Markdown, **Ctrl/Cmd + ]** indente les lignes sélectionnées et **Ctrl/Cmd + [** retire l’indentation. Enregistrez depuis le formulaire habituel.
+Les instructions des agents et des compétences partagent un éditeur de blocs actif par défaut, avec une barre de mise en forme et des commandes **/**. Comme dans l’éditeur de pages, un seul bouton **</>** alterne entre la vue normale modifiable et le code Markdown. Changer de vue ne modifie pas le texte. Agrandissez l’éditeur pour une vue plus grande ; appuyez sur **Échap** ou réduisez l’éditeur pour revenir au formulaire. Dans le code Markdown, **Ctrl/Cmd + ]** indente les lignes sélectionnées et **Ctrl/Cmd + [** retire l’indentation. Enregistrez depuis le formulaire habituel.
 
 ## Résultat attendu {#expected-result}
 
