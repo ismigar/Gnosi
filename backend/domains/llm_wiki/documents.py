@@ -12,6 +12,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
+from backend.domains.llm_wiki.source_structure import HeadingContext
+
 
 
 Segment = dict[str, object]
@@ -47,9 +49,14 @@ def extract_pdf(
     from pypdf import PdfReader
 
     reader = PdfReader(str(path))
+    from backend.domains.llm_wiki.media_structure import pdf_sections
+    headings = pdf_sections(reader)
+    section: dict[str, object] = {}
     segments: list[Segment] = []
     pdfium: _PdfDocument | None = None
     for page_number, page in enumerate(reader.pages, start=1):
+        if page_number in headings:
+            section = headings[page_number]
         text = str(page.extract_text() or "").strip()
         if len(re.sub(r"\s+", "", text)) < 30 and shutil.which("tesseract"):
             try:
@@ -67,7 +74,7 @@ def extract_pdf(
             segments.append(
                 {
                     "text": paragraph,
-                    "locator": {"page": page_number, "paragraph": paragraph_number},
+                    "locator": {"page": page_number, "paragraph": paragraph_number, **section},
                 }
             )
     return segments
@@ -80,14 +87,14 @@ def extract_docx(path: Path) -> list[Segment]:
 
     document = Document(str(path))
     segments: list[Segment] = []
-    heading = ""
+    structure = HeadingContext()
     paragraph_number = 0
     for paragraph in document.iter_inner_content():
         if isinstance(paragraph, Table):
             paragraph_number += 1
             segments.append({"text": "\n".join(" | ".join(cell.text for cell in row.cells)
                                                   for row in paragraph.rows),
-                             "locator": {"section": heading, "paragraph": paragraph_number,
+                             "locator": {**structure.locator(), "paragraph": paragraph_number,
                                          "block": "table"}})
             continue
         text = str(paragraph.text or "").strip()
@@ -95,13 +102,14 @@ def extract_docx(path: Path) -> list[Segment]:
             continue
         style_name = str(getattr(paragraph.style, "name", "") or "")
         if style_name.lower().startswith("heading"):
-            heading = text
+            level = re.search(r"\d+", style_name)
+            structure.push(int(level[0]) if level else 1, text)
             continue
         paragraph_number += 1
         segments.append(
             {
                 "text": text,
-                "locator": {"section": heading, "paragraph": paragraph_number},
+                "locator": {**structure.locator(), "paragraph": paragraph_number},
             }
         )
     return segments
@@ -123,21 +131,28 @@ def extract_epub(path: Path) -> list[Segment]:
         chapter_number += 1
         soup = BeautifulSoup(item.get_content(), "html.parser")
         title_node = soup.find(["h1", "h2", "title"])
-        chapter = title_node.get_text(" ", strip=True) if title_node else item.get_name()
-        for paragraph_number, node in enumerate(
-            soup.find_all(["p", "li", "blockquote", "table"]),
-            start=1,
-        ):
+        chapter = title_node.get_text(" ", strip=True) if title_node else ""
+        structure = HeadingContext(prefix=f"{item.get_name()}:")
+        if title_node is not None and title_node.name == "title":
+            structure.push(1, chapter)
+        paragraph_number = 0
+        for node in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "table"]):
             if node.find_parent(["li", "blockquote", "table"]):
                 continue
             text = node.get_text(" ", strip=True)
+            if re.fullmatch(r"h[1-6]", str(node.name)):
+                if text:
+                    structure.push(int(node.name[1]), text)
+                continue
             if text:
+                paragraph_number += 1
                 segments.append(
                     {
                         "text": text,
                         "locator": {
                             "chapter": chapter,
                             "chapter_number": chapter_number,
+                            **structure.locator(),
                             "paragraph": paragraph_number,
                         },
                     }
@@ -153,22 +168,22 @@ def extract_html(raw_html: str) -> list[Segment]:
     for node in soup(["script", "style", "noscript", "svg"]):
         node.decompose()
     segments: list[Segment] = []
-    heading = ""
+    structure = HeadingContext()
     paragraph_number = 0
-    for node in soup.find_all(["h1", "h2", "h3", "p", "li", "blockquote", "table"]):
+    for node in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "table"]):
         if node.find_parent(["li", "blockquote", "table"]):
             continue
         text = html.unescape(node.get_text(" ", strip=True))
         if not text:
             continue
-        if node.name in {"h1", "h2", "h3"}:
-            heading = text
+        if re.fullmatch(r"h[1-6]", str(node.name)):
+            structure.push(int(node.name[1]), text)
             continue
         paragraph_number += 1
         segments.append(
             {
                 "text": text,
-                "locator": {"section": heading, "paragraph": paragraph_number},
+                "locator": {**structure.locator(), "paragraph": paragraph_number},
             }
         )
     return segments
@@ -183,29 +198,47 @@ def extract_text_file(path: Path) -> list[Segment]:
 def paragraph_segments(raw: str, *, locator_prefix: str) -> list[Segment]:
     """Split text without losing stable line-range locators."""
     segments: list[Segment] = []
-    line_cursor = 1
-    heading = ""
-    for paragraph in re.split(r"\n\s*\n+", str(raw or "")):
-        text = paragraph.strip()
-        if not text:
-            line_cursor += paragraph.count("\n") + 1
-            continue
-        line_count = text.count("\n") + 1
-        heading_match = re.match(r"^#{1,6}\s+(.+)", text)
-        if heading_match:
-            heading = heading_match[1]
+    structure = HeadingContext()
+    lines: list[str] = []
+    start = 1
+
+    def flush(end: int, *, heading: bool = False) -> None:
+        if not lines:
+            return
         segments.append(
             {
-                "text": " ".join(line.strip() for line in text.splitlines() if line.strip()),
+                "text": " ".join(lines),
                 "locator": {
                     "kind": locator_prefix,
-                    "section": heading,
-                    "line_start": line_cursor,
-                    "line_end": line_cursor + line_count - 1,
+                    **structure.locator(),
+                    "line_start": start,
+                    "line_end": end,
+                    **({"block": "heading"} if heading else {}),
                 },
             }
         )
-        line_cursor += line_count + 1
+        lines.clear()
+
+    fenced = False
+    raw_lines = str(raw or "").splitlines()
+    for number, line in enumerate(raw_lines, start=1):
+        text = line.strip()
+        if text.startswith(("```", "~~~")):
+            fenced = not fenced
+        heading_match = re.match(r"^(#{1,6})\s+(.+?)(?:\s+#+)?$", text) if not fenced else None
+        if heading_match:
+            flush(number - 1)
+            structure.push(len(heading_match[1]), heading_match[2].strip())
+            start = number
+            lines.append(text)
+            flush(number, heading=True)
+        elif not text:
+            flush(number - 1)
+        else:
+            if not lines:
+                start = number
+            lines.append(text)
+    flush(len(raw_lines))
     return segments
 
 
@@ -267,7 +300,7 @@ def extract_audio(path: Path) -> list[Segment]:
     raw_segments = result.get("segments") or []
     if not isinstance(raw_segments, list):
         return []
-    return [
+    segments: list[Segment] = [
         {
             "text": str(item.get("text") or "").strip(),
             "locator": {
@@ -278,6 +311,8 @@ def extract_audio(path: Path) -> list[Segment]:
         for item in raw_segments
         if isinstance(item, dict) and str(item.get("text") or "").strip()
     ]
+    from backend.domains.llm_wiki.media_structure import file_chapters, timed_sections
+    return timed_sections(segments, result.get("chapters") or file_chapters(path))
 
 
 def extract_video(

@@ -4324,6 +4324,8 @@
     "unnamed": "(sin nombre)",
     "op_equals": "igual",
     "op_not_equals": "distinto",
+    "section_contains": "Incluye este apartado y sus subapartados",
+    "section_not_contains": "Excluye este apartado y sus subapartados",
     "op_contains": "contiene",
     "op_not_contains": "no contiene",
     "op_is_empty": "está vacío",

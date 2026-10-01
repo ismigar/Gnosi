@@ -14,6 +14,7 @@ export interface InlineSelectPickerProps extends PickerOptions {
 }
 
 export interface InlinePillsPickerProps extends PickerOptions {
+  readonly single?: boolean;
   readonly value?: readonly string[];
   readonly onSave: (values: readonly string[]) => void;
   readonly relationItems?: boolean;

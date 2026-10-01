@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-27
 source_paths:
+  - backend/domains/configuration/source_sections_schema.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
   - backend/services/llm_wiki.py
   - backend/services/llm_wiki_reading_runtime.py
@@ -37,6 +39,8 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_source_sections.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
   - backend/tests/test_llm_wiki_contextual_reading.py
   - backend/tests/test_llm_wiki_reading_runtime.py
@@ -385,3 +389,23 @@ Quan l’evidència d’una cita té l’adreça de la font buida, s’utilitza 
 Cada font selecciona `assignment_field_ids` independentment de `index_field_ids`. Si la llista no existeix, es conserva el comportament anterior basat en índexs; una llista buida desactiva les assignacions. Les regles admeten `ai`, `source`, `fixed` i `empty`. Només es poden assignar camps editables. Els valors d’IA segueixen esquemes tipats i els valors categòrics han de pertànyer a les opcions existents. La còpia i els valors fixos conserven zero i fals; les regles buides esborren el valor en reprocessar, mentre que eliminar una regla conserva les metadades existents.
 
 El resolutor compartit `backend/domains/llm_wiki/options.py` consulta `config.catalog_ref` del vault actiu abans de les opcions locals, de manera que la configuració i el processament utilitzen els mateixos valors categòrics. Un `agent_id` antic buit selecciona l’agent principal. L’editor espera que les regles de còpia i valor fix siguin completes abans de desar. Les proves de regressió inclouen `backend/tests/test_llm_wiki_field_assignments.py` i `backend/tests/test_llm_wiki_processing_domain_contract.py`.
+
+## Apartats de les fonts i paratext
+
+El processament exclou de les notes les portades, les metadades editorials, les
+cites inicials i els pròlegs o prefacis, tret que l'usuari els demani explícitament.
+La cobertura registra aquests passatges i es mantenen com a context.
+
+El Brain conserva `Position` (Posició) numèrica i afegeix una relació única `Section` (Apartat) amb una
+taula gestionada d'apartats de les fonts. Els encapçalaments originals conserven
+la jerarquia, el text i identificadors diferents encara que no estiguin numerats
+o repeteixin títol. Cada apartat pertany a una font i un document d'entrada; els
+selectors rebutgen apartats d'altres fonts. Els filtres d'igualtat seleccionen
+un apartat; els d'inclusió també els seus descendents. Les pàgines i marques de
+temps es mantenen a les citacions. L'àudio i el vídeo utilitzen els capítols
+originals disponibles; no se n'inventen.
+
+L'actualització de l'esquema preserva les notes i no inicia cap processament.
+El reprocessament explícit assigna apartats i marca els desapareguts com a antics,
+conservant les relacions històriques. L'aplicació deriva les assignacions dels
+segments verificats, també quan reprèn un punt de control revisat.

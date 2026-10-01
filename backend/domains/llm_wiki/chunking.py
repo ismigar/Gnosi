@@ -69,6 +69,10 @@ def split_segment(
 
 def _section(segment: dict[str, object]) -> str:
     locator = record(segment.get("locator"))
+    path = records(locator.get("section_path"))
+    if path:
+        # A title can recur in different parts of a document.
+        return "/".join(str(node.get("key")) for node in path)
     return str(locator.get("section") or locator.get("chapter") or "")
 
 
@@ -89,7 +93,8 @@ def reading_chunks(
                         "origin_id": origin["origin_id"],
                         "origin_label": origin.get("label", ""),
                         "kind": origin.get("kind", ""),
-                        "section": _section(current[0]),
+                        "section": str(record(current[0].get("locator")).get("section")
+                                       or record(current[0].get("locator")).get("chapter") or ""),
                         "segments": current,
                     }
                 )

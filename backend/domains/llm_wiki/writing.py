@@ -154,6 +154,19 @@ def apply_plan(
     active_keys: set[str] = set()
     raw_notes = plan.get("notes")
     notes = raw_notes if isinstance(raw_notes, list) else []
+    notes = [dict(note) for note in notes if isinstance(note, dict)]
+    section_prop = next((prop for prop in props_by_id.values()
+                         if _mapping(prop.get("config")).get("source_sections")), None)
+    if section_prop is not None:
+        from backend.domains.llm_wiki.source_sections import persist_sections
+        raw_structure = plan.get("source_structure")
+        structure = [row for row in raw_structure if isinstance(row, dict)] if isinstance(raw_structure, list) else []
+        sections = persist_sections([*structure, *notes], section_prop, brain_table_id, source_table_id,
+                                    source_page_id, source_title, dependencies)
+        for note in notes:
+            ids = sections.get(str(note.get("managed_key") or ""), [])
+            note["source_section_id"] = ids[-1] if ids else ""
+            note["source_section_ancestor_ids"] = ids[:-1]
     for raw_note in notes:
         if not isinstance(raw_note, dict):
             continue
@@ -192,6 +205,17 @@ def _apply_note(
         },
         context.props_by_id,
     )
+    # Structural provenance is application-owned, including when an old field
+    # assignment attempts to override it.
+    section_prop = next((prop for prop in context.props_by_id.values()
+                         if _mapping(prop.get("config")).get("source_sections")), None)
+    if section_prop:
+        field = str(section_prop.get("name") or "")
+        identifier = str(note.get("source_section_id") or "")
+        metadata[field] = [identifier] if identifier else []
+        metadata["llm_wiki_section_field"] = field
+        metadata["llm_wiki_section_id"] = identifier
+        metadata["llm_wiki_section_ancestor_ids"] = note.get("source_section_ancestor_ids", [])
     citations = context.dependencies.render_citations(
         note.get("citations"),
         context.source_title,
