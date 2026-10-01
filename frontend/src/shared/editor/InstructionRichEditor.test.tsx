@@ -1,4 +1,4 @@
-import { act, type ReactNode } from 'react';
+import { act, type ComponentType, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import InstructionRichEditor from './InstructionRichEditor';
@@ -23,6 +23,7 @@ vi.mock('@blocknote/react', () => ({
     useCreateBlockNote: () => Object.assign(mocks.editor, { tryParseMarkdownToBlocks: mocks.parse,
         blocksToMarkdownLossy: mocks.serialize, replaceBlocks: mocks.replace }),
     BlockNoteViewEditor: () => <div role="textbox" />,
+    FormattingToolbarController: ({ formattingToolbar: Toolbar }: { formattingToolbar: ComponentType }) => <div data-selection-toolbar><Toolbar /></div>,
     FormattingToolbar: ({ children }: { children: ReactNode }) => <div role="toolbar">{children}</div>,
     BlockTypeSelect: () => <button>Type</button>,
     BasicTextStyleButton: ({ basicTextStyle }: { basicTextStyle: string }) => <button>{basicTextStyle}</button>,
@@ -60,8 +61,9 @@ async function render(props: { value?: string; disabled?: boolean; maxLength?: n
     await act(async () => { root.render(<InstructionRichEditor label="Instructions" value={original} onChange={change} {...props} />); await Promise.resolve(); });
 }
 
-it('shows format controls and limits slash commands to supported text structures', async () => {
+it('uses the native selection toolbar and limits slash commands to supported text structures', async () => {
     await render();
+    expect(host.querySelector('[data-selection-toolbar]')).not.toBeNull();
     expect(host.querySelector('[role="toolbar"]')?.textContent).toContain('bolditalicstrikecode');
     expect((await mocks.commands?.(''))?.map(item => item.key)).toEqual(['heading', 'code_block']);
 });

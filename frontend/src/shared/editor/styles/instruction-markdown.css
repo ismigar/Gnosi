@@ -93,15 +93,6 @@
     --bn-colors-editor-text: var(--text-primary);
     min-height: 100%;
 }
-.instruction-markdown__rich .bn-formatting-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    flex-wrap: wrap;
-    border-radius: 0;
-    border: 0;
-    border-bottom: 1px solid var(--border-primary);
-}
 .instruction-markdown__rich .bn-editor { padding: 16px 24px; }
 .instruction-markdown__backdrop {
     position: fixed;

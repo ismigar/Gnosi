@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BlockNoteView } from '@blocknote/mantine';
 import {
     BasicTextStyleButton, BlockNoteViewEditor, BlockTypeSelect, CreateLinkButton,
-    FormattingToolbar, NestBlockButton, UnnestBlockButton,
+    FormattingToolbar, FormattingToolbarController, NestBlockButton, UnnestBlockButton,
     SuggestionMenuController, getDefaultReactSlashMenuItems, useCreateBlockNote,
 } from '@blocknote/react';
 import { filterSuggestionItems } from '@blocknote/core/extensions';
@@ -24,6 +24,19 @@ const TEXT_COMMANDS = new Set([
     'heading', 'heading_2', 'heading_3', 'paragraph', 'quote',
     'numbered_list', 'bullet_list', 'check_list', 'code_block', 'table', 'divider',
 ]);
+
+function InstructionFormattingToolbar() {
+    return <FormattingToolbar>
+                <BlockTypeSelect />
+                <BasicTextStyleButton basicTextStyle="bold" />
+                <BasicTextStyleButton basicTextStyle="italic" />
+                <BasicTextStyleButton basicTextStyle="strike" />
+                <BasicTextStyleButton basicTextStyle="code" />
+                <CreateLinkButton />
+                <NestBlockButton />
+                <UnnestBlockButton />
+    </FormattingToolbar>;
+}
 
 export default function InstructionRichEditor({ label, value, onChange, disabled, maxLength, placeholder }: InstructionRichEditorProps) {
     const { t, i18n } = useTranslation();
@@ -86,16 +99,7 @@ export default function InstructionRichEditor({ label, value, onChange, disabled
     return <div className="instruction-markdown__rich">
         <BlockNoteView editor={editor} theme={effectiveTheme} editable={!disabled && !loadFailed} onChange={changed}
             formattingToolbar={false} slashMenu={false} sideMenu={false} renderEditor={false}>
-            {!disabled && !loadFailed && <FormattingToolbar>
-                <BlockTypeSelect />
-                <BasicTextStyleButton basicTextStyle="bold" />
-                <BasicTextStyleButton basicTextStyle="italic" />
-                <BasicTextStyleButton basicTextStyle="strike" />
-                <BasicTextStyleButton basicTextStyle="code" />
-                <CreateLinkButton />
-                <NestBlockButton />
-                <UnnestBlockButton />
-            </FormattingToolbar>}
+            {!disabled && !loadFailed && <FormattingToolbarController formattingToolbar={InstructionFormattingToolbar} />}
             <BlockNoteViewEditor />
             {!disabled && !loadFailed && <SuggestionMenuController triggerCharacter="/" getItems={query => Promise.resolve(
                 filterSuggestionItems(getDefaultReactSlashMenuItems(editor).filter(item => 'key' in item
