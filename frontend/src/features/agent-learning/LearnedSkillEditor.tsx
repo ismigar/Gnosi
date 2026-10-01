@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { runSkillTrial, saveLearnedSkill, type LearnedSkill, type SkillTrialResult } from '../../shared/api/agent-learning';
 import { GnosiToggle } from '../../shared/ui/settings/SettingsPrimitives';
 import { SkillResourcesEditor } from './SkillResourcesEditor';
+import { InstructionMarkdownEditor } from '../../shared/editor/InstructionMarkdownEditor';
 
 interface Props {
     readonly initialSkill: LearnedSkill;
@@ -53,7 +54,8 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
         <p className="agent-learning__muted">{t('learning.review_help')}</p>
         <label>{t('learning.name')}<input className="gnosi-input" value={skill.name} maxLength={160} disabled={busy} onChange={event => { change({ name: event.target.value }); }} /></label>
         <label>{t('learning.description')}<textarea className="gnosi-input" value={skill.description || ''} rows={2} maxLength={2000} disabled={busy} onChange={event => { change({ description: event.target.value }); }} /></label>
-        <label>{t('learning.instructions')}<textarea className="gnosi-input" value={skill.instructions} rows={8} maxLength={24000} disabled={busy} onChange={event => { change({ instructions: event.target.value }); }} /></label>
+        <InstructionMarkdownEditor label={t('learning.instructions')} value={skill.instructions}
+            maxLength={24000} disabled={busy} onChange={instructions => { change({ instructions }); }} />
         <label>{t('learning.criteria')}<textarea className="gnosi-input" value={criteria} rows={4} disabled={busy} onChange={event => { setCriteria(event.target.value); setTrial(null); setSaved(''); }} /></label>
         {Boolean(skill.tool_ids?.length) && <details><summary>{t('learning.dependencies')}</summary><p className="agent-learning__muted">{t('learning.dependencies_help')}</p><ul>{skill.tool_ids?.map(tool => <li key={tool}><code>{tool}</code></li>)}</ul></details>}
         <SkillResourcesEditor skill={skill} disabled={busy} onChange={change} />

@@ -15,6 +15,7 @@ import {
     type SkillDraft,
 } from './aiSettingsUtils';
 import { ToolPicker } from './AIToolPicker';
+import { InstructionMarkdownEditor } from '../../../shared/editor/InstructionMarkdownEditor';
 
 
 interface EditableSkillDraft extends SkillDraft {
@@ -169,21 +170,14 @@ export function SkillEditor({
                     value={draft.description}
                 />
             </label>
-            <label>
-                <span>{t('settings.ai.resources.instructions')}</span>
-                <span className="ai-resource-muted">{t('settings.ai.resources.instructions_help')}</span>
-                <textarea
-                    className="gnosi-input"
-                    onChange={(event) => {
-                        setDraft((current) => ({
-                            ...current,
-                            instructions: event.target.value,
-                        }));
-                    }}
-                    rows={7}
-                    value={draft.instructions}
-                />
-            </label>
+            <InstructionMarkdownEditor
+                label={t('settings.ai.resources.instructions')}
+                description={t('settings.ai.resources.instructions_help')}
+                value={draft.instructions}
+                onChange={instructions => {
+                    setDraft(current => ({ ...current, instructions }));
+                }}
+            />
             <ToolPicker tools={tools} selected={draft.toolIds} onToggle={toggleTool} />
             {!canSave ? (
                 <div className="ai-resource-validation">

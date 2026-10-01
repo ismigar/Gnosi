@@ -28,6 +28,10 @@ Chaque fiche possède une icône de configuration et, si elle n’est pas princi
 
 Chaque profil possède un seul LLM. Pour utiliser un autre modèle, choisissez un autre profil ou modifiez son modèle. Il n’y a ni sélection automatique ni modèle de remplacement en cas d’échec. Si un profil est supprimé ou son modèle indisponible, choisissez un autre profil dans le chat. Pour supprimer le profil par défaut, choisissez-en d’abord un autre. Désactivez le plugin IA pour désactiver l’IA.
 
+### Modifier les instructions en Markdown {#markdown-instructions}
+
+Les instructions des agents et des compétences partagent un éditeur Markdown. **Modifier** affiche le texte original avec coloration syntaxique ; **Aperçu** affiche les titres, les listes et les blocs de code. **Agrandir l’éditeur** ouvre une vue plus grande ; appuyez sur **Échap** ou **Réduire l’éditeur** pour revenir au formulaire. Changer de vue ne modifie pas le texte. Utilisez **Ctrl/Cmd + ]** pour indenter les lignes sélectionnées et **Ctrl/Cmd + [** pour retirer l’indentation. Enregistrez depuis le formulaire habituel.
+
 ## Résultat attendu {#expected-result}
 
 L’agent répond avec le contexte prévu et indique les capacités disponibles.
