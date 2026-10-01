@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Executor | Fitxers | Indicis de proves |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 599 | 2577 |
+| Vitest | 600 | 2581 |
 | pytest | 572 | 4128 |
 
 ## Fitxers
@@ -539,6 +539,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [`frontend/src/shared/citations/zoteroLocale.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/citations/zoteroLocale.test.ts) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/dates/calendarUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/calendarUtils.test.ts) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/dates/projectPlanning.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/projectPlanning.test.ts) | 19 | call-pattern estimate |
+| Vitest | [`frontend/src/shared/editor/InstructionMarkdownEditor.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/PageHoverCard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.test.tsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/VaultMarkdown.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/shared/editor/WikilinkContextMenu.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.test.tsx) | 4 | call-pattern estimate |

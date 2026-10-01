@@ -48,9 +48,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1150 | 128519 | 38 |
+| `features` | 1150 | 128515 | 38 |
 | `generated` | 2 | 48148 | 495 |
-| `shared` | 270 | 31592 | 426 |
+| `shared` | 272 | 31741 | 426 |
 
 ## app
 
@@ -158,7 +158,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/agent-context/agent-context/useContextResource.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/agent-context/useContextResource.ts) | 46 | `useContextKey`, `useContextResource` | — |
 | [`frontend/src/features/agent-context/model/vaultAgentContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-context/model/vaultAgentContext.ts) | 110 | `vaultAgentContextRefs`, `vaultPageViewIds` | — |
 | [`frontend/src/features/agent-learning/ConversationLearning.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/ConversationLearning.tsx) | 61 | `ConversationLearning` | — |
-| [`frontend/src/features/agent-learning/LearnedSkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearnedSkillEditor.tsx) | 77 | `LearnedSkillEditor` | — |
+| [`frontend/src/features/agent-learning/LearnedSkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearnedSkillEditor.tsx) | 79 | `LearnedSkillEditor` | — |
 | [`frontend/src/features/agent-learning/LearningProjectPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/LearningProjectPanel.tsx) | 107 | `LearningProjectPanel` | — |
 | [`frontend/src/features/agent-learning/MemoryEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/MemoryEditor.tsx) | 68 | `MemoryEditor` | — |
 | [`frontend/src/features/agent-learning/MemorySettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/agent-learning/MemorySettings.tsx) | 124 | `MemoryList`, `MemorySettings` | — |
@@ -526,7 +526,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AI/AIResourcesSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcesSettings.ts) | 5 | — | — |
 | [`frontend/src/features/settings/AI/AIScheduleFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIScheduleFields.tsx) | 21 | `ScheduleFields` | — |
 | [`frontend/src/features/settings/AI/AISkillCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillCard.tsx) | 182 | `SkillCard` | — |
-| [`frontend/src/features/settings/AI/AISkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillEditor.tsx) | 251 | `SkillEditor` | — |
+| [`frontend/src/features/settings/AI/AISkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillEditor.tsx) | 245 | `SkillEditor` | — |
 | [`frontend/src/features/settings/AI/AISkillUsage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillUsage.tsx) | 58 | `SkillUsage` | — |
 | [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 353 | `SkillsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIToolPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolPicker.tsx) | 64 | `ToolPicker` | — |
@@ -1356,12 +1356,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/shared/citations/zoteroSchema.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/citations/zoteroSchema.ts) | 9 | — | — |
 | [`frontend/src/shared/dates/calendarUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/calendarUtils.ts) | 98 | `buildOccurrenceKey`, `exclusiveToInclusiveAllDayEnd`, `inclusiveToExclusiveAllDayEnd`, `shiftCalendarDay`, `truncateRruleBefore` | — |
 | [`frontend/src/shared/dates/projectPlanning.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/dates/projectPlanning.ts) | 499 | `addPeriodDuration`, `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `normalizePeriodUnit`, `parsePeriod`, `periodBoundary`, `periodDaysInclusive`, `periodDurationFromBoundaries`, `periodDurationToWorkingDays`, `serializePeriod`, `withPeriodBoundaries`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
+| [`frontend/src/shared/editor/InstructionMarkdownEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/InstructionMarkdownEditor.tsx) | 99 | `InstructionMarkdownEditor` | — |
 | [`frontend/src/shared/editor/PageHoverCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/PageHoverCard.tsx) | 254 | `PageHoverCard` | — |
 | [`frontend/src/shared/editor/VaultEditorContext.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultEditorContext.ts) | 41 | `VaultEditorContext` | — |
 | [`frontend/src/shared/editor/VaultMarkdown.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/VaultMarkdown.tsx) | 247 | `VaultMarkdown` | — |
 | [`frontend/src/shared/editor/WikilinkContextMenu.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkContextMenu.tsx) | 199 | `WikilinkContextMenu` | — |
 | [`frontend/src/shared/editor/WikilinkHoverPreview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkHoverPreview.tsx) | 300 | `WikilinkHoverPreview` | — |
 | [`frontend/src/shared/editor/WikilinkInline.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/WikilinkInline.tsx) | 268 | `WikilinkInline` | — |
+| [`frontend/src/shared/editor/instructionMarkdown.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/instructionMarkdown.ts) | 50 | `indentInstructionLines`, `instructionMarkdownTokens` | — |
 | [`frontend/src/shared/editor/managedMarkdownUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/managedMarkdownUtils.ts) | 80 | `normalizeManagedBlockSpacing`, `stripManagedBlockMarkers` | — |
 | [`frontend/src/shared/editor/markdown-mapper/model.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/markdown-mapper/model.ts) | 95 | `createSerializationContext`, `isInlineNode`, `isMarkdownBlock`, `isMarkdownParserEditor`, `isRecord`, `isUnknownArray`, `legacyString`, `legacyStringOrEmpty`, `propsOf`, `stylesOf`, `toBlockArray`, `toInlineArray` | — |
 | [`frontend/src/shared/editor/markdown-mapper/parse-directives.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/shared/editor/markdown-mapper/parse-directives.ts) | 301 | `richMarkdownToBlocks` | — |
