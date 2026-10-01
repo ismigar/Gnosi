@@ -191,6 +191,26 @@ describe('schema option catalog contracts', () => {
         expect(save.mock.calls.at(-1)?.[0].Tags_config).not.toHaveProperty('options');
     });
 
+    it('rewrites a zero-count option if a pending reassignment can put records into it', async () => {
+        let finishFirst: ((value: { files_changed: number }) => void) | undefined;
+        vi.mocked(schemaApi.fetchTableOptionUsage).mockResolvedValue({ counts: { Open: 3 } });
+        vi.mocked(schemaApi.removeTableOption).mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; }));
+        await modal.render({ currentSchema: localSchema, onSave: vi.fn() });
+        await click(removeButton('Open'));
+        const select = button('Delete').closest('.max-w-md')?.querySelector('select');
+        if (!select) throw new Error('Missing reassignment selector');
+        await change(select, 'Done');
+        await click(button('Delete'));
+        await click(removeButton('Done'));
+        expect(schemaApi.removeTableOption).toHaveBeenCalledTimes(1);
+        await interact(() => { finishFirst?.({ files_changed: 3 }); });
+        expect(vi.mocked(schemaApi.removeTableOption).mock.calls).toEqual([
+            ['table-1', 'fld_00000002', 'Open', 'Done'],
+            ['table-1', 'fld_00000002', 'Done', undefined],
+        ]);
+        expect([...document.querySelectorAll('input')].some(element => ['Open', 'Done'].includes(element.value))).toBe(false);
+    });
+
     it('keeps an option available for retry when its record rewrite fails', async () => {
         vi.mocked(schemaApi.removeTableOption).mockRejectedValueOnce(new Error('Offline'));
         await modal.render({ currentSchema: localSchema });
