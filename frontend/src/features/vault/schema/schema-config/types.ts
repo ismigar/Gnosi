@@ -50,6 +50,7 @@ export interface Field {
     name_pattern: string;
     translatable: boolean;
     system?: boolean;
+    requiredBy?: string[];
     button_action: string;
     button_label: string;
     button_config?: ActionConfig;
@@ -112,6 +113,7 @@ export interface RemoveOptionState {
     protectedReason: string;
 }
 export interface OptionsEditorProps {
+    requiredOptions?: readonly string[];
     options?: NormalizedOption[];
     onChange: (options: NormalizedOption[]) => void;
     fieldType?: string;

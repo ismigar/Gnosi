@@ -88,7 +88,7 @@ export function buildSchemaFromTableProperties(
     tableProperties.forEach(prop => {
         if (!prop.name) return;
         schema[prop.name] = prop.type || 'text';
-        const config: Record<string, unknown> = {};
+        const config: Record<string, unknown> = { ...(prop.config || {}) };
         if (prop.formula) config.formula = prop.formula;
         if (prop.compute) config.compute = prop.compute;
         if (prop.defaultFormula) config.defaultFormula = prop.defaultFormula;

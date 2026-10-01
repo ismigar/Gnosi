@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-10-01
 source_paths:
+  - backend/services/plugin_fields.py
+  - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
   - backend/data/management_db.py
   - backend/models/management.py
@@ -10,6 +12,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
@@ -54,6 +57,27 @@ Las vistas de tipo base de datos son proyecciones sobre páginas y registros. No
 sustituyen Markdown por un almacén relacional opaco. La capa de servicios del
 vault resuelve las definiciones de vistas, esquemas, fórmulas, rollups, relaciones
 y estado de presentación.
+
+## Campos obligatorios de los plugins
+
+Los contratos guardan `config.plugin_roles` junto al ID inmutable. Los procesos
+resuelven los roles por ID y leen el nombre actual o sus alias históricos.
+El servidor rechaza con HTTP 409 la eliminación, sustitución del ID, cambio de
+tipo o cambio de destino de una relación obligatoria. Permite renombrar el campo
+y conserva sus vínculos al guardar el esquema.
+
+La activación de LLM Wiki recibe el idioma de la interfaz: catalán, inglés,
+español o francés. La reconciliación repara ID obsoletos, vincula los campos
+existentes, crea los ausentes y completa los catálogos. Conserva los nombres
+personalizados. Las opciones necesarias no se pueden eliminar; renombrarlas
+actualiza su correspondencia semántica y los registros existentes.
+
+El tipo de idea clasifica Entidad, Concepto, Resumen o Síntesis. La verificación
+indica Provisional, Verificado, Por revisar o Refutado, independientemente del
+estado del flujo de trabajo. La última revisión registra la revisión del
+conocimiento y se distingue de cualquier modificación del archivo. La generación
+actualiza tipo, verificación provisional, orden y fecha por ID. La revisión
+automática, los índices y la marca de procesamiento usan los mismos ID estables.
 
 ## Concurrencia de escritura
 

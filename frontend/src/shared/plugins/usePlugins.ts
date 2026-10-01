@@ -11,6 +11,7 @@ import { getActiveVaultId } from '../api/vault-context';
 import { GnosiApiError } from '../api/errors';
 import { invalidateConfigurationCache } from '../api/configuration';
 import { emitConfigChanged } from '../platform/configEvents';
+import i18n from '../i18n/i18n';
 
 import { BUILTIN_PLUGINS } from './registry';
 import type { BuiltinPluginDefinition } from './registry';
@@ -206,6 +207,7 @@ export function usePlugins(): PluginsState {
         const vaultId = _stateVaultId;
         const payload = await setPluginLifecycle(id, {
             enabled,
+            ui_locale: i18n.resolvedLanguage || i18n.language || 'en',
             confirm_dependencies: options.confirmDependencies === true,
             confirm_disable: options.confirmDisable === true,
         });

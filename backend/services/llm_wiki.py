@@ -30,9 +30,17 @@ from backend.domains.vault.registry.records import RecordReader
 from backend.domains.vault.registry.state import RegistryData
 from backend.services import (
     llm_wiki_config as llm_wiki_config,
+)
+from backend.services import (
     llm_wiki_extractors as llm_wiki_extractors,
+)
+from backend.services import (
     llm_wiki_indices as llm_wiki_indices,
+)
+from backend.services import (
     llm_wiki_pdf_annotations as llm_wiki_pdf_annotations,
+)
+from backend.services import (
     llm_wiki_storage as llm_wiki_storage,
 )
 from backend.utils.open_values import float_value, iterable_values, length_value
@@ -130,12 +138,23 @@ class _MetadataItems(Protocol):
     def items(self) -> Iterable[tuple[object, object]]: ...
 
 
-def _fonts_ids(meta: _MetadataItems) -> List[str]:
+def _fonts_ids(meta: _MetadataItems, table: dict[str, object] | None = None) -> List[str]:
     """Extract linked page ids from any known source relation metadata."""
+    from backend.services.plugin_fields import bindings
+
+    source_keys: set[str] = set()
+    for prop in iterable_values((table or {}).get("properties") or []):
+        if isinstance(prop, dict) and bindings(prop).get("llm-wiki", "").startswith("source:"):
+            source_keys.update(str(value) for value in (prop.get("id"), prop.get("name")) if value)
+            source_keys.update(str(value) for value in iterable_values(prop.get("aliases") or []))
     values: list[object] = []
     for key, raw in (meta or {}).items():
         normalized = re.sub(r"[^a-z0-9]+", "", str(key).casefold())
-        if normalized in {"fonts", "font", "sources", "source"} or str(key).startswith("Font ·"):
+        if (
+            str(key) in source_keys
+            or normalized in {"fonts", "font", "sources", "source"}
+            or str(key).startswith("Font ·")
+        ):
             values.extend(raw if isinstance(raw, list) else ([raw] if raw else []))
     out = []
     for value in values:
@@ -149,6 +168,10 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
     """Compact, bounded context packet for cross-links and connection proposals."""
     out = []
     try:
+        from backend.domains.llm_wiki.brain_fields import role_value
+
+        table = legacy_ports.table_by_id(brain_table_id) or {}
+        config = llm_wiki_config.load_config()
         for page in legacy_ports.table_pages(brain_table_id):
             meta = llm_wiki_storage.page_metadata(page)
             if meta.get("is_template"):
@@ -157,11 +180,13 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
                 {
                     "id": str(getattr(page, "id", "") or meta.get("id") or ""),
                     "title": str(getattr(page, "title", "") or meta.get("title") or ""),
-                    "type": str(meta.get("Tipus") or meta.get("note_type") or ""),
+                    "type": str(
+                        role_value(meta, table, config, "idea_type") or meta.get("note_type") or ""
+                    ),
                     "same_source": bool(source_page_id)
                     and (
                         str(meta.get("llm_wiki_resource_id") or "") == source_page_id
-                        or source_page_id in _fonts_ids(meta)
+                        or source_page_id in _fonts_ids(meta, table)
                     ),
                 }
             )
@@ -418,8 +443,8 @@ def process_resource(
     resume_job_id: str = "",
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
-    from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime, token_bound
     from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime, token_bound
 
     runtime = prepare_reading_runtime(vault_root)
     if job_id:
@@ -432,14 +457,20 @@ def process_resource(
         update_job=llm_wiki_storage.update_job,
         extract_sources=llm_wiki_extractors.extract_resource_sources,
         save_snapshot=llm_wiki_storage.save_snapshot,
-        chunk_origins=partial(reading_chunks, budget=runtime.input_budget // 5, count=getattr(runtime, "count_tokens", token_bound)),
+        chunk_origins=partial(
+            reading_chunks,
+            budget=runtime.input_budget // 5,
+            count=getattr(runtime, "count_tokens", token_bound),
+        ),
         load_brain_index=_load_brain_index,
         dimension_context=_dimension_context,
         build_prompt=_build_chunk_prompt,
         generate_text=runtime.generate,
         generate_structured=getattr(runtime, "generate_structured", None),
         execution_revision=runtime.identity,
-        agent_directed=bool(getattr(runtime, "snapshot", None) and runtime.snapshot.behavior_resources),
+        agent_directed=bool(
+            getattr(runtime, "snapshot", None) and runtime.snapshot.behavior_resources
+        ),
         execution_metadata=runtime.metadata,
         input_budget=runtime.input_budget,
         count_tokens=getattr(runtime, "count_tokens", token_bound),
@@ -505,7 +536,11 @@ def start_ingest(
     previous = llm_wiki_storage.get_job_status(source_page_id, source_table_id)
     resume_checkpoint: dict[str, object] | None = None
     resume_job_id = ""
-    if not force and previous.get("phase") in {PHASE_PARTIAL, PHASE_ERROR} and previous.get("job_id"):
+    if (
+        not force
+        and previous.get("phase") in {PHASE_PARTIAL, PHASE_ERROR}
+        and previous.get("job_id")
+    ):
         resume_job_id = str(previous["job_id"])
         loaded_checkpoint = llm_wiki_storage.load_checkpoint(
             resume_job_id,
@@ -514,8 +549,9 @@ def start_ingest(
         if isinstance(loaded_checkpoint, dict):
             resume_checkpoint = {str(key): value for key, value in loaded_checkpoint.items()}
     from backend.domains.llm_wiki.reading_skill import SKILL_ID
-    from backend.services.agent_execution import prepare_snapshot, create_job_run, operation_session
     from backend.services import agent_execution_store
+    from backend.services.agent_execution import create_job_run, operation_session, prepare_snapshot
+
     snapshot = prepare_snapshot(SKILL_ID)
     if Path(snapshot.scope.vault_path).resolve() != Path(vault_root).resolve():
         raise PermissionError("agent_execution_vault_mismatch")
@@ -572,13 +608,17 @@ def start_ingest(
             )
         except Exception as exc:  # noqa: BLE001
             from backend.domains.llm_wiki.recovery import processing_error_message
+
             error_message = processing_error_message(exc)
             logger.exception("llm_wiki ingest failed for %s: %s", source_page_id, error_message)
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "reduced-plan")
             status = llm_wiki_storage.get_job_status(job_id)
             phase = PHASE_PARTIAL if checkpoint or status.get("chunks_done") else PHASE_ERROR
             llm_wiki_storage.finish_job(
-                job_id, phase=phase, error=error_message, progress=status.get("progress", 0),
+                job_id,
+                phase=phase,
+                error=error_message,
+                progress=status.get("progress", 0),
             )
         finally:
             if token is not None:
@@ -589,11 +629,15 @@ def start_ingest(
             agent_execution_store.update(snapshot.scope, job_id, status="running")
             _worker()
             status = llm_wiki_storage.get_job_status(job_id)
-            agent_execution_store.update(snapshot.scope, job_id,
+            agent_execution_store.update(
+                snapshot.scope,
+                job_id,
                 status="completed" if status.get("phase") == PHASE_DONE else "failed",
-                error=str(status.get("error") or ""))
+                error=str(status.get("error") or ""),
+            )
 
     from contextvars import copy_context
+
     worker_context = copy_context()
     threading.Thread(
         target=lambda: worker_context.run(_governed_worker),

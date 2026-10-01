@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../../shared/i18n/i18n';
 
 import { logError } from '../../../shared/notifications/notifyError';
 import { apiErrorDetail } from '../../../shared/api/errors';
@@ -51,7 +52,7 @@ export function useLlmWikiController(): LlmWikiController {
         try {
             const [records, state] = await loadLlmWikiSettings();
             setTables(normalizeVaultTables(records));
-            const normalized = normalizeLlmWikiDraft(state.config);
+            const normalized = { ...normalizeLlmWikiDraft(state.config), ui_locale: i18n.resolvedLanguage || i18n.language || 'en' };
             persistedDraftRef.current = JSON.stringify(serializeLlmWikiDraft(normalized));
             setDraftState(normalized);
             setServerState(state);
@@ -150,7 +151,7 @@ export function useLlmWikiController(): LlmWikiController {
         setBusy(true);
         setError('');
         try {
-            await createPluginLlmWikiBrain(draft.ui_locale ?? 'en');
+            await createPluginLlmWikiBrain(i18n.resolvedLanguage || i18n.language || 'en');
             setConfirmCreate(false);
             await reload();
         } catch (createError) {

@@ -10,7 +10,7 @@ import { RULE_PROTECTED_OPTIONS } from './constants';
 import { SortableOptionRow } from './SortableOptionRow';
 import { RemoveOptionDialog } from './RemoveOptionDialog';
 import type { OptionsEditorProps, RemoveOptionState } from './types';
-export function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }: OptionsEditorProps) {
+export function OptionsEditor({ options = [], requiredOptions = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }: OptionsEditorProps) {
     const { t } = useTranslation();
     const [newOption, setNewOption] = useState('');
     const [usage, setUsage] = useState<Record<string, number> | null>(null); // {name: count} or null while loading
@@ -95,6 +95,10 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
     // just from the catalog) or reassigns them to another option. Always with
     // confirmation (accessibility: never destructive on the first click).
     const requestRemoveOption = (val: string) => {
+        if (requiredOptions.includes(val)) {
+            toast.error(t('schema.plugin_required_option'));
+            return;
+        }
         if (isShared && !isGlobalStatus) {
             toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
             return;
