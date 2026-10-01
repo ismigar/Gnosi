@@ -15,6 +15,7 @@ import {
     type SkillDraft,
 } from './aiSettingsUtils';
 import { ToolPicker } from './AIToolPicker';
+import { useDraftAutosave } from '../../../shared/hooks/useDraftAutosave';
 import { InstructionMarkdownEditor } from '../../../shared/editor/InstructionMarkdownEditor';
 
 
@@ -77,7 +78,6 @@ export function SkillEditor({
 }: SkillEditorProps) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState(() => createDraft(skill));
-    const [saving, setSaving] = useState(false);
     const [validation, setValidation] = useState<SkillValidation | null>(null);
     const [validating, setValidating] = useState(false);
     const canSave = Boolean(draft.name.trim() && draft.instructions.trim());
@@ -90,15 +90,8 @@ export function SkillEditor({
                 : [...current.toolIds, toolId],
         }));
     };
-    const handleSave = async (): Promise<void> => {
-        if (!canSave || saving) return;
-        setSaving(true);
-        try {
-            await onSave(draft);
-        } finally {
-            setSaving(false);
-        }
-    };
+    const autosave = useDraftAutosave(draft, canSave, onSave);
+    const close = async () => { if (await autosave.flush()) onCancel(); };
     const handleValidate = async (): Promise<void> => {
         if (!onValidate || validating) return;
         setValidating(true);
@@ -206,10 +199,10 @@ export function SkillEditor({
             <div className="ai-resource-editor__actions">
                 <button
                     className="btn-gnosi-secondary"
-                    onClick={onCancel}
+                    onClick={() => { void close(); }}
                     type="button"
                 >
-                    {t('common.cancel')}
+                    {t('common.close')}
                 </button>
                 {skill && onValidate ? (
                     <button
@@ -226,19 +219,12 @@ export function SkillEditor({
                         {t('settings.ai.resources.validate')}
                     </button>
                 ) : null}
-                <button
-                    className="btn-gnosi btn-gnosi-primary"
-                    disabled={!canSave || saving}
-                    onClick={() => {
-                        void handleSave();
-                    }}
-                    type="button"
-                >
-                    {saving
-                        ? <Loader2 className="animate-spin" size={16} />
-                        : <Check size={16} />}
-                    {t('common.save')}
-                </button>
+                <span role={autosave.status === 'error' ? 'alert' : 'status'}>
+                    {t(`skill_autosave.${!canSave && autosave.dirty ? 'incomplete' : autosave.status}`)}
+                </span>
+                {autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary"
+                    onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
+
             </div>
         </div>
     );

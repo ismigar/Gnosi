@@ -1,4 +1,12 @@
 {
+  "skill_autosave": {
+    "pending": "Changes pending…",
+    "idle": "Changes save automatically.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "error": "Changes could not be saved. Retry before closing.",
+    "incomplete": "Complete the required fields to save changes."
+  },
   "instruction_editor": {
     "source_required": "Visual editing could not be loaded. Open Markdown to edit the original text.",
     "rich_help": "Write directly. Select text to format it or type / to insert a heading, list or code block.",

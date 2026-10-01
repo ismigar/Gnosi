@@ -48,3 +48,47 @@ def test_import_review_save_export_and_permission_boundaries(tmp_path, monkeypat
     assert client.post("/api/ai/learning/package/validate", json=package).status_code == 200
     package["skill"]["resources"] = [{"name": "../private.txt", "content": "Synthetic"}]
     assert client.post("/api/ai/learning/package/validate", json=package).status_code == 422
+
+
+def test_autosave_reuses_identity_updates_package_and_rejects_stale_edits(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    context = WorkspaceContext("synthetic", "owner", "owner", tmp_path)
+    tools = ToolCatalog()
+    catalog = SkillCatalog(tools)
+    monkeypatch.setattr(routes, "_require_configured_agent", lambda _: {"id": "helper"})
+    monkeypatch.setattr(routes, "get_tool_catalog", lambda: tools)
+    monkeypatch.setattr(routes, "get_skill_catalog", lambda: catalog)
+    assignments = SimpleNamespace(ensure_migrated=lambda: None, agent_revision=lambda _: "1",
+                                  get_agent=lambda _: {"skill_ids": []}, assign=lambda *args, **kwargs: None)
+    monkeypatch.setattr(routes, "_assignment_store", lambda: assignments)
+    app = FastAPI()
+    app.include_router(routes.router, prefix="/api/ai")
+    app.dependency_overrides[get_workspace_context] = lambda: context
+    client = TestClient(app)
+    skill = {"name": "Autosave", "instructions": "Original", "criteria": ["Grounded"],
+             "resources": [{"name": "template.md", "content": "Original template"}]}
+    body = {"agent_id": "helper", "skill": skill, "skill_id": "user.learned-synthetic"}
+    first = client.post("/api/ai/learning/skills", json=body)
+    assert first.status_code == 201, first.text
+    # Retrying a response lost in transit must not create another package.
+    assert client.post("/api/ai/learning/skills", json=body).json() == first.json()
+    assert len(list(tmp_path.glob("**/SKILL.md"))) == 1
+    revision = first.json()["revision"]
+    skill["instructions"] = "Edited"
+    skill["resources"][0]["content"] = "Edited template"
+    assert client.post("/api/ai/learning/skills", json=body).status_code == 409
+    body["expected_revision"] = revision
+    second = client.post("/api/ai/learning/skills", json=body)
+    assert second.status_code == 201, second.text
+    assert second.json()["skill_id"] == first.json()["skill_id"]
+    assert second.json()["revision"] != revision
+    assert len(list(tmp_path.glob("**/SKILL.md"))) == 1
+    exported = client.get("/api/ai/skills/user.learned-synthetic/package").json()["skill"]
+    assert exported["instructions"] == "Edited"
+    assert exported["resources"] == skill["resources"]
+    skill["instructions"] = "Stale edit"
+    assert client.post("/api/ai/learning/skills", json=body).status_code == 409
+    assert client.get("/api/ai/skills/user.learned-synthetic/package").json()["skill"]["instructions"] == "Edited"
+    body["skill_id"] = "core.example"
+    assert client.post("/api/ai/learning/skills", json=body).status_code == 409

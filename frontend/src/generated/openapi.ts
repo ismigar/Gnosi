@@ -22257,6 +22257,8 @@ export interface components {
             assigned: boolean;
             /** Missing Tools */
             missing_tools?: string[];
+            /** Revision */
+            revision: string;
             /** Skill Id */
             skill_id: string;
         };
@@ -22270,11 +22272,21 @@ export interface components {
              */
             assign: boolean;
             /**
+             * Expected Revision
+             * @default
+             */
+            expected_revision: string;
+            /**
              * Session Id
              * @default
              */
             session_id: string;
             skill: components["schemas"]["LearnedSkill"];
+            /**
+             * Skill Id
+             * @default
+             */
+            skill_id: string;
         };
         /**
          * ScheduleDiagnosticResponse

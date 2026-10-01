@@ -1,4 +1,12 @@
 {
+  "skill_autosave": {
+    "pending": "Canvis pendents…",
+    "idle": "Els canvis es desen automàticament.",
+    "saving": "Desant…",
+    "saved": "Desat",
+    "error": "No s’han pogut desar els canvis. Torna-ho a provar abans de tancar.",
+    "incomplete": "Completa els camps obligatoris per desar els canvis."
+  },
   "instruction_editor": {
     "source_required": "No s’ha pogut carregar l’edició visual. Obre Markdown per editar el text original.",
     "rich_help": "Escriu directament. Selecciona text per donar-li format o escriu / per inserir un títol, una llista o un bloc de codi.",

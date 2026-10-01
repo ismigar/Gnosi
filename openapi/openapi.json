@@ -30835,6 +30835,12 @@
             "title": "Assign",
             "type": "boolean"
           },
+          "expected_revision": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Expected Revision",
+            "type": "string"
+          },
           "session_id": {
             "default": "",
             "maxLength": 128,
@@ -30843,6 +30849,12 @@
           },
           "skill": {
             "$ref": "#/components/schemas/LearnedSkill"
+          },
+          "skill_id": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Skill Id",
+            "type": "string"
           }
         },
         "required": [
@@ -30866,12 +30878,17 @@
             "title": "Missing Tools",
             "type": "array"
           },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
           "skill_id": {
             "title": "Skill Id",
             "type": "string"
           }
         },
         "required": [
+          "revision",
           "skill_id",
           "assigned"
         ],

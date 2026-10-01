@@ -1,4 +1,12 @@
 {
+  "skill_autosave": {
+    "pending": "Cambios pendientes…",
+    "idle": "Los cambios se guardan automáticamente.",
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "error": "No se pudieron guardar los cambios. Reintenta antes de cerrar.",
+    "incomplete": "Completa los campos obligatorios para guardar los cambios."
+  },
   "instruction_editor": {
     "source_required": "No se ha podido cargar la edición visual. Abre Markdown para editar el texto original.",
     "rich_help": "Escribe directamente. Selecciona texto para darle formato o escribe / para insertar un título, una lista o un bloque de código.",
