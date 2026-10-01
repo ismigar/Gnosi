@@ -193,7 +193,7 @@ describe('AI resource settings components', () => {
         expect(onChange).toHaveBeenCalledWith(['plugin.llm-wiki.query']);
     });
 
-    it('opens personalization as a draft and cancel never writes a copy', () => {
+    it('opening and closing unchanged personalization never writes a copy', async () => {
         const skill = normalizeSkill({ id: 'core.example', name: 'Example', instructions: 'Exact runtime instructions', origin: 'core', description: 'Specific original description' });
         const cloneSkill = vi.fn(); const createSkill = vi.fn();
         const container = render(<SkillsSettingsPanel agents={[]} onAgentsChanged={vi.fn()} resources={{ skills: [skill], tools: [], cloneSkill, createSkill, updateSkill: vi.fn(), validateSkill: vi.fn(), deleteSkill: vi.fn(), reload: vi.fn(), issues: [], loading: false, error: '' }} />);
@@ -201,8 +201,8 @@ describe('AI resource settings components', () => {
         act(() => { customize?.click(); });
         expect(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="settings.ai.resources.instructions"]')?.value).toBe(skill.instructions);
         expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
-        const cancel = [...container.querySelectorAll('button')].find(button => button.textContent.includes('common.cancel'));
-        act(() => { cancel?.click(); });
+        const cancel = [...container.querySelectorAll('button')].find(button => button.textContent.includes('common.close'));
+        await act(async () => { cancel?.click(); await Promise.resolve(); });
         expect(container.querySelector('.ai-resource-editor')).toBeNull();
         expect(cloneSkill).not.toHaveBeenCalled(); expect(createSkill).not.toHaveBeenCalled();
     });

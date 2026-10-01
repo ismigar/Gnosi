@@ -1,5 +1,5 @@
 import { SkillPackageTools } from '../../agent-learning';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
     ChevronDown,
@@ -77,6 +77,9 @@ export function SkillsSettingsPanel({
     const [category, setCategory] = useState(resources.skills.some(skill => skill.id === selectedSkillId && skillCategory(skill) === 'legacy') ? 'legacy' : 'all');
     const [editing, setEditing] = useState<NormalizedSkill | null>(null);
     const [creating, setCreating] = useState(false);
+    const createdSkill = useRef<NormalizedSkill | null>(null);
+    const creationId = useRef(`user.skill-${crypto.randomUUID()}`);
+    const updatedSkill = useRef<NormalizedSkill | null>(null);
     const [deletionConflict, setDeletionConflict] =
         useState<DeletionConflict | null>(null);
     const normalizedSearch = search.trim().toLowerCase();
@@ -104,30 +107,32 @@ export function SkillsSettingsPanel({
 
     const handleCreate = async (draft: SkillDraft): Promise<void> => {
         try {
-            const skill = await resources.createSkill({ ...draft, ...(source ? { sourceSkillId: source.id, sourceRevision: source.revision } : {}) });
-            setUsage({ skill, source });
-            setSource(null);
-            setCreating(false);
+            const skill = createdSkill.current
+                ? await resources.updateSkill(createdSkill.current, draft)
+                : await resources.createSkill({ ...draft, requestedId: creationId.current, ...(source ? { sourceSkillId: source.id, sourceRevision: source.revision } : {}) });
+            createdSkill.current = skill;
             setExpandedId(skill.id);
-            toast.success(t('settings.ai.resources.skill_created'));
         } catch (error: unknown) {
             logError('ai-skill-create', error);
             toast.error(t('settings.ai.resources.save_error'));
+            throw error;
         }
     };
     const handleUpdate = async (draft: SkillDraft): Promise<void> => {
         if (!editing) return;
         try {
-            const skill = await resources.updateSkill(editing, draft);
-            setEditing(null);
+            const skill = await resources.updateSkill(updatedSkill.current?.id === editing.id ? updatedSkill.current : editing, draft);
+            updatedSkill.current = skill;
             setExpandedId(skill.id);
-            toast.success(t('settings.ai.resources.skill_updated'));
         } catch (error: unknown) {
             logError('ai-skill-update', error);
             toast.error(t('settings.ai.resources.save_error'));
+            throw error;
         }
     };
     const handleClone = (skill: NormalizedSkill): void => {
+        createdSkill.current = null;
+        creationId.current = `user.skill-${crypto.randomUUID()}`;
         setSource(skill);
         setCreating(true);
         setEditing(null);
@@ -198,8 +203,10 @@ export function SkillsSettingsPanel({
                 </select>
                 <button
                     className="btn-gnosi btn-gnosi-primary"
-                    disabled={!canEdit}
+                    disabled={!canEdit || creating || Boolean(editing)}
                     onClick={() => {
+                        createdSkill.current = null;
+                        creationId.current = `user.skill-${crypto.randomUUID()}`;
                         setSource(null);
                         setCreating((current) => !current);
                         setEditing(null);
@@ -285,8 +292,10 @@ export function SkillsSettingsPanel({
                     key={source?.id || 'new'}
                     skill={source ? { ...source, id: '', name: t('settings.ai.resources.clone_name', { name: skillDisplayName(t, source) }), description: skillDisplayDescription(t, source) } : null}
                     onCancel={() => {
+                        if (createdSkill.current) setUsage({ skill: createdSkill.current, source });
                         setCreating(false);
                         setSource(null);
+                        createdSkill.current = null;
                     }}
                     onSave={handleCreate}
                     tools={resources.tools}
@@ -322,7 +331,7 @@ export function SkillsSettingsPanel({
                             automationNames={(resources.automations || []).filter(item => item.skill_id === skill.id).map(item => String(item.name))}
                             agentNames={new Map(agents.map(agent => [agent.id, agent.name || agent.id]))}
                             onUse={() => { setUsage({ skill, source: resources.skills.find(base => base.id === skill.metadata?.derived_from?.id) || null }); }}
-                            canEdit={canEdit}
+                            canEdit={canEdit && !creating && !editing}
                             key={skill.id}
                             onClone={() => {
                                 handleClone(skill);

@@ -30,7 +30,7 @@ Cada perfil té un únic LLM. Per fer servir un altre model, tria un altre perfi
 
 ### Edita les instruccions en Markdown
 
-Les instruccions dels agents i de les habilitats comparteixen un editor de blocs, actiu per defecte, amb comandes **/**. La barra de format apareix en seleccionar text, igual que a l’editor de pàgines. Igual que a l’editor de pàgines, un únic botó **</>** alterna entre la vista normal editable i el codi Markdown. Canviar de vista no modifica el text. **Amplia l’editor** obre una vista més gran; prem **Esc** o **Redueix l’editor** per tornar al formulari. En el codi Markdown, **Ctrl/Cmd + ]** sagna les línies seleccionades i **Ctrl/Cmd + [** treu el sagnat. Desa des del formulari habitual.
+Les instruccions dels agents i de les habilitats comparteixen un editor de blocs, actiu per defecte, amb comandes **/**. La barra de format apareix en seleccionar text, igual que a l’editor de pàgines. Igual que a l’editor de pàgines, un únic botó **</>** alterna entre la vista normal editable i el codi Markdown. Canviar de vista no modifica el text. **Amplia l’editor** obre una vista més gran; prem **Esc** o **Redueix l’editor** per tornar al formulari. En el codi Markdown, **Ctrl/Cmd + ]** sagna les línies seleccionades i **Ctrl/Cmd + [** treu el sagnat. Els canvis es desen automàticament després d’una pausa breu. **Tanca** desa els canvis pendents abans de sortir. Si falta un camp obligatori o falla el desament, el formulari es manté obert i mostra el problema. Això també s’aplica als esborranys d’habilitats; els desaments successius actualitzen la mateixa habilitat.
 
 ## Resultat esperat {#expected-result}
 

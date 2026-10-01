@@ -87,6 +87,8 @@ class SaveLearningRequest(LearningModel):
     agent_id: str = Field(min_length=1, max_length=128)
     session_id: str = Field(default="", max_length=128)
     assign: bool = False
+    skill_id: str = Field(default="", max_length=128)
+    expected_revision: str = Field(default="", max_length=128)
 
 
 class SkillPackage(LearningModel):
@@ -113,6 +115,7 @@ class SkillTrialResult(LearningModel):
 
 
 class SavedLearning(LearningModel):
+    revision: str
     skill_id: str
     assigned: bool
     missing_tools: list[str] = Field(default_factory=list)

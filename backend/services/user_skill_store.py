@@ -248,6 +248,7 @@ class UserSkillStore:
         instructions: str,
         *,
         expected_revision: Optional[str] = None,
+        learning_metadata: Optional[Mapping[str, Any]] = None,
     ) -> SkillDescriptor:
         normalized = _normalize_user_id(skill_id)
         with self._lock:
@@ -258,7 +259,9 @@ class UserSkillStore:
                 )
             # Preserve server-owned lineage across ordinary user edits.
             merged = dict(metadata)
-            merged["metadata"] = current.metadata
+            merged["metadata"] = dict(current.metadata)
+            if learning_metadata is not None:
+                merged["metadata"]["learning"] = dict(learning_metadata)
             descriptor = self.validate(
                 merged, instructions, skill_id=normalized
             )

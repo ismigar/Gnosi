@@ -30,7 +30,7 @@ Each profile has exactly one LLM. To use another model, choose another profile o
 
 ### Edit instructions in Markdown
 
-Agent and skill instructions share a block editor, active by default, with **/** commands. The formatting toolbar appears when you select text, as in the page editor. As in the page editor, one **</>** button switches between the editable normal view and Markdown source. Switching views does not change the text. Expand the editor for a larger view; press **Esc** or reduce it to return to the form. In Markdown source, **Ctrl/Cmd + ]** indents selected lines and **Ctrl/Cmd + [** outdents them. Save from the usual form.
+Agent and skill instructions share a block editor, active by default, with **/** commands. The formatting toolbar appears when you select text, as in the page editor. As in the page editor, one **</>** button switches between the editable normal view and Markdown source. Switching views does not change the text. Expand the editor for a larger view; press **Esc** or reduce it to return to the form. In Markdown source, **Ctrl/Cmd + ]** indents selected lines and **Ctrl/Cmd + [** outdents them. Changes save automatically after a short pause. **Close** saves pending changes before leaving. If a required field is incomplete or saving fails, the form stays open and shows the problem. Skill drafts use the same behavior; successive saves update the same skill.
 
 ## Expected result {#expected-result}
 
