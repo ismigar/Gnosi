@@ -34,6 +34,8 @@ export function useSchemaState(props: ResolvedProps) {
     const modalRef = useRef<HTMLDivElement | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const savedCatalogRefsRef = useRef<Record<string, string>>({});
+    const saveErrorRef = useRef<unknown>(null);
+    const optionMutationRef = useRef<Promise<unknown> | null>(null);
     const activeSaveRef = useRef<Promise<void> | null>(null);
     const pendingSaveRef = useRef<(() => Promise<void>) | null>(null);
     const modalLayerRef = useRef<ModalLayer | null>(null);
@@ -48,7 +50,7 @@ export function useSchemaState(props: ResolvedProps) {
         setAiActionModalFieldIndex, aiActionPrompt, setAiActionPrompt, aiActionLoading,
         setAiActionLoading, availableSkills, setAvailableSkills, toggleConfirm, setToggleConfirm,
         confirmRemoveField, setConfirmRemoveField, initializedRef, modalRef, scrollRef, pendingSaveRef,
-        modalLayerRef, savedCatalogRefsRef, activeSaveRef,
+        modalLayerRef, savedCatalogRefsRef, activeSaveRef, saveErrorRef, optionMutationRef,
     };
 }
 export type SchemaState = ReturnType<typeof useSchemaState>;

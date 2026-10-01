@@ -9,8 +9,8 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Domaine | État | Guide | Fichiers source | Fichiers de test | Directives trouvées |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 743 | 256 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1021 | 273 | 0 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 458 | 120 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 1023 | 274 | 0 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 460 | 121 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 65 | 40 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 134 | 53 | 0 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 261 | 96 | 0 |
