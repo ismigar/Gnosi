@@ -21,17 +21,17 @@ names): the resolver matches by id, current name, or alias, and `to_storage_name
 from collections.abc import Callable
 from typing import TypeAlias
 
-from backend.domains.vault.registry.records import is_record
+from backend.domains.vault.registry.records import RecordReader, is_record
 from backend.domains.vault.registry.state import RegistryData
 from backend.utils.open_values import contains_value, iterable_values
 
 Metadata: TypeAlias = RegistryData
-TableSchema: TypeAlias = RegistryData
+TableSchema: TypeAlias = RecordReader
 PropertySchema: TypeAlias = RegistryData
 
 
 def _properties(table: TableSchema) -> list[PropertySchema]:
-    raw = table.get("properties", []) or []
+    raw = table.get("properties") or []
     if not isinstance(raw, list):
         return []
     return [prop for prop in raw if is_record(prop)]
@@ -69,9 +69,9 @@ def resolve_property(table: TableSchema, ref: str) -> PropertySchema | None:
     """Resolves a ref (id, current name, or alias) to the full property."""
     if not ref:
         return None
-    if is_field_id(ref):
-        return get_property_by_id(table, ref)
-    return get_property_by_name(table, ref)
+    # Existing registries also contain UUIDs and imported opaque IDs. Their
+    # spelling must not decide whether a reference survives a rename.
+    return get_property_by_id(table, ref) or get_property_by_name(table, ref)
 
 
 def resolve_ref(table: TableSchema, ref: str) -> tuple[str | None, str | None]:
@@ -90,15 +90,21 @@ def resolve_ref(table: TableSchema, ref: str) -> tuple[str | None, str | None]:
     )
 
 
-def get_meta_value(metadata: Metadata, table: TableSchema, ref: str) -> object:
+def get_meta_value(metadata: RecordReader, table: TableSchema, ref: str) -> object:
     """Reads metadata by ref (id or name). Prioritizes id, falls back to name."""
     if not metadata:
         return None
     fid, fname = resolve_ref(table, ref)
-    if fid and fid in metadata:
-        return metadata[fid]
-    if fname and fname in metadata:
-        return metadata[fname]
+    if fid and ((is_record(metadata) and fid in metadata) or metadata.get(fid) is not None):
+        return metadata.get(fid)
+    if fname and ((is_record(metadata) and fname in metadata) or metadata.get(fname) is not None):
+        return metadata.get(fname)
+    prop = resolve_property(table, ref)
+    for alias in iterable_values((prop or {}).get("aliases") or []):
+        if isinstance(alias, str) and (
+            (is_record(metadata) and alias in metadata) or metadata.get(alias) is not None
+        ):
+            return metadata.get(alias)
     return None
 
 
@@ -210,8 +216,7 @@ def _resolve_metadata_names(metadata: Metadata, maps: FieldNameMaps) -> tuple[Me
     # Most indexed rows already use current names. In that case there are no
     # collisions to resolve; retain order and opaque values in a defensive copy.
     if type(metadata) is dict and all(
-        key in name_set or (key not in id_to_name and key not in alias_to_name)
-        for key in metadata
+        key in name_set or (key not in id_to_name and key not in alias_to_name) for key in metadata
     ):
         return dict(metadata), False
 

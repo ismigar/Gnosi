@@ -1,7 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-10-01
 source_paths:
+  - backend/services/plugin_fields.py
+  - backend/domains/llm_wiki/brain_fields.py
   - backend/config/paths_config.py
   - backend/data/management_db.py
   - backend/models/management.py
@@ -10,6 +12,7 @@ source_paths:
   - backend/services/reference_table_config.py
   - backend/services/reference_config_migration.py
 tests:
+  - backend/tests/test_plugin_required_fields.py
   - backend/tests/test_auto_provisioned_migration.py
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
@@ -52,6 +55,27 @@ Database-style views are projections over pages and registries. They do not
 replace Markdown with an opaque relational store. View definitions, schema
 metadata, formulas, rollups, relations, and presentation state are resolved by
 the vault service layer.
+
+## Required plugin fields
+
+Plugin field contracts persist `config.plugin_roles` beside the immutable property
+ID. Processes resolve semantic roles to IDs and read current names or historical
+aliases through the field resolver. Schema replacement and field PATCH requests
+reject removal, ID replacement, type changes and relation retargeting with HTTP
+409; renames remain available. Server-owned bindings survive editor round trips.
+
+LLM Wiki activation receives the active interface locale (Catalan, English,
+Spanish or French). Reconciliation repairs stale role IDs, binds existing fields,
+creates missing fields and seeds the idea and verification catalogs. Existing
+custom names and option labels remain stable. Required choices cannot be removed;
+renaming a choice updates its semantic mapping and existing records.
+
+Idea type classifies Entity, Concept, Summary or Synthesis. Verification tracks
+Provisional, Verified, Needs review or Refuted separately from workflow status.
+Last reviewed records knowledge review, separately from arbitrary file edits.
+Generation writes the idea type, provisional verification, reading order and
+review date through the registered IDs. Lint reads the same review role; index
+ordering and resource processing stamps likewise resolve stable IDs.
 
 ## Write concurrency
 

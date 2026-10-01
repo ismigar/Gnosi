@@ -141,6 +141,10 @@ def _apply_lifecycle_mutation(
     agent_result: PluginState = {}
     if "llm-wiki" in affected:
         agent_result = transition_agent(builtin_plugins.is_enabled(state, "llm-wiki"))
+        if builtin_plugins.is_enabled(state, "llm-wiki"):
+            from backend.services.plugin_field_migration import ensure_knowledge_fields
+
+            ensure_knowledge_fields(payload.ui_locale)
 
     saved = dependencies.save_state(state)
     if "llm-wiki" in affected:
