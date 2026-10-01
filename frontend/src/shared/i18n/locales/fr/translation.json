@@ -3669,6 +3669,8 @@
     "unnamed": "(sans nom)",
     "op_equals": "égal",
     "op_not_equals": "différent",
+    "section_contains": "Inclut cette section et ses sous-sections",
+    "section_not_contains": "Exclut cette section et ses sous-sections",
     "op_contains": "contient",
     "op_not_contains": "ne contient pas",
     "op_is_empty": "est vide",

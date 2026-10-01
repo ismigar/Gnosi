@@ -143,6 +143,7 @@ async def _create_brain_table(payload_data: RecordReader) -> dict[str, object]:
     }
     created = await _legacy.create_table_from_registry(table)
     _legacy._ensure_default_db_group()
+    _legacy.ensure_brain_table_schema(str(created["id"]), locale)
     cfg: dict[str, object] = bw.migrate_config()
     cfg["ui_locale"] = locale
     cfg["brain_table_id"] = created["id"]

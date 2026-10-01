@@ -56,7 +56,7 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
     let options;
     let displayMap = idToTitle;
     if (type === 'relation') {
-      const { relatedNotes, displayMap: enriched } = getRelationContext(field);
+      const { relatedNotes, displayMap: enriched } = getRelationContext(field, note);
       options = relatedNotes.map(n => n.id);
       displayMap = enriched;
     } else {
@@ -67,6 +67,7 @@ export function CellEditor({ model, value, type, noteId, field, originalMetaKey 
       && !getTableFieldConfig(schema, field).catalog_ref;
     return (
       <InlinePillsPicker
+        single={type === 'relation' && getTableFieldConfig(schema, field).source_sections === true}
         value={currentValues}
         options={options}
         idToTitle={displayMap}

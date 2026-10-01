@@ -236,6 +236,9 @@ def apply_filter(meta: Metadata, page_id: object, filter_rule: Filter) -> bool:
     if filter_rule.get("periodPart") or (isinstance(value, dict) and "start" in value):
         value = period_boundary(value, str(filter_rule.get("periodPart") or "start"))
     values = text_values(value)
+    if (meta.get("llm_wiki_section_field") == field
+            and operator in {"contains", "not_contains"}):
+        values = [*values, *text_values(meta.get("llm_wiki_section_ancestor_ids"))]
     if operator == "is_empty":
         return not values
     if operator == "is_not_empty":

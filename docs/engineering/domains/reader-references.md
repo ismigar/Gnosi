@@ -2,6 +2,8 @@
 status: implemented
 last_verified: 2026-09-27
 source_paths:
+  - backend/domains/configuration/source_sections_schema.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.ts
   - backend/domains/llm_wiki
   - backend/services/llm_wiki.py
   - backend/services/llm_wiki_reading_runtime.py
@@ -37,6 +39,8 @@ source_paths:
   - frontend/src/features/literature/settings/ResourcesPluginConfig.tsx
   - frontend/src/features/reader/zotero/ZoteroReaderTab.ts
 tests:
+  - backend/tests/test_llm_wiki_source_sections.py
+  - frontend/src/features/vault/properties/sourceSectionRelations.test.ts
   - backend/tests/test_llm_wiki_recovery.py
   - backend/tests/test_llm_wiki_contextual_reading.py
   - backend/tests/test_llm_wiki_reading_runtime.py
@@ -365,3 +369,22 @@ Citation evidence with an empty source URL falls back to the resource attachment
 Each source selects `assignment_field_ids` independently from `index_field_ids`. An absent assignment list preserves legacy index-based behavior; an explicit empty list disables assignments. Rules support `ai`, `source`, `fixed` and `empty`. Only editable destination fields can be assigned. AI values follow typed schemas and categorical values must belong to existing options. Source and fixed assignments preserve zero and false; empty rules clear the value during reprocessing, while removing a rule preserves existing metadata.
 
 The shared `backend/domains/llm_wiki/options.py` resolver reads `config.catalog_ref` from the active vault before inline options, so settings and processing use the same categorical values. An empty legacy `agent_id` selects the principal agent. The settings editor waits for complete source and fixed-value rules before saving. Regression coverage includes `backend/tests/test_llm_wiki_field_assignments.py` and `backend/tests/test_llm_wiki_processing_domain_contract.py`.
+
+## Source sections and paratext
+
+Source processing excludes covers, publication metadata, opening epigraphs and
+forewords, prologues or prefaces from reading notes unless the user explicitly
+requests them. Coverage still records these passages and they remain context.
+
+The Brain keeps numeric `Position` and adds a single `Section` relation to a
+managed source-sections table. Native headings retain their hierarchy, original
+labels and distinct identities even without numbering or with repeated titles.
+Each section belongs to one source and input document; selectors reject sections
+from other sources. Equality filters match one section; inclusion filters also
+match its descendants. Pages and timestamps stay citation locators. Audio and
+video use native chapter metadata when available; no chapters are invented.
+
+Schema updates preserve existing notes and do not launch processing. Explicit
+reprocessing assigns sections and marks removed sections stale while retaining
+historic relations. The application derives assignments from verified source
+segments, including when it resumes a reviewed checkpoint.

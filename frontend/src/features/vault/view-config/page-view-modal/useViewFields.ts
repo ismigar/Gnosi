@@ -46,6 +46,7 @@ export function useViewFields({
                 name: p.name,
                 type: p.type,
                 relation_database_id: p.relation_database_id,
+                config: p.config,
                 options: p.config?.options || p.options || [],
             }));
         props.unshift({ name: 'title', type: 'title' });
@@ -97,6 +98,7 @@ export function useViewFields({
                 name: p.name,
                 type: p.type,
                 relation_database_id: p.relation_database_id,
+                config: p.config,
                 options: p.config?.options || p.options || [],
             }));
         props.unshift(
