@@ -2652,7 +2652,7 @@
           "notification": "Notificació"
         },
         "customize": "Personalitza",
-        "customize_help": "Crea una versió pròpia editable. Es conserva l’original. No es crea res fins que desis.",
+        "customize_help": "Crea una versió pròpia editable. Els canvis es desen automàticament quan comences a modificar-la.",
         "compare_original": "Compara amb l’original",
         "edit_permission": "Un administrador pot editar o personalitzar aquestes habilitats.",
         "instructions_help": "Aquestes són les instruccions reals que rep l’agent. Descriu l’objectiu, els passos, el resultat esperat i els límits. Es mantenen els permisos de les eines.",

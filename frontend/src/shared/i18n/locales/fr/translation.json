@@ -807,7 +807,7 @@
           "notification": "Notification"
         },
         "customize": "Personnaliser",
-        "customize_help": "Créez votre version modifiable. L’original est conservé. Rien n’est créé avant l’enregistrement.",
+        "customize_help": "Créez votre version modifiable. Les changements sont enregistrés automatiquement dès que vous commencez à la modifier.",
         "compare_original": "Comparer avec l’original",
         "edit_permission": "Un administrateur peut modifier ou personnaliser ces compétences.",
         "instructions_help": "Ce sont les instructions réelles données à l’agent. Décrivez l’objectif, les étapes, le résultat attendu et les limites. Les permissions des outils restent appliquées.",
