@@ -107,9 +107,8 @@ def test_deferred_scheduler_leaves_health_responsive_and_keeps_context(
     events: list[tuple[str, str]] = []
     monkeypatch.setenv("GNOSI_INTEGRATION_STARTUP_DELAY_SECONDS", "0")
 
-    def idle_stub(*, enabled: bool) -> None:
-        assert enabled is False
-        events.append(("idle-disabled", context.get()))
+    def idle_stub() -> None:
+        events.append(("idle-start", context.get()))
 
     monkeypatch.setattr(lifespan_module, "_start_mail_idle", idle_stub)
 
@@ -132,7 +131,7 @@ def test_deferred_scheduler_leaves_health_responsive_and_keeps_context(
             async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
                 startup = asyncio.create_task(
                     lifespan_module._start_deferred_integrations(
-                        scheduler_enabled=True, mail_enabled=False
+                        scheduler_enabled=True
                     )
                 )
                 try:
@@ -165,7 +164,7 @@ def test_deferred_scheduler_leaves_health_responsive_and_keeps_context(
         if cancel_startup
         else [
             ("scheduler-start", "vault-scheduler-test"),
-            ("idle-disabled", "vault-scheduler-test"),
+            ("idle-start", "vault-scheduler-test"),
         ]
     )
 
@@ -186,9 +185,8 @@ def test_deferred_scheduler_keeps_disabled_and_failure_contracts(
         calls.append("scheduler")
         raise failure
 
-    def idle_stub(*, enabled: bool) -> None:
-        assert enabled is False
-        calls.append("idle-disabled")
+    def idle_stub() -> None:
+        calls.append("idle-start")
 
     monkeypatch.setattr(lifespan_module, "scheduler_manager", SimpleNamespace(start=start))
     monkeypatch.setattr(lifespan_module, "_start_mail_idle", idle_stub)
@@ -197,14 +195,14 @@ def test_deferred_scheduler_keeps_disabled_and_failure_contracts(
         if scheduler_enabled:
             with pytest.raises(OSError) as caught:
                 await lifespan_module._start_deferred_integrations(
-                    scheduler_enabled=True, mail_enabled=False
+                    scheduler_enabled=True
                 )
             assert caught.value is failure
             assert calls == ["scheduler"]
         else:
             await lifespan_module._start_deferred_integrations(
-                scheduler_enabled=False, mail_enabled=False
+                scheduler_enabled=False
             )
-            assert calls == ["idle-disabled"]
+            assert calls == ["idle-start"]
 
     asyncio.run(exercise())

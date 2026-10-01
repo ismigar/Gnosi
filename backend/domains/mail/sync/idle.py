@@ -27,6 +27,8 @@ import socket
 import threading
 import time
 from collections import deque
+from contextvars import Context
+from pathlib import Path
 from typing import Any, Deque, Optional
 
 log = logging.getLogger(__name__)
@@ -124,6 +126,7 @@ class ImapIdleManager:
         self._subscribers: list[_Subscriber] = []
         self._sub_lock = threading.Lock()
         self._running = False
+        self._lifecycle_lock = threading.RLock()
 
     # ── Subscribers (SSE clients) ───────────────────────────────────────
 
@@ -153,60 +156,101 @@ class ImapIdleManager:
     # ── Worker lifecycle ──────────────────────────────────────
 
     def start_all(self: Any) -> None:
-        """Launches a worker for each enabled IMAP account. Idempotent."""
-        if self._running:
-            return
-        self._running = True
+        """Launch enabled account workers only while Mail is currently active."""
+        with self._lifecycle_lock:
+            from backend.services.plugin_access import plugins_enabled_now
 
-        try:
-            from backend.services.integration_manager import integration_manager
-        except Exception as e:
-            log.error(f"[IDLE] Could not load integration_manager: {e}")
-            return
+            if not plugins_enabled_now("mail"):
+                return
+            if self._running:
+                return
+            self._running = True
 
-        accounts = integration_manager.get_all_mail_accounts(only_enabled=True)
-        for acc in accounts:
-            if not integration_manager.is_imap_account(acc):
-                continue
-            email = acc.get("email") or acc.get("username")
-            if not email:
-                continue
-            self.start_worker(email)
+            try:
+                from backend.services.integration_manager import integration_manager
+            except Exception as e:
+                log.error(f"[IDLE] Could not load integration_manager: {e}")
+                self._running = False
+                return
+
+            accounts = integration_manager.get_all_mail_accounts(only_enabled=True)
+            for acc in accounts:
+                if not integration_manager.is_imap_account(acc):
+                    continue
+                email = acc.get("email") or acc.get("username")
+                if not email:
+                    continue
+                self.start_worker(email)
 
     def start_worker(self: Any, email_account: str) -> None:
-        if email_account in self._workers and self._workers[email_account].is_alive():
-            return
-        stop = threading.Event()
-        self._stop_flags[email_account] = stop
-        t = threading.Thread(
-            target=self._worker_loop,
-            args=(email_account, stop),
-            name=f"imap-idle-{email_account}",
-            daemon=True,
-        )
-        self._workers[email_account] = t
-        t.start()
-        log.info(f"[IDLE] Worker started for {email_account}")
+        with self._lifecycle_lock:
+            from backend.services.context_vars import active_vault_path, get_active_vault_path
+            from backend.services.plugin_access import plugins_enabled_now
+
+            vault = get_active_vault_path()
+            if vault is None or not plugins_enabled_now("mail", vault_path=vault):
+                return
+            if email_account in self._workers and self._workers[email_account].is_alive():
+                return
+            stop = threading.Event()
+            self._stop_flags[email_account] = stop
+            # Carry only the vault, never a long-lived HTTP actor/request scope.
+            context = Context()
+            context.run(active_vault_path.set, vault)
+            t = threading.Thread(
+                target=context.run,
+                args=(self._worker_loop, email_account, stop),
+                name=f"imap-idle-{email_account}",
+                daemon=True,
+            )
+            self._workers[email_account] = t
+            t.start()
+            log.info(f"[IDLE] Worker started for {email_account}")
 
     def stop_worker(self: Any, email_account: str) -> None:
-        stop = self._stop_flags.get(email_account)
-        if stop:
-            stop.set()
-        self._workers.pop(email_account, None)
-        self._stop_flags.pop(email_account, None)
+        with self._lifecycle_lock:
+            stop = self._stop_flags.get(email_account)
+            if stop:
+                stop.set()
+            self._workers.pop(email_account, None)
+            self._stop_flags.pop(email_account, None)
+
+    def refresh(self: Any) -> None:
+        """Reconcile against current state, never an older lifecycle response."""
+        from backend.services.plugin_access import plugins_enabled_now
+
+        with self._lifecycle_lock:
+            if plugins_enabled_now("mail"):
+                self.start_all()
+            else:
+                self.stop_all()
 
     def stop_all(self: Any) -> None:
-        for em in list(self._workers.keys()):
-            self.stop_worker(em)
-        self._running = False
+        with self._lifecycle_lock:
+            for em in list(self._workers.keys()):
+                self.stop_worker(em)
+            self._running = False
 
     # ── IDLE Worker (one per account) ─────────────────────────────────────
 
     def _worker_loop(self: Any, email_account: str, stop: threading.Event) -> None:
-        attempt = 0
-        from backend.services.imap_mail_sync_service import imap_sync_service
+        from backend.services.context_vars import active_vault_path, get_active_vault_path
 
+        vault = get_active_vault_path()
+        token = active_vault_path.set(vault)
+        try:
+            self._run_worker(email_account, stop, vault)
+        finally:
+            active_vault_path.reset(token)
+
+    def _run_worker(self: Any, email_account: str, stop: threading.Event, vault: Path | None) -> None:
+        from backend.services.imap_mail_sync_service import imap_sync_service
+        from backend.services.plugin_access import plugins_enabled_now
+
+        attempt = 0
         while not stop.is_set():
+            if vault is None or not plugins_enabled_now("mail", vault_path=vault):
+                return
             try:
                 with imap_sync_service._connect(email_account) as imap:  # noqa: SLF001
                     if imap is None:

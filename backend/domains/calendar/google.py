@@ -279,6 +279,10 @@ def update_google_event(
     service_factory: Any = get_google_calendar_service,
 ) -> bool:
     """Updates supported fields without replacing provider-owned event data."""
+    from backend.services.plugin_access import plugins_enabled_now
+
+    if not plugins_enabled_now("calendar"):
+        return False
     service = service_factory(email)
     if not service:
         return False
@@ -315,6 +319,8 @@ def update_google_event(
             body = _restrict_birthday_patch(body, event)
 
         if body:
+            if not plugins_enabled_now("calendar"):
+                return False
             service.events().patch(calendarId=cal_id, eventId=target_event_uid, body=body).execute()
         return True
     except Exception as e:

@@ -185,6 +185,11 @@ def purge_vault_caches(v_str: str) -> None:
 def sync_to_google_calendar_if_needed(
     metadata: PageMetadata, background_tasks: _legacy.BackgroundTasks
 ) -> None:
+    from backend.services.plugin_access import plugins_enabled_now
+
+    vault = _active_vault_path()
+    if not plugins_enabled_now("calendar", vault_path=vault):
+        return
     source = metadata.get("source", "")
     if contains_value(source, "Google Calendar") and metadata.get("uid"):
         # The string pattern defines the match type; re validates the raw input.
@@ -197,9 +202,25 @@ def sync_to_google_calendar_if_needed(
                 patch_data["start"] = metadata.get("date")
             if metadata.get("end_date"):
                 patch_data["end"] = metadata.get("end_date")
-            from backend.services.google_calendar_service import update_google_event
+            background_tasks.add_task(
+                _sync_google_calendar_for_vault, vault, email, event_uid, patch_data
+            )
 
-            background_tasks.add_task(update_google_event, email, event_uid, patch_data)
+
+def _sync_google_calendar_for_vault(
+    vault: Path, email: str, event_uid: object, patch_data: dict[str, object]
+) -> None:
+    """Recheck queued work in its original vault before contacting the provider."""
+    from backend.services.context_vars import active_vault_path
+    from backend.services.google_calendar_service import update_google_event
+    from backend.services.plugin_access import plugins_enabled_now
+
+    token = active_vault_path.set(vault)
+    try:
+        if plugins_enabled_now("calendar", vault_path=vault):
+            update_google_event(email, event_uid, patch_data)
+    finally:
+        active_vault_path.reset(token)
 
 
 class DrawingSaveRequest(BaseModel):
