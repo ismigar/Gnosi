@@ -3,6 +3,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { InstructionMarkdownEditor } from './InstructionMarkdownEditor';
 
+vi.mock('./InstructionRichEditor', () => ({ default: () => <div role="toolbar">Formatting controls</div> }));
+
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 let host: HTMLDivElement;
@@ -52,7 +54,7 @@ it('preserves original Markdown, whitespace and identifiers through preview and 
     expect(host.querySelector('code')?.textContent).toContain('source_segment_id');
     click('instruction_editor.expand');
     expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-modal')).toBe('true');
-    click('instruction_editor.edit');
+    click('Markdown');
     expect(field().value).toBe(original);
     click('instruction_editor.reduce');
     expect(host.querySelector('textarea')?.value).toBe(original);
@@ -69,7 +71,7 @@ it('edits the controlled original text without interpreting HTML or normalizing 
     expect(changed).toHaveBeenLastCalledWith(next);
     click('instruction_editor.preview');
     expect(host.querySelector('script')).toBeNull();
-    click('instruction_editor.edit');
+    click('Markdown');
     expect(field().value).toBe(next);
 });
 

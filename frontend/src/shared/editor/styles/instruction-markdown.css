@@ -80,6 +80,29 @@
 }
 
 .instruction-markdown__help { margin: 0; color: var(--text-tertiary); font-size: 0.75rem; }
+.instruction-markdown__rich {
+    height: 320px;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+}
+.instruction-markdown__rich .bn-container {
+    --bn-colors-editor-background: var(--bg-secondary);
+    --bn-colors-editor-text: var(--text-primary);
+    min-height: 100%;
+}
+.instruction-markdown__rich .bn-formatting-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    flex-wrap: wrap;
+    border-radius: 0;
+    border: 0;
+    border-bottom: 1px solid var(--border-primary);
+}
+.instruction-markdown__rich .bn-editor { padding: 16px 24px; }
 .instruction-markdown__backdrop {
     position: fixed;
     inset: 0;
@@ -102,6 +125,7 @@
 
 .instruction-markdown--expanded { height: 100%; }
 .instruction-markdown--expanded .instruction-markdown__source,
+.instruction-markdown--expanded .instruction-markdown__rich,
 .instruction-markdown--expanded .instruction-markdown__preview { flex: 1; min-height: 0; }
 
 @media (max-width: 600px) {

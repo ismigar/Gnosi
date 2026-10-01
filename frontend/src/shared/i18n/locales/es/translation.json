@@ -1,5 +1,8 @@
 {
   "instruction_editor": {
+    "source_required": "No se ha podido cargar la edición visual. Abre Markdown para editar el texto original.",
+    "rich_help": "Escribe directamente. Selecciona texto para darle formato o escribe / para insertar un título, una lista o un bloque de código.",
+    "too_long": "Las instrucciones no pueden superar los {{count}} caracteres.",
     "controls": "Controles del editor Markdown",
     "edit": "Editar",
     "preview": "Vista previa",

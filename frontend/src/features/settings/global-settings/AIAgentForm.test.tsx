@@ -5,6 +5,7 @@ import { AIAgentForm } from './AIAgentForm';
 import type { AgentDraft, SettingsModel } from './types';
 import { fetchAiCatalog, fetchAiModelReasoning } from '../../../shared/api/ai';
 
+vi.mock('../../../shared/editor/InstructionRichEditor', () => ({ default: () => null }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('./AgentIconSelect', () => ({ AgentIconSelect: () => null }));
 vi.mock('../../agent-context/AgentContextSources', () => ({ default: () => null }));

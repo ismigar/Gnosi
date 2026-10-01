@@ -1,5 +1,8 @@
 {
   "instruction_editor": {
+    "source_required": "Visual editing could not be loaded. Open Markdown to edit the original text.",
+    "rich_help": "Write directly. Select text to format it or type / to insert a heading, list or code block.",
+    "too_long": "Instructions cannot exceed {{count}} characters.",
     "controls": "Markdown editor controls",
     "edit": "Edit",
     "preview": "Preview",
