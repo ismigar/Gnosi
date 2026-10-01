@@ -240,19 +240,23 @@ def test_scoped_cleanup_removes_ci_images_before_unused_build_cache(
 
 
 @pytest.mark.parametrize("available", [1, 12 * 1024**3])
-def test_final_cleanup_always_runs_and_enforces_capacity(
+def test_final_cleanup_keeps_layers_unless_capacity_is_low(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, available: int,
 ) -> None:
-    prune = Mock()
-    monkeypatch.setattr(prepare_docker_runner, "_prune_unused_docker", prune)
+    images = Mock()
+    cache = Mock()
+    monkeypatch.setattr(prepare_docker_runner, "_remove_ci_images", images)
+    monkeypatch.setattr(prepare_docker_runner, "_prune_build_cache", cache)
     monkeypatch.setattr(prepare_docker_runner, "_free_bytes", lambda _path: available)
 
     if available < prepare_docker_runner.MINIMUM_FREE_BYTES:
         with pytest.raises(RuntimeError, match="less than 12 GiB"):
             prepare_docker_runner.cleanup({"RUNNER_TEMP": str(tmp_path)})
+        cache.assert_called_once_with()
     else:
         assert prepare_docker_runner.cleanup({"RUNNER_TEMP": str(tmp_path)}) == available
-    prune.assert_called_once_with()
+        cache.assert_not_called()
+    images.assert_called_once_with()
 
 
 def test_cleanup_requires_valid_runner_temp_before_mutating(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -263,3 +267,32 @@ def test_cleanup_requires_valid_runner_temp_before_mutating(monkeypatch: pytest.
         prepare_docker_runner.cleanup({})
 
     prune.assert_not_called()
+
+
+def test_low_capacity_prunes_only_owned_download_cache(tmp_path, monkeypatch):
+    store = tmp_path / "gnosi-uv-packages-v1"
+    store.mkdir()
+    owned = store / ("a" * 64)
+    owned.mkdir()
+    unrelated = store / "other-data"
+    unrelated.mkdir()
+    alias = store / ("b" * 64)
+    alias.symlink_to(unrelated, target_is_directory=True)
+    calls = []
+    monkeypatch.setattr(prepare_docker_runner, "_free_bytes", lambda _: 0)
+    monkeypatch.setattr(prepare_docker_runner, "run", lambda command, **kwargs: calls.append((command, kwargs)))
+    prepare_docker_runner._release_package_cache({"RUNNER_TOOL_CACHE": str(tmp_path)}, tmp_path, 100)
+    assert calls == [(("uv", "cache", "prune", "--ci", "--cache-dir", str(owned)), {"check": True, "timeout": 120})]
+    assert unrelated.exists() and alias.is_symlink()
+    calls.clear()
+    monkeypatch.setattr(prepare_docker_runner, "_free_bytes", lambda _: 100)
+    prepare_docker_runner._release_package_cache({"RUNNER_TOOL_CACHE": str(tmp_path)}, tmp_path, 100)
+    assert calls == []
+
+
+def test_capacity_gate_rechecks_after_releasing_package_downloads(tmp_path, monkeypatch):
+    freed = []
+    monkeypatch.setattr(prepare_docker_runner, "_free_bytes", lambda _: 100 if freed else 0)
+    monkeypatch.setattr(prepare_docker_runner, "_prune_unused_docker", lambda: None)
+    monkeypatch.setattr(prepare_docker_runner, "_release_package_cache", lambda *_: freed.append(True))
+    assert prepare_docker_runner.prepare({"RUNNER_TEMP": str(tmp_path)}, minimum_free_bytes=100) == 100
