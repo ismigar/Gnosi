@@ -20,7 +20,14 @@ export function useOptionTools(state: SchemaState, props: ResolvedProps) {
     };
     const optionTools: OptionTools = {
         sharedCatalogs,
+        tableId,
         fetchUsage: tableId ? async (fieldId) => {
+            // Let the parent autosave effect register the current catalog change.
+            await Promise.resolve();
+            await activeSaveRef.current;
+            if (savedCatalogRefsRef.current[fieldId] === undefined) return {};
+            const reference = fields.find(field => field.id === fieldId)?.catalogRef || '';
+            if (savedCatalogRefsRef.current[fieldId] !== reference) await ensureCatalogSaved(fieldId);
             const data = await fetchTableOptionUsage(tableId, fieldId);
             return readCounts(data.counts);
         } : null,

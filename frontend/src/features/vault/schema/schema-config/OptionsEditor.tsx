@@ -13,7 +13,9 @@ import type { OptionsEditorProps, RemoveOptionState } from './types';
 export function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }: OptionsEditorProps) {
     const { t } = useTranslation();
     const [newOption, setNewOption] = useState('');
-    const [usage, setUsage] = useState<Record<string, number> | null>(null); // {name: count} or null while loading
+    const usageScope = JSON.stringify([optionTools?.tableId, fieldId, fieldType, catalogRef]);
+    const [usageSnapshot, setUsageSnapshot] = useState<{ scope: string; counts: Record<string, number> } | null>(null);
+    const usage = usageSnapshot?.scope === usageScope ? usageSnapshot.counts : null;
     const [confirmRemove, setConfirmRemove] = useState<RemoveOptionState>({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
     const [showNewCatalog, setShowNewCatalog] = useState(false);
     const sensors = useSensors(
@@ -38,11 +40,11 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
         let cancelled = false;
         if (!optionTools?.fetchUsage || !fieldId) return undefined;
         optionTools.fetchUsage(fieldId)
-            .then((counts) => { if (!cancelled) setUsage(counts); })
-            .catch(() => { if (!cancelled) setUsage(null); });
+            .then((counts) => { if (!cancelled) setUsageSnapshot({ scope: usageScope, counts }); })
+            .catch(() => { if (!cancelled) setUsageSnapshot(null); });
         return () => { cancelled = true; };
     });
-    useEffect(() => fetchUsage(), [fieldId]);
+    useEffect(() => fetchUsage(), [fieldId, fieldType, catalogRef, optionTools?.tableId]);
 
     const addOption = () => {
         const v = newOption.trim();
@@ -69,11 +71,12 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
         // ONE call to the server, never N PATCHes from the client.
         void optionTools?.renameEverywhere?.(fieldId, oldVal, newVal, usage?.[oldVal] ?? null);
         if (usage && usage[oldVal] !== undefined) {
-            setUsage((u) => {
-                const next = { ...u };
+            setUsageSnapshot((snapshot) => {
+                if (!snapshot || snapshot.scope !== usageScope) return snapshot;
+                const next = { ...snapshot.counts };
                 next[newVal] = (next[newVal] || 0) + (next[oldVal] || 0);
                 Reflect.deleteProperty(next, oldVal);
-                return next;
+                return { scope: usageScope, counts: next };
             });
         }
     };
@@ -91,42 +94,45 @@ export function OptionsEditor({ options = [], onChange, fieldType = 'select', gr
         }));
     };
 
-    // Deleting an option removes it from ALL records that use it (not
-    // just from the catalog) or reassigns them to another option. Always with
-    // confirmation (accessibility: never destructive on the first click).
+    // Local options only affect this table. Ask about record values only when
+    // the option is in use (or usage could not be determined).
     const requestRemoveOption = (val: string) => {
         if (isShared && !isGlobalStatus) {
             toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
+            return;
+        }
+        if (!isShared && usage !== null && !usage[val]) {
+            removeOption(val, null);
             return;
         }
         setConfirmRemove({
             isOpen: true,
             value: val,
             usageCount: usage ? (usage[val] || 0) : null,
-            protectedReason: RULE_PROTECTED_OPTIONS.has(val)
+            protectedReason: isGlobalStatus && RULE_PROTECTED_OPTIONS.has(val)
                 ? t('schema.remove_option_rule_warning', "This option is used by the action rules (translate/publish); if a rule needs it, it will be recreated automatically.")
                 : '',
         });
     };
-    const executeRemoveOption = (reassignTo: string | null) => {
-        const val = confirmRemove.value;
-        setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
-        if (val === null) return;
-        if (isGlobalStatus) {
-            void optionTools?.removeEverywhere?.(fieldId, val, reassignTo);
-        } else {
-            onChange(richOptions.filter((o) => o.name !== val));
-        }
+    const removeOption = (val: string, reassignTo: string | null) => {
+        if (!isGlobalStatus) onChange(richOptions.filter((o) => o.name !== val));
         if (defaultOption === val) onDefaultOptionChange?.('');
         void optionTools?.removeEverywhere?.(fieldId, val, reassignTo);
         if (usage) {
-            setUsage((u) => {
-                const next = { ...u };
+            setUsageSnapshot((snapshot) => {
+                if (!snapshot || snapshot.scope !== usageScope) return snapshot;
+                const next = { ...snapshot.counts };
                 if (reassignTo && next[val]) next[reassignTo] = (next[reassignTo] || 0) + next[val];
                 Reflect.deleteProperty(next, val);
-                return next;
+                return { scope: usageScope, counts: next };
             });
         }
+    };
+
+    const executeRemoveOption = (reassignTo: string | null) => {
+        const val = confirmRemove.value;
+        setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
+        if (val !== null) removeOption(val, reassignTo);
     };
 
     const handleDragEnd = ({ active, over }: DragEndEvent) => {
