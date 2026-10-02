@@ -1,14 +1,15 @@
 import { act, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { emitAppEvent } from '../../shared/platform/app-events';
 import { useMeetingRecorder, type MeetingRecorderController } from './useMeetingRecorder';
 
 const effects = vi.hoisted(() => ({
-  upload: vi.fn(), status: vi.fn(), error: vi.fn(), navigate: vi.fn(), dock: vi.fn(),
+  upload: vi.fn(), resume: vi.fn(), status: vi.fn(), error: vi.fn(), navigate: vi.fn(), dock: vi.fn(),
 }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'ca', resolvedLanguage: 'ca' } }) }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => effects.navigate }));
-vi.mock('../../shared/api/meeting-specialized', () => ({ uploadMeetingRecording: effects.upload }));
+vi.mock('../../shared/api/meeting-specialized', () => ({ uploadMeetingRecording: effects.upload, resumeMeetingProcessing: effects.resume }));
 vi.mock('../../shared/api/meetings', () => ({ fetchMeetingStatus: effects.status }));
 vi.mock('../../shared/notifications/toast', () => ({ toast: { error: effects.error } }));
 vi.mock('../../shared/routing/vaultRouting', () => ({ vaultPath: (app: string, path: string) => `/fixture/${app}/${path}` }));
@@ -102,7 +103,7 @@ describe('meeting recorder lifecycle', () => {
     expect(originalBlob).toBeInstanceOf(Blob);
     expect(stopTrack).toHaveBeenCalledOnce();
     await act(async () => { controller().retryUpload(); await Promise.resolve(); });
-    expect(effects.upload).toHaveBeenLastCalledWith(originalBlob, 'Reunió fictícia', 'presencial');
+    expect(effects.upload).toHaveBeenLastCalledWith(originalBlob, 'Reunió fictícia', 'presencial', undefined, 'ca');
     expect(controller().phase).toBe('processing');
     await act(async () => { vi.advanceTimersByTime(2000); await Promise.resolve(); });
     expect(controller().phase).toBe('done');
@@ -151,4 +152,37 @@ describe('meeting recorder lifecycle', () => {
     expect(controller().phase).toBe('idle');
     expect(effects.upload).not.toHaveBeenCalled();
   });
+});
+
+
+describe('durable meeting continuation', () => {
+  it('restores an interrupted job and resumes without uploading audio', async () => {
+    effects.status.mockResolvedValueOnce({ stage: 'interrupted', running: false, can_resume: true, job_id: 'original-job' });
+    effects.resume.mockResolvedValue({ status: 'started' });
+    await act(async () => { controller().openPanel();  await Promise.resolve(); });
+    expect(controller().phase).toBe('error');
+    await act(async () => { controller().retryUpload();  await Promise.resolve(); });
+    expect(effects.resume).toHaveBeenCalledWith('original-job');
+    expect(effects.upload).not.toHaveBeenCalled();
+    expect(controller().phase).toBe('processing');
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(controller().phase).toBe('done');
+    expect(controller().pageId).toBe('minutes-fixture');
+  });
+});
+
+
+it('ignores a previous vault status response after switching vaults', async () => {
+  let resolveStatus: ((value: unknown) => void) | undefined;
+  effects.status.mockReturnValueOnce(new Promise((resolve) => { resolveStatus = resolve; }));
+  act(() => { controller().openPanel(); });
+  act(() => { emitAppEvent('gnosi:vault-changed', { id: 'other', name: 'Other', slug: 'other' }); });
+  await act(async () => {
+    resolveStatus?.({ running: false, stage: 'interrupted', can_resume: true, job_id: 'private-old-job' });
+    await Promise.resolve();
+  });
+  expect(controller().phase).toBe('idle');
+  expect(controller().open).toBe(false);
+  act(() => { controller().retryUpload(); });
+  expect(effects.resume).not.toHaveBeenCalled();
 });

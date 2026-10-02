@@ -48,3 +48,23 @@ def test_transcribe_normalizes_segments_and_metadata(monkeypatch) -> None:
         ],
     }
     assert calls == [("transcription", "audio")]
+
+
+def test_cached_weights_follow_model_and_data_directory_changes(monkeypatch, tmp_path):
+    import sys
+    from unittest.mock import Mock
+    selected = {'model': 'small', 'cache': str(tmp_path / 'a')}
+    monkeypatch.setattr(transcription, '_MODEL', None)
+    monkeypatch.setattr(transcription, '_MODEL_KEY', None)
+    monkeypatch.setattr(transcription, '_model_size', lambda: selected['model'])
+    monkeypatch.setattr(transcription, '_cache_dir', lambda: selected['cache'])
+    model_constructor = Mock(side_effect=[object(), object(), object()])
+    monkeypatch.setitem(sys.modules, 'faster_whisper', SimpleNamespace(WhisperModel=model_constructor))
+    first = transcription.get_model()
+    assert transcription.get_model() is first and model_constructor.call_count == 1
+    selected['model'] = 'base'
+    second = transcription.get_model()
+    assert second is not first and model_constructor.call_count == 2
+    selected['cache'] = str(tmp_path / 'b')
+    assert transcription.get_model() is not second and model_constructor.call_count == 3
+    assert model_constructor.call_args.kwargs['download_root'] == selected['cache']

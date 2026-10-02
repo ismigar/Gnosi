@@ -43,6 +43,18 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
         resumable = False
     run = run.model_copy(update={"resumable": resumable})
     with connect() as db:
+        if request.get("mode") == "job" and request.get("operation") == "podcast":
+            db.execute("BEGIN IMMEDIATE")
+            if _podcast_busy(db, scope.vault_path):
+                raise ValueError("podcast_generation_already_running")
+        if request.get("mode") == "job" and request.get("operation") == "meeting.minutes":
+            db.execute("BEGIN IMMEDIATE")
+            active = db.execute("""SELECT request FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?
+                AND json_extract(request,'$.operation')='meeting.minutes'
+                AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
+                (scope.user_id, scope.workspace_id, scope.vault_path)).fetchall()
+            if any(_worker_alive(json.loads(row[0])) for row in active):
+                raise ValueError("meeting_already_running")
         encoded_snapshot = json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
         digest = hashlib.sha256(encoded_snapshot.encode()).hexdigest()
         db.execute("INSERT OR IGNORE INTO agent_run_snapshots VALUES (?,?)", (digest, encoded_snapshot))
@@ -50,6 +62,15 @@ def create(run: AgentRun, scope: ExecutionScope, request: dict[str, Any], snapsh
             run.run_id, scope.user_id, scope.workspace_id, scope.vault_path,
             run.model_dump_json(), json.dumps({**request, "_worker_pid": os.getpid(), "_worker_instance": _WORKER_INSTANCE}), json.dumps({"_snapshot_ref": digest}),
         ))
+
+
+def _podcast_busy(db: sqlite3.Connection, vault_path: str, exclude_run_id: str = "") -> bool:
+    """Reserve the shared output without exposing another owner's job."""
+    active = db.execute("""SELECT request FROM agent_runs WHERE vault_path=? AND run_id!=?
+        AND json_extract(request,'$.mode')='job' AND json_extract(request,'$.operation')='podcast'
+        AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
+        (vault_path, exclude_run_id)).fetchall()
+    return any(_worker_alive(json.loads(row[0])) for row in active)
 
 
 def _saved_snapshot(db: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
@@ -71,7 +92,7 @@ def _row(db: sqlite3.Connection, scope: ExecutionScope, run_id: str) -> sqlite3.
         raise LookupError("agent_run_not_found")
     run = AgentRun.model_validate_json(str(row["payload"]))
     request = json.loads(str(row["request"]))
-    if run.status in {"running", "resuming"} and not _worker_alive(request):
+    if (run.status in {"running", "resuming"} or (run.status == "queued" and request.get("operation") in {"meeting.minutes", "podcast"})) and not _worker_alive(request):
         run = run.model_copy(update={"status": "interrupted", "error": "worker_stopped", "updated_at": time.time()})
         db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
         row = db.execute("SELECT * FROM agent_runs WHERE run_id=?", (run_id,)).fetchone()
@@ -160,6 +181,18 @@ def cancelled(scope: ExecutionScope, run_id: str) -> bool:
         return bool(_row(db, scope, run_id)["cancelled"])
 
 
+@contextmanager
+def publication_guard(scope: ExecutionScope, run_id: str) -> Iterator[None]:
+    """Serialize final publication with cancellation of its private parent job."""
+    from backend.services.agent_cancellation import AgentTurnCancelled
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = _row(db, scope, run_id)
+        if row["cancelled"]:
+            raise AgentTurnCancelled("agent_run_cancelled")
+        yield
+
+
 def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -170,6 +203,8 @@ def resume_data(scope: ExecutionScope, run_id: str) -> tuple[dict[str, Any], dic
             raise ValueError("agent_run_requires_original_entrypoint")
         if run.status not in {"failed", "cancelled", "interrupted", "awaiting_confirmation"}:
             raise ValueError("agent_run_not_resumable")
+        if request_metadata.get("operation") == "podcast" and _podcast_busy(db, scope.vault_path, run_id):
+            raise ValueError("podcast_generation_already_running")
         saved_scope = _saved_snapshot(db, row).get("scope")
         if saved_scope != scope.model_dump():
             raise PermissionError("agent_execution_scope_changed")
@@ -275,3 +310,37 @@ def work_checkpoint(scope: ExecutionScope, run_id: str, key: str, value: dict[st
             db.execute("INSERT OR REPLACE INTO agent_work_checkpoints VALUES (?,?,?)", (run_id, key, json.dumps(value, ensure_ascii=False)))
         row = db.execute("SELECT payload FROM agent_work_checkpoints WHERE run_id=? AND checkpoint_key=?", (run_id, key)).fetchone()
         return json.loads(row[0]) if row else None
+
+
+def latest_job(scope: ExecutionScope, operation: str) -> AgentRun | None:
+    """Read the latest job for this exact private owner, without a list limit."""
+    with connect() as db:
+        row = db.execute("""SELECT run_id FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=?
+            AND json_extract(request,'$.mode')='job' AND json_extract(request,'$.operation')=? ORDER BY json_extract(payload,'$.updated_at') DESC,rowid DESC LIMIT 1""",
+            (scope.user_id, scope.workspace_id, scope.vault_path, operation)).fetchone()
+        return AgentRun.model_validate_json(str(_row(db, scope, row[0])["payload"])) if row else None
+
+
+def claim_feature_job(scope: ExecutionScope, run_id: str, operation: str) -> dict[str, Any]:
+    """Only the original entrypoint can claim a stopped job and its frozen snapshot."""
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = _row(db, scope, run_id)
+        run = AgentRun.model_validate_json(str(row["payload"]))
+        request = json.loads(str(row["request"]))
+        if request.get("mode") != "job" or request.get("operation") != operation:
+            raise ValueError("agent_job_wrong_entrypoint")
+        if run.status not in {"interrupted", "failed"}:
+            raise ValueError("agent_job_not_stopped")
+        active = db.execute("""SELECT request FROM agent_runs WHERE user_id=? AND workspace_id=? AND vault_path=? AND run_id!=?
+            AND json_extract(request,'$.operation')=? AND json_extract(payload,'$.status') IN ('queued','running','resuming')""",
+            (scope.user_id, scope.workspace_id, scope.vault_path, run_id, operation)).fetchall()
+        if any(_worker_alive(json.loads(entry[0])) for entry in active):
+            raise ValueError("meeting_already_running")
+        saved = _saved_snapshot(db, row)
+        if saved.get("scope") != scope.model_dump():
+            raise PermissionError("agent_execution_scope_changed")
+        run = run.model_copy(update={"status": "resuming", "error": "", "closed_at": None, "updated_at": time.time()})
+        db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (run.model_dump_json(), run_id))
+        _claim_worker(db, run_id)
+        return saved

@@ -194,4 +194,8 @@ def invoke_cancellable(model: Any, prompt: Any, token: str, **kwargs: Any) -> An
         try:
             return future.result(timeout=0.05)
         except concurrent.futures.TimeoutError:
+            # Future.result uses the same TimeoutError class as a provider.
+            # A completed provider timeout is an error, not another poll tick.
+            if future.done():
+                return future.result()
             continue

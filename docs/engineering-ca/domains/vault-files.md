@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-09-14
 source_paths:
+  - backend/domains/vault/pages/creation_recovery.py
+  - backend/domains/vault/pages/creation_inputs.py
+  - backend/services/handwriting_download.py
+  - backend/services/active_vault_middleware.py
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
@@ -26,6 +30,10 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_creation_recovery_executor.py
+  - backend/tests/test_page_creation_index_reconciliation.py
+  - backend/tests/test_handwriting_download.py
+  - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
@@ -778,3 +786,11 @@ locals de prova no poden reproduir el comportament de File Provider.
 El resum i l’arbre compacte de la barra lateral recuperen les entrades incompletes de l’arrel, Wiki i els taulells mitjançant el proveïdor de fitxers actiu abans de rellegir-ne les metadades. Això també s’aplica a les instantànies en memòria cau. La recuperació restaura els identificadors canònics i dels pares, les marques de base de dades, els favorits i les icones, actualitza la cerca per identificador i reconstrueix la instantània versionada per eliminar duplicats. Les entrades completes i els catàlegs de taules no activen aquesta recuperació. Les lectures parcials de la capçalera reintenten els dos codis d’error transitori del núvol (11 i 35), començant amb el buffer i els delimitadors buits cada vegada que es reobre el fitxer. Les lectures fallides conserven les metadades existents en memòria cau.
 
 Canviar de biblioteca amb una nota oberta tanca el seu editor. BlockNote pot destruir la vista ProseMirror abans que React executi la neteja de navegació dels elements incrustats. Aquesta neteja restaura els gestors de teclat anteriors només si la vista continua viva i conserva els gestors instal·lats; mai crida `setProps` sobre una vista destruïda. Les proves de regressió utilitzen una vista ProseMirror real i cobreixen els dos ordres de tancament per evitar que una excepció elimini tota la interfície.
+
+## Recuperació de creacions per abast i descàrregues de manuscrits
+
+Les peticions de creació persisteixen un rebut privat i checkpoints abans dels efectes recuperables. La recuperació conserva l’ID original de la pàgina i les entrades tipades congelades, verifica les revisions del document i la configuració, i comprova l’accés abans de cada efecte. Només es repeteix feina no iniciada. Un pas d’índex iniciat només es pot reconciliar després de verificar les entrades registrades i la postcondició actual; els altres efectes incerts continuen bloquejats. La recuperació no selecciona codi executable a partir de dades emmagatzemades. El navegador consulta la petició guardada i obre la pàgina existent, sense crear-ne una de duplicada quan es perd la resposta.
+
+El vault efectiu seleccionat per capçalera, query o cookie és també la identitat emprada per l’autorització. Un vault explícitament inexistent, sense accés o sense muntar falla sense recórrer a un altre vault.
+
+Obrir el canvas de dibuix no descarrega ni carrega automàticament un model d’OCR. L’estat distingeix pesos absents, descàrrega, descarregat, càrrega, cancel·lació i error. La cancel·lació queda limitada al propietari i afecta la transferència, no una inferència activa. Els fitxers només es fan visibles a la caché després de verificar-ne la mida i el checksum; s’eliminen els fitxers parcials. La interfície mostra la mida transferida i l’estat traduït. Les proves sintètiques de transferència i canvas verifiquen aquests contractes, però no la precisió amb manuscrits reals ni fitxers del núvol sense materialitzar.

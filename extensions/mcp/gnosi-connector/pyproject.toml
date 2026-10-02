@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gnosi-connector"
+version = "0.3.0"
+description = "MCP bridge to Gnosi with confirmed page editing"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.28,<2", "httpx>=0.28,<1"]
+
+[project.scripts]
+gnosi-connector = "gnosi_connector.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gnosi_connector"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -260,7 +260,7 @@ def build_turn_plan(
         str(ref.get("type") or "").lower() in PRIVATE_CONTEXT_TYPES for ref in refs
     )
     remote_model = bool(provider) and provider.strip().lower() not in LOCAL_PROVIDERS
-    context_requested = mode in {"lookup", "inventory", "analysis"} and bool(refs)
+    context_requested = mode in {"lookup", "inventory", "analysis", "action"} and bool(refs)
     deterministic_output = bool(mode == "inventory" and required_tool_name == "inventory_context")
     budgets = turn_budgets_for_mode(mode)
     if deterministic_output:

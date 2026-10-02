@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-02
 source_paths:
+  - backend/domains/agent/context_filters.py
+  - backend/domains/agent/exact_actions.py
+  - backend/services/agent_learning_review.py
+  - backend/domains/agent/routes/chat_error_messages.py
   - backend/services/ai_usage_ledger.py
   - backend/services/ai_usage_transport.py
   - backend/services/ai_usage_dashboard.py
@@ -11,6 +15,7 @@ source_paths:
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -89,6 +94,10 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_exact_inventory_filters.py
+  - backend/tests/test_agent_exact_actions.py
+  - backend/tests/test_agent_learning_review.py
+  - backend/tests/test_agent_unavailable_http.py
   - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
@@ -306,14 +315,13 @@ la compatibilitat i la distinció entre camps gestionats i camps de l’usuari.
 La reconciliació de connectors és idempotent: deshabilitar-ne un suspèn la seva
 aportació gestionada sense eliminar les personalitzacions de l’usuari.
 
-Les traduccions de files, pàgines i instruccions de skills utilitzen l’operació
+Les traduccions de files i pàgines utilitzen l’operació
 compartida `translation`. Els botons de la interfície seleccionen el perfil del
 plugin de Traducció; les accions dins d’una conversa hereten el perfil de l’agent
 en execució. El perfil determina el model, les polítiques i el registre d’activitat.
 El panell de traducció enllaça a aquest perfil. Els arguments històrics de DeepL
 i Softcatalà es mantenen per compatibilitat, però s’ignoren; ja no hi ha
-encaminament per parelles de llengües ni alternativa amb marcadors. Traduir una
-skill només en mostra una còpia de lectura i conserva les instruccions originals.
+encaminament per parelles de llengües ni alternativa amb marcadors.
 
 La reconciliació de connectors també pot executar-se abans de compondre les
 rutes FastAPI. Deriva el directori `.gnosi` del context canònic del Vault
@@ -1168,9 +1176,10 @@ La lectura utilitza fragments estructurals amb context veí, mapes de secció i 
 
 ## Idioma de les instruccions
 
-Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg permet demanar una traducció a l’idioma actiu amb el proveïdor d’IA configurat. Es mostra al costat de l’original com a ajuda de lectura, sense modificar les instruccions desades ni executades. Obrir una habilitat no demana cap traducció. Les traduccions es conserven només en memòria, per vault, text original i idioma de destí. Si fallen, es manté l’original i es pot tornar a provar.
+Les instruccions es desen i s’executen exactament com les escriu l’usuari, en qualsevol idioma. El catàleg mostra el text original. Si cal traduir-lo, feu-ho amb una eina externa i reviseu-lo abans d’enganxar-lo a l’editor.
 
-L’acció de traducció utilitza un botó compacte alineat a la dreta. Els errors de límit de peticions o quota del proveïdor mostren un missatge específic; l’original es manté visible.
+La configuració mostra l’última versió personal i les seves assignacions dins de la mateixa targeta. Restaura l’original requereix confirmació i recupera les instruccions, les eines i l’activació originals abans de desar automàticament. Validar comprova la definició i la disponibilitat de les eines; no executa l’habilitat ni avalua la qualitat del resultat.
+
 
 ## Execució de l’Agent principal
 
@@ -1282,6 +1291,13 @@ Cada pas de lectura dirigida mostra els indicadors de revisió i el nombre de no
 
 Les regles de les propietats de les notes de lectura es mantenen a la configuració del plugin Cervell: copiar un camp del recurs, usar un valor fix, deduir-lo amb IA o deixar-lo buit. L’skill classifica cada nota només entre les etiquetes existents proporcionades. Cada camp configurat amb IA apareix explícitament a l’esquema de resposta i ha de constar a cada nota; les dues vies de lectura rebutgen omissions, camps desconeguts, valors inventats i diversos valors en un camp de valor únic abans de desar. Una llista explícitament buida és vàlida quan l’evidència no justifica cap categoria. L’aplicació resol les etiquetes i aplica les regles de còpia i de valor fix. Instal·lar aquesta correcció no reclassifica les notes existents. Els Tags configurats ignoren la llista antiga d’etiquetes lliures, també quan la classificació s’absté explícitament o el valor copiat del recurs és buit.
 
+## Inventaris exactes, proves verificables i resultats d’error
+
+Els predicats exactes dels camps conserven el valor demanat a `property_filters`; les paraules de l’ordre no es fan servir com a cerca de text lliure. Les relacions es resolen dins de les taules de destinació autoritzades per ID o títol exacte únic. Els títols ambigus, les destinacions sense accés i els inventaris incomplets no poden produir un canvi parcial amb `bulk_update_rows`. Les assignacions validen la definició real del camp i les opcions permeses, conservant el zero numèric i el booleà fals. Aquest camí manté les comprovacions habituals de confirmació i permisos.
+
+Les proves d’aprenentatge conserven el criteri original i el seu ordre. Cada fragment retornat ha d’aparèixer a l’entrada o la sortida proporcionades; es rebutgen les comprovacions malformades i els fragments inventats. Les dades que falten per a la prova es mostren al costat del resultat. Això acredita la procedència dels fragments i la validesa del contracte, però no demostra que el judici del model sigui correcte.
+
+Els errors traduïts del xat conserven un codi estable i `content_language`; els detalls privats de les excepcions no es presenten com a resposta. Un servei no disponible abans del workflow acaba amb `has_response=false` i `message_count=0`. La interfície conserva la llengua i el temps límit efectiu del backend. La recuperació és una acció manual explícita, sense reintent automàtic. Una sola tasca productora manté la font viva durant tot el seu cicle perquè el context d’execució i la neteja de cancel·lació es conservin durant els heartbeats.
 La configuració mostra una sola personalització vigent per habilitat original, triada segons la modificació més recent del paquet. L’edició desa al mateix paquet; crear una segona personalització de la mateixa font retorna un conflicte en lloc de duplicar-la. Restaura l’original demana confirmació abans de substituir instruccions, eines i activació; desa a la mateixa habilitat personal i conserva les assignacions.
 
 ## Consum multiproveïdor i despesa del mes actual

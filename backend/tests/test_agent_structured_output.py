@@ -57,11 +57,72 @@ def test_responses_transport_receives_schema_in_its_native_format():
     assert payload["store"] is False
 
 
+def test_operation_read_tools_are_strict_in_the_responses_payload(monkeypatch):
+    from types import SimpleNamespace
+    from langchain_core.messages import AIMessage
+    from langchain_core.tools import tool
+    from backend.domains.agent import operation_graph
+    from backend.models.agent_skills import ToolDescriptor
+    @tool
+    def lookup_source(page_id: str) -> str:
+        """Read one source."""
+        return "Body"
+    descriptor = ToolDescriptor(id="user.lookup-source", name="Source", origin={"type": "user", "id": "fixture"})
+    runtime = SimpleNamespace(tools=(lookup_source,), tool_descriptors=(descriptor,))
+    model = ChatOpenAI(model="fixture", api_key="fixture", use_responses_api=True, store=False)
+    schema = {"type": "object", "properties": {"value": {"type": "number"}},
+              "required": ["value"], "additionalProperties": False}
+    payloads = []
+    def invoke(active, messages, state):
+        payloads.append(model._get_request_payload(messages, **active.kwargs))
+        return AIMessage(content='{"value":7}')
+    monkeypatch.setattr(operation_graph, "_invoke_agent_model", invoke)
+    graph = operation_graph.operation_workflow(model, "Read the source", 32000,
+        runtime=runtime, provider="openrouter", output_schema=schema).compile()
+    graph.invoke({"messages": [HumanMessage(content="Return a value")], "team_help_allowed": False})
+    assert payloads[0]["tools"][0]["strict"] is True
+    assert payloads[0]["tools"][0]["parameters"]["additionalProperties"] is False
+    assert not payloads[0].get("text", {}).get("format")
+
+
 def test_generic_object_contract_uses_json_mode_without_inventing_fields():
     model = ChatOpenAI(model="fixture", api_key="fixture")
     constrained = constrain_output(model, "openrouter", {"type": "object"})
     assert constrained.kwargs["response_format"] == {"type": "json_object"}
     assert constrained.kwargs["extra_body"]["provider"]["require_parameters"] is True
+
+
+def test_ordered_learning_criteria_use_json_transport_with_complete_local_schema():
+    from backend.services.agent_learning_review import review_schema
+    schema = review_schema(["Conserva el nombre de participants", "No inventa el pressupost"])
+    model = ChatOpenAI(model="fixture", api_key="fixture", use_responses_api=True)
+    constrained = constrain_output(model, "openrouter", schema)
+    payload = model._get_request_payload([HumanMessage(content="Return JSON")], **constrained.kwargs)
+    assert payload["text"]["format"] == {"type": "json_object"}
+    assert schema["properties"]["checks"]["prefixItems"][0]["properties"]["criterion"]["const"] == "Conserva el nombre de participants"
+
+
+def test_button_variants_use_json_transport_and_keep_the_full_local_contract():
+    from backend.services.button_action_contracts import button_action_schema
+
+    schema = button_action_schema([{"name": "stat", "type": "status", "options": ["Revisió"]}], [])
+    model = ChatOpenAI(model="fixture", api_key="fixture", use_responses_api=True)
+    constrained = constrain_output(model, "openrouter", schema)
+    payload = model._get_request_payload([HumanMessage(content="Return JSON")], **constrained.kwargs)
+    assert payload["text"]["format"] == {"type": "json_object"}
+    assert schema["oneOf"][0]["properties"]["button_config"]["properties"]["assignments"]["items"]["anyOf"][0]["properties"]["value"]["enum"] == ["Revisió"]
+
+
+def test_dynamic_literature_maps_keep_json_transport_without_a_rejected_strict_schema():
+    from backend.services.literature_ai_contracts import literature_output_schema
+
+    schema = literature_output_schema("query_strategy", [])
+    model = ChatOpenAI(model="fixture", api_key="fixture", use_responses_api=True)
+    constrained = constrain_output(model, "openrouter", schema)
+    payload = model._get_request_payload([HumanMessage(content="Return JSON")], **constrained.kwargs)
+    assert payload["text"]["format"] == {"type": "json_object"}
+    assert "concepts" in schema["properties"]
+    assert schema["properties"]["concepts"]["additionalProperties"]
 
 
 @pytest.mark.parametrize("provider,schema", [("other", ACTION_SCHEMA), ("openrouter", None)])

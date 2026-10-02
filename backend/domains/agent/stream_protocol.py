@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import json
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -183,6 +183,29 @@ async def _protocolize_journaled_stream(
         subscriber_open = False
 
 
+async def _produce_live_stream(
+    source_iterator: AsyncIterator[str],
+    queue: asyncio.Queue[tuple[str | None, BaseException | None]],
+) -> None:
+    # One task owns the source's full lifetime. Resuming an async generator
+    # in a fresh task per event loses its ContextVars and invalidates tokens
+    # retained across yields (execution scope, budgets and confirmations).
+    try:
+        try:
+            async for raw in source_iterator:
+                await queue.put((raw, None))
+        finally:
+            close = getattr(source_iterator, "aclose", None)
+            if close is not None:
+                await close()
+    except asyncio.CancelledError:
+        raise
+    except BaseException as error:
+        await queue.put((None, error))
+    else:
+        await queue.put((None, None))
+
+
 async def _protocolize_live_stream(
     source: AsyncIterator[str],
     *,
@@ -190,9 +213,11 @@ async def _protocolize_live_stream(
     trace_id: str,
     turn_id: str,
     heartbeat_seconds: float,
-) -> AsyncIterator[str]:
+) -> AsyncGenerator[str, None]:
     envelope = _StreamEnvelope(stream_id, trace_id, turn_id)
     source_iterator = source.__aiter__()
+    queue: asyncio.Queue[tuple[str | None, BaseException | None]] = asyncio.Queue(maxsize=1)
+
     yield envelope.wrap(
         {
             "type": "stream_open",
@@ -200,24 +225,33 @@ async def _protocolize_live_stream(
             "heartbeat_seconds": max(1, int(heartbeat_seconds)),
         }
     )
-    pending: asyncio.Future[str] | None = None
+    producer = asyncio.create_task(_produce_live_stream(source_iterator, queue))
+    pending: asyncio.Task[tuple[str | None, BaseException | None]] | None = None
     try:
         while True:
             if pending is None:
-                pending = asyncio.ensure_future(source_iterator.__anext__())
+                pending = asyncio.create_task(queue.get())
             done, _ = await asyncio.wait(
-                {pending},
+                {pending, producer},
                 timeout=max(1.0, float(heartbeat_seconds)),
+                return_when=asyncio.FIRST_COMPLETED,
             )
             if not done:
                 yield envelope.wrap({"type": "heartbeat", "server_time": time.time()})
                 continue
+            if pending not in done:
+                # A source can itself be cancelled before queuing a terminal
+                # item. Propagate that cancellation instead of waiting forever.
+                producer.result()
+                await pending
             try:
-                raw = pending.result()
-            except StopAsyncIteration:
-                break
+                raw, error = pending.result()
             finally:
                 pending = None
+            if error is not None:
+                raise error
+            if raw is None:
+                break
             for payload in _decoded_stream_payloads(raw):
                 yield envelope.wrap(payload)
     finally:
@@ -225,6 +259,9 @@ async def _protocolize_live_stream(
             pending.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await pending
+        producer.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await producer
     if not envelope.terminal_seen:
         yield envelope.wrap(
             {
@@ -269,11 +306,13 @@ async def protocolize_stream(
         ):
             yield encoded
         return
-    async for encoded in _protocolize_live_stream(
+    live_stream = _protocolize_live_stream(
         source,
         stream_id=stream_id,
         trace_id=trace_id,
         turn_id=turn_id,
         heartbeat_seconds=heartbeat_seconds,
-    ):
-        yield encoded
+    )
+    async with contextlib.aclosing(live_stream):
+        async for encoded in live_stream:
+            yield encoded

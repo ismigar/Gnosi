@@ -42,6 +42,11 @@ test.describe('PageOutline section navigator', () => {
       contentType: 'application/json',
       body: JSON.stringify({ detail: 'Not authenticated' }),
     }));
+    // The shell waits for the active Vault's explicit plugin configuration.
+    // Keep this synthetic Vault isolated from the native backend's real Vault.
+    await page.route('**/api/vault/plugins', (route) => route.fulfill({
+      json: { disabled: [], enabled_builtin: [], enabled_third_party: [], settings: {} },
+    }));
     await page.route('**/api/vaults', (route) => route.fulfill({
       json: {
         active_path: '/tmp/gnosi-page-outline-vault',

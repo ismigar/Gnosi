@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException
+from jsonschema import ValidationError
 
 from backend.domains.agent.routes.sessions import get_chat_session
 from backend.domains.configuration.agent.governance_routes import (
@@ -43,7 +44,11 @@ async def create_learning_draft(
     try:
         invoke = await asyncio.to_thread(configured_invoker, agent, _ai_configuration())
         return await asyncio.to_thread(draft_skill, payload, messages, tools, invoke)
-    except (ValueError, RuntimeError) as exc:
+    except TimeoutError as exc:
+        raise HTTPException(504, detail="The learning draft timed out; retry or review the model configuration.") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, detail="Learning permissions changed; reload before trying again.") from exc
+    except (ValueError, RuntimeError, ValidationError) as exc:
         raise HTTPException(422, detail="Could not prepare the learning draft.") from exc
 
 
@@ -124,7 +129,11 @@ async def run_learning_trial(
     try:
         invoke = await asyncio.to_thread(configured_invoker, agent, _ai_configuration())
         return await asyncio.to_thread(trial_skill, payload, invoke)
-    except (ValueError, RuntimeError) as exc:
+    except TimeoutError as exc:
+        raise HTTPException(504, detail="The learning trial timed out; retry or review the model configuration.") from exc
+    except PermissionError as exc:
+        raise HTTPException(403, detail="Learning permissions changed; reload before trying again.") from exc
+    except (ValueError, RuntimeError, ValidationError) as exc:
         raise HTTPException(422, detail="The trial could not be completed.") from exc
 
 

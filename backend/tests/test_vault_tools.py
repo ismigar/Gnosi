@@ -1,8 +1,10 @@
 """Tests for the PURE helpers of the knowledge toolbelt (no backend)."""
 import sys
 from pathlib import Path
+import pytest
+from jsonschema import ValidationError
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from agent.vault_tools import (  # noqa: E402
     build_page_frontmatter, build_cornell_note, rank_link_candidates,
@@ -57,19 +59,19 @@ def test_rank_empty_page():
 
 
 def test_parse_cornell_json_ok():
-    text = '```json\n{"notes":"cos","cues":["q1","q2"],"summary":"resum"}\n```'
+    text = '{"notes":"cos","cues":["q1","q2","q3","q4"],"summary":"resum"}'
     notes, cues, summary = _parse_cornell_json(text)
-    assert notes == "cos" and cues == ["q1", "q2"] and summary == "resum"
+    assert notes == "cos" and cues == ["q1", "q2", "q3", "q4"] and summary == "resum"
 
 
-def test_parse_cornell_json_degrades_to_plaintext():
-    notes, cues, summary = _parse_cornell_json("només text pla sense json")
-    assert notes == "només text pla sense json" and cues == [] and summary == ""
+def test_parse_cornell_json_rejects_plaintext():
+    with pytest.raises(ValueError):
+        _parse_cornell_json("només text pla sense json")
 
 
-def test_parse_cornell_cues_as_string():
-    notes, cues, _ = _parse_cornell_json('{"notes":"n","cues":"q1\\nq2","summary":"s"}')
-    assert cues == ["q1", "q2"]
+def test_parse_cornell_rejects_unstructured_cues():
+    with pytest.raises(ValidationError):
+        _parse_cornell_json('{"notes":"n","cues":"q1\\nq2","summary":"s"}')
 
 
 def test_tools_exported():

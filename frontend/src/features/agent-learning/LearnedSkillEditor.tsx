@@ -74,8 +74,14 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
             <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={busy || !valid || !testInput.trim()} onClick={() => { void runTrial(); }}>{t(busy ? 'common.loading' : 'learning.run_trial')}</button>
             {trial && <>
                 <pre>{trial.output}</pre>
+                {Boolean(trial.missing_inputs?.length) && <div><strong>{t('learning.missing_trial_inputs')}</strong><ul>{trial.missing_inputs?.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
                 <p className="agent-learning__muted">{t('learning.trial_review_help')}</p>
-                <ul>{trial.checks.map((check, index) => <li key={index}><strong>{t(check.met ? 'learning.met' : 'learning.unmet')}: {check.criterion}</strong><p>{check.evidence}</p></li>)}</ul>
+                <ul>{trial.checks.map((check, index) => <li key={index}>
+                    <strong>{t(check.met ? 'learning.met' : 'learning.unmet')}: {check.criterion}</strong>
+                    <p>{check.evidence}</p>
+                    {check.input_quote && <p><strong>{t('learning.input_evidence')}</strong> <q>{check.input_quote}</q></p>}
+                    {check.output_quote && <p><strong>{t('learning.output_evidence')}</strong> <q>{check.output_quote}</q></p>}
+                </li>)}</ul>
                 <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={(skill.examples || []).length >= 8 || testInput.length > 8000 || trial.output.length > 8000} onClick={() => { change({ examples: [...(skill.examples || []), { name: t('learning.validated_example'), input: testInput, expected: trial.output }] }); }}>{t('learning.keep_example')}</button>
             </>}
         </section>

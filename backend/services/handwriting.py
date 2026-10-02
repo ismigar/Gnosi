@@ -1,7 +1,8 @@
 """Handwriting recognition (ink → text) LOCAL with TrOCR.
 
-Private: the stroke image is processed on the machine, it never goes to any cloud
-(consistent with Gnosi's offline-first vault). The model is loaded
+The stroke image is processed on the machine. Optional text correction uses
+the configured AI provider, which can be remote, and requires explicit activation.
+The model is loaded
 lazily (singleton) and downloaded on first use to `GNOSI_DATA_DIR/cache/trocr`
 (outside OneDrive, cf. caches memory).
 
@@ -11,21 +12,22 @@ quality/speed on CPU; `-large-` is more accurate but much slower on Intel).
 
 ⚠️ Known limitation: TrOCR handwritten is trained in ENGLISH. In Catalan/
 Spanish it works but with more errors (especially accents and digraphs). To mitigate
-this, we optionally pass the output through a CORRECTION with the local LLM (Ollama) that
+this, we optionally pass the output through a CORRECTION with the configured AI provider that
 fixes accents/digraphs without altering the machine's text (`correct=True`). If
 there is no AI provider, the raw text is returned without failing. For multi-line we do
 a simple segmentation by horizontal projection (TrOCR is single-line).
 
-Warmup: `warmup()` preloads the model in the background (daemon thread) so that
-the first real recognition call doesn't have to wait for the load. The frontend
-calls it when the canvas is opened.
+Warmup: `warmup()` supports explicit preloading in a background daemon thread.
+Opening the canvas does not load weights; recognition loads them on demand.
 """
 
 from backend.services.agent_behavior import task_input
 import io
 import logging
 import os
+import re
 import threading
+from contextvars import copy_context
 from pathlib import Path
 from typing import Any, Optional
 
@@ -35,14 +37,52 @@ log = logging.getLogger(__name__)
 
 _MODEL: Any = None          # VisionEncoderDecoderModel
 _PROCESSOR: Any = None      # TrOCRProcessor
+_MODEL_KEY: tuple[str, str] | None = None
 _LOCK = threading.Lock()
-_WARMUP_THREAD = None   # in-flight preload thread (avoids duplicates)
+_WARMUP_LOCK = threading.Lock()
+_WARMUP_THREADS: dict[tuple[str, str], threading.Thread] = {}
 
 _DEFAULT_MODEL = "microsoft/trocr-base-handwritten"
 # Line cap to prevent a large canvas from stalling the CPU for minutes.
 _MAX_LINES = 40
 
 _LANG_LABELS = {"ca": "Catalan", "es": "Spanish", "en": "English", "fr": "French"}
+
+
+def _download_owner() -> str:
+    from backend.services.agent_execution_scope import current_scope
+    try:
+        scope = current_scope()
+    except RuntimeError:
+        return ''  # Direct local callers; HTTP cancellation requires a scope.
+    import json
+    return json.dumps([scope.user_id, scope.workspace_id, str(scope.vault_path)], ensure_ascii=False)
+
+
+def download_status() -> dict[str, Any]:
+    from backend.services import handwriting_download as downloads
+    owner = _download_owner()
+    selected = (_model_id(), str(Path(_cache_dir()).resolve()))
+    model, cache = downloads.active(owner) or selected
+    state = downloads.status(model, cache, owner)
+    loaded = _MODEL is not None and _PROCESSOR is not None and _MODEL_KEY == (model, cache)
+    state.update(model=model, loaded=loaded)
+    if loaded:
+        state['state'] = 'ready'
+    return state
+
+
+def cancel_download() -> bool:
+    from backend.services.agent_execution_scope import current_scope
+    from backend.services import handwriting_download as downloads
+    current_scope()  # Never cancel a worker without an authenticated scope.
+    owner = _download_owner()
+    active = downloads.active(owner)
+    return downloads.cancel(*active, owner) if active else False
+
+
+class HandwritingInputError(ValueError):
+    """An image that cannot be recognized completely within the line budget."""
 
 
 def _cache_dir() -> str:
@@ -74,14 +114,14 @@ def _correct_default() -> bool:
     try:
         cfg = load_params(strict_env=False)
         val = ((cfg.get("ai", {}) or {}).get("handwriting", {}) or {}).get("correct")
-        return True if val is None else bool(val)
+        return val is True
     except Exception:
-        return True
+        return False
 
 
 def is_available() -> bool:
     try:
-        import transformers  # noqa: F401
+        from transformers import TrOCRProcessor, VisionEncoderDecoderModel  # noqa: F401
         from PIL import Image  # noqa: F401
         return True
     except Exception:
@@ -89,42 +129,56 @@ def is_available() -> bool:
 
 
 def is_loaded() -> bool:
-    return _MODEL is not None and _PROCESSOR is not None
+    return (_MODEL is not None and _PROCESSOR is not None
+            and _MODEL_KEY == (_model_id(), str(Path(_cache_dir()).resolve())))
 
 
-def _load() -> tuple[Any, Any]:
+def _load() -> tuple[Any, Any, str]:
     """Loads (lazily) the TrOCR processor + model (singleton, CPU)."""
-    global _MODEL, _PROCESSOR
-    if _MODEL is not None and _PROCESSOR is not None:
-        return _PROCESSOR, _MODEL
+    global _MODEL, _PROCESSOR, _MODEL_KEY
+    mid = _model_id()
+    cache = str(Path(_cache_dir()).resolve())
+    key = (mid, cache)
     with _LOCK:
-        if _MODEL is None or _PROCESSOR is None:
-            from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-            mid = _model_id()
-            cache = _cache_dir()
-            log.info("handwriting: loading TrOCR '%s' on CPU (downloads on first use)", mid)
-            _PROCESSOR = TrOCRProcessor.from_pretrained(mid, cache_dir=cache)
-            _MODEL = VisionEncoderDecoderModel.from_pretrained(mid, cache_dir=cache)
-            _MODEL.eval()
-            log.info("handwriting: model loaded")
-    return _PROCESSOR, _MODEL
+        if _MODEL is None or _PROCESSOR is None or _MODEL_KEY != key:
+            from backend.services import handwriting_download as downloads
+            owner = _download_owner()
+            try:
+                source = downloads.prepare(mid, cache, owner)
+                downloads.transition(mid, cache, owner, 'loading')
+                from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+                log.info("handwriting: loading cached TrOCR '%s' on CPU", mid)
+                processor: Any = TrOCRProcessor.from_pretrained(source, cache_dir=cache, local_files_only=True)
+                model: Any = VisionEncoderDecoderModel.from_pretrained(source, cache_dir=cache, local_files_only=True)
+                model.eval()
+                _PROCESSOR, _MODEL, _MODEL_KEY = processor, model, key
+                downloads.transition(mid, cache, owner, 'ready')
+                log.info("handwriting: model loaded")
+            except BaseException as error:
+                downloads.failed(mid, cache, owner, error)
+                raise
+        return _PROCESSOR, _MODEL, mid
 
 
 def warmup() -> bool:
     """Preloads the model in a daemon thread (idempotent, non-blocking).
 
     Returns True if it started (or was already loading/loaded), False if the
-    engine is not available. The idea is to call it when the canvas is opened: while
-    the user writes, the model loads, and by the time they click "Convert to text" it's already there.
+    engine is not available. Callers must request this explicitly: opening a
+    canvas alone must not trigger a large download or model allocation.
     
     """
-    global _WARMUP_THREAD
     if not is_available():
         return False
     if is_loaded():
         return True
-    with _LOCK:
-        if _WARMUP_THREAD is not None and _WARMUP_THREAD.is_alive():
+    key = (_model_id(), str(Path(_cache_dir()).resolve()))
+    # Loading weights holds _LOCK for a long time. Never wait on that lock in
+    # the API's event-loop thread just to reserve a background warmup.
+    with _WARMUP_LOCK:
+        for completed in [item for item, thread in _WARMUP_THREADS.items() if not thread.is_alive()]:
+            _WARMUP_THREADS.pop(completed)
+        if key in _WARMUP_THREADS:
             return True
 
         def _run() -> None:
@@ -133,14 +187,19 @@ def warmup() -> bool:
             except Exception as e:  # pragma: no cover - clean degradation
                 log.warning("handwriting: warmup failed: %s", e)
 
-        _WARMUP_THREAD = threading.Thread(target=_run, daemon=True, name="trocr-warmup")
-        _WARMUP_THREAD.start()
+        thread = threading.Thread(target=copy_context().run, args=(_run,), daemon=True, name="trocr-warmup")
+        _WARMUP_THREADS[key] = thread
+        try:
+            thread.start()
+        except Exception:
+            _WARMUP_THREADS.pop(key, None)
+            raise
     log.info("handwriting: model warmup started in the background")
     return True
 
 
 def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
-    """Corrects accents/spelling with the local LLM (Ollama). Reuses the
+    """Corrects accents/spelling with the configured AI provider. Reuses the
     same mechanism as `POST /api/ai/correct`. Returns the corrected text or
     `None` if there's no AI provider or it fails (clean degradation → raw text).
     
@@ -162,6 +221,10 @@ def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
     try:
         content, _provider = generate_text(prompt, text[:200], timeout=30)
         corrected = (content or "").strip()
+        numbers = r"[+-]?\d+(?:[.,]\d+)*"
+        if re.findall(numbers, corrected) != re.findall(numbers, text):
+            log.info("handwriting: discarded AI correction that changed numeric values")
+            return None
         return corrected or None
     except Exception as e:
         log.info("handwriting: AI correction was not applied (%s); returning raw text", e)
@@ -196,10 +259,20 @@ def _recognize_engine(
     """
     from PIL import Image
 
-    processor, model = _load()
-
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as source:
+            # Canvas exports can be transparent; alpha must be flattened onto
+            # white so an empty transparent canvas is not treated as black ink.
+            canvas = Image.new("RGBA", source.size, "white")
+            canvas.alpha_composite(source.convert("RGBA"))
+            image = canvas.convert("RGB")
+    except (OSError, ValueError) as error:
+        raise HandwritingInputError("invalid_image") from error
+    darkest = image.convert("L").getextrema()[0]
+    if isinstance(darkest, (int, float)) and darkest >= 200:
+        raise HandwritingInputError("blank_image")
     lines = _segment_lines(image) if segment else [image]
+    processor, model, model_id = _load()
 
     import torch
 
@@ -208,6 +281,13 @@ def _recognize_engine(
         for line_img in lines:
             pixel_values = processor(images=line_img, return_tensors="pt").pixel_values
             generated_ids = model.generate(pixel_values, max_new_tokens=64)
+            token_ids = generated_ids[0].tolist()
+            eos = getattr(model.generation_config, "eos_token_id", None)
+            eos_ids = eos if isinstance(eos, (list, tuple)) else [eos]
+            # TrOCR starts with one decoder token. Reaching the 64 new-token
+            # ceiling without EOS is a partial line, never a complete result.
+            if len(token_ids) >= 65 and token_ids[-1] not in eos_ids:
+                raise HandwritingInputError("line_too_long")
             txt = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
             txt = (txt or "").strip()
             if txt:
@@ -228,7 +308,7 @@ def _recognize_engine(
         "text": final,
         "raw": raw,
         "lines": texts,
-        "model": _model_id(),
+        "model": model_id,
         "corrected": did_correct,
     }
 
@@ -278,4 +358,6 @@ def _segment_lines(image: Any) -> list[Any]:
 
     if len(crops) <= 1:
         return [image]
-    return crops[:_MAX_LINES]
+    if len(crops) > _MAX_LINES:
+        raise HandwritingInputError("too_many_lines")
+    return crops

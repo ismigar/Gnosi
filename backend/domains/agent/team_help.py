@@ -38,7 +38,7 @@ class OptionalTeamContextUnavailable(OptionalTeamHelpDeclined):
 
 
 def _checked_help_call(state: AgentState, *, operation_mode: bool) -> dict[str, Any]:
-    import jsonschema  # type: ignore[import-untyped]
+    import jsonschema
 
     message = state["messages"][-1]
     calls: list[dict[str, Any]] = list(getattr(message, "tool_calls", ()))

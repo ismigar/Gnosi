@@ -61,6 +61,7 @@ def build_steps(root: Path, base_sha: str, *, quick: bool) -> list[Step]:
             *ci_tests,
             "backend/tests/test_root_typecheck_contract.py",
             "backend/tests/test_pre_pr_validation.py",
+            "backend/tests/test_pre_pr_resources.py",
             "-q",
             "-p",
             "no:cacheprovider",

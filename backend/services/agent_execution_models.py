@@ -28,6 +28,7 @@ class AgentOperation(BaseModel):
     origin: ExecutionOrigin = "button"
     context_refs: list[dict[str, Any]] = Field(default_factory=list)
     output_schema: dict[str, Any] | None = None
+    tool_mode: Literal["none", "read"] = "none"
     timeout_seconds: int = Field(default=120, ge=1, le=3600)
     max_model_calls: int = Field(default=2, ge=1, le=3)
     parent_run_id: str = ""

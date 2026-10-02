@@ -73,6 +73,7 @@ export interface ModuleContextRef {
 
 
 export interface AppEventMap {
+  readonly 'gnosi:page-creations-changed': null;
   readonly 'gnosi:genograms-changed': null;
   readonly 'gnosi:genograms-prepared': null;
   readonly 'app-error': AppErrorEventDetail;

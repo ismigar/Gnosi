@@ -16,10 +16,14 @@ import { toast } from '../../shared/notifications/toast';
 import { vaultPath } from '../../shared/routing/vaultRouting';
 import {
   uploadMeetingRecording,
+  resumeMeetingProcessing,
   type MeetingMode,
 } from '../../shared/api/meeting-specialized';
+import { subscribeAppEvent } from '../../shared/platform/app-events';
 import { fetchMeetingStatus } from '../../shared/api/meetings';
 
+
+export type MeetingLanguage = 'auto' | 'ca' | 'es' | 'en' | 'fr';
 
 export type MeetingPhase =
   | 'idle'
@@ -45,6 +49,8 @@ export interface MeetingRecorderController {
   readonly closePanel: () => void;
   readonly errMsg: string;
   readonly mode: MeetingMode;
+  readonly language: MeetingLanguage;
+  readonly setLanguage: (language: MeetingLanguage) => void;
   readonly open: boolean;
   readonly openMinutes: () => void;
   readonly openPanel: () => void;
@@ -70,15 +76,21 @@ function describeError(error: unknown): string {
 
 /** Own the browser media lifecycle and durable upload retry state. */
 export function useMeetingRecorder(): MeetingRecorderController {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<MeetingPhase>('idle');
   const [mode, setMode] = useState<MeetingMode>('presencial');
+  const [language, setLanguage] = useState<MeetingLanguage>(() => {
+    const code = (i18n.resolvedLanguage ?? i18n.language).split('-')[0];
+    return code === 'ca' || code === 'es' || code === 'en' || code === 'fr' ? code : 'auto';
+  });
   const [title, setTitle] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [stage, setStage] = useState('');
   const [pageId, setPageId] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState('');
+  const [recoveryJobId, setRecoveryJobId] = useState<string | null>(null);
+  const statusEpoch = useRef(0);
   const [, setIsDockOpen] = useFloatingActionDock();
   useExclusiveFloatingPanel('meeting', open, setOpen);
 
@@ -117,17 +129,22 @@ export function useMeetingRecorder(): MeetingRecorderController {
     if (pollRef.current !== null) return;
     const checkStatus = async (): Promise<void> => {
       try {
+        const epoch = statusEpoch.current;
         const data = await fetchMeetingStatus();
+        if (epoch !== statusEpoch.current) return;
         setStage(data.stage);
+        setRecoveryJobId(data.can_resume === true && typeof data.job_id === 'string' ? data.job_id : null);
         if (data.stage === 'done') {
           if (pollRef.current !== null) window.clearInterval(pollRef.current);
           pollRef.current = null;
           setPageId(data.page_id ?? null);
           setPhase('done');
-        } else if (data.stage === 'error') {
+        } else if (data.stage === 'error' || data.stage === 'interrupted') {
           if (pollRef.current !== null) window.clearInterval(pollRef.current);
           pollRef.current = null;
-          setErrMsg(data.error ?? t('meeting.error_processing'));
+          setErrMsg(data.stage === 'interrupted'
+            ? t(data.can_resume === true ? 'meeting.error_interrupted' : 'meeting.error_processing')
+            : data.error ?? t('meeting.error_processing'));
           setPhase('error');
         }
       } catch {
@@ -140,19 +157,22 @@ export function useMeetingRecorder(): MeetingRecorderController {
   }, [t]);
 
   const upload = useCallback(async (blob: Blob): Promise<void> => {
+    const epoch = statusEpoch.current;
     lastBlobRef.current = blob;
     setPhase('uploading');
     try {
-      await uploadMeetingRecording(blob, title.trim() || 'Reunió', mode);
+      await uploadMeetingRecording(blob, title.trim() || 'Reunió', mode, undefined, language === 'auto' ? undefined : language);
+      if (epoch !== statusEpoch.current) return;
       lastBlobRef.current = null;
       setPhase('processing');
       setStage('transcribing');
       pollStatus();
     } catch (error: unknown) {
+      if (epoch !== statusEpoch.current) return;
       setErrMsg(describeError(error));
       setPhase('error');
     }
-  }, [mode, pollStatus, title]);
+  }, [language, mode, pollStatus, title]);
 
   const stopRecording = useCallback((): void => {
     const recorder = recorderRef.current;
@@ -165,6 +185,8 @@ export function useMeetingRecorder(): MeetingRecorderController {
 
   const startRecording = useCallback(async (): Promise<void> => {
     setErrMsg('');
+    statusEpoch.current += 1;
+    setRecoveryJobId(null);
     const mediaDevices = (navigator as CompatibleNavigator).mediaDevices;
     if (!mediaDevices || typeof MediaRecorder === 'undefined') {
       toast.error(t('meeting.no_audio_support'));
@@ -273,6 +295,8 @@ export function useMeetingRecorder(): MeetingRecorderController {
     clearTimers();
     stopTracks();
     lastBlobRef.current = null;
+    statusEpoch.current += 1;
+    setRecoveryJobId(null);
     setPhase('idle');
     setSeconds(0);
     setStage('');
@@ -281,10 +305,35 @@ export function useMeetingRecorder(): MeetingRecorderController {
     setTitle('');
   }, [clearTimers, stopTracks]);
 
+  useEffect(() => subscribeAppEvent('gnosi:vault-changed', () => {
+    const recorder = recorderRef.current;
+    if (recorder) {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+      try { if (recorder.state !== 'inactive') recorder.stop(); } catch { /* Tracks are released below. */ }
+    }
+    recorderRef.current = null;
+    reset();
+    setOpen(false);
+  }), [reset]);
+
   const retryUpload = useCallback((): void => {
-    if (lastBlobRef.current) void upload(lastBlobRef.current);
+    if (recoveryJobId) {
+      const epoch = statusEpoch.current;
+      setPhase('processing');
+      setErrMsg('');
+      void resumeMeetingProcessing(recoveryJobId).then(() => {
+        if (epoch !== statusEpoch.current) return;
+        setRecoveryJobId(null);
+        pollStatus();
+      }).catch((error: unknown) => {
+        if (epoch !== statusEpoch.current) return;
+        setErrMsg(describeError(error));
+        setPhase('error');
+      });
+    } else if (lastBlobRef.current) void upload(lastBlobRef.current);
     else reset();
-  }, [reset, upload]);
+  }, [pollStatus, recoveryJobId, reset, upload]);
 
   const closePanel = useCallback((): void => {
     if (phase === 'recording') {
@@ -303,7 +352,21 @@ export function useMeetingRecorder(): MeetingRecorderController {
     announceFloatingPanelOpen('meeting');
     setIsDockOpen(false);
     setOpen(true);
-  }, [setIsDockOpen]);
+    if (phase !== 'idle') return;
+    const epoch = ++statusEpoch.current;
+    void fetchMeetingStatus().then((data) => {
+      if (epoch !== statusEpoch.current) return;
+      if (data.running) {
+        setPhase('processing');
+        setStage(data.stage);
+        pollStatus();
+      } else if (data.can_resume === true && typeof data.job_id === 'string') {
+        setRecoveryJobId(data.job_id);
+        setErrMsg(t('meeting.error_interrupted'));
+        setPhase('error');
+      }
+    }).catch(() => undefined);
+  }, [phase, pollStatus, setIsDockOpen, t]);
 
   const openMinutes = useCallback((): void => {
     if (pageId) void navigate(vaultPath('knowledge', `page/${pageId}`));
@@ -323,6 +386,8 @@ export function useMeetingRecorder(): MeetingRecorderController {
     closePanel,
     errMsg,
     mode,
+    language,
+    setLanguage,
     open,
     openMinutes,
     openPanel,

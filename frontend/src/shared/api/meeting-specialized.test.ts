@@ -1,7 +1,7 @@
 import { resetApiTestStorage } from '../../../tests/api-request';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { uploadMeetingRecording } from './meeting-specialized';
+import { resumeMeetingProcessing, uploadMeetingRecording } from './meeting-specialized';
 
 
 afterEach(() => {
@@ -33,4 +33,15 @@ describe('specialized meeting transport', () => {
     expect(body.get('mode')).toBe('online');
     expect(body.get('audio')).toBeInstanceOf(Blob);
   });
+});
+
+
+it('continues the original encoded job through a POST without audio', async () => {
+  const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ status: 'started' }));
+  vi.stubGlobal('fetch', fetchMock);
+  await resumeMeetingProcessing('original/job');
+  const [input, init] = fetchMock.mock.calls[0] || [];
+  expect(input).toBe('/api/meetings/original%2Fjob/resume');
+  expect(init?.method).toBe('POST');
+  expect(init?.body).toBeUndefined();
 });

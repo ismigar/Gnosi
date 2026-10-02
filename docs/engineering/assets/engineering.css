@@ -23,6 +23,10 @@
   font-size: 0.72rem;
 }
 
+.md-typeset .md-typeset__scrollwrap {
+  margin-inline: 0;
+}
+
 .md-typeset code {
   overflow-wrap: anywhere;
 }

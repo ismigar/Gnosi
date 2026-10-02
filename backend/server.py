@@ -17,8 +17,11 @@ BACKEND_DIR = Path(__file__).resolve().parent  # Gnosi/backend
 
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+# Direct script execution can already put backend first. Keep it as a fallback
+# in both entry modes, so legacy flat imports never shadow installed SDKs.
+while str(BACKEND_DIR) in sys.path:
+    sys.path.remove(str(BACKEND_DIR))
+sys.path.append(str(BACKEND_DIR))
 
 from backend.config.startup_vault import materialize_startup_vault_files
 

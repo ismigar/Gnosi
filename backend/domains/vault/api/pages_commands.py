@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Protocol
+from pathlib import Path
+from typing import Annotated, Protocol
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Header
+
+from backend.domains.vault.pages.creation_requests import create_page_with_receipt, get_creation_status
+from backend.domains.vault.pages.creation_recovery import recover_page_creation, recovery_access_guard
 
 from backend.domains.vault.pages.create_service import (
     CreatePageDependencies,
@@ -27,6 +31,7 @@ from backend.domains.vault.pages.save_service import (
 )
 from backend.domains.vault.schemas.pages import (
     PageMutationResponse,
+    PageCreationStatusResponse,
     PagePatchRequest,
     PageSaveRequest,
 )
@@ -34,6 +39,8 @@ from backend.domains.vault.schemas.pages import (
 
 class UserContext(Protocol):
     user_id: str
+    workspace_id: str
+    vault_path: Path
 
 
 class CreateHandler(Protocol):
@@ -44,6 +51,7 @@ class CreateHandler(Protocol):
         request: PageSaveRequest,
         background_tasks: BackgroundTasks,
         context: UserContext = ...,
+        idempotency_key: str | None = ...,
     ) -> Awaitable[dict[str, object]]: ...
 
 
@@ -84,8 +92,14 @@ def register_create_route(
         request: PageSaveRequest,
         background_tasks: BackgroundTasks,
         context: UserContext = Depends(workspace_context_dependency),
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> dict[str, object]:
         """Creates a new page with a UUID ID."""
+        if idempotency_key is not None:
+            return await create_page_with_receipt(
+                request, background_tasks, context.user_id, context.workspace_id,
+                context.vault_path, idempotency_key, dependencies,
+            )
         return await create_page_service(
             request,
             background_tasks,
@@ -99,6 +113,29 @@ def register_create_route(
         methods=["POST"],
         dependencies=[Depends(editor_dependency)],
         response_model=PageMutationResponse,
+    )
+
+    async def creation_status(
+        creation_key: str,
+        context: UserContext = Depends(workspace_context_dependency),
+    ) -> dict[str, object]:
+        return await get_creation_status(context.user_id, context.workspace_id, context.vault_path, creation_key, dependencies)
+
+    router.add_api_route(
+        "/pages/creation-requests/{creation_key}", creation_status, methods=["GET"],
+        dependencies=[Depends(editor_dependency)], response_model=PageCreationStatusResponse,
+    )
+    async def resume_creation(
+        creation_key: str,
+        context: UserContext = Depends(workspace_context_dependency),
+    ) -> dict[str, object]:
+        return await recover_page_creation(
+            context.user_id, context.workspace_id, context.vault_path, creation_key,
+            dependencies, guard=recovery_access_guard(context),
+        )
+    router.add_api_route(
+        "/pages/creation-requests/{creation_key}/resume", resume_creation, methods=["POST"],
+        dependencies=[Depends(editor_dependency)], response_model=PageMutationResponse,
     )
     return create_page
 

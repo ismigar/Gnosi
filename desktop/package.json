@@ -11,7 +11,7 @@
   },
   "license": "AGPL-3.0-or-later",
   "scripts": {
-    "test": "node --test *.test.js",
+    "test": "node --test --test-concurrency=1 *.test.js",
     "typecheck:ipc": "pnpm --filter @gnosi/frontend exec tsc --project ../desktop/tsconfig.ipc.json",
     "test:ipc:smoke": "electron scripts/smoke-ipc.cjs",
     "test:profile:smoke": "node scripts/smoke-profile.cjs",

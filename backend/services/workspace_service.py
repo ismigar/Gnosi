@@ -187,11 +187,15 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             .filter(
                 Membership.user_id == user_id,
                 Membership.workspace_id == ws_id,
-                Membership.role == "owner",
             )
             .first()
         )
         if membership:
+            if membership.role != "owner":
+                raise HTTPException(
+                    status_code=403,
+                    detail={"code": "personal_owner_required"},
+                )
             return str(membership.workspace_id)
 
         # Create workspace
@@ -241,12 +245,13 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
 def _resolve_personal_vault(
     db: Session, ws_id: str, x_vault_id: Optional[str], default_vault_path: Path
 ) -> Path:
-    """Personal multi-vault mode: if `X-Vault-Id` is given and it's a valid Vault of the
-    personal workspace, returns its path; otherwise, the default vault (backward compatibility)."""
+    """An explicit Vault selection must never fall back to another Vault."""
     if not x_vault_id:
         return default_vault_path
     v = db.query(Vault).filter(Vault.id == x_vault_id, Vault.workspace_id == ws_id).first()
-    if not v or not v.path_override:
+    if not v:
+        raise HTTPException(status_code=404, detail={"code": "vault_not_found"})
+    if not v.path_override:
         return default_vault_path
     p = Path(v.path_override)
     if p.exists():
@@ -259,10 +264,10 @@ def _resolve_personal_vault(
         try:
             p.mkdir(exist_ok=True)
             return p
-        except Exception:
-            return default_vault_path
-    logger.warning("Vault path parent missing (mount unavailable?); falling back to default: %s", p)
-    return default_vault_path
+        except OSError as exc:
+            raise HTTPException(status_code=503, detail={"code": "vault_unavailable"}) from exc
+    logger.warning("Explicit Vault path parent missing (mount unavailable?): %s", p)
+    raise HTTPException(status_code=503, detail={"code": "vault_unavailable"})
 
 
 def _organization_membership(

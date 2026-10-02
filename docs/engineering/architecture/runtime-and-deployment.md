@@ -30,7 +30,7 @@ tests:
 
 # Runtime and deployment
 
-Public pull requests run native smoke on a fresh GitHub-hosted Ubuntu 24.04 ARM64 machine, using the same runner selection as backend validation. Chromium system dependencies are installed on that disposable host before browser installation. Private repositories, pushes and release checks retain the local Linux ARM64 runner. Native smoke explicitly selects HTTP so its readiness probe and browser base URL cannot disagree with an inherited development certificate. The six-minute readiness deadline and the browser tests remain unchanged.
+Backend validation and native smoke run on the owner-managed Linux ARM64 runner, without a GitHub-hosted fallback. Pull requests can reach these self-hosted jobs only when their head belongs to the same repository; fork pull requests do not run on the owner machine. Native smoke explicitly selects HTTP so its readiness probe and browser base URL cannot disagree with an inherited development certificate. The six-minute readiness deadline and the browser tests remain unchanged.
 
 Shared CI bounds Python dependency setup with `UV_CONCURRENT_DOWNLOADS=4`,
 `UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (seconds per HTTP read) and

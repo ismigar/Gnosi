@@ -3959,6 +3959,11 @@
             "title": "Audio",
             "type": "string"
           },
+          "language": {
+            "default": "auto",
+            "title": "Language",
+            "type": "string"
+          },
           "mode": {
             "default": "presencial",
             "title": "Mode",
@@ -9204,9 +9209,21 @@
             "title": "Evidence",
             "type": "string"
           },
+          "input_quote": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Input Quote",
+            "type": "string"
+          },
           "met": {
             "title": "Met",
             "type": "boolean"
+          },
+          "output_quote": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Output Quote",
+            "type": "string"
           }
         },
         "required": [
@@ -10454,8 +10471,7 @@
             "type": "string"
           },
           "value": {
-            "title": "Value",
-            "type": "string"
+            "$ref": "#/components/schemas/JsonValue"
           }
         },
         "required": [
@@ -12884,6 +12900,19 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HandwritingDownloadCancellationResponse": {
+        "properties": {
+          "cancelling": {
+            "title": "Cancelling",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancelling"
+        ],
+        "title": "HandwritingDownloadCancellationResponse",
+        "type": "object"
+      },
       "HandwritingRecognitionResponse": {
         "properties": {
           "corrected": {
@@ -12926,6 +12955,26 @@
             "title": "Available",
             "type": "boolean"
           },
+          "cancelling": {
+            "default": false,
+            "title": "Cancelling",
+            "type": "boolean"
+          },
+          "downloaded": {
+            "default": false,
+            "title": "Downloaded",
+            "type": "boolean"
+          },
+          "downloaded_bytes": {
+            "default": 0,
+            "title": "Downloaded Bytes",
+            "type": "integer"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
           "loaded": {
             "title": "Loaded",
             "type": "boolean"
@@ -12933,6 +12982,31 @@
           "model": {
             "title": "Model",
             "type": "string"
+          },
+          "state": {
+            "default": "not_downloaded",
+            "enum": [
+              "not_downloaded",
+              "downloaded",
+              "downloading",
+              "loading",
+              "ready",
+              "cancelled",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
           }
         },
         "required": [
@@ -26178,6 +26252,82 @@
         "title": "PageCommentThread",
         "type": "object"
       },
+      "PageCreationStatusResponse": {
+        "description": "A receipt proves creation completion; unknown never authorizes a retry.",
+        "properties": {
+          "can_resume": {
+            "default": false,
+            "title": "Can Resume",
+            "type": "boolean"
+          },
+          "page_available": {
+            "default": false,
+            "title": "Page Available",
+            "type": "boolean"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageMutationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PageCreationStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "page_id"
+        ],
+        "title": "PageCreationStatusResponse",
+        "type": "object"
+      },
+      "PageCreationStepResponse": {
+        "description": "Started work remains uncertain after a crash; completion is explicit.",
+        "properties": {
+          "state": {
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "uncertain"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state"
+        ],
+        "title": "PageCreationStepResponse",
+        "type": "object"
+      },
       "PageDeleteResponse": {
         "description": "Soft-delete receipt returned when a page enters the vault trash.",
         "properties": {
@@ -32541,6 +32691,14 @@
               "$ref": "#/components/schemas/CriterionResult"
             },
             "title": "Checks",
+            "type": "array"
+          },
+          "missing_inputs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Missing Inputs",
             "type": "array"
           },
           "mode": {
@@ -63745,6 +63903,130 @@
         ]
       }
     },
+    "/api/meetings/{job_id}/resume": {
+      "post": {
+        "description": "Resume only this owner's stopped job with its saved transcript and inputs.",
+        "operationId": "resume_meeting_api_meetings__job_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Meeting",
+        "tags": [
+          "Meetings",
+          "Meetings"
+        ]
+      }
+    },
     "/api/notebooks": {
       "get": {
         "operationId": "list_notebooks_api_notebooks_get",
@@ -82355,9 +82637,123 @@
         ]
       }
     },
+    "/api/vault/handwriting/cancel-download": {
+      "post": {
+        "operationId": "cancel_handwriting_download_api_vault_handwriting_cancel_download_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandwritingDownloadCancellationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Handwriting Download",
+        "tags": [
+          "Handwriting",
+          "Handwriting"
+        ]
+      }
+    },
     "/api/vault/handwriting/recognize": {
       "post": {
-        "description": "Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.\n\n`correct` applies AI correction (accents/spelling) with the local LLM; if it's\n`None`, the config default is used. `language` is an optional hint (ca/es/\u2026).",
+        "description": "Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.\n\n`correct` applies correction through the configured AI provider, which can\nbe remote. If omitted, correction runs only when explicitly enabled in the\nhandwriting configuration. `language` is an optional hint (ca/es/\u2026).",
         "operationId": "recognize_handwriting_api_vault_handwriting_recognize_post",
         "parameters": [
           {
@@ -95477,6 +95873,22 @@
         "parameters": [
           {
             "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "x-workspace-id",
             "required": false,
             "schema": {
@@ -95986,6 +96398,250 @@
           }
         },
         "summary": "List Pages By Table Snapshot",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/pages/creation-requests/{creation_key}": {
+      "get": {
+        "operationId": "creation_status_api_vault_pages_creation_requests__creation_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "creation_key",
+            "required": true,
+            "schema": {
+              "title": "Creation Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageCreationStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Creation Status",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/pages/creation-requests/{creation_key}/resume": {
+      "post": {
+        "operationId": "resume_creation_api_vault_pages_creation_requests__creation_key__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "creation_key",
+            "required": true,
+            "schema": {
+              "title": "Creation Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Creation",
         "tags": [
           "Vault"
         ]

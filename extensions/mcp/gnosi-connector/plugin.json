@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gnosi-connector",
+  "version": "0.3.0",
+  "description": "Read Gnosi vaults and prepare confirmed page creation and revision-checked edits.",
+  "author": {
+    "name": "Gnosi"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Gnosi",
+        "shortDescription": "Search and read your Gnosi",
+        "longDescription": "Discover accessible Gnosi vaults and read pages and table listings on macOS, Windows, Linux and Docker. Select a vault per query or use the configured default. Requires a running Gnosi API and a personal access token.",
+        "developerName": "Gnosi",
+        "category": "Productivity",
+        "capabilities": [],
+        "defaultPrompt": "Search my Gnosi notes and cite the relevant pages."
+      }
+    }
+  }
+}

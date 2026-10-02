@@ -3544,6 +3544,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/meetings/{job_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Meeting
+         * @description Resume only this owner's stopped job with its saved transcript and inputs.
+         */
+        post: operations["resume_meeting_api_meetings__job_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/meetings/record": {
         parameters: {
             query?: never;
@@ -6446,6 +6466,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/handwriting/cancel-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Handwriting Download */
+        post: operations["cancel_handwriting_download_api_vault_handwriting_cancel_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/handwriting/recognize": {
         parameters: {
             query?: never;
@@ -6459,8 +6496,9 @@ export interface paths {
          * Recognize Handwriting
          * @description Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.
          *
-         *     `correct` applies AI correction (accents/spelling) with the local LLM; if it's
-         *     `None`, the config default is used. `language` is an optional hint (ca/es/…).
+         *     `correct` applies correction through the configured AI provider, which can
+         *     be remote. If omitted, correction runs only when explicitly enabled in the
+         *     handwriting configuration. `language` is an optional hint (ca/es/…).
          */
         post: operations["recognize_handwriting_api_vault_handwriting_recognize_post"];
         delete?: never;
@@ -8682,6 +8720,40 @@ export interface paths {
         get: operations["list_pages_by_table_snapshot_api_vault_pages_by_table__table_id__snapshot_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/pages/creation-requests/{creation_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Creation Status */
+        get: operations["creation_status_api_vault_pages_creation_requests__creation_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/pages/creation-requests/{creation_key}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Creation */
+        post: operations["resume_creation_api_vault_pages_creation_requests__creation_key__resume_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12229,6 +12301,11 @@ export interface components {
             /** Audio */
             audio: string;
             /**
+             * Language
+             * @default auto
+             */
+            language: string;
+            /**
              * Mode
              * @default presencial
              */
@@ -14140,8 +14217,18 @@ export interface components {
             criterion: string;
             /** Evidence */
             evidence: string;
+            /**
+             * Input Quote
+             * @default
+             */
+            input_quote: string;
             /** Met */
             met: boolean;
+            /**
+             * Output Quote
+             * @default
+             */
+            output_quote: string;
         };
         /** CslStyleResponse */
         CslStyleResponse: {
@@ -14701,8 +14788,7 @@ export interface components {
             status: "ok";
             /** Updated Field */
             updated_field: string;
-            /** Value */
-            value: string;
+            value: components["schemas"]["JsonValue"];
         } & {
             [key: string]: unknown;
         };
@@ -15629,6 +15715,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** HandwritingDownloadCancellationResponse */
+        HandwritingDownloadCancellationResponse: {
+            /** Cancelling */
+            cancelling: boolean;
+        };
         /** HandwritingRecognitionResponse */
         HandwritingRecognitionResponse: {
             /** Corrected */
@@ -15646,10 +15737,38 @@ export interface components {
         HandwritingStatusResponse: {
             /** Available */
             available: boolean;
+            /**
+             * Cancelling
+             * @default false
+             */
+            cancelling: boolean;
+            /**
+             * Downloaded
+             * @default false
+             */
+            downloaded: boolean;
+            /**
+             * Downloaded Bytes
+             * @default 0
+             */
+            downloaded_bytes: number;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
             /** Loaded */
             loaded: boolean;
             /** Model */
             model: string;
+            /**
+             * State
+             * @default not_downloaded
+             * @enum {string}
+             */
+            state: "not_downloaded" | "downloaded" | "downloading" | "loading" | "ready" | "cancelled" | "failed";
+            /** Total Bytes */
+            total_bytes?: number | null;
         };
         /** HandwritingWarmupResponse */
         HandwritingWarmupResponse: {
@@ -20227,6 +20346,45 @@ export interface components {
             comments: components["schemas"]["PageComment"][];
         };
         /**
+         * PageCreationStatusResponse
+         * @description A receipt proves creation completion; unknown never authorizes a retry.
+         */
+        PageCreationStatusResponse: {
+            /**
+             * Can Resume
+             * @default false
+             */
+            can_resume: boolean;
+            /**
+             * Page Available
+             * @default false
+             */
+            page_available: boolean;
+            /** Page Id */
+            page_id: string;
+            result?: components["schemas"]["PageMutationResponse"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "unknown";
+            /** Steps */
+            steps?: components["schemas"]["PageCreationStepResponse"][];
+        };
+        /**
+         * PageCreationStepResponse
+         * @description Started work remains uncertain after a crash; completion is explicit.
+         */
+        PageCreationStepResponse: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "running" | "completed" | "uncertain";
+            /** Step */
+            step: string;
+        };
+        /**
          * PageDeleteResponse
          * @description Soft-delete receipt returned when a page enters the vault trash.
          */
@@ -22926,6 +23084,8 @@ export interface components {
         SkillTrialResult: {
             /** Checks */
             checks: components["schemas"]["CriterionResult"][];
+            /** Missing Inputs */
+            missing_inputs?: string[];
             /**
              * Mode
              * @default text_trial
@@ -32767,6 +32927,44 @@ export interface operations {
             };
         };
     };
+    resume_meeting_api_meetings__job_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingStartResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     record_meeting_api_meetings_record_post: {
         parameters: {
             query?: never;
@@ -38884,6 +39082,42 @@ export interface operations {
             };
         };
     };
+    cancel_handwriting_download_api_vault_handwriting_cancel_download_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandwritingDownloadCancellationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recognize_handwriting_api_vault_handwriting_recognize_post: {
         parameters: {
             query?: never;
@@ -42931,6 +43165,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                "Idempotency-Key"?: string | null;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -43905,6 +44140,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TablePagesSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    creation_status_api_vault_pages_creation_requests__creation_key__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                creation_key: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageCreationStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_creation_api_vault_pages_creation_requests__creation_key__resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                creation_key: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageMutationResponse"];
                 };
             };
             /** @description Validation Error */

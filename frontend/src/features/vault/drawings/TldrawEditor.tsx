@@ -75,6 +75,8 @@ export default function TldrawEditor({
             openSearch={pageCards.openSearch}
             penOnly={penOnly}
             recognizing={handwriting.recognizing}
+            handwritingStatus={handwriting.status}
+            onCancelDownload={handwriting.cancelDownload}
             retryLoad={persistence.retryLoad}
             selectedPage={pageCards.selectedPage}
             setPenOnly={setPenOnly}

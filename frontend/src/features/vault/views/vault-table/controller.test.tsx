@@ -8,6 +8,7 @@ import { transportFetch } from '../../../../shared/api/transports';
 import { keyboardOwnership } from './keyboardOwnership';
 import type { TableNote, VaultTableProps } from './types';
 import { useTableController, type TableController } from './useTableController';
+import { CellButton } from './CellButton';
 
 const fixture = vi.hoisted(() => ({
   t: (key: string, fallback?: unknown): string => typeof fallback === 'string' ? fallback : key,
@@ -36,6 +37,39 @@ const notes: readonly TableNote[] = [
   { id: 'a', title: 'Alpha', metadata: { table_id: 'fixture', parent_id: 'parent', Status: 'Done', Score: 3, Text: 'alpha', Tags: ['a'], Ref: ['r'] } },
   { id: 'b', title: 'Beta', metadata: { table_id: 'fixture', parent_id: 'parent', Status: 'Todo', Score: 5, Text: 'beta' } },
 ];
+
+it('cell field buttons preserve zero, false and empty text when assigning values', async () => {
+  const table = mountController({ schema: { ...schema, Apply: 'button', Apply_config: {
+    button_action: 'set_fields', button_config: { assignments: [
+      { field: 'Score', value: 0 }, { field: 'Checked', value: false }, { field: 'Text', value: '' },
+    ] },
+  } } });
+  vi.mocked(executeVaultTableButtonAction).mockResolvedValue({ status: 'ok' });
+  const button = mountTestComponent(<CellButton model={table.model()}
+    noteId="a" field="Apply" originalMetaKey="Apply" type="button" value={null} />);
+  try {
+    await act(async () => { button.container.querySelector('button')?.click();  await Promise.resolve(); });
+    expect(executeVaultTableButtonAction).toHaveBeenCalledExactlyOnceWith({ note_id: 'a', button_action: 'set_fields',
+      button_config: { assignments: [{ field: 'Score', value: 0 }, { field: 'Checked', value: false }, { field: 'Text', value: '' }] } });
+    expect(patchVaultTablePage).not.toHaveBeenCalled();
+  } finally { button.unmount(); table.unmount(); }
+});
+
+it('table assignment functionality submits one evaluated batch instead of partial patches', async () => {
+  const table = mountController();
+  const note = notes[1];
+  if (!note) throw new Error('Missing fixture row');
+  vi.mocked(executeVaultTableButtonAction).mockResolvedValue({ status: 'ok' });
+  try {
+    await act(async () => { await table.model().executeTableFunctionality(null, note, {
+      id: 'assign', label: 'Assign', action: 'set_fields', enabled: true,
+      config: { assignments: [{ field: 'Score', value: '{Score}*2' }, { field: 'Text', value: '' }] },
+    }); });
+    expect(executeVaultTableButtonAction).toHaveBeenCalledExactlyOnceWith({ note_id: 'a', button_action: 'set_fields',
+      button_config: { assignments: [{ field: 'Score', value: 6 }, { field: 'Text', value: '' }] } });
+    expect(patchVaultTablePage).not.toHaveBeenCalled();
+  } finally { table.unmount(); }
+});
 function mountController(extra: Partial<VaultTableProps> = {}) {
   let current: TableController | undefined;
   const props: VaultTableProps = { notes, schema, activeView: { id: 'fixture-view', table_id: 'fixture', sorts: [] }, onNoteSelect: vi.fn(), ...extra };

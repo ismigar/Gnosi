@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+from contextvars import copy_context
 import json
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -195,14 +196,17 @@ def execute_bounded(request: Any, execute: Any, *, timeout_seconds: Any = 120) -
         timeout = max(1, min(int(timeout_seconds or 120), MAX_TIMEOUT_SECONDS))
     except (TypeError, ValueError):
         timeout = MAX_TIMEOUT_SECONDS
-    future = _EXECUTOR.submit(execute, request)
+    # ThreadPoolExecutor does not inherit ContextVars. Preserve the authenticated
+    # Vault, execution owner and confirmation scope for this invocation only.
+    context = copy_context()
+    future = _EXECUTOR.submit(context.run, execute, request)
     try:
         return bound_result(future.result(timeout=timeout))
     except concurrent.futures.TimeoutError:
         future.cancel()
         tool_call = getattr(request, "tool_call", {}) or {}
         return ToolMessage(
-            content="Tool execution exceeded its timeout and was stopped.",
+            content="Tool execution exceeded its timeout. It may still be running; check its outcome before retrying.",
             name=str(tool_call.get("name") or "tool"),
             tool_call_id=str(tool_call.get("id") or ""),
             status="error",

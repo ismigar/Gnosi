@@ -12,6 +12,8 @@ The actual publishing is done by `social_clients` via the `/api/social/publish` 
 from backend.services.agent_behavior import task_input
 import re
 import logging
+import json
+from functools import partial
 from typing import Dict, List, Optional, Any
 
 log = logging.getLogger(__name__)
@@ -65,16 +67,32 @@ def build_prompt(
                       request=hint, variation=variation)
 
 
-def _clean_output(raw: str) -> str:
-    """Cleans up the model output: common wrapping spaces and quotes."""
-    text = (raw or "").strip()
-    # Strips a full wrapper of quotes (" ... " or ' ... ' or ``` ... ```).
-    for fence in ("```", '"""', "'''"):
-        if text.startswith(fence) and text.endswith(fence) and len(text) > 2 * len(fence):
-            text = text[len(fence):-len(fence)].strip()
-    if len(text) >= 2 and text[0] in "\"'“”" and text[-1] in "\"'“”":
-        text = text[1:-1].strip()
-    return text
+def compose_output_schema(char_limit: int) -> dict[str, Any]:
+    if isinstance(char_limit, bool) or not isinstance(char_limit, int) or char_limit < 1:
+        raise ValueError("A positive character limit is required")
+    return {"type": "object", "properties": {"text": {"type": "string", "minLength": 1,
+                                                      "maxLength": char_limit}},
+            "required": ["text"], "additionalProperties": False}
+
+
+_METADATA_LABEL = re.compile(
+    r"(?im)^\s*(?:[-*#]+\s*)?(?:destinatari|destinatario|recipient|destinataire|"
+    r"data programada|fecha programada|scheduled (?:date|time)|date programmée|"
+    r"text del post|texto (?:del post|de la publicación)|post text|texte (?:du post|de la publication)|"
+    r"estat|estado|status|statut)(?:\*\*)?\s*[:：]"
+)
+
+
+def validate_compose_output(raw: str, *, char_limit: int) -> str:
+    from backend.services.json_contracts import validate_json_value
+    result = json.loads(raw)
+    validate_json_value(result, compose_output_schema(char_limit))
+    text = result["text"].strip()
+    if not text:
+        raise ValueError("The post text must not be empty")
+    if _METADATA_LABEL.search(text):
+        raise ValueError("Return only publishable text; remove recipient, schedule, post-text and status labels")
+    return json.dumps({"text": text}, ensure_ascii=False)
 
 
 def _extract_hashtags(text: str) -> List[str]:
@@ -114,8 +132,10 @@ def compose_one(
         hint=hint,
         variation=variation,
     )
-    raw, provider = generate_for("social", prompt)
-    text = _clean_output(raw)
+    validator = partial(validate_compose_output, char_limit=char_limit)
+    raw, provider = generate_for("social", prompt, output_schema=compose_output_schema(char_limit),
+                                 output_validator=validator)
+    text = json.loads(validator(raw))["text"]
     return {
         "text": text,
         "hashtags": _extract_hashtags(text),

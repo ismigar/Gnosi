@@ -38,6 +38,49 @@ def test_new_tools_have_executable_schemas_and_domain_skills():
     assert ToolEffect.DATA_EGRESS in search.effects
 
 
+def test_execution_revalidates_technical_identity_and_live_plugin_revocation(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend.config import app_config
+    from backend.services import agent_execution as execution
+    from backend.services.agent_execution_models import AgentExecutionSnapshot, ExecutionScope
+    from backend.services.agent_execution_scope import execution_scope
+
+    registrations = core_gnosi_registrations()
+    tools = ToolCatalog()
+    skills = SkillCatalog(tools)
+    for descriptor, handler in registrations:
+        tools.register_core(descriptor, handler)
+    for descriptor in core_gnosi_skill_descriptors(registrations):
+        skills.register_core(descriptor)
+    monkeypatch.setattr(agent_skill_catalog, "get_tool_catalog", lambda: tools)
+    monkeypatch.setattr(agent_skill_catalog, "get_skill_catalog", lambda: skills)
+    monkeypatch.setattr(feature_tool_support, "feature_enabled", lambda _: True)
+    profile = {"id": "builtin.grounded-notebooks.default", "enabled": True, "skill_ids": ["core.gnosi-notebooks"]}
+    monkeypatch.setattr(app_config, "load_params", lambda **_: SimpleNamespace(ai={"agents": [profile]}))
+    monkeypatch.setattr(execution, "revalidate_scope", lambda _: None)
+    monkeypatch.setattr(execution.store, "cancelled", lambda *_: False)
+    scope = ExecutionScope(user_id="qa", workspace_id="qa", role="owner", vault_path=str(tmp_path))
+    snapshot = AgentExecutionSnapshot(scope=scope, agent_id=profile["id"], profile=profile,
+        skill_ids=profile["skill_ids"], instructions=[], catalog_revision="qa", revision="qa")
+    run_token = execution._run.set("qa-tool-identity")
+    snapshot_token = execution._snapshot.set(snapshot)
+    try:
+        with execution_scope(scope):
+            runtime = resolve_agent_runtime(profile, vault_path=tmp_path, active_skill_ids=profile["skill_ids"])
+            descriptor = next(d for d in runtime.tool_descriptors if d.id == "core.gnosi.notebook-list")
+            assert descriptor.name == "Notebook List"
+            execution.before_tool_call("notebook_list", tool_id=descriptor.id)
+            for name, tool_id in [("Notebook List", descriptor.id), ("notebook_list", "core.gnosi.notebook-read")]:
+                with pytest.raises(PermissionError, match="agent_execution_tool_revoked"):
+                    execution.before_tool_call(name, tool_id=tool_id)
+            monkeypatch.setattr(feature_tool_support, "feature_enabled", lambda _: False)
+            with pytest.raises(PermissionError, match="agent_execution_tool_revoked"):
+                execution.before_tool_call("notebook_list", tool_id=descriptor.id)
+    finally:
+        execution._snapshot.reset(snapshot_token)
+        execution._run.reset(run_token)
+
+
 def test_plugin_availability_is_rechecked_without_mutating_registration(monkeypatch):
     descriptor, handler = feature_registrations()[0]
     catalog = ToolCatalog()

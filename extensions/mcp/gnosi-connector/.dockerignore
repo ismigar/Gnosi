@@ -1,0 +1,4 @@
+*
+!pyproject.toml
+!gnosi_connector/
+!gnosi_connector/*.py

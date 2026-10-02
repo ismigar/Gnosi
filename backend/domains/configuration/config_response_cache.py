@@ -99,3 +99,6 @@ class ConfigResponseCache:
             self._entries.clear()
             self._generations.clear()
             self._key_locks.clear()
+
+
+configuration_response_cache = ConfigResponseCache()

@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-02
 source_paths:
+  - backend/domains/agent/context_filters.py
+  - backend/domains/agent/exact_actions.py
+  - backend/services/agent_learning_review.py
+  - backend/domains/agent/routes/chat_error_messages.py
   - backend/services/ai_usage_ledger.py
   - backend/services/ai_usage_transport.py
   - backend/services/ai_usage_dashboard.py
@@ -11,6 +15,7 @@ source_paths:
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -89,6 +94,10 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_exact_inventory_filters.py
+  - backend/tests/test_agent_exact_actions.py
+  - backend/tests/test_agent_learning_review.py
+  - backend/tests/test_agent_unavailable_http.py
   - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
@@ -296,13 +305,12 @@ and managed-versus-user-owned fields. Plugin reconciliation is idempotent:
 disabling a plugin suspends its managed contribution without deleting user
 overrides.
 
-Row, page and skill-instruction translations use the shared `translation`
+Row and page translations use the shared `translation`
 operation. UI buttons select the Translation plugin's profile; actions within a
 conversation inherit the running agent's profile. That profile governs the
 model, policies and activity records. Translation settings link to this profile.
 Historical DeepL and Softcatalà arguments remain compatible but are ignored;
-there is no language-pair routing or placeholder provider fallback. Translating
-a skill displays a reading copy and preserves its original instructions.
+there is no language-pair routing or placeholder provider fallback.
 
 Plugin reconciliation can also run before FastAPI route composition. It derives
 the `.gnosi` directory from the canonical active-Vault context and reads state
@@ -1062,9 +1070,10 @@ Reading follows structural fragments with neighbouring context, section maps and
 
 ## Instruction language
 
-Skill instructions are saved and executed exactly as authored, in any language. The catalogue offers an explicit translation into the active interface language using the configured AI provider. This reading aid is shown alongside the original and never changes saved or executed instructions. Opening a skill does not request translation. Successful translations are cached only in memory, scoped by vault, original text and target language. Failures leave the original available and can be retried.
+Skill instructions are saved and executed exactly as authored, in any language. The catalogue displays the original text. Translate externally if needed and review the text before pasting it into the editor.
 
-The translation action uses a compact button aligned to the right. Provider rate-limit or quota failures have a specific message; the original remains visible.
+Settings show the latest personal version and place its assignments inside its card. Restore original requires confirmation and restores the original instructions, tools and activation before autosaving. Validate checks the definition and tool availability; it does not execute the skill or assess the quality of its output.
+
 
 ## Principal Agent execution
 
@@ -1176,6 +1185,13 @@ Each directed reading step exposes the current saved-plan review flags and note 
 
 Reading-note property rules remain in the Brain plugin configuration: copy a source field, use a fixed value, infer with AI, or leave empty. The skill classifies each note only against the supplied existing labels. Every AI-configured field is explicit in the provider action schema and must appear in each note; both reading paths reject omissions, unknown fields, invented values and multiple values in a single-value field before writing. An explicit empty list remains valid when evidence supports no category. The application resolves labels and applies source/fixed mappings. Installing this correction does not reclassify existing notes. Configured Tags ignore the legacy free-form tag list, including when classification explicitly abstains or a copied source value is empty.
 
+## Exact inventories, verified trials and error outcomes
+
+Exact field predicates preserve the requested value in `property_filters`; command words are not used as a free-text search. Relation values resolve within authorized destination tables by ID or unique exact title. Ambiguous titles, inaccessible targets and incomplete inventories cannot produce a partial `bulk_update_rows` change. Assignments validate the actual field definition and allowed options, preserving numeric zero and boolean false. This path still uses the normal confirmation and permission checks.
+
+Learning trials retain the original criterion and its order. Each returned excerpt must occur in the supplied input or output; malformed checks and invented excerpts are rejected. Missing trial inputs remain visible alongside the result. These checks establish excerpt provenance and contract validity; they do not prove that a model's judgement is correct.
+
+Localized chat errors retain a stable code and `content_language`; private exception details are not presented as the answer. An unavailable service before workflow execution ends with `has_response=false` and `message_count=0`. The UI preserves the backend's language and effective timeout. Recovery remains an explicit manual action, with no automatic retry. One producer task owns the live source throughout its lifetime so execution context and cancellation cleanup survive heartbeat events.
 Settings show one current personalization per original skill, chosen by the latest package modification time. Editing saves into the same package; creating a second personalization of the same source returns a conflict instead of duplicating it. Restore original asks for confirmation before replacing instructions, tools and activation; it saves into the same personal skill and preserves its assignments.
 
 ## Multi-provider usage and current-month spending

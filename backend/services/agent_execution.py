@@ -7,7 +7,7 @@ import json
 import time
 import uuid
 
-import jsonschema  # type: ignore[import-untyped]
+import jsonschema
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -29,6 +29,7 @@ _snapshot: ContextVar[AgentExecutionSnapshot | None] = ContextVar("agent_executi
 _tokens: dict[str, str] = {}
 _call_limit: ContextVar[int] = ContextVar("agent_execution_call_limit", default=2)
 _operation_timeout: ContextVar[int] = ContextVar("agent_operation_timeout", default=120)
+_operation_tool_mode: ContextVar[str] = ContextVar("agent_operation_tool_mode", default="none")
 _run: ContextVar[str] = ContextVar("agent_execution_run", default="")
 
 
@@ -181,7 +182,7 @@ def reserve_decision_call() -> bool:
     return True
 
 
-def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
+def before_tool_call(tool_name: str, *, tool_id: str = "", dynamic_context: bool = False) -> None:
     """Recheck live permission and assignments before every governed action."""
     if not _run.get():
         return
@@ -204,8 +205,18 @@ def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
         runtime = resolve_agent_runtime(current, vault_path=Path(scope.vault_path), active_skill_ids=snapshot.skill_ids)
         if snapshot.profile.get("_team_execution", {}).get("read_only"):
             runtime = _filter_runtime(runtime, read_only=True)
-        if not dynamic_context and tool_name not in {descriptor.name for descriptor in runtime.tool_descriptors}:
-            raise PermissionError("agent_execution_tool_revoked")
+        if not dynamic_context or _operation_tool_mode.get() == "read":
+            from backend.services.agent_tool_identity import runtime_tool_name
+            assigned_descriptors = [descriptor for descriptor, handler in zip(runtime.tool_descriptors, runtime.tools, strict=True) if
+                runtime_tool_name(handler) == tool_name
+                and (not tool_id or descriptor.id == tool_id)
+            ]
+            if not assigned_descriptors:
+                raise PermissionError("agent_execution_tool_revoked")
+            if _operation_tool_mode.get() == "read":
+                from backend.domains.agent.operation_graph import is_read_tool
+                if not all(is_read_tool(descriptor) for descriptor in assigned_descriptors):
+                    raise PermissionError("agent_operation_tool_effect_changed")
 
 
 def after_model_call(message: Any) -> None:
@@ -276,6 +287,10 @@ async def stream_workflow(application: Any, inputs: Any, *, config: Any, stream_
         _run.reset(token)
 
 
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"Non-finite number in structured output: {value}")
+
+
 def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
     if not text.strip():
         raise ValueError("agent_empty_result")
@@ -287,17 +302,18 @@ def _validate_output(text: str, schema: dict[str, Any] | None) -> str:
         if opening.lower() in {"```", "```json"} and body.endswith("```"):
             cleaned = body[:-3].strip()
     try:
-        value = json.loads(cleaned)
+        value = json.loads(cleaned, parse_constant=_reject_json_constant)
     except json.JSONDecodeError as error:
         if error.msg != "Extra data":
             raise
-        value, end = json.JSONDecoder().raw_decode(cleaned)
+        value, end = json.JSONDecoder(parse_constant=_reject_json_constant).raw_decode(cleaned)
         # Preserve the complete result when the model repeats one root closer.
         # Never discard a second value, prose, or an incomplete nested payload.
         closer = "}" if isinstance(value, dict) else "]" if isinstance(value, list) else ""
         if not closer or cleaned[end:].strip() != closer:
             raise
-    jsonschema.validate(value, schema)
+    from backend.services.json_contracts import validate_json_value
+    validate_json_value(value, schema)
     return json.dumps(value, ensure_ascii=False)
 
 
@@ -340,11 +356,19 @@ async def _operation_response(application: Any, inputs: dict[str, Any], request:
         from backend.services.agent_team_runtime import repair_output
         return await repair_output(_run.get(), current_scope(), previous_text, repair_error, request)
     text = ""
-    async for event in stream_workflow(application, inputs, config={"recursion_limit": 4}):
+    tool_history = []
+    async for event in stream_workflow(application, inputs, config={"recursion_limit": 2 * request.max_model_calls + 2}):
         for update in event.values():
             for message in update.get("messages", []):
-                if getattr(message, "type", "") == "ai":
-                    text = str(message.content)
+                if getattr(message, "type", "") == "tool" or getattr(message, "tool_calls", None):
+                    tool_history.append(message)
+                if getattr(message, "type", "") == "ai" and not getattr(message, "tool_calls", None):
+                    # Responses API models return typed content blocks. Their
+                    # Python representation is not the model's JSON answer.
+                    text = str(message.text)
+    # Keep source evidence for a format repair. Dropping these messages makes
+    # the repair repeat the original read and spend its last call on a tool.
+    inputs["messages"].extend(tool_history)
     return text
 
 
@@ -356,6 +380,7 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         vault_path=Path(snapshot.scope.vault_path), prepared_ai_cfg=ai,
         prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
         memory_user_id=snapshot.scope.user_id, operation_mode=True,
+        operation_read_tools=request.tool_mode == "read",
         output_schema=request.output_schema,
     )
     if workflow is None:
@@ -393,6 +418,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
     resource_token = frozen_resources.set(snapshot.behavior_resources)
     call_limit_token = _call_limit.set(8 if team_enabled else request.max_model_calls)
     timeout_token = _operation_timeout.set(request.timeout_seconds)
+    tool_mode_token = _operation_tool_mode.set(request.tool_mode)
     cancel_token = create_cancel_token()
     _tokens[run_id] = cancel_token
     try:
@@ -438,6 +464,10 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     continue
                 repair = snapshot.behavior_resources.get("system/repair.md", resource("system/repair.md"))
                 messages = [*messages, AIMessage(content=text), HumanMessage(content=repair + "\n" + json.dumps({"validation_error": str(validation_error)}, ensure_ascii=False))]
+                if request.tool_mode == "read":
+                    repair_request = request.model_copy(update={"tool_mode": "none"})
+                    async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
+                        application, _ = await _operation_application(repair_request, snapshot, ai, runtime)
         raise RuntimeError("agent_invalid_result")
     except BaseException as error:
         cancel(cancel_token)
@@ -451,6 +481,7 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
         release(cancel_token)
         _call_limit.reset(call_limit_token)
         _operation_timeout.reset(timeout_token)
+        _operation_tool_mode.reset(tool_mode_token)
         _snapshot.reset(snapshot_token)
         frozen_resources.reset(resource_token)
         _run.reset(run_token)
@@ -465,7 +496,7 @@ def run_sync(request: AgentOperation, *, snapshot: AgentExecutionSnapshot | None
     raise RuntimeError("Use execute_operation from asynchronous handlers")
 
 
-def generate_result_for(operation: str, prompt: str, user_message: str = "", *, timeout: int = 120, agent_id: str = "", output_schema: dict[str, Any] | None = None) -> AgentRun:
+def generate_result_for(operation: str, prompt: str, user_message: str = "", *, timeout: int = 120, agent_id: str = "", output_schema: dict[str, Any] | None = None, output_validator: Callable[[str], str] | None = None) -> AgentRun:
     if agent_id and prepare_snapshot(skill_id(operation)).agent_id != agent_id:
         raise ValueError("Models are managed by the principal agent")
     try:
@@ -476,12 +507,12 @@ def generate_result_for(operation: str, prompt: str, user_message: str = "", *, 
     result = run_sync(AgentOperation(skill_id=skill_id(operation), operation=operation, origin=operation_origin(),
                                    input="" if structured else prompt,
                                    data={**envelope, "request_context": user_message} if structured else {"request_context": user_message},
-                                   timeout_seconds=timeout, output_schema=output_schema))
+                                   timeout_seconds=timeout, output_schema=output_schema), output_validator=output_validator)
     return result
 
 
-def generate_for(operation: str, prompt: str, user_message: str = "", *, timeout: int = 120, agent_id: str = "", output_schema: dict[str, Any] | None = None) -> tuple[str, str]:
-    result = generate_result_for(operation, prompt, user_message, timeout=timeout, agent_id=agent_id, output_schema=output_schema)
+def generate_for(operation: str, prompt: str, user_message: str = "", *, timeout: int = 120, agent_id: str = "", output_schema: dict[str, Any] | None = None, output_validator: Callable[[str], str] | None = None) -> tuple[str, str]:
+    result = generate_result_for(operation, prompt, user_message, timeout=timeout, agent_id=agent_id, output_schema=output_schema, output_validator=output_validator)
     return result.result, result.model
 
 

@@ -39,6 +39,12 @@ from backend.domains.configuration.ai.content_routes import (
     router as content_router,
 )
 from backend.domains.configuration.ai.model_metadata_routes import router as model_metadata_router
+from backend.domains.configuration.ai.model_parameter_routes import (
+    ParameterReviewRequest as ParameterReviewRequest,
+    ParameterReviewResponse as ParameterReviewResponse,
+    review_model_parameters as review_model_parameters,
+    router as model_parameters_router,
+)
 from backend.security.ai_credentials import (
     env_keys_for_provider,
     get_ai_catalog_with_status,
@@ -725,15 +731,4 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
 router.include_router(content_router)
 
 
-from backend.services.model_parameter_review import ParameterReviewRequest, ParameterReviewResponse
-
-
-@router.post("/model-parameters/review", response_model=ParameterReviewResponse)
-async def review_model_parameters(payload: ParameterReviewRequest, _context: Any = Depends(require_role("admin"))) -> dict[str, Any]:
-    from backend.services.model_parameter_review import review
-    try:
-        return await asyncio.to_thread(review, payload)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+router.include_router(model_parameters_router)

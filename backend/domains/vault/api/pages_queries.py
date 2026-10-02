@@ -127,6 +127,7 @@ class PageQueryDependencies:
     warm_preview: Callable[[str], Awaitable[str]]
     preview_concurrency: int
     preview_timeout_seconds: float
+    resolve_title: Callable[[RegistryData, Path], object] | None = None
 
 
 _dependencies: PageQueryDependencies | None = None
@@ -392,6 +393,10 @@ async def get_page(page_id: str) -> dict[str, object]:
 
     try:
         metadata, body = await asyncio.to_thread(_read_and_parse)
+        title = (
+            await asyncio.to_thread(dependencies.resolve_title, metadata, file_path)
+            if dependencies.resolve_title is not None else metadata.get("title", "")
+        )
         metadata, folder, table_id = dependencies.enrich_single_page(
             metadata,
             page_id,
@@ -399,7 +404,7 @@ async def get_page(page_id: str) -> dict[str, object]:
         )
         return {
             "id": str(metadata.get("id") or page_id),
-            "title": metadata.get("title", ""),
+            "title": title,
             "metadata": metadata,
             "content": body.strip(),
             "folder": folder,

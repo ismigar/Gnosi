@@ -60,7 +60,7 @@ describe('Vault schema API', () => {
     await expect(fetchAvailableAgentSkills()).resolves.toEqual(catalog);
     await expect(
       generateButtonAction({
-        fields: [{ name: 'Status', type: 'status' }],
+        fields: [{ id: 'status', name: 'Status', type: 'status', options: [{ name: 'Done' }] }],
         prompt: 'Mark it as done',
       }),
     ).resolves.toEqual(generated);
@@ -75,7 +75,7 @@ describe('Vault schema API', () => {
       '/api/vault/skills/generate-button-action',
     );
     await expect(generationRequest.json()).resolves.toEqual({
-      fields: [{ name: 'Status', type: 'status' }],
+      fields: [{ id: 'status', name: 'Status', type: 'status', options: [{ name: 'Done' }] }],
       prompt: 'Mark it as done',
     });
   });

@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-10-02
 source_paths:
+  - backend/domains/agent/context_filters.py
+  - backend/domains/agent/exact_actions.py
+  - backend/services/agent_learning_review.py
+  - backend/domains/agent/routes/chat_error_messages.py
   - backend/services/ai_usage_ledger.py
   - backend/services/ai_usage_transport.py
   - backend/services/ai_usage_dashboard.py
@@ -11,6 +15,7 @@ source_paths:
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -89,6 +94,10 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_exact_inventory_filters.py
+  - backend/tests/test_agent_exact_actions.py
+  - backend/tests/test_agent_learning_review.py
+  - backend/tests/test_agent_unavailable_http.py
   - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
@@ -318,14 +327,13 @@ entre champs gérés et champs appartenant à l'utilisateur. La réconciliation 
 plugins est idempotente : désactiver un plugin suspend sa contribution gérée sans
 supprimer les personnalisations de l'utilisateur.
 
-Les traductions de lignes, pages et instructions de skills utilisent l’opération
+Les traductions de lignes et pages utilisent l’opération
 partagée `translation`. Les boutons sélectionnent le profil du plugin Traduction ;
 les actions dans une conversation héritent du profil de l’agent en cours. Ce
 profil détermine le modèle, les politiques et les enregistrements d’activité.
 Le panneau de traduction renvoie vers ce profil. Les arguments historiques de
 DeepL et Softcatalà restent compatibles, mais sont ignorés ; il n’y a plus de
 routage par paire de langues ni de traduction de remplacement avec marqueurs.
-Traduire une skill affiche une copie de lecture et préserve ses instructions.
 
 La réconciliation des plugins peut aussi s'exécuter avant la composition des
 routes FastAPI. Elle déduit le répertoire `.gnosi` du contexte canonique du Vault
@@ -1256,9 +1264,10 @@ La lecture utilise des fragments structurels avec leur contexte voisin, des cart
 
 ## Langue des instructions
 
-Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue permet de demander une traduction dans la langue active avec le fournisseur IA configuré. Cette aide à la lecture apparaît à côté du texte original sans modifier les instructions enregistrées ou exécutées. Ouvrir une compétence ne demande aucune traduction. Les traductions sont conservées uniquement en mémoire, par vault, texte original et langue cible. En cas d’échec, le texte original reste disponible et une nouvelle tentative est possible.
+Les instructions sont enregistrées et exécutées exactement comme rédigées, dans toute langue. Le catalogue affiche le texte original. Traduisez avec un outil externe si nécessaire et vérifiez le texte avant de le coller dans l’éditeur.
 
-La traduction utilise un bouton compact aligné à droite. Les limites de requêtes ou de quota affichent un message spécifique ; le texte original reste visible.
+La configuration affiche la dernière version personnelle et ses affectations dans la même carte. Restaurer l’original demande confirmation et rétablit les instructions, outils et activation d’origine avant l’enregistrement automatique. Valider vérifie la définition et la disponibilité des outils; il n’exécute pas la compétence et n’évalue pas la qualité du résultat.
+
 
 ## Exécution de l’Agent principal
 
@@ -1371,6 +1380,13 @@ Chaque étape de lecture dirigée expose les indicateurs de révision et le nomb
 
 Les règles des propriétés des notes de lecture restent dans la configuration du plugin Cerveau : copier un champ de la ressource, utiliser une valeur fixe, déduire avec l’IA ou laisser vide. La skill classe chaque note uniquement parmi les étiquettes existantes fournies. Chaque champ configuré pour l’IA figure explicitement dans le schéma de réponse et doit apparaître dans chaque note ; les deux parcours de lecture rejettent les omissions, les champs inconnus, les valeurs inventées et plusieurs valeurs dans un champ à valeur unique avant l’enregistrement. Une liste explicitement vide reste valide lorsque les preuves ne justifient aucune catégorie. L’application résout les étiquettes et applique les règles de copie et de valeur fixe. Installer cette correction ne reclasse pas les notes existantes. Les Tags configurés ignorent l’ancienne liste d’étiquettes libres, y compris lorsque la classification s’abstient explicitement ou que la valeur copiée de la ressource est vide.
 
+## Inventaires exacts, essais vérifiables et résultats d’erreur
+
+Les prédicats exacts des champs conservent la valeur demandée dans `property_filters` ; les mots de la commande ne servent pas de recherche en texte libre. Les relations sont résolues dans les tables de destination autorisées par ID ou titre exact unique. Les titres ambigus, destinations inaccessibles et inventaires incomplets ne peuvent pas produire une modification partielle avec `bulk_update_rows`. Les affectations valident la définition réelle du champ et les options permises, en conservant le zéro numérique et le booléen faux. Cette voie conserve les contrôles habituels de confirmation et de permissions.
+
+Les essais d’apprentissage conservent le critère original et son ordre. Chaque extrait retourné doit figurer dans l’entrée ou la sortie fournies ; les contrôles mal formés et les extraits inventés sont rejetés. Les données manquantes pour l’essai restent visibles à côté du résultat. Ces contrôles attestent la provenance des extraits et la validité du contrat, sans prouver que le jugement du modèle est correct.
+
+Les erreurs traduites du chat conservent un code stable et `content_language` ; les détails privés des exceptions ne sont pas présentés comme une réponse. Un service indisponible avant le workflow se termine avec `has_response=false` et `message_count=0`. L’interface conserve la langue et le délai effectif du backend. La reprise reste une action manuelle explicite, sans nouvelle tentative automatique. Une seule tâche productrice possède la source pendant tout son cycle afin de conserver le contexte d’exécution et le nettoyage d’annulation pendant les heartbeats.
 La configuration affiche une seule personnalisation actuelle par compétence originale, choisie selon la modification la plus récente du paquet. Les modifications sont enregistrées dans le même paquet ; créer une seconde personnalisation de la même source renvoie un conflit au lieu de la dupliquer. Restaurer l’original demande confirmation avant de remplacer instructions, outils et activation ; la même compétence personnelle est mise à jour et ses affectations sont conservées.
 
 ## Consommation multifournisseur et dépenses du mois en cours

@@ -21,6 +21,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.ci.pre_pr_commands import Step, build_steps
+from scripts.ci.pre_pr_resources import run_mac_idle, resource_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG = logging.getLogger(__name__)
@@ -127,13 +128,18 @@ def isolated_environment(parent: Mapping[str, str], temporary: Path) -> dict[str
     return environment
 
 
-def run_steps(root: Path, steps: Sequence[Step], environment: Mapping[str, str]) -> int:
+def run_steps(root: Path, steps: Sequence[Step], environment: Mapping[str, str],
+    *, resource_profile: str | None = None,
+) -> int:
     """Execute one phase at a time, with no retry, shell evaluation, or skipped failure."""
     for index, step in enumerate(steps, 1):
         LOG.info("[%d/%d] %s", index, len(steps), step.name)
         started = monotonic()
         try:
-            result = subprocess.run(step.arguments, cwd=root, env=environment, check=False)
+            if resource_profile == "mac-idle":
+                result = run_mac_idle(step, root, environment)
+            else:
+                result = subprocess.run(step.arguments, cwd=root, env=environment, check=False)
         except OSError:
             LOG.error("Cannot start %s. Check the installed toolchain and dependencies.", step.name)
             return 127
@@ -164,6 +170,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--list", action="store_true", help="Show the plan without running quality gates"
     )
+    parser.add_argument("--resource-profile", choices=("mac-idle",))
     args = parser.parse_args(argv)
     try:
         base_sha = resolve_commit(ROOT, args.base_ref)
@@ -187,7 +194,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError("HEAD changed during setup; rerun the gate")
         LOG.info("Checking the current working tree, including staged and unstaged tracked edits.")
         with tempfile.TemporaryDirectory(prefix="gnosi-pre-pr-") as temporary:
-            status = run_steps(ROOT, steps, isolated_environment(os.environ, Path(temporary)))
+            environment = isolated_environment(os.environ, Path(temporary))
+            if args.resource_profile:
+                environment = resource_environment(environment)
+                status = run_steps(ROOT, steps, environment, resource_profile=args.resource_profile)
+            else:
+                status = run_steps(ROOT, steps, environment)
         if status:
             return status
         check_checkout(ROOT)

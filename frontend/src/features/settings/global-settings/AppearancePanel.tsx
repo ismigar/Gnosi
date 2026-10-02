@@ -1,5 +1,6 @@
 import { writeStorage, themeKey, mailDarkBodyKey } from './settingsStorage';
 import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
+import { emitAppEvent } from '../../../shared/platform/app-events';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { Monitor } from 'lucide-react';
 import { Palette } from 'lucide-react';
@@ -23,7 +24,7 @@ export function AppearancePanel({ context }: Props) {
             // Wire the selector into the theme engine (useTheme / index.html bootstrap
             // read the persisted 'db-theme' key and react to 'db-theme-changed').
             writeStorage(themeKey, opt.id);
-            dispatchWindowEvent(new Event('db-theme-changed'));
+            emitAppEvent('db-theme-changed');
           }} style={{
             padding: '12px', borderRadius: '24px', border: `2px solid ${draft.settings.theme === opt.id ? 'var(--gnosi-primary)' : 'var(--settings-border)'}`,
             background: draft.settings.theme === opt.id ? 'color-mix(in srgb, var(--gnosi-primary) 5%, transparent)' : 'transparent', cursor: 'pointer', transition: 'all 0.3s'
