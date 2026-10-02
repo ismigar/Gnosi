@@ -1,3 +1,4 @@
+import { DraftSaveStatus } from '../../../shared/editor/DraftSaveStatus';
 import { principalAssistant } from '../../../shared/ai/assistantProfiles';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useState } from 'react';
@@ -21,14 +22,15 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, 
     const [selectedAutomations, setSelectedAutomations] = useState<string[]>(() => automations.map(item => String(item.id)));
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
+    const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const publish = (id: string, ids: string[]) => {
         onAgentsChanged(agents.map(agent => agent.id === id ? { ...agent, skill_ids: ids } : agent));
         setSelectedAgents(values => usesSkill(ids) ? [...new Set([...values, id])] : values.filter(value => value !== id));
     };
     const persist = async (write: () => Promise<void>) => {
-        setSaving(true); setMessage('');
-        try { await write(); setMessage(t('skill_autosave.saved')); }
-        catch (error: unknown) { setMessage(`${t('settings.ai.resources.assignment_partial_error')}: ${error instanceof Error ? error.message : String(error)}`); }
+        setSaving(true); setMessage(''); setStatus('saving');
+        try { await write(); setStatus('saved'); }
+        catch (error: unknown) { setStatus('error'); setMessage(`${t('settings.ai.resources.assignment_partial_error')}: ${error instanceof Error ? error.message : String(error)}`); }
         finally { setSaving(false); }
     };
     const changeAgent = (id: string) => persist(async () => {
@@ -48,7 +50,7 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, 
         setSelectedAutomations(values => selected ? values.filter(value => value !== id) : [...values, id]);
     });
     return <div className="ai-resource-editor">
-        <strong>{t('settings.ai.resources.assign_copy')}</strong><p>{t('settings.ai.resources.assignment_help')}</p>
+        <div className="ai-resource-editor__title"><strong>{t('settings.ai.resources.assign_copy')}</strong><DraftSaveStatus status={status} detail={message || undefined} /></div><p>{t('settings.ai.resources.assignment_help')}</p>
         {principal && <div className="flex items-center gap-3"><GnosiToggle active={selectedAgents.includes(principal.id)} label={t('settings.ai.assistant.principal')} disabled={saving} onChange={() => { void changeAgent(principal.id); }} /><span>{t('settings.ai.assistant.principal')}: {principal.name || principal.id}</span></div>}
         <details><summary>{t('settings.ai.assistant.advanced')}</summary>
             {agents.filter(agent => agent.id !== principal?.id).map(agent => <div className="flex items-center gap-3" key={agent.id}><GnosiToggle active={selectedAgents.includes(agent.id)} label={agent.name || agent.id} disabled={saving} onChange={() => { void changeAgent(agent.id); }} /><span>{agent.name || agent.id}</span></div>)}
@@ -57,6 +59,6 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, 
             <GnosiToggle active={selectedAutomations.includes(String(item.id))} label={jsonString(item.name)} disabled={saving || !source} onChange={() => { void changeAutomation(item); }} />
             <span>{jsonString(item.name)}</span>
         </div>)}
-        <p role="status">{saving ? t('skill_autosave.saving') : message || t('skill_autosave.idle')}</p>
+        {message && <p role="alert">{message}</p>}
     </div>;
 }

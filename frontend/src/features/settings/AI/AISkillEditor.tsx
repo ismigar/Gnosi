@@ -1,3 +1,4 @@
+import { DraftSaveStatus } from '../../../shared/editor/DraftSaveStatus';
 import { useState } from 'react';
 import {
     AlertTriangle,
@@ -116,6 +117,7 @@ export function SkillEditor({
                 <strong>{skill
                     ? t('settings.ai.resources.edit_skill')
                     : t('settings.ai.resources.create_skill')}</strong>
+                <DraftSaveStatus status={!canSave && autosave.dirty ? 'incomplete' : skill && autosave.status === 'idle' ? 'saved' : autosave.status} />
             </div>
             <div className="ai-resource-editor__grid">
                 <label>
@@ -219,9 +221,6 @@ export function SkillEditor({
                         {t('settings.ai.resources.validate')}
                     </button>
                 ) : null}
-                <span role={autosave.status === 'error' ? 'alert' : 'status'}>
-                    {t(`skill_autosave.${!canSave && autosave.dirty ? 'incomplete' : autosave.status}`)}
-                </span>
                 {autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary"
                     onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
 
