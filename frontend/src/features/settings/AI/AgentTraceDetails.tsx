@@ -39,10 +39,10 @@ export function AgentTraceDetails({ runId, canDelete = false, state = 'available
         {(deleted || state !== 'available') && <p role="status">{t(`agent_behavior.trace_${deleted ? 'deleted' : state}`)}</p>}
         {error && <p role="alert">{error}</p>}
         {!deleted && state === 'available' && <div className="flex flex-wrap gap-2">
-            <button className="btn-gnosi-secondary" disabled={pending} onClick={() => { void act('export'); }}>{t('agent_behavior.export')}</button>
-            {canDelete && <button className="btn-gnosi-secondary" disabled={pending} onClick={() => { void act('delete'); }}>{t('agent_behavior.delete')}</button>}
+            <button className="btn-gnosi btn-gnosi-secondary" disabled={pending} onClick={() => { void act('export'); }}>{t('agent_behavior.export')}</button>
+            {canDelete && <button className="btn-gnosi btn-gnosi-secondary" disabled={pending} onClick={() => { void act('delete'); }}>{t('agent_behavior.delete')}</button>}
         </div>}
         {events.map(event => <details key={event.id}><summary>{event.kind}</summary><pre className="whitespace-pre-wrap">{JSON.stringify(event.value, null, 2)}</pre></details>)}
-        {loaded && more && <button className="btn-gnosi-secondary" disabled={pending} onClick={() => { void load(); }}>{t('agent_behavior.more')}</button>}
+        {loaded && more && <button className="btn-gnosi btn-gnosi-secondary" disabled={pending} onClick={() => { void load(); }}>{t('agent_behavior.more')}</button>}
     </details>;
 }

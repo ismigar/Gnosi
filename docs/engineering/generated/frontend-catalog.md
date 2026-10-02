@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1153 | 128146 | 38 |
+| `features` | 1153 | 128158 | 38 |
 | `generated` | 2 | 48537 | 498 |
 | `shared` | 278 | 32415 | 429 |
 
@@ -531,12 +531,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 369 | `SkillsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIToolPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolPicker.tsx) | 64 | `ToolPicker` | — |
 | [`frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx) | 178 | `ToolsSettingsPanel` | — |
-| [`frontend/src/features/settings/AI/ActivityHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityHistory.tsx) | 123 | `ActivityHistory` | — |
+| [`frontend/src/features/settings/AI/ActivityHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityHistory.tsx) | 132 | `ActivityHistory` | — |
 | [`frontend/src/features/settings/AI/ActivityJobResult.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityJobResult.tsx) | 31 | `ActivityJobResult` | — |
 | [`frontend/src/features/settings/AI/ActivityRunReference.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityRunReference.tsx) | 25 | `ActivityRunReference` | — |
 | [`frontend/src/features/settings/AI/AgentBehaviorInspection.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentBehaviorInspection.tsx) | 54 | `AgentBehaviorInspection` | — |
 | [`frontend/src/features/settings/AI/AgentEvaluationLab.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentEvaluationLab.tsx) | 82 | `AgentEvaluationLab` | — |
-| [`frontend/src/features/settings/AI/AgentExecutionHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentExecutionHistory.tsx) | 58 | `AgentExecutionHistory` | — |
+| [`frontend/src/features/settings/AI/AgentExecutionHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentExecutionHistory.tsx) | 61 | `AgentExecutionHistory` | — |
 | [`frontend/src/features/settings/AI/AgentTeamProposals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTeamProposals.tsx) | 57 | `AgentTeamProposals` | — |
 | [`frontend/src/features/settings/AI/AgentTraceDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTraceDetails.tsx) | 48 | `AgentTraceDetails` | — |
 | [`frontend/src/features/settings/AI/AgentTraceRetention.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTraceRetention.tsx) | 28 | `AgentTraceRetention` | — |

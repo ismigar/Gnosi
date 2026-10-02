@@ -23,7 +23,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Périmètre | Fichiers | Périmètre fonctionnel |
 | --- | ---: | --- |
 | `backend/` | 1536 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 2128 | React application, UI behavior, state, and browser integrations |
+| `frontend/src/` | 2130 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `desktop/` | 119 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `extensions/` | 53 | Office, browser, plugin, marketplace, and external-system adapters |
