@@ -11102,6 +11102,8 @@ export interface components {
             };
             /** Missing Tool Ids */
             missing_tool_ids: string[];
+            /** Modified At */
+            modified_at?: number | null;
             /** Name */
             name: string;
             origin: components["schemas"]["CatalogOrigin"];
