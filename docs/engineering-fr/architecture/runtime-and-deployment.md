@@ -30,7 +30,7 @@ tests:
 
 # Exécution et déploiement
 
-Les pull requests publiques exécutent le test smoke natif sur une nouvelle machine Ubuntu 24.04 ARM64 hébergée par GitHub, selon le même critère que la validation du backend. Les dépendances système de Chromium sont installées sur cet hôte temporaire avant le navigateur. Les dépôts privés, les pushes et les validations de versions conservent le runner local Linux ARM64. Le test smoke choisit explicitement HTTP pour éviter qu’un certificat de développement hérité ne fasse diverger la sonde de disponibilité et l’adresse du navigateur. Le délai de six minutes et les tests du navigateur restent inchangés.
+La validation du backend et le test smoke natif s’exécutent sur le runner Linux ARM64 géré par le propriétaire, sans solution de repli hébergée par GitHub. Les pull requests n’accèdent à ces jobs self-hosted que si leur branche source appartient au même dépôt ; les pull requests de forks ne s’exécutent pas sur la machine du propriétaire. Le test smoke choisit explicitement HTTP pour éviter qu’un certificat de développement hérité ne fasse diverger la sonde de disponibilité et l’adresse du navigateur. Le délai de six minutes et les tests du navigateur restent inchangés.
 
 La CI partagée limite la préparation des dépendances Python avec `UV_CONCURRENT_DOWNLOADS=4`,
 `UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (secondes par lecture HTTP) et

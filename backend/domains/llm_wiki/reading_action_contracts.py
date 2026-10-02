@@ -76,7 +76,7 @@ def validate_note_dimensions(
     """Reject omitted or invented classification before any note can be persisted."""
     if not dimensions or "requests" in answer:
         return
-    import jsonschema  # type: ignore[import-untyped]
+    import jsonschema
     notes = answer.get("notes")
     schema = dimension_schema(dimensions)
     for index, note in enumerate(notes if isinstance(notes, list) else []):

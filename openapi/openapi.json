@@ -1219,6 +1219,17 @@
             "title": "Missing Tool Ids",
             "type": "array"
           },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At"
+          },
           "name": {
             "maxLength": 160,
             "minLength": 1,
@@ -1728,6 +1739,192 @@
         "title": "AiProviderCatalogEntry",
         "type": "object"
       },
+      "AiUsageDashboardResponse": {
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/AiUsageResponse"
+          },
+          "budget_summary": {
+            "$ref": "#/components/schemas/AiUsageSummaryResponse"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyInfoResponse"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "granularity": {
+            "title": "Granularity",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "legacy_excluded": {
+            "title": "Legacy Excluded",
+            "type": "boolean"
+          },
+          "options": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/AiUsageFilterOption"
+              },
+              "type": "array"
+            },
+            "title": "Options",
+            "type": "object"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageSeriesResponse"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AiUsageSummaryResponse"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "start",
+          "end",
+          "timezone",
+          "granularity",
+          "summary",
+          "groups",
+          "series",
+          "options",
+          "legacy_excluded",
+          "budget",
+          "budget_summary"
+        ],
+        "title": "AiUsageDashboardResponse",
+        "type": "object"
+      },
+      "AiUsageFilterOption": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "AiUsageFilterOption",
+        "type": "object"
+      },
+      "AiUsageGroupResponse": {
+        "properties": {
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_ccy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Ccy"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "estimated_calls": {
+            "title": "Estimated Calls",
+            "type": "integer"
+          },
+          "failed_calls": {
+            "title": "Failed Calls",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "legacy_records": {
+            "title": "Legacy Records",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "title": "Reasoning Tokens",
+            "type": "integer"
+          },
+          "unknown_cost_calls": {
+            "title": "Unknown Cost Calls",
+            "type": "integer"
+          },
+          "unknown_usage_calls": {
+            "title": "Unknown Usage Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "reasoning_tokens",
+          "cost_usd",
+          "cost_ccy",
+          "unknown_cost_calls",
+          "unknown_usage_calls",
+          "estimated_calls",
+          "failed_calls",
+          "legacy_records",
+          "key",
+          "label"
+        ],
+        "title": "AiUsageGroupResponse",
+        "type": "object"
+      },
       "AiUsageHistoryPeriodResponse": {
         "description": "Aggregated model usage for one historical billing period.",
         "properties": {
@@ -1820,6 +2017,193 @@
         "title": "AiUsageModelResponse",
         "type": "object"
       },
+      "AiUsageRequestResponse": {
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "cached_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cached Tokens"
+          },
+          "cost_ccy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Ccy"
+          },
+          "cost_source": {
+            "title": "Cost Source",
+            "type": "string"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reasoning_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Tokens"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "period",
+          "provider",
+          "model_id",
+          "agent_id",
+          "agent_name",
+          "operation",
+          "origin",
+          "profile",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "reasoning_tokens",
+          "duration_ms",
+          "status",
+          "cost_usd",
+          "cost_ccy",
+          "cost_source"
+        ],
+        "title": "AiUsageRequestResponse",
+        "type": "object"
+      },
+      "AiUsageRequestsResponse": {
+        "properties": {
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyInfoResponse"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageRequestResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "currency",
+          "items"
+        ],
+        "title": "AiUsageRequestsResponse",
+        "type": "object"
+      },
       "AiUsageResponse": {
         "description": "Current-period AI spend and budget status.",
         "properties": {
@@ -1903,6 +2287,183 @@
           "per_model"
         ],
         "title": "AiUsageResponse",
+        "type": "object"
+      },
+      "AiUsageSeriesResponse": {
+        "properties": {
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_ccy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Ccy"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "estimated_calls": {
+            "title": "Estimated Calls",
+            "type": "integer"
+          },
+          "failed_calls": {
+            "title": "Failed Calls",
+            "type": "integer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AiUsageGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "legacy_records": {
+            "title": "Legacy Records",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "title": "Reasoning Tokens",
+            "type": "integer"
+          },
+          "unknown_cost_calls": {
+            "title": "Unknown Cost Calls",
+            "type": "integer"
+          },
+          "unknown_usage_calls": {
+            "title": "Unknown Usage Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "reasoning_tokens",
+          "cost_usd",
+          "cost_ccy",
+          "unknown_cost_calls",
+          "unknown_usage_calls",
+          "estimated_calls",
+          "failed_calls",
+          "legacy_records",
+          "date",
+          "groups"
+        ],
+        "title": "AiUsageSeriesResponse",
+        "type": "object"
+      },
+      "AiUsageSummaryResponse": {
+        "properties": {
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "cost_ccy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Ccy"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "estimated_calls": {
+            "title": "Estimated Calls",
+            "type": "integer"
+          },
+          "failed_calls": {
+            "title": "Failed Calls",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "legacy_records": {
+            "title": "Legacy Records",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_tokens": {
+            "title": "Reasoning Tokens",
+            "type": "integer"
+          },
+          "unknown_cost_calls": {
+            "title": "Unknown Cost Calls",
+            "type": "integer"
+          },
+          "unknown_usage_calls": {
+            "title": "Unknown Usage Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "calls",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "reasoning_tokens",
+          "cost_usd",
+          "cost_ccy",
+          "unknown_cost_calls",
+          "unknown_usage_calls",
+          "estimated_calls",
+          "failed_calls",
+          "legacy_records"
+        ],
+        "title": "AiUsageSummaryResponse",
         "type": "object"
       },
       "AliasIndexResponse": {
@@ -3396,6 +3957,11 @@
           "audio": {
             "contentMediaType": "application/octet-stream",
             "title": "Audio",
+            "type": "string"
+          },
+          "language": {
+            "default": "auto",
+            "title": "Language",
             "type": "string"
           },
           "mode": {
@@ -8643,9 +9209,21 @@
             "title": "Evidence",
             "type": "string"
           },
+          "input_quote": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Input Quote",
+            "type": "string"
+          },
           "met": {
             "title": "Met",
             "type": "boolean"
+          },
+          "output_quote": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Output Quote",
+            "type": "string"
           }
         },
         "required": [
@@ -9893,8 +10471,7 @@
             "type": "string"
           },
           "value": {
-            "title": "Value",
-            "type": "string"
+            "$ref": "#/components/schemas/JsonValue"
           }
         },
         "required": [
@@ -12323,6 +12900,19 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HandwritingDownloadCancellationResponse": {
+        "properties": {
+          "cancelling": {
+            "title": "Cancelling",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancelling"
+        ],
+        "title": "HandwritingDownloadCancellationResponse",
+        "type": "object"
+      },
       "HandwritingRecognitionResponse": {
         "properties": {
           "corrected": {
@@ -12365,6 +12955,26 @@
             "title": "Available",
             "type": "boolean"
           },
+          "cancelling": {
+            "default": false,
+            "title": "Cancelling",
+            "type": "boolean"
+          },
+          "downloaded": {
+            "default": false,
+            "title": "Downloaded",
+            "type": "boolean"
+          },
+          "downloaded_bytes": {
+            "default": 0,
+            "title": "Downloaded Bytes",
+            "type": "integer"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
           "loaded": {
             "title": "Loaded",
             "type": "boolean"
@@ -12372,6 +12982,31 @@
           "model": {
             "title": "Model",
             "type": "string"
+          },
+          "state": {
+            "default": "not_downloaded",
+            "enum": [
+              "not_downloaded",
+              "downloaded",
+              "downloading",
+              "loading",
+              "ready",
+              "cancelled",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
           }
         },
         "required": [
@@ -25617,6 +26252,82 @@
         "title": "PageCommentThread",
         "type": "object"
       },
+      "PageCreationStatusResponse": {
+        "description": "A receipt proves creation completion; unknown never authorizes a retry.",
+        "properties": {
+          "can_resume": {
+            "default": false,
+            "title": "Can Resume",
+            "type": "boolean"
+          },
+          "page_available": {
+            "default": false,
+            "title": "Page Available",
+            "type": "boolean"
+          },
+          "page_id": {
+            "title": "Page Id",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageMutationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PageCreationStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "page_id"
+        ],
+        "title": "PageCreationStatusResponse",
+        "type": "object"
+      },
+      "PageCreationStepResponse": {
+        "description": "Started work remains uncertain after a crash; completion is explicit.",
+        "properties": {
+          "state": {
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "uncertain"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state"
+        ],
+        "title": "PageCreationStepResponse",
+        "type": "object"
+      },
       "PageDeleteResponse": {
         "description": "Soft-delete receipt returned when a page enters the vault trash.",
         "properties": {
@@ -31980,6 +32691,14 @@
               "$ref": "#/components/schemas/CriterionResult"
             },
             "title": "Checks",
+            "type": "array"
+          },
+          "missing_inputs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Missing Inputs",
             "type": "array"
           },
           "mode": {
@@ -46902,6 +47621,506 @@
         ]
       }
     },
+    "/api/ai/usage/dashboard": {
+      "get": {
+        "operationId": "usage_dashboard_api_ai_usage_dashboard_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "timezone",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "title": "Timezone",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "model",
+              "enum": [
+                "provider",
+                "model",
+                "agent",
+                "operation",
+                "origin",
+                "profile"
+              ],
+              "title": "Group By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Agent",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operation",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Operation",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profile",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Profile",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "enum": [
+                "day",
+                "month"
+              ],
+              "title": "Granularity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage Dashboard",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
+      }
+    },
+    "/api/ai/usage/export": {
+      "get": {
+        "operationId": "usage_export_api_ai_usage_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "timezone",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "title": "Timezone",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "model",
+              "enum": [
+                "provider",
+                "model",
+                "agent",
+                "operation",
+                "origin",
+                "profile"
+              ],
+              "title": "Group By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Agent",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operation",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Operation",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profile",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Profile",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "enum": [
+                "day",
+                "month"
+              ],
+              "title": "Granularity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage Export",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
+      }
+    },
     "/api/ai/usage/history": {
       "get": {
         "description": "Returns all historical usage records grouped by period, provider, and model.",
@@ -47011,6 +48230,279 @@
           }
         },
         "summary": "Get Ai Usage History",
+        "tags": [
+          "AI Settings",
+          "AI Settings"
+        ]
+      }
+    },
+    "/api/ai/usage/requests": {
+      "get": {
+        "operationId": "usage_requests_api_ai_usage_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "timezone",
+            "required": false,
+            "schema": {
+              "default": "UTC",
+              "title": "Timezone",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "model",
+              "enum": [
+                "provider",
+                "model",
+                "agent",
+                "operation",
+                "origin",
+                "profile"
+              ],
+              "title": "Group By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Model",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Agent",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "operation",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Operation",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profile",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Profile",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "enum": [
+                "day",
+                "month"
+              ],
+              "title": "Granularity",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageRequestsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage Requests",
         "tags": [
           "AI Settings",
           "AI Settings"
@@ -62405,6 +63897,130 @@
           }
         },
         "summary": "Meeting Status",
+        "tags": [
+          "Meetings",
+          "Meetings"
+        ]
+      }
+    },
+    "/api/meetings/{job_id}/resume": {
+      "post": {
+        "description": "Resume only this owner's stopped job with its saved transcript and inputs.",
+        "operationId": "resume_meeting_api_meetings__job_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Meeting",
         "tags": [
           "Meetings",
           "Meetings"
@@ -81021,9 +82637,123 @@
         ]
       }
     },
+    "/api/vault/handwriting/cancel-download": {
+      "post": {
+        "operationId": "cancel_handwriting_download_api_vault_handwriting_cancel_download_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandwritingDownloadCancellationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Handwriting Download",
+        "tags": [
+          "Handwriting",
+          "Handwriting"
+        ]
+      }
+    },
     "/api/vault/handwriting/recognize": {
       "post": {
-        "description": "Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.\n\n`correct` applies AI correction (accents/spelling) with the local LLM; if it's\n`None`, the config default is used. `language` is an optional hint (ca/es/\u2026).",
+        "description": "Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.\n\n`correct` applies correction through the configured AI provider, which can\nbe remote. If omitted, correction runs only when explicitly enabled in the\nhandwriting configuration. `language` is an optional hint (ca/es/\u2026).",
         "operationId": "recognize_handwriting_api_vault_handwriting_recognize_post",
         "parameters": [
           {
@@ -94143,6 +95873,22 @@
         "parameters": [
           {
             "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "x-workspace-id",
             "required": false,
             "schema": {
@@ -94652,6 +96398,250 @@
           }
         },
         "summary": "List Pages By Table Snapshot",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/pages/creation-requests/{creation_key}": {
+      "get": {
+        "operationId": "creation_status_api_vault_pages_creation_requests__creation_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "creation_key",
+            "required": true,
+            "schema": {
+              "title": "Creation Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageCreationStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Creation Status",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/pages/creation-requests/{creation_key}/resume": {
+      "post": {
+        "operationId": "resume_creation_api_vault_pages_creation_requests__creation_key__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "creation_key",
+            "required": true,
+            "schema": {
+              "title": "Creation Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMutationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Creation",
         "tags": [
           "Vault"
         ]

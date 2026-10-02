@@ -10,13 +10,13 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grupo | Módulos | Líneas |
 | --- | ---: | ---: |
-| `agent` | 53 | 9471 |
-| `api` | 38 | 13241 |
+| `agent` | 53 | 9488 |
+| `api` | 38 | 13315 |
 | `app` | 8 | 800 |
-| `application root` | 2 | 52 |
+| `application root` | 2 | 55 |
 | `config` | 13 | 1352 |
 | `data` | 2 | 214 |
-| `domains` | 476 | 100777 |
+| `domains` | 491 | 103575 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1368 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 918 |
-| `services` | 198 | 41959 |
+| `services` | 213 | 44137 |
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **880 modules** and **176295 source lines**.
+Total: **910 modules** and **181365 source lines**.
 
 ## agent
 
@@ -48,7 +48,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/agent/evals/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/__init__.py) | 1 | 0 | 0 | 0 | 0 | Deterministic evaluation corpus for the universal agent contract. |
 | [`backend/agent/evals/response_runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/response_runner.py) | 99 | 0 | 5 | 0 | 3 | Run deterministic final-response quality evaluations without a model. |
 | [`backend/agent/evals/runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/runner.py) | 144 | 0 | 5 | 0 | 3 | Run the deterministic universal-turn evaluation corpus. |
-| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/factory.py) | 247 | 0 | 5 | 1 | 5 | Compatibility facade for the canonical :mod:`backend.domains.agent` package. |
+| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/factory.py) | 249 | 0 | 5 | 1 | 5 | Compatibility facade for the canonical :mod:`backend.domains.agent` package. |
 | [`backend/agent/feature_tool_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/feature_tool_support.py) | 56 | 0 | 4 | 0 | 3 | Authenticated scope and bounded results for optional feature adapters. |
 | [`backend/agent/generated_tools/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/__init__.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/agent/generated_tools/creator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/creator.py) | 226 | 0 | 4 | 0 | 4 | Tool Creator: The meta-tool that allows the agent to create new tools. |
@@ -70,7 +70,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/memory.py) | 192 | 2 | 4 | 0 | 3 | Lazy compatibility stores for legacy Chroma-backed Agent memory. |
 | [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_catalog.py) | 616 | 0 | 27 | 0 | 22 | Provider → model catalog for the model-comparison activation workflow. |
 | [`backend/agent/model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_reliability.py) | 224 | 0 | 10 | 0 | 5 | Why a model call failed, recorded as evidence per provider:model. |
-| [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 553 | 1 | 14 | 0 | 13 | Data-driven, budget-aware model router. |
+| [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/model_router.py) | 568 | 1 | 14 | 0 | 13 | Data-driven, budget-aware model router. |
 | [`backend/agent/notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notebook_tools.py) | 155 | 0 | 10 | 0 | 10 | Assignable notebook lifecycle and evidence tools with workspace ACLs. |
 | [`backend/agent/notion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/notion_tools.py) | 71 | 0 | 5 | 5 | 5 | Governed adapters for connected Notion discovery and exact cloning. |
 | [`backend/agent/planning_resource_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/planning_resource_tools.py) | 81 | 0 | 5 | 5 | 5 | Planning resource mutations backed by the canonical validated endpoints. |
@@ -95,7 +95,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_routes.py) | 209 | 1 | 0 | 0 | 1 | Compatibility facade for the modular agent HTTP routes. |
 | [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_skills_routes.py) | 194 | 1 | 0 | 0 | 1 | Compatibility facade for governed agent configuration APIs. |
-| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 800 | 3 | 17 | 12 | 12 | No module docstring |
+| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 797 | 3 | 16 | 11 | 12 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py) | 378 | 0 | 12 | 7 | 12 | No module docstring |
 | [`backend/api/auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py) | 384 | 7 | 11 | 0 | 11 | Auth endpoints — register / login / logout / me. |
 | [`backend/api/calendar_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py) | 692 | 0 | 30 | 22 | 20 | No module docstring |
@@ -105,12 +105,12 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/api/credentials_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/credentials_routes.py) | 30 | 0 | 0 | 0 | 0 | Compatibility facade for the secure credentials router. |
 | [`backend/api/env_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/env_routes.py) | 22 | 0 | 0 | 0 | 0 | Compatibility facade for the local environment router. |
 | [`backend/api/google_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/google_auth_routes.py) | 342 | 3 | 7 | 4 | 1 | No module docstring |
-| [`backend/api/handwriting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py) | 98 | 3 | 3 | 3 | 3 | LOCAL handwriting recognition endpoint (ink → text) using TrOCR. |
+| [`backend/api/handwriting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/handwriting_routes.py) | 149 | 4 | 4 | 4 | 3 | LOCAL handwriting recognition endpoint (ink → text) using TrOCR. |
 | [`backend/api/identity_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/identity_routes.py) | 77 | 0 | 4 | 2 | 1 | No module docstring |
 | [`backend/api/integrations_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/integrations_routes.py) | 566 | 0 | 17 | 12 | 16 | No module docstring |
 | [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/literature_routes.py) | 740 | 0 | 34 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
 | [`backend/api/mail_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/mail_routes.py) | 309 | 0 | 7 | 7 | 6 | Compatibility facade and composition boundary for the mail domain. |
-| [`backend/api/meeting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/meeting_routes.py) | 74 | 2 | 3 | 2 | 2 | Endpoints for the AI meeting notetaker. |
+| [`backend/api/meeting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/meeting_routes.py) | 100 | 2 | 4 | 2 | 3 | Endpoints for the AI meeting notetaker. |
 | [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/microsoft_auth_routes.py) | 291 | 3 | 6 | 3 | 0 | Microsoft OAuth2 authentication routes. |
 | [`backend/api/notebook_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notebook_routes.py) | 364 | 0 | 16 | 2 | 1 | HTTP contracts for the grounded notebook workspace. |
 | [`backend/api/notion_oauth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/notion_oauth_routes.py) | 222 | 2 | 13 | 4 | 3 | OAuth 2.1 to Notion's hosted MCP (mcp.notion.com) — for recreating views. |
@@ -149,7 +149,7 @@ Total: **880 modules** and **176295 source lines**.
 | Módulo | Líneas | Clases | Funciones | Asíncronas | Declaraciones documentadas | Indicio de propósito |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 52 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
+| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 55 | 0 | 0 | 0 | 0 | Stable Uvicorn and Electron entrypoint for the Gnosi backend. |
 
 ## config
 
@@ -182,52 +182,55 @@ Total: **880 modules** and **176295 source lines**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/domains/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/__init__.py) | 1 | 0 | 0 | 0 | 0 | Gnosi backend domain packages. |
 | [`backend/domains/agent/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/__init__.py) | 1 | 0 | 0 | 0 | 0 | Agent domain services and workflow composition. |
-| [`backend/domains/agent/context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context.py) | 650 | 0 | 20 | 0 | 20 | Deterministic context planning and server-owned tool calls. |
+| [`backend/domains/agent/context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context.py) | 684 | 0 | 20 | 0 | 20 | Deterministic context planning and server-owned tool calls. |
 | [`backend/domains/agent/context_core_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_core_tools.py) | 312 | 1 | 1 | 0 | 1 | Core read and search tools for attached context references. |
-| [`backend/domains/agent/context_inventory_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_inventory_tools.py) | 348 | 1 | 1 | 0 | 1 | Exhaustive deterministic inventory tool for attached Vault context. |
+| [`backend/domains/agent/context_filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_filters.py) | 94 | 0 | 4 | 0 | 1 | Exact field predicates over authorized inventory records. |
+| [`backend/domains/agent/context_inventory_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_inventory_tools.py) | 503 | 1 | 2 | 0 | 2 | Exhaustive deterministic inventory tool for attached Vault context. |
 | [`backend/domains/agent/context_matching.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_matching.py) | 356 | 0 | 11 | 0 | 10 | Deterministic matching for attached Vault inventories. |
 | [`backend/domains/agent/context_notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_notebook_tools.py) | 157 | 0 | 1 | 0 | 1 | Tools closed over grounded notebook context references. |
 | [`backend/domains/agent/context_reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_reader_tools.py) | 178 | 0 | 2 | 0 | 1 | Tools closed over one attached Reader scope. |
 | [`backend/domains/agent/context_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_refs.py) | 218 | 0 | 6 | 0 | 4 | Normalization and descriptions for attached context references. |
 | [`backend/domains/agent/context_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_storage.py) | 465 | 0 | 26 | 0 | 8 | Vault-backed readers for attached context references. |
 | [`backend/domains/agent/context_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_tools.py) | 45 | 0 | 1 | 0 | 1 | Runtime tools closed over an attached context scope. |
+| [`backend/domains/agent/exact_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/exact_actions.py) | 78 | 0 | 3 | 0 | 1 | Prepare bounded exact assignments from current user text and Vault evidence. |
 | [`backend/domains/agent/generated_tools/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/__init__.py) | 1 | 0 | 0 | 0 | 0 | Governed generated-tool validation owned by the agent domain. |
 | [`backend/domains/agent/generated_tools/validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/validator.py) | 331 | 3 | 0 | 0 | 1 | Security validation for generated agent tools. |
 | [`backend/domains/agent/gnosi_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_confirmations.py) | 346 | 0 | 7 | 0 | 6 | Preparation tools for consequential first-party actions. |
 | [`backend/domains/agent/gnosi_dispatch.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch.py) | 29 | 0 | 1 | 1 | 1 | Executor for claimed first-party confirmations. |
 | [`backend/domains/agent/gnosi_dispatch_basic.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_basic.py) | 226 | 0 | 8 | 8 | 0 | Confirmed handlers for pages, contacts, mail and calendars. |
-| [`backend/domains/agent/gnosi_dispatch_rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_rows.py) | 202 | 0 | 7 | 2 | 0 | Confirmed handlers for deterministic row rewrites. |
-| [`backend/domains/agent/gnosi_dispatch_tables.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 291 | 0 | 8 | 5 | 0 | Confirmed handlers for table, history, trash and schema operations. |
+| [`backend/domains/agent/gnosi_dispatch_rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_rows.py) | 205 | 0 | 7 | 2 | 0 | Confirmed handlers for deterministic row rewrites. |
+| [`backend/domains/agent/gnosi_dispatch_tables.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_dispatch_tables.py) | 293 | 0 | 8 | 5 | 0 | Confirmed handlers for table, history, trash and schema operations. |
 | [`backend/domains/agent/gnosi_integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_integrations.py) | 390 | 0 | 12 | 8 | 11 | First-party calendar, mail and contacts tools. |
 | [`backend/domains/agent/gnosi_mutation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_mutation.py) | 64 | 0 | 2 | 0 | 2 | Cross-process page mutation lock. |
-| [`backend/domains/agent/gnosi_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 566 | 1 | 28 | 2 | 11 | Shared deterministic helpers for first-party Gnosi tools. |
+| [`backend/domains/agent/gnosi_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_support.py) | 602 | 1 | 30 | 2 | 11 | Shared deterministic helpers for first-party Gnosi tools. |
 | [`backend/domains/agent/gnosi_vault_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_vault_tools.py) | 388 | 0 | 15 | 0 | 14 | Vault read and explicit-write tools. |
 | [`backend/domains/agent/intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/intent.py) | 304 | 0 | 4 | 0 | 3 | Deterministic multilingual intent and authorization classification. |
-| [`backend/domains/agent/llm.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 548 | 0 | 20 | 0 | 7 | Typed language-model selection and provider adapters. |
+| [`backend/domains/agent/llm.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 556 | 0 | 21 | 0 | 7 | Typed language-model selection and provider adapters. |
 | [`backend/domains/agent/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/messages.py) | 219 | 0 | 9 | 0 | 2 | Bounded projection of durable agent messages into provider prompts. |
-| [`backend/domains/agent/operation_graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/operation_graph.py) | 41 | 0 | 1 | 0 | 0 | Structured, tool-free phases of the canonical agent workflow. |
-| [`backend/domains/agent/policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/policy.py) | 380 | 1 | 11 | 0 | 11 | Request-scoped agent state, cancellation and governed tool policy. |
-| [`backend/domains/agent/responses.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/responses.py) | 461 | 0 | 14 | 0 | 14 | Deterministic, localized rendering of trusted agent tool results. |
+| [`backend/domains/agent/operation_graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/operation_graph.py) | 90 | 0 | 2 | 0 | 0 | Structured operations with optional governed read tools. |
+| [`backend/domains/agent/policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/policy.py) | 401 | 1 | 11 | 0 | 11 | Request-scoped agent state, cancellation and governed tool policy. |
+| [`backend/domains/agent/responses.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/responses.py) | 478 | 0 | 14 | 0 | 14 | Deterministic, localized rendering of trusted agent tool results. |
 | [`backend/domains/agent/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Modular HTTP routes for the agent domain. |
 | [`backend/domains/agent/routes/attachments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/attachments.py) | 209 | 0 | 9 | 2 | 4 | No module docstring |
-| [`backend/domains/agent/routes/chat_route.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 512 | 0 | 6 | 3 | 1 | No module docstring |
+| [`backend/domains/agent/routes/chat_error_messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_error_messages.py) | 88 | 0 | 1 | 0 | 0 | User-facing stream failures in the application's four languages. |
+| [`backend/domains/agent/routes/chat_route.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_route.py) | 522 | 0 | 6 | 3 | 1 | No module docstring |
 | [`backend/domains/agent/routes/chat_stream.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream.py) | 291 | 0 | 4 | 2 | 0 | Orchestration for the public NDJSON agent event stream. |
-| [`backend/domains/agent/routes/chat_stream_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_errors.py) | 271 | 0 | 4 | 2 | 0 | Failure translation and cleanup for agent event streams. |
+| [`backend/domains/agent/routes/chat_stream_errors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_errors.py) | 275 | 0 | 4 | 2 | 0 | Failure translation and cleanup for agent event streams. |
 | [`backend/domains/agent/routes/chat_stream_state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_state.py) | 96 | 1 | 0 | 0 | 0 | Mutable request-local state for one agent event stream. |
 | [`backend/domains/agent/routes/chat_stream_updates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/chat_stream_updates.py) | 304 | 0 | 7 | 1 | 0 | Workflow update translation for the public agent event stream. |
 | [`backend/domains/agent/routes/checkpoints.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/checkpoints.py) | 342 | 1 | 14 | 1 | 7 | No module docstring |
 | [`backend/domains/agent/routes/confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/confirmations.py) | 558 | 0 | 16 | 9 | 10 | No module docstring |
-| [`backend/domains/agent/routes/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/contracts.py) | 252 | 10 | 0 | 0 | 3 | No module docstring |
+| [`backend/domains/agent/routes/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/contracts.py) | 253 | 10 | 0 | 0 | 3 | No module docstring |
 | [`backend/domains/agent/routes/learning_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/learning_context.py) | 31 | 0 | 1 | 0 | 0 | Resolve only the caller's project and explicitly requested memories for a turn. |
 | [`backend/domains/agent/routes/misc.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/misc.py) | 197 | 2 | 6 | 6 | 8 | No module docstring |
 | [`backend/domains/agent/routes/response_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/response_models.py) | 119 | 16 | 0 | 0 | 0 | No module docstring |
 | [`backend/domains/agent/routes/router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/router.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/domains/agent/routes/runs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/runs.py) | 283 | 8 | 16 | 2 | 0 | Authenticated access to principal operation activity and explicit retries. |
 | [`backend/domains/agent/routes/sessions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/sessions.py) | 245 | 0 | 3 | 3 | 3 | No module docstring |
-| [`backend/domains/agent/routes/shared.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/shared.py) | 182 | 1 | 8 | 0 | 5 | No module docstring |
+| [`backend/domains/agent/routes/shared.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/shared.py) | 192 | 1 | 8 | 0 | 5 | No module docstring |
 | [`backend/domains/agent/routes/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/state.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/domains/agent/routes/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/workflow.py) | 174 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/domains/agent/runtime_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/runtime_tools.py) | 576 | 0 | 18 | 0 | 17 | Typed agent capability resolution, metadata and tool selection. |
+| [`backend/domains/agent/runtime_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/runtime_tools.py) | 577 | 0 | 18 | 0 | 17 | Typed agent capability resolution, metadata and tool selection. |
 | [`backend/domains/agent/sources/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/__init__.py) | 1 | 0 | 0 | 0 | 0 | Scoped read adapters for first-party agent sources. |
 | [`backend/domains/agent/sources/integrations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/integrations.py) | 158 | 0 | 7 | 0 | 3 | Mail, calendar and contacts read adapters. |
 | [`backend/domains/agent/sources/mail.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/mail.py) | 175 | 0 | 7 | 0 | 1 | Mail context reads retain both account and folder identity. |
@@ -236,17 +239,17 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/agent/sources/reader.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/reader.py) | 227 | 0 | 5 | 0 | 1 | Reader inventory, search and exact-read adapters. |
 | [`backend/domains/agent/sources/references.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/references.py) | 144 | 0 | 8 | 0 | 1 | Vault reference-library read adapter. |
 | [`backend/domains/agent/sources/scopes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/sources/scopes.py) | 393 | 0 | 15 | 0 | 6 | Normalization and containment for internal source scopes. |
-| [`backend/domains/agent/stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/stream_protocol.py) | 279 | 1 | 7 | 4 | 2 | Versioned, bounded protocol for streamed agent events. |
-| [`backend/domains/agent/structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/structured_output.py) | 32 | 0 | 1 | 0 | 1 | Provider-enforced JSON for OpenRouter operations, with local validation retained. |
+| [`backend/domains/agent/stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/stream_protocol.py) | 318 | 1 | 8 | 5 | 2 | Versioned, bounded protocol for streamed agent events. |
+| [`backend/domains/agent/structured_output.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/structured_output.py) | 49 | 0 | 2 | 0 | 2 | Provider-enforced JSON for OpenRouter operations, with local validation retained. |
 | [`backend/domains/agent/team_help.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/team_help.py) | 141 | 3 | 4 | 0 | 1 | Optional, bounded handoff from an assistant to its configured team. |
-| [`backend/domains/agent/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/tool_runtime.py) | 246 | 0 | 12 | 0 | 5 | Runtime contract for bounded, observable agent tool calls. |
+| [`backend/domains/agent/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/tool_runtime.py) | 250 | 0 | 12 | 0 | 5 | Runtime contract for bounded, observable agent tool calls. |
 | [`backend/domains/agent/turn_citations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_citations.py) | 552 | 1 | 12 | 0 | 5 | Citation extraction and validation for governed agent turns. |
 | [`backend/domains/agent/turn_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_evidence.py) | 343 | 1 | 9 | 0 | 1 | Deterministic evidence verification for governed agent turns. |
 | [`backend/domains/agent/turn_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_planning.py) | 465 | 0 | 7 | 0 | 4 | Provider-independent planning for governed agent turns. |
-| [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 254 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
-| [`backend/domains/agent/workflow_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 731 | 4 | 0 | 0 | 3 | LangGraph nodes for the agent workflow. |
+| [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 261 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
+| [`backend/domains/agent/workflow_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 759 | 4 | 0 | 0 | 3 | LangGraph nodes for the agent workflow. |
 | [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 765 | 4 | 16 | 1 | 20 | Typed preparation stages for the agent workflow coordinator. |
-| [`backend/domains/agent/write_intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 491 | 0 | 7 | 0 | 4 | Fail-closed multilingual authorization intent. |
+| [`backend/domains/agent/write_intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 525 | 0 | 8 | 0 | 5 | Fail-closed multilingual authorization intent. |
 | [`backend/domains/analytics/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/__init__.py) | 1 | 0 | 0 | 0 | 0 | Analytics-domain contracts and services. |
 | [`backend/domains/analytics/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/analytics/schemas.py) | 93 | 10 | 0 | 0 | 10 | Public request and response contracts for workspace analytics. |
 | [`backend/domains/calendar/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/__init__.py) | 1 | 0 | 0 | 0 | 0 | Calendar domain. |
@@ -259,29 +262,31 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/calendar/timing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/calendar/timing.py) | 126 | 1 | 4 | 1 | 0 | Private opt-in timings for GET /calendar/calendars and /calendar/events. |
 | [`backend/domains/configuration/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration domain. |
 | [`backend/domains/configuration/agent/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration APIs for governed agent skills and capabilities. |
-| [`backend/domains/configuration/agent/catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_models.py) | 154 | 19 | 0 | 0 | 3 | Typed JSON responses for governed skill catalogs and automations. |
-| [`backend/domains/configuration/agent/catalog_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_routes.py) | 666 | 0 | 26 | 0 | 4 | Catalog, assignment and automation routes for agent skills. |
+| [`backend/domains/configuration/agent/catalog_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_models.py) | 155 | 19 | 0 | 0 | 3 | Typed JSON responses for governed skill catalogs and automations. |
+| [`backend/domains/configuration/agent/catalog_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/catalog_routes.py) | 672 | 0 | 26 | 0 | 4 | Catalog, assignment and automation routes for agent skills. |
 | [`backend/domains/configuration/agent/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/contracts.py) | 93 | 7 | 0 | 0 | 7 | Request contracts for governed agent configuration APIs. |
 | [`backend/domains/configuration/agent/governance_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/governance_models.py) | 248 | 29 | 0 | 0 | 0 | Typed JSON responses for agent governance and quality endpoints. |
 | [`backend/domains/configuration/agent/governance_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/governance_routes.py) | 602 | 0 | 28 | 1 | 17 | Governance and quality routes for agent capabilities. |
 | [`backend/domains/configuration/agent/learning_project_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_project_routes.py) | 73 | 0 | 5 | 0 | 0 | User-scoped project context for learning and reusing procedures. |
-| [`backend/domains/configuration/agent/learning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py) | 133 | 0 | 6 | 2 | 5 | Conversation-derived skill drafts, explicit adoption and bounded trials. |
+| [`backend/domains/configuration/agent/learning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/learning_routes.py) | 163 | 0 | 6 | 2 | 5 | Conversation-derived skill drafts, explicit adoption and bounded trials. |
 | [`backend/domains/configuration/agent/router.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/agent/router.py) | 5 | 0 | 0 | 0 | 0 | Shared router singleton for governed agent configuration APIs. |
 | [`backend/domains/configuration/ai/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/__init__.py) | 1 | 0 | 0 | 0 | 0 | AI configuration domain routes and contracts. |
 | [`backend/domains/configuration/ai/budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/budget.py) | 25 | 0 | 1 | 0 | 1 | Normalize model registry budget settings. |
 | [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py) | 171 | 4 | 5 | 2 | 3 | Typed AI content-generation routes used by the Vault editor. |
-| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 329 | 25 | 0 | 0 | 25 | Public request and response contracts for AI registry and usage APIs. |
+| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 404 | 32 | 0 | 0 | 25 | Public request and response contracts for AI registry and usage APIs. |
 | [`backend/domains/configuration/ai/model_metadata_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_metadata_routes.py) | 18 | 0 | 1 | 1 | 1 | Read-only model metadata used by assistant settings. |
+| [`backend/domains/configuration/ai/model_parameter_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_parameter_routes.py) | 26 | 0 | 1 | 1 | 0 | Review configured model parameters within the AI settings domain. |
 | [`backend/domains/configuration/ai/registry_revision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/registry_revision.py) | 9 | 0 | 1 | 0 | 0 | Optimistic revision for model and budget edits from independent clients. |
+| [`backend/domains/configuration/ai/usage_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/usage_routes.py) | 25 | 0 | 3 | 3 | 0 | Authenticated, provider-independent consumption dashboard. |
 | [`backend/domains/configuration/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | Configuration HTTP APIs. |
 | [`backend/domains/configuration/api/credentials.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/credentials.py) | 216 | 0 | 5 | 5 | 5 | No module docstring |
 | [`backend/domains/configuration/api/environment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/environment.py) | 182 | 0 | 4 | 2 | 4 | No module docstring |
-| [`backend/domains/configuration/api/plugin_lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_lifecycle.py) | 245 | 1 | 10 | 4 | 2 | Dependency-aware plugin lifecycle and runtime transitions. |
+| [`backend/domains/configuration/api/plugin_lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_lifecycle.py) | 249 | 1 | 10 | 4 | 2 | Dependency-aware plugin lifecycle and runtime transitions. |
 | [`backend/domains/configuration/api/plugin_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_models.py) | 229 | 29 | 0 | 0 | 23 | Pydantic contracts for the plugin configuration API. |
 | [`backend/domains/configuration/api/plugin_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_routes.py) | 201 | 1 | 1 | 0 | 2 | Route composition for the plugin API. |
 | [`backend/domains/configuration/api/plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugins.py) | 703 | 1 | 48 | 23 | 30 | HTTP adapters for built-in and third-party plugin configuration. |
 | [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 370 | 0 | 22 | 5 | 16 | No module docstring |
-| [`backend/domains/configuration/config_response_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/config_response_cache.py) | 101 | 2 | 0 | 0 | 1 | Thread-safe cache for sanitized configuration responses. |
+| [`backend/domains/configuration/config_response_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/config_response_cache.py) | 104 | 2 | 0 | 0 | 1 | Thread-safe cache for sanitized configuration responses. |
 | [`backend/domains/configuration/credential_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/credential_schemas.py) | 41 | 4 | 0 | 0 | 0 | Public schemas for secret-safe credential management. |
 | [`backend/domains/configuration/environment_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/environment_schemas.py) | 21 | 3 | 0 | 0 | 3 | Public request and response contracts for local environment settings. |
 | [`backend/domains/configuration/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki.py) | 331 | 1 | 10 | 1 | 2 | Validation and persistence workflow for LLM Wiki configuration. |
@@ -289,6 +294,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/configuration/llm_wiki_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/llm_wiki_schema.py) | 456 | 1 | 13 | 0 | 3 | Idempotent Brain schema and source-relation consolidation. |
 | [`backend/domains/configuration/plugin_state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/plugin_state.py) | 130 | 3 | 3 | 0 | 2 | Single owner for per-vault plugin state and mutation locks. |
 | [`backend/domains/configuration/settings_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/settings_schemas.py) | 29 | 4 | 0 | 0 | 4 | Public contracts for the application configuration document. |
+| [`backend/domains/configuration/source_sections_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/source_sections_schema.py) | 72 | 0 | 1 | 0 | 1 | Idempotent relation and backing table for each Brain's source structure. |
 | [`backend/domains/contacts/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/contacts/__init__.py) | 1 | 0 | 0 | 0 | 0 | Contacts-domain contracts and services. |
 | [`backend/domains/contacts/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/contacts/schemas.py) | 128 | 10 | 0 | 0 | 10 | Public request and response contracts for contacts. |
 | [`backend/domains/genograms/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/genograms/__init__.py) | 1 | 0 | 0 | 0 | 0 | Shared, portable family networks and genogram projections. |
@@ -333,27 +339,31 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/literature/sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/literature/sync.py) | 509 | 0 | 11 | 0 | 4 | Durable academic repository and saved-review synchronization. |
 | [`backend/domains/llm_wiki/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/__init__.py) | 1 | 0 | 0 | 0 | 0 | Typed LLM Wiki extraction and provenance domains. |
 | [`backend/domains/llm_wiki/brain_fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/brain_fields.py) | 55 | 0 | 2 | 0 | 0 | Read Brain fields through stable roles and immutable property IDs. |
-| [`backend/domains/llm_wiki/chunking.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/chunking.py) | 119 | 0 | 6 | 0 | 0 | Structure-aware, bounded primary chunks with separately labelled neighbours. |
+| [`backend/domains/llm_wiki/chunking.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/chunking.py) | 124 | 0 | 6 | 0 | 0 | Structure-aware, bounded primary chunks with separately labelled neighbours. |
 | [`backend/domains/llm_wiki/contextual_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/contextual_reading.py) | 384 | 1 | 1 | 0 | 0 | Bounded execution of the process-source skill, with durable phase checkpoints. |
 | [`backend/domains/llm_wiki/dimensions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/dimensions.py) | 214 | 1 | 7 | 0 | 5 | Typed LLM Wiki dimension mapping and option normalization. |
 | [`backend/domains/llm_wiki/directed_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/directed_reading.py) | 168 | 0 | 4 | 0 | 0 | Durable JSON actions over immutable source passages and validated draft notes. |
-| [`backend/domains/llm_wiki/documents.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/documents.py) | 377 | 4 | 13 | 0 | 12 | Document and media adapters for LLM Wiki source extraction. |
-| [`backend/domains/llm_wiki/field_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/field_assignments.py) | 66 | 0 | 3 | 0 | 2 | Writable reading-note fields and deterministic value conversion. |
+| [`backend/domains/llm_wiki/documents.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/documents.py) | 412 | 4 | 13 | 0 | 12 | Document and media adapters for LLM Wiki source extraction. |
+| [`backend/domains/llm_wiki/field_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/field_assignments.py) | 69 | 0 | 3 | 0 | 2 | Writable reading-note fields and deterministic value conversion. |
 | [`backend/domains/llm_wiki/field_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/field_catalogs.py) | 56 | 0 | 2 | 0 | 1 | Localized option catalogs and semantic values for generated Brain notes. |
 | [`backend/domains/llm_wiki/index_rendering.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/index_rendering.py) | 392 | 2 | 12 | 0 | 4 | Typed rendering for managed LLM Wiki resource and dimension indexes. |
-| [`backend/domains/llm_wiki/ingestion.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/ingestion.py) | 450 | 7 | 9 | 0 | 2 | Typed blocking orchestration for durable LLM Wiki ingestion. |
+| [`backend/domains/llm_wiki/ingestion.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/ingestion.py) | 454 | 7 | 9 | 0 | 2 | Typed blocking orchestration for durable LLM Wiki ingestion. |
 | [`backend/domains/llm_wiki/legacy_ports.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/legacy_ports.py) | 89 | 0 | 10 | 0 | 1 | Typed late-bound ports for historical Vault facade collaborators. |
 | [`backend/domains/llm_wiki/lint_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/lint_contracts.py) | 99 | 10 | 0 | 0 | 10 | Records constructed by deterministic Brain checks, not persisted page schemas. |
+| [`backend/domains/llm_wiki/media_structure.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/media_structure.py) | 95 | 0 | 3 | 0 | 1 | Native PDF bookmarks and media chapter metadata, without inferred divisions. |
 | [`backend/domains/llm_wiki/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/options.py) | 24 | 0 | 1 | 0 | 1 | Existing categorical values shared by Knowledge settings and processing. |
 | [`backend/domains/llm_wiki/origins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/origins.py) | 161 | 0 | 5 | 0 | 4 | Stable origin identity, deduplication, and LLM chunking. |
-| [`backend/domains/llm_wiki/planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/planning.py) | 234 | 0 | 8 | 0 | 4 | Typed planning and grounding rules for LLM Wiki ingestion. |
+| [`backend/domains/llm_wiki/planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/planning.py) | 239 | 0 | 8 | 0 | 4 | Typed planning and grounding rules for LLM Wiki ingestion. |
 | [`backend/domains/llm_wiki/reading_action_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_action_contracts.py) | 91 | 0 | 4 | 0 | 3 | Typed action payloads; source identity, coverage and citations are checked locally. |
 | [`backend/domains/llm_wiki/reading_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_contracts.py) | 102 | 1 | 4 | 0 | 1 | Deterministic evidence and coverage gates for skill-generated reading plans. |
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 93 | 0 | 4 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 31 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
 | [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 128 | 0 | 4 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |
 | [`backend/domains/llm_wiki/search_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/search_index.py) | 373 | 3 | 14 | 0 | 11 | Typed rebuildable lexical and vector indexes for LLM Wiki. |
-| [`backend/domains/llm_wiki/writing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/writing.py) | 481 | 5 | 13 | 0 | 2 | Typed, deterministic persistence for generated LLM Wiki reading notes. |
+| [`backend/domains/llm_wiki/section_assignment.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/section_assignment.py) | 91 | 0 | 5 | 0 | 3 | Single, source-scoped section relations and their derived filter ancestry. |
+| [`backend/domains/llm_wiki/source_sections.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/source_sections.py) | 99 | 0 | 1 | 0 | 1 | Persist source-owned section rows through the existing Vault page writer. |
+| [`backend/domains/llm_wiki/source_structure.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/source_structure.py) | 112 | 1 | 6 | 0 | 5 | Original heading paths, independent of note order and evidence locators. |
+| [`backend/domains/llm_wiki/writing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/writing.py) | 505 | 5 | 13 | 0 | 2 | Typed, deterministic persistence for generated LLM Wiki reading notes. |
 | [`backend/domains/mail/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/__init__.py) | 1 | 0 | 0 | 0 | 0 | Mail domain. |
 | [`backend/domains/mail/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/cache.py) | 109 | 2 | 7 | 0 | 1 | Bounded process-local mail caches. |
 | [`backend/domains/mail/composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/mail/composition.py) | 18 | 0 | 0 | 0 | 0 | Deterministic composition of the mail router. |
@@ -437,7 +447,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/reader/analysis_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/analysis_routes.py) | 171 | 1 | 8 | 0 | 9 | Reader inventory and durable-analysis HTTP routes. |
 | [`backend/domains/reader/backfill_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/backfill_routes.py) | 175 | 1 | 4 | 0 | 4 | Reader full-content extraction and backfill HTTP routes. |
 | [`backend/domains/reader/internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/internal_sources.py) | 54 | 0 | 5 | 0 | 5 | Typed boundary around the legacy Reader helpers owned by the agent domain. |
-| [`backend/domains/reader/podcast_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_routes.py) | 128 | 0 | 5 | 0 | 5 | Reader podcast generation and download HTTP routes. |
+| [`backend/domains/reader/podcast_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/podcast_routes.py) | 130 | 0 | 5 | 0 | 5 | Reader podcast generation and download HTTP routes. |
 | [`backend/domains/reader/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routes.py) | 514 | 1 | 16 | 1 | 16 | No module docstring |
 | [`backend/domains/reader/routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/routing.py) | 28 | 0 | 1 | 0 | 1 | Shared runtime contract for Reader route modules. |
 | [`backend/domains/reader/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/reader/schemas.py) | 199 | 18 | 0 | 0 | 18 | Public request and response contracts for the Reader domain. |
@@ -455,12 +465,12 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/annotations/pdf_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/annotations/pdf_routes.py) | 190 | 6 | 5 | 0 | 1 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/__init__.py) | 1 | 0 | 0 | 0 | 0 | HTTP adapters for the vault domain. |
 | [`backend/domains/vault/api/configuration_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/configuration_routes.py) | 306 | 0 | 18 | 4 | 7 | Typed Vault domain extracted from the historical route facade. |
-| [`backend/domains/vault/api/core_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_composition.py) | 143 | 5 | 0 | 0 | 1 | Narrow late-bound collaborators for page creation and daily-note routing. |
-| [`backend/domains/vault/api/core_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_routes.py) | 411 | 2 | 19 | 5 | 16 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/api/core_composition.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_composition.py) | 149 | 5 | 0 | 0 | 1 | Narrow late-bound collaborators for page creation and daily-note routing. |
+| [`backend/domains/vault/api/core_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/core_routes.py) | 443 | 2 | 21 | 6 | 17 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/api/history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/history.py) | 200 | 1 | 8 | 4 | 7 | HTTP adapter for vault page history. |
-| [`backend/domains/vault/api/pages_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_commands.py) | 171 | 4 | 2 | 0 | 5 | HTTP registration for vault page mutation services. |
+| [`backend/domains/vault/api/pages_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_commands.py) | 208 | 4 | 2 | 0 | 5 | HTTP registration for vault page mutation services. |
 | [`backend/domains/vault/api/pages_duplicate.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_duplicate.py) | 127 | 1 | 4 | 1 | 1 | HTTP adapter for duplicating a vault page. |
-| [`backend/domains/vault/api/pages_queries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 611 | 3 | 20 | 12 | 15 | Read-only HTTP adapters for vault pages and previews. |
+| [`backend/domains/vault/api/pages_queries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/pages_queries.py) | 616 | 3 | 20 | 12 | 15 | Read-only HTTP adapters for vault pages and previews. |
 | [`backend/domains/vault/api/trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/api/trash.py) | 346 | 1 | 10 | 5 | 9 | HTTP adapter and retention job for soft-deleted vault pages. |
 | [`backend/domains/vault/assets/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault asset uploads, icon storage, and image-serving HTTP adapters. |
 | [`backend/domains/vault/assets/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/assets/api.py) | 284 | 1 | 21 | 8 | 14 | HTTP adapters and route registration for vault assets. |
@@ -538,11 +548,11 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/history/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/history/repository.py) | 133 | 1 | 0 | 0 | 1 | Filesystem repository for forward-only vault page history. |
 | [`backend/domains/vault/knowledge/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
 | [`backend/domains/vault/knowledge/aliases.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/aliases.py) | 28 | 0 | 1 | 0 | 0 | Knowledge URLs share the historical handlers and their authorization guards. |
-| [`backend/domains/vault/knowledge/config_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/config_routes.py) | 328 | 0 | 11 | 8 | 10 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/knowledge/config_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/config_routes.py) | 329 | 0 | 11 | 8 | 10 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/knowledge/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/contracts.py) | 171 | 16 | 0 | 0 | 5 | Public contracts for selecting the Vault Brain table. |
 | [`backend/domains/vault/knowledge/jobs_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/jobs_routes.py) | 643 | 27 | 17 | 12 | 29 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/knowledge/native_calls.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/native_calls.py) | 24 | 1 | 1 | 0 | 2 | Narrow native calls whose lookup order is part of the Knowledge contract. |
-| [`backend/domains/vault/knowledge/schema_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/schema_service.py) | 560 | 0 | 25 | 0 | 13 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/knowledge/schema_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/knowledge/schema_service.py) | 575 | 0 | 25 | 0 | 13 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/links/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/__init__.py) | 5 | 0 | 0 | 0 | 0 | Vault wikilink, backlink and mention domain. |
 | [`backend/domains/vault/links/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/__init__.py) | 5 | 0 | 0 | 0 | 0 | HTTP adapters for the vault links domain. |
 | [`backend/domains/vault/links/api/dependencies.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/api/dependencies.py) | 49 | 2 | 0 | 0 | 0 | Narrow composition ports used by link HTTP adapters. |
@@ -555,7 +565,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/links/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/index_service.py) | 565 | 2 | 16 | 0 | 0 | Reverse-link index services and persistence. |
 | [`backend/domains/vault/links/parsing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/parsing.py) | 213 | 0 | 12 | 0 | 0 | Pure parsing operations for wikilinks and unlinked mentions. |
 | [`backend/domains/vault/links/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/relation_sync.py) | 188 | 1 | 4 | 0 | 4 | Filesystem orchestration for bidirectional Vault relation synchronization. |
-| [`backend/domains/vault/links/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/runtime.py) | 556 | 0 | 43 | 0 | 22 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/links/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/runtime.py) | 558 | 0 | 43 | 0 | 22 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/links/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/schemas.py) | 109 | 13 | 0 | 0 | 5 | Public request contracts for vault links. |
 | [`backend/domains/vault/links/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/links/state.py) | 93 | 4 | 0 | 0 | 1 | Single process-wide owner for the reverse-link index. |
 | [`backend/domains/vault/media/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault domain package. |
@@ -565,19 +575,24 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/media/schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/schemas.py) | 126 | 13 | 0 | 0 | 3 | Typed JSON contracts for the Vault media browser. |
 | [`backend/domains/vault/media/unsplash_payload.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/media/unsplash_payload.py) | 39 | 0 | 2 | 0 | 1 | Read the provider JSON shape without coercing returned field values. |
 | [`backend/domains/vault/pages/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/__init__.py) | 5 | 0 | 0 | 0 | 0 | Page catalog, persistence, preview and indexing boundaries. |
-| [`backend/domains/vault/pages/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/cache.py) | 142 | 0 | 9 | 1 | 9 | Concurrency and short-lived caches for vault page operations. |
-| [`backend/domains/vault/pages/create_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/create_service.py) | 207 | 1 | 4 | 2 | 2 | Application service for creating one vault page. |
+| [`backend/domains/vault/pages/cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/cache.py) | 151 | 0 | 10 | 1 | 10 | Concurrency and short-lived caches for vault page operations. |
+| [`backend/domains/vault/pages/create_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/create_service.py) | 220 | 1 | 5 | 1 | 3 | Application service for creating one vault page. |
+| [`backend/domains/vault/pages/creation_callbacks.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/creation_callbacks.py) | 63 | 1 | 2 | 0 | 0 | Explicit recovery allowlist; persisted names never select importable code. |
+| [`backend/domains/vault/pages/creation_inputs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/creation_inputs.py) | 209 | 1 | 7 | 0 | 2 | Typed replay data; never deserialize code or silently accept stale documents. |
+| [`backend/domains/vault/pages/creation_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/creation_recovery.py) | 260 | 1 | 10 | 1 | 3 | Continue only recorded, unstarted work after a terminated page creation. |
+| [`backend/domains/vault/pages/creation_requests.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/creation_requests.py) | 336 | 1 | 5 | 2 | 0 | Local durable receipts for page creation, independent of cloud storage. |
+| [`backend/domains/vault/pages/creation_steps.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/creation_steps.py) | 136 | 3 | 0 | 0 | 2 | Durable checkpoints around side effects, including the uncertain crash gap. |
 | [`backend/domains/vault/pages/disk_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/disk_cache.py) | 40 | 0 | 3 | 0 | 1 | Validate derived page-index data before it is published to shared state. |
-| [`backend/domains/vault/pages/foundation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 721 | 0 | 43 | 0 | 27 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/pages/foundation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation.py) | 737 | 0 | 44 | 0 | 28 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/foundation_values.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/foundation_values.py) | 32 | 0 | 2 | 0 | 2 | Native page-document operations on values without a declared schema. |
 | [`backend/domains/vault/pages/identifiers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/identifiers.py) | 32 | 0 | 2 | 0 | 2 | Validation for page and history identifiers used in filesystem paths. |
-| [`backend/domains/vault/pages/index_entries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_entries.py) | 348 | 2 | 12 | 0 | 9 | Typed page-index entry construction. |
-| [`backend/domains/vault/pages/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 729 | 1 | 32 | 0 | 11 | Vault page-index discovery, refresh and snapshot services. |
+| [`backend/domains/vault/pages/index_entries.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_entries.py) | 352 | 2 | 13 | 0 | 9 | Typed page-index entry construction. |
+| [`backend/domains/vault/pages/index_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/index_service.py) | 736 | 1 | 32 | 0 | 11 | Vault page-index discovery, refresh and snapshot services. |
 | [`backend/domains/vault/pages/markdown_writer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/markdown_writer.py) | 201 | 1 | 7 | 0 | 2 | Canonical Markdown writer with identity and sidecar loss guards. |
 | [`backend/domains/vault/pages/metadata_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/metadata_mutations.py) | 488 | 2 | 18 | 3 | 5 | Bulk metadata mutations for Vault pages and table templates. |
 | [`backend/domains/vault/pages/patch_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_helpers.py) | 304 | 1 | 10 | 0 | 6 | Filesystem, metadata and cache helpers for partial page updates. |
-| [`backend/domains/vault/pages/patch_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_service.py) | 228 | 1 | 1 | 1 | 1 | Application service for partial vault page updates. |
-| [`backend/domains/vault/pages/preview_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/preview_routes.py) | 503 | 0 | 14 | 5 | 6 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/pages/patch_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/patch_service.py) | 232 | 1 | 1 | 1 | 1 | Application service for partial vault page updates. |
+| [`backend/domains/vault/pages/preview_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/preview_routes.py) | 521 | 0 | 15 | 5 | 6 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/resolver.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/resolver.py) | 259 | 1 | 12 | 0 | 4 | Resolve stable page identifiers to current Vault file paths. |
 | [`backend/domains/vault/pages/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/runtime.py) | 563 | 3 | 31 | 0 | 14 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/pages/save_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/pages/save_helpers.py) | 217 | 1 | 9 | 0 | 5 | Filesystem and metadata helpers for complete page saves. |
@@ -592,11 +607,11 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/registry/names.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/names.py) | 198 | 0 | 9 | 0 | 7 | Canonical table and view naming rules stored in the registry. |
 | [`backend/domains/vault/registry/records.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/records.py) | 23 | 1 | 2 | 0 | 3 | Identity-preserving guards for open registry and extension records. |
 | [`backend/domains/vault/registry/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/repository.py) | 306 | 3 | 0 | 0 | 1 | Resilient persistence for the per-vault registry. |
-| [`backend/domains/vault/registry/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/runtime.py) | 622 | 0 | 36 | 4 | 25 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/registry/runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/runtime.py) | 659 | 0 | 38 | 4 | 26 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/registry/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/registry/state.py) | 28 | 1 | 0 | 0 | 1 | Single process-wide owner for registry caches and synchronization. |
 | [`backend/domains/vault/schemas/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/__init__.py) | 17 | 0 | 0 | 0 | 0 | Typed request and response schemas for the vault domain. |
 | [`backend/domains/vault/schemas/history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/history.py) | 33 | 3 | 0 | 0 | 0 | Public contracts for immutable vault page history. |
-| [`backend/domains/vault/schemas/pages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/pages.py) | 240 | 21 | 0 | 0 | 9 | Page API schemas owned by the vault domain. |
+| [`backend/domains/vault/schemas/pages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/pages.py) | 258 | 23 | 0 | 0 | 11 | Page API schemas owned by the vault domain. |
 | [`backend/domains/vault/schemas/tags.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/tags.py) | 23 | 3 | 0 | 0 | 0 | Public response contracts for the aggregated vault tag index. |
 | [`backend/domains/vault/schemas/trash.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/schemas/trash.py) | 64 | 6 | 0 | 0 | 0 | Public contracts for vault title resolution and recoverable trash. |
 | [`backend/domains/vault/tables/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault databases, tables, properties and option catalogs. |
@@ -615,7 +630,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/tables/lifecycle.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/lifecycle.py) | 557 | 4 | 17 | 3 | 0 | Table creation, deletion and rename services. |
 | [`backend/domains/vault/tables/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/options.py) | 607 | 2 | 23 | 8 | 5 | Shared option catalogs and row-value rewrites. |
 | [`backend/domains/vault/tables/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/routes.py) | 584 | 0 | 44 | 25 | 26 | FastAPI boundary for databases, table rows, views and folder schemas. |
-| [`backend/domains/vault/tables/rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rows.py) | 441 | 2 | 17 | 0 | 11 | Table row discovery, context resolution and read enrichment. |
+| [`backend/domains/vault/tables/rows.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rows.py) | 446 | 2 | 17 | 0 | 11 | Table row discovery, context resolution and read enrichment. |
 | [`backend/domains/vault/tables/rules/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/__init__.py) | 6 | 0 | 0 | 0 | 0 | Typed database formulas, rollups, lookups and automations. |
 | [`backend/domains/vault/tables/rules/automations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/automations.py) | 117 | 0 | 7 | 0 | 2 | Property-change triggers and metadata automation actions. |
 | [`backend/domains/vault/tables/rules/definitions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/tables/rules/definitions.py) | 268 | 0 | 13 | 0 | 2 | Extraction and dependency ordering of formulas and rollups. |
@@ -634,7 +649,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/translation/metadata_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/metadata_io.py) | 123 | 1 | 4 | 0 | 2 | Minimal metadata writes used by translation lifecycle effects. |
 | [`backend/domains/vault/translation/page_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/page_service.py) | 237 | 1 | 5 | 2 | 1 | Typed translation workflow for standalone Vault pages. |
 | [`backend/domains/vault/translation/request_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/request_contracts.py) | 93 | 9 | 1 | 0 | 2 | Compatibility-preserving request contracts for Vault skill routes. |
-| [`backend/domains/vault/translation/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/routes.py) | 602 | 12 | 10 | 10 | 18 | Typed Vault domain extracted from the historical route facade. |
+| [`backend/domains/vault/translation/routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/routes.py) | 707 | 12 | 12 | 11 | 18 | Typed Vault domain extracted from the historical route facade. |
 | [`backend/domains/vault/translation/row_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/row_service.py) | 591 | 2 | 12 | 5 | 1 | Typed, idempotent translation workflow for table rows. |
 | [`backend/domains/vault/translation/staleness.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/staleness.py) | 176 | 2 | 5 | 0 | 2 | Propagation of translation staleness after source-page edits. |
 | [`backend/domains/vault/translation/types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/translation/types.py) | 80 | 4 | 0 | 0 | 3 | Shared strict contracts for Vault translation services. |
@@ -644,7 +659,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/domains/vault/views/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/__init__.py) | 1 | 0 | 0 | 0 | 0 | Vault saved views and legacy folder schemas. |
 | [`backend/domains/vault/views/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/api.py) | 275 | 1 | 11 | 7 | 0 | Saved-view operations backed by the central registry. |
 | [`backend/domains/vault/views/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/contracts.py) | 67 | 7 | 0 | 0 | 1 | Public HTTP contracts for saved Vault views. |
-| [`backend/domains/vault/views/filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/filters.py) | 295 | 0 | 18 | 0 | 2 | Saved-view filter evaluation with frontend-compatible coercion. |
+| [`backend/domains/vault/views/filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/filters.py) | 298 | 0 | 18 | 0 | 2 | Saved-view filter evaluation with frontend-compatible coercion. |
 | [`backend/domains/vault/views/row_resolution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/row_resolution.py) | 194 | 0 | 12 | 0 | 3 | Saved-view filtering, sorting and in-memory joins. |
 | [`backend/domains/vault/views/runtime_types.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/runtime_types.py) | 41 | 0 | 0 | 0 | 0 | Shared in-memory types for saved-view evaluation and snapshots. |
 | [`backend/domains/vault/views/schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/views/schema.py) | 78 | 2 | 3 | 2 | 1 | Backward-compatible folder schema persistence. |
@@ -782,10 +797,10 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/academic_connectors.py) | 172 | 0 | 1 | 0 | 1 | Compatibility facade for typed academic connector adapters. |
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/action_rules.py) | 292 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
-| [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 312 | 1 | 12 | 3 | 8 | Resolve canonical vault API routes and propagate the active vault context. |
+| [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 321 | 1 | 12 | 3 | 8 | Resolve canonical vault API routes and propagate the active vault context. |
 | [`backend/services/agent_behavior.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior.py) | 67 | 0 | 8 | 0 | 2 | Readable, versioned behavior resources and data-only operation requests. |
 | [`backend/services/agent_behavior_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior_bindings.py) | 51 | 0 | 2 | 0 | 0 | Resolve assigned personal procedures without changing canonical permissions. |
-| [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 197 | 1 | 11 | 1 | 10 | Cooperative cancellation for streamed agent turns. |
+| [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 201 | 1 | 11 | 1 | 10 | Cooperative cancellation for streamed agent turns. |
 | [`backend/services/agent_capability_conformance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_conformance.py) | 81 | 0 | 3 | 0 | 0 | Versioned conformance reporting for governed skills and tools. |
 | [`backend/services/agent_capability_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_contract.py) | 62 | 0 | 2 | 0 | 2 | Versioned extension contract for governed agent capabilities. |
 | [`backend/services/agent_capability_health.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_health.py) | 258 | 0 | 13 | 0 | 7 | Persistent, bounded health checks for governed runtime capabilities. |
@@ -793,35 +808,36 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/agent_commands.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_commands.py) | 50 | 0 | 3 | 0 | 0 | Explicit per-turn agent selection; command text is never an authority grant. |
 | [`backend/services/agent_context_budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_context_budget.py) | 73 | 2 | 3 | 0 | 1 | Offline token accounting with an explicit conservative fallback. |
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
-| [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 139 | 0 | 4 | 0 | 0 | Shared, replayable read-only action loop for complete source synthesis. |
+| [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 160 | 0 | 5 | 0 | 1 | Shared, replayable read-only action loop for complete source synthesis. |
 | [`backend/services/agent_evidence_security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Bounded semantic taint analysis for untrusted agent evidence. |
-| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 563 | 0 | 23 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
-| [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 76 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
+| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 597 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
+| [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 77 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 137 | 0 | 8 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
-| [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 264 | 0 | 16 | 0 | 4 | Private, scope-bound execution records shared by every application entrypoint. |
+| [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 346 | 0 | 21 | 0 | 9 | Private, scope-bound execution records shared by every application entrypoint. |
 | [`backend/services/agent_execution_trace.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_trace.py) | 202 | 0 | 13 | 0 | 1 | Scoped immutable execution events; source documents and checkpoints live elsewhere. |
 | [`backend/services/agent_learning_capture.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_capture.py) | 73 | 0 | 2 | 0 | 0 | Capture only explicit first-person memory requests in the current user message. |
-| [`backend/services/agent_learning_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_generation.py) | 108 | 1 | 5 | 0 | 0 | Bounded, tool-free learning drafts and second-case trials on the configured model. |
-| [`backend/services/agent_learning_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_models.py) | 118 | 15 | 0 | 0 | 0 | Bounded, portable contracts for conversation learning. |
+| [`backend/services/agent_learning_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_generation.py) | 129 | 1 | 5 | 0 | 0 | Bounded, tool-free learning drafts and second-case trials on the configured model. |
+| [`backend/services/agent_learning_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_models.py) | 124 | 15 | 0 | 0 | 0 | Bounded, portable contracts for conversation learning. |
 | [`backend/services/agent_learning_packages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_packages.py) | 38 | 0 | 2 | 0 | 0 | Portable learning metadata and its bounded runtime instruction projection. |
 | [`backend/services/agent_learning_projects.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_projects.py) | 130 | 0 | 8 | 0 | 1 | Private project context and conversation bindings for agent learning. |
-| [`backend/services/agent_model_decisions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_decisions.py) | 174 | 1 | 6 | 0 | 3 | Optional decision adapters. They advise; Gnosi owns the allowed routes. |
+| [`backend/services/agent_learning_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_review.py) | 50 | 0 | 3 | 0 | 0 | Exact criterion identity and observable evidence for text-only trials. |
+| [`backend/services/agent_model_decisions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_decisions.py) | 190 | 1 | 6 | 0 | 3 | Optional decision adapters. They advise; Gnosi owns the allowed routes. |
 | [`backend/services/agent_model_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_evaluations.py) | 138 | 0 | 5 | 0 | 2 | Explicit privacy-safe evaluations for configured agent models. |
 | [`backend/services/agent_model_strategy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_strategy.py) | 245 | 0 | 7 | 0 | 5 | Profile-owned model routing for Gnosi agents. |
 | [`backend/services/agent_observability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_observability.py) | 130 | 0 | 8 | 0 | 1 | Privacy-preserving local spans for end-to-end agent diagnostics. |
-| [`backend/services/agent_operation_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_operation_catalog.py) | 82 | 0 | 4 | 0 | 1 | Reusable methodology for application operations, published in the skill catalog. |
+| [`backend/services/agent_operation_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_operation_catalog.py) | 83 | 0 | 4 | 0 | 1 | Reusable methodology for application operations, published in the skill catalog. |
 | [`backend/services/agent_output_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_output_repair.py) | 14 | 1 | 0 | 0 | 0 | Operation-owned, immutable partial repairs inside the existing call budget. |
 | [`backend/services/agent_personal_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_personal_memory.py) | 231 | 0 | 12 | 0 | 0 | Explicit, editable long-term memory for Gnosi agents. |
 | [`backend/services/agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_quality_telemetry.py) | 541 | 0 | 18 | 0 | 3 | Privacy-safe agent quality signals and reviewable evaluation candidates. |
 | [`backend/services/agent_replay.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_replay.py) | 94 | 0 | 5 | 0 | 1 | Privacy-safe turn replay metadata for diagnosing agent behavior. |
 | [`backend/services/agent_response_quality.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_response_quality.py) | 162 | 0 | 5 | 0 | 3 | Deterministic response-quality and evidence-conflict evaluation. |
-| [`backend/services/agent_role_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_role_evaluations.py) | 265 | 4 | 4 | 0 | 0 | Versioned synthetic role tests and an isolated three-strategy laboratory. |
+| [`backend/services/agent_role_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_role_evaluations.py) | 270 | 4 | 4 | 0 | 0 | Versioned synthetic role tests and an isolated three-strategy laboratory. |
 | [`backend/services/agent_routing_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_routing_policy.py) | 72 | 0 | 4 | 0 | 2 | Hard constraints shared by internal and external model selectors. |
 | [`backend/services/agent_run_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_run_middleware.py) | 35 | 1 | 1 | 0 | 0 | Expose execution correlation without changing functional response bodies. |
 | [`backend/services/agent_semantic_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_semantic_memory.py) | 171 | 0 | 8 | 0 | 6 | Reviewable Vault-scoped vocabulary associations for agent retrieval. |
 | [`backend/services/agent_skill_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_assignments.py) | 330 | 4 | 2 | 0 | 5 | Revision-aware agent skill assignments and legacy migration. |
 | [`backend/services/agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_skill_catalog.py) | 791 | 4 | 21 | 0 | 15 | Effective catalogs and runtime resolution for agent skills and tools. |
-| [`backend/services/agent_specialized_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_specialized_tools.py) | 144 | 0 | 8 | 0 | 4 | Specialized inference engines registered and audited as principal tools. |
+| [`backend/services/agent_specialized_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_specialized_tools.py) | 149 | 0 | 8 | 0 | 4 | Specialized inference engines registered and audited as principal tools. |
 | [`backend/services/agent_stream_journal.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_journal.py) | 112 | 0 | 7 | 0 | 0 | Short-lived encrypted replay journal for accepted agent streams. |
 | [`backend/services/agent_stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_protocol.py) | 21 | 0 | 0 | 0 | 0 | Compatibility exports for the agent-domain stream protocol. |
 | [`backend/services/agent_team_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_evaluations.py) | 25 | 0 | 1 | 0 | 0 | Metadata-only measurements for comparing the same tasks across team policies. |
@@ -831,18 +847,28 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/agent_team_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_retention.py) | 35 | 0 | 2 | 0 | 0 | Reviewable retention evidence; task instructions never become permanent defaults. |
 | [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 461 | 0 | 19 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 131 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
+| [`backend/services/agent_tool_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_tool_identity.py) | 7 | 0 | 1 | 0 | 1 | Technical tool identities, independent of translated display labels. |
+| [`backend/services/ai_usage_dashboard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_dashboard.py) | 191 | 1 | 9 | 0 | 0 | Filtered projections and CSV for the provider-independent usage ledger. |
+| [`backend/services/ai_usage_ledger.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_ledger.py) | 145 | 0 | 5 | 0 | 2 | Durable metadata-only accounting shared by every model provider. |
+| [`backend/services/ai_usage_transport.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_transport.py) | 216 | 3 | 7 | 0 | 1 | Observe raw provider responses before LangChain/tool output conversion. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/artificial_analysis.py) | 742 | 1 | 31 | 0 | 27 | Artificial Analysis model-comparison feed. |
-| [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 483 | 2 | 15 | 0 | 16 | Generate the daily Reader podcast script and publish its audio atomically. |
+| [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/audio_summarizer.py) | 563 | 2 | 19 | 0 | 17 | Generate the daily Reader podcast script and publish its audio atomically. |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_public_surface.py) | 213 | 1 | 5 | 2 | 5 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/auth_service.py) | 674 | 0 | 26 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
 | [`backend/services/automation_history.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/automation_history.py) | 21 | 0 | 1 | 0 | 0 | Scoped, paginated automation history for the activity centre. |
 | [`backend/services/automation_schedule.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/automation_schedule.py) | 56 | 1 | 1 | 0 | 1 | Calendar schedules with explicit timezone and DST semantics. |
 | [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/builtin_plugins.py) | 265 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
+| [`backend/services/button_action_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_action_contracts.py) | 113 | 1 | 6 | 0 | 0 | Contracts for generated table buttons, using the actual editable fields. |
+| [`backend/services/button_field_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_field_execution.py) | 227 | 1 | 9 | 0 | 2 | Resolve and persist a generated value against the current table schema. |
+| [`backend/services/button_page_mutations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_page_mutations.py) | 60 | 0 | 1 | 1 | 0 | Apply validated button changes through the canonical page mutation workflow. |
+| [`backend/services/button_relation_context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_relation_context.py) | 55 | 1 | 2 | 0 | 0 | Frozen destination candidates for generated relations, checked before save. |
+| [`backend/services/button_skill_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/button_skill_execution.py) | 50 | 0 | 3 | 0 | 0 | Execute a selected skill against a row with a typed, bounded write contract. |
 | [`backend/services/calendar_event_aggregation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/calendar_event_aggregation.py) | 89 | 2 | 2 | 0 | 2 | Bounded, provider-neutral loading of independent calendar accounts. |
 | [`backend/services/capability_audit.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_audit.py) | 239 | 0 | 8 | 0 | 3 | Bounded metadata-only audit log for governed capability execution. |
 | [`backend/services/capability_automations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_automations.py) | 479 | 1 | 17 | 3 | 4 | Durable, budgeted automation definitions for governed agent skills. |
 | [`backend/services/capability_jobs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/capability_jobs.py) | 236 | 1 | 16 | 0 | 5 | Provider-neutral facade for durable Gnosi capability jobs. |
+| [`backend/services/capture_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/capture_contracts.py) | 71 | 1 | 3 | 0 | 0 | Validated Cornell content, separate from source metadata and warnings. |
 | [`backend/services/contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/contacts_service.py) | 213 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/contacts_sync_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/contacts_sync_engine.py) | 751 | 4 | 2 | 0 | 3 | No module docstring |
 | [`backend/services/content_revision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/content_revision.py) | 55 | 0 | 3 | 0 | 2 | Stable content revisions for confirmed filesystem operations. |
@@ -875,15 +901,18 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/google_contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_contacts_service.py) | 350 | 0 | 7 | 0 | 7 | No module docstring |
 | [`backend/services/google_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/google_mail_service.py) | 374 | 0 | 13 | 0 | 11 | No module docstring |
 | [`backend/services/graph_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/graph_service.py) | 44 | 0 | 0 | 0 | 0 | Compatibility facade for the graph domain. |
-| [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 281 | 0 | 11 | 0 | 6 | Handwriting recognition (ink → text) LOCAL with TrOCR. |
+| [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting.py) | 363 | 1 | 14 | 0 | 7 | Handwriting recognition (ink → text) LOCAL with TrOCR. |
+| [`backend/services/handwriting_download.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/handwriting_download.py) | 251 | 3 | 9 | 0 | 2 | Explicit, observable and cancellable TrOCR downloads, without loading weights. |
 | [`backend/services/hybrid_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_calendar_service.py) | 566 | 1 | 22 | 0 | 8 | Hybrid Calendar Service — queries Google Calendar and CalDAV directly without a vault. |
 | [`backend/services/hybrid_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/hybrid_mail_service.py) | 89 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical hybrid mail provider adapters. |
 | [`backend/services/imap_idle_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_idle_service.py) | 17 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP IDLE service. |
 | [`backend/services/imap_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/imap_mail_sync_service.py) | 35 | 0 | 0 | 0 | 0 | Compatibility facade for the canonical IMAP synchronization service. |
 | [`backend/services/import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/import_dedup.py) | 140 | 0 | 5 | 0 | 3 | Deduplication in `POST /import-references`. |
 | [`backend/services/integration_manager.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/integration_manager.py) | 510 | 1 | 0 | 0 | 0 | No module docstring |
+| [`backend/services/json_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/json_contracts.py) | 38 | 0 | 1 | 0 | 0 | JSON contract validation independent of optional format-checking packages. |
 | [`backend/services/library_paths.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/library_paths.py) | 29 | 0 | 2 | 0 | 2 | SINGLE resolution of the attachments folder: ALWAYS `<vault>/Library`. |
-| [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_service.py) | 142 | 0 | 8 | 0 | 2 | Explicit, audited AI assistance for literature workflows. |
+| [`backend/services/literature_ai_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_contracts.py) | 58 | 0 | 2 | 0 | 1 | Output contracts supplied to the governed literature executor. |
+| [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_ai_service.py) | 146 | 0 | 8 | 0 | 2 | Explicit, audited AI assistance for literature workflows. |
 | [`backend/services/literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_import_service.py) | 275 | 0 | 8 | 1 | 6 | Atomic AcademicWork import into the designated Resources table. |
 | [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_models.py) | 437 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
 | [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/literature_review_service.py) | 787 | 0 | 24 | 10 | 3 | Vault-native systematic-review records, blind decisions, and exports. |
@@ -894,13 +923,13 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/llm_wiki_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_ai_contributions.py) | 255 | 0 | 4 | 0 | 2 | Declarative agent skills and governed tools contributed by LLM Wiki. |
 | [`backend/services/llm_wiki_assist.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_assist.py) | 183 | 0 | 7 | 0 | 4 | Accessible editing for the Brain Inbox (F6). |
 | [`backend/services/llm_wiki_config.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_config.py) | 497 | 0 | 30 | 0 | 13 | Per-vault configuration for the built-in LLM Wiki ("Brain") plugin. |
-| [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 743 | 1 | 35 | 0 | 10 | Ordered, provenance-preserving source extraction for LLM Wiki. |
+| [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_extractors.py) | 751 | 1 | 35 | 0 | 10 | Ordered, provenance-preserving source extraction for LLM Wiki. |
 | [`backend/services/llm_wiki_generation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_generation.py) | 41 | 0 | 4 | 0 | 2 | Run Brain model work with the selected profile and its editable skills. |
 | [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_indices.py) | 773 | 0 | 46 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_lint.py) | 350 | 0 | 14 | 0 | 9 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_pdf_annotations.py) | 411 | 7 | 14 | 0 | 7 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
 | [`backend/services/llm_wiki_reading_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_reading_runtime.py) | 123 | 1 | 2 | 0 | 1 | Freeze one governed profile, model and skill for an entire source job. |
-| [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 487 | 0 | 30 | 0 | 12 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |
+| [`backend/services/llm_wiki_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_storage.py) | 488 | 0 | 30 | 0 | 12 | Durable jobs, provenance manifests, and evidence snapshots for LLM Wiki. |
 | [`backend/services/llm_wiki_suggestions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/llm_wiki_suggestions.py) | 282 | 0 | 13 | 0 | 10 | Read-only connection proposals for the Brain. |
 | [`backend/services/lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/lookup_normalizers.py) | 49 | 0 | 0 | 0 | 0 | Compatibility facade for pure citation lookup normalizers. |
 | [`backend/services/mail_ingester.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mail_ingester.py) | 69 | 0 | 1 | 0 | 0 | Compatibility facade for newsletter ingestion. |
@@ -910,7 +939,8 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/marketplace_submission.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/marketplace_submission.py) | 85 | 1 | 2 | 0 | 3 | Optional broker client for moderated marketplace submissions. |
 | [`backend/services/mcp_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/mcp_tool_contributions.py) | 103 | 0 | 3 | 0 | 1 | Governed read-only MCP tools exposed for explicit skill composition. |
 | [`backend/services/media_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/media_service.py) | 574 | 1 | 1 | 0 | 1 | No module docstring |
-| [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 189 | 0 | 7 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
+| [`backend/services/meeting_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_contracts.py) | 85 | 0 | 4 | 0 | 0 | Meeting excerpts with explicit source evidence and localized presentation. |
+| [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_notes.py) | 337 | 0 | 13 | 0 | 3 | Private durable meeting jobs: local transcription, validated excerpts, canonical page. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/meeting_reminders.py) | 320 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
 | [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/microsoft_mail_service.py) | 503 | 0 | 21 | 0 | 9 | Microsoft Graph API mail service. |
 | [`backend/services/model_parameter_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/model_parameter_review.py) | 86 | 2 | 1 | 0 | 0 | Per-model parameter source review. Supplied URLs are never fetched by the server. |
@@ -939,7 +969,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/plugin_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_ai_contributions.py) | 498 | 0 | 16 | 0 | 6 | Governed AI contributions from installed third-party plugins. |
 | [`backend/services/plugin_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_catalog.py) | 247 | 0 | 10 | 0 | 7 | Plugin catalog/gallery (phase 2.2 of plugin_system.md). |
 | [`backend/services/plugin_dispatcher.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_dispatcher.py) | 341 | 0 | 13 | 0 | 7 | Dispatcher: joins the event bus with the data sandbox (phase 3). |
-| [`backend/services/plugin_events.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_events.py) | 107 | 0 | 3 | 0 | 3 | Vault event bus for data plugins (phase 3). |
+| [`backend/services/plugin_events.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_events.py) | 109 | 0 | 3 | 0 | 3 | Vault event bus for data plugins (phase 3). |
 | [`backend/services/plugin_field_migration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_field_migration.py) | 22 | 0 | 2 | 0 | 1 | Register required plugin fields when enabling an existing integration. |
 | [`backend/services/plugin_fields.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_fields.py) | 97 | 0 | 4 | 0 | 2 | Stable, renameable field contracts owned by plugins. |
 | [`backend/services/plugin_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/plugin_sandbox.py) | 96 | 0 | 4 | 0 | 3 | Compatibility facade for the restricted third-party plugin sandbox. |
@@ -958,15 +988,15 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/relation_sync.py) | 144 | 0 | 5 | 0 | 4 | Bidirectional relation sync — pure logic. |
 | [`backend/services/rule_engine.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/rule_engine.py) | 84 | 1 | 6 | 0 | 1 | Compatibility facade for typed database formulas, rollups and automations. |
 | [`backend/services/social_clients.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_clients.py) | 606 | 4 | 0 | 0 | 4 | Social Network API Clients |
-| [`backend/services/social_compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_compose.py) | 125 | 0 | 5 | 0 | 4 | AI layer for composing social media posts. |
+| [`backend/services/social_compose.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_compose.py) | 145 | 0 | 6 | 0 | 3 | AI layer for composing social media posts. |
 | [`backend/services/social_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/social_store.py) | 205 | 0 | 6 | 4 | 6 | Persistence of social posts in a Vault table. |
 | [`backend/services/table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/table_system_dates.py) | 278 | 0 | 10 | 0 | 6 | System creation and modification date fields for Vault tables. |
 | [`backend/services/tool_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/tool_runtime.py) | 35 | 0 | 0 | 0 | 0 | Compatibility exports for the agent-domain tool runtime. |
-| [`backend/services/transcription.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py) | 153 | 5 | 6 | 0 | 2 | Local audio transcription with faster-whisper (CTranslate2, WITHOUT torch). |
+| [`backend/services/transcription.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/transcription.py) | 151 | 5 | 6 | 0 | 2 | Local audio transcription with faster-whisper (CTranslate2, WITHOUT torch). |
 | [`backend/services/translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/translation_helpers.py) | 358 | 0 | 15 | 0 | 14 | Pure helpers for content translation (translate_row / translate_page skills). |
 | [`backend/services/translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/translation_index.py) | 104 | 0 | 6 | 0 | 4 | Local translation index for translate-row idempotency. |
 | [`backend/services/turn_idempotency.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/turn_idempotency.py) | 60 | 0 | 3 | 0 | 0 | Durable turn claims preventing duplicate concurrent execution. |
-| [`backend/services/user_skill_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/user_skill_store.py) | 305 | 4 | 3 | 0 | 4 | Portable per-vault storage for user-authored declarative skills. |
+| [`backend/services/user_skill_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/user_skill_store.py) | 313 | 4 | 3 | 0 | 4 | Portable per-vault storage for user-authored declarative skills. |
 | [`backend/services/vault_file_index.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_file_index.py) | 596 | 4 | 16 | 0 | 20 | vault_file_index.py — Vault file/folder name index. |
 | [`backend/services/vault_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_mail_sync_service.py) | 223 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/vault_routing.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_routing.py) | 95 | 0 | 6 | 0 | 6 | Canonical vault slug helpers shared by routing and management APIs. |
@@ -974,7 +1004,7 @@ Total: **880 modules** and **176295 source lines**.
 | [`backend/services/vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/vault_warmup.py) | 159 | 0 | 4 | 1 | 4 | Proactive warmup of the vault's CRITICAL files (OneDrive online-only). |
 | [`backend/services/view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/view_snapshot.py) | 187 | 0 | 6 | 0 | 2 | Compatibility facade for persisted saved-view snapshots and row evaluation. |
 | [`backend/services/web_clipper.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/web_clipper.py) | 266 | 0 | 9 | 0 | 6 | Web Clipper as a configurable plugin: destination table and field mapping. |
-| [`backend/services/workspace_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/workspace_service.py) | 436 | 2 | 12 | 0 | 11 | No module docstring |
+| [`backend/services/workspace_service.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/workspace_service.py) | 441 | 2 | 12 | 0 | 11 | No module docstring |
 | [`backend/services/zotero_schema.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/zotero_schema.py) | 558 | 0 | 0 | 0 | 0 | GENERATED — DO NOT EDIT. Source: pipeline/skills/zotero_schema/schema.json. Regenerate with `pipeline/skills/zotero_schema/scripts/build_constants.py`. |
 | [`backend/services/zotero_to_recursos_mapper.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/zotero_to_recursos_mapper.py) | 163 | 0 | 3 | 0 | 3 | Declarative Zotero item → Recursos columns dict mapper. |
 

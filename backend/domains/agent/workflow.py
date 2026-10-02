@@ -167,6 +167,7 @@ async def create_agent_workflow(
     reviewed_memory_rows: Optional[Iterable[dict[str, Any]]] = None,
     dependencies: WorkflowDependencies | None = None,
     operation_mode: bool = False,
+    operation_read_tools: bool = False,
     output_schema: dict[str, Any] | None = None,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Create an uncompiled multi-agent graph and its selection metadata."""
@@ -225,8 +226,14 @@ async def create_agent_workflow(
             general_prompt=prompts.general_prompt + "\n\n" + team_help.instructions)
     if operation_mode:
         from backend.domains.agent.operation_graph import operation_workflow
+        if operation_read_tools:
+            from backend.domains.agent.runtime_tools import _model_supports_tools
+            from backend.agent.json_tool_model import JsonToolModel
+            if not _model_supports_tools(model.provider_name, model.model_name, profile.agent_data) and not isinstance(model.llm, JsonToolModel):
+                model = replace(model, llm=JsonToolModel(model.llm))
         return operation_workflow(model.llm, prompts.combined_persona, prompts.context_window_tokens,
-            team_help=team_help, output_schema=output_schema, provider=model.provider_name), {
+            team_help=team_help, output_schema=output_schema, provider=model.provider_name,
+            runtime=profile.resolved_runtime if operation_read_tools else None), {
             "provider": model.provider_name, "model": model.model_name,
             "active_skill_ids": list(prompts.active_runtime_skill_ids),
         }

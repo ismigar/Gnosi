@@ -74,6 +74,8 @@ vi.mock('../../../shared/api/drawings', () => ({
     recognizeHandwriting: testState.recognizeHandwriting,
     saveDrawing: testState.saveDrawing,
     warmupHandwriting: testState.warmupHandwriting,
+    fetchHandwritingStatus: vi.fn(async () => ({ available: true, loaded: false, model: 'fixture', downloaded: false, state: 'not_downloaded', downloaded_bytes: 0, total_bytes: null, error: '', cancelling: false })),
+    cancelHandwritingDownload: vi.fn(async () => true),
 }));
 
 vi.mock('../../../shared/api/vaults', () => ({

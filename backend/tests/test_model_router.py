@@ -3,7 +3,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from agent.model_router import (  # noqa: E402
     apply_catalog_prices, classify_request, hydrate_registry_metadata,

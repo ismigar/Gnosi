@@ -16,6 +16,7 @@ from backend.domains.vault.registry.state import RegistryData
 from backend.domains.vault.schemas.pages import PageInfo
 from backend.domains.vault.tables.formula_recalculation import FormulaRecalculationDependencies
 from backend.utils.open_values import iterable_values
+from backend.services.field_resolver import to_response_names
 
 _sanitize_asset_segment: Callable[[object, str], str]
 
@@ -525,6 +526,20 @@ def _enrich_table_query_pages(table_id: str, pages: list[PageInfo]) -> None:
     )
 
 
+def _query_page_title(metadata: RegistryData, file_path: Path) -> object:
+    """Resolve the title before response-name conversion removes canonical keys."""
+    _, table_id = _resolve_page_context_from_path(metadata, file_path)
+    table = _legacy._table_by_id(table_id)
+    if table:
+        named = to_response_names(metadata, table)
+        for field in iterable_values(table.get("properties", [])):
+            if is_record(field) and field.get("type") == "title":
+                value = named.get(field.get("name"))
+                if value is not None:
+                    return value
+    return metadata.get("title", file_path.stem)
+
+
 def _enrich_single_query_page(
     metadata: RegistryData, page_id: str, file_path: Path
 ) -> tuple[RegistryData, str, str | None]:
@@ -704,6 +719,7 @@ def initialize_foundation(legacy: ModuleType) -> None:
             is_dashboard=lambda path: _is_dashboard_file_path(path),
             parse_frontmatter=parse_frontmatter,
             enrich_single_page=_enrich_single_query_page,
+            resolve_title=_query_page_title,
             file_etag=_legacy.file_etag,
             fetch_preview=lambda path, page_id: _legacy._fetch_preview_with_cache(path, page_id),
             warm_preview=lambda page_id: _legacy._bulk_warm_one(page_id),

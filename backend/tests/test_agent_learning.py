@@ -190,10 +190,14 @@ def test_draft_uses_conversation_but_rejects_unavailable_tools():
 
 def test_trial_keeps_failed_criteria_and_rejects_incomplete_review():
     request = SkillTrialRequest(agent_id="helper", skill=sample_skill(), input="New synthetic case")
-    replies = iter(["Missing a title", json.dumps({"checks": [{"criterion": "rewritten", "met": False, "evidence": "No heading"}]})])
+    check = {"criterion": "Has a title", "met": False, "evidence": "No heading", "input_quote": "", "output_quote": "Missing a title"}
+    replies = iter(["Missing a title", json.dumps({"checks": [check]})])
     result = trial_skill(request, lambda *_: next(replies))
     assert result.checks[0].criterion == "Has a title"
     assert not result.checks[0].met
+    replies = iter(["Missing a title", json.dumps({"checks": [{**check, "criterion": "rewritten"}]})])
+    with pytest.raises(ValueError, match="Preserve each acceptance"):
+        trial_skill(request, lambda *_: next(replies))
     replies = iter(["Output", '{"checks": []}'])
     with pytest.raises(ValueError, match="every acceptance"):
         trial_skill(request, lambda *_: next(replies))
@@ -216,3 +220,23 @@ def test_configured_model_is_budgeted_and_never_falls_back(monkeypatch):
     assert len(calls) == 3
     assert all(kwargs["snapshot"] is frozen for _, kwargs in calls)
     assert all(request.skill_id == "core.gnosi-operation-learning" for request, _ in calls)
+    assert all(request.timeout_seconds == 120 for request, _ in calls)
+
+
+def test_structured_trial_keeps_deliverable_separate_from_missing_inputs():
+    request = SkillTrialRequest(agent_id="helper", skill=sample_skill(), input="New synthetic case")
+    observed = []
+    class Invoke:
+        def __call__(self, *_args):
+            raise AssertionError("Structured trials must use the output contract")
+        def structured(self, instruction, data, schema):
+            task = json.loads(instruction)["task"]
+            observed.append((task, schema))
+            if task == "learning.trial":
+                return json.dumps({"output": "# Title\nSummary", "missing_inputs": ["Budget"]})
+            return json.dumps({"checks": [{"criterion": "Has a title", "met": True,
+                "evidence": "A heading is present", "input_quote": "", "output_quote": "# Title"}]})
+    result = trial_skill(request, Invoke())
+    assert result.output == "# Title\nSummary" and result.missing_inputs == ["Budget"]
+    assert result.checks[0].output_quote == "# Title"
+    assert [task for task, _schema in observed] == ["learning.trial", "learning.review"]

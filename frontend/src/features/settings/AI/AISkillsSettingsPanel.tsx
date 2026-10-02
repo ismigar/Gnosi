@@ -22,6 +22,7 @@ import type {
     SkillResources,
 } from './aiResourceSettingsTypes';
 import { SkillUsage } from './AISkillUsage';
+import { currentPersonalizedSkills, currentSkillId, latestPersonalizations } from './skillPersonalization';
 import { SkillCard } from './AISkillCard';
 import { SkillEditor } from './AISkillEditor';
 import {
@@ -69,9 +70,9 @@ export function SkillsSettingsPanel({
     resources,
 }: SkillsSettingsPanelProps) {
     const { t } = useTranslation();
-    const [search, setSearch] = useState(selectedSkillId || '');
+    const [search, setSearch] = useState(currentSkillId(resources.skills, selectedSkillId));
     const [origin, setOrigin] = useState('all');
-    const [expandedId, setExpandedId] = useState(selectedSkillId || '');
+    const [expandedId, setExpandedId] = useState(currentSkillId(resources.skills, selectedSkillId));
     const [usage, setUsage] = useState<{ skill: NormalizedSkill; source: NormalizedSkill | null } | null>(null);
     const [source, setSource] = useState<NormalizedSkill | null>(null);
     const [category, setCategory] = useState(resources.skills.some(skill => skill.id === selectedSkillId && skillCategory(skill) === 'legacy') ? 'legacy' : 'all');
@@ -87,7 +88,7 @@ export function SkillsSettingsPanel({
         () => new Map(resources.tools.map((tool) => [tool.id, tool])),
         [resources.tools],
     );
-    const skillsWithConsumers = useMemo(() => resources.skills.map((skill) => ({
+    const skillsWithConsumers = useMemo(() => currentPersonalizedSkills(resources.skills).map((skill) => ({
         ...skill,
         agentIds: [...new Set([
             ...skill.agentIds,
@@ -131,6 +132,9 @@ export function SkillsSettingsPanel({
         }
     };
     const handleClone = (skill: NormalizedSkill): void => {
+        setUsage(null);
+        const personal = latestPersonalizations(resources.skills).get(skill.id);
+        if (personal) { setEditing(personal); setCreating(false); return; }
         createdSkill.current = null;
         creationId.current = `user.skill-${crypto.randomUUID()}`;
         setSource(skill);
@@ -208,6 +212,7 @@ export function SkillsSettingsPanel({
                         createdSkill.current = null;
                         creationId.current = `user.skill-${crypto.randomUUID()}`;
                         setSource(null);
+                        setUsage(null);
                         setCreating((current) => !current);
                         setEditing(null);
                     }}
@@ -280,16 +285,12 @@ export function SkillsSettingsPanel({
                 </div>
             ) : null}
 
-            {usage && resources.assignAgentSkills && resources.saveAutomation && <SkillUsage
-                key={usage.skill.id} skill={usage.skill} source={usage.source} agents={agents} principalAgentId={principalAgentId} onAgentsChanged={onAgentsChanged}
-                resources={{ automations: resources.automations || [], assignAgentSkills: resources.assignAgentSkills, saveAutomation: resources.saveAutomation }}
-            />}
             {source && <div className="ai-resource-alert">{t('settings.ai.resources.customize_help')}
                 <details><summary>{t('settings.ai.resources.compare_original')}</summary><pre>{source.instructions}</pre></details>
             </div>}
             {creating ? (
                 <SkillEditor
-                    key={source?.id || 'new'}
+                    key={`create:${source?.id || 'new'}`}
                     skill={source ? { ...source, id: '', name: t('settings.ai.resources.clone_name', { name: skillDisplayName(t, source) }), description: skillDisplayDescription(t, source) } : null}
                     onCancel={() => {
                         if (createdSkill.current) setUsage({ skill: createdSkill.current, source });
@@ -303,13 +304,14 @@ export function SkillsSettingsPanel({
             ) : null}
             {editing ? (
                 <SkillEditor
-                    key={editing.id}
+                    key={`edit:${editing.id}`}
                     onCancel={() => {
                         setEditing(null);
                     }}
                     onSave={handleUpdate}
                     onValidate={(draft) => resources.validateSkill(editing, draft)}
                     skill={editing}
+                    original={resources.skills.find(skill => skill.id === editing.metadata?.derived_from?.id)}
                     tools={resources.tools}
                 />
             ) : null}
@@ -324,13 +326,17 @@ export function SkillsSettingsPanel({
                 <div className="ai-resource-list">
                     {filtered.map((skill) => (
                         <SkillCard
+                            assignment={canEdit && usage?.skill.id === skill.id && resources.assignAgentSkills && resources.saveAutomation ? <SkillUsage
+                                key={`usage:${skill.id}`} skill={skill} source={usage.source} agents={agents} principalAgentId={principalAgentId} onAgentsChanged={onAgentsChanged} onClose={() => { setUsage(null); }}
+                                resources={{ automations: resources.automations || [], assignAgentSkills: resources.assignAgentSkills, saveAutomation: resources.saveAutomation }}
+                            /> : null}
                             expanded={expandedId === skill.id}
                             trialAgentId={principalAgentId || agents[0]?.id || ''}
                             onPackageSaved={() => { void resources.reload(); }}
                             baseSkill={resources.skills.find(base => base.id === skill.metadata?.derived_from?.id)}
                             automationNames={(resources.automations || []).filter(item => item.skill_id === skill.id).map(item => String(item.name))}
                             agentNames={new Map(agents.map(agent => [agent.id, agent.name || agent.id]))}
-                            onUse={() => { setUsage({ skill, source: resources.skills.find(base => base.id === skill.metadata?.derived_from?.id) || null }); }}
+                            onUse={() => { setUsage(current => current?.skill.id === skill.id ? null : { skill, source: resources.skills.find(base => base.id === skill.metadata?.derived_from?.id) || null }); }}
                             canEdit={canEdit && !creating && !editing}
                             key={skill.id}
                             onClone={() => {
@@ -340,6 +346,7 @@ export function SkillsSettingsPanel({
                                 void handleDelete(skill);
                             }}
                             onEdit={() => {
+                                setUsage(null);
                                 setEditing(skill);
                                 setCreating(false);
                             }}

@@ -1312,6 +1312,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai/usage/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Dashboard */
+        get: operations["usage_dashboard_api_ai_usage_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/usage/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Export */
+        get: operations["usage_export_api_ai_usage_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai/usage/history": {
         parameters: {
             query?: never;
@@ -1324,6 +1358,23 @@ export interface paths {
          * @description Returns all historical usage records grouped by period, provider, and model.
          */
         get: operations["get_ai_usage_history_api_ai_usage_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai/usage/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Requests */
+        get: operations["usage_requests_api_ai_usage_requests_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3488,6 +3539,26 @@ export interface paths {
         post?: never;
         /** Delete View */
         delete: operations["delete_view_api_mail_views__view_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/meetings/{job_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Meeting
+         * @description Resume only this owner's stopped job with its saved transcript and inputs.
+         */
+        post: operations["resume_meeting_api_meetings__job_id__resume_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6395,6 +6466,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/handwriting/cancel-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Handwriting Download */
+        post: operations["cancel_handwriting_download_api_vault_handwriting_cancel_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/handwriting/recognize": {
         parameters: {
             query?: never;
@@ -6408,8 +6496,9 @@ export interface paths {
          * Recognize Handwriting
          * @description Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.
          *
-         *     `correct` applies AI correction (accents/spelling) with the local LLM; if it's
-         *     `None`, the config default is used. `language` is an optional hint (ca/es/…).
+         *     `correct` applies correction through the configured AI provider, which can
+         *     be remote. If omitted, correction runs only when explicitly enabled in the
+         *     handwriting configuration. `language` is an optional hint (ca/es/…).
          */
         post: operations["recognize_handwriting_api_vault_handwriting_recognize_post"];
         delete?: never;
@@ -8631,6 +8720,40 @@ export interface paths {
         get: operations["list_pages_by_table_snapshot_api_vault_pages_by_table__table_id__snapshot_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/pages/creation-requests/{creation_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Creation Status */
+        get: operations["creation_status_api_vault_pages_creation_requests__creation_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/pages/creation-requests/{creation_key}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Creation */
+        post: operations["resume_creation_api_vault_pages_creation_requests__creation_key__resume_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11102,6 +11225,8 @@ export interface components {
             };
             /** Missing Tool Ids */
             missing_tool_ids: string[];
+            /** Modified At */
+            modified_at?: number | null;
             /** Name */
             name: string;
             origin: components["schemas"]["CatalogOrigin"];
@@ -11320,6 +11445,69 @@ export interface components {
             /** Validated Models */
             validated_models?: string[];
         };
+        /** AiUsageDashboardResponse */
+        AiUsageDashboardResponse: {
+            budget: components["schemas"]["AiUsageResponse"];
+            budget_summary: components["schemas"]["AiUsageSummaryResponse"];
+            currency: components["schemas"]["CurrencyInfoResponse"];
+            /** End */
+            end: string;
+            /** Granularity */
+            granularity: string;
+            /** Groups */
+            groups: components["schemas"]["AiUsageGroupResponse"][];
+            /** Legacy Excluded */
+            legacy_excluded: boolean;
+            /** Options */
+            options: {
+                [key: string]: components["schemas"]["AiUsageFilterOption"][];
+            };
+            /** Series */
+            series: components["schemas"]["AiUsageSeriesResponse"][];
+            /** Start */
+            start: string;
+            summary: components["schemas"]["AiUsageSummaryResponse"];
+            /** Timezone */
+            timezone: string;
+        };
+        /** AiUsageFilterOption */
+        AiUsageFilterOption: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** AiUsageGroupResponse */
+        AiUsageGroupResponse: {
+            /** Cached Tokens */
+            cached_tokens: number;
+            /** Calls */
+            calls: number;
+            /** Cost Ccy */
+            cost_ccy: number | null;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Estimated Calls */
+            estimated_calls: number;
+            /** Failed Calls */
+            failed_calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Legacy Records */
+            legacy_records: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Reasoning Tokens */
+            reasoning_tokens: number;
+            /** Unknown Cost Calls */
+            unknown_cost_calls: number;
+            /** Unknown Usage Calls */
+            unknown_usage_calls: number;
+        };
         /**
          * AiUsageHistoryPeriodResponse
          * @description Aggregated model usage for one historical billing period.
@@ -11363,6 +11551,59 @@ export interface components {
             /** Provider */
             provider: string;
         };
+        /** AiUsageRequestResponse */
+        AiUsageRequestResponse: {
+            /** Agent Id */
+            agent_id: string;
+            /** Agent Name */
+            agent_name: string;
+            /** Cached Tokens */
+            cached_tokens: number | null;
+            /** Cost Ccy */
+            cost_ccy: number | null;
+            /** Cost Source */
+            cost_source: string;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Created At */
+            created_at: string | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Id */
+            id: string;
+            /** Input Tokens */
+            input_tokens: number | null;
+            /** Model Id */
+            model_id: string;
+            /** Operation */
+            operation: string;
+            /** Origin */
+            origin: string;
+            /** Output Tokens */
+            output_tokens: number | null;
+            /** Period */
+            period: string;
+            /** Profile */
+            profile: string;
+            /** Provider */
+            provider: string;
+            /** Reasoning Tokens */
+            reasoning_tokens: number | null;
+            /** Status */
+            status: string;
+        };
+        /** AiUsageRequestsResponse */
+        AiUsageRequestsResponse: {
+            currency: components["schemas"]["CurrencyInfoResponse"];
+            /** Items */
+            items: components["schemas"]["AiUsageRequestResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /**
          * AiUsageResponse
          * @description Current-period AI spend and budget status.
@@ -11389,6 +11630,64 @@ export interface components {
             spent_ccy: number;
             /** Spent Usd */
             spent_usd: number;
+        };
+        /** AiUsageSeriesResponse */
+        AiUsageSeriesResponse: {
+            /** Cached Tokens */
+            cached_tokens: number;
+            /** Calls */
+            calls: number;
+            /** Cost Ccy */
+            cost_ccy: number | null;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Date */
+            date: string;
+            /** Estimated Calls */
+            estimated_calls: number;
+            /** Failed Calls */
+            failed_calls: number;
+            /** Groups */
+            groups: components["schemas"]["AiUsageGroupResponse"][];
+            /** Input Tokens */
+            input_tokens: number;
+            /** Legacy Records */
+            legacy_records: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Reasoning Tokens */
+            reasoning_tokens: number;
+            /** Unknown Cost Calls */
+            unknown_cost_calls: number;
+            /** Unknown Usage Calls */
+            unknown_usage_calls: number;
+        };
+        /** AiUsageSummaryResponse */
+        AiUsageSummaryResponse: {
+            /** Cached Tokens */
+            cached_tokens: number;
+            /** Calls */
+            calls: number;
+            /** Cost Ccy */
+            cost_ccy: number | null;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Estimated Calls */
+            estimated_calls: number;
+            /** Failed Calls */
+            failed_calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Legacy Records */
+            legacy_records: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Reasoning Tokens */
+            reasoning_tokens: number;
+            /** Unknown Cost Calls */
+            unknown_cost_calls: number;
+            /** Unknown Usage Calls */
+            unknown_usage_calls: number;
         };
         /**
          * AliasIndexResponse
@@ -12001,6 +12300,11 @@ export interface components {
         Body_record_meeting_api_meetings_record_post: {
             /** Audio */
             audio: string;
+            /**
+             * Language
+             * @default auto
+             */
+            language: string;
             /**
              * Mode
              * @default presencial
@@ -13913,8 +14217,18 @@ export interface components {
             criterion: string;
             /** Evidence */
             evidence: string;
+            /**
+             * Input Quote
+             * @default
+             */
+            input_quote: string;
             /** Met */
             met: boolean;
+            /**
+             * Output Quote
+             * @default
+             */
+            output_quote: string;
         };
         /** CslStyleResponse */
         CslStyleResponse: {
@@ -14474,8 +14788,7 @@ export interface components {
             status: "ok";
             /** Updated Field */
             updated_field: string;
-            /** Value */
-            value: string;
+            value: components["schemas"]["JsonValue"];
         } & {
             [key: string]: unknown;
         };
@@ -15402,6 +15715,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** HandwritingDownloadCancellationResponse */
+        HandwritingDownloadCancellationResponse: {
+            /** Cancelling */
+            cancelling: boolean;
+        };
         /** HandwritingRecognitionResponse */
         HandwritingRecognitionResponse: {
             /** Corrected */
@@ -15419,10 +15737,38 @@ export interface components {
         HandwritingStatusResponse: {
             /** Available */
             available: boolean;
+            /**
+             * Cancelling
+             * @default false
+             */
+            cancelling: boolean;
+            /**
+             * Downloaded
+             * @default false
+             */
+            downloaded: boolean;
+            /**
+             * Downloaded Bytes
+             * @default 0
+             */
+            downloaded_bytes: number;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
             /** Loaded */
             loaded: boolean;
             /** Model */
             model: string;
+            /**
+             * State
+             * @default not_downloaded
+             * @enum {string}
+             */
+            state: "not_downloaded" | "downloaded" | "downloading" | "loading" | "ready" | "cancelled" | "failed";
+            /** Total Bytes */
+            total_bytes?: number | null;
         };
         /** HandwritingWarmupResponse */
         HandwritingWarmupResponse: {
@@ -20000,6 +20346,45 @@ export interface components {
             comments: components["schemas"]["PageComment"][];
         };
         /**
+         * PageCreationStatusResponse
+         * @description A receipt proves creation completion; unknown never authorizes a retry.
+         */
+        PageCreationStatusResponse: {
+            /**
+             * Can Resume
+             * @default false
+             */
+            can_resume: boolean;
+            /**
+             * Page Available
+             * @default false
+             */
+            page_available: boolean;
+            /** Page Id */
+            page_id: string;
+            result?: components["schemas"]["PageMutationResponse"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "completed" | "unknown";
+            /** Steps */
+            steps?: components["schemas"]["PageCreationStepResponse"][];
+        };
+        /**
+         * PageCreationStepResponse
+         * @description Started work remains uncertain after a crash; completion is explicit.
+         */
+        PageCreationStepResponse: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "running" | "completed" | "uncertain";
+            /** Step */
+            step: string;
+        };
+        /**
          * PageDeleteResponse
          * @description Soft-delete receipt returned when a page enters the vault trash.
          */
@@ -22699,6 +23084,8 @@ export interface components {
         SkillTrialResult: {
             /** Checks */
             checks: components["schemas"]["CriterionResult"][];
+            /** Missing Inputs */
+            missing_inputs?: string[];
             /**
              * Mode
              * @default text_trial
@@ -27489,6 +27876,102 @@ export interface operations {
             };
         };
     };
+    usage_dashboard_api_ai_usage_dashboard_get: {
+        parameters: {
+            query?: {
+                agent?: string;
+                end?: string | null;
+                granularity?: "day" | "month";
+                group_by?: "provider" | "model" | "agent" | "operation" | "origin" | "profile";
+                model?: string;
+                operation?: string;
+                origin?: string;
+                profile?: string;
+                provider?: string;
+                start?: string | null;
+                timezone?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiUsageDashboardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_export_api_ai_usage_export_get: {
+        parameters: {
+            query?: {
+                agent?: string;
+                end?: string | null;
+                granularity?: "day" | "month";
+                group_by?: "provider" | "model" | "agent" | "operation" | "origin" | "profile";
+                model?: string;
+                operation?: string;
+                origin?: string;
+                profile?: string;
+                provider?: string;
+                start?: string | null;
+                timezone?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_ai_usage_history_api_ai_usage_history_get: {
         parameters: {
             query?: never;
@@ -27512,6 +27995,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiUsageHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_requests_api_ai_usage_requests_get: {
+        parameters: {
+            query?: {
+                agent?: string;
+                end?: string | null;
+                granularity?: "day" | "month";
+                group_by?: "provider" | "model" | "agent" | "operation" | "origin" | "profile";
+                model?: string;
+                operation?: string;
+                origin?: string;
+                page?: number;
+                page_size?: number;
+                profile?: string;
+                provider?: string;
+                start?: string | null;
+                timezone?: string;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiUsageRequestsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32382,6 +32915,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_meeting_api_meetings__job_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingStartResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -38511,6 +39082,42 @@ export interface operations {
             };
         };
     };
+    cancel_handwriting_download_api_vault_handwriting_cancel_download_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandwritingDownloadCancellationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recognize_handwriting_api_vault_handwriting_recognize_post: {
         parameters: {
             query?: never;
@@ -42558,6 +43165,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                "Idempotency-Key"?: string | null;
                 "x-user-id"?: string | null;
                 "x-vault-id"?: string | null;
                 "x-workspace-id"?: string | null;
@@ -43532,6 +44140,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TablePagesSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    creation_status_api_vault_pages_creation_requests__creation_key__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                creation_key: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageCreationStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_creation_api_vault_pages_creation_requests__creation_key__resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                creation_key: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageMutationResponse"];
                 };
             };
             /** @description Validation Error */

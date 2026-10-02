@@ -42,6 +42,45 @@ export interface HandwritingWarmupResponse {
   readonly warming: boolean;
 }
 
+export interface HandwritingStatusResponse {
+  readonly available: boolean;
+  readonly loaded: boolean;
+  readonly model: string;
+  readonly downloaded: boolean;
+  readonly state: 'not_downloaded' | 'downloaded' | 'downloading' | 'loading' | 'ready' | 'cancelled' | 'failed';
+  readonly downloaded_bytes: number;
+  readonly total_bytes: number | null;
+  readonly cancelling: boolean;
+  readonly error: string;
+}
+
+function isHandwritingStatusResponse(payload: unknown): payload is HandwritingStatusResponse {
+  return isRecord(payload) && typeof payload.available === 'boolean' && typeof payload.loaded === 'boolean'
+      && typeof payload.model === 'string' && typeof payload.downloaded === 'boolean'
+      && typeof payload.state === 'string' && ['not_downloaded', 'downloaded', 'downloading', 'loading', 'ready', 'cancelled', 'failed'].includes(payload.state)
+      && Number.isSafeInteger(payload.downloaded_bytes) && Number(payload.downloaded_bytes) >= 0
+      && (payload.total_bytes === null || (Number.isSafeInteger(payload.total_bytes) && Number(payload.total_bytes) >= 0))
+      && typeof payload.cancelling === 'boolean' && typeof payload.error === 'string';
+}
+
+export async function fetchHandwritingStatus(signal?: AbortSignal): Promise<HandwritingStatusResponse> {
+  const result = await apiClient.GET('/api/vault/handwriting/status', { signal });
+  const payload = unwrapApiResult<unknown, unknown>(result);
+  if (!isHandwritingStatusResponse(payload)) {
+    return invalidResponse(result.response, 'The API returned an invalid handwriting status');
+  }
+  return payload;
+}
+
+export async function cancelHandwritingDownload(signal?: AbortSignal): Promise<boolean> {
+  const result = await apiClient.POST('/api/vault/handwriting/cancel-download', { signal });
+  const payload = unwrapApiResult<unknown, unknown>(result);
+  if (!isRecord(payload) || typeof payload.cancelling !== 'boolean') {
+    return invalidResponse(result.response, 'The API returned an invalid download cancellation');
+  }
+  return payload.cancelling;
+}
+
 
 export interface HandwritingRecognitionResponse {
   readonly corrected: boolean;

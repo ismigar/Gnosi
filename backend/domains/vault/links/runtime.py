@@ -87,13 +87,15 @@ def _compute_id_title_index() -> dict[str, str]:
     """Actual computation: id→title for the whole vault and dashboards. May run an rglob on
     OneDrive cold (expensive). Call only outside the request (background)."""
     index: dict[str, str] = {}
+    from backend.domains.vault.pages.foundation import _query_page_title
     for file_path, metadata, _body, is_dashboard in _iter_linkable_page_documents():
         try:
             if is_dashboard:
                 page_id = str(metadata.get("id") or file_path.stem)
             else:
                 page_id = str(metadata.get("id") or metadata.get("migration_id") or file_path.stem)
-            title = str(metadata.get("title") or file_path.stem)
+            resolved = metadata.get("title") or file_path.stem if is_dashboard else _query_page_title(metadata, file_path)
+            title = str(file_path.stem if resolved is None else resolved)
             index[page_id] = title
         except Exception as e:
             _legacy.log.warning(f"Error indexing {file_path.name}: {e}")

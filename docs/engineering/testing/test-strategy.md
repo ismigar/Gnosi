@@ -97,6 +97,14 @@ uv sync --frozen --group docs-ci
 uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 ```
 
+On macOS, use `--resource-profile mac-idle` for bounded local validation. It replaces the default heap with 1536 MiB, runs at priority 10 with one worker and computation thread, and supervises a 2 GiB RSS budget for the command and descendants. Each phase starts only after 30 seconds of normal memory pressure. Static checks, builds and suites have limits of 5, 10 and 15 minutes respectively.
+
+Sustained warning pressure for 2 seconds, critical pressure, timeout, excess RSS or failed supervision stop the owned processes and leave validation incomplete. There is no automatic retry or limit increase. Keep other validation jobs stopped; do not close user applications or load local models as part of this audit. Node contract and desktop suites explicitly use `--test-concurrency=1`.
+
+```bash
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main --resource-profile mac-idle
+```
+
 The locked Python environment is checked without installing packages or removing extras.
 
 The direct Python entry point avoids pnpm's outer automatic dependency check.

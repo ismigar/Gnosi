@@ -14,7 +14,7 @@ it('autosaves an adopted draft and updates its stable identity and revision befo
     saved.mockImplementation(body => Promise.resolve({ skill_id: body.skill_id || '', revision: body.expected_revision ? 'second' : 'first', assigned: false, missing_tools: [] }));
     const host = document.createElement('div'); document.body.append(host); const root = createRoot(host);
     try {
-        await act(async () => { root.render(<LearnedSkillEditor agentId="helper" initialSkill={{ name: 'Synthetic', instructions: 'First', criteria: ['Grounded'] }} />); await Promise.resolve(); });
+        await act(async () => { root.render(<LearnedSkillEditor agentId="helper" initialSkill={{ name: 'Synthetic', description: 'Synthetic workflow', instructions: 'First', criteria: ['Grounded'] }} />); await Promise.resolve(); });
         await act(async () => { await vi.advanceTimersByTimeAsync(600); });
         expect(saved).toHaveBeenCalledTimes(1);
         const id = saved.mock.calls[0]?.[0].skill_id;

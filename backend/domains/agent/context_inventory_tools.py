@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, cast
 
@@ -22,6 +24,7 @@ from backend.domains.agent.context_storage import (
     _authorized_inventory_tables,
     _inventory_table_matches,
     _page_body,
+    _registry,
     _searchable_page_records,
     _vault_root,
 )
@@ -29,11 +32,73 @@ from backend.domains.agent.context_storage import (
 log = logging.getLogger(__name__)
 
 
+def _revision_value(value: Any) -> Any:
+    """Make heterogeneous frontmatter deterministic without dropping key types."""
+    if isinstance(value, dict):
+        return {
+            f"{type(key).__name__}:{key}": _revision_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_revision_value(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted((_revision_value(item) for item in value), key=str)
+    return value
+
+
 class InventoryContextTool:
     """Bound exhaustive inventory handler for one reference set."""
 
     def __init__(self, inventory_refs: list[dict[str, Any]]) -> None:
         self.inventory_refs = inventory_refs
+
+    @staticmethod
+    def _refresh_index(root: Path | None) -> bool:
+        from backend.services.context_vars import get_active_vault_path
+        active = get_active_vault_path()
+        if root is None or active is None or Path(active).resolve() != root.resolve():
+            return False
+        from backend.domains.vault.pages.index_service import get_cached_page_entries
+        get_cached_page_entries(force_refresh=True, require_refresh=True)
+        return True
+
+    @staticmethod
+    def _fresh_relation_terms(records: list[dict[str, Any]]) -> dict[str, tuple[frozenset[str], frozenset[str]]]:
+        titles = {record["id"]: record["title"] for record in records if record["id"]}
+        terms: dict[str, tuple[frozenset[str], frozenset[str]]] = {}
+        for record in records:
+            metadata = json.dumps(record["metadata"], ensure_ascii=False, default=str)
+            identifiers = set(re.findall(r"[\w.-]+", metadata))
+            related = {titles[identifier] for identifier in identifiers.intersection(titles)
+                       if identifier != record["id"]}
+            terms[record["id"]] = (frozenset(), frozenset(related))
+        return terms
+
+    def _observed_state(self, records: list[dict[str, Any]]) -> str:
+        """Fingerprint attached metadata and file identities around a read.
+
+        This is an optimistic change detector, not an atomic filesystem snapshot.
+        Re-discovery at the end also detects newly created and removed records.
+        """
+        observed = []
+        for record in records:
+            stat = Path(record['path']).stat()
+            observed.append({
+                **{key: record[key] for key in ('id', 'title', 'source_id', 'path', 'metadata')},
+                'file': (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns),
+            })
+        registry = _registry()
+        value = {'records': sorted(observed, key=lambda item: (item['id'], item['path'])),
+                 'scope': self.inventory_refs,
+                 'tables': [item['table'] for item in _authorized_inventory_tables(self.inventory_refs)],
+                 'options': registry.get('option_catalogs', {})}
+        return hashlib.sha256(json.dumps(_revision_value(value), sort_keys=True,
+                                        ensure_ascii=False, default=str).encode()).hexdigest()
+
+    @staticmethod
+    def _changed_result() -> str:
+        return json.dumps({'error': 'inventory_changed_restart_pagination',
+                           'restart_required': True, 'records': [], 'has_more': False})
 
     @staticmethod
     def _requested_types(record_types: Optional[list[str]]) -> list[str]:
@@ -135,6 +200,9 @@ class InventoryContextTool:
     ) -> tuple[str, str, bool]:
         cached_body = documents.get(record["path"])
         cached_terms = indexed_terms.get(record["id"])
+        if "_fresh_body" in record:
+            related = " ".join(cached_terms[1]) if cached_terms is not None and include_relations else ""
+            return str(record["_fresh_body"]), related, False
         if cached_body is None and cached_terms is None:
             return _page_body(record["page"]), "", False
         body = cached_body or (" ".join(cached_terms[0]) if cached_terms else "")
@@ -186,6 +254,9 @@ class InventoryContextTool:
                 related,
                 semantic_terms,
             )
+            if not query and record.get("_filter_match_kind"):
+                kind = record["_filter_match_kind"]
+                basis = ["exact_field_equality"]
             if score:
                 matches.append(
                     {
@@ -254,6 +325,8 @@ class InventoryContextTool:
         include_relations: bool = True,
         offset: int = 0,
         limit: int = MAX_CONTEXT_INVENTORY_ROWS,
+        property_filters: Optional[dict[str, Any]] = None,
+        expected_revision: str = "",
     ) -> str:
         """Enumerate exact matching records across attached Vault sources.
 
@@ -265,16 +338,48 @@ class InventoryContextTool:
         tasks, projects, and areas. An empty query lists every record in scope.
         Set `include_relations` to false when the request asks for a literal
         occurrence rather than records conceptually related through links.
+        `property_filters` applies exact field equality before text matching.
+        Relation values may be exact attached resource IDs or complete titles.
+        Pass the previous page's `snapshot_revision` as `expected_revision`
+        when continuing. Changed results require restarting from offset zero.
         """
         bounded_query = " ".join(str(query or "").split())[:MAX_CONTEXT_INVENTORY_QUERY_CHARS]
         root = _vault_root()
+        try:
+            refreshed = self._refresh_index(root)
+        except RuntimeError as error:
+            if str(error) == 'vault_index_refresh_in_progress':
+                return self._changed_result()
+            raise
         _literal, semantic_terms = _inventory_query_terms(bounded_query, vault_path=root)
         authorized = [item["table"] for item in _authorized_inventory_tables(self.inventory_refs)]
         requested = self._requested_types(record_types)
         bounded_query, requested = self._dynamic_types(bounded_query, requested, authorized)
-        records = _searchable_page_records(self.inventory_refs, requested_types=requested)
-        documents, indexed_terms, built_at = self._cached_indexes(records)
+        all_records = _searchable_page_records(self.inventory_refs) if refreshed else []
+        observed_state = ''
+        if refreshed:
+            try:
+                observed_state = self._observed_state(all_records)
+            except OSError:
+                return self._changed_result()
+        records = [record for record in all_records if _inventory_table_matches(record["table"], requested)] if refreshed else _searchable_page_records(self.inventory_refs, requested_types=requested)
+        searched_count = len(records)
+        from backend.domains.agent.context_filters import filter_inventory_records
+        records = filter_inventory_records(self.inventory_refs, records, property_filters)
+        documents: dict[str, str]
+        if refreshed:
+            # Bodies and relation titles must agree with the newly discovered
+            # metadata, rather than an older background text/link cache.
+            for record in records:
+                record["_fresh_body"] = _page_body(record["page"])
+            documents = {}
+            indexed_terms = self._fresh_relation_terms(all_records)
+            built_at = 0.0
+        else:
+            documents, indexed_terms, built_at = self._cached_indexes(records)
         available, resolved, unresolved = self._table_resolution(authorized, requested)
+        from backend.domains.vault.tables.catalogs.core import get_prop_options
+        option_catalogs = _registry().get("option_catalogs", {})
         resolved_ids = {str(table.get("id") or "") for table in resolved}
         matches, direct_reads, covered = self._matches(
             records,
@@ -288,12 +393,52 @@ class InventoryContextTool:
             include_relations=include_relations,
         )
         counts_by_type, counts_by_kind = self._counts(matches)
+        if refreshed:
+            try:
+                self._refresh_index(root)
+                final_records = _searchable_page_records(self.inventory_refs)
+                if observed_state != self._observed_state(final_records):
+                    return self._changed_result()
+            except OSError:
+                return self._changed_result()
+            except RuntimeError as error:
+                if str(error) == 'vault_index_refresh_in_progress':
+                    return self._changed_result()
+                raise
+        # Bind pagination to the complete observed result, scope and schema.
+        # Cache timestamps are deliberately excluded: rebuilding an unchanged
+        # index must not invalidate a continuation. This is not a disk snapshot.
+        revision = hashlib.sha256(json.dumps(_revision_value({
+            "scope": self.inventory_refs,
+            "root": str(root),
+            "tables": authorized,
+            "options": option_catalogs,
+            "query": bounded_query,
+            "terms": semantic_terms,
+            "types": requested,
+            "relations": bool(include_relations),
+            "filters": property_filters or {},
+            "searched_count": searched_count,
+            "observed_file_state": observed_state,
+            "candidate_metadata": [
+                {key: record[key] for key in ("id", "title", "source_id", "path", "metadata")}
+                for record in sorted(records, key=lambda item: (item["id"], item["path"]))
+            ],
+            "matches": matches,
+        }), sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+        if expected_revision and expected_revision != revision:
+            return self._changed_result()
         bounded_offset = max(0, min(int(offset), len(matches)))
         bounded_limit = max(1, min(int(limit), MAX_CONTEXT_INVENTORY_ROWS))
         page = matches[bounded_offset : bounded_offset + bounded_limit]
         for record in page:
             record.pop("score", None)
         payload = {
+            "snapshot_revision": revision,
+            "inventory_basis": "attached_indexed_records",
+            "filesystem_snapshot_verified": False,
+            "concurrent_change_check": "attached_records_reindexed_and_statted" if refreshed else "not_checked",
+            "index_refreshed_before_search": refreshed,
             "query": bounded_query,
             "query_expansion": {
                 "applied": bool(semantic_terms),
@@ -305,6 +450,16 @@ class InventoryContextTool:
                 ),
             },
             "include_relations": bool(include_relations),
+            "property_filters": property_filters or {},
+            "field_definitions": {
+                str(table["id"]): [
+                    {
+                        **{key: field[key] for key in ("id", "name", "type") if key in field},
+                        "options": get_prop_options(field, option_catalogs),
+                    }
+                    for field in table.get("properties", [])
+                ] for table in resolved if table.get("id")
+            },
             "match_semantics": (
                 "all normalized query tokens must occur in canonical text, metadata, "
                 "or resolved relation titles"
@@ -317,7 +472,7 @@ class InventoryContextTool:
             "available_record_types": [
                 str(table.get("name") or table.get("id") or "") for table in available
             ],
-            "searched_count": len(records),
+            "searched_count": searched_count,
             "text_index": {
                 "cached_document_count": len(documents),
                 "cached_term_count": len(indexed_terms),

@@ -1,3 +1,4 @@
+import { DraftSaveStatus } from '../../shared/editor/DraftSaveStatus';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runSkillTrial, saveLearnedSkill, type LearnedSkill, type SkillTrialResult } from '../../shared/api/agent-learning';
@@ -57,7 +58,8 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
     };
     if (closed) return null;
     return <div className="agent-learning" aria-busy={busy}>
-        <p className="agent-learning__muted">{t('learning.review_help')}</p>
+        <div className="flex items-center gap-2"><p className="agent-learning__muted">{t('learning.review_help')}</p>
+            <DraftSaveStatus status={!valid ? 'incomplete' : autosave.status} /></div>
         <label>{t('learning.name')}<input className="gnosi-input" value={skill.name} maxLength={160} disabled={busy} onChange={event => { change({ name: event.target.value }); }} /></label>
         <label>{t('learning.description')}<textarea className="gnosi-input" value={skill.description || ''} rows={2} maxLength={2000} disabled={busy} onChange={event => { change({ description: event.target.value }); }} /></label>
         <InstructionMarkdownEditor label={t('learning.instructions')} value={skill.instructions}
@@ -72,14 +74,19 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
             <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={busy || !valid || !testInput.trim()} onClick={() => { void runTrial(); }}>{t(busy ? 'common.loading' : 'learning.run_trial')}</button>
             {trial && <>
                 <pre>{trial.output}</pre>
+                {Boolean(trial.missing_inputs?.length) && <div><strong>{t('learning.missing_trial_inputs')}</strong><ul>{trial.missing_inputs?.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
                 <p className="agent-learning__muted">{t('learning.trial_review_help')}</p>
-                <ul>{trial.checks.map((check, index) => <li key={index}><strong>{t(check.met ? 'learning.met' : 'learning.unmet')}: {check.criterion}</strong><p>{check.evidence}</p></li>)}</ul>
+                <ul>{trial.checks.map((check, index) => <li key={index}>
+                    <strong>{t(check.met ? 'learning.met' : 'learning.unmet')}: {check.criterion}</strong>
+                    <p>{check.evidence}</p>
+                    {check.input_quote && <p><strong>{t('learning.input_evidence')}</strong> <q>{check.input_quote}</q></p>}
+                    {check.output_quote && <p><strong>{t('learning.output_evidence')}</strong> <q>{check.output_quote}</q></p>}
+                </li>)}</ul>
                 <button className="btn-gnosi btn-gnosi-secondary" type="button" disabled={(skill.examples || []).length >= 8 || testInput.length > 8000 || trial.output.length > 8000} onClick={() => { change({ examples: [...(skill.examples || []), { name: t('learning.validated_example'), input: testInput, expected: trial.output }] }); }}>{t('learning.keep_example')}</button>
             </>}
         </section>
         <div className="agent-learning__toggle"><GnosiToggle active={assign} label={t('learning.assign')} disabled={busy} onChange={() => { setAssign(value => !value); }} /><span>{t('learning.assign')}</span></div>
         {error && <p role="alert" className="agent-learning__error">{error}</p>}
-        <p role={autosave.status === 'error' ? 'alert' : 'status'}>{t(`skill_autosave.${!valid ? 'incomplete' : autosave.status}`)}</p>
         {autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
         <button className="btn-gnosi btn-gnosi-primary" type="button" disabled={busy || autosave.status === 'saving'} onClick={() => { void close(); }}>{t('common.close')}</button>
     </div>;

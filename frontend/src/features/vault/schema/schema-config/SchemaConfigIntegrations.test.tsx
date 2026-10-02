@@ -6,7 +6,7 @@ import type { SchemaConfigModalProps } from './types';
 describe('schema plugins, catalogs and keyboard contracts', () => {
     const modal = setupModal();
 
-    it('sends the same AI action request and applies the generated config only to the selected functionality', async () => {
+    it('sends field identities and catalog options and applies the generated config only to the selected functionality', async () => {
         const save = vi.fn<NonNullable<SchemaConfigModalProps['onSave']>>();
         vi.mocked(schemaApi.generateButtonAction).mockResolvedValue({ status: 'success', result: {
             button_action: 'ai_prompt', button_label: 'Summarize', button_config: { prompt: 'Summarize Title', target_field: 'Title', plugin: { keep: true } },
@@ -17,7 +17,10 @@ describe('schema plugins, catalogs and keyboard contracts', () => {
         if (!prompt) throw new Error('Missing AI prompt');
         await change(prompt, 'Summarize title');
         await click(button('Programar amb IA ✨'));
-        expect(schemaApi.generateButtonAction).toHaveBeenCalledExactlyOnceWith({ prompt: 'Summarize title', fields: [{ name: 'Title', type: 'title' }, { name: 'Status', type: 'status' }] });
+        expect(schemaApi.generateButtonAction).toHaveBeenCalledExactlyOnceWith({ prompt: 'Summarize title', fields: [
+            { id: 'fld_00000001', name: 'Title', type: 'title', options: [] },
+            { id: 'fld_00000002', name: 'Status', type: 'status', options: [{ name: 'Open' }, { name: 'Done' }] },
+        ] });
         await advance();
         expect(save.mock.calls.at(-1)?.[1].functionalities).toEqual([{ id: 'fn_saved', enabled: false, label: 'Summarize', action: 'ai_prompt', config: { prompt: 'Summarize Title', target_field: 'Title', plugin: { keep: true } } }]);
     });
@@ -35,6 +38,25 @@ describe('schema plugins, catalogs and keyboard contracts', () => {
         expect(save.mock.calls.at(-1)?.[1]).toMatchObject({ enableDrupalSync: true, drupalBundle: 'historic', drupalFieldMapping: { __body__: 'body_old', fld_00000001: 'title_old' } });
         await click(button('Link existing records by title'));
         expect(schemaApi.matchDrupalRows).toHaveBeenCalledExactlyOnceWith('table-1');
+    });
+
+    it('includes relation targets and cardinality in the AI button contract', async () => {
+        vi.mocked(schemaApi.generateButtonAction).mockResolvedValue({ status: 'ok', result: {
+            button_action: 'ai_prompt', button_label: 'Link', button_config: { prompt: 'Link the record', target_field: 'Links' },
+        } });
+        await modal.render({ currentSchema: { ...baseSchema, Links: 'relation', Links_config: {
+            id: 'fld_00000003', relation_database_id: 'resources', cardinality: 'many-to-one', limit: 1,
+        } }, initialFunctionalities: [{ id: 'fn_relation', enabled: true, label: 'Link', action: 'set_fields', config: { assignments: [] } }] });
+        await click(button('Program with AI'));
+        const prompt = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Type your request here..."]');
+        if (!prompt) throw new Error('Missing AI prompt');
+        await change(prompt, 'Link the record');
+        await click(button('Programar amb IA ✨'));
+        expect(schemaApi.generateButtonAction).toHaveBeenCalledExactlyOnceWith({ prompt: 'Link the record', fields: [
+            { id: 'fld_00000001', name: 'Title', type: 'title', options: [] },
+            { id: 'fld_00000002', name: 'Status', type: 'status', options: [{ name: 'Open' }, { name: 'Done' }] },
+            { id: 'fld_00000003', name: 'Links', type: 'relation', options: [], relation_database_id: 'resources', cardinality: 'many-to-one', limit: 1 },
+        ] });
     });
 
     it('shows the project-planning period controls and persists their existing contract', async () => {

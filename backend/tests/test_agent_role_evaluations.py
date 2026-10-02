@@ -71,6 +71,22 @@ def test_missing_usage_is_unknown_and_bad_contract_not_passed(setup):
     assert not service.validate_result('{"x":true}', {'x':1})
 
 
+def test_correct_content_in_code_fences_is_a_format_failure_not_a_pass(setup):
+    scope, profiles, registry = setup
+
+    def fenced(profile, prompt):
+        result = fixture_invoker(profile, prompt)
+        return SimpleNamespace(content='```json\n' + result.content + '\n```')
+
+    report = service.run_evaluation(
+        service.EvaluationRequest(agent_id='general', role='allrounder', authorize_model_calls=True),
+        scope, profiles, registry, fenced,
+    )
+    assert report['score'] == 0
+    assert all(not case['passed'] and case['failure'] == 'json_format_mismatch' for case in report['cases'])
+    assert '```' not in json.dumps(artifacts.list_artifacts(scope, 'role_evaluation'))
+
+
 @pytest.mark.parametrize('change', [{'authorize_model_calls':False}, {'agent_id':'missing'}])
 def test_no_calls_without_explicit_authorization_or_available_profile(setup,change):
     scope,profiles,registry=setup

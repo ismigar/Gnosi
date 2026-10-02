@@ -37,6 +37,19 @@ def test_handwriting_routes_validate_historical_dictionaries(monkeypatch) -> Non
     monkeypatch.setattr(handwriting_routes.handwriting, "is_available", lambda: True)
     monkeypatch.setattr(handwriting_routes.handwriting, "is_loaded", lambda: True)
     monkeypatch.setattr(handwriting_routes.handwriting, "_model_id", lambda: "local-model")
+    download_status = {
+        "loaded": True,
+        "model": "local-model",
+        "downloaded": True,
+        "state": "ready",
+        "downloaded_bytes": 1000,
+        "total_bytes": 1000,
+        "error": "",
+        "cancelling": False,
+    }
+    monkeypatch.setattr(
+        handwriting_routes.handwriting, "download_status", lambda: dict(download_status)
+    )
     monkeypatch.setattr(handwriting_routes.handwriting, "warmup", lambda: False)
     monkeypatch.setattr(
         handwriting_routes.handwriting,
@@ -49,6 +62,12 @@ def test_handwriting_routes_validate_historical_dictionaries(monkeypatch) -> Non
         "available": True,
         "loaded": True,
         "model": "local-model",
+        "downloaded": True,
+        "state": "ready",
+        "downloaded_bytes": 1000,
+        "total_bytes": 1000,
+        "error": "",
+        "cancelling": False,
     }
     assert asyncio.run(handwriting_routes.handwriting_warmup()) == {
         "warming": False,

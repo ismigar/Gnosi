@@ -17,6 +17,7 @@ from backend.domains.agent.gnosi_support import (
     _resolve_page,
     _resolve_snapshotted_row_path,
     _rollback_page_items,
+    _sidecar_snapshot,
     _table,
     _table_rows_snapshot,
     _value_revision,
@@ -88,6 +89,7 @@ def _prepare_title_updates(
                 "id": row_id,
                 "path": path,
                 "original": path.read_bytes(),
+                **_sidecar_snapshot(path, row_id),
                 "metadata": new_metadata,
                 "body": body,
             }
@@ -167,6 +169,7 @@ def _prepare_bulk_updates(updates: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "id": row_id,
                 "path": path,
                 "original": path.read_bytes(),
+                **_sidecar_snapshot(path, row_id),
                 "metadata": new_metadata,
                 "body": body,
             }

@@ -743,3 +743,16 @@ def test_team_repair_retains_original_evidence_and_timeout(team_runtime):
     assert request["input"] == "bad JSON"
     assert request["data"]["original_input"] == "Complete original evidence"
     assert request["timeout_seconds"] == 900
+
+
+@pytest.mark.parametrize('enforce', [False, True])
+def test_team_monthly_block_respects_toggle(team_runtime, monkeypatch, enforce):
+    from backend.agent import model_router
+    from backend.services import agent_team_runtime as teams
+    scope, snapshot, _, _ = team_runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': True, 'budget': {'enforce_block': enforce}})
+    candidate, reason, _ = teams._candidate(snapshot.profile, scope, ['worker'], [], 'test')
+    if enforce:
+        assert candidate is None and reason == 'budget_exceeded'
+    else:
+        assert candidate is not None and candidate['id'] == 'worker'

@@ -14,6 +14,14 @@ from backend.api import vault_routes
 from backend.domains.vault.translation import routes
 
 
+@pytest.fixture
+def button_catalog_scope(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from backend.services import agent_execution_scope, agent_skill_catalog
+    monkeypatch.setattr(agent_execution_scope, "current_scope", lambda: SimpleNamespace(vault_path=str(tmp_path)))
+    monkeypatch.setattr(agent_skill_catalog, "get_skill_catalog", lambda: SimpleNamespace(list_entries=lambda path: []))
+
+
 @pytest.mark.parametrize("name,key", [
     ("sync_drupal_row", "item_id"), ("translate_row", "item_id"),
     ("generate_button_action", "prompt"), ("execute_button_action", "note_id"),
@@ -65,7 +73,7 @@ def test_sync_bulk_preserves_stringification_duplicates_and_raw_error_id(
         "errors": [{"item_id": 7, "detail": {"reason": "synthetic"}}]}
 
 
-def test_button_config_error_occurs_after_page_read_and_parse(
+def test_invalid_button_config_is_rejected_before_page_read(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     page = tmp_path / "synthetic.md"
@@ -79,15 +87,16 @@ def test_button_config_error_occurs_after_page_read_and_parse(
         return {}, raw
     monkeypatch.setattr(vault_routes, "find_page_path", find)
     monkeypatch.setattr(vault_routes, "parse_frontmatter", parse)
-    with pytest.raises(AttributeError, match="'int' object has no attribute 'get'"):
+    with pytest.raises(HTTPException) as error:
         asyncio.run(routes.execute_button_action({
             "note_id": " note ", "button_action": "ai_prompt", "button_config": 7,
         }))
-    assert seen == ["note", "body"]
+    assert error.value.status_code == 400
+    assert seen == []
 
 
 @pytest.mark.parametrize("raw", ["null", "[]", "7", '"text"', "not JSON"])
-def test_invalid_generated_shape_is_an_explicit_failure(monkeypatch, raw):
+def test_invalid_generated_shape_is_an_explicit_failure(monkeypatch, raw, button_catalog_scope):
     from backend.services import agent_execution
     from fastapi import HTTPException
     monkeypatch.setattr(agent_execution, "generate_for", lambda *args, **kwargs: (raw, "fake"))
@@ -96,11 +105,23 @@ def test_invalid_generated_shape_is_an_explicit_failure(monkeypatch, raw):
     assert error.value.status_code == 502
 
 
-def test_valid_button_configuration_preserves_requested_action(monkeypatch):
+def test_valid_button_configuration_preserves_requested_action(monkeypatch, button_catalog_scope):
     import json
     from backend.services import agent_execution
     value = {"button_label":"Review", "button_action":"ai_prompt", "button_config":{"prompt":"Review the supplied record", "target_field":"Summary"}}
     monkeypatch.setattr(agent_execution,"generate_for", lambda *args,**kwargs:(json.dumps(value),"fake"))
-    result = asyncio.run(routes.generate_button_action({"prompt":"Review this"}))
+    result = asyncio.run(routes.generate_button_action({"prompt":"Review this", "fields": [{"id": "summary", "name": "Summary", "type": "text"}]}))
     assert result["status"] == "ok"
     assert result["result"]["button_action"] == "ai_prompt"
+
+
+def test_generator_rejects_a_structurally_valid_but_wrong_field_value(monkeypatch, button_catalog_scope):
+    import json
+    from backend.services import agent_execution
+    value = {"button_label": "Revisar", "button_action": "set_fields", "button_config": {
+        "assignments": [{"field": "estat", "value": "Inventat"}]}}
+    monkeypatch.setattr(agent_execution, "generate_for", lambda *args, **kwargs: (json.dumps(value), "fake"))
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(routes.generate_button_action({"prompt": "Revisar", "fields": [
+            {"id": "status", "name": "estat", "type": "status", "options": ["En revisió"]}]}))
+    assert error.value.status_code == 502

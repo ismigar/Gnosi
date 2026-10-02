@@ -85,7 +85,7 @@ export const buildModelProfileMap = (
     const profiles = new Map<string, ModelProfile>();
     for (const model of activeModels) {
         if (!model.model_id) continue;
-        profiles.set(model.model_id, {
+        profiles.set(`${model.provider || ""}:${model.model_id}`, {
             name: model.name || model.model_id,
             profile: model.profile || 'unrated',
             provider: model.provider || '',
@@ -148,7 +148,7 @@ export const processAiUsageHistory = ({
         if (!period) continue;
         for (const row of period.models) {
             const provider = row.provider || 'generic';
-            const meta = modelProfiles.get(row.model_id) ?? {
+            const meta = modelProfiles.get(`${provider}:${row.model_id}`) ?? {
                 name: row.model_id,
                 profile: 'unrated',
                 provider,
@@ -157,7 +157,7 @@ export const processAiUsageHistory = ({
             totalTokensOut += row.out;
             totalCostUsd += row.cost_usd;
 
-            let key = row.model_id;
+            let key = `${provider}:${row.model_id}`;
             let label = meta.name || row.model_id;
             let subLabel = provider;
             let icon: UsageIcon = 'model';

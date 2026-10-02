@@ -18,6 +18,16 @@ from backend.services import workspace_service
 from backend.services.context_vars import active_vault_path
 
 
+def test_active_vault_display_does_not_use_another_vault_host_path(monkeypatch, tmp_path):
+    monkeypatch.setenv("VAULT_HOST_PATH", "/qa/Principal")
+    monkeypatch.setattr(settings, "load_params", lambda **_: SimpleNamespace(params={}, paths={"VAULT": tmp_path}))
+    token = active_vault_path.set(tmp_path / "Proves")
+    try:
+        assert settings._read_ui_parameters()["paths"]["vault"] == str(tmp_path / "Proves")
+    finally:
+        active_vault_path.reset(token)
+
+
 def test_editor_preserves_values_and_extensions_without_reading_credentials(monkeypatch) -> None:
     params = {
         "settings": {"password": "system-secret", "has_password": True, "gnosi_mode": "org", "custom": [1]},
@@ -76,6 +86,11 @@ def test_editor_retains_empty_configuration_defaults(monkeypatch, params) -> Non
 
 
 def test_full_configuration_still_reports_credential_status(monkeypatch) -> None:
+    from backend.services import plugin_ai_contributions
+
+    # This unit test supplies an in-memory config and changes path selectors.
+    # Plugin filesystem reconciliation is covered by its own integration tests.
+    monkeypatch.setattr(plugin_ai_contributions, "reconcile_plugin_ai_contributions", lambda: None)
     params = {"settings": {"gnosi_mode": "personal"}, "ai": {"providers": {"fixture": {}}}}
     monkeypatch.delenv("VAULT_HOST_PATH", raising=False)
     monkeypatch.setattr(settings, "load_params", lambda **_: SimpleNamespace(params=params, paths={}))

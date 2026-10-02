@@ -53,6 +53,7 @@ class PatchPageDependencies:
     resolve_page_context: Callable[[Metadata, Path], tuple[str, str | None]]
     file_etag: Callable[[Path], str | None]
     safe_error_detail: Callable[[Exception, str], str]
+    validate_patch: Callable[[Path, Metadata, str, str | None], None] | None = None
 
 
 async def patch_page(
@@ -110,6 +111,9 @@ async def patch_page(
 
         if metadata is None or body is None:
             raise HTTPException(status_code=404, detail="Page not found")
+
+        if dependencies.validate_patch is not None:
+            await asyncio.to_thread(dependencies.validate_patch, file_path, metadata, body, original_raw)
 
         try:
             original_metadata = dict(metadata)

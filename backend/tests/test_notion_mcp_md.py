@@ -3,7 +3,7 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from services.notion_mcp_md import mcp_to_markdown, extract_db_ids  # noqa: E402
 

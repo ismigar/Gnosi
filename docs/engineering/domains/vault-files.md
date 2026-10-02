@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-09-14
 source_paths:
+  - backend/domains/vault/pages/creation_recovery.py
+  - backend/domains/vault/pages/creation_inputs.py
+  - backend/services/handwriting_download.py
+  - backend/services/active_vault_middleware.py
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
@@ -26,6 +30,10 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_creation_recovery_executor.py
+  - backend/tests/test_page_creation_index_reconciliation.py
+  - backend/tests/test_handwriting_download.py
+  - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
@@ -666,3 +674,11 @@ read because local fixture tests cannot reproduce File Provider behavior.
 The sidebar summary and sparse tree recover incomplete entries in the root, Wiki and dashboard folders through the active files provider before rereading their metadata. This also applies to cached snapshots. Successful hydration restores canonical page IDs, parent IDs, database flags, favorites and icons, updates ID lookup, and rebuilds the versioned snapshot for deduplication. Complete entries and table catalogs do not trigger this recovery. Partial frontmatter reads retry both transient cloud error codes (11 and 35), starting with an empty buffer and delimiter state on every reopened file. Failed reads keep the existing cached metadata.
 
 Switching libraries while a note is open disposes the note editor. BlockNote may destroy its ProseMirror view before React runs the embedded-navigation cleanup. That cleanup restores the previous keyboard handlers only while the view is alive and still owns those handlers; it never calls `setProps` on a destroyed view. Lifecycle regression tests use a real ProseMirror view and cover both disposal orders, preventing a teardown exception from removing the entire application shell.
+
+## Scoped creation recovery and handwriting downloads
+
+Page-creation requests persist a private receipt and checkpoints before replayable effects. Recovery keeps the original page ID and frozen typed inputs, verifies the document and configuration revisions, and rechecks access before each effect. Only unstarted work is replayed. A started index step can be reconciled only after verifying its recorded inputs and current postcondition; other uncertain effects remain blocked. Recovery never selects executable code from stored data. The browser checks the saved request and opens the existing page instead of creating a duplicate after a lost response.
+
+The effective vault selected by header, query or cookie is also the identity used by authorization. An explicitly missing, unauthorized or unmounted vault fails without falling back to another vault.
+
+Opening the drawing canvas does not automatically download or load an OCR model. Status distinguishes missing weights, downloading, downloaded, loading, cancellation and failure. Download cancellation is scoped to its owner and applies to transfer, not active inference. Files become cache-visible only after size and checksum verification; partial files are removed. The UI shows transferred size and localized status. Synthetic transfer and canvas tests verify these contracts, not recognition accuracy on real handwriting or cloud files that are not materialized.

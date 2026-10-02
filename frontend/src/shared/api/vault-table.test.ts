@@ -103,6 +103,14 @@ describe('VaultTable API', () => {
     });
   });
 
+  it.each([{ value: 0 }, { value: false }, { value: '' }, { value: ['Lectura', 'Prova'] }])('preserves a typed button result $value', async ({ value }) => {
+    const succeeded = { note_id: 'page-1', status: 'ok', value };
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json(succeeded)));
+    await expect(executeVaultTableButtonAction({
+      button_action: 'ai_prompt', button_config: { prompt: 'Return the value', target_field: 'Field' }, note_id: 'page-1',
+    })).resolves.toEqual(succeeded);
+  });
+
   it('executes button actions with exact payload, abort signal and error detail', async () => {
     const succeeded = { note_id: 'page-1', status: 'ok', value: 'Summary' };
     const fetchMock = vi

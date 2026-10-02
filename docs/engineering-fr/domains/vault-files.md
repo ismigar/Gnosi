@@ -2,6 +2,10 @@
 status: implemented
 last_verified: 2026-09-14
 source_paths:
+  - backend/domains/vault/pages/creation_recovery.py
+  - backend/domains/vault/pages/creation_inputs.py
+  - backend/services/handwriting_download.py
+  - backend/services/active_vault_middleware.py
   - backend/domains/mail/connectors/drupal.py
   - backend/api/public_routes.py
   - backend/api/vault_routes.py
@@ -26,6 +30,10 @@ source_paths:
   - frontend/src/shared/record-views
   - frontend/src/shared/page-search
 tests:
+  - backend/tests/test_page_creation_recovery_executor.py
+  - backend/tests/test_page_creation_index_reconciliation.py
+  - backend/tests/test_handwriting_download.py
+  - backend/tests/test_vault_selector_authorization.py
   - frontend/src/features/vault/editor/block-editor/editor-effects/lifecycle.test.tsx
   - backend/tests/test_drupal_connector_discovery_contract.py
   - backend/tests/test_drupal_connector_http_contract.py
@@ -798,3 +806,11 @@ de données ne peuvent pas reproduire le comportement de File Provider.
 Le résumé et l’arbre compact de la barre latérale récupèrent les entrées incomplètes de la racine, du Wiki et des tableaux de bord via le fournisseur de fichiers actif avant de relire leurs métadonnées. Cela s’applique aussi aux instantanés en cache. La récupération restaure les identifiants canoniques et parents, les indicateurs de base de données, les favoris et les icônes, actualise la recherche par identifiant et reconstruit l’instantané versionné pour supprimer les doublons. Les entrées complètes et les catalogues de tables ne déclenchent pas cette récupération. Les lectures partielles de l’en-tête réessaient les deux codes d’erreur transitoire du cloud (11 et 35), avec un tampon et un état des délimiteurs vides à chaque réouverture du fichier. Les lectures échouées conservent les métadonnées existantes en cache.
 
 Changer de bibliothèque avec une note ouverte ferme son éditeur. BlockNote peut détruire la vue ProseMirror avant que React exécute le nettoyage de navigation des éléments intégrés. Ce nettoyage restaure les gestionnaires de clavier précédents uniquement si la vue est encore active et conserve les gestionnaires installés ; il ne rappelle jamais `setProps` sur une vue détruite. Les tests de régression utilisent une vraie vue ProseMirror et couvrent les deux ordres de fermeture afin qu’une exception ne supprime pas toute l’interface.
+
+## Reprise des créations par périmètre et téléchargements manuscrits
+
+Les demandes de création enregistrent un reçu privé et des checkpoints avant les effets récupérables. La reprise conserve l’ID original de la page et les entrées typées figées, vérifie les révisions du document et de la configuration, et contrôle l’accès avant chaque effet. Seul le travail non commencé est rejoué. Une étape d’index commencée ne peut être réconciliée qu’après vérification des entrées enregistrées et de la postcondition actuelle ; les autres effets incertains restent bloqués. La reprise ne sélectionne jamais de code exécutable à partir de données stockées. Le navigateur consulte la demande enregistrée et ouvre la page existante au lieu de créer un doublon après une réponse perdue.
+
+Le vault effectif sélectionné par en-tête, query ou cookie est également l’identité utilisée par l’autorisation. Un vault explicitement absent, non autorisé ou non monté échoue sans se rabattre sur un autre vault.
+
+L’ouverture du canvas de dessin ne télécharge ni ne charge automatiquement un modèle OCR. L’état distingue poids absents, téléchargement, téléchargé, chargement, annulation et échec. L’annulation est limitée au propriétaire et concerne le transfert, pas une inférence active. Les fichiers ne deviennent visibles dans le cache qu’après vérification de leur taille et checksum ; les fichiers partiels sont supprimés. L’interface affiche la taille transférée et l’état traduit. Les essais synthétiques de transfert et de canvas vérifient ces contrats, sans attester la précision sur des manuscrits réels ni les fichiers cloud non matérialisés.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any, AsyncIterator, Optional
@@ -18,6 +19,8 @@ from backend.agent.model_reliability import (
     record_failure,
 )
 from backend.agent.recovery import recovery_metadata
+from backend.domains.agent.responses import _response_language
+from backend.domains.agent.routes.chat_error_messages import failure_message
 from backend.domains.agent.routes.chat_stream_state import AgentStreamState
 from backend.domains.agent.routes.checkpoints import SessionBusyError
 from backend.domains.agent.routes.contracts import FAILURE_MESSAGES, ChatRequest
@@ -57,36 +60,35 @@ def _friendly_stream_error(  # noqa: C901 - stable public error taxonomy
     model_id: Any,
     reliability_scope: str,
     turn_timeout_seconds: int,
+    language: str = "en",
 ) -> str:
+    code = _agent_stream_error_code(error)
+    category = (
+        "permission" if code and ("revoked" in code or "scope" in code or "vault_unavailable" in code)
+        else "budget" if code in {"agent_budget_exceeded", "agent_turn_incomplete_limit_reached", "agent_model_context_exceeded"}
+        else "output" if code in {"agent_invalid_result", "agent_empty_result"}
+        else ""
+    )
+    if category:
+        return failure_message(language, category)
     if isinstance(error, TimeoutError):
-        message = (
-            f"The response exceeded the {turn_timeout_seconds}-second processing limit. Try again."
-        )
-    elif isinstance(error, GraphRecursionError):
-        message = (
-            "The agent repeated the same operation and stopped safely. "
-            "Refine the request or try again."
-        )
-    elif reason and reason in FAILURE_MESSAGES:
-        message = FAILURE_MESSAGES[reason]
+        return failure_message(language, "turn_timeout", seconds=turn_timeout_seconds)
+    if isinstance(error, GraphRecursionError):
+        return failure_message(language, "loop")
+    if reason and reason in FAILURE_MESSAGES:
+        message = failure_message(language, reason)
         if blames_the_model(reason):
             evidence = model_evidence(provider, model_id, scope_key=reliability_scope)
             repeats = (evidence or {}).get("reasons", {}).get(reason, 0)
             if repeats > 1:
-                message += (
-                    f" This model has already failed {repeats} times for "
-                    "the same reason this month; consider changing it."
-                )
-    elif isinstance(error, SessionBusyError):
-        message = "This conversation is busy. Try again in a moment."
-    elif not str(error):
-        message = "An unexpected agent error occurred."
-    else:
-        message = safe_error_detail(
-            error,
-            context="POST /api/agent/chat event_generator",
-        )
-    return str(message or "").strip() or "An unexpected agent error occurred."
+                message += " " + failure_message(language, "repeats", repeats=repeats)
+        return message
+    if isinstance(error, SessionBusyError):
+        return failure_message(language, "busy")
+    detail = safe_error_detail(error, context="POST /api/agent/chat event_generator")
+    reference = re.search(r"\[([a-f0-9]{8})\]", detail)
+    return failure_message(language, "unexpected", reference=reference[1] if reference else "—")
+
 
 
 async def stream_error_events(
@@ -120,6 +122,7 @@ async def stream_error_events(
         reliability_scope=reliability_scope,
     )
     local_error_code = _agent_stream_error_code(error)
+    response_language = _response_language(chat_req.message)
     friendly_error = _friendly_stream_error(
         error,
         reason=reason,
@@ -127,6 +130,7 @@ async def stream_error_events(
         model_id=model_id,
         reliability_scope=reliability_scope,
         turn_timeout_seconds=turn_timeout_seconds,
+        language=response_language,
     )
     stable_error_code = (
         local_error_code or str(reason or "").strip() or type(error).__name__.lower()
@@ -172,13 +176,13 @@ async def stream_error_events(
     recovery = recovery_metadata(stable_error_code)
     error_payload = {
         "type": "error",
+        "code": stable_error_code,
+        "content_language": response_language,
         "trace_id": state.trace_id,
         "content": friendly_error,
         "retryable": recovery["retryable"],
         "recovery": recovery,
     }
-    if local_error_code:
-        error_payload["code"] = local_error_code
     yield json.dumps(error_payload) + "\n"
     if not state.metrics_emitted:
         yield json.dumps(state.metrics_payload()) + "\n"
@@ -188,8 +192,8 @@ async def stream_error_events(
             {
                 "type": "done",
                 "trace_id": state.trace_id,
-                "has_response": True,
-                "message_count": 1,
+                "has_response": state.answer_count > 0,
+                "message_count": state.answer_count,
             }
         )
         + "\n"

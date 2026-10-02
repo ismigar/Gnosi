@@ -162,7 +162,12 @@ def _evaluate_case(case: dict[str, Any], strategy: str, *, selected: dict[str, A
             content = call(executor, case['prompt'], costs)
         valid = validate_result(content, case['expected']) and planner_valid is not False
         if not valid:
-            failure = 'contract_mismatch'
+            try:
+                json.loads(str(content).strip())
+            except (ValueError, TypeError):
+                failure = 'json_format_mismatch'
+            else:
+                failure = 'contract_mismatch'
     except (InterruptedError, PermissionError):
         raise
     except Exception as exc:

@@ -86,6 +86,34 @@ def test_structured_repair_once_and_scope_isolation(runtime, monkeypatch):
         store.cancel(scope.model_copy(update={"vault_path": "/other"}), result.run_id)
 
 
+@pytest.mark.parametrize("invalid", [
+    {"text": "Estat: pendent"}, {"text": "z" * 21}, {"text": "Post", "recipient": "someone"},
+])
+def test_generation_wrapper_repairs_invalid_post_before_returning(runtime, monkeypatch, invalid):
+    from functools import partial
+    from backend.services.social_compose import compose_output_schema, validate_compose_output
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, [json.dumps(invalid), '{"text":"Post #QA"}'])
+    monkeypatch.setattr(execution, "prepare_snapshot", lambda _skill: snapshot)
+    with execution_scope(scope):
+        result = execution.generate_result_for("writing", "source", output_schema=compose_output_schema(20),
+                                              output_validator=partial(validate_compose_output, char_limit=20))
+    assert result.status == "completed" and json.loads(result.result) == {"text": "Post #QA"}
+    assert len(calls) == 2
+
+
+def test_generation_wrapper_does_not_return_metadata_after_failed_repair(runtime, monkeypatch):
+    from functools import partial
+    from backend.services.social_compose import compose_output_schema, validate_compose_output
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, ['{"text":"Status: draft"}', '{"text":"Estat: pendent"}'])
+    monkeypatch.setattr(execution, "prepare_snapshot", lambda _skill: snapshot)
+    with execution_scope(scope), pytest.raises(ValueError, match="publishable text"):
+        execution.generate_for("writing", "source", output_schema=compose_output_schema(20),
+                               output_validator=partial(validate_compose_output, char_limit=20))
+    assert len(calls) == 2 and store.list_runs(scope)[0].status == "failed"
+
+
 def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     scope, snapshot = runtime
     calls = install_workflow(monkeypatch, ['bad', 'bad'])
@@ -97,11 +125,71 @@ def test_invalid_result_fails_after_one_repair(runtime, monkeypatch):
     assert not row.result
 
 
+def test_structured_operation_extracts_text_from_responses_content_blocks(runtime, monkeypatch):
+    scope, snapshot = runtime
+    calls = install_workflow(monkeypatch, [[
+        {"type": "reasoning", "summary": [{"type": "summary_text", "text": "private reasoning"}]},
+        {"type": "text", "text": '{"answer":"ok"}'},
+    ]])
+    request = AgentOperation(
+        skill_id=snapshot.skill_ids[0], operation="writing", input="input",
+        output_schema={"type": "object", "required": ["answer"]},
+    )
+    with execution_scope(scope):
+        result = asyncio.run(execution.execute_operation(request, snapshot=snapshot))
+    assert json.loads(result.result) == {"answer": "ok"}
+    assert len(calls) == 1
+    assert "private reasoning" not in result.result
+
+
 def test_operation_call_allowance_stays_finite_with_the_existing_default():
     values = {"skill_id": "reader", "operation": "reading", "input": "source"}
     assert AgentOperation(**values).max_model_calls == 2
     with pytest.raises(ValueError):
         AgentOperation(**values, max_model_calls=4)
+
+
+def test_chat_stream_preserves_execution_context_across_events(runtime, monkeypatch):
+    from backend.services.agent_stream_protocol import protocolize_stream
+    from backend.agent import model_router
+
+    monkeypatch.setattr(model_router, "budget_status", lambda: {"over_cap": False})
+
+    scope, snapshot = runtime
+    source_tasks = []
+
+    class Application:
+        async def astream(self, inputs, **kwargs):
+            for text in ("first", "second"):
+                source_tasks.append(asyncio.current_task())
+                assert execution.current_scope() == scope
+                assert execution._snapshot.get() == snapshot.model_copy(update={"origin": "chat"})
+                execution.before_model_call()
+                yield {"brain": {"messages": [AIMessage(content=text)]}}
+
+    async def source():
+        async for event in execution.stream_workflow(
+            Application(), {"trace_id": "context-stream"}, config={},
+            origin="chat", snapshot=snapshot, max_calls=2,
+        ):
+            yield json.dumps({"type": "message", "content": event["brain"]["messages"][0].content})
+        yield json.dumps({"type": "done"})
+
+    async def collect():
+        return [json.loads(item) async for item in protocolize_stream(
+            source(), stream_id="context-stream", trace_id="context-stream",
+        )]
+
+    with execution_scope(scope):
+        events = asyncio.run(collect())
+        assert execution._run.get() == ""
+        assert execution._snapshot.get() is None
+    assert [event["type"] for event in events] == ["stream_open", "message", "message", "done"]
+    assert len(set(source_tasks)) == 1
+    row = store.read(scope, "context-stream")
+    assert row.status == "completed"
+    assert row.model_calls == 2
+    assert row.result == "second"
 
 
 @pytest.mark.parametrize("valid_patch", [True, False])
@@ -664,3 +752,22 @@ def test_editor_http_request_runs_executor_and_returns_activity_id(runtime, monk
     row = store.read(scope, response.headers["X-Agent-Run-Id"])
     assert row.status == "completed" and row.origin == "button"
     assert row.skill_id == "core.gnosi-operation-writing" and len(calls) == 1
+
+
+@pytest.mark.parametrize('enforce', [False, True])
+def test_monthly_block_respects_toggle_before_transport(runtime, monkeypatch, enforce):
+    from backend.agent import model_router
+    scope, snapshot = runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': True, 'budget': {'enforce_block': enforce}})
+    with execution_scope(scope):
+        execution.create_job_run(snapshot, 'monthly-budget', 'writing')
+        token = execution._run.set('monthly-budget')
+        try:
+            if enforce:
+                with pytest.raises(RuntimeError, match='agent_budget_exceeded'):
+                    execution.before_model_call()
+            else:
+                execution.before_model_call()
+        finally:
+            execution._run.reset(token)
+    assert store.read(scope, 'monthly-budget').model_calls == (0 if enforce else 1)

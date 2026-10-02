@@ -1,3 +1,4 @@
+import { DraftSaveStatus } from '../../../shared/editor/DraftSaveStatus';
 import { useState } from 'react';
 import {
     AlertTriangle,
@@ -17,6 +18,7 @@ import {
 import { ToolPicker } from './AIToolPicker';
 import { useDraftAutosave } from '../../../shared/hooks/useDraftAutosave';
 import { InstructionMarkdownEditor } from '../../../shared/editor/InstructionMarkdownEditor';
+import { ConfirmModal } from '../../../shared/ui/dialogs/ConfirmModal';
 
 
 interface EditableSkillDraft extends SkillDraft {
@@ -36,6 +38,7 @@ export interface SkillEditorProps {
     readonly onSave: (draft: SkillDraft) => Promise<unknown>;
     readonly onValidate?: (draft: SkillDraft) => Promise<unknown>;
     readonly skill?: NormalizedSkill | null;
+    readonly original?: NormalizedSkill;
     readonly tools: readonly NormalizedTool[];
 }
 
@@ -74,12 +77,15 @@ export function SkillEditor({
     onSave,
     onValidate,
     skill = null,
+    original,
     tools,
 }: SkillEditorProps) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState(() => createDraft(skill));
     const [validation, setValidation] = useState<SkillValidation | null>(null);
     const [validating, setValidating] = useState(false);
+    const [restoring, setRestoring] = useState(false);
+    const originalInstructions = original?.instructions ?? skill?.metadata?.derived_from?.instructions;
     const canSave = Boolean(draft.name.trim() && draft.instructions.trim());
 
     const toggleTool = (toolId: string): void => {
@@ -113,9 +119,10 @@ export function SkillEditor({
         <div className="ai-resource-editor">
             <div className="ai-resource-editor__title">
                 <Sparkles size={19} />
-                <strong>{skill
+                <strong>{skill?.id
                     ? t('settings.ai.resources.edit_skill')
                     : t('settings.ai.resources.create_skill')}</strong>
+                <DraftSaveStatus status={!canSave && autosave.dirty ? 'incomplete' : skill?.id && autosave.status === 'idle' ? 'saved' : autosave.status} />
             </div>
             <div className="ai-resource-editor__grid">
                 <label>
@@ -197,6 +204,7 @@ export function SkillEditor({
                 </div>
             ) : null}
             <div className="ai-resource-editor__actions">
+                {skill?.id && originalInstructions !== undefined && <button type="button" className="btn-gnosi-secondary" disabled={autosave.status === 'saving'} onClick={() => { setRestoring(true); }}>{t('settings.ai.resources.restore_original')}</button>}
                 <button
                     className="btn-gnosi-secondary"
                     onClick={() => { void close(); }}
@@ -206,7 +214,7 @@ export function SkillEditor({
                 </button>
                 {skill && onValidate ? (
                     <button
-                        className="btn-gnosi-secondary"
+                        className="btn-gnosi btn-gnosi-secondary whitespace-nowrap"
                         disabled={validating || !canSave}
                         onClick={() => {
                             void handleValidate();
@@ -219,13 +227,19 @@ export function SkillEditor({
                         {t('settings.ai.resources.validate')}
                     </button>
                 ) : null}
-                <span role={autosave.status === 'error' ? 'alert' : 'status'}>
-                    {t(`skill_autosave.${!canSave && autosave.dirty ? 'incomplete' : autosave.status}`)}
-                </span>
                 {autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary"
                     onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
 
             </div>
+            <ConfirmModal isOpen={restoring} onClose={() => { setRestoring(false); }}
+                title={t('settings.ai.resources.restore_original')} message={t('settings.ai.resources.restore_original_help')}
+                confirmText={t('settings.ai.resources.restore_original')} autofocusConfirm={false}
+                onConfirm={() => {
+                    setDraft(current => ({ ...current, instructions: originalInstructions ?? current.instructions,
+                        toolIds: [...(original?.toolIds ?? skill?.metadata?.derived_from?.tool_ids ?? current.toolIds)],
+                        activation: original?.activation ?? current.activation }));
+                    setValidation(null); setRestoring(false);
+                }} />
         </div>
     );
 }

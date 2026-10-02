@@ -216,6 +216,11 @@ class UserSkillStore:
         requested_id: Optional[str] = None,
     ) -> SkillDescriptor:
         with self._lock:
+            source_id = (metadata.get("metadata") or {}).get("derived_from", {}).get("id")
+            if source_id:
+                existing, _ = self.load_all()
+                if any(skill.metadata.get("derived_from", {}).get("id") == source_id for skill in existing):
+                    raise UserSkillConflictError("a personal version already exists; update it instead")
             if requested_id:
                 skill_id = _normalize_user_id(requested_id)
                 if self._package_path(skill_id).exists():

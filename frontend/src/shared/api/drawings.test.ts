@@ -8,6 +8,8 @@ import {
   recognizeHandwriting,
   saveDrawing,
   warmupHandwriting,
+  fetchHandwritingStatus,
+  cancelHandwritingDownload,
 } from './drawings';
 import { GnosiApiError } from './errors';
 
@@ -26,6 +28,27 @@ function requestAt(mock: ReturnType<typeof vi.fn<typeof fetch>>, index: number):
 
 
 describe('Drawings API', () => {
+  const status = { available: true, loaded: false, model: 'fixture', downloaded: false,
+    state: 'downloading', downloaded_bytes: 16, total_bytes: 32, cancelling: false, error: '' };
+
+  it('reads download progress and requests cancellation through typed routes', async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(status))
+      .mockResolvedValueOnce(Response.json({ cancelling: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(fetchHandwritingStatus()).resolves.toEqual(status);
+    await expect(cancelHandwritingDownload()).resolves.toBe(true);
+    expect(new URL(requestAt(fetchMock, 0).url).pathname).toBe('/api/vault/handwriting/status');
+    expect(requestAt(fetchMock, 1).method).toBe('POST');
+    expect(new URL(requestAt(fetchMock, 1).url).pathname).toBe('/api/vault/handwriting/cancel-download');
+  });
+
+  it.each([{ downloaded_bytes: -1 }, { total_bytes: -1 }, { state: 'completed' }, { cancelling: 'yes' }])(
+    'rejects invalid progress fields %j', async change => {
+      vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(Response.json({ ...status, ...change })));
+      await expect(fetchHandwritingStatus()).rejects.toBeInstanceOf(GnosiApiError);
+    },
+  );
   it('lists, loads, saves, and soft-deletes drawings through typed JSON routes', async () => {
     const summary = {
       id: 'drawing-1',

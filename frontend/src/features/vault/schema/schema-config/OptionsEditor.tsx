@@ -98,11 +98,11 @@ export function OptionsEditor({ options = [], requiredOptions = [], onChange, fi
     // Local options only affect this table. Ask about record values only when
     // the option is in use (or usage could not be determined).
     const requestRemoveOption = (val: string) => {
-        if (pendingRemovals.has(val)) return;
         if (requiredOptions.includes(val)) {
             toast.error(t('schema.plugin_required_option'));
             return;
         }
+        if (pendingRemovals.has(val)) return;
         if (isShared && !isGlobalStatus) {
             toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
             return;

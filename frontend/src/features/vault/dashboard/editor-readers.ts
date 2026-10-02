@@ -30,17 +30,21 @@ function isPageProperty(value: unknown): value is PageProperty {
     && optionalString(value.storage_folder) && optionalString(value.name_pattern);
 }
 
-export function editorMetadata(metadata: Metadata = {}): PageMetadata {
+export function editorMetadata(metadata: Metadata = {}, pageTitle?: string): PageMetadata {
   // Retain all plugin fields; validate only the editor's named scalar fields.
   const scalarFields = new Set(['title', 'icon', 'cover', 'table_id', 'database_table_id', 'resolved_table_id']);
-  return Object.fromEntries(Object.entries(metadata).filter(([key, value]) => {
+  const result: PageMetadata = Object.fromEntries(Object.entries(metadata).filter(([key, value]) => {
     if (scalarFields.has(key)) return optionalString(value);
     return key !== 'is_dashboard' || value === undefined || typeof value === 'boolean';
   }));
+  // The API resolves localized schema fields (for example Títol) into the
+  // document title. Preserve explicit canonical values, including an empty one.
+  if (result.title === undefined && pageTitle !== undefined) result.title = pageTitle;
+  return result;
 }
 
 export function editorNote(page: Page): PageNote {
-  return { ...page, resolved_table_id: page.resolved_table_id || undefined, metadata: editorMetadata(page.metadata) };
+  return { ...page, resolved_table_id: page.resolved_table_id || undefined, metadata: editorMetadata(page.metadata, page.title) };
 }
 
 export function editorTable(table: Table): PageTable {

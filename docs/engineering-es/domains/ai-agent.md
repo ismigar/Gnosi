@@ -2,9 +2,14 @@
 status: implemented
 last_verified: 2026-09-28
 source_paths:
+  - backend/domains/agent/context_filters.py
+  - backend/domains/agent/exact_actions.py
+  - backend/services/agent_learning_review.py
+  - backend/domains/agent/routes/chat_error_messages.py
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
+  - backend/domains/configuration/ai/model_parameter_routes.py
   - backend/domains/agent/team_help.py
   - backend/services/agent_team_runtime.py
   - backend/tests/test_agent_team.py
@@ -83,6 +88,10 @@ source_paths:
   - frontend/src/features/settings/AI
   - frontend/src/features/agent-context
 tests:
+  - backend/tests/test_agent_exact_inventory_filters.py
+  - backend/tests/test_agent_exact_actions.py
+  - backend/tests/test_agent_learning_review.py
+  - backend/tests/test_agent_unavailable_http.py
   - backend/tests/test_agent_reasoning.py
   - backend/tests/test_agent_execution.py
   - backend/tests/test_llm_wiki_agent_selection.py
@@ -312,14 +321,13 @@ campos gestionados y campos del usuario. La reconciliación de plugins es
 idempotente: desactivar un plugin suspende su contribución gestionada sin
 eliminar las personalizaciones del usuario.
 
-Las traducciones de filas, páginas e instrucciones de skills utilizan la
+Las traducciones de filas y páginas utilizan la
 operación compartida `translation`. Los botones seleccionan el perfil del plugin
 de Traducción; las acciones dentro de una conversación heredan el perfil del
 agente en ejecución. Este perfil determina el modelo, las políticas y el registro
 de actividad. El panel de traducción enlaza a este perfil. Los argumentos
 históricos de DeepL y Softcatalà se mantienen por compatibilidad, pero se ignoran;
 ya no hay enrutamiento por pares de idiomas ni alternativa con marcadores.
-Traducir una skill muestra una copia de lectura y conserva sus instrucciones.
 
 La reconciliación de plugins también puede ejecutarse antes de componer las
 rutas de FastAPI. Deriva el directorio `.gnosi` del contexto canónico del Vault
@@ -1228,9 +1236,10 @@ La lectura utiliza fragmentos estructurales con contexto vecino, mapas de secci�
 
 ## Idioma de las instrucciones
 
-Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo permite solicitar una traducción al idioma activo mediante el proveedor de IA configurado. Se muestra junto al original como ayuda de lectura, sin modificar las instrucciones guardadas ni ejecutadas. Abrir una habilidad no solicita traducciones. Las traducciones se conservan solo en memoria, por vault, texto original e idioma de destino. Si fallan, el original sigue disponible y se puede reintentar.
+Las instrucciones se guardan y ejecutan exactamente como las escribe el usuario, en cualquier idioma. El catálogo muestra el texto original. Si hace falta traducirlo, usad una herramienta externa y revisad el texto antes de pegarlo en el editor.
 
-La acción de traducción utiliza un botón compacto alineado a la derecha. Los errores de límite de peticiones o cuota muestran un mensaje específico; el original sigue visible.
+La configuración muestra la última versión personal y sus asignaciones dentro de la misma tarjeta. Restaurar el original requiere confirmación y recupera las instrucciones, herramientas y activación originales antes de guardarlas automáticamente. Validar comprueba la definición y la disponibilidad de las herramientas; no ejecuta la habilidad ni evalúa la calidad del resultado.
+
 
 ## Ejecución del Agente principal
 
@@ -1341,3 +1350,11 @@ La lectura de fuentes largas conserva el plazo ampliado y limitado durante la se
 Cada paso de lectura dirigida muestra los indicadores de revisión y el número de notas de los planes guardados, junto con la acción y el fragmento que produjeron el último resultado. Estos hechos de progreso guardados prevalecen sobre afirmaciones contradictorias de la memoria de trabajo del modelo; la memoria permanece intacta e incluye el paso en que se registró cuando está disponible. El indicador de revisión recoge la declaración del lector, no la corrección semántica. Los puntos de reanudación antiguos siguen siendo compatibles. Cada paso permite un máximo de tres llamadas al modelo para que, después de corregir la sintaxis JSON, todavía se puedan reparar una vez solo las referencias, sin ampliar el plazo de la operación ni permitir otra delegación. Si esta reparación falla, el paso se detiene sin guardar el plan inválido.
 
 Las reglas de las propiedades de las notas de lectura permanecen en la configuración del plugin Cerebro: copiar un campo del recurso, usar un valor fijo, deducirlo con IA o dejarlo vacío. La skill clasifica cada nota solo entre las etiquetas existentes proporcionadas. Cada campo configurado con IA aparece explícitamente en el esquema de respuesta y debe figurar en cada nota; ambas vías de lectura rechazan omisiones, campos desconocidos, valores inventados y varios valores en un campo de valor único antes de guardar. Una lista explícitamente vacía es válida cuando la evidencia no justifica ninguna categoría. La aplicación resuelve las etiquetas y aplica las reglas de copia y valor fijo. Instalar esta corrección no reclasifica las notas existentes. Los Tags configurados ignoran la lista antigua de etiquetas libres, también cuando la clasificación se abstiene explícitamente o el valor copiado del recurso está vacío.
+
+## Inventarios exactos, pruebas verificables y resultados de error
+
+Los predicados exactos de campos conservan el valor solicitado en `property_filters`; las palabras de la orden no se usan como búsqueda de texto libre. Las relaciones se resuelven dentro de las tablas de destino autorizadas por ID o título exacto único. Los títulos ambiguos, destinos sin acceso e inventarios incompletos no pueden producir un cambio parcial con `bulk_update_rows`. Las asignaciones validan la definición real del campo y las opciones permitidas, conservando el cero numérico y el booleano falso. Esta vía mantiene las comprobaciones habituales de confirmación y permisos.
+
+Las pruebas de aprendizaje conservan el criterio original y su orden. Cada fragmento devuelto debe aparecer en la entrada o salida proporcionadas; se rechazan las comprobaciones malformadas y los fragmentos inventados. Los datos que faltan para la prueba se muestran junto al resultado. Esto acredita la procedencia de los fragmentos y la validez del contrato, pero no demuestra que el juicio del modelo sea correcto.
+
+Los errores traducidos del chat conservan un código estable y `content_language`; los detalles privados de las excepciones no se presentan como respuesta. Un servicio no disponible antes del workflow termina con `has_response=false` y `message_count=0`. La interfaz conserva el idioma y el tiempo límite efectivo del backend. La recuperación es una acción manual explícita, sin reintento automático. Una sola tarea productora mantiene la fuente viva durante todo su ciclo para conservar el contexto de ejecución y la limpieza de cancelación durante los heartbeats.

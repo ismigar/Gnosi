@@ -5,6 +5,7 @@ from backend.services.agent_behavior import task_input
 import importlib as _legacy_importlib
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Literal, cast
+from pathlib import Path
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, JsonValue
@@ -23,7 +24,7 @@ from backend.domains.vault.translation.request_contracts import (
     TranslateRowsRequest,
     request_payload,
 )
-from backend.domains.vault.translation.types import Result
+from backend.domains.vault.translation.types import Metadata, Result
 from backend.utils.open_values import get_value, iterable_values
 
 if TYPE_CHECKING:
@@ -157,7 +158,7 @@ class ExecuteButtonActionResponse(BaseModel):
     status: Literal["ok"]
     note_id: str
     updated_field: str
-    value: str
+    value: JsonValue
     metadata: IndexedPageMetadata
 
 
@@ -468,29 +469,122 @@ async def generate_button_action(
     import re
 
     from functools import partial
+    from pathlib import Path
     from backend.services.agent_execution import generate_for
+    from backend.services.agent_execution_scope import current_scope
+    from backend.services.agent_skill_catalog import get_skill_catalog
+    from backend.services.button_action_contracts import button_action_schema
 
     generate_text = partial(generate_for, "tables")
 
-    field_names = [
-        str(field["name"])
-        for field in iterable_values(fields)
-        if is_record(field) and field.get("name")
-    ]
-    system_instruction = task_input("tables.configure", fields=field_names, request=user_prompt)
+    if not isinstance(fields, list) or any(not is_record(field) for field in fields):
+        raise _legacy.HTTPException(status_code=400, detail="fields must be an array of field definitions")
+    field_definitions = [dict(field) for field in fields]
+    catalog_entries = await _legacy.asyncio.to_thread(
+        get_skill_catalog().list_entries, Path(current_scope().vault_path))
+    available_skills = [entry.descriptor.id for entry in catalog_entries if entry.available]
+    try:
+        output_schema = button_action_schema(field_definitions, available_skills)
+    except ValueError as exc:
+        raise _legacy.HTTPException(status_code=400, detail=str(exc)) from exc
+    system_instruction = task_input("tables.configure", fields=field_definitions,
+                                    available_skills=available_skills, request=user_prompt)
     try:
         raw_resp, _ = await _legacy.asyncio.to_thread(
-            generate_text, system_instruction, user_prompt, output_schema={"type": "object", "required": ["button_label", "button_action", "button_config"], "properties": {"button_action": {"enum": ["set_fields", "ai_prompt", "run_skill"]}, "button_config": {"type": "object"}}}
+            generate_text, system_instruction, user_prompt, output_schema=output_schema
         )
         cleaned = (raw_resp or "").strip()
         if cleaned.startswith("```"):
             cleaned = re.sub("^```[a-z]*\\n", "", cleaned)
             cleaned = re.sub("\\n```$", "", cleaned)
         data: object = json.loads(cleaned.strip())
+        from jsonschema import validate
+        validate(data, output_schema)
         return GenerateButtonActionResponse.model_validate({"status": "ok", "result": data}).model_dump()
     except Exception as e:
         _legacy.log.error("Error generating button action: %s", type(e).__name__)
         raise _legacy.HTTPException(status_code=502, detail="agent_operation_failed") from e
+
+
+def _button_action_request(payload: ExecuteButtonActionRequest) -> tuple[str, str, Metadata]:
+    request = request_payload(payload)
+    note_id = stripped_request_text(request.get("note_id") or "")
+    button_action = stripped_request_text(request.get("button_action") or "")
+    button_config = request.get("button_config") or {}
+    if not is_record(button_config):
+        raise _legacy.HTTPException(status_code=400, detail="button_config must be an object")
+    if not note_id:
+        raise _legacy.HTTPException(status_code=400, detail="note_id is required")
+    return note_id, button_action, button_config
+
+
+async def _execute_prompt_button(note_id: str, file_path: Path, raw_content: str,
+                                 metadata: Metadata, body: str, title: object,
+                                 button_config: Metadata) -> Result:
+    user_prompt = stripped_request_text(get_value(button_config, "prompt") or "")
+    target_field = stripped_request_text(get_value(button_config, "target_field") or "")
+    if not user_prompt:
+        raise _legacy.HTTPException(
+            status_code=400, detail="Prompt is required for ai_prompt action"
+        )
+    if not target_field:
+        raise _legacy.HTTPException(
+            status_code=400, detail="target_field is required for ai_prompt action"
+        )
+    import json
+
+    from functools import partial
+    from backend.services.agent_execution import generate_for
+
+    generate_text = partial(generate_for, "tables")
+
+    from backend.services.button_field_execution import resolve_button_field
+    from backend.services.button_page_mutations import commit_button_mutation
+
+    field, value_schema = await _legacy.asyncio.to_thread(resolve_button_field, metadata, target_field)
+    from backend.services.button_relation_context import build_button_relation_context
+    relation_context = await _legacy.asyncio.to_thread(build_button_relation_context, [field])
+    output_schema = {"type": "object", "properties": {"value": value_schema},
+                     "required": ["value"], "additionalProperties": False}
+    full_instruction = task_input("tables.field-value", request=user_prompt, title=title,
+                                  metadata=metadata, content=body, target_field=field,
+                                  relation_candidates=list(relation_context.candidates),
+                                  relation_resolution=("Return a page ID, an explicit [[Title|ID]] link, or the exact requested title. "
+                                                       "Unique titles are resolved within the destination table; ambiguous titles are rejected."
+                                                       if field["type"] == "relation" else None),
+                                  output_format={"value": "typed field value"})
+    try:
+        output_val, _ = await _legacy.asyncio.to_thread(
+            generate_text, full_instruction, "", output_schema=output_schema
+        )
+    except PermissionError as exc:
+        raise _legacy.HTTPException(status_code=403, detail="agent_execution_permission_revoked") from exc
+    except Exception as exc:
+        _legacy.log.error("Error generating button field value: %s", type(exc).__name__)
+        raise _legacy.HTTPException(status_code=502, detail="agent_operation_failed") from exc
+    from jsonschema import ValidationError
+    from backend.services.json_contracts import validate_json_value
+    try:
+        result = json.loads(output_val)
+        validate_json_value(result, output_schema)
+    except (ValueError, TypeError, ValidationError) as exc:
+        raise _legacy.HTTPException(status_code=502, detail="agent_invalid_result") from exc
+    cleaned_val = result["value"]
+    try:
+        metadata = await commit_button_mutation(note_id, file_path, raw_content, [field],
+                                                [{"field": field["name"], "value": cleaned_val}],
+                                                guard=relation_context.validate)
+    except ValidationError as exc:
+        raise _legacy.HTTPException(status_code=502, detail="agent_invalid_result") from exc
+    except PermissionError as exc:
+        raise _legacy.HTTPException(status_code=403, detail="agent_execution_permission_revoked") from exc
+    return {
+        "status": "ok",
+        "note_id": note_id,
+        "updated_field": field["name"],
+        "value": metadata[field["name"]],
+        "metadata": metadata,
+    }
 
 
 @router.post(
@@ -503,52 +597,63 @@ async def execute_button_action(
     payload: ExecuteButtonActionRequest = _legacy.Body(...),
 ) -> Result:
     """Executes a custom AI prompt or Skill button action on a note/row."""
-    request = request_payload(payload)
-    note_id = stripped_request_text(request.get("note_id") or "")
-    button_action = stripped_request_text(request.get("button_action") or "")
-    button_config = request.get("button_config") or {}
-    if not note_id:
-        raise _legacy.HTTPException(status_code=400, detail="note_id is required")
+    note_id, button_action, button_config = _button_action_request(payload)
     file_path = await _legacy.asyncio.to_thread(_legacy.find_page_path, note_id)
     if not file_path or not file_path.exists():
         raise _legacy.HTTPException(status_code=404, detail=f"Page not found (ID: {note_id})")
     raw_content = await _legacy.asyncio.to_thread(file_path.read_text, encoding="utf-8")
     metadata, body = _legacy.parse_frontmatter(raw_content, file_path)
     title = metadata.get("title") or file_path.stem
-    if button_action == "ai_prompt":
-        user_prompt = stripped_request_text(get_value(button_config, "prompt") or "")
-        target_field = stripped_request_text(get_value(button_config, "target_field") or "")
-        if not user_prompt:
-            raise _legacy.HTTPException(
-                status_code=400, detail="Prompt is required for ai_prompt action"
-            )
-        if not target_field:
-            raise _legacy.HTTPException(
-                status_code=400, detail="target_field is required for ai_prompt action"
-            )
-        import json
-
-        from functools import partial
-        from backend.services.agent_execution import generate_for
-
-        generate_text = partial(generate_for, "tables")
-
-        context_str = ""
-        full_instruction = task_input("tables.field-value", request=user_prompt, title=title, metadata=metadata, content=body, target_field=target_field)
-        output_val, _ = await _legacy.asyncio.to_thread(
-            generate_text, full_instruction, context_str
-        )
-        cleaned_val = (output_val or "").strip()
-        metadata[target_field] = cleaned_val
-        metadata["last_edited_at"] = _legacy.datetime.now().isoformat()
-        _legacy.save_page_md(file_path, metadata, body)
-        return {
-            "status": "ok",
-            "note_id": note_id,
-            "updated_field": target_field,
-            "value": cleaned_val,
-            "metadata": metadata,
-        }
+    if button_action == "set_fields":
+        from backend.services.button_field_execution import resolve_button_fields
+        from backend.services.button_page_mutations import commit_button_mutation
+        from backend.services.button_action_contracts import field_assignments_schema, parse_button_assignments
+        from backend.services.json_contracts import validate_json_value
+        from jsonschema import ValidationError
+        fields = await _legacy.asyncio.to_thread(resolve_button_fields, metadata)
+        try:
+            validate_json_value(button_config, field_assignments_schema(fields))
+            assignments = parse_button_assignments(button_config.get("assignments"))
+        except (ValueError, TypeError, ValidationError) as exc:
+            raise _legacy.HTTPException(422, "Invalid field assignments") from exc
+        try:
+            metadata = await commit_button_mutation(note_id, file_path, raw_content, fields, assignments)
+        except PermissionError as exc:
+            raise _legacy.HTTPException(403, "agent_execution_permission_revoked") from exc
+        except ValidationError as exc:
+            raise _legacy.HTTPException(422, "Invalid field assignments") from exc
+        return {"status": "ok", "note_id": note_id, "updated_field": assignments[0]["field"],
+                "updated_fields": [item["field"] for item in assignments], "value": metadata[assignments[0]["field"]],
+                "metadata": metadata}
+    elif button_action == "ai_prompt":
+        return await _execute_prompt_button(note_id, file_path, raw_content, metadata, body, title, button_config)
+    elif button_action == "run_skill":
+        identifier = stripped_request_text(get_value(button_config, "skill_id") or "")
+        if not identifier:
+            raise _legacy.HTTPException(400, "skill_id is required for run_skill action")
+        from backend.services.button_skill_execution import generate_skill_assignments, revalidate_button_skill
+        from backend.services.button_page_mutations import commit_button_mutation
+        from jsonschema import ValidationError
+        try:
+            fields, assignments, selected_id, revision, relation_context = await _legacy.asyncio.to_thread(
+                generate_skill_assignments, identifier, title, metadata, body)
+            def validate_skill_context() -> None:
+                revalidate_button_skill(selected_id, revision)
+                relation_context.validate()
+            metadata = await commit_button_mutation(note_id, file_path, raw_content, fields, assignments,
+                                                    guard=validate_skill_context)
+        except _legacy.HTTPException:
+            raise
+        except PermissionError as exc:
+            raise _legacy.HTTPException(403, "agent_execution_permission_revoked") from exc
+        except (ValueError, TypeError, ValidationError) as exc:
+            raise _legacy.HTTPException(502, "agent_invalid_result") from exc
+        except Exception as exc:
+            _legacy.log.error("Error executing skill button: %s", type(exc).__name__)
+            raise _legacy.HTTPException(502, "agent_operation_failed") from exc
+        return {"status": "ok", "note_id": note_id, "updated_field": assignments[0]["field"],
+                "updated_fields": [item["field"] for item in assignments], "value": metadata[assignments[0]["field"]],
+                "metadata": metadata}
     else:
         raise _legacy.HTTPException(
             status_code=400,

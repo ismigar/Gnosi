@@ -103,6 +103,14 @@ uv sync --frozen --group docs-ci
 uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main
 ```
 
+En macOS, usad `--resource-profile mac-idle` para la validación local acotada. Sustituye el heap predeterminado por 1536 MiB, ejecuta con prioridad 10, un worker y un hilo de cálculo, y supervisa un presupuesto RSS de 2 GiB para el comando y sus descendientes. Cada fase comienza solo después de 30 segundos de presión de memoria normal. Las comprobaciones estáticas, compilaciones y suites tienen límites de 5, 10 y 15 minutos respectivamente.
+
+El aviso sostenido durante 2 segundos, la presión crítica, el timeout, el exceso de RSS o un fallo de supervisión detienen los procesos propios y dejan la validación incompleta. No hay reintento automático ni aumento del límite. Mantened detenidos otros jobs de validación; no cerréis aplicaciones del usuario ni carguéis modelos locales durante esta auditoría. Las suites Node de contratos y escritorio usan explícitamente `--test-concurrency=1`.
+
+```bash
+uv run --frozen --no-sync python scripts/ci/pre_pr.py --base-ref origin/main --resource-profile mac-idle
+```
+
 El entorno Python congelado se comprueba sin instalar paquetes ni eliminar los adicionales.
 
 La entrada directa de Python evita la comprobación automática externa de

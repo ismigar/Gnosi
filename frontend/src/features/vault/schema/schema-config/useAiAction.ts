@@ -10,7 +10,7 @@ import { apiErrorDetail, readString, readActionConfig } from './readers';
 export function useAiAction(state: SchemaState, props: ResolvedProps) {
     const { t } = useTranslation();
     const {
-        fields, setFunctionalities, aiActionModalFieldIndex, setAiActionModalFieldIndex, aiActionPrompt,
+        fields, sharedCatalogs, setFunctionalities, aiActionModalFieldIndex, setAiActionModalFieldIndex, aiActionPrompt,
         setAiActionPrompt, setAiActionLoading, setAvailableSkills,
     } = state;
     const { isOpen } = props;
@@ -29,7 +29,13 @@ export function useAiAction(state: SchemaState, props: ResolvedProps) {
         try {
             const data = await generateButtonAction({
                 prompt: aiActionPrompt,
-                fields: fields.map(f => ({ name: f.name, type: f.type }))
+                fields: fields.map(f => ({
+                    id: f.id, name: f.name, type: f.type,
+                    options: (f.catalogRef ? sharedCatalogs[f.catalogRef] || [] : f.options).map(option => ({ name: option.name })),
+                    ...(f.type === 'relation' ? { relation_database_id: f.relation_database_id, cardinality: f.cardinality,
+                        ...(Number.isInteger(Number(f.limit)) && Number(f.limit) > 0 ? { limit: Number(f.limit) } : {}) } : {}),
+                    ...(f.rawConfig?.read_only === true ? { read_only: true } : {}),
+                }))
             });
             const result = data.result;
             const idx = aiActionModalFieldIndex;

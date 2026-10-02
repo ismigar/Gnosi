@@ -14,6 +14,7 @@ export interface NormalizedOrigin extends RawOrigin {
 }
 
 export interface RawCatalogRecord extends UnknownRecord {
+    modified_at?: number | null;
     activation?: string;
     activation_policy?: string;
     agent_assignable?: boolean;

@@ -232,7 +232,7 @@ def _catalog_llm(
     )
 
 
-def get_llm(
+def _construct_llm(
     provider: str,
     model: str | None = None,
     api_key: str | None = None,
@@ -277,6 +277,14 @@ def get_llm(
 
     # Fallback if the provider isn't recognized and there's no URL
     return None
+
+
+def get_llm(provider: str, model: str | None = None, api_key: str | None = None,
+            base_url: str | None = None, timeout: float | None = None,
+            reasoning_effort: str | None = None) -> BaseChatModel | None:
+    from backend.services.ai_usage_transport import instrument
+    client = _construct_llm(provider, model, api_key, base_url, timeout, reasoning_effort)
+    return instrument(client, provider, model) if client is not None else None
 
 
 def _get_hybrid_llm(

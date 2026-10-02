@@ -30,7 +30,7 @@ tests:
 
 # Execució i desplegament
 
-Les pull requests públiques executen la prova smoke nativa en una màquina Ubuntu 24.04 ARM64 nova allotjada per GitHub, amb el mateix criteri de selecció que la validació del backend. En aquest entorn temporal s’instal·len les dependències del sistema de Chromium abans del navegador. Els repositoris privats, les pujades i les validacions de versions conserven el runner local Linux ARM64. La prova smoke selecciona HTTP explícitament perquè el sondeig de disponibilitat i l’adreça del navegador no difereixin per un certificat de desenvolupament heretat. Es mantenen el termini de sis minuts i les proves del navegador.
+La validació del backend i la prova smoke nativa s’executen al runner Linux ARM64 gestionat pel propietari, sense alternativa allotjada per GitHub. Les pull requests només poden accedir a aquests jobs self-hosted quan la branca d’origen pertany al mateix repositori; les pull requests de forks no s’executen a la màquina del propietari. La prova smoke selecciona HTTP explícitament perquè el sondeig de disponibilitat i l’adreça del navegador no difereixin per un certificat de desenvolupament heretat. Es mantenen el termini de sis minuts i les proves del navegador.
 
 La CI compartida limita la preparació de dependències Python amb `UV_CONCURRENT_DOWNLOADS=4`,
 `UV_CONCURRENT_INSTALLS=2`, `UV_HTTP_TIMEOUT=120` (segons per lectura HTTP) i

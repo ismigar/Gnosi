@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
+from jsonschema import ValidationError
 
 from backend.domains.configuration.agent import learning_routes as routes
 from backend.services.agent_skill_catalog import SkillCatalog, ToolCatalog
@@ -92,3 +94,24 @@ def test_autosave_reuses_identity_updates_package_and_rejects_stale_edits(tmp_pa
     assert client.get("/api/ai/skills/user.learned-synthetic/package").json()["skill"]["instructions"] == "Edited"
     body["skill_id"] = "core.example"
     assert client.post("/api/ai/learning/skills", json=body).status_code == 409
+
+
+@pytest.mark.parametrize("failure,status", [(TimeoutError("private fixture"), 504),
+                                          (PermissionError("private fixture"), 403),
+                                          (ValidationError("private fixture"), 422)])
+def test_trial_failure_is_controlled_and_does_not_save_skills(tmp_path, monkeypatch, failure, status):
+    context = WorkspaceContext("synthetic", "owner", "owner", tmp_path)
+    monkeypatch.setattr(routes, "_require_configured_agent", lambda _: {"id": "helper"})
+    monkeypatch.setattr(routes, "_ai_configuration", lambda: {})
+    def fail(*_args):
+        raise failure
+    monkeypatch.setattr(routes, "configured_invoker", fail)
+    app = FastAPI()
+    app.include_router(routes.router, prefix="/api/ai")
+    app.dependency_overrides[get_workspace_context] = lambda: context
+    with TestClient(app) as client:
+        response = client.post("/api/ai/learning/trial", json={"agent_id": "helper", "input": "Synthetic",
+            "skill": {"name": "Synthetic", "instructions": "Summarize", "criteria": ["Has a title"]}})
+    assert response.status_code == status
+    assert "private fixture" not in response.text
+    assert not list(tmp_path.glob("**/SKILL.md"))

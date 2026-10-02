@@ -8,7 +8,7 @@ import type { SettingsState } from './stateTypes';
 import { hydrateDraft, settingsIntegrations, settingsRegistry } from './settingsDocuments';
 import { isJsonRecord } from '../AI/aiResourcesApi';
 import { readStorage, writeStorage, themeKey } from './settingsStorage';
-import { dispatchWindowEvent } from '../../../shared/platform/browser-events';
+import { emitAppEvent } from '../../../shared/platform/app-events';
 
 type Input = SettingsState;
 
@@ -45,7 +45,7 @@ export function useSettingsLoaders(state: Input) {
       // theme engine reads, so the saved preference survives a reload.
       if (isJsonRecord(cfg.settings) && typeof cfg.settings.theme === 'string' && cfg.settings.theme && cfg.settings.theme !== readStorage(themeKey)) {
         writeStorage(themeKey, cfg.settings.theme);
-        dispatchWindowEvent(new Event('db-theme-changed'));
+        emitAppEvent('db-theme-changed');
       }
     } catch (err) {
       console.error("Error loading config:", err);

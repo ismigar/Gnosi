@@ -669,7 +669,8 @@ def test_inventory_response_is_localized_grouped_and_explicitly_paginated():
     assert "Recursos (2)" in response and "Cervell digital (1)" in response
     assert "\\*Unsafe\\* note" in response
     assert "Es mostren 2 de 3; continua des de l’índex 2." in response
-    assert "cerca exhaustiva de text, metadades i relacions" in response
+    assert "cerca exhaustiva dels registres indexats" in response
+    assert "Els canvis externs encara no indexats poden no aparèixer" in response
 
 
 @pytest.mark.parametrize(
@@ -770,7 +771,15 @@ def test_authored_resources_route_once_then_formats_without_model(monkeypatch):
     assert llm.system_prompts == []
 
 
-def test_generic_inventory_routes_once_then_formats_without_model(monkeypatch):
+@pytest.mark.parametrize("frozen", [False, True])
+def test_generic_inventory_routes_once_then_formats_without_model(monkeypatch, frozen, request):
+    from backend.services.agent_behavior import frozen_resources
+
+    # The production executor freezes behavior resources for every request.
+    # Exercise that path as well as the standalone workflow used by callers.
+    if frozen:
+        token = frozen_resources.set({"snapshot": "test"})
+        request.addfinalizer(lambda: frozen_resources.reset(token))
     calls = []
 
     @tool

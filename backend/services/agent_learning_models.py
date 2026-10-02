@@ -106,12 +106,15 @@ class CriterionResult(LearningModel):
     criterion: str = Field(max_length=1_000)
     met: bool
     evidence: str = Field(max_length=2_000)
+    input_quote: str = Field(default="", max_length=2_000)
+    output_quote: str = Field(default="", max_length=2_000)
 
 
 class SkillTrialResult(LearningModel):
     output: str
     checks: list[CriterionResult]
     mode: Literal["text_trial"] = "text_trial"
+    missing_inputs: list[str] = Field(default_factory=list, max_length=16)
 
 
 class SavedLearning(LearningModel):

@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from backend.services.literature_models import normalize_title
+from backend.services.literature_ai_contracts import literature_output_schema
 
 
 OPERATIONS = {"query_strategy", "translate_query", "rerank", "screen", "synthesize", "snowball"}
@@ -106,7 +107,7 @@ def _local_embedding_rerank(query: str, works: list[dict[str, Any]]) -> tuple[di
 
 def _prompt(operation: str, payload: dict[str, Any]) -> tuple[str, str, list[dict[str, Any]]]:
     works = _bounded_works(payload.get("works"), 100)
-    if operation not in {"query_strategy", "translate_query", "screen", "synthesize", "snowball"}:
+    if operation not in OPERATIONS:
         raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
     data = {**payload, "works": works}
     return "", task_input(f"literature.{operation}", **data), works
@@ -124,7 +125,10 @@ def run_operation(operation: str, payload: dict[str, Any], agent_id: str = "") -
     system_prompt, user_message, works = _prompt(operation, payload)
     try:
         from backend.services.agent_execution import generate_result_for
-        run = generate_result_for("literature", user_message, timeout=120, output_schema={"type": "object"})
+        run = generate_result_for(
+            "literature", user_message, timeout=120,
+            output_schema=literature_output_schema(operation, works),
+        )
         raw, model = run.result, run.model
         agent_id = run.agent_id
         result = _clean_json(raw)

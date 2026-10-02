@@ -92,6 +92,24 @@ class PageIndexerStatusResponse(BaseModel):
     cached_entries: int | None = None
 
 
+class PageCreationStepResponse(BaseModel):
+    """Started work remains uncertain after a crash; completion is explicit."""
+
+    step: str
+    state: Literal["pending", "running", "completed", "uncertain"]
+
+
+class PageCreationStatusResponse(BaseModel):
+    """A receipt proves creation completion; unknown never authorizes a retry."""
+
+    status: Literal["pending", "completed", "unknown"]
+    page_id: str
+    page_available: bool = False
+    can_resume: bool = False
+    steps: list[PageCreationStepResponse] = Field(default_factory=list)
+    result: Optional["PageMutationResponse"] = None
+
+
 class PageMutationResponse(BaseModel):
     """Canonical page document returned after create, save or patch."""
 

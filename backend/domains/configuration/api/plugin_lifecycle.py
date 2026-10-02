@@ -149,7 +149,11 @@ def _apply_lifecycle_mutation(
     saved = dependencies.save_state(state)
     if "llm-wiki" in affected:
         _update_llm_wiki_schedule(saved, dependencies.logger)
-    dependencies.reconcile()
+    from backend.domains.configuration.config_response_cache import configuration_response_cache
+    try:
+        dependencies.reconcile()
+    finally:
+        configuration_response_cache.invalidate()
     return {
         **saved,
         **agent_result,

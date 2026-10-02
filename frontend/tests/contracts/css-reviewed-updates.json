@@ -206,8 +206,8 @@
   },
   {
     "file": "src/features/settings/styles/settings-controls.css",
-    "before": "}\n\n.gnosi-toggle.active {\n    background: var(--gnosi-blue);\n}\n\n/* Anell de focus visible per a navegació amb teclat (role=\"switch\"). */\n.gnosi-toggle:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-blue);\n}\n\n/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */\n.gnosi-switch-row:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-blue);\n    border-radius: 8px;\n}\n\n",
-    "after": "}\n\n.gnosi-toggle.active {\n    background: var(--gnosi-primary);\n}\n\n/* Anell de focus visible per a navegació amb teclat (role=\"switch\"). */\n.gnosi-toggle:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-primary);\n}\n\n/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */\n.gnosi-switch-row:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-primary);\n    border-radius: 8px;\n}\n\n"
+    "before": "}\n\n.gnosi-toggle.active {\n    background: var(--gnosi-blue);\n}\n\n/* Anell de focus visible per a navegaci\u00f3 amb teclat (role=\"switch\"). */\n.gnosi-toggle:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-blue);\n}\n\n/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */\n.gnosi-switch-row:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-blue);\n    border-radius: 8px;\n}\n\n",
+    "after": "}\n\n.gnosi-toggle.active {\n    background: var(--gnosi-primary);\n}\n\n/* Anell de focus visible per a navegaci\u00f3 amb teclat (role=\"switch\"). */\n.gnosi-toggle:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-primary);\n}\n\n/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */\n.gnosi-switch-row:focus-visible {\n    outline: none;\n    box-shadow: 0 0 0 3px var(--gnosi-primary);\n    border-radius: 8px;\n}\n\n"
   },
   {
     "file": "src/shared/styles/tokens/theme.css",

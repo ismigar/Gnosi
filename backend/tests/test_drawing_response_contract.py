@@ -140,6 +140,19 @@ def test_handwriting_operations_preserve_status_warmup_and_recognition(
     monkeypatch.setattr(handwriting_routes.handwriting, "is_available", lambda: True)
     monkeypatch.setattr(handwriting_routes.handwriting, "is_loaded", lambda: True)
     monkeypatch.setattr(handwriting_routes.handwriting, "_model_id", lambda: "local-trocr")
+    download_status = {
+        "loaded": True,
+        "model": "local-trocr",
+        "downloaded": True,
+        "state": "ready",
+        "downloaded_bytes": 1000,
+        "total_bytes": 1000,
+        "error": "",
+        "cancelling": False,
+    }
+    monkeypatch.setattr(
+        handwriting_routes.handwriting, "download_status", lambda: dict(download_status)
+    )
     monkeypatch.setattr(handwriting_routes.handwriting, "warmup", lambda: False)
     monkeypatch.setattr(
         handwriting_routes.handwriting,
@@ -152,7 +165,17 @@ def test_handwriting_operations_preserve_status_warmup_and_recognition(
     warmup = asyncio.run(handwriting_routes.handwriting_warmup())
     recognition = asyncio.run(handwriting_routes.recognize_handwriting(upload))
 
-    assert status == {"available": True, "loaded": True, "model": "local-trocr"}
+    assert status == {
+        "available": True,
+        "loaded": True,
+        "model": "local-trocr",
+        "downloaded": True,
+        "state": "ready",
+        "downloaded_bytes": 1000,
+        "total_bytes": 1000,
+        "error": "",
+        "cancelling": False,
+    }
     assert warmup == {"warming": False, "loaded": True}
     assert recognition == recognized
     assert handwriting_routes.HandwritingStatusResponse.model_validate(
