@@ -303,3 +303,18 @@ def test_decision_call_budget_reserves_capacity_for_the_answer(monkeypatch):
     finally:
         execution._run.reset(token)
         execution._call_limit.reset(limit)
+
+
+def test_selector_prefers_reported_zero_and_records_http_failures(jev_transport, registry):
+    install, recorded = jev_transport
+    payload=response_payload();payload['usage']['cost']=0
+    install(lambda request: httpx.Response(200,json=payload))
+    decisions.decide_with_jev('hello',registry[:2],provider_config={},budget={})
+    assert recorded.call_args.kwargs['cost_usd']==0
+    assert recorded.call_args.kwargs['cost_source']=='reported'
+    recorded.reset_mock()
+    install(lambda request: httpx.Response(503,json={'error':'unavailable'}))
+    decisions.decide_with_jev('hello',registry[:2],provider_config={},budget={})
+    recorded.assert_called_once()
+    assert recorded.call_args.kwargs['cost_usd'] is None
+    assert recorded.call_args.kwargs['status']=='failed'

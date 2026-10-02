@@ -157,7 +157,8 @@ def before_model_call() -> None:
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
     from backend.agent.model_router import budget_status
-    if budget_status().get("over_cap"):
+    status = budget_status()
+    if status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"):
         raise RuntimeError("agent_budget_exceeded")
     row = store.read(scope, run_id)
     if row.parent_run_id and store.cancelled(scope, row.parent_run_id):
@@ -208,6 +209,8 @@ def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
 
 
 def after_model_call(message: Any) -> None:
+    if getattr(message, "additional_kwargs", {}).get("gnosi_usage_recorded"):
+        return
     run_id = _run.get()
     if not run_id:
         return

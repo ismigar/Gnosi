@@ -664,3 +664,22 @@ def test_editor_http_request_runs_executor_and_returns_activity_id(runtime, monk
     row = store.read(scope, response.headers["X-Agent-Run-Id"])
     assert row.status == "completed" and row.origin == "button"
     assert row.skill_id == "core.gnosi-operation-writing" and len(calls) == 1
+
+
+@pytest.mark.parametrize('enforce', [False, True])
+def test_monthly_block_respects_toggle_before_transport(runtime, monkeypatch, enforce):
+    from backend.agent import model_router
+    scope, snapshot = runtime
+    monkeypatch.setattr(model_router, 'budget_status', lambda: {'over_cap': True, 'budget': {'enforce_block': enforce}})
+    with execution_scope(scope):
+        execution.create_job_run(snapshot, 'monthly-budget', 'writing')
+        token = execution._run.set('monthly-budget')
+        try:
+            if enforce:
+                with pytest.raises(RuntimeError, match='agent_budget_exceeded'):
+                    execution.before_model_call()
+            else:
+                execution.before_model_call()
+        finally:
+            execution._run.reset(token)
+    assert store.read(scope, 'monthly-budget').model_calls == (0 if enforce else 1)

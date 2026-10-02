@@ -113,7 +113,7 @@ describe('AI usage history processing', () => {
             badge: 'worker',
             costCcy: 1.8,
             icon: 'model',
-            key: 'gpt-5',
+            key: 'openai:gpt-5',
             label: 'GPT 5',
         });
         expect(result.items[0]?.percent).toBeCloseTo(200 / 3);

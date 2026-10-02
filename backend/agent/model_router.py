@@ -395,6 +395,10 @@ class UsageStore:
         return None
 
     def _load(self) -> None:
+        if not self._path:
+            from backend.services.ai_usage_ledger import monthly
+            self._data = monthly()
+            return
         p = self._resolve_path()
         if p and p.exists():
             try:
@@ -420,8 +424,19 @@ class UsageStore:
         except Exception:
             pass
 
-    def record(self, provider: str, model_id: str, in_tok: int, out_tok: int,
-               period: str, cost_usd: float = 0.0) -> None:
+    def record(self, provider: str, model_id: str, in_tok: int | None, out_tok: int | None,
+               period: str, cost_usd: float | None = 0.0, *,
+               cost_source: str = "estimated", call_id: str | None = None,
+               metadata: dict[str, str] | None = None, created: float | None = None,
+               duration_ms: float = 0, status: str = "completed") -> None:
+        if not self._path:
+            from backend.services.ai_usage_ledger import write_call
+            write_call(provider=provider, model_id=model_id, input_tokens=in_tok,
+                       output_tokens=out_tok, period=period, cost_usd=cost_usd,
+                       cost_source=cost_source, call_id=call_id, metadata=metadata,
+                       created=created, duration_ms=duration_ms, status=status)
+            self._load()
+            return
         with _usage_lock:
             # Re-read under the lock: another instance may have written since
             # this one loaded (the whole cycle must sit inside the lock).
@@ -429,8 +444,8 @@ class UsageStore:
             bucket = self._data.setdefault(period, {})
             key = f"{provider}:{model_id}"
             entry = _normalize_usage_entry(bucket.get(key, {}))
-            entry["in"] += int(in_tok)
-            entry["out"] += int(out_tok)
+            entry["in"] += int(in_tok or 0)
+            entry["out"] += int(out_tok or 0)
             entry["cost_usd"] = round(entry["cost_usd"] + float(cost_usd or 0.0), 6)
             bucket[key] = entry
             self._save()

@@ -5,7 +5,7 @@ import { MemorySettings } from '../../agent-learning';
 import { AgentsPanel } from './AgentsPanel';
 import { Bot } from 'lucide-react';
 import { Clock3 } from 'lucide-react';
-import { ModelBudget } from './ModelBudget';
+import { AIConsumptionDashboard } from '../AIConsumptionDashboard';
 import { ModelConsumption } from './ModelConsumption';
 import { Section } from '../../../shared/ui/settings/SettingsPrimitives';
 import { SettingsSectionTabs } from '../../../shared/ui/settings/SettingsSectionTabs';
@@ -38,6 +38,7 @@ export function AiPanel({ context, focusedProfileId }: Props) {
         { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
         { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
         { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
+        { id: 'consumption', icon: Activity, label: t('settings.ai.consumption.tab') },
       ]}
       onChange={sectionId => {
         setReturnToProfile(false);
@@ -58,9 +59,7 @@ export function AiPanel({ context, focusedProfileId }: Props) {
 
     <ModelConsumption context={context} />
 
-    {aiSection === 'models' && (
-      <ModelBudget context={context} />
-    )}
+    {aiSection === 'consumption' && <AIConsumptionDashboard context={context} />}
 
     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
