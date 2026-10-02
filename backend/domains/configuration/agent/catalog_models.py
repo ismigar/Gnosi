@@ -28,6 +28,7 @@ class AgentSkillCatalogItemResponse(SkillDescriptor):
     editable: bool
     deletable: bool
     revision: str
+    modified_at: float | None = None
 
 
 class AgentSkillCatalogIssueResponse(BaseModel):

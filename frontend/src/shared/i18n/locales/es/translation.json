@@ -1,4 +1,24 @@
 {
+  "skill_autosave": {
+    "pending": "Cambios pendientes…",
+    "idle": "Los cambios se guardan automáticamente.",
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "error": "No se pudieron guardar los cambios. Reintenta antes de cerrar.",
+    "incomplete": "Completa los campos obligatorios para guardar los cambios."
+  },
+  "instruction_editor": {
+    "source_required": "No se ha podido cargar la edición visual. Abre Markdown para editar el texto original.",
+    "rich_help": "Escribe directamente. Selecciona texto para darle formato o escribe / para insertar un título, una lista o un bloque de código.",
+    "too_long": "Las instrucciones no pueden superar los {{count}} caracteres.",
+    "controls": "Controles del editor Markdown",
+    "edit": "Editar",
+    "preview": "Vista previa",
+    "expand": "Ampliar el editor",
+    "reduce": "Reducir el editor",
+    "empty": "Todavía no hay instrucciones.",
+    "help": "Escribe en Markdown. Ctrl/Cmd + ] sangra las líneas seleccionadas; Ctrl/Cmd + [ quita la sangría."
+  },
   "_meta": {
     "nativeName": "Español",
     "intlLocale": "es-ES",
@@ -2578,7 +2598,7 @@
           "notification": "Notificación"
         },
         "customize": "Personaliza",
-        "customize_help": "Crea una versión propia editable. Se conserva el original. No se crea nada hasta guardar.",
+        "customize_help": "Crea tu propia versión editable. Los cambios se guardan automáticamente cuando empiezas a modificarla.",
         "compare_original": "Compara con el original",
         "edit_permission": "Un administrador puede editar o personalizar estas habilidades.",
         "instructions_help": "Estas son las instrucciones reales que recibe el agente. Describe el objetivo, los pasos, el resultado esperado y los límites. Se mantienen los permisos de las herramientas.",
@@ -2601,6 +2621,10 @@
         "source_changed": "El original ha cambiado. Revisa las diferencias antes de actualizar tu versión.",
         "based_on": "Basada en {{name}}, versión {{version}}",
         "assign_copy": "Utiliza esta versión",
+        "assignment_title": "Dónde se utiliza «{{name}}»",
+        "restore_original": "Restaura el original",
+        "restore_original_help": "¿Quieres sustituir las instrucciones, las herramientas y la activación personalizadas por las del original? El cambio se guardará automáticamente.",
+        "skill_version": "Versión {{version}}",
         "assignment_help": "Elige los agentes y las automatizaciones que deben utilizar esta habilidad. Se conservarán las habilidades obligatorias y las que aún utilicen otras automatizaciones.",
         "assignment_saved": "Asignaciones actualizadas.",
         "consuming_automations": "Automatizaciones que la utilizan",
@@ -2608,12 +2632,6 @@
         "required_sources": "Fuentes necesarias",
         "required_copy_help": "La copia no sustituye la asignación obligatoria del original.",
         "assignment_partial_error": "No se ha podido completar la asignación. Los cambios ya guardados se conservan.",
-        "instructions_translating": "Traduciendo las instrucciones…",
-        "instructions_translation_error": "No se han podido traducir las instrucciones. Se muestra el texto guardado.",
-        "instructions_translate": "Traducir al español",
-        "instructions_translation_readonly": "Traducción de lectura. El asistente sigue utilizando el texto original.",
-        "instructions_translation_rate_limit": "El proveedor de IA ha limitado las peticiones o ha agotado su cuota. Inténtalo más tarde o revisa la cuota del proveedor. Se conserva el texto original.",
-        "instructions_translation_authentication": "El proveedor de IA ha rechazado la clave de acceso del perfil de traducción. Revisa la conexión del proveedor, o elige un modelo de un proveedor conectado en el perfil de Traducción. Después inténtalo de nuevo. Se conserva el texto original.",
         "active_skills_only": "Solo habilidades activadas",
         "active_tools_only": "Solo herramientas activadas",
         "back_to_profile": "Volver al perfil"

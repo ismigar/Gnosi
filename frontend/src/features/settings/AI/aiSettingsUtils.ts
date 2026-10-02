@@ -14,6 +14,7 @@ export interface NormalizedOrigin extends RawOrigin {
 }
 
 export interface RawCatalogRecord extends UnknownRecord {
+    modified_at?: number | null;
     activation?: string;
     activation_policy?: string;
     agent_assignable?: boolean;
@@ -122,6 +123,7 @@ interface ModelSelection {
 }
 
 export interface SkillDraft {
+    requestedId?: string;
     activation: string;
     description: string;
     instructions: string;
@@ -410,6 +412,7 @@ export const skillPayload = (draft: SkillDraft, revision: unknown = null) => ({
     kind: 'agent',
     activation: draft.activation,
     tool_ids: asArray(draft.toolIds),
+    ...(draft.requestedId ? { requested_id: draft.requestedId } : {}),
     ...(draft.sourceSkillId ? { source_skill_id: draft.sourceSkillId, source_revision: draft.sourceRevision } : {}),
     ...(revision !== null ? { expected_revision: revision } : {}),
 });

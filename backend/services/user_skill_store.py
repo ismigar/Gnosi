@@ -216,6 +216,11 @@ class UserSkillStore:
         requested_id: Optional[str] = None,
     ) -> SkillDescriptor:
         with self._lock:
+            source_id = (metadata.get("metadata") or {}).get("derived_from", {}).get("id")
+            if source_id:
+                existing, _ = self.load_all()
+                if any(skill.metadata.get("derived_from", {}).get("id") == source_id for skill in existing):
+                    raise UserSkillConflictError("a personal version already exists; update it instead")
             if requested_id:
                 skill_id = _normalize_user_id(requested_id)
                 if self._package_path(skill_id).exists():
@@ -248,6 +253,7 @@ class UserSkillStore:
         instructions: str,
         *,
         expected_revision: Optional[str] = None,
+        learning_metadata: Optional[Mapping[str, Any]] = None,
     ) -> SkillDescriptor:
         normalized = _normalize_user_id(skill_id)
         with self._lock:
@@ -258,7 +264,9 @@ class UserSkillStore:
                 )
             # Preserve server-owned lineage across ordinary user edits.
             merged = dict(metadata)
-            merged["metadata"] = current.metadata
+            merged["metadata"] = dict(current.metadata)
+            if learning_metadata is not None:
+                merged["metadata"]["learning"] = dict(learning_metadata)
             descriptor = self.validate(
                 merged, instructions, skill_id=normalized
             )

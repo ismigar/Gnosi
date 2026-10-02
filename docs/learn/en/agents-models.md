@@ -28,6 +28,12 @@ Each card has a settings icon and, unless it is already primary, **Make principa
 
 Each profile has exactly one LLM. To use another model, choose another profile or edit the profile model. There is no automatic model selection or fallback to alternative models. If a profile is deleted or its model becomes unavailable, choose another profile in chat. To delete the default profile, first set another default. Disable the AI plugin to turn off AI.
 
+### Edit instructions in Markdown
+
+Agent and skill instructions share a block editor, active by default, with **/** commands. The formatting toolbar appears when you select text, as in the page editor. As in the page editor, one **</>** button switches between the editable normal view and Markdown source. Switching views does not change the text. Expand the editor for a larger view; press **Esc** or reduce it to return to the form. In Markdown source, **Ctrl/Cmd + ]** indents selected lines and **Ctrl/Cmd + [** outdents them. Changes save automatically after a short pause. **Close** saves pending changes before leaving. If a required field is incomplete or saving fails, the form stays open and shows the problem. Skill drafts use the same behavior; successive saves update the same skill.
+
+Skill assignments save automatically when a toggle changes. Opening the form preselects agents and automations that already use this skill or its original version. Required skills and skills still needed by other automations are preserved. The assignment form opens inside the selected skill’s card, showing its name and version. Only one assignment form is open at a time; Close dismisses it. Settings show one current personalization per original skill, chosen by the latest package modification time. Editing saves into the same package; creating a second personalization of the same source returns a conflict instead of duplicating it. Restore original asks for confirmation before replacing instructions, tools and activation; it saves into the same personal skill and preserves its assignments.
+
 ## Expected result {#expected-result}
 
 The selected agent can respond with the intended context and exposes the capabilities available to it.

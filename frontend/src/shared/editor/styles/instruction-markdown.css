@@ -1,0 +1,130 @@
+.instruction-markdown {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    color: var(--text-primary);
+}
+
+.instruction-markdown__toolbar,
+.instruction-markdown__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.instruction-markdown__toolbar { justify-content: space-between; }
+.instruction-markdown__toolbar .settings-label { margin: 0; }
+
+.instruction-markdown__source {
+    position: relative;
+    height: 320px;
+    overflow: hidden;
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+}
+
+.instruction-markdown__source:focus-within { border-color: var(--gnosi-primary); }
+
+/* Identical metrics keep the highlighting aligned with the native textarea. */
+.instruction-markdown .instruction-markdown__input,
+.instruction-markdown .instruction-markdown__highlight {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 14px;
+    border: 0;
+    border-radius: 0;
+    font: 400 13px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+    letter-spacing: normal;
+    tab-size: 2;
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: normal;
+    scrollbar-gutter: stable;
+}
+
+.instruction-markdown .instruction-markdown__input {
+    color: transparent;
+    caret-color: var(--text-primary);
+    background: transparent;
+    resize: none;
+    outline: none;
+    overflow: auto;
+}
+
+.instruction-markdown__input::placeholder { color: var(--text-tertiary); }
+.instruction-markdown__input::selection { background: color-mix(in srgb, var(--gnosi-primary) 30%, transparent); }
+.instruction-markdown__input:disabled { cursor: not-allowed; }
+.instruction-markdown .instruction-markdown__highlight { pointer-events: none; overflow: hidden; }
+.instruction-markdown__marker,
+.instruction-markdown__emphasis { color: var(--gnosi-primary); }
+.instruction-markdown__code { color: var(--text-secondary); }
+.instruction-markdown__link { color: var(--gnosi-primary); text-decoration: underline; }
+
+.instruction-markdown__preview {
+    height: 320px;
+    overflow: auto;
+    padding: 14px;
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    font-weight: 400;
+    overflow-wrap: anywhere;
+}
+
+.instruction-markdown__help { margin: 0; color: var(--text-tertiary); font-size: 0.75rem; }
+.instruction-markdown__rich {
+    height: 320px;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+}
+.instruction-markdown__rich .bn-container {
+    --bn-colors-editor-background: var(--bg-secondary);
+    --bn-colors-editor-text: var(--text-primary);
+    min-height: 100%;
+}
+.instruction-markdown__rich .bn-editor { padding: 16px 24px; }
+.instruction-markdown__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    padding: 24px;
+    background: var(--overlay-bg, rgb(0 0 0 / 50%));
+}
+
+.instruction-markdown__dialog {
+    width: min(1100px, 100%);
+    height: 100%;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid var(--border-primary);
+    border-radius: 16px;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.instruction-markdown--expanded { height: 100%; }
+.instruction-markdown--expanded .instruction-markdown__source,
+.instruction-markdown--expanded .instruction-markdown__rich,
+.instruction-markdown--expanded .instruction-markdown__preview { flex: 1; min-height: 0; }
+
+@media (max-width: 600px) {
+    .instruction-markdown__backdrop { padding: 8px; }
+    .instruction-markdown__dialog { padding: 12px; }
+}
+
+@media (forced-colors: active) {
+    .instruction-markdown .instruction-markdown__input { color: CanvasText; }
+    .instruction-markdown__highlight { visibility: hidden; }
+}

@@ -1,4 +1,24 @@
 {
+  "skill_autosave": {
+    "pending": "Changes pending…",
+    "idle": "Changes save automatically.",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "error": "Changes could not be saved. Retry before closing.",
+    "incomplete": "Complete the required fields to save changes."
+  },
+  "instruction_editor": {
+    "source_required": "Visual editing could not be loaded. Open Markdown to edit the original text.",
+    "rich_help": "Write directly. Select text to format it or type / to insert a heading, list or code block.",
+    "too_long": "Instructions cannot exceed {{count}} characters.",
+    "controls": "Markdown editor controls",
+    "edit": "Edit",
+    "preview": "Preview",
+    "expand": "Expand editor",
+    "reduce": "Reduce editor",
+    "empty": "No instructions yet.",
+    "help": "Write in Markdown. Ctrl/Cmd + ] indents selected lines; Ctrl/Cmd + [ removes indentation."
+  },
   "_meta": {
     "nativeName": "English",
     "intlLocale": "en-US",
@@ -2614,7 +2634,7 @@
           "notification": "Notification"
         },
         "customize": "Customize",
-        "customize_help": "Create your own editable version. The original is preserved. Nothing is created until you save.",
+        "customize_help": "Create your own editable version. Changes save automatically when you start editing it.",
         "compare_original": "Compare with the original",
         "edit_permission": "An administrator can edit or customize these skills.",
         "instructions_help": "These are the actual instructions given to the agent. Describe the goal, steps, expected result and limits. Tool permissions remain enforced.",
@@ -2637,6 +2657,10 @@
         "source_changed": "The original has changed. Review the differences before updating your version.",
         "based_on": "Based on {{name}}, version {{version}}",
         "assign_copy": "Use this version",
+        "assignment_title": "Where “{{name}}” is used",
+        "restore_original": "Restore original",
+        "restore_original_help": "Replace the customized instructions, tools and activation with the original ones? The change will save automatically.",
+        "skill_version": "Version {{version}}",
         "assignment_help": "Choose the agents and automations that should use this skill. Required skills and skills still used by other automations will be kept.",
         "assignment_saved": "Assignments updated.",
         "consuming_automations": "Automations using this skill",
@@ -2644,12 +2668,6 @@
         "required_sources": "Required sources",
         "required_copy_help": "The copy does not replace the mandatory assignment of the original.",
         "assignment_partial_error": "Assignment could not be completed. Changes already saved are preserved.",
-        "instructions_translating": "Translating instructions…",
-        "instructions_translation_error": "The instructions could not be translated. Showing the saved text.",
-        "instructions_translate": "Translate into English",
-        "instructions_translation_readonly": "Reading translation. The assistant continues to use the original text.",
-        "instructions_translation_rate_limit": "The AI provider has limited requests or exhausted its quota. Try again later or check the provider quota. The original text is preserved.",
-        "instructions_translation_authentication": "The AI provider rejected the translation profile’s access key. Check the provider connection, or choose a model from a connected provider in the Translation profile. Then try again. The original text is preserved.",
         "active_skills_only": "Only enabled skills",
         "active_tools_only": "Only enabled tools",
         "back_to_profile": "Back to profile"

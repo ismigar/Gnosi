@@ -1,4 +1,5 @@
 import { SkillPackageTools } from '../../agent-learning';
+import type { ReactNode } from 'react';
 import {
     AlertTriangle,
     ChevronDown,
@@ -29,6 +30,7 @@ import {
 
 
 interface SkillCardProps {
+    readonly assignment?: ReactNode;
     readonly expanded: boolean;
     readonly trialAgentId?: string;
     readonly onPackageSaved?: () => void;
@@ -96,6 +98,7 @@ function SkillDetails({
 
 
 export function SkillCard({
+    assignment,
     expanded,
     trialAgentId = '',
     onPackageSaved,
@@ -161,6 +164,7 @@ export function SkillCard({
                     </button>
                 ) : null}
             </div>
+            {assignment}
             {expanded ? <>
                 <SkillPackageTools skillId={skill.id} agentId={trialAgentId} canEdit={canEdit} onSaved={onPackageSaved} />
                 {resourceExample(t, skill) && <p className="ai-resource-details">{t('settings.ai.resources.example')}: {resourceExample(t, skill)}</p>}

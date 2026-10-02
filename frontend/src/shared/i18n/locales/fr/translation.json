@@ -1,4 +1,24 @@
 {
+  "skill_autosave": {
+    "pending": "Modifications en attente…",
+    "idle": "Les modifications sont enregistrées automatiquement.",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "error": "Impossible d’enregistrer les modifications. Réessayez avant de fermer.",
+    "incomplete": "Complétez les champs obligatoires pour enregistrer les modifications."
+  },
+  "instruction_editor": {
+    "source_required": "L’édition visuelle n’a pas pu être chargée. Ouvrez Markdown pour modifier le texte original.",
+    "rich_help": "Écrivez directement. Sélectionnez du texte pour le mettre en forme ou tapez / pour insérer un titre, une liste ou un bloc de code.",
+    "too_long": "Les instructions ne peuvent pas dépasser {{count}} caractères.",
+    "controls": "Commandes de l’éditeur Markdown",
+    "edit": "Modifier",
+    "preview": "Aperçu",
+    "expand": "Agrandir l’éditeur",
+    "reduce": "Réduire l’éditeur",
+    "empty": "Aucune instruction pour le moment.",
+    "help": "Écrivez en Markdown. Ctrl/Cmd + ] indente les lignes sélectionnées ; Ctrl/Cmd + [ retire l’indentation."
+  },
   "_meta": {
     "nativeName": "Français",
     "intlLocale": "fr-FR",
@@ -787,7 +807,7 @@
           "notification": "Notification"
         },
         "customize": "Personnaliser",
-        "customize_help": "Créez votre version modifiable. L’original est conservé. Rien n’est créé avant l’enregistrement.",
+        "customize_help": "Créez votre version modifiable. Les changements sont enregistrés automatiquement dès que vous commencez à la modifier.",
         "compare_original": "Comparer avec l’original",
         "edit_permission": "Un administrateur peut modifier ou personnaliser ces compétences.",
         "instructions_help": "Ce sont les instructions réelles données à l’agent. Décrivez l’objectif, les étapes, le résultat attendu et les limites. Les permissions des outils restent appliquées.",
@@ -810,6 +830,10 @@
         "source_changed": "L’original a changé. Examinez les différences avant de mettre à jour votre version.",
         "based_on": "Basée sur {{name}}, version {{version}}",
         "assign_copy": "Utiliser cette version",
+        "assignment_title": "Où « {{name}} » est utilisée",
+        "restore_original": "Restaurer l’original",
+        "restore_original_help": "Remplacer les instructions, les outils et l’activation personnalisés par ceux de l’original ? Le changement sera enregistré automatiquement.",
+        "skill_version": "Version {{version}}",
         "assignment_help": "Choisissez les agents et automatisations qui utiliseront cette compétence. Les compétences obligatoires ou encore utilisées par d’autres automatisations seront conservées.",
         "assignment_saved": "Affectations mises à jour.",
         "consuming_automations": "Automatisations utilisant cette compétence",
@@ -817,12 +841,6 @@
         "required_sources": "Sources nécessaires",
         "required_copy_help": "La copie ne remplace pas l’attribution obligatoire de l’original.",
         "assignment_partial_error": "L’attribution n’a pas pu être terminée. Les modifications déjà enregistrées sont conservées.",
-        "instructions_translating": "Traduction des instructions…",
-        "instructions_translation_error": "Impossible de traduire les instructions. Le texte enregistré est affiché.",
-        "instructions_translate": "Traduire en français",
-        "instructions_translation_readonly": "Traduction de lecture. L’assistant continue à utiliser le texte original.",
-        "instructions_translation_rate_limit": "Le fournisseur IA a limité les requêtes ou épuisé son quota. Réessayez plus tard ou vérifiez son quota. Le texte original est conservé.",
-        "instructions_translation_authentication": "Le fournisseur IA a rejeté la clé d’accès du profil de traduction. Vérifiez la connexion du fournisseur, ou choisissez un modèle d’un fournisseur connecté dans le profil Traduction. Réessayez ensuite. Le texte original est conservé.",
         "active_skills_only": "Uniquement les compétences activées",
         "active_tools_only": "Uniquement les outils activés",
         "back_to_profile": "Retour au profil"

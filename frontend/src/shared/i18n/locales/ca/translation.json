@@ -1,4 +1,24 @@
 {
+  "skill_autosave": {
+    "pending": "Canvis pendents…",
+    "idle": "Els canvis es desen automàticament.",
+    "saving": "Desant…",
+    "saved": "Desat",
+    "error": "No s’han pogut desar els canvis. Torna-ho a provar abans de tancar.",
+    "incomplete": "Completa els camps obligatoris per desar els canvis."
+  },
+  "instruction_editor": {
+    "source_required": "No s’ha pogut carregar l’edició visual. Obre Markdown per editar el text original.",
+    "rich_help": "Escriu directament. Selecciona text per donar-li format o escriu / per inserir un títol, una llista o un bloc de codi.",
+    "too_long": "Les instruccions no poden superar els {{count}} caràcters.",
+    "controls": "Controls de l’editor Markdown",
+    "edit": "Editar",
+    "preview": "Previsualització",
+    "expand": "Amplia l’editor",
+    "reduce": "Redueix l’editor",
+    "empty": "Encara no hi ha instruccions.",
+    "help": "Escriu en Markdown. Ctrl/Cmd + ] sagna les línies seleccionades; Ctrl/Cmd + [ treu el sagnat."
+  },
   "_meta": {
     "nativeName": "Català",
     "intlLocale": "ca-ES",
@@ -2632,7 +2652,7 @@
           "notification": "Notificació"
         },
         "customize": "Personalitza",
-        "customize_help": "Crea una versió pròpia editable. Es conserva l’original. No es crea res fins que desis.",
+        "customize_help": "Crea una versió pròpia editable. Els canvis es desen automàticament quan comences a modificar-la.",
         "compare_original": "Compara amb l’original",
         "edit_permission": "Un administrador pot editar o personalitzar aquestes habilitats.",
         "instructions_help": "Aquestes són les instruccions reals que rep l’agent. Descriu l’objectiu, els passos, el resultat esperat i els límits. Es mantenen els permisos de les eines.",
@@ -2655,6 +2675,10 @@
         "source_changed": "L’original ha canviat. Revisa les diferències abans d’actualitzar la teva versió.",
         "based_on": "Basada en {{name}}, versió {{version}}",
         "assign_copy": "Utilitza aquesta versió",
+        "assignment_title": "On s’utilitza «{{name}}»",
+        "restore_original": "Restaura l’original",
+        "restore_original_help": "Vols substituir les instruccions, les eines i l’activació personalitzades per les de l’original? El canvi es desarà automàticament.",
+        "skill_version": "Versió {{version}}",
         "assignment_help": "Tria els agents i les automatitzacions que han d’utilitzar aquesta habilitat. Es conservaran les habilitats obligatòries i les que encara utilitzin altres automatitzacions.",
         "assignment_saved": "Assignacions actualitzades.",
         "consuming_automations": "Automatitzacions que la utilitzen",
@@ -2662,12 +2686,6 @@
         "required_sources": "Fonts necessàries",
         "required_copy_help": "La còpia no substitueix l’assignació obligatòria de l’original.",
         "assignment_partial_error": "No s’ha pogut completar l’assignació. Els canvis ja desats es conserven.",
-        "instructions_translating": "Traduint les instruccions…",
-        "instructions_translation_error": "No s’han pogut traduir les instruccions. Es mostra el text desat.",
-        "instructions_translate": "Tradueix al català",
-        "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
-        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva.",
-        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva.",
         "active_skills_only": "Només habilitats activades",
         "active_tools_only": "Només eines activades",
         "back_to_profile": "Torna al perfil"

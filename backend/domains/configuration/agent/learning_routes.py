@@ -21,7 +21,7 @@ from backend.services.agent_learning_models import (
 from backend.services.agent_skill_catalog import (
     get_skill_catalog, get_tool_catalog, resolve_agent_capabilities,
 )
-from backend.services.user_skill_store import UserSkillStore
+from backend.services.user_skill_store import UserSkillStore, UserSkillNotFoundError
 from backend.services.workspace_service import WorkspaceContext, require_role
 
 router = APIRouter()
@@ -57,28 +57,49 @@ def _save_skill(payload: SaveLearningRequest, context: WorkspaceContext) -> Save
     if payload.assign and missing:
         raise HTTPException(409, detail="Required tools are unavailable; save without assigning first.")
     store = UserSkillStore(context.vault_path)
-    assignments = _assignment_store() if payload.assign else None
+    assignments = _assignment_store() if payload.assign or payload.expected_revision else None
     if assignments is not None:
         assignments.ensure_migrated()
-    descriptor = store.create({
+    metadata = {
         "name": payload.skill.name, "description": payload.skill.description,
         "activation": "automatic", "kind": "agent", "version": "1.0.0",
         "tool_ids": payload.skill.tool_ids, "status": "available",
         "metadata": {"learning": payload.skill.model_dump(mode="json"), "category": "workflow"},
-    }, payload.skill.instructions)
+    }
+    if payload.skill_id and payload.expected_revision:
+        current = store.load(payload.skill_id)
+        if not isinstance(current.metadata.get("learning"), dict):
+            raise HTTPException(409, detail="This skill is not a learned skill.")
+        descriptor = store.update(payload.skill_id, metadata, payload.skill.instructions,
+                                  expected_revision=payload.expected_revision,
+                                  learning_metadata=payload.skill.model_dump(mode="json"))
+    elif payload.skill_id:
+        try:
+            descriptor = store.load(payload.skill_id)
+        except UserSkillNotFoundError:
+            descriptor = store.create(metadata, payload.skill.instructions, requested_id=payload.skill_id)
+        else:
+            if (descriptor.instructions != payload.skill.instructions
+                    or descriptor.metadata.get("learning") != payload.skill.model_dump(mode="json")):
+                raise HTTPException(409, detail="A revision is required to update this learned skill.")
+    else:
+        descriptor = store.create(metadata, payload.skill.instructions)
     try:
         if assignments is not None:
             revision = assignments.agent_revision(payload.agent_id)
             agent = assignments.get_agent(payload.agent_id)
             ids = list(agent.get("skill_ids") or [])
             assignments.assign(
-                payload.agent_id, [*ids, descriptor.id], catalog=get_skill_catalog(),
+                payload.agent_id, list(dict.fromkeys([*ids, descriptor.id])) if payload.assign
+                else [item for item in ids if item != descriptor.id], catalog=get_skill_catalog(),
                 vault_path=context.vault_path, expected_revision=revision,
             )
     except Exception:
-        store.delete(descriptor.id)
+        if not payload.expected_revision:
+            store.delete(descriptor.id)
         raise
-    return SavedLearning(skill_id=descriptor.id, assigned=payload.assign, missing_tools=missing)
+    return SavedLearning(skill_id=descriptor.id, revision=store.revision(descriptor.id),
+                         assigned=payload.assign, missing_tools=missing)
 
 
 @router.post("/learning/skills", response_model=SavedLearning, status_code=201)

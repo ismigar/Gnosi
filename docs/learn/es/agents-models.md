@@ -28,6 +28,12 @@ Cada ficha tiene una rueda de configuración y, si no es el principal, **Hacer p
 
 Cada perfil tiene un único LLM. Para usar otro modelo, elige otro perfil o edita su modelo. No hay selección automática ni modelos alternativos en caso de fallo. Si se elimina el perfil o el modelo no está disponible, elige otro perfil desde el chat. Para eliminar el predeterminado, establece otro primero. Desactiva el plugin de IA para desactivar la IA.
 
+### Edita las instrucciones en Markdown
+
+Las instrucciones de agentes y habilidades comparten un editor de bloques, activo por defecto, con comandos **/**. La barra de formato aparece al seleccionar texto, como en el editor de páginas. Como en el editor de páginas, un único botón **</>** alterna entre la vista normal editable y el código Markdown. Cambiar de vista no modifica el texto. Amplía el editor para una vista más grande; pulsa **Esc** o reduce el editor para volver al formulario. En el código Markdown, **Ctrl/Cmd + ]** sangra las líneas seleccionadas y **Ctrl/Cmd + [** elimina la sangría. Los cambios se guardan automáticamente después de una breve pausa. **Cerrar** guarda los cambios pendientes antes de salir. Si falta un campo obligatorio o falla el guardado, el formulario permanece abierto y muestra el problema. Esto también se aplica a los borradores de habilidades; los guardados sucesivos actualizan la misma habilidad.
+
+Las asignaciones de una habilidad se guardan automáticamente al cambiar un selector. Al abrir el formulario aparecen marcados los agentes y las automatizaciones que ya utilizan esta habilidad o la versión original. Se conservan las habilidades obligatorias y las que aún necesitan otras automatizaciones. El formulario de asignación se abre dentro de la tarjeta de la habilidad seleccionada, con su nombre y versión visibles. Solo hay un formulario de asignación abierto a la vez; Cerrar lo cierra. La configuración muestra una sola personalización vigente por habilidad original, elegida según la modificación más reciente del paquete. La edición guarda en el mismo paquete; crear una segunda personalización de la misma fuente devuelve un conflicto en lugar de duplicarla. Restaurar el original pide confirmación antes de sustituir instrucciones, herramientas y activación; guarda en la misma habilidad personal y conserva las asignaciones.
+
 ## Resultado esperado {#expected-result}
 
 El agente responde con el contexto previsto y muestra las capacidades disponibles.
