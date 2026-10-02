@@ -17,3 +17,8 @@ export function currentPersonalizedSkills(skills: readonly NormalizedSkill[]) {
     return skills.filter(skill => !latest.has(skill.id)
         && (!skill.metadata?.derived_from?.id || latest.get(skill.metadata.derived_from.id)?.id === skill.id));
 }
+
+export function currentSkillId(skills: readonly NormalizedSkill[], selectedId = '') {
+    const sourceId = skills.find(skill => skill.id === selectedId)?.metadata?.derived_from?.id || selectedId;
+    return latestPersonalizations(skills).get(sourceId)?.id || selectedId;
+}

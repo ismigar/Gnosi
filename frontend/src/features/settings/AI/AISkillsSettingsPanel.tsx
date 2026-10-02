@@ -22,7 +22,7 @@ import type {
     SkillResources,
 } from './aiResourceSettingsTypes';
 import { SkillUsage } from './AISkillUsage';
-import { currentPersonalizedSkills, latestPersonalizations } from './skillPersonalization';
+import { currentPersonalizedSkills, currentSkillId, latestPersonalizations } from './skillPersonalization';
 import { SkillCard } from './AISkillCard';
 import { SkillEditor } from './AISkillEditor';
 import {
@@ -70,10 +70,9 @@ export function SkillsSettingsPanel({
     resources,
 }: SkillsSettingsPanelProps) {
     const { t } = useTranslation();
-    const selectedPersonal = latestPersonalizations(resources.skills).get(resources.skills.find(skill => skill.id === selectedSkillId)?.metadata?.derived_from?.id || selectedSkillId || '');
-    const [search, setSearch] = useState(selectedPersonal?.id || selectedSkillId || '');
+    const [search, setSearch] = useState(currentSkillId(resources.skills, selectedSkillId));
     const [origin, setOrigin] = useState('all');
-    const [expandedId, setExpandedId] = useState(selectedPersonal?.id || selectedSkillId || '');
+    const [expandedId, setExpandedId] = useState(currentSkillId(resources.skills, selectedSkillId));
     const [usage, setUsage] = useState<{ skill: NormalizedSkill; source: NormalizedSkill | null } | null>(null);
     const [source, setSource] = useState<NormalizedSkill | null>(null);
     const [category, setCategory] = useState(resources.skills.some(skill => skill.id === selectedSkillId && skillCategory(skill) === 'legacy') ? 'legacy' : 'all');
