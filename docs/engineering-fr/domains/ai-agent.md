@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1398,3 +1398,6 @@ Configuration → Plugins → IA → Consommation affiche uniquement l'utilisati
 `backend/services/ai_usage_dashboard.py` fournit `/api/ai/usage/dashboard`, `/api/ai/usage/requests` et `/api/ai/usage/export` avec les permissions existantes de l'espace de travail. Les montants décimaux en USD sont convertis dans la devise de Settings avec la provenance du taux de change. La consommation inconnue, partielle et estimée se distingue de zéro et des erreurs de chargement. Les anciens totaux mensuels JSON sont sauvegardés et importés une fois, en conservant fournisseur, modèle et montant sans inventer de dates de requêtes ni d'agents. Ils apparaissent uniquement dans les périodes couvrant leur mois complet ; le détail des requêtes commence à l'activation du registre.
 
 Le contrôle des dépenses du mois en cours utilise le même registre et additionne tous les fournisseurs indépendamment des dates et filtres du dashboard. Il affiche le plafond configuré, le montant consommé et le budget restant dans la devise de Settings. Un plafond nul ou vide signifie sans limite. Les contrôles des agents et équipes refusent les nouveaux appels au plafond uniquement lorsque le blocage est activé ; les autres contraintes de routage restent applicables. `backend/tests/test_ai_consumption.py` couvre la séparation des fournisseurs, la qualité des coûts, le streaming, l'idempotence, la migration, la devise et la cohérence du mois en cours avec les filtres ; les tests des agents et équipes couvrent le blocage activé et désactivé.
+
+
+Les filtres d’égalité entre guillemets préservent le titre littéral de la ressource en catalan, espagnol, anglais et français, y compris `donde` et `où`. Les affectations explicites comme `set estat to "En revisió"` ou `définis estat sur "En revisió"` utilisent l’inventaire complet vérifié et exigent une confirmation avant toute écriture. Les instructions négatives ou explicatives n’autorisent aucune modification. Ces flux déterministes ne valident pas l’aptitude du modèle.

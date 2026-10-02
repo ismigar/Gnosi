@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1375,3 +1375,6 @@ Configuración → Plugins → IA → Consumo muestra solo el uso de Gnosi con t
 `backend/services/ai_usage_dashboard.py` ofrece `/api/ai/usage/dashboard`, `/api/ai/usage/requests` y `/api/ai/usage/export` con los permisos de espacio de trabajo existentes. Los importes decimales en USD se convierten a la moneda de Settings con la procedencia del tipo de cambio. El consumo desconocido, parcial y estimado se diferencia del cero y de los errores de carga. Los totales mensuales JSON existentes se copian e importan una vez, conservando proveedor, modelo e importe sin inventar fechas de peticiones ni agentes. Solo aparecen en intervalos que cubren el mes completo; el detalle de peticiones comienza con la activación del registro.
 
 El control de gasto del mes actual utiliza el mismo registro y suma todos los proveedores independientemente de las fechas y filtros del dashboard. Muestra el límite configurado, el importe consumido y el presupuesto restante en la moneda de Settings. Un límite cero o vacío significa sin límite. Los controles de agentes y equipos rechazan nuevas llamadas al alcanzar el límite solo cuando el bloqueo está activado; las demás restricciones de enrutamiento siguen vigentes. `backend/tests/test_ai_consumption.py` cubre la separación de proveedores, calidad del coste, streaming, idempotencia, migración, moneda y coherencia del mes actual con los filtros; las pruebas de agentes y equipos cubren el bloqueo activado y desactivado.
+
+
+Los filtros de igualdad entre comillas conservan el título literal del recurso en catalán, español, inglés y francés, incluidos `donde` y `où`. Las asignaciones explícitas como `set estat to "En revisió"` o `définis estat sur "En revisió"` utilizan el inventario completo verificado y requieren confirmación antes de escribir. Las instrucciones negadas o explicativas no autorizan actualizaciones. Estos flujos deterministas no acreditan la idoneidad del modelo.

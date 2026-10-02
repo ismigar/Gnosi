@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1352 |
 | `data` | 2 | 214 |
-| `domains` | 491 | 103650 |
+| `domains` | 491 | 103655 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **910 modules** and **181377 source lines**.
+Total: **910 modules** and **181382 source lines**.
 
 ## agent
 
@@ -192,7 +192,7 @@ Total: **910 modules** and **181377 source lines**.
 | [`backend/domains/agent/context_refs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_refs.py) | 218 | 0 | 6 | 0 | 4 | Normalization and descriptions for attached context references. |
 | [`backend/domains/agent/context_storage.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_storage.py) | 465 | 0 | 26 | 0 | 8 | Vault-backed readers for attached context references. |
 | [`backend/domains/agent/context_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_tools.py) | 45 | 0 | 1 | 0 | 1 | Runtime tools closed over an attached context scope. |
-| [`backend/domains/agent/exact_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/exact_actions.py) | 78 | 0 | 3 | 0 | 1 | Prepare bounded exact assignments from current user text and Vault evidence. |
+| [`backend/domains/agent/exact_actions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/exact_actions.py) | 83 | 0 | 3 | 0 | 1 | Prepare bounded exact assignments from current user text and Vault evidence. |
 | [`backend/domains/agent/generated_tools/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/__init__.py) | 1 | 0 | 0 | 0 | 0 | Governed generated-tool validation owned by the agent domain. |
 | [`backend/domains/agent/generated_tools/validator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/generated_tools/validator.py) | 331 | 3 | 0 | 0 | 1 | Security validation for generated agent tools. |
 | [`backend/domains/agent/gnosi_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/gnosi_confirmations.py) | 346 | 0 | 7 | 0 | 6 | Preparation tools for consequential first-party actions. |

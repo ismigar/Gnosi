@@ -18,9 +18,14 @@ def _assignment(message: str) -> tuple[str, str] | None:
     if value_first:
         return value_first.group(2).strip(), value_first.group(1).strip()
     field_first = re.search(
-        r"\bset\s+(?:the\s+)?([\w _-]+?)\s+field\s+to\s+" + quoted,
+        r"\bset\s+(?:the\s+)?([\w _-]+?)\s+(?:field\s+)?to\s+" + quoted,
         message, re.IGNORECASE,
     )
+    if field_first is None:
+        field_first = re.search(
+            r"\b(?:définis|définir)\s+(?:le\s+champ\s+)?([\wÀ-ÿ _-]+?)\s+sur\s+" + quoted,
+            message, re.IGNORECASE,
+        )
     return (field_first.group(1).strip(), field_first.group(2).strip()) if field_first else None
 
 

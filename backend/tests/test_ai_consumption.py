@@ -237,7 +237,7 @@ def test_real_budget_uses_current_month_all_providers_and_ignores_filters(tmp_pa
     currency = {'code': 'EUR', 'symbol': '€', 'usd_rate': .9, 'source': 'test', 'fetched_at': ''}
     monkeypatch.setattr(fx_rates, 'rate_info', lambda _: currency)
     monkeypatch.setattr(fx_rates, 'usd_to_currency', lambda amount, _: amount * .9)
-    now = datetime.now()
+    now = datetime.now().astimezone()
     prior = now.replace(day=1) - timedelta(days=1)
     for provider, stamp, cost in [('p1', now, '1'), ('p2', now, '2'), ('p1', prior, '100')]:
         ledger.write_call(provider=provider, model_id='same', input_tokens=10, output_tokens=2,
@@ -248,7 +248,7 @@ def test_real_budget_uses_current_month_all_providers_and_ignores_filters(tmp_pa
     assert status['cap_ccy'] - status['spent_ccy'] == pytest.approx(1.8)
     assert not status['over_cap']
     assert {(row['provider'], row['model_id']) for row in status['per_model']} == {('p1', 'same'), ('p2', 'same')}
-    filtered = dashboard.dashboard(dashboard.UsageQuery(prior.date(), now.date(), 'UTC', provider='p1'), SCOPE)
+    filtered = dashboard.dashboard(dashboard.UsageQuery(prior.astimezone(timezone.utc).date(), now.astimezone(timezone.utc).date(), 'UTC', provider='p1'), SCOPE)
     assert filtered['summary']['cost_usd'] == 101
     assert filtered['budget']['spent_usd'] == 3
     assert filtered['budget_summary']['cost_usd'] == 3

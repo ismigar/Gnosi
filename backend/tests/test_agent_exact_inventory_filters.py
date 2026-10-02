@@ -11,6 +11,10 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 
 @pytest.mark.parametrize("message", [
+    'Busca todas las entradas de la tabla Cervell Digital donde recurs es "El papa de mis sueños" y asigna "En revisió" al campo estat.',
+    'Find all entries in the Cervell Digital table where recurs is "El papa de mis sueños" and set estat to "En revisió".',
+    'Cherche toutes les entrées de la table Cervell Digital où recurs est "El papa de mis sueños" et définis estat sur "En revisió".',
+
     'Busca totes les entrades de la taula Cervell Digital on recurs és "El papa de mis sueños". Indica el nombre exacte i els títols. No modifiquis res.',
     'Busca las filas de la tabla Cervell Digital cuyo recurs es exactamente "El papa de mis sueños".',
     'In the Cervell Digital table find rows whose recurs equals exactly "El papa de mis sueños". Do not change any data.',
