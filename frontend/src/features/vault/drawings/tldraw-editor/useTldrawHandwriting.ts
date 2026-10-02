@@ -24,7 +24,7 @@ export function useTldrawHandwriting({
     editorRef,
 }: UseTldrawHandwritingOptions): TldrawHandwriting {
     const { t, i18n } = useTranslation();
-    const language = (i18n?.resolvedLanguage ?? i18n?.language ?? 'en').split('-')[0];
+    const language = (i18n.resolvedLanguage ?? i18n.language).split('-')[0];
     const [recognizing, setRecognizing] = useState(false);
     const [status, setStatus] = useState<HandwritingStatusResponse>();
 

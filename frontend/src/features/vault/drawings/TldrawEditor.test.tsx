@@ -74,8 +74,8 @@ vi.mock('../../../shared/api/drawings', () => ({
     recognizeHandwriting: testState.recognizeHandwriting,
     saveDrawing: testState.saveDrawing,
     warmupHandwriting: testState.warmupHandwriting,
-    fetchHandwritingStatus: vi.fn(async () => ({ available: true, loaded: false, model: 'fixture', downloaded: false, state: 'not_downloaded', downloaded_bytes: 0, total_bytes: null, error: '', cancelling: false })),
-    cancelHandwritingDownload: vi.fn(async () => true),
+    fetchHandwritingStatus: vi.fn(() => Promise.resolve({ available: true, loaded: false, model: 'fixture', downloaded: false, state: 'not_downloaded', downloaded_bytes: 0, total_bytes: null, error: '', cancelling: false })),
+    cancelHandwritingDownload: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('../../../shared/api/vaults', () => ({
@@ -88,7 +88,7 @@ vi.mock('../../../shared/notifications/toast', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string): string => key }),
+    useTranslation: () => ({ t: (key: string): string => key, i18n: { language: 'en', resolvedLanguage: 'en' } }),
 }));
 
 describe('TldrawEditor', () => {

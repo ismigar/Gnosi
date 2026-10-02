@@ -15,7 +15,7 @@ vi.mock('../../../../shared/notifications/notifyError', () => ({ logError: vi.fn
 const image = new Blob(['synthetic image']);
 const editor = {
   getSelectedShapeIds: () => ['shape:stroke'], getCurrentPageShapeIds: () => ['shape:stroke'],
-  toImage: vi.fn(async () => ({ blob: image })),
+  toImage: vi.fn(() => Promise.resolve({ blob: image })),
   getSelectionPageBounds: () => ({ x: 1, y: 1, maxY: 5 }),
   getViewportPageBounds: () => ({ center: { x: 1, y: 1 } }),
   createShape: vi.fn(), select: vi.fn(),
@@ -36,7 +36,7 @@ beforeEach(async () => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  await act(async () => { root.render(<Probe />); });
+  await act(async () => { root.render(<Probe />);  await Promise.resolve(); });
 });
 afterEach(() => {
   act(() => { root.unmount(); });
@@ -56,7 +56,7 @@ it('shows byte progress and requests cancellation without inserting partial text
   let reject: (error: Error) => void = () => undefined;
   calls.recognize.mockImplementation(() => new Promise((_resolve, rejectPromise) => { reject = rejectPromise; }));
   let work: Promise<void> | undefined;
-  await act(async () => { work = current?.recognize(); });
+  await act(async () => { work = current?.recognize();  await Promise.resolve(); });
   expect(current?.status?.downloaded_bytes).toBe(32);
   await act(async () => { await current?.cancelDownload(); });
   expect(calls.cancel).toHaveBeenCalledOnce();
@@ -80,7 +80,9 @@ it('passes the UI language and inserts the recognized result', async () => {
   calls.recognize.mockResolvedValue({ text: 'Original text', corrected: false });
   await act(async () => { await current?.recognize(); });
   expect(calls.recognize).toHaveBeenCalledWith(image, { language: 'ca' });
-  expect(editor.createShape).toHaveBeenCalledWith(expect.objectContaining({ props: expect.objectContaining({ richText: 'Original text' }) }));
+  expect(editor.createShape).toHaveBeenCalledOnce();
+  const inserted: unknown = editor.createShape.mock.calls[0]?.[0];
+  expect(inserted).toMatchObject({ props: { richText: 'Original text' } });
   expect(calls.success).toHaveBeenCalledWith('tldraw.recognized');
 });
 it('shows the actionable localized input error without inserting partial text', async () => {

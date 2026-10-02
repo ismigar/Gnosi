@@ -48,7 +48,7 @@ it('cell field buttons preserve zero, false and empty text when assigning values
   const button = mountTestComponent(<CellButton model={table.model()}
     noteId="a" field="Apply" originalMetaKey="Apply" type="button" value={null} />);
   try {
-    await act(async () => { button.container.querySelector('button')?.click(); });
+    await act(async () => { button.container.querySelector('button')?.click();  await Promise.resolve(); });
     expect(executeVaultTableButtonAction).toHaveBeenCalledExactlyOnceWith({ note_id: 'a', button_action: 'set_fields',
       button_config: { assignments: [{ field: 'Score', value: 0 }, { field: 'Checked', value: false }, { field: 'Text', value: '' }] } });
     expect(patchVaultTablePage).not.toHaveBeenCalled();

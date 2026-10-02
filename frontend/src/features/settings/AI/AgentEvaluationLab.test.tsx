@@ -24,14 +24,14 @@ describe('evaluation authorization', () => {
         const container = document.createElement('div');
         const root = createRoot(container);
         try {
-            await act(async () => { root.render(<AgentEvaluationLab />); });
-            await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); });
+            await act(async () => { root.render(<AgentEvaluationLab />);  await Promise.resolve(); });
+            await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click();  await Promise.resolve(); });
             expect(container.textContent).toContain('agent_team.lab_fail_format');
             expect(container.textContent).toContain('agent_team.lab_fail');
             expect(container.textContent).toContain('0%');
             expect(mocks.run).not.toHaveBeenCalled();
         } finally {
-            await act(async () => { root.unmount(); });
+            await act(async () => { root.unmount();  await Promise.resolve(); });
             mocks.reports.mockResolvedValue([]);
         }
     });

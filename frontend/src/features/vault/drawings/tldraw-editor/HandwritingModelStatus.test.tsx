@@ -17,21 +17,21 @@ it.each(Object.entries({ ca, es, en, fr }))('shows download size and cancellatio
     await i18n.init({ lng: language, fallbackLng: false, resources: { [language]: { translation } } });
     const container = document.createElement('div');
     const root = createRoot(container);
-    const cancel = vi.fn(async () => undefined);
+    const cancel = vi.fn(() => Promise.resolve());
     const status: HandwritingStatusResponse = {
         available: true, loaded: false, model: 'fixture', downloaded: false,
         state: 'downloading', downloaded_bytes: 4 * 1024 ** 2, total_bytes: 8 * 1024 ** 2,
         error: '', cancelling: false,
     };
     const render = async (change: Partial<HandwritingStatusResponse>) => {
-        await act(async () => { root.render(<I18nextProvider i18n={i18n}><HandwritingModelStatus status={{ ...status, ...change }} onCancel={cancel} /></I18nextProvider>); });
+        await act(async () => { root.render(<I18nextProvider i18n={i18n}><HandwritingModelStatus status={{ ...status, ...change }} onCancel={cancel} /></I18nextProvider>); await Promise.resolve(); });
     };
     try {
         await render({});
         expect(container.textContent).toContain(translation.tldraw.ocr_downloading);
         const format = new Intl.NumberFormat(language, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
         expect(container.textContent).toContain(`${format.format(4)} / ${format.format(8)} MiB`);
-        await act(async () => { container.querySelector('button')?.click(); });
+        await act(async () => { container.querySelector('button')?.click();  await Promise.resolve(); });
         expect(cancel).toHaveBeenCalledOnce();
         await render({ cancelling: true });
         expect(container.querySelector('button')?.disabled).toBe(true);
@@ -45,6 +45,6 @@ it.each(Object.entries({ ca, es, en, fr }))('shows download size and cancellatio
         expect(container.textContent).toContain(translation.tldraw.ocr_disk_space);
         expect(container.textContent).not.toContain('tldraw.');
     } finally {
-        await act(async () => { root.unmount(); });
+        await act(async () => { root.unmount();  await Promise.resolve(); });
     }
 });

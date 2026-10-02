@@ -6,7 +6,7 @@ export function HandwritingModelStatus({ status, onCancel }: {
     readonly onCancel?: () => Promise<void>;
 }) {
     const { t, i18n } = useTranslation();
-    const format = new Intl.NumberFormat(i18n?.resolvedLanguage ?? i18n?.language ?? 'en', {
+    const format = new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language, {
         minimumFractionDigits: 1, maximumFractionDigits: 1,
     });
     return <span className="text-xs" style={{ color: 'var(--text-secondary)' }} role="status">

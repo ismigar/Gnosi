@@ -7,7 +7,7 @@ import { useMeetingRecorder, type MeetingRecorderController } from './useMeeting
 const effects = vi.hoisted(() => ({
   upload: vi.fn(), resume: vi.fn(), status: vi.fn(), error: vi.fn(), navigate: vi.fn(), dock: vi.fn(),
 }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'ca', resolvedLanguage: 'ca' } }) }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => effects.navigate }));
 vi.mock('../../shared/api/meeting-specialized', () => ({ uploadMeetingRecording: effects.upload, resumeMeetingProcessing: effects.resume }));
 vi.mock('../../shared/api/meetings', () => ({ fetchMeetingStatus: effects.status }));
@@ -159,9 +159,9 @@ describe('durable meeting continuation', () => {
   it('restores an interrupted job and resumes without uploading audio', async () => {
     effects.status.mockResolvedValueOnce({ stage: 'interrupted', running: false, can_resume: true, job_id: 'original-job' });
     effects.resume.mockResolvedValue({ status: 'started' });
-    await act(async () => { controller().openPanel(); });
+    await act(async () => { controller().openPanel();  await Promise.resolve(); });
     expect(controller().phase).toBe('error');
-    await act(async () => { controller().retryUpload(); });
+    await act(async () => { controller().retryUpload();  await Promise.resolve(); });
     expect(effects.resume).toHaveBeenCalledWith('original-job');
     expect(effects.upload).not.toHaveBeenCalled();
     expect(controller().phase).toBe('processing');

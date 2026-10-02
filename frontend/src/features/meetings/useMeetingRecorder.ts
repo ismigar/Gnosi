@@ -81,7 +81,7 @@ export function useMeetingRecorder(): MeetingRecorderController {
   const [phase, setPhase] = useState<MeetingPhase>('idle');
   const [mode, setMode] = useState<MeetingMode>('presencial');
   const [language, setLanguage] = useState<MeetingLanguage>(() => {
-    const code = (i18n?.resolvedLanguage ?? i18n?.language ?? 'ca').split('-')[0];
+    const code = (i18n.resolvedLanguage ?? i18n.language).split('-')[0];
     return code === 'ca' || code === 'es' || code === 'en' || code === 'fr' ? code : 'auto';
   });
   const [title, setTitle] = useState('');

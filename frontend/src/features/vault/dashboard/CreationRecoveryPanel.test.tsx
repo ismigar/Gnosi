@@ -97,6 +97,7 @@ it('resumes the original request once and offers the completed page', async () =
     await act(async () => { resume?.click(); resume?.click(); await Promise.resolve(); });
     expect(ui.fetchMock).toHaveBeenCalledTimes(3);
     expect(resume?.disabled).toBe(true);
+    if (!key) throw new Error('Missing creation request identity');
     const sent = requestAt(ui.fetchMock.mock.calls, 2);
     expect(sent.method).toBe('POST');
     expect(sent.url).toContain(`/creation-requests/${key}/resume`);
