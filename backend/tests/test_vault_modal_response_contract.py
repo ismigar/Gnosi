@@ -44,6 +44,7 @@ def test_agent_skill_catalog_has_a_typed_flattened_response() -> None:
                 "editable": False,
                 "deletable": False,
                 "revision": "rev-1",
+                "modified_at": None,
             }
         ],
         "issues": [{"package": "broken", "error": "invalid manifest"}],
