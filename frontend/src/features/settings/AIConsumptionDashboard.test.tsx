@@ -51,6 +51,10 @@ describe('AI consumption dashboard', () => {
         mocks.dashboard.mockResolvedValue({ ...data, legacy_excluded: true, summary: { ...summary, cost_ccy: null, unknown_cost_calls: 2 } }); await render();
         expect(container.textContent).toContain('incomplete'); expect(container.textContent).toContain('legacy_excluded'); expect(container.querySelector('.consumption-value')?.textContent).toContain('unknown');
     });
+    it('does not present missing daily legacy detail as zero', async () => {
+        mocks.dashboard.mockResolvedValue({ ...data, legacy_excluded: true, summary: { ...summary, calls: 0, cost_ccy: 0, cost_usd: 0 } }); await render();
+        expect([...container.querySelectorAll('.consumption-value')].every(value => value.textContent.includes('unknown'))).toBe(true);
+    });
     it('uses calendar dates across a year boundary', () => {
         expect(consumptionInterval('week', new Date(2026,0,2))).toEqual({ start: '2025-12-27', end: '2026-01-02' });
         expect(consumptionInterval('previous', new Date(2026,0,2))).toEqual({ start: '2025-12-01', end: '2025-12-31' });

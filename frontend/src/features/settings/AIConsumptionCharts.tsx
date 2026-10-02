@@ -15,7 +15,7 @@ export function ConsumptionChart({ data, metric, format, label, onSelect }: {
     const top = ranked.slice(0, 5);
     const keys = new Set(top.map(item => item.key));
     const categories = [...top.map(item => ({ key: item.key, label: label(item.label), value: consumptionMetric(item, metric) })), ...(ranked.length > 5 ? [{ key: '__others__', label: t('settings.ai.consumption.others'), value: ranked.slice(5).reduce((sum, row) => sum + consumptionMetric(row, metric), 0) }] : [])];
-    const max = Math.max(1, ...data.series.map(row => consumptionMetric(row, metric)));
+    const max = Math.max(Number.EPSILON, ...data.series.map(row => consumptionMetric(row, metric)));
     const width = 360;
     const chartHeight = 100;
     const barWidth = Math.min(30, 320 / Math.max(data.series.length, 1));
