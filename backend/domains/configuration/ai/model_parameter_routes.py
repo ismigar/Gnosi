@@ -6,7 +6,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from backend.services.model_parameter_review import ParameterReviewRequest, ParameterReviewResponse
+from backend.services.model_parameter_review import (
+    ParameterReviewRequest as ParameterReviewRequest,
+    ParameterReviewResponse as ParameterReviewResponse,
+)
 from backend.services.workspace_service import require_role
 
 router = APIRouter()
