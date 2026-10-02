@@ -238,7 +238,7 @@ export const useAIResources = (enabled: boolean) => {
     const assignAgentSkills = useCallback(async (
         agentId: string,
         skillIds: readonly string[],
-        replacement?: { sourceId: string; targetId: string; keepSource: boolean },
+        replacement?: { sourceId: string; targetId: string; keepSource: boolean; removeTarget?: boolean },
     ): Promise<string[]> => {
         const currentAssignment = await requestAIResource(
             `/api/ai/agents/${encodeURIComponent(agentId)}/skills`,
@@ -246,13 +246,17 @@ export const useAIResources = (enabled: boolean) => {
         const currentAssignmentRecord = optionalRecord(currentAssignment);
         const currentIds = stringArray(currentAssignmentRecord?.skill_ids);
         const requiredIds = stringArray(currentAssignmentRecord?.required_skill_ids);
-        const dependencies = replacement && !replacement.keepSource
+        const dependencies = replacement && (!replacement.keepSource || replacement.removeTarget)
             ? jsonRecords(await requestAIResource('/api/ai/automations'), 'automations')
             : [];
         const sourceStillUsed = dependencies.some(item => item.agent_id === agentId && item.skill_id === replacement?.sourceId);
         const nextIds = replacement ? [...new Set([
-            ...currentIds.filter(id => id !== replacement.sourceId || replacement.keepSource || sourceStillUsed || requiredIds.includes(id)),
-            replacement.targetId,
+            ...currentIds.filter(id => {
+                if (requiredIds.includes(id)) return true;
+                if (replacement.removeTarget && id === replacement.targetId) return dependencies.some(item => item.agent_id === agentId && item.skill_id === id);
+                return id !== replacement.sourceId || replacement.keepSource || sourceStillUsed;
+            }),
+            ...(replacement.removeTarget ? [] : [replacement.targetId]),
         ])] : skillIds;
         const payload = await requestAIResource(`/api/ai/agents/${encodeURIComponent(agentId)}/skills`, {
             method: 'PUT',
