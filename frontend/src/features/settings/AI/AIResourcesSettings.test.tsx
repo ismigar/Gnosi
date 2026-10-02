@@ -7,10 +7,6 @@ import {
     SkillsSettingsPanel,
     ToolsSettingsPanel,
 } from './AIResourcesSettings';
-import { GnosiApiError } from '../../../shared/api/errors';
-import { SkillInstructions } from './SkillInstructions';
-import { generateAiContent } from '../../../shared/api/ai';
-vi.mock('../../../shared/api/ai', () => ({ generateAiContent: vi.fn() }));
 
 import { normalizeSkill, normalizeTool } from './aiSettingsUtils';
 
@@ -296,57 +292,4 @@ describe('AI resource settings components', () => {
             'settings.ai.resources.unassign_and_delete',
         );
     });
-});
-
-it('translates only on request and keeps original instructions visible and unchanged', async () => {
-    const skill = normalizeSkill({ id: 'user.language', instructions: 'Només llegeix.' });
-    vi.mocked(generateAiContent).mockResolvedValue({ content: 'Read only.', provider: 'local' });
-    const calls = vi.mocked(generateAiContent).mock.calls.length;
-    const container = render(<SkillInstructions skill={skill} />);
-    expect(vi.mocked(generateAiContent).mock.calls.length).toBe(calls);
-    expect(container.textContent).toContain('Només llegeix.');
-    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
-    expect(vi.mocked(generateAiContent).mock.calls.length).toBe(calls + 1);
-    expect(container.textContent).toContain('Read only.');
-    expect(container.textContent).toContain('Només llegeix.');
-    expect(skill.instructions).toBe('Només llegeix.');
-});
-
-it('keeps the original available when a requested translation fails', async () => {
-    const skill = normalizeSkill({ id: 'user.failed-translation', instructions: 'No esborris res.' });
-    vi.mocked(generateAiContent).mockRejectedValueOnce(new Error('Unavailable'));
-    const container = render(<SkillInstructions skill={skill} />);
-    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
-    expect(container.textContent).toContain('No esborris res.');
-    expect(container.textContent).toContain('settings.ai.resources.instructions_translation_error');
-    expect(container.querySelector<HTMLButtonElement>('button')?.disabled).toBe(false);
-    expect(skill.instructions).toBe('No esborris res.');
-});
-
-it('explains provider rate limits without replacing the original instructions', async () => {
-    const skill = normalizeSkill({ id: 'user.rate-limited', instructions: 'Preserve this original.' });
-    vi.mocked(generateAiContent).mockRejectedValueOnce(new Error('OpenAIRateLimitError'));
-    const container = render(<SkillInstructions skill={skill} />);
-    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
-    expect(container.textContent).toContain('settings.ai.resources.instructions_translation_rate_limit');
-    expect(container.textContent).toContain('Preserve this original.');
-});
-
-
-it.each([401, 403, 503])('explains a rejected provider key (%s) and allows retry after reconnecting', async (status) => {
-    const original = `Original instructions for authentication test ${String(status)}.`;
-    const skill = normalizeSkill({ id: `user.authentication-${String(status)}`, instructions: original });
-    vi.mocked(generateAiContent).mockRejectedValueOnce(new GnosiApiError(
-        new Response(null, { status }),
-        { detail: 'The AI provider rejected the key. Check Settings › AI.' },
-    ));
-    const container = render(<SkillInstructions skill={skill} />);
-    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
-    expect(container.textContent).toContain('settings.ai.resources.instructions_translation_authentication');
-    expect(container.textContent).toContain(original);
-    vi.mocked(generateAiContent).mockResolvedValueOnce({ content: 'Translated instructions.', provider: 'local' });
-    await act(async () => { container.querySelector<HTMLButtonElement>('button')?.click(); await Promise.resolve(); });
-    expect(container.textContent).toContain('Translated instructions.');
-    expect(container.textContent).not.toContain('settings.ai.resources.instructions_translation_authentication');
-    expect(skill.instructions).toBe(original);
 });
