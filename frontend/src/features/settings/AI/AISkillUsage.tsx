@@ -6,13 +6,15 @@ import { useTranslation } from 'react-i18next';
 import type { AIResourceAgent, AIResourcesController } from './aiResourceSettingsTypes';
 import type { NormalizedSkill } from './aiSettingsUtils';
 import { isJsonRecord, jsonString } from './aiResourcesApi';
+import { skillDisplayName } from './aiResourceI18n';
 
-export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, principalAgentId = '' }: {
+export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, onClose, principalAgentId = '' }: {
     readonly skill: NormalizedSkill; readonly source: NormalizedSkill | null;
     readonly principalAgentId?: string;
     readonly agents: readonly AIResourceAgent[];
     readonly resources: Pick<AIResourcesController, 'automations' | 'assignAgentSkills' | 'saveAutomation'>;
     readonly onAgentsChanged: (agents: AIResourceAgent[]) => void;
+    readonly onClose: () => void;
 }) {
     const { t } = useTranslation();
     const principal = principalAssistant(agents, principalAgentId);
@@ -49,8 +51,14 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, 
             max_runs_per_day: Number(budgets.max_runs_per_day ?? 4), max_ai_calls_per_run: Number(budgets.max_ai_calls_per_run ?? 4), max_runtime_seconds: Number(budgets.max_runtime_seconds ?? 180) });
         setSelectedAutomations(values => selected ? values.filter(value => value !== id) : [...values, id]);
     });
-    return <div className="ai-resource-editor">
-        <div className="ai-resource-editor__title"><strong>{t('settings.ai.resources.assign_copy')}</strong><DraftSaveStatus status={status} detail={message || undefined} /></div><p>{t('settings.ai.resources.assignment_help')}</p>
+    const title = t('settings.ai.resources.assignment_title', { name: skillDisplayName(t, skill) });
+    return <section className="ai-resource-editor" aria-label={title}>
+        <div className="ai-resource-editor__title flex-wrap">
+            <strong>{title}</strong>
+            <span className="ai-resource-muted">{t('settings.ai.resources.skill_version', { version: skill.version })}</span>
+            <DraftSaveStatus status={status} detail={message || undefined} />
+            <button className="btn-gnosi btn-gnosi-secondary ml-auto" type="button" disabled={saving} onClick={onClose}>{t('common.close')}</button>
+        </div><p>{t('settings.ai.resources.assignment_help')}</p>
         {principal && <div className="flex items-center gap-3"><GnosiToggle active={selectedAgents.includes(principal.id)} label={t('settings.ai.assistant.principal')} disabled={saving} onChange={() => { void changeAgent(principal.id); }} /><span>{t('settings.ai.assistant.principal')}: {profileDisplayName(principal, t) || principal.id}</span></div>}
         <details><summary>{t('settings.ai.assistant.advanced')}</summary>
             {agents.filter(agent => agent.id !== principal?.id).map(agent => <div className="flex items-center gap-3" key={agent.id}><GnosiToggle active={selectedAgents.includes(agent.id)} label={profileDisplayName(agent, t) || agent.id} disabled={saving} onChange={() => { void changeAgent(agent.id); }} /><span>{profileDisplayName(agent, t) || agent.id}</span></div>)}
@@ -60,5 +68,5 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, 
             <span>{jsonString(item.name)}</span>
         </div>)}
         {message && <p role="alert">{message}</p>}
-    </div>;
+    </section>;
 }

@@ -2675,6 +2675,8 @@
         "source_changed": "L’original ha canviat. Revisa les diferències abans d’actualitzar la teva versió.",
         "based_on": "Basada en {{name}}, versió {{version}}",
         "assign_copy": "Utilitza aquesta versió",
+        "assignment_title": "On s’utilitza «{{name}}»",
+        "skill_version": "Versió {{version}}",
         "assignment_help": "Tria els agents i les automatitzacions que han d’utilitzar aquesta habilitat. Es conservaran les habilitats obligatòries i les que encara utilitzin altres automatitzacions.",
         "assignment_saved": "Assignacions actualitzades.",
         "consuming_automations": "Automatitzacions que la utilitzen",

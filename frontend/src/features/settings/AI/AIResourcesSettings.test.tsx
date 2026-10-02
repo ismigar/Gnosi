@@ -19,8 +19,9 @@ vi.mock('../../../shared/editor/InstructionRichEditor', () => ({ default: () => 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         i18n: { language: 'en', resolvedLanguage: 'en' },
-        t: (key: string, options: { defaultValue?: string } = {}) => (
-            options.defaultValue ?? key
+        t: (key: string, options: { defaultValue?: string; name?: string; version?: string } = {}) => (
+            key.endsWith('.assignment_title') ? `Assignments: ${options.name || ''}`
+                : key.endsWith('.skill_version') ? `Version ${options.version || ''}` : options.defaultValue ?? key
         ),
     }),
 }));
@@ -76,6 +77,42 @@ afterEach(() => {
 
 
 describe('AI resource settings components', () => {
+    it('keeps one named assignment form inside its skill card when switching and editing', async () => {
+        const skills = ['First', 'Second', 'Third'].map((name, index) => normalizeSkill({
+            id: `user.copy-${String(index)}`, name, version: String(index + 1), origin: 'user', instructions: 'Read the source.',
+        }));
+        const assignAgentSkills = vi.fn(); const saveAutomation = vi.fn();
+        const container = render(<SkillsSettingsPanel agents={[]} onAgentsChanged={vi.fn()} resources={{
+            skills, tools: [], automations: [], assignAgentSkills, saveAutomation, cloneSkill: vi.fn(), createSkill: vi.fn(),
+            updateSkill: vi.fn(), validateSkill: vi.fn(), deleteSkill: vi.fn(), reload: vi.fn(), issues: [], loading: false, error: '',
+        }} />);
+        const action = (index: number) => [...container.querySelectorAll('.ai-resource-card')][index]
+            ?.querySelectorAll<HTMLButtonElement>('.ai-resource-card__actions button');
+        const clickAction = (index: number, label: string) => {
+            act(() => { [...(action(index) || [])].find(button => button.textContent.includes(label))?.click(); });
+        };
+        for (const [index, skill] of skills.entries()) {
+            clickAction(index, 'assign_copy');
+            const form = container.querySelector('section.ai-resource-editor');
+            expect(container.querySelectorAll('section.ai-resource-editor')).toHaveLength(1);
+            expect(form?.getAttribute('aria-label')).toBe(`Assignments: ${skill.name}`);
+            expect(form?.textContent).toContain(`Version ${String(skill.version)}`);
+            expect(form?.closest('.ai-resource-card')).toBe(container.querySelectorAll('.ai-resource-card')[index]);
+            clickAction(index, 'common.edit');
+            expect(container.querySelector('section.ai-resource-editor')).toBeNull();
+            const closeEditor = [...container.querySelectorAll<HTMLButtonElement>('.ai-resource-editor button')]
+                .find(button => button.textContent.includes('common.close'));
+            await act(async () => { closeEditor?.click(); await Promise.resolve(); });
+            expect(container.querySelector('.ai-resource-editor')).toBeNull();
+        }
+        clickAction(0, 'assign_copy');
+        clickAction(1, 'assign_copy');
+        expect(container.querySelectorAll('section.ai-resource-editor')).toHaveLength(1);
+        expect(container.querySelector('section.ai-resource-editor')?.getAttribute('aria-label')).toBe('Assignments: Second');
+        act(() => { container.querySelector<HTMLButtonElement>('section.ai-resource-editor button')?.click(); });
+        expect(container.querySelector('section.ai-resource-editor')).toBeNull();
+        expect(assignAgentSkills).not.toHaveBeenCalled(); expect(saveAutomation).not.toHaveBeenCalled();
+    });
     it('renders governed tool status, effects, and consumers', () => {
         const tool = normalizeTool({
             effects: ['local_write', 'ai_cost'],
