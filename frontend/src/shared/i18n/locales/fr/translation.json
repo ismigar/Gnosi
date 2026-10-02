@@ -830,6 +830,8 @@
         "source_changed": "L’original a changé. Examinez les différences avant de mettre à jour votre version.",
         "based_on": "Basée sur {{name}}, version {{version}}",
         "assign_copy": "Utiliser cette version",
+        "assignment_title": "Où « {{name}} » est utilisée",
+        "skill_version": "Version {{version}}",
         "assignment_help": "Choisissez les agents et automatisations qui utiliseront cette compétence. Les compétences obligatoires ou encore utilisées par d’autres automatisations seront conservées.",
         "assignment_saved": "Affectations mises à jour.",
         "consuming_automations": "Automatisations utilisant cette compétence",

@@ -2621,6 +2621,8 @@
         "source_changed": "El original ha cambiado. Revisa las diferencias antes de actualizar tu versión.",
         "based_on": "Basada en {{name}}, versión {{version}}",
         "assign_copy": "Utiliza esta versión",
+        "assignment_title": "Dónde se utiliza «{{name}}»",
+        "skill_version": "Versión {{version}}",
         "assignment_help": "Elige los agentes y las automatizaciones que deben utilizar esta habilidad. Se conservarán las habilidades obligatorias y las que aún utilicen otras automatizaciones.",
         "assignment_saved": "Asignaciones actualizadas.",
         "consuming_automations": "Automatizaciones que la utilizan",

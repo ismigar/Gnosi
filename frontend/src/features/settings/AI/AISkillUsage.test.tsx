@@ -11,7 +11,7 @@ it('starts from existing assignments without writes and autosaves an agent toggl
     const saveAutomation = vi.fn(); const changed = vi.fn();
     try {
         await act(async () => { root.render(<SkillUsage skill={normalizeSkill({ id: 'user.copy', name: 'Copy' })}
-            source={normalizeSkill({ id: 'source', name: 'Original' })} principalAgentId="main"
+            source={normalizeSkill({ id: 'source', name: 'Original' })} principalAgentId="main" onClose={vi.fn()}
             agents={[{ id: 'main', name: 'Main', skill_ids: ['other'] }, { id: 'helper', name: 'Knowledge', managed_by: 'builtin:llm-wiki', skill_ids: ['source', 'other'] }]}
             resources={{ automations: [{ id: 'schedule', name: 'Schedule', skill_id: 'source', agent_id: 'helper' }], assignAgentSkills, saveAutomation }} onAgentsChanged={changed} />); await Promise.resolve(); });
         const buttons = [...host.querySelectorAll<HTMLElement>('[role="switch"]')];
