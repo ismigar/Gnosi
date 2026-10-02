@@ -378,8 +378,6 @@ def clone_skill(
         clone = _store_for(context).create(metadata, descriptor.instructions)
         clone_entry = get_skill_catalog().get_entry(clone.id, Path(context.vault_path))
         return _entry_response(clone_entry, Path(context.vault_path))
-    except UserSkillConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except UserSkillStoreError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
