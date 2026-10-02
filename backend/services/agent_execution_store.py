@@ -122,6 +122,19 @@ def update(scope: ExecutionScope, run_id: str, **changes: Any) -> AgentRun:
     return run
 
 
+def increment_usage(scope: ExecutionScope, run_id: str, provider: str, model: str,
+                    input_tokens: int, output_tokens: int) -> None:
+    """Keep concurrent provider completions from overwriting token counters."""
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        old = AgentRun.model_validate_json(str(_row(db, scope, run_id)["payload"]))
+        updated = old.model_copy(update={"provider": provider, "model": model,
+            "input_tokens": old.input_tokens + input_tokens,
+            "output_tokens": old.output_tokens + output_tokens,
+            "usage_available": True, "updated_at": time.time()})
+        db.execute("UPDATE agent_runs SET payload=? WHERE run_id=?", (updated.model_dump_json(), run_id))
+
+
 def list_runs(scope: ExecutionScope, limit: int = 50) -> list[AgentRun]:
     from backend.services.agent_execution_trace import expire
     expire(scope)

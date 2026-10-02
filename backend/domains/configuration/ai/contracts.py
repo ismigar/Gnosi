@@ -327,3 +327,78 @@ class AiUsageHistoryResponse(BaseModel):
 
     currency: CurrencyInfoResponse
     periods: dict[str, AiUsageHistoryPeriodResponse]
+
+
+class AiUsageSummaryResponse(BaseModel):
+    calls: int
+    input_tokens: int
+    output_tokens: int
+    cached_tokens: int
+    reasoning_tokens: int
+    cost_usd: float | None
+    cost_ccy: float | None
+    unknown_cost_calls: int
+    unknown_usage_calls: int
+    estimated_calls: int
+    failed_calls: int
+    legacy_records: int
+
+
+class AiUsageGroupResponse(AiUsageSummaryResponse):
+    key: str
+    label: str
+
+
+class AiUsageSeriesResponse(AiUsageSummaryResponse):
+    date: str
+    groups: list[AiUsageGroupResponse]
+
+
+class AiUsageFilterOption(BaseModel):
+    value: str
+    label: str
+
+
+class AiUsageDashboardResponse(BaseModel):
+    currency: CurrencyInfoResponse
+    start: str
+    end: str
+    timezone: str
+    granularity: str
+    summary: AiUsageSummaryResponse
+    groups: list[AiUsageGroupResponse]
+    series: list[AiUsageSeriesResponse]
+    options: dict[str, list[AiUsageFilterOption]]
+    legacy_excluded: bool
+    budget: AiUsageResponse
+    budget_summary: AiUsageSummaryResponse
+
+
+class AiUsageRequestResponse(BaseModel):
+    id: str
+    created_at: str | None
+    period: str
+    provider: str
+    model_id: str
+    agent_id: str
+    agent_name: str
+    operation: str
+    origin: str
+    profile: str
+    input_tokens: int | None
+    output_tokens: int | None
+    cached_tokens: int | None
+    reasoning_tokens: int | None
+    duration_ms: float
+    status: str
+    cost_usd: float | None
+    cost_ccy: float | None
+    cost_source: str
+
+
+class AiUsageRequestsResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    currency: CurrencyInfoResponse
+    items: list[AiUsageRequestResponse]

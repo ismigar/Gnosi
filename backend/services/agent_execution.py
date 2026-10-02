@@ -208,6 +208,8 @@ def before_tool_call(tool_name: str, *, dynamic_context: bool = False) -> None:
 
 
 def after_model_call(message: Any) -> None:
+    if getattr(message, "additional_kwargs", {}).get("gnosi_usage_recorded"):
+        return
     run_id = _run.get()
     if not run_id:
         return

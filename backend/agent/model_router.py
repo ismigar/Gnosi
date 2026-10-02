@@ -395,6 +395,10 @@ class UsageStore:
         return None
 
     def _load(self) -> None:
+        if not self._path:
+            from backend.services.ai_usage_ledger import monthly
+            self._data = monthly()
+            return
         p = self._resolve_path()
         if p and p.exists():
             try:
@@ -422,6 +426,13 @@ class UsageStore:
 
     def record(self, provider: str, model_id: str, in_tok: int, out_tok: int,
                period: str, cost_usd: float = 0.0) -> None:
+        if not self._path:
+            from backend.services.ai_usage_ledger import write_call
+            write_call(provider=provider, model_id=model_id, input_tokens=in_tok,
+                       output_tokens=out_tok, period=period, cost_usd=cost_usd,
+                       cost_source="estimated")
+            self._load()
+            return
         with _usage_lock:
             # Re-read under the lock: another instance may have written since
             # this one loaded (the whole cycle must sit inside the lock).

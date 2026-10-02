@@ -1,0 +1,25 @@
+.consumption-dashboard { display: flex; flex-direction: column; gap: 16px; padding-block: 16px; }
+.consumption-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.consumption-header h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.consumption-header p, .consumption-meta { color: var(--text-secondary); font-size: .82rem; margin: 0; }
+.consumption-controls, .consumption-filters { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.consumption-controls label, .consumption-filters label { display: flex; flex-direction: column; gap: 6px; font-size: .82rem; min-width: 0; }
+.consumption-filters .gnosi-input { width: 100%; min-width: 0; }
+.consumption-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.consumption-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 18px; min-width: 0; }
+.consumption-card h4 { margin: 0 0 8px; color: var(--text-secondary); }
+.consumption-value { font-size: 1.8rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.consumption-chart { display: block; width: 100%; margin: 16px 0 8px; }
+.consumption-legend { display: flex; flex-direction: column; gap: 8px; }
+.consumption-legend-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; border: none; background: transparent; color: var(--text-primary); text-align: left; padding: 2px 0; cursor: pointer; font-size: .78rem; }
+.consumption-legend-row:disabled { cursor: default; opacity: 1; }
+.consumption-legend-row > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.consumption-legend-row:focus-visible { outline: 2px solid var(--gnosi-primary); outline-offset: 3px; }
+.consumption-dot { width: 8px; height: 8px; border-radius: 50%; }
+.consumption-notice { border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); padding: 12px; margin: 0; font-size: .85rem; }
+.consumption-table-wrap { overflow-x: auto; }
+.consumption-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.consumption-table th, .consumption-table td { border-bottom: 1px solid var(--border-color); text-align: left; padding: 10px; vertical-align: top; }
+.consumption-table td small { display: block; color: var(--text-secondary); margin-top: 4px; }
+.consumption-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; font-size: .8rem; }
+@media (max-width: 900px) { .consumption-kpis { grid-template-columns: 1fr; } }

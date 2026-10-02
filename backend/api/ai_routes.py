@@ -51,6 +51,8 @@ from backend.utils.safe_io import safe_write_text
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
 router.include_router(model_metadata_router)
+from backend.domains.configuration.ai.usage_routes import router as usage_router
+router.include_router(usage_router)
 JsonObject = dict[str, Any]
 
 
