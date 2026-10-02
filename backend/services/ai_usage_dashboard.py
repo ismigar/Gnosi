@@ -178,7 +178,7 @@ def export_csv(query: UsageQuery, scope: Any) -> str:
     currency = currency_context()
     rows, _ = records(query, scope)
     output = io.StringIO(newline='')
-    fields = ['record_type','created_at','period','provider','model_id','agent_id','agent_name','operation','origin','input_tokens','output_tokens','cached_tokens','reasoning_tokens','cost_usd','cost_ccy','currency','cost_source','status','duration_ms']
+    fields = ['record_type','created_at','period','provider','model_id','agent_id','agent_name','operation','origin','profile','input_tokens','output_tokens','cached_tokens','reasoning_tokens','cost_usd','cost_ccy','currency','cost_source','status','duration_ms']
     writer = csv.DictWriter(output, fieldnames=fields, extrasaction='ignore')
     writer.writeheader()
     for row in rows:

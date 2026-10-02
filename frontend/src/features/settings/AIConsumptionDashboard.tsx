@@ -62,7 +62,7 @@ export function AIConsumptionDashboard({ context }: { readonly context: Settings
     const number = (value: number): string => new Intl.NumberFormat(i18n.resolvedLanguage).format(value);
     const label = (value: string): string => {
         if (['unattributed', 'system', 'legacy', 'unrated', 'diagnostic'].includes(value)) return t(`settings.ai.consumption.${value}`);
-        for (const prefix of ['agent_execution.skills', 'agent_execution.origins']) {
+        for (const prefix of ['agent_execution.skills', 'agent_execution.origins', 'model_comparison.profiles']) {
             const key = `${prefix}.${value}`;
             if (i18n.exists(key)) return t(key);
         }

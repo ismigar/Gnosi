@@ -424,7 +424,7 @@ class UsageStore:
         except Exception:
             pass
 
-    def record(self, provider: str, model_id: str, in_tok: int, out_tok: int,
+    def record(self, provider: str, model_id: str, in_tok: int | None, out_tok: int | None,
                period: str, cost_usd: float | None = 0.0, *,
                cost_source: str = "estimated", call_id: str | None = None,
                metadata: dict[str, str] | None = None, created: float | None = None,
@@ -444,8 +444,8 @@ class UsageStore:
             bucket = self._data.setdefault(period, {})
             key = f"{provider}:{model_id}"
             entry = _normalize_usage_entry(bucket.get(key, {}))
-            entry["in"] += int(in_tok)
-            entry["out"] += int(out_tok)
+            entry["in"] += int(in_tok or 0)
+            entry["out"] += int(out_tok or 0)
             entry["cost_usd"] = round(entry["cost_usd"] + float(cost_usd or 0.0), 6)
             bucket[key] = entry
             self._save()

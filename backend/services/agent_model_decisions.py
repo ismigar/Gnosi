@@ -69,8 +69,10 @@ def _record_usage(payload: Mapping[str, Any], estimated_tokens: int, *,
                   call_id: str, started: float, attribution: dict[str, str], status: str = "completed") -> None:
     usage = payload.get("usage")
     usage = usage if isinstance(usage, dict) else {}
-    in_tokens = usage.get("input_tokens", estimated_tokens)
-    out_tokens = usage.get("output_tokens", 0)
+    in_tokens = usage.get("input_tokens")
+    out_tokens = usage.get("output_tokens")
+    input_known = isinstance(in_tokens, int) and not isinstance(in_tokens, bool) and in_tokens >= 0
+    output_known = isinstance(out_tokens, int) and not isinstance(out_tokens, bool) and out_tokens >= 0
     if not isinstance(in_tokens, int) or isinstance(in_tokens, bool) or in_tokens < 0:
         in_tokens = estimated_tokens
     if not isinstance(out_tokens, int) or isinstance(out_tokens, bool) or out_tokens < 0:
@@ -78,7 +80,7 @@ def _record_usage(payload: Mapping[str, Any], estimated_tokens: int, *,
     from backend.services.ai_usage_ledger import decimal_cost
     reported = decimal_cost(usage.get("cost"))
     UsageStore().record(
-        "typesafe", JEV_MODEL, in_tokens, out_tokens,
+        "typesafe", JEV_MODEL, in_tokens if input_known else None, out_tokens if output_known else None,
         datetime.now().strftime("%Y-%m"),
         cost_usd=float(reported) if reported is not None else in_tokens * JEV_INPUT_USD_PER_MILLION / 1_000_000,
         cost_source="reported" if reported is not None else "estimated",
@@ -167,7 +169,7 @@ def decide_with_jev(
         _record_usage({}, estimated_tokens, **accounting, status="failed")
         return ModelDecision(status="invalid_response")
     except httpx.HTTPError:
-        UsageStore().record("typesafe", JEV_MODEL, 0, 0, datetime.now().strftime("%Y-%m"),
+        UsageStore().record("typesafe", JEV_MODEL, None, None, datetime.now().strftime("%Y-%m"),
             cost_usd=None, cost_source="unknown", call_id=call_id, metadata=attribution, created=started, duration_ms=(time.time()-started)*1000, status="failed")
         return ModelDecision(status="unavailable")
 

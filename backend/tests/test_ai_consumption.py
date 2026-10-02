@@ -188,3 +188,36 @@ def test_cancelled_call_records_unknown_once(runtime):
     callback.on_llm_error(asyncio.CancelledError(),run_id='cancel')
     with ledger.connect() as db:rows=[dict(row) for row in db.execute('select * from usage_calls')]
     assert len(rows)==1 and rows[0]['status']=='cancelled' and rows[0]['cost_usd'] is None
+
+
+def test_native_structured_validation_failure_preserves_raw_cost(runtime):
+    from pydantic import BaseModel, ValidationError
+    class Answer(BaseModel):
+        count: int
+    payload={'id':'test','object':'chat.completion','created':1,'model':'gpt-4o-2024-08-06',
+        'choices':[{'index':0,'message':{'role':'assistant','content':'{"count":"invalid"}'},'finish_reason':'stop'}],
+        'usage':{'prompt_tokens':10,'completion_tokens':2,'total_tokens':12,'cost':0.0042}}
+    model=instrument(ChatOpenAI(model='gpt-4o-2024-08-06',api_key='test',base_url='https://test.invalid',http_client=httpx.Client(transport=httpx.MockTransport(lambda req:httpx.Response(200,json=payload)))), 'router','gpt-4o-2024-08-06')
+    with pytest.raises(ValidationError):model.with_structured_output(Answer,method='json_schema').invoke('test')
+    with ledger.connect() as db:rows=[dict(row) for row in db.execute('select * from usage_calls')]
+    assert len(rows)==1 and rows[0]['cost_source']=='reported' and rows[0]['cost_usd']=='0.0042'
+    assert rows[0]['input_tokens']==10 and rows[0]['status']=='failed'
+
+
+def test_model_profile_uses_cached_exact_provider_route(runtime, monkeypatch):
+    from backend.services import artificial_analysis
+    monkeypatch.setattr(artificial_analysis, '_read_cache', lambda: {'models':[{'profile':'expert','routes':[{'provider':'p1','model_id':'same'}]},{'profile':'worker','routes':[{'provider':'p2','model_id':'same'}]}]})
+    for provider in ['p1','p2']:
+        callback=UsageCallback(provider,'same');callback.on_chat_model_start({},[],run_id=provider)
+        callback.on_llm_error(RuntimeError('test'),run_id=provider)
+    with ledger.connect() as db:rows={row['provider']:row['profile'] for row in db.execute('select * from usage_calls')}
+    assert rows=={'p1':'expert','p2':'worker'}
+
+
+def test_cancelled_stream_keeps_available_partial_usage(runtime):
+    import asyncio
+    callback=UsageCallback('p1','same');callback.on_chat_model_start({},[],run_id='partial-cancel')
+    partial=LLMResult(generations=[[ChatGeneration(message=AIMessage(content='partial',usage_metadata={'input_tokens':9,'output_tokens':3,'total_tokens':12}))]])
+    callback.on_llm_error(asyncio.CancelledError(),run_id='partial-cancel',response=partial)
+    with ledger.connect() as db:row=dict(db.execute('select * from usage_calls').fetchone())
+    assert row['status']=='cancelled' and row['input_tokens']==9 and row['output_tokens']==3

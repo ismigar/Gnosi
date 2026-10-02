@@ -84,6 +84,12 @@ class ObservedResource:
                     return _observed_result(await result)
                 return finish()
             if callable(getattr(result, "parse", None)) and not hasattr(result, "model_dump"):
+                raw_response = getattr(result, "http_response", None)
+                if raw_response is not None and getattr(raw_response, "is_stream_consumed", False):
+                    try:
+                        observe(raw_response.json())
+                    except (ValueError, RuntimeError):
+                        pass
                 return ObservedResource(result)
             return _observed_result(result)
         return call
@@ -133,7 +139,14 @@ class UsageCallback(BaseCallbackHandler):
             if rates is None and "cost_in" in row and "cost_out" in row and (row["cost_in"] or row["cost_out"] or row.get("is_free")):
                 rates = {"cost_in": row["cost_in"], "cost_out": row["cost_out"]}
             state["rates"] = rates
-            state["attribution"]["profile"] = str(row.get("profile") or "unrated")
+            profile = row.get("profile")
+            if not profile:
+                from backend.services.artificial_analysis import _read_cache
+                cached = _read_cache() or {}
+                profile = next((item.get("profile") for item in cached.get("models", [])
+                    if any(route.get("provider") == self.provider and route.get("model_id") == self.model
+                           for route in item.get("routes", []))), None)
+            state["attribution"]["profile"] = str(profile or "unrated")
         except Exception:
             state["rates"] = None
         with self.lock:
@@ -173,7 +186,7 @@ class UsageCallback(BaseCallbackHandler):
     def on_llm_end(self, response: Any, *, run_id: Any, **kwargs: Any) -> None:
         self._finish(run_id, response)
     def on_llm_error(self, error: BaseException, *, run_id: Any, **kwargs: Any) -> None:
-        self._finish(run_id, error=error)
+        self._finish(run_id, result=kwargs.get("response"), error=error)
 
 
 def instrument(model: Any, provider: str, model_id: str | None) -> Any:
@@ -198,4 +211,6 @@ def instrument(model: Any, provider: str, model_id: str | None) -> Any:
         client = getattr(model, field, None)
         if client is not None and hasattr(client, "responses"):
             client.responses = ObservedResource(client.responses)
+        if client is not None and hasattr(client, "chat"):
+            client.chat.completions = ObservedResource(client.chat.completions)
     return model
