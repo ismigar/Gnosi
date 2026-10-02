@@ -2658,6 +2658,8 @@
         "based_on": "Based on {{name}}, version {{version}}",
         "assign_copy": "Use this version",
         "assignment_title": "Where “{{name}}” is used",
+        "restore_original": "Restore original",
+        "restore_original_help": "Replace the customized instructions, tools and activation with the original ones? The change will save automatically.",
         "skill_version": "Version {{version}}",
         "assignment_help": "Choose the agents and automations that should use this skill. Required skills and skills still used by other automations will be kept.",
         "assignment_saved": "Assignments updated.",

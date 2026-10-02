@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1150 | 128103 | 38 |
+| `features` | 1151 | 128147 | 38 |
 | `generated` | 2 | 48164 | 495 |
 | `shared` | 277 | 32385 | 426 |
 
@@ -526,9 +526,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/AI/AIResourcesSettings.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIResourcesSettings.ts) | 5 | — | — |
 | [`frontend/src/features/settings/AI/AIScheduleFields.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIScheduleFields.tsx) | 21 | `ScheduleFields` | — |
 | [`frontend/src/features/settings/AI/AISkillCard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillCard.tsx) | 186 | `SkillCard` | — |
-| [`frontend/src/features/settings/AI/AISkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillEditor.tsx) | 230 | `SkillEditor` | — |
+| [`frontend/src/features/settings/AI/AISkillEditor.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillEditor.tsx) | 245 | `SkillEditor` | — |
 | [`frontend/src/features/settings/AI/AISkillUsage.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillUsage.tsx) | 72 | `SkillUsage` | — |
-| [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 365 | `SkillsSettingsPanel` | — |
+| [`frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AISkillsSettingsPanel.tsx) | 369 | `SkillsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/AIToolPicker.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolPicker.tsx) | 64 | `ToolPicker` | — |
 | [`frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AIToolsSettingsPanel.tsx) | 178 | `ToolsSettingsPanel` | — |
 | [`frontend/src/features/settings/AI/ActivityHistory.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/ActivityHistory.tsx) | 123 | `ActivityHistory` | — |
@@ -549,9 +549,10 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/AI/aiResourcesApi.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourcesApi.ts) | 84 | `AIResourceRequestError`, `affectedAgentsFromError`, `isJsonRecord`, `jsonRecords`, `jsonString`, `requestAIResource` | — |
 | [`frontend/src/features/settings/AI/aiResourcesSnapshot.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourcesSnapshot.ts) | 105 | `loadAIResourceSnapshot`, `mutationCatalogRecord`, `optionalRecord`, `stringArray` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/capability-audit`, `/api/ai/evals/models`, `/api/ai/jobs`, `/api/ai/quality/conformance`, `/api/ai/quality/dashboard`, `/api/ai/semantic-associations`, `/api/ai/skills`, `/api/ai/tools` |
 | [`frontend/src/features/settings/AI/aiSchedule.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSchedule.ts) | 9 | `defaultSchedule` | — |
-| [`frontend/src/features/settings/AI/aiSettingsUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.ts) | 424 | `agentSkillWarnings`, `catalogRows`, `cloneSkillPayload`, `groupEnabledModelRoutes`, `modelRouteKey`, `modelToolCompatibility`, `normalizeSkill`, `normalizeTool`, `parseModelRouteKey`, `requiredSkillIdsForAgent`, `skillEffects`, `skillPayload` | — |
+| [`frontend/src/features/settings/AI/aiSettingsUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.ts) | 425 | `agentSkillWarnings`, `catalogRows`, `cloneSkillPayload`, `groupEnabledModelRoutes`, `modelRouteKey`, `modelToolCompatibility`, `normalizeSkill`, `normalizeTool`, `parseModelRouteKey`, `requiredSkillIdsForAgent`, `skillEffects`, `skillPayload` | — |
 | [`frontend/src/features/settings/AI/modelReliability.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/modelReliability.ts) | 65 | `MODEL_FAULT_REASONS`, `findModelFault`, `useModelReliability` | — |
 | [`frontend/src/features/settings/AI/skillInstructionTranslation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/skillInstructionTranslation.ts) | 53 | `instructionLanguage`, `translateInstructions`, `useSkillInstructions` | — |
+| [`frontend/src/features/settings/AI/skillPersonalization.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/skillPersonalization.ts) | 24 | `currentPersonalizedSkills`, `currentSkillId`, `latestPersonalizations` | — |
 | [`frontend/src/features/settings/AI/useAIResources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/useAIResources.ts) | 500 | `useAIResources` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/evals/models`, `/api/ai/semantic-associations`, `/api/ai/skills` |
 | [`frontend/src/features/settings/AIActivity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIActivity.ts) | 2 | — | — |
 | [`frontend/src/features/settings/AIModelComparisonModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.tsx) | 223 | `AIModelComparisonModal` | — |

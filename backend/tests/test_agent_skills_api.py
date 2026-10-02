@@ -246,7 +246,11 @@ def test_personalization_records_source_and_rejects_stale_original(monkeypatch, 
     copied = client.post("/api/ai/skills", json={**draft, "source_revision": source["revision"]})
     assert copied.status_code == 201, copied.text
     saved = copied.json()
+    assert saved["modified_at"] > 0
     assert saved["metadata"]["derived_from"]["instructions"] == "Original instructions"
+    repeated = client.post("/api/ai/skills", json={**draft, "source_revision": source["revision"]})
+    assert repeated.status_code == 409
+    assert client.get(f"/api/ai/skills/{saved['id']}").json()["instructions"] == "My instructions"
     updated = client.put(f"/api/ai/skills/{saved['id']}", json={"name": "Personal updated", "instructions": "Edited again", "tool_ids": [], "expected_revision": saved["revision"]})
     assert updated.status_code == 200, updated.text
     assert updated.json()["metadata"]["derived_from"] == saved["metadata"]["derived_from"]

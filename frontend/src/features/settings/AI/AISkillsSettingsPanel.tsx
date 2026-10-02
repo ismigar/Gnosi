@@ -22,6 +22,7 @@ import type {
     SkillResources,
 } from './aiResourceSettingsTypes';
 import { SkillUsage } from './AISkillUsage';
+import { currentPersonalizedSkills, currentSkillId, latestPersonalizations } from './skillPersonalization';
 import { SkillCard } from './AISkillCard';
 import { SkillEditor } from './AISkillEditor';
 import {
@@ -69,9 +70,9 @@ export function SkillsSettingsPanel({
     resources,
 }: SkillsSettingsPanelProps) {
     const { t } = useTranslation();
-    const [search, setSearch] = useState(selectedSkillId || '');
+    const [search, setSearch] = useState(currentSkillId(resources.skills, selectedSkillId));
     const [origin, setOrigin] = useState('all');
-    const [expandedId, setExpandedId] = useState(selectedSkillId || '');
+    const [expandedId, setExpandedId] = useState(currentSkillId(resources.skills, selectedSkillId));
     const [usage, setUsage] = useState<{ skill: NormalizedSkill; source: NormalizedSkill | null } | null>(null);
     const [source, setSource] = useState<NormalizedSkill | null>(null);
     const [category, setCategory] = useState(resources.skills.some(skill => skill.id === selectedSkillId && skillCategory(skill) === 'legacy') ? 'legacy' : 'all');
@@ -87,7 +88,7 @@ export function SkillsSettingsPanel({
         () => new Map(resources.tools.map((tool) => [tool.id, tool])),
         [resources.tools],
     );
-    const skillsWithConsumers = useMemo(() => resources.skills.map((skill) => ({
+    const skillsWithConsumers = useMemo(() => currentPersonalizedSkills(resources.skills).map((skill) => ({
         ...skill,
         agentIds: [...new Set([
             ...skill.agentIds,
@@ -132,6 +133,8 @@ export function SkillsSettingsPanel({
     };
     const handleClone = (skill: NormalizedSkill): void => {
         setUsage(null);
+        const personal = latestPersonalizations(resources.skills).get(skill.id);
+        if (personal) { setEditing(personal); setCreating(false); return; }
         createdSkill.current = null;
         creationId.current = `user.skill-${crypto.randomUUID()}`;
         setSource(skill);
@@ -308,6 +311,7 @@ export function SkillsSettingsPanel({
                     onSave={handleUpdate}
                     onValidate={(draft) => resources.validateSkill(editing, draft)}
                     skill={editing}
+                    original={resources.skills.find(skill => skill.id === editing.metadata?.derived_from?.id)}
                     tools={resources.tools}
                 />
             ) : null}

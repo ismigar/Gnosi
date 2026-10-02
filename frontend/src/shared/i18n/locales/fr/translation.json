@@ -831,6 +831,8 @@
         "based_on": "Basée sur {{name}}, version {{version}}",
         "assign_copy": "Utiliser cette version",
         "assignment_title": "Où « {{name}} » est utilisée",
+        "restore_original": "Restaurer l’original",
+        "restore_original_help": "Remplacer les instructions, les outils et l’activation personnalisés par ceux de l’original ? Le changement sera enregistré automatiquement.",
         "skill_version": "Version {{version}}",
         "assignment_help": "Choisissez les agents et automatisations qui utiliseront cette compétence. Les compétences obligatoires ou encore utilisées par d’autres automatisations seront conservées.",
         "assignment_saved": "Affectations mises à jour.",
