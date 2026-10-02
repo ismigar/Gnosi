@@ -1,5 +1,5 @@
 import { DraftSaveStatus } from '../../../shared/editor/DraftSaveStatus';
-import { principalAssistant } from '../../../shared/ai/assistantProfiles';
+import { principalAssistant, profileDisplayName } from '../../../shared/ai/assistantProfiles';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -51,9 +51,9 @@ export function SkillUsage({ skill, source, agents, resources, onAgentsChanged, 
     });
     return <div className="ai-resource-editor">
         <div className="ai-resource-editor__title"><strong>{t('settings.ai.resources.assign_copy')}</strong><DraftSaveStatus status={status} detail={message || undefined} /></div><p>{t('settings.ai.resources.assignment_help')}</p>
-        {principal && <div className="flex items-center gap-3"><GnosiToggle active={selectedAgents.includes(principal.id)} label={t('settings.ai.assistant.principal')} disabled={saving} onChange={() => { void changeAgent(principal.id); }} /><span>{t('settings.ai.assistant.principal')}: {principal.name || principal.id}</span></div>}
+        {principal && <div className="flex items-center gap-3"><GnosiToggle active={selectedAgents.includes(principal.id)} label={t('settings.ai.assistant.principal')} disabled={saving} onChange={() => { void changeAgent(principal.id); }} /><span>{t('settings.ai.assistant.principal')}: {profileDisplayName(principal, t) || principal.id}</span></div>}
         <details><summary>{t('settings.ai.assistant.advanced')}</summary>
-            {agents.filter(agent => agent.id !== principal?.id).map(agent => <div className="flex items-center gap-3" key={agent.id}><GnosiToggle active={selectedAgents.includes(agent.id)} label={agent.name || agent.id} disabled={saving} onChange={() => { void changeAgent(agent.id); }} /><span>{agent.name || agent.id}</span></div>)}
+            {agents.filter(agent => agent.id !== principal?.id).map(agent => <div className="flex items-center gap-3" key={agent.id}><GnosiToggle active={selectedAgents.includes(agent.id)} label={profileDisplayName(agent, t) || agent.id} disabled={saving} onChange={() => { void changeAgent(agent.id); }} /><span>{profileDisplayName(agent, t) || agent.id}</span></div>)}
         </details>
         {automations.map(item => <div className="flex items-center gap-3" key={String(item.id)}>
             <GnosiToggle active={selectedAutomations.includes(String(item.id))} label={jsonString(item.name)} disabled={saving || !source} onChange={() => { void changeAutomation(item); }} />
