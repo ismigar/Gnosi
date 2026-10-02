@@ -3,6 +3,7 @@ import { Download, BarChart3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { RefreshButton } from '../../shared/ui/actions/RefreshButton';
 import { subscribeAppEvent } from '../../shared/platform/app-events';
+import { subscribeDocumentEvent, subscribeWindowEvent } from '../../shared/platform/browser-events';
 import { fetchConsumption, fetchConsumptionRequests, exportConsumption, type ConsumptionGroup, type ConsumptionQuery, type UsageDashboard, type UsageRequests } from '../../shared/api/ai-consumption';
 import type { SettingsController } from './global-settings/useGlobalSettingsController';
 import { ModelBudget } from './global-settings/ModelBudget';
@@ -52,11 +53,11 @@ export function AIConsumptionDashboard({ context }: { readonly context: Settings
     }, [query, page, validInterval, context.draft.settings.currency, refresh]);
     useEffect(() => {
         const reload = () => { if (document.visibilityState === 'visible') setRefresh(value => value + 1); };
-        window.addEventListener('focus', reload);
-        document.addEventListener('visibilitychange', reload);
+        const unsubscribeFocus = subscribeWindowEvent('focus', reload);
+        const unsubscribeVisibility = subscribeDocumentEvent('visibilitychange', reload);
         const timer = window.setInterval(reload, 30_000);
         const unsubscribe = subscribeAppEvent('gnosi-ai-models-changed', reload);
-        return () => { window.removeEventListener('focus', reload); document.removeEventListener('visibilitychange', reload); window.clearInterval(timer); unsubscribe(); };
+        return () => { unsubscribeFocus(); unsubscribeVisibility(); window.clearInterval(timer); unsubscribe(); };
     }, []);
     const amount = (value: number | null): string => value === null ? t('settings.ai.consumption.unknown') : new Intl.NumberFormat(i18n.resolvedLanguage, { style: 'currency', currency: data?.currency.code || 'EUR', ...(value > 0 && value < 1 ? { maximumFractionDigits: 6 } : {}) }).format(value);
     const number = (value: number): string => new Intl.NumberFormat(i18n.resolvedLanguage).format(value);

@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { AIConsumptionDashboard } from './AIConsumptionDashboard';
 import { consumptionInterval } from './aiConsumption';
+import { dispatchWindowEvent } from '../../shared/platform/browser-events';
 import type { ConsumptionQuery, UsageDashboard, UsageSummary } from '../../shared/api/ai-consumption';
 import type { SettingsController } from './global-settings/useGlobalSettingsController';
 const mocks = vi.hoisted(() => ({ dashboard: vi.fn(), requests: vi.fn(), export: vi.fn() }));
@@ -54,6 +55,29 @@ describe('AI consumption dashboard', () => {
     it('does not present missing daily legacy detail as zero', async () => {
         mocks.dashboard.mockResolvedValue({ ...data, legacy_excluded: true, summary: { ...summary, calls: 0, cost_ccy: 0, cost_usd: 0 } }); await render();
         expect([...container.querySelectorAll('.consumption-value')].every(value => value.textContent.includes('unknown'))).toBe(true);
+    });
+    it('refreshes on visible focus and visibility changes, and unsubscribes on close', async () => {
+        const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+        try {
+            await render();
+            mocks.dashboard.mockClear();
+            await act(async () => { dispatchWindowEvent(new Event('focus')); await Promise.resolve(); });
+            expect(mocks.dashboard).toHaveBeenCalledTimes(1);
+            visibility.mockReturnValue('hidden');
+            await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await Promise.resolve(); });
+            expect(mocks.dashboard).toHaveBeenCalledTimes(1);
+            visibility.mockReturnValue('visible');
+            await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await Promise.resolve(); });
+            expect(mocks.dashboard).toHaveBeenCalledTimes(2);
+            act(() => { root.unmount(); });
+            mocks.dashboard.mockClear();
+            await act(async () => {
+                dispatchWindowEvent(new Event('focus'));
+                document.dispatchEvent(new Event('visibilitychange'));
+                await Promise.resolve();
+            });
+            expect(mocks.dashboard).not.toHaveBeenCalled();
+        } finally { visibility.mockRestore(); }
     });
     it('uses calendar dates across a year boundary', () => {
         expect(consumptionInterval('week', new Date(2026,0,2))).toEqual({ start: '2025-12-27', end: '2026-01-02' });
