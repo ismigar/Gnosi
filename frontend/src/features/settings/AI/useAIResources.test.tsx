@@ -239,6 +239,23 @@ describe('useAIResources API contract', () => {
         });
     });
 
+    it.each(['free', 'required', 'automation'])('removes a skill safely while preserving other assignments (%s)', async protection => {
+        const fetchMock = vi.fn<typeof fetch>((input, options) => {
+            const url = requestPath(input);
+            if (url === '/api/ai/agents/brain/skills') {
+                if (options?.method === 'PUT') return response({ skill_ids: ['other'] });
+                return response({ skill_ids: ['copy', 'other'], required_skill_ids: protection === 'required' ? ['copy'] : [], revision: 'fresh' });
+            }
+            if (url === '/api/ai/automations') return response({ automations: protection === 'automation' ? [{ id: 'schedule', agent_id: 'brain', skill_id: 'copy' }] : [] });
+            return response({});
+        });
+        const resources = await mountHook(fetchMock);
+        await act(async () => { await resources().assignAgentSkills('brain', [], { sourceId: '', targetId: 'copy', keepSource: false, removeTarget: true }); });
+        expect(requestBody(fetchMock.mock.calls.find(([, options]) => options?.method === 'PUT'))).toEqual({
+            skill_ids: protection === 'free' ? ['other'] : ['copy', 'other'], expected_revision: 'fresh',
+        });
+    });
+
     it('refreshes only approvals without clearing the current view when a request fails', async () => {
         const fetchMock = vi.fn<typeof fetch>(() => response({ approvals: [{ id: 'pending' }] }));
         const resources = await mountHook(fetchMock);
