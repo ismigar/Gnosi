@@ -1,7 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-09-28
+last_verified: 2026-10-02
 source_paths:
+  - backend/services/ai_usage_ledger.py
+  - backend/services/ai_usage_transport.py
+  - backend/services/ai_usage_dashboard.py
+  - backend/domains/configuration/ai/usage_routes.py
+  - backend/tests/test_ai_consumption.py
+  - frontend/src/features/settings/AIConsumptionDashboard.tsx
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
@@ -1277,3 +1283,13 @@ Cada pas de lectura dirigida mostra els indicadors de revisió i el nombre de no
 Les regles de les propietats de les notes de lectura es mantenen a la configuració del plugin Cervell: copiar un camp del recurs, usar un valor fix, deduir-lo amb IA o deixar-lo buit. L’skill classifica cada nota només entre les etiquetes existents proporcionades. Cada camp configurat amb IA apareix explícitament a l’esquema de resposta i ha de constar a cada nota; les dues vies de lectura rebutgen omissions, camps desconeguts, valors inventats i diversos valors en un camp de valor únic abans de desar. Una llista explícitament buida és vàlida quan l’evidència no justifica cap categoria. L’aplicació resol les etiquetes i aplica les regles de còpia i de valor fix. Instal·lar aquesta correcció no reclassifica les notes existents. Els Tags configurats ignoren la llista antiga d’etiquetes lliures, també quan la classificació s’absté explícitament o el valor copiat del recurs és buit.
 
 La configuració mostra una sola personalització vigent per habilitat original, triada segons la modificació més recent del paquet. L’edició desa al mateix paquet; crear una segona personalització de la mateixa font retorna un conflicte en lloc de duplicar-la. Restaura l’original demana confirmació abans de substituir instruccions, eines i activació; desa a la mateixa habilitat personal i conserva les assignacions.
+
+## Consum multiproveïdor i despesa del mes actual
+
+Configuració → Plugins → IA → Consum mostra només l'ús de Gnosi amb tots els proveïdors configurats i selecciona inicialment els últims set dies. Els intervals, agrupacions i filtres inclouen proveïdor, model, agent, activitat, origen i perfil de model. Gràfics, totals, peticions paginades i exportació CSV comparteixen els filtres. La identitat del model inclou el proveïdor i l'identificador de model; el total d'un agent suma les seves crides entre rutes.
+
+`backend/services/ai_usage_ledger.py` desa metadades de peticions a SQLite sense prompts ni respostes. `backend/services/ai_usage_transport.py` captura el consum abans de validar o transformar les respostes en transports SDK, callbacks i streaming. Cada crida conserva la ruta real, atribució, tokens, durada, estat i tarifes del moment; els canvis posteriors de configuració no reescriuen els costos històrics. El cost informat pel proveïdor té prioritat, inclòs el zero explícit; si falta, s'estima amb la tarifa de la ruta. Les tarifes desconegudes continuen sent desconegudes i els models locals tenen cost monetari de tokens zero. Els identificadors de crida eviten duplicats, inclosos els intents fallits i els fluxos amb consum parcial.
+
+`backend/services/ai_usage_dashboard.py` ofereix `/api/ai/usage/dashboard`, `/api/ai/usage/requests` i `/api/ai/usage/export` amb els permisos d'espai de treball existents. Els imports decimals en USD es converteixen a la moneda de Settings amb la procedència del tipus de canvi. El consum desconegut, parcial i estimat es diferencia del zero i dels errors de càrrega. Els totals mensuals JSON existents es copien i importen una vegada, conservant proveïdor, model i import sense inventar dates de peticions ni agents. Només apareixen en intervals que cobreixen el mes complet; el detall de peticions comença amb l'activació del registre.
+
+El control de despesa del mes actual utilitza el mateix registre i suma tots els proveïdors independentment de les dates i filtres del dashboard. Mostra el topall configurat, l'import consumit i el pressupost restant en la moneda de Settings. Un topall zero o buit significa sense límit. Els controls d'agents i equips rebutgen noves crides en arribar al topall només quan el bloqueig està activat; les altres restriccions d'encaminament continuen vigents. `backend/tests/test_ai_consumption.py` cobreix la separació de proveïdors, qualitat del cost, streaming, idempotència, migració, moneda i coherència del mes actual amb els filtres; les proves d'agents i equips cobreixen el bloqueig activat i desactivat.
