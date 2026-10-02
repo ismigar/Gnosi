@@ -12,12 +12,14 @@ it('starts from existing assignments without writes and autosaves an agent toggl
     try {
         await act(async () => { root.render(<SkillUsage skill={normalizeSkill({ id: 'user.copy', name: 'Copy' })}
             source={normalizeSkill({ id: 'source', name: 'Original' })} principalAgentId="main"
-            agents={[{ id: 'main', name: 'Main', skill_ids: ['other'] }, { id: 'helper', name: 'Helper', skill_ids: ['source', 'other'] }]}
+            agents={[{ id: 'main', name: 'Main', skill_ids: ['other'] }, { id: 'helper', name: 'Knowledge', managed_by: 'builtin:llm-wiki', skill_ids: ['source', 'other'] }]}
             resources={{ automations: [{ id: 'schedule', name: 'Schedule', skill_id: 'source', agent_id: 'helper' }], assignAgentSkills, saveAutomation }} onAgentsChanged={changed} />); await Promise.resolve(); });
         const buttons = [...host.querySelectorAll<HTMLElement>('[role="switch"]')];
         expect(buttons.map(button => button.getAttribute('aria-checked'))).toEqual(['false', 'true', 'true']);
         expect(assignAgentSkills).not.toHaveBeenCalled(); expect(saveAutomation).not.toHaveBeenCalled();
         expect(host.textContent).not.toContain('common.save');
+        expect(host.textContent).toContain('settings.ai.assistant.builtin_profiles.llm-wiki');
+        expect(host.textContent).toContain('Main');
         await act(async () => { buttons[1]?.click(); await Promise.resolve(); });
         expect(assignAgentSkills).toHaveBeenCalledWith('helper', [], { sourceId: 'source', targetId: 'user.copy', keepSource: false, removeTarget: true });
         expect(buttons[1]?.getAttribute('aria-checked')).toBe('false');
