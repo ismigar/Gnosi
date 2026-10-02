@@ -20,9 +20,9 @@ export function AgentTraceRetention() {
         catch (failure) { setError(String(failure)); }
         finally { setPending(false); }
     };
-    return <div className="flex flex-wrap gap-2">
+    return <div className="agent-trace-retention">
         <label>{t('agent_behavior.retention')} <input className="gnosi-input" type="number" min={1} max={3650} value={days} onChange={event => { setDays(Number(event.target.value)); }} /></label>
-        <button className="btn-gnosi-secondary" disabled={pending || !Number.isInteger(days) || days < 1 || days > 3650} onClick={() => { void save(); }}>{t('common.save')}</button>
+        <button className="btn-gnosi btn-gnosi-secondary" disabled={pending || !Number.isInteger(days) || days < 1 || days > 3650} onClick={() => { void save(); }}>{t('common.save')}</button>
         {error && <p role="alert">{error}</p>}
     </div>;
 }

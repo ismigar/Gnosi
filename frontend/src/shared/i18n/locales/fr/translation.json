@@ -7559,6 +7559,7 @@
     "engineering": "Documentation technique"
   },
   "activity": {
+    "scheduled_history": "Planifications et services",
     "open_activity": "Voir l’activité et les automatisations",
     "schedules": "Programmations",
     "runs": "Exécutions",

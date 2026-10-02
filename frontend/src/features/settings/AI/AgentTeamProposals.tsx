@@ -32,8 +32,8 @@ function Proposal({ proposal, canEdit, onChange }: { proposal: AgentTeamProposal
         <div className="flex gap-2"><span>{t('agent_team.add_to_team')}</span><GnosiToggle active={addToTeam} onChange={() => { setAddToTeam(v => !v); }} disabled={!canEdit || busy} label={t('agent_team.add_to_team')} /></div>
         {error && <p role="alert">{error}</p>}
         {canEdit && <div className="flex gap-2">
-            <button type="button" className="btn-gnosi-primary" disabled={busy || !instructions.trim()} onClick={() => { void decide(true); }}>{t('agent_team.retain')}</button>
-            <button type="button" className="btn-gnosi-secondary" disabled={busy} onClick={() => { void decide(false); }}>{t('agent_team.reject')}</button>
+            <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={busy || !instructions.trim()} onClick={() => { void decide(true); }}>{t('agent_team.retain')}</button>
+            <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={busy} onClick={() => { void decide(false); }}>{t('agent_team.reject')}</button>
         </div>}
     </article>;
 }
