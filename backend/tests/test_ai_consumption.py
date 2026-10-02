@@ -221,3 +221,39 @@ def test_cancelled_stream_keeps_available_partial_usage(runtime):
     callback.on_llm_error(asyncio.CancelledError(),run_id='partial-cancel',response=partial)
     with ledger.connect() as db:row=dict(db.execute('select * from usage_calls').fetchone())
     assert row['status']=='cancelled' and row['input_tokens']==9 and row['output_tokens']==3
+
+
+def test_real_budget_uses_current_month_all_providers_and_ignores_filters(tmp_path, monkeypatch):
+    from backend.config import app_config
+    from backend.agent import model_router
+    from backend.services import fx_rates
+    from datetime import timedelta
+
+    monkeypatch.setenv('GNOSI_DATA_DIR', str(tmp_path))
+    values = {'ai': {'budget': {'monthly_cost_cap': 4.5, 'enforce_block': True}}, 'settings': {'currency': 'EUR'}}
+    config = SimpleNamespace(paths={'LOCAL_CACHE': tmp_path/'cache'}, gnosi_mode='personal', get=lambda key, default=None: values.get(key, default))
+    monkeypatch.setattr(app_config, 'load_params', lambda **kwargs: config)
+    monkeypatch.setattr(ledger, 'context_metadata', lambda: dict(META))
+    currency = {'code': 'EUR', 'symbol': '€', 'usd_rate': .9, 'source': 'test', 'fetched_at': ''}
+    monkeypatch.setattr(fx_rates, 'rate_info', lambda _: currency)
+    monkeypatch.setattr(fx_rates, 'usd_to_currency', lambda amount, _: amount * .9)
+    now = datetime.now()
+    prior = now.replace(day=1) - timedelta(days=1)
+    for provider, stamp, cost in [('p1', now, '1'), ('p2', now, '2'), ('p1', prior, '100')]:
+        ledger.write_call(provider=provider, model_id='same', input_tokens=10, output_tokens=2,
+                          cost_usd=cost, cost_source='reported', created=stamp.timestamp())
+    status = model_router.budget_status()
+    assert status['period'] == now.strftime('%Y-%m')
+    assert status['spent_usd'] == 3 and status['spent_ccy'] == pytest.approx(2.7)
+    assert status['cap_ccy'] - status['spent_ccy'] == pytest.approx(1.8)
+    assert not status['over_cap']
+    assert {(row['provider'], row['model_id']) for row in status['per_model']} == {('p1', 'same'), ('p2', 'same')}
+    filtered = dashboard.dashboard(dashboard.UsageQuery(prior.date(), now.date(), 'UTC', provider='p1'), SCOPE)
+    assert filtered['summary']['cost_usd'] == 101
+    assert filtered['budget']['spent_usd'] == 3
+    assert filtered['budget_summary']['cost_usd'] == 3
+    values['ai']['budget']['monthly_cost_cap'] = 2.7
+    assert model_router.budget_status()['over_cap']
+    values['ai']['budget']['monthly_cost_cap'] = 0
+    assert model_router.budget_status()['cap_ccy'] is None
+    assert not model_router.budget_status()['over_cap']

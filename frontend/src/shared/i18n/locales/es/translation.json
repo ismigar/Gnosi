@@ -2153,6 +2153,8 @@
       "link_to_sync": "Vincula una cuenta para sincronizar"
     },
     "ai": {
+      "budget_title": "Control de gasto y consumo del mes actual",
+      "current_consumption": "Consumo del mes actual",
       "monthly_cap_label": "Límite mensual de coste ({{currency}})",
       "agent_name": "Nombre del Agente",
       "icon_label": "Icono",

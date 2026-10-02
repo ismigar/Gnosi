@@ -2192,6 +2192,8 @@
       "link_to_sync": "Link an account to sync"
     },
     "ai": {
+      "budget_title": "Spending and usage control for the current month",
+      "current_consumption": "Current month usage",
       "monthly_cap_label": "Monthly spending cap ({{currency}})",
       "agent_name": "Agent Name",
       "icon_label": "Icon",

@@ -103,7 +103,7 @@ def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], ski
     from backend.domains.agent.llm import _provider_is_available
     from backend.agent.model_router import UsageStore, budget_status
     status = budget_status()
-    if status.get("over_cap"):
+    if status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"):
         return None, "budget_exceeded", None
     usage = UsageStore().usage_for(status["period"]) if status.get("period") else {}
     ai = _config()

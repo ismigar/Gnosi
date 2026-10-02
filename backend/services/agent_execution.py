@@ -157,7 +157,8 @@ def before_model_call() -> None:
         from backend.services.agent_cancellation import AgentTurnCancelled
         raise AgentTurnCancelled("agent_run_cancelled")
     from backend.agent.model_router import budget_status
-    if budget_status().get("over_cap"):
+    status = budget_status()
+    if status.get("over_cap") and (status.get("budget") or {}).get("enforce_block"):
         raise RuntimeError("agent_budget_exceeded")
     row = store.read(scope, run_id)
     if row.parent_run_id and store.cancelled(scope, row.parent_run_id):

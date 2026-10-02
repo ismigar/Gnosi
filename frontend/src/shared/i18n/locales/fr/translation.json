@@ -362,6 +362,8 @@
       "show_labels": "Afficher les étiquettes"
     },
     "ai": {
+      "budget_title": "Contrôle des dépenses et de la consommation du mois en cours",
+      "current_consumption": "Consommation du mois en cours",
       "monthly_cap_label": "Plafond mensuel de dépenses ({{currency}})",
       "agent_name": "Nom de l'agent",
       "icon_label": "Icône",

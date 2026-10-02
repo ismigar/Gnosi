@@ -12,7 +12,7 @@ export function ModelBudget({ context }: Props) {
     : draft.settings.currency;
   return (<div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
     <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-      <strong>{t('settings.ai.budget_title', 'Control de despesa i consum')}</strong>
+      <strong>{t('settings.ai.budget_title', 'Control de despesa i consum del mes actual')}</strong>
     </h4>
 
     {aiUsage && (
