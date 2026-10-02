@@ -1,3 +1,4 @@
+import './ActivityHistory.css';
 import { AgentExecutionHistory } from './AgentExecutionHistory';
 import { subscribeWindowEvent, subscribeDocumentEvent } from '../../../shared/platform/browser-events';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
@@ -76,48 +77,56 @@ export function ActivityHistory({ canEdit, aiEnabled, resources, agents, systemH
         && (!since || item.time >= new Date(`${since}T00:00:00`).getTime()) && (!until || item.time <= new Date(`${until}T23:59:59.999`).getTime()))
         .sort((a, b) => b.time - a.time);
     return <div className="ai-resources-panel">
-        {aiEnabled && !automationId && <AgentExecutionHistory key={vaultId} canEdit={canEdit} />}
-        <div className="flex justify-end"><RefreshButton onClick={() => { setVersion(value => value + 1); void resources.reload(); }} /></div>
-        <div className="ai-resources-toolbar">
-            <label>{t('activity.origin')}<select className="gnosi-select" value={origin} onChange={event => { setOrigin(event.target.value); }}>{['all', 'personal', 'system', 'manual'].map(value => <option key={value} value={value}>{t(`activity.${value}`)}</option>)}</select></label>
-            <label>{t('activity.status')}<select className="gnosi-select" value={status} onChange={event => { setStatus(event.target.value); }}><option value="all">{t('activity.all')}</option>{[...new Set(items.map(item => item.status))].map(value => <option key={value} value={value}>{operationStatusLabel(t, value)}</option>)}</select></label>
-            <label>{t('settings.ai.operations.agent')}<select className="gnosi-select" value={agent} onChange={event => { setAgent(event.target.value); }}><option value="all">{t('activity.all')}</option>{agents.map(value => <option key={value.id} value={value.id}>{value.name || value.id}</option>)}</select></label>
-        </div>
-        <div className="ai-history-filters">
-            <label>{t('activity.from')}<input className="gnosi-input" type="date" value={since} onChange={event => { setSince(event.target.value); }} /></label>
-            <label>{t('activity.to')}<input className="gnosi-input" type="date" value={until} onChange={event => { setUntil(event.target.value); }} /></label>
-            <div className="inline-flex items-center gap-2"><GnosiToggle active={technical} onChange={() => { setTechnical(value => !value); }} label={t('activity.internal_activity')} /><span>{t('activity.internal_activity')}</span></div>
-            {automationId && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setOffset(0); setParams({ tab: 'history' }); }}>{t('activity.clear_automation_filter')}</button>}
-        </div>
-        <p className="ai-resource-muted">{t('activity.loaded_history_help')}</p>
-        <CatalogError error={error || resources.error || ''} onRetry={async () => { setVersion(value => value + 1); await resources.reload(); }} />
-        {resources.resourceErrors.jobs && <CatalogError error={resources.resourceErrors.jobs} onRetry={resources.reload} />}
-        {loading && <p role="status">{t('common.loading')}</p>}
-        <div className="ai-resource-list">{filtered.map(item => <article className="ai-resource-card" key={item.id}>
-            <div className="ai-resource-card__main"><span className="ai-resource-card__copy"><strong>{item.name}</strong><span>{t(`activity.${item.origin}`)} · {operationStatusLabel(t, item.status)}</span><span className="ai-resource-card__meta">{item.time > 0 && new Date(item.time).toLocaleString(i18n.resolvedLanguage)}{item.agent && ` · ${agents.find(value => value.id === item.agent)?.name || item.agent}`}</span></span></div>
-            <details className="ai-resource-details"><summary>{t('activity.result_details')}</summary>
-                {item.jobId && <ActivityJobResult jobId={item.jobId} status={item.status} canEdit={canEdit} onChanged={resources.reload} />}
-                {item.result && <p style={{ whiteSpace: 'pre-wrap' }}>{item.result}</p>}
-                {item.error && <p>{item.error}</p>}
-                {item.finished && <p>{t('activity.duration', { seconds: ((item.finished - item.time) / 1000).toFixed(1) })}</p>}
-                {item.duration != null && <p>{item.duration < 1 ? t('activity.duration_under_second') : t('activity.duration', { seconds: item.duration.toFixed(1) })}</p>}
-                {item.calls != null && <p>{t('activity.calls', { count: item.calls })}</p>}
-                {item.confirmations != null && <p>{t('activity.confirmations', { count: item.confirmations })}</p>}
-                {item.systemTask && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setParams({ tab: 'schedulers', kind: 'system', task: item.systemTask || '' }); }}>{t('activity.view_schedule')}</button>}
-                {item.automationId && <>
-                    <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setParams({ tab: 'schedulers', kind: 'personal', automation: item.automationId || '' }); }}>{t('activity.view_schedule')}</button>
-                    <h4>{t('activity.tool_activity')}</h4>
-                    {resources.resourceErrors.audit ? <CatalogError error={resources.resourceErrors.audit} onRetry={resources.reload} /> : resources.auditEvents.filter(event => event.session_id === `automation-${item.automationId || ''}` && typeof event.created_at === 'number' && event.created_at * 1000 >= item.time && event.created_at * 1000 <= (item.finished || Date.now())).map(event => <p key={String(event.id)}>{toolDisplayName(t, resources.tools.find(tool => tool.id === event.tool_id || tool.id.endsWith(`.${String(event.tool_name).replaceAll('_', '-')}`)) ?? { name: String(event.tool_name) })} · {operationStatusLabel(t, String(event.status))}</p>)}
-                </>}
-                <ActivityRunReference id={item.id} name={item.name} diagnostic={item.diagnostic || item.error} />
-            </details>
-        </article>)}</div>
-        {!loading && !error && !resources.error && !resources.resourceErrors.jobs && !systemHistoryError && filtered.length === 0 && <p>{t('activity.no_runs')}</p>}
-        {aiEnabled && <div className="ai-resource-card__actions"><span>{t('activity.personal_history', { total: page.total, offset: page.offset })}</span><button type="button" disabled={loading || offset === 0} onClick={() => { setOffset(value => Math.max(0, value - 50)); }}>{t('common.previous')}</button><button type="button" disabled={loading || offset + 50 >= page.total} onClick={() => { setOffset(value => value + 50); }}>{t('common.next')}</button></div>}
-        <h4>{t('activity.system_history')}</h4>
-        {systemHistoryError && <p role="alert">{systemHistoryError}</p>}
-        {systemHistoryMore}
-        {technical && systemDiagnostics}
-        {technical && aiEnabled && <OperationsHistoryPanel resources={operationResources(resources)} section="audit" />}
+        <fieldset className="ai-history-fieldset">
+            <legend>{t('activity.scheduled_history')}</legend>
+            <div className="ai-resources-panel">
+                <div className="flex justify-end"><RefreshButton onClick={() => { setVersion(value => value + 1); void resources.reload(); }} /></div>
+                <div className="ai-resources-toolbar">
+                    <label>{t('activity.origin')}<select className="gnosi-select" value={origin} onChange={event => { setOrigin(event.target.value); }}>{['all', 'personal', 'system', 'manual'].map(value => <option key={value} value={value}>{t(`activity.${value}`)}</option>)}</select></label>
+                    <label>{t('activity.status')}<select className="gnosi-select" value={status} onChange={event => { setStatus(event.target.value); }}><option value="all">{t('activity.all')}</option>{[...new Set(items.map(item => item.status))].map(value => <option key={value} value={value}>{operationStatusLabel(t, value)}</option>)}</select></label>
+                    <label>{t('settings.ai.operations.agent')}<select className="gnosi-select" value={agent} onChange={event => { setAgent(event.target.value); }}><option value="all">{t('activity.all')}</option>{agents.map(value => <option key={value.id} value={value.id}>{value.name || value.id}</option>)}</select></label>
+                </div>
+                <div className="ai-history-filters">
+                    <label>{t('activity.from')}<input className="gnosi-input" type="date" value={since} onChange={event => { setSince(event.target.value); }} /></label>
+                    <label>{t('activity.to')}<input className="gnosi-input" type="date" value={until} onChange={event => { setUntil(event.target.value); }} /></label>
+                    <div className="inline-flex items-center gap-2"><GnosiToggle active={technical} onChange={() => { setTechnical(value => !value); }} label={t('activity.internal_activity')} /><span>{t('activity.internal_activity')}</span></div>
+                    {automationId && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setOffset(0); setParams({ tab: 'history' }); }}>{t('activity.clear_automation_filter')}</button>}
+                </div>
+                <p className="ai-resource-muted">{t('activity.loaded_history_help')}</p>
+                <CatalogError error={error || resources.error || ''} onRetry={async () => { setVersion(value => value + 1); await resources.reload(); }} />
+                {resources.resourceErrors.jobs && <CatalogError error={resources.resourceErrors.jobs} onRetry={resources.reload} />}
+                {loading && <p role="status">{t('common.loading')}</p>}
+                <div className="ai-resource-list">{filtered.map(item => <article className="ai-resource-card" key={item.id}>
+                    <div className="ai-resource-card__main"><span className="ai-resource-card__copy"><strong>{item.name}</strong><span>{t(`activity.${item.origin}`)} · {operationStatusLabel(t, item.status)}</span><span className="ai-resource-card__meta">{item.time > 0 && new Date(item.time).toLocaleString(i18n.resolvedLanguage)}{item.agent && ` · ${agents.find(value => value.id === item.agent)?.name || item.agent}`}</span></span></div>
+                    <details className="ai-resource-details"><summary>{t('activity.result_details')}</summary>
+                        {item.jobId && <ActivityJobResult jobId={item.jobId} status={item.status} canEdit={canEdit} onChanged={resources.reload} />}
+                        {item.result && <p style={{ whiteSpace: 'pre-wrap' }}>{item.result}</p>}
+                        {item.error && <p>{item.error}</p>}
+                        {item.finished && <p>{t('activity.duration', { seconds: ((item.finished - item.time) / 1000).toFixed(1) })}</p>}
+                        {item.duration != null && <p>{item.duration < 1 ? t('activity.duration_under_second') : t('activity.duration', { seconds: item.duration.toFixed(1) })}</p>}
+                        {item.calls != null && <p>{t('activity.calls', { count: item.calls })}</p>}
+                        {item.confirmations != null && <p>{t('activity.confirmations', { count: item.confirmations })}</p>}
+                        {item.systemTask && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setParams({ tab: 'schedulers', kind: 'system', task: item.systemTask || '' }); }}>{t('activity.view_schedule')}</button>}
+                        {item.automationId && <>
+                            <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { setParams({ tab: 'schedulers', kind: 'personal', automation: item.automationId || '' }); }}>{t('activity.view_schedule')}</button>
+                            <h4>{t('activity.tool_activity')}</h4>
+                            {resources.resourceErrors.audit ? <CatalogError error={resources.resourceErrors.audit} onRetry={resources.reload} /> : resources.auditEvents.filter(event => event.session_id === `automation-${item.automationId || ''}` && typeof event.created_at === 'number' && event.created_at * 1000 >= item.time && event.created_at * 1000 <= (item.finished || Date.now())).map(event => <p key={String(event.id)}>{toolDisplayName(t, resources.tools.find(tool => tool.id === event.tool_id || tool.id.endsWith(`.${String(event.tool_name).replaceAll('_', '-')}`)) ?? { name: String(event.tool_name) })} · {operationStatusLabel(t, String(event.status))}</p>)}
+                        </>}
+                        <ActivityRunReference id={item.id} name={item.name} diagnostic={item.diagnostic || item.error} />
+                    </details>
+                </article>)}</div>
+                {!loading && !error && !resources.error && !resources.resourceErrors.jobs && !systemHistoryError && filtered.length === 0 && <p>{t('activity.no_runs')}</p>}
+                {aiEnabled && <div className="ai-resource-card__actions"><span>{t('activity.personal_history', { total: page.total, offset: page.offset })}</span><button type="button" disabled={loading || offset === 0} onClick={() => { setOffset(value => Math.max(0, value - 50)); }}>{t('common.previous')}</button><button type="button" disabled={loading || offset + 50 >= page.total} onClick={() => { setOffset(value => value + 50); }}>{t('common.next')}</button></div>}
+                <h4>{t('activity.system_history')}</h4>
+                {systemHistoryError && <p role="alert">{systemHistoryError}</p>}
+                {systemHistoryMore}
+                {technical && systemDiagnostics}
+                {technical && aiEnabled && <OperationsHistoryPanel resources={operationResources(resources)} section="audit" />}
+            </div>
+        </fieldset>
+        {aiEnabled && !automationId && <fieldset className="ai-history-fieldset">
+            <legend>{t('agent_execution.history')}</legend>
+            <AgentExecutionHistory key={vaultId} canEdit={canEdit} showHeading={false} />
+        </fieldset>}
     </div>;
 }
