@@ -69,24 +69,6 @@ jobs:
           git cat-file -e "${PR_BASE_SHA}^{commit}"
           uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/pre_pr.py --check-only --base-ref "$PR_BASE_SHA"
 
-      - name: Prepare generated catalog diagnostics after a failed check
-        if: failure()
-        run: |
-          uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/generate.py
-          uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/localize.py --generated-only
-      - name: Retain generated catalog diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: documentation-generated-${{ github.sha }}
-          path: |
-            docs/engineering/generated/
-            docs/engineering-ca/generated/
-            docs/engineering-es/generated/
-            docs/engineering-fr/generated/
-          retention-days: 7
-          if-no-files-found: error
-
   frontend:
     # Keep the local fallback ordered with jobs sharing the same physical host.
     needs: backend
