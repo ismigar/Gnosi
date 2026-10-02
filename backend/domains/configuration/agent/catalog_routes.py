@@ -149,10 +149,16 @@ def _refresh_mcp_catalog(request: Request) -> None:
     )
 
 
-def _entry_response(entry: SkillCatalogEntry | None) -> dict[str, object]:
+def _entry_response(entry: SkillCatalogEntry | None, vault_path: Path | None = None) -> dict[str, object]:
     if entry is None:
         raise AttributeError("'NoneType' object has no attribute 'descriptor'")
     result: dict[str, object] = dict(entry.descriptor.model_dump(mode="json"))
+    if vault_path is not None and entry.editable:
+        package = vault_path / ".gnosi" / "agent" / "skills" / entry.descriptor.id
+        try:
+            result["modified_at"] = max((package / name).stat().st_mtime for name in ("SKILL.md", "skill.yaml"))
+        except OSError:
+            pass
     result.update(
         {
             "available": entry.available,
@@ -208,7 +214,7 @@ def list_skills(
         entries = catalog.list_entries(Path(context.vault_path))
         _, issues = _store_for(context).load_all()
         return {
-            "skills": [_entry_response(entry) for entry in entries],
+            "skills": [_entry_response(entry, Path(context.vault_path)) for entry in entries],
             "issues": issues,
             "catalog_revision": catalog.revision(Path(context.vault_path)),
         }
@@ -228,7 +234,7 @@ def get_skill(
     entry = get_skill_catalog().get_entry(skill_id, Path(context.vault_path))
     if entry is None:
         raise HTTPException(status_code=404, detail="skill not found")
-    return _entry_response(entry)
+    return _entry_response(entry, Path(context.vault_path))
 
 
 @router.post(
@@ -265,7 +271,7 @@ def create_skill(
             requested_id=payload.requested_id,
         )
         entry = get_skill_catalog().get_entry(descriptor.id, Path(context.vault_path))
-        return _entry_response(entry)
+        return _entry_response(entry, Path(context.vault_path))
     except UserSkillConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except UserSkillStoreError as exc:
@@ -296,7 +302,7 @@ def update_skill(
             expected_revision=payload.expected_revision,
         )
         entry = get_skill_catalog().get_entry(descriptor.id, Path(context.vault_path))
-        return _entry_response(entry)
+        return _entry_response(entry, Path(context.vault_path))
     except UserSkillNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except UserSkillConflictError as exc:
@@ -371,7 +377,7 @@ def clone_skill(
     try:
         clone = _store_for(context).create(metadata, descriptor.instructions)
         clone_entry = get_skill_catalog().get_entry(clone.id, Path(context.vault_path))
-        return _entry_response(clone_entry)
+        return _entry_response(clone_entry, Path(context.vault_path))
     except UserSkillStoreError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -1219,6 +1219,17 @@
             "title": "Missing Tool Ids",
             "type": "array"
           },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified At"
+          },
           "name": {
             "maxLength": 160,
             "minLength": 1,

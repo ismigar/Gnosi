@@ -2676,6 +2676,8 @@
         "based_on": "Basada en {{name}}, versió {{version}}",
         "assign_copy": "Utilitza aquesta versió",
         "assignment_title": "On s’utilitza «{{name}}»",
+        "restore_original": "Restaura l’original",
+        "restore_original_help": "Vols substituir les instruccions, les eines i l’activació personalitzades per les de l’original? El canvi es desarà automàticament.",
         "skill_version": "Versió {{version}}",
         "assignment_help": "Tria els agents i les automatitzacions que han d’utilitzar aquesta habilitat. Es conservaran les habilitats obligatòries i les que encara utilitzin altres automatitzacions.",
         "assignment_saved": "Assignacions actualitzades.",

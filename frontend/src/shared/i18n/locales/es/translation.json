@@ -2622,6 +2622,8 @@
         "based_on": "Basada en {{name}}, versión {{version}}",
         "assign_copy": "Utiliza esta versión",
         "assignment_title": "Dónde se utiliza «{{name}}»",
+        "restore_original": "Restaura el original",
+        "restore_original_help": "¿Quieres sustituir las instrucciones, las herramientas y la activación personalizadas por las del original? El cambio se guardará automáticamente.",
         "skill_version": "Versión {{version}}",
         "assignment_help": "Elige los agentes y las automatizaciones que deben utilizar esta habilidad. Se conservarán las habilidades obligatorias y las que aún utilicen otras automatizaciones.",
         "assignment_saved": "Asignaciones actualizadas.",
