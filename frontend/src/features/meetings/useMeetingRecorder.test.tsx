@@ -177,7 +177,10 @@ it('ignores a previous vault status response after switching vaults', async () =
   effects.status.mockReturnValueOnce(new Promise((resolve) => { resolveStatus = resolve; }));
   act(() => { controller().openPanel(); });
   act(() => { emitAppEvent('gnosi:vault-changed', { id: 'other', name: 'Other', slug: 'other' }); });
-  await act(async () => { resolveStatus?.({ running: false, stage: 'interrupted', can_resume: true, job_id: 'private-old-job' }); });
+  await act(async () => {
+    resolveStatus?.({ running: false, stage: 'interrupted', can_resume: true, job_id: 'private-old-job' });
+    await Promise.resolve();
+  });
   expect(controller().phase).toBe('idle');
   expect(controller().open).toBe(false);
   act(() => { controller().retryUpload(); });
