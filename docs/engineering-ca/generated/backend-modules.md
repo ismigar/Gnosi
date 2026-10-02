@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 55 |
 | `config` | 13 | 1352 |
 | `data` | 2 | 214 |
-| `domains` | 491 | 103575 |
+| `domains` | 491 | 103578 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **910 modules** and **181365 source lines**.
+Total: **910 modules** and **181368 source lines**.
 
 ## agent
 
