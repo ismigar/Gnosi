@@ -56,26 +56,27 @@ describe('AI consumption dashboard', () => {
         mocks.dashboard.mockResolvedValue({ ...data, legacy_excluded: true, summary: { ...summary, calls: 0, cost_ccy: 0, cost_usd: 0 } }); await render();
         expect([...container.querySelectorAll('.consumption-value')].every(value => value.textContent.includes('unknown'))).toBe(true);
     });
-    it('refreshes when visible and stops refreshing after the panel closes', async () => {
+    it('refreshes on visible focus and visibility changes, and unsubscribes on close', async () => {
         const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
         try {
             await render();
-            expect(mocks.dashboard).toHaveBeenCalledTimes(1);
+            mocks.dashboard.mockClear();
             await act(async () => { dispatchWindowEvent(new Event('focus')); await Promise.resolve(); });
-            expect(mocks.dashboard).toHaveBeenCalledTimes(2);
+            expect(mocks.dashboard).toHaveBeenCalledTimes(1);
             visibility.mockReturnValue('hidden');
             await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await Promise.resolve(); });
-            expect(mocks.dashboard).toHaveBeenCalledTimes(2);
+            expect(mocks.dashboard).toHaveBeenCalledTimes(1);
             visibility.mockReturnValue('visible');
             await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await Promise.resolve(); });
-            expect(mocks.dashboard).toHaveBeenCalledTimes(3);
-            await act(async () => { root.render(null); await Promise.resolve(); });
+            expect(mocks.dashboard).toHaveBeenCalledTimes(2);
+            act(() => { root.unmount(); });
+            mocks.dashboard.mockClear();
             await act(async () => {
                 dispatchWindowEvent(new Event('focus'));
                 document.dispatchEvent(new Event('visibilitychange'));
                 await Promise.resolve();
             });
-            expect(mocks.dashboard).toHaveBeenCalledTimes(3);
+            expect(mocks.dashboard).not.toHaveBeenCalled();
         } finally { visibility.mockRestore(); }
     });
     it('uses calendar dates across a year boundary', () => {

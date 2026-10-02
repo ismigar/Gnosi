@@ -1,11 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-09-28
+last_verified: 2026-10-02
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
   - backend/domains/agent/routes/chat_error_messages.py
+  - backend/services/ai_usage_ledger.py
+  - backend/services/ai_usage_transport.py
+  - backend/services/ai_usage_dashboard.py
+  - backend/domains/configuration/ai/usage_routes.py
+  - backend/tests/test_ai_consumption.py
+  - frontend/src/features/settings/AIConsumptionDashboard.tsx
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
@@ -1382,3 +1388,13 @@ Les essais d’apprentissage conservent le critère original et son ordre. Chaqu
 
 Les erreurs traduites du chat conservent un code stable et `content_language` ; les détails privés des exceptions ne sont pas présentés comme une réponse. Un service indisponible avant le workflow se termine avec `has_response=false` et `message_count=0`. L’interface conserve la langue et le délai effectif du backend. La reprise reste une action manuelle explicite, sans nouvelle tentative automatique. Une seule tâche productrice possède la source pendant tout son cycle afin de conserver le contexte d’exécution et le nettoyage d’annulation pendant les heartbeats.
 La configuration affiche une seule personnalisation actuelle par compétence originale, choisie selon la modification la plus récente du paquet. Les modifications sont enregistrées dans le même paquet ; créer une seconde personnalisation de la même source renvoie un conflit au lieu de la dupliquer. Restaurer l’original demande confirmation avant de remplacer instructions, outils et activation ; la même compétence personnelle est mise à jour et ses affectations sont conservées.
+
+## Consommation multifournisseur et dépenses du mois en cours
+
+Configuration → Plugins → IA → Consommation affiche uniquement l'utilisation de Gnosi avec tous les fournisseurs configurés et sélectionne initialement les sept derniers jours. Les périodes, regroupements et filtres couvrent fournisseur, modèle, agent, activité, origine et profil de modèle. Graphiques, totaux, requêtes paginées et export CSV partagent les filtres. L'identité d'un modèle comprend le fournisseur et son identifiant ; le total d'un agent additionne ses appels entre les routes.
+
+`backend/services/ai_usage_ledger.py` stocke les métadonnées des requêtes dans SQLite sans prompts ni réponses. `backend/services/ai_usage_transport.py` capture la consommation avant la validation ou la transformation des réponses dans les transports SDK, callbacks et streaming. Chaque appel conserve la route réelle, l'attribution, les tokens, la durée, l'état et les tarifs du moment ; les changements ultérieurs de configuration ne réécrivent pas les coûts historiques. Le coût communiqué par le fournisseur est prioritaire, y compris un zéro explicite ; à défaut, le tarif de la route sert à estimer le coût. Les tarifs inconnus restent inconnus et les modèles locaux ont un coût monétaire de tokens nul. Les identifiants d'appel empêchent les doublons, y compris les tentatives échouées et les flux avec consommation partielle.
+
+`backend/services/ai_usage_dashboard.py` fournit `/api/ai/usage/dashboard`, `/api/ai/usage/requests` et `/api/ai/usage/export` avec les permissions existantes de l'espace de travail. Les montants décimaux en USD sont convertis dans la devise de Settings avec la provenance du taux de change. La consommation inconnue, partielle et estimée se distingue de zéro et des erreurs de chargement. Les anciens totaux mensuels JSON sont sauvegardés et importés une fois, en conservant fournisseur, modèle et montant sans inventer de dates de requêtes ni d'agents. Ils apparaissent uniquement dans les périodes couvrant leur mois complet ; le détail des requêtes commence à l'activation du registre.
+
+Le contrôle des dépenses du mois en cours utilise le même registre et additionne tous les fournisseurs indépendamment des dates et filtres du dashboard. Il affiche le plafond configuré, le montant consommé et le budget restant dans la devise de Settings. Un plafond nul ou vide signifie sans limite. Les contrôles des agents et équipes refusent les nouveaux appels au plafond uniquement lorsque le blocage est activé ; les autres contraintes de routage restent applicables. `backend/tests/test_ai_consumption.py` couvre la séparation des fournisseurs, la qualité des coûts, le streaming, l'idempotence, la migration, la devise et la cohérence du mois en cours avec les filtres ; les tests des agents et équipes couvrent le blocage activé et désactivé.

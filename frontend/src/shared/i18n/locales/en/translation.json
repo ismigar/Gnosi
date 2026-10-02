@@ -2192,6 +2192,8 @@
       "link_to_sync": "Link an account to sync"
     },
     "ai": {
+      "budget_title": "Spending and usage control for the current month",
+      "current_consumption": "Current month usage",
       "monthly_cap_label": "Monthly spending cap ({{currency}})",
       "agent_name": "Agent Name",
       "icon_label": "Icon",
@@ -3339,7 +3341,6 @@
           "telegram": "Telegram"
         }
       },
-      "current_consumption": "Current month usage",
       "consumption": {
         "tab": "Consumption",
         "title": "AI usage and spending",
@@ -3402,8 +3403,7 @@
         "remaining": "Monthly budget remaining: {{amount}}",
         "budget_partial": "Monthly spend and remaining budget are partial: some calls have unknown cost.",
         "budget_estimated": "Monthly spend includes estimated costs."
-      },
-      "budget_title": "Spending and usage control for the current month"
+      }
     },
     "footer": {
       "close": "Close",

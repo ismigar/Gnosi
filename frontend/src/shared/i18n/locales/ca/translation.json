@@ -2207,6 +2207,8 @@
       "source_label": "Origen"
     },
     "ai": {
+      "budget_title": "Control de despesa i consum del mes actual",
+      "current_consumption": "Consum del mes actual",
       "monthly_cap_label": "Topall mensual de cost ({{currency}})",
       "providers_section": "Proveïdors de Models",
       "connect_provider": "Connectar proveïdor",
@@ -3359,7 +3361,6 @@
         },
         "folder_count_many": "{{count}} carpetes"
       },
-      "current_consumption": "Consum del mes actual",
       "consumption": {
         "tab": "Consum",
         "title": "Consum i despesa d’IA",
@@ -3422,8 +3423,7 @@
         "remaining": "Pressupost mensual restant: {{amount}}",
         "budget_partial": "El consum mensual i el pressupost restant són parcials: hi ha crides amb cost desconegut.",
         "budget_estimated": "El consum mensual inclou costos estimats."
-      },
-      "budget_title": "Control de despesa i consum del mes actual"
+      }
     },
     "footer": {
       "close": "Tancar",

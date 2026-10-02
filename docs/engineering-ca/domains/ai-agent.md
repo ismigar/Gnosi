@@ -1,11 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-09-28
+last_verified: 2026-10-02
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
   - backend/domains/agent/routes/chat_error_messages.py
+  - backend/services/ai_usage_ledger.py
+  - backend/services/ai_usage_transport.py
+  - backend/services/ai_usage_dashboard.py
+  - backend/domains/configuration/ai/usage_routes.py
+  - backend/tests/test_ai_consumption.py
+  - frontend/src/features/settings/AIConsumptionDashboard.tsx
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
@@ -1293,3 +1299,13 @@ Les proves d’aprenentatge conserven el criteri original i el seu ordre. Cada f
 
 Els errors traduïts del xat conserven un codi estable i `content_language`; els detalls privats de les excepcions no es presenten com a resposta. Un servei no disponible abans del workflow acaba amb `has_response=false` i `message_count=0`. La interfície conserva la llengua i el temps límit efectiu del backend. La recuperació és una acció manual explícita, sense reintent automàtic. Una sola tasca productora manté la font viva durant tot el seu cicle perquè el context d’execució i la neteja de cancel·lació es conservin durant els heartbeats.
 La configuració mostra una sola personalització vigent per habilitat original, triada segons la modificació més recent del paquet. L’edició desa al mateix paquet; crear una segona personalització de la mateixa font retorna un conflicte en lloc de duplicar-la. Restaura l’original demana confirmació abans de substituir instruccions, eines i activació; desa a la mateixa habilitat personal i conserva les assignacions.
+
+## Consum multiproveïdor i despesa del mes actual
+
+Configuració → Plugins → IA → Consum mostra només l'ús de Gnosi amb tots els proveïdors configurats i selecciona inicialment els últims set dies. Els intervals, agrupacions i filtres inclouen proveïdor, model, agent, activitat, origen i perfil de model. Gràfics, totals, peticions paginades i exportació CSV comparteixen els filtres. La identitat del model inclou el proveïdor i l'identificador de model; el total d'un agent suma les seves crides entre rutes.
+
+`backend/services/ai_usage_ledger.py` desa metadades de peticions a SQLite sense prompts ni respostes. `backend/services/ai_usage_transport.py` captura el consum abans de validar o transformar les respostes en transports SDK, callbacks i streaming. Cada crida conserva la ruta real, atribució, tokens, durada, estat i tarifes del moment; els canvis posteriors de configuració no reescriuen els costos històrics. El cost informat pel proveïdor té prioritat, inclòs el zero explícit; si falta, s'estima amb la tarifa de la ruta. Les tarifes desconegudes continuen sent desconegudes i els models locals tenen cost monetari de tokens zero. Els identificadors de crida eviten duplicats, inclosos els intents fallits i els fluxos amb consum parcial.
+
+`backend/services/ai_usage_dashboard.py` ofereix `/api/ai/usage/dashboard`, `/api/ai/usage/requests` i `/api/ai/usage/export` amb els permisos d'espai de treball existents. Els imports decimals en USD es converteixen a la moneda de Settings amb la procedència del tipus de canvi. El consum desconegut, parcial i estimat es diferencia del zero i dels errors de càrrega. Els totals mensuals JSON existents es copien i importen una vegada, conservant proveïdor, model i import sense inventar dates de peticions ni agents. Només apareixen en intervals que cobreixen el mes complet; el detall de peticions comença amb l'activació del registre.
+
+El control de despesa del mes actual utilitza el mateix registre i suma tots els proveïdors independentment de les dates i filtres del dashboard. Mostra el topall configurat, l'import consumit i el pressupost restant en la moneda de Settings. Un topall zero o buit significa sense límit. Els controls d'agents i equips rebutgen noves crides en arribar al topall només quan el bloqueig està activat; les altres restriccions d'encaminament continuen vigents. `backend/tests/test_ai_consumption.py` cobreix la separació de proveïdors, qualitat del cost, streaming, idempotència, migració, moneda i coherència del mes actual amb els filtres; les proves d'agents i equips cobreixen el bloqueig activat i desactivat.

@@ -2153,6 +2153,8 @@
       "link_to_sync": "Vincula una cuenta para sincronizar"
     },
     "ai": {
+      "budget_title": "Control de gasto y consumo del mes actual",
+      "current_consumption": "Consumo del mes actual",
       "monthly_cap_label": "Límite mensual de coste ({{currency}})",
       "agent_name": "Nombre del Agente",
       "icon_label": "Icono",
@@ -3305,7 +3307,6 @@
         },
         "folder_count_many": "{{count}} carpetas"
       },
-      "current_consumption": "Consumo del mes actual",
       "consumption": {
         "tab": "Consumo",
         "title": "Consumo y gasto de IA",
@@ -3368,8 +3369,7 @@
         "remaining": "Presupuesto mensual restante: {{amount}}",
         "budget_partial": "El consumo mensual y el presupuesto restante son parciales: hay llamadas con coste desconocido.",
         "budget_estimated": "El consumo mensual incluye costes estimados."
-      },
-      "budget_title": "Control de gasto y consumo del mes actual"
+      }
     },
     "footer": {
       "close": "Cerrar",

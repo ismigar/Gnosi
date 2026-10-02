@@ -1,11 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-09-28
+last_verified: 2026-10-02
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
   - backend/domains/agent/routes/chat_error_messages.py
+  - backend/services/ai_usage_ledger.py
+  - backend/services/ai_usage_transport.py
+  - backend/services/ai_usage_dashboard.py
+  - backend/domains/configuration/ai/usage_routes.py
+  - backend/tests/test_ai_consumption.py
+  - frontend/src/features/settings/AIConsumptionDashboard.tsx
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
@@ -1359,3 +1365,13 @@ Las pruebas de aprendizaje conservan el criterio original y su orden. Cada fragm
 
 Los errores traducidos del chat conservan un código estable y `content_language`; los detalles privados de las excepciones no se presentan como respuesta. Un servicio no disponible antes del workflow termina con `has_response=false` y `message_count=0`. La interfaz conserva el idioma y el tiempo límite efectivo del backend. La recuperación es una acción manual explícita, sin reintento automático. Una sola tarea productora mantiene la fuente viva durante todo su ciclo para conservar el contexto de ejecución y la limpieza de cancelación durante los heartbeats.
 La configuración muestra una sola personalización vigente por habilidad original, elegida según la modificación más reciente del paquete. La edición guarda en el mismo paquete; crear una segunda personalización de la misma fuente devuelve un conflicto en lugar de duplicarla. Restaurar el original pide confirmación antes de sustituir instrucciones, herramientas y activación; guarda en la misma habilidad personal y conserva las asignaciones.
+
+## Consumo multiproveedor y gasto del mes actual
+
+Configuración → Plugins → IA → Consumo muestra solo el uso de Gnosi con todos los proveedores configurados y selecciona inicialmente los últimos siete días. Los intervalos, agrupaciones y filtros incluyen proveedor, modelo, agente, actividad, origen y perfil de modelo. Gráficos, totales, peticiones paginadas y exportación CSV comparten los filtros. La identidad del modelo incluye proveedor e identificador de modelo; el total de un agente suma sus llamadas entre rutas.
+
+`backend/services/ai_usage_ledger.py` guarda metadatos de peticiones en SQLite sin prompts ni respuestas. `backend/services/ai_usage_transport.py` captura el consumo antes de validar o transformar respuestas en transportes SDK, callbacks y streaming. Cada llamada conserva la ruta real, atribución, tokens, duración, estado y tarifas del momento; los cambios posteriores de configuración no reescriben costes históricos. El coste informado por el proveedor tiene prioridad, incluido el cero explícito; si falta, se estima con la tarifa de la ruta. Las tarifas desconocidas permanecen desconocidas y los modelos locales tienen coste monetario de tokens cero. Los identificadores de llamada evitan duplicados, incluidos intentos fallidos y flujos con consumo parcial.
+
+`backend/services/ai_usage_dashboard.py` ofrece `/api/ai/usage/dashboard`, `/api/ai/usage/requests` y `/api/ai/usage/export` con los permisos de espacio de trabajo existentes. Los importes decimales en USD se convierten a la moneda de Settings con la procedencia del tipo de cambio. El consumo desconocido, parcial y estimado se diferencia del cero y de los errores de carga. Los totales mensuales JSON existentes se copian e importan una vez, conservando proveedor, modelo e importe sin inventar fechas de peticiones ni agentes. Solo aparecen en intervalos que cubren el mes completo; el detalle de peticiones comienza con la activación del registro.
+
+El control de gasto del mes actual utiliza el mismo registro y suma todos los proveedores independientemente de las fechas y filtros del dashboard. Muestra el límite configurado, el importe consumido y el presupuesto restante en la moneda de Settings. Un límite cero o vacío significa sin límite. Los controles de agentes y equipos rechazan nuevas llamadas al alcanzar el límite solo cuando el bloqueo está activado; las demás restricciones de enrutamiento siguen vigentes. `backend/tests/test_ai_consumption.py` cubre la separación de proveedores, calidad del coste, streaming, idempotencia, migración, moneda y coherencia del mes actual con los filtros; las pruebas de agentes y equipos cubren el bloqueo activado y desactivado.

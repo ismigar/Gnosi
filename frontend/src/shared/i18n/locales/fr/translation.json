@@ -362,6 +362,8 @@
       "show_labels": "Afficher les étiquettes"
     },
     "ai": {
+      "budget_title": "Contrôle des dépenses et de la consommation du mois en cours",
+      "current_consumption": "Consommation du mois en cours",
       "monthly_cap_label": "Plafond mensuel de dépenses ({{currency}})",
       "agent_name": "Nom de l'agent",
       "icon_label": "Icône",
@@ -1514,7 +1516,6 @@
         },
         "folder_count_many": "{{count}} dossiers"
       },
-      "current_consumption": "Consommation du mois en cours",
       "consumption": {
         "tab": "Consommation",
         "title": "Utilisation et dépenses IA",
@@ -1577,8 +1578,7 @@
         "remaining": "Budget mensuel restant : {{amount}}",
         "budget_partial": "Les dépenses mensuelles et le budget restant sont partiels : certains appels ont un coût inconnu.",
         "budget_estimated": "Les dépenses mensuelles comprennent des coûts estimés."
-      },
-      "budget_title": "Contrôle des dépenses et de la consommation du mois en cours"
+      }
     },
     "footer": {
       "close": "Fermer",

@@ -1,11 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-09-28
+last_verified: 2026-10-02
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
   - backend/domains/agent/routes/chat_error_messages.py
+  - backend/services/ai_usage_ledger.py
+  - backend/services/ai_usage_transport.py
+  - backend/services/ai_usage_dashboard.py
+  - backend/domains/configuration/ai/usage_routes.py
+  - backend/tests/test_ai_consumption.py
+  - frontend/src/features/settings/AIConsumptionDashboard.tsx
   - backend/domains/agent/structured_output.py
   - backend/tests/test_agent_structured_output.py
   - backend/domains/configuration/ai/model_metadata_routes.py
@@ -1187,3 +1193,13 @@ Learning trials retain the original criterion and its order. Each returned excer
 
 Localized chat errors retain a stable code and `content_language`; private exception details are not presented as the answer. An unavailable service before workflow execution ends with `has_response=false` and `message_count=0`. The UI preserves the backend's language and effective timeout. Recovery remains an explicit manual action, with no automatic retry. One producer task owns the live source throughout its lifetime so execution context and cancellation cleanup survive heartbeat events.
 Settings show one current personalization per original skill, chosen by the latest package modification time. Editing saves into the same package; creating a second personalization of the same source returns a conflict instead of duplicating it. Restore original asks for confirmation before replacing instructions, tools and activation; it saves into the same personal skill and preserves its assignments.
+
+## Multi-provider usage and current-month spending
+
+Settings → Plugins → AI → Consumption reports only Gnosi usage across all configured providers, with the last seven days selected initially. Date ranges, grouping and filters cover provider, model, agent, activity, origin and model profile. Charts, totals, paginated requests and CSV export share the same filters. Model identities include both provider and model ID; an agent's total includes its calls across routes.
+
+`backend/services/ai_usage_ledger.py` stores request metadata in SQLite without prompts or responses. `backend/services/ai_usage_transport.py` captures usage before response validation or transformation across SDK, callback and streaming transports. Each call preserves the actual route, attribution, tokens, duration, status and price snapshot; later configuration changes do not rewrite historical costs. Reported provider cost takes precedence, including explicit zero; otherwise the route tariff is used to estimate cost. Missing prices remain unknown, while local models have zero monetary token cost. Call identifiers prevent duplicate accounting, including failed attempts and partially reported streams.
+
+`backend/services/ai_usage_dashboard.py` serves `/api/ai/usage/dashboard`, `/api/ai/usage/requests` and `/api/ai/usage/export` under the existing workspace permissions. Decimal USD amounts are converted to the Settings currency with exchange-rate provenance. Unknown, partial and estimated consumption remain distinct from zero and load errors. Existing monthly JSON totals are backed up and imported once, preserving provider, model and amount without inventing request dates or agents. They appear only in intervals covering their complete month; detailed request history begins with ledger activation.
+
+The current-month spending control uses the same ledger and sums all providers independently of dashboard dates and filters. It shows the configured cap, spent amount and remaining budget in the Settings currency. A zero or empty cap means unlimited. Agent and team guards reject new calls at the cap only when blocking is enabled; other routing constraints still apply. `backend/tests/test_ai_consumption.py` covers provider separation, cost quality, streaming, idempotency, migration, currency and current-month/filter consistency; agent and team tests cover blocking on and off.
