@@ -425,12 +425,16 @@ class UsageStore:
             pass
 
     def record(self, provider: str, model_id: str, in_tok: int, out_tok: int,
-               period: str, cost_usd: float = 0.0) -> None:
+               period: str, cost_usd: float | None = 0.0, *,
+               cost_source: str = "estimated", call_id: str | None = None,
+               metadata: dict[str, str] | None = None, created: float | None = None,
+               duration_ms: float = 0, status: str = "completed") -> None:
         if not self._path:
             from backend.services.ai_usage_ledger import write_call
             write_call(provider=provider, model_id=model_id, input_tokens=in_tok,
                        output_tokens=out_tok, period=period, cost_usd=cost_usd,
-                       cost_source="estimated")
+                       cost_source=cost_source, call_id=call_id, metadata=metadata,
+                       created=created, duration_ms=duration_ms, status=status)
             self._load()
             return
         with _usage_lock:

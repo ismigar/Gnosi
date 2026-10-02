@@ -6,6 +6,8 @@ from backend.services.agent_behavior import resource as behavior_resource
 
 import json
 import math
+import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Mapping, TypeGuard
@@ -63,7 +65,8 @@ def parse_jev_decision(payload: Mapping[str, Any], routes: list[str]) -> ModelDe
     return ModelDecision(routes[ids.index(choice)], confidence, "selected")
 
 
-def _record_usage(payload: Mapping[str, Any], estimated_tokens: int) -> None:
+def _record_usage(payload: Mapping[str, Any], estimated_tokens: int, *,
+                  call_id: str, started: float, attribution: dict[str, str], status: str = "completed") -> None:
     usage = payload.get("usage")
     usage = usage if isinstance(usage, dict) else {}
     in_tokens = usage.get("input_tokens", estimated_tokens)
@@ -72,10 +75,15 @@ def _record_usage(payload: Mapping[str, Any], estimated_tokens: int) -> None:
         in_tokens = estimated_tokens
     if not isinstance(out_tokens, int) or isinstance(out_tokens, bool) or out_tokens < 0:
         out_tokens = 0
+    from backend.services.ai_usage_ledger import decimal_cost
+    reported = decimal_cost(usage.get("cost"))
     UsageStore().record(
         "typesafe", JEV_MODEL, in_tokens, out_tokens,
         datetime.now().strftime("%Y-%m"),
-        cost_usd=in_tokens * JEV_INPUT_USD_PER_MILLION / 1_000_000,
+        cost_usd=float(reported) if reported is not None else in_tokens * JEV_INPUT_USD_PER_MILLION / 1_000_000,
+        cost_source="reported" if reported is not None else "estimated",
+        call_id=call_id, metadata=attribution, created=started,
+        duration_ms=(time.time()-started)*1000, status=status,
     )
 
 
@@ -139,22 +147,28 @@ def decide_with_jev(
         return ModelDecision(status="budget_limit")
     from backend.services.agent_execution_trace import record
     record("selector.request", {"provider": "typesafe", "body": body, "provider_internal_visibility": False})
+    from backend.services.ai_usage_ledger import context_metadata
+    attribution = context_metadata()
+    call_id, started = str(uuid.uuid4()), time.time()
+    accounting: dict[str, Any] = {"call_id": call_id, "started": started, "attribution": attribution}
     try:
         payload = _request_jev(api_key, body)
         record("selector.response", payload)
         if not isinstance(payload, dict):
-            _record_usage({}, estimated_tokens)
+            _record_usage({}, estimated_tokens, **accounting, status="failed")
             return ModelDecision(status="invalid_response")
-        _record_usage(payload, estimated_tokens)
+        _record_usage(payload, estimated_tokens, **accounting)
         return parse_jev_decision(payload, routes)
     except httpx.TimeoutException:
         # A timeout may already have been billed. Reserve the estimated usage.
-        _record_usage({}, estimated_tokens)
+        _record_usage({}, estimated_tokens, **accounting, status="failed")
         return ModelDecision(status="timeout")
     except ValueError:
-        _record_usage({}, estimated_tokens)
+        _record_usage({}, estimated_tokens, **accounting, status="failed")
         return ModelDecision(status="invalid_response")
     except httpx.HTTPError:
+        UsageStore().record("typesafe", JEV_MODEL, 0, 0, datetime.now().strftime("%Y-%m"),
+            cost_usd=None, cost_source="unknown", call_id=call_id, metadata=attribution, created=started, duration_ms=(time.time()-started)*1000, status="failed")
         return ModelDecision(status="unavailable")
 
 
