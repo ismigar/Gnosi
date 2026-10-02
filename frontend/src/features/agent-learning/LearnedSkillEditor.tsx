@@ -1,3 +1,4 @@
+import { DraftSaveStatus } from '../../shared/editor/DraftSaveStatus';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { runSkillTrial, saveLearnedSkill, type LearnedSkill, type SkillTrialResult } from '../../shared/api/agent-learning';
@@ -57,7 +58,8 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
     };
     if (closed) return null;
     return <div className="agent-learning" aria-busy={busy}>
-        <p className="agent-learning__muted">{t('learning.review_help')}</p>
+        <div className="flex items-center gap-2"><p className="agent-learning__muted">{t('learning.review_help')}</p>
+            <DraftSaveStatus status={!valid ? 'incomplete' : autosave.status} /></div>
         <label>{t('learning.name')}<input className="gnosi-input" value={skill.name} maxLength={160} disabled={busy} onChange={event => { change({ name: event.target.value }); }} /></label>
         <label>{t('learning.description')}<textarea className="gnosi-input" value={skill.description || ''} rows={2} maxLength={2000} disabled={busy} onChange={event => { change({ description: event.target.value }); }} /></label>
         <InstructionMarkdownEditor label={t('learning.instructions')} value={skill.instructions}
@@ -79,7 +81,6 @@ export function LearnedSkillEditor({ initialSkill, agentId, sessionId = '', onSa
         </section>
         <div className="agent-learning__toggle"><GnosiToggle active={assign} label={t('learning.assign')} disabled={busy} onChange={() => { setAssign(value => !value); }} /><span>{t('learning.assign')}</span></div>
         {error && <p role="alert" className="agent-learning__error">{error}</p>}
-        <p role={autosave.status === 'error' ? 'alert' : 'status'}>{t(`skill_autosave.${!valid ? 'incomplete' : autosave.status}`)}</p>
         {autosave.status === 'error' && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={() => { void autosave.flush(); }}>{t('common.retry')}</button>}
         <button className="btn-gnosi btn-gnosi-primary" type="button" disabled={busy || autosave.status === 'saving'} onClick={() => { void close(); }}>{t('common.close')}</button>
     </div>;
