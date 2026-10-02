@@ -7519,6 +7519,7 @@
     "engineering": "Engineering documentation"
   },
   "activity": {
+    "scheduled_history": "Schedules and services",
     "open_activity": "View activity and automations",
     "schedules": "Schedules",
     "runs": "Executions",
