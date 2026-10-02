@@ -73,7 +73,7 @@ jobs:
         if: failure()
         run: |
           uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/generate.py
-          uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/localize.py
+          uv run --frozen --only-group docs-ci python pipeline/skills/technical_documentation/scripts/localize.py --generated-only
       - name: Retain generated catalog diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
