@@ -2686,12 +2686,6 @@
         "required_sources": "Fonts necessàries",
         "required_copy_help": "La còpia no substitueix l’assignació obligatòria de l’original.",
         "assignment_partial_error": "No s’ha pogut completar l’assignació. Els canvis ja desats es conserven.",
-        "instructions_translating": "Traduint les instruccions…",
-        "instructions_translation_error": "No s’han pogut traduir les instruccions. Es mostra el text desat.",
-        "instructions_translate": "Tradueix al català",
-        "instructions_translation_readonly": "Traducció de lectura. L’assistent continua utilitzant el text original.",
-        "instructions_translation_rate_limit": "El proveïdor d’IA ha limitat les peticions o ha esgotat la quota. Torna-ho a provar més tard o revisa la quota del proveïdor. El text original es conserva.",
-        "instructions_translation_authentication": "El proveïdor d’IA ha rebutjat la clau d’accés del perfil de traducció. Revisa la connexió del proveïdor, o tria un model d’un proveïdor connectat al perfil de Traducció. Després torna-ho a provar. El text original es conserva.",
         "active_skills_only": "Només habilitats activades",
         "active_tools_only": "Només eines activades",
         "back_to_profile": "Torna al perfil"

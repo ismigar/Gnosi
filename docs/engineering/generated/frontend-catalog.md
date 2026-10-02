@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1151 | 128147 | 38 |
+| `features` | 1150 | 128085 | 38 |
 | `generated` | 2 | 48164 | 495 |
 | `shared` | 277 | 32385 | 426 |
 
@@ -540,7 +540,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AI/AgentTeamProposals.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTeamProposals.tsx) | 57 | `AgentTeamProposals` | — |
 | [`frontend/src/features/settings/AI/AgentTraceDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTraceDetails.tsx) | 48 | `AgentTraceDetails` | — |
 | [`frontend/src/features/settings/AI/AgentTraceRetention.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/AgentTraceRetention.tsx) | 28 | `AgentTraceRetention` | — |
-| [`frontend/src/features/settings/AI/SkillInstructions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/SkillInstructions.tsx) | 19 | `SkillInstructions` | — |
+| [`frontend/src/features/settings/AI/SkillInstructions.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/SkillInstructions.tsx) | 10 | `SkillInstructions` | — |
 | [`frontend/src/features/settings/AI/activityHistoryPresentation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/activityHistoryPresentation.ts) | 14 | `systemRunResult` | — |
 | [`frontend/src/features/settings/AI/aiQualityTypes.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiQualityTypes.ts) | 101 | — | — |
 | [`frontend/src/features/settings/AI/aiResourceI18n.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiResourceI18n.ts) | 178 | `domainLabel`, `localizedResourceSearchText`, `operationStatusLabel`, `resourceDomain`, `resourceExample`, `resourceRoleLabel`, `resourceStatusLabel`, `skillCategory`, `skillDisplayDescription`, `skillDisplayInstructions`, `skillDisplayName`, `toolDisplayDescription`, `toolDisplayName` | — |
@@ -551,7 +551,6 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AI/aiSchedule.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSchedule.ts) | 9 | `defaultSchedule` | — |
 | [`frontend/src/features/settings/AI/aiSettingsUtils.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.ts) | 425 | `agentSkillWarnings`, `catalogRows`, `cloneSkillPayload`, `groupEnabledModelRoutes`, `modelRouteKey`, `modelToolCompatibility`, `normalizeSkill`, `normalizeTool`, `parseModelRouteKey`, `requiredSkillIdsForAgent`, `skillEffects`, `skillPayload` | — |
 | [`frontend/src/features/settings/AI/modelReliability.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/modelReliability.ts) | 65 | `MODEL_FAULT_REASONS`, `findModelFault`, `useModelReliability` | — |
-| [`frontend/src/features/settings/AI/skillInstructionTranslation.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/skillInstructionTranslation.ts) | 53 | `instructionLanguage`, `translateInstructions`, `useSkillInstructions` | — |
 | [`frontend/src/features/settings/AI/skillPersonalization.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/skillPersonalization.ts) | 24 | `currentPersonalizedSkills`, `currentSkillId`, `latestPersonalizations` | — |
 | [`frontend/src/features/settings/AI/useAIResources.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/useAIResources.ts) | 500 | `useAIResources` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/evals/models`, `/api/ai/semantic-associations`, `/api/ai/skills` |
 | [`frontend/src/features/settings/AIActivity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIActivity.ts) | 2 | — | — |
