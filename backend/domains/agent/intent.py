@@ -197,6 +197,9 @@ def _normalized_request_text(message: str) -> str:
 
 
 def _inventory_or_lookup_mode(text: str) -> str:
+    from backend.domains.agent.table_schema import schema_request_arguments
+    if schema_request_arguments(text) is not None:
+        return "inventory"
     record_terms = re.search(
         r"\b(?:registre|registres|registro|registros|record|records|"
         r"recurs|recursos|resource|resources|ressource|ressources|"
