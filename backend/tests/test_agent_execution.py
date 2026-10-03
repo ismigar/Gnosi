@@ -239,6 +239,44 @@ def test_reference_patch_uses_same_executor_and_revalidates_complete_result(runt
     assert "All original context" in calls[-1]["messages"][0].content
 
 
+@pytest.mark.parametrize("second_patch_valid", [True, False])
+def test_invalid_reference_patch_retries_without_rewriting_notes(runtime, monkeypatch, second_patch_valid):
+    from copy import deepcopy
+    import jsonschema
+    from backend.domains.llm_wiki.reading_contracts import validate_notes
+    from backend.domains.llm_wiki.reading_repairs import build_reading_repair
+    from backend.tests.test_llm_wiki_reading_repairs import repair_fixture
+    scope, snapshot = runtime
+    action, passages, _, valid = repair_fixture()
+    invalid = deepcopy(valid)
+    invalid["patches"][1]["value"] = [{"segment_id": "p1", "reason": "unused"}]
+    answers = [action, invalid, valid if second_patch_valid else invalid]
+    calls = install_workflow(monkeypatch, [json.dumps(answer) for answer in answers])
+    def validate(text):
+        validate_notes(json.loads(text)["arguments"]["plan"], passages, passages)
+        return text
+    request = AgentOperation(skill_id=snapshot.skill_ids[0], operation="knowledge.process-source.phase",
+                             input="Original passages and global memory", output_schema={"type": "object"}, max_model_calls=3)
+    with execution_scope(scope):
+        work = execution.execute_operation(request, snapshot=snapshot, output_validator=validate,
+            output_repair=lambda text, error: build_reading_repair(request.input, text, error))
+        if second_patch_valid:
+            result = asyncio.run(work)
+            repaired = json.loads(result.result)["arguments"]["plan"]
+            assert repaired["notes"][0]["body_md"] == action["arguments"]["plan"]["notes"][0]["body_md"]
+            assert repaired["notes"][1] == action["arguments"]["plan"]["notes"][1]
+            assert repaired["coverage"] == action["arguments"]["plan"]["coverage"]
+            assert result.status == "completed"
+        else:
+            with pytest.raises(jsonschema.ValidationError):
+                asyncio.run(work)
+            assert store.list_runs(scope)[0].status == "failed"
+            assert not store.list_runs(scope)[0].result
+    assert len(calls) == 3
+    assert "Original passages and global memory" in calls[-1]["messages"][0].content
+    assert "not a rewritten reading action" in calls[-1]["messages"][-1].content
+
+
 def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
     from backend.agent import factory
     from backend.domains.llm_wiki.reading_contracts import validate_notes

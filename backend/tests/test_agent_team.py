@@ -132,13 +132,13 @@ def test_team_artifacts_are_private(team_runtime):
         artifacts.get(other, "root", "private")
 
 
-def run_operation(fixture, *, schema=None, input_text="Summarize this", max_model_calls=2, timeout_seconds=120):
+def run_operation(fixture, *, schema=None, input_text="Summarize this", max_model_calls=2, timeout_seconds=120, operation="writing"):
     from backend.services.agent_execution_scope import execution_scope
     from backend.services.agent_execution import execute_operation
     from backend.services.agent_execution_models import AgentOperation
     scope, snapshot, _, _ = fixture
     with execution_scope(scope):
-        return asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation="writing", input=input_text,
+        return asyncio.run(execute_operation(AgentOperation(skill_id=snapshot.skill_ids[0], operation=operation, input=input_text,
             max_model_calls=max_model_calls, timeout_seconds=timeout_seconds, output_schema=schema), snapshot=snapshot))
 
 
@@ -407,6 +407,33 @@ def test_team_permission_keeps_ordinary_operation_on_own_model(optional_runtime)
     assert json.loads(run.result) == {"result": "own work"}
     assert not artifacts.list_artifacts(fixture[0], "plan", run.run_id)
     assert bindings[0][0]["function"]["name"] == "request_team_help"
+
+
+def test_reading_steps_use_frozen_model_without_team_handoff(optional_runtime):
+    from langchain_core.messages import AIMessage
+    from backend.services import agent_execution_store as store, agent_team_store as artifacts
+    fixture, bindings = optional_runtime
+    fixture[3]["_responses"] = {"director": [AIMessage(content='{"action":"remember","arguments":{"text":"Global map"}}')]}
+    for step in range(3):
+        run = run_operation(fixture, schema={"type": "object"}, operation="knowledge.process-source.phase",
+                            input_text=json.dumps({"step": step, "source_count": 191}))
+        assert json.loads(run.result)["action"] == "remember"
+        assert run.model == "expensive" and run.model_calls == 1
+        assert not artifacts.list_artifacts(fixture[0], "plan", run.run_id)
+        assert not [r for r in store.list_runs(fixture[0]) if r.parent_run_id == run.run_id]
+    assert fixture[2] == ["director"] * 3
+    assert bindings == []
+
+
+def test_reading_rejects_unsolicited_handoff_without_executing_team(optional_runtime):
+    from backend.services import agent_team_store as artifacts
+    fixture, bindings = optional_runtime
+    fixture[3]["_responses"] = {"director": [help_message("Process all 191 chunks") ]}
+    with pytest.raises(PermissionError, match="agent_operation_tool_unassigned"):
+        run_operation(fixture, operation="knowledge.process-source.phase")
+    assert fixture[2] == ["director"]
+    assert bindings == []
+    assert not artifacts.list_artifacts(fixture[0], "task")
 
 
 def test_optional_help_calls_team_once_and_never_recurses(optional_runtime):

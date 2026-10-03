@@ -381,6 +381,10 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         prepared_agent_data=snapshot.profile, runtime_capabilities=runtime,
         memory_user_id=snapshot.scope.user_id, operation_mode=True,
         operation_read_tools=request.tool_mode == "read",
+        # The durable reader owns the book loop. Each phase asks its frozen
+        # model for one bounded result; a team handoff cannot run that loop
+        # from a conversation or switch its source-processing executor.
+        operation_team_help=request.operation != "knowledge.process-source.phase",
         output_schema=request.output_schema,
     )
     if workflow is None:
@@ -409,7 +413,8 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                    agent_id=snapshot.agent_id, skill_id=request.skill_id, operation=request.operation,
                    origin=request.origin, status="running", created_at=time.time(), updated_at=time.time(),
                    execution_revision=snapshot.revision)
-    team_enabled = bool(snapshot.profile.get("team", {}).get("enabled"))
+    team_enabled = (request.operation != "knowledge.process-source.phase"
+                    and bool(snapshot.profile.get("team", {}).get("enabled")))
     store.create(row, snapshot.scope, {**request.model_dump(), "checkpoint_key": checkpoint_key,
         **({"max_calls": 8} if team_enabled else {})}, snapshot.model_dump())
     report_run(run_id)
@@ -452,8 +457,16 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     raise AgentTurnCancelled("agent_run_cancelled")
                 return store.update(snapshot.scope, run_id, status="completed", result=text)
             except (ValueError, jsonschema.ValidationError) as validation_error:
-                if attempt + 1 >= request.max_model_calls or partial_repair is not None:
+                if attempt + 1 >= request.max_model_calls:
                     raise
+                if partial_repair is not None:
+                    # Retry the same immutable patch within the original call
+                    # allowance and deadline; never regenerate valid notes.
+                    messages = [*messages, AIMessage(content=text), HumanMessage(content=
+                        "Correct only the permitted patches using the supplied original passages. "
+                        "Return the same patch contract, not a rewritten reading action.\n" +
+                        json.dumps({"validation_error": str(validation_error)}, ensure_ascii=False))]
+                    continue
                 partial_repair = output_repair(text, validation_error) if output_repair is not None else None
                 if partial_repair is not None:
                     response_schema = partial_repair.output_schema

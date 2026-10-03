@@ -99,6 +99,42 @@ def test_structured_prompt_obeys_the_same_budget(configured, tmp_path):
     execute.assert_not_called()
 
 
+@pytest.mark.parametrize("structured", [False, True])
+def test_escaped_source_is_budgeted_after_operation_wrapping(configured, tmp_path, structured):
+    _, _, execute = configured
+    runtime = prepare_reading_runtime(tmp_path)
+    # Source quotes and backslashes expand twice: in the operation input and
+    # in the message serialization used by the central context guard.
+    prompt = json.dumps({"source": '\\"\n' * 2_000})
+    assert len(prompt.encode("utf-8")) < runtime.input_budget
+    with pytest.raises(RuntimeError, match="context budget"):
+        if structured:
+            runtime.generate_structured(prompt, lambda _: None, 240)
+        else:
+            runtime.generate(prompt)
+    execute.assert_not_called()
+
+
+def test_reading_budget_matches_the_central_serialized_message_guard(configured, tmp_path):
+    from langchain_core.messages import HumanMessage, SystemMessage
+    from backend.services.agent_behavior import operation_input
+    from backend.services.agent_context_budget import messages_budget
+
+    _, _, execute = configured
+    runtime = prepare_reading_runtime(tmp_path)
+    schema = {"type": "object", "properties": {"summary": {"type": "string"}}}
+    prompt = json.dumps({"source": '\\"\n' * 200, "output_schema": schema})
+    assert runtime.count_tokens(prompt) <= runtime.input_budget
+    runtime.generate_structured(prompt, lambda _: None, 240)
+    request = execute.call_args.args[0]
+    measured = messages_budget(
+        [SystemMessage(content=runtime.instructions), HumanMessage(content=operation_input(request))],
+        "fixture", 32_768,
+    )
+    assert measured["fits"]
+    assert runtime.count_tokens(prompt) > len(prompt.encode("utf-8"))
+
+
 def test_directed_reading_sends_the_action_schema_to_the_operation(configured, tmp_path):
     from backend.domains.llm_wiki.directed_reading import ACTION_SCHEMA
     _, _, execute = configured

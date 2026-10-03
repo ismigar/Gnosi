@@ -44,13 +44,26 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     checkpoint()
 
     # A per-resume execution allowance, not a prescribed intellectual sequence.
-    for _ in range(deps.max_action_steps):
+    # Reading, saving and reviewing remain finite, but the allowance must
+    # grow with the number of bounded source chunks rather than stop a long
+    # book after the fixed short-document allowance.
+    action_steps = deps.max_action_steps
+    if action_steps == 64:
+        action_steps = max(action_steps, 4 * len(chunks) + 16)
+    for _ in range(action_steps):
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
             "step": state["step"],
             "language": reader.language, "output_schema": output_schema,
             "source_count": len(chunks), "read_count": len(state["read"]),
             "saved_plan_count": len(state["plans"]), "memory": state["memory"],
+            "execution_contract": (
+                "Return exactly one JSON action for the current step. The application executes it, "
+                "persists its result and calls you again for the next step. source_count describes the "
+                "whole book, not work to complete in this response. Do not delegate the book loop or "
+                "simulate reading or saving other chunks within this response. Use remember, search "
+                "and recall to preserve global understanding across steps."
+            ),
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
             "state_contract": (
                 "The index and counts report the current persisted state, after evidence and coverage validation. "

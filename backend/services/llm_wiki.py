@@ -443,7 +443,7 @@ def process_resource(
     resume_job_id: str = "",
 ) -> Dict[str, object]:
     """Run a complete blocking ingest. Call from :func:`start_ingest`."""
-    from backend.domains.llm_wiki.chunking import reading_chunks
+    from backend.domains.llm_wiki.chunking import reading_chunk_budget, reading_chunks
     from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime, token_bound
 
     runtime = prepare_reading_runtime(vault_root)
@@ -459,7 +459,7 @@ def process_resource(
         save_snapshot=llm_wiki_storage.save_snapshot,
         chunk_origins=partial(
             reading_chunks,
-            budget=runtime.input_budget // 5,
+            budget=reading_chunk_budget(runtime.input_budget),
             count=getattr(runtime, "count_tokens", token_bound),
         ),
         load_brain_index=_load_brain_index,
