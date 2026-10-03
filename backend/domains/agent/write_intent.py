@@ -200,7 +200,7 @@ def _row_field_write_tools(text: str, mentions: Sequence[object]) -> set[str]:
         r"\b(?:assign(?:a|ar|i|is|eu|es)?|asign(?:a|ar|e|es)|"
         r"actualitz(?:a|ar|i|is|eu)|actualiz(?:a|ar|e|es)|"
         r"canvi(?:a|ar|ï|ïs|eu)|cambi(?:a|ar|e|es)|"
-        r"set|update|change|modifi(?:e|er|ez)|attribu(?:e|er|ez))\b"
+        r"set|update|change|modifi(?:e|er|ez)|attribu(?:e|er|ez)|défin(?:is|ir|issez))\b"
         r"(?=[^.!?;\n]{0,200}\b(?:camp|camps|campo|campos|field|fields|"
         r"champ|champs|estat|estado|status|statut)\b)", masked,
     )

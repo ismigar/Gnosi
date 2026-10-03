@@ -415,6 +415,9 @@ def test_deterministic_bulk_prepare_respects_negation(monkeypatch):
 
 
 def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
+    from backend.agent import action_confirmations
+
+    monkeypatch.setattr(action_confirmations, "_database_path", lambda: tmp_path / "confirmations.sqlite")
     vault = tmp_path / "vault"
     vault.mkdir()
     checkpoints = tmp_path / "checkpoints"
@@ -1025,3 +1028,12 @@ def test_page_locks_use_a_bounded_stripe_pool(tmp_path, monkeypatch):
 
     assert len(gnosi_tools._PAGE_LOCKS) <= 256
     assert len(list(lock_directory.glob("gnosi-page-lock-*.lock"))) <= 256
+
+
+@pytest.mark.parametrize("message,expected", [
+    ('Cherche toutes les entrées de la table Cervell Digital où recurs est "El papa de mis sueños" et définis estat sur "En revisió".', {"bulk_update_rows"}),
+    ('Ne définis pas le champ estat sur "En revisió" dans toutes les lignes du tableau Notes.', set()),
+    ('Explique comment définir le champ statut dans toutes les lignes du tableau Notes, sans modifier les données.', set()),
+])
+def test_french_field_assignment_requires_affirmative_current_user_intent(message, expected):
+    assert _explicit_brain_write_tool_names(message) == expected

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1309,3 +1309,6 @@ Configuració → Plugins → IA → Consum mostra només l'ús de Gnosi amb tot
 `backend/services/ai_usage_dashboard.py` ofereix `/api/ai/usage/dashboard`, `/api/ai/usage/requests` i `/api/ai/usage/export` amb els permisos d'espai de treball existents. Els imports decimals en USD es converteixen a la moneda de Settings amb la procedència del tipus de canvi. El consum desconegut, parcial i estimat es diferencia del zero i dels errors de càrrega. Els totals mensuals JSON existents es copien i importen una vegada, conservant proveïdor, model i import sense inventar dates de peticions ni agents. Només apareixen en intervals que cobreixen el mes complet; el detall de peticions comença amb l'activació del registre.
 
 El control de despesa del mes actual utilitza el mateix registre i suma tots els proveïdors independentment de les dates i filtres del dashboard. Mostra el topall configurat, l'import consumit i el pressupost restant en la moneda de Settings. Un topall zero o buit significa sense límit. Els controls d'agents i equips rebutgen noves crides en arribar al topall només quan el bloqueig està activat; les altres restriccions d'encaminament continuen vigents. `backend/tests/test_ai_consumption.py` cobreix la separació de proveïdors, qualitat del cost, streaming, idempotència, migració, moneda i coherència del mes actual amb els filtres; les proves d'agents i equips cobreixen el bloqueig activat i desactivat.
+
+
+Els filtres d’igualtat entre cometes preserven el títol literal del recurs en català, castellà, anglès i francès, incloent `donde` i `où`. Les assignacions explícites com `set estat to "En revisió"` o `définis estat sur "En revisió"` utilitzen l’inventari complet verificat i requereixen confirmació abans d’escriure. Les ordres negades o explicatives no autoritzen actualitzacions. Aquests fluxos deterministes no acrediten la idoneïtat del model.

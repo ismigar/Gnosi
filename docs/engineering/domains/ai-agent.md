@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1203,3 +1203,6 @@ Settings → Plugins → AI → Consumption reports only Gnosi usage across all 
 `backend/services/ai_usage_dashboard.py` serves `/api/ai/usage/dashboard`, `/api/ai/usage/requests` and `/api/ai/usage/export` under the existing workspace permissions. Decimal USD amounts are converted to the Settings currency with exchange-rate provenance. Unknown, partial and estimated consumption remain distinct from zero and load errors. Existing monthly JSON totals are backed up and imported once, preserving provider, model and amount without inventing request dates or agents. They appear only in intervals covering their complete month; detailed request history begins with ledger activation.
 
 The current-month spending control uses the same ledger and sums all providers independently of dashboard dates and filters. It shows the configured cap, spent amount and remaining budget in the Settings currency. A zero or empty cap means unlimited. Agent and team guards reject new calls at the cap only when blocking is enabled; other routing constraints still apply. `backend/tests/test_ai_consumption.py` covers provider separation, cost quality, streaming, idempotency, migration, currency and current-month/filter consistency; agent and team tests cover blocking on and off.
+
+
+Quoted equality filters keep the literal resource title in Catalan, Spanish, English, and French, including `donde` and `où`. Explicit field assignments such as `set estat to "En revisió"` or `définis estat sur "En revisió"` use the complete verified inventory and require confirmation before writing. Negated or explanatory wording does not authorize an update. These deterministic flows do not establish model suitability.

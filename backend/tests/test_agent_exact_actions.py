@@ -21,6 +21,10 @@ def inventory(**changes):
 
 
 @pytest.mark.parametrize("message", [
+    'Busca todas las entradas de la tabla Cervell Digital donde recurs es "El papa de mis sueños" y asigna "En revisió" al campo estat.',
+    'Find all entries in the Cervell Digital table where recurs is "El papa de mis sueños" and set estat to "En revisió".',
+    'Cherche toutes les entrées de la table Cervell Digital où recurs est "El papa de mis sueños" et définis estat sur "En revisió".',
+
     'Necessito que busquis totes les entrades i assignis "En revisió" al camp estat.',
     'Busca las filas y asigna "En revisió" al campo estat.',
     'Find the rows and set the estat field to "En revisió".',

@@ -330,14 +330,14 @@ def _inventory_request_arguments(message: str) -> dict[str, Any]:
     # An explicit quoted equality is a field predicate, not lexical search.
     # Keep the original title intact, including accents and short words.
     condition = re.search(
-        r"\b(?:where|whose|on|cuyo|cuya|dont)\s+([\wÀ-ÿ _-]+?)\s+"
+        r"\b(?:where|whose|on|donde|cuyo|cuya|dont|où)\s+([\wÀ-ÿ _-]+?)\s+"
         r"(?:és|es|is|equals?|est|=)\s+(?:(?:exactly|exactament|exactamente|exactement)\s+)?"
         r'["«“]([^"»”]+)["»”]', message, re.IGNORECASE,
     )
     table = re.search(r"\b(?:in|from)\s+(?:the\s+)?(.+?)\s+table\b", message, re.IGNORECASE)
     if table is None:
         table = re.search(
-            r"\b(?:taula|tabla|table)\s+([^,.;]+?)(?=\s+(?:where|whose|on|cuyo|cuya|dont)\b|[,.;])",
+            r"\b(?:taula|tabla|table)\s+([^,.;]+?)(?=\s+(?:where|whose|on|donde|cuyo|cuya|dont|où)\b|[,.;])",
             message, re.IGNORECASE,
         )
     if condition and table:
