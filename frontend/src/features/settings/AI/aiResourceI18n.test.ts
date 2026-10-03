@@ -128,3 +128,20 @@ it.each(['ca', 'en', 'es', 'fr'])('distinguishes application procedures from Vau
     });
     expect(new Set(names).size).toBe(4);
 });
+
+
+it.each(['ca', 'en', 'es', 'fr'])('distinguishes team coordination from Vault tools in %s', async language => {
+    const t = await translator(language);
+    const coordination = { id: 'core.gnosi-coordination', name: 'Team coordination', origin: { type: 'core' } };
+    const vault = { id: 'core.gnosi-vault', origin: { type: 'core' } };
+    const expected = {
+        ca: 'Coordinació de l’equip',
+        en: 'Team coordination',
+        es: 'Coordinación del equipo',
+        fr: 'Coordination de l’équipe',
+    };
+    expect(skillDisplayName(t, coordination)).toBe(expected[language as keyof typeof expected]);
+    expect(skillDisplayName(t, coordination)).not.toBe(skillDisplayName(t, vault));
+    expect(skillDisplayDescription(t, coordination)).not.toBe('');
+    expect(skillCategory(coordination)).toBe('workflow');
+});

@@ -2792,7 +2792,8 @@
           "core_gnosi_operation_writing": "Redacció i correcció",
           "core_gnosi_operation_tables": "Accions de taules",
           "core_gnosi_operation_knowledge": "Connexions i refinament del coneixement",
-          "core_gnosi_operation_learning": "Aprenentatge i avaluació d’habilitats"
+          "core_gnosi_operation_learning": "Aprenentatge i avaluació d’habilitats",
+          "core_gnosi_coordination": "Coordinació de l’equip"
         },
         "tool_names": {
           "add_page_comment": "Afegeix un comentari a una pàgina",
@@ -2983,7 +2984,8 @@
           "core_gnosi_operation_writing": "Redacta, resumeix i corregeix textos conservant el significat i el format.",
           "core_gnosi_operation_tables": "Proposa configuracions i valors de camps a partir de l’esquema i del registre proporcionats.",
           "core_gnosi_operation_knowledge": "Proposa connexions i reformulacions a partir de les notes i les evidències disponibles, sense desar canvis.",
-          "core_gnosi_operation_learning": "Extreu procediments de les instruccions aprovades i avalua habilitats segons criteris explícits."
+          "core_gnosi_operation_learning": "Extreu procediments de les instruccions aprovades i avalua habilitats segons criteris explícits.",
+          "core_gnosi_coordination": "Planifica tasques, tria els especialistes adequats i integra els seus resultats."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara l’agenda, les prioritats i els missatges pendents d’avui.",
