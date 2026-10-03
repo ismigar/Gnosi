@@ -1421,3 +1421,5 @@ Chaque plan enregistré contient une mémoire globale mise à jour et bornée, c
 Lors de la reprise, les points interrompus antérieurs de la même ressource sont comparés à l’identité exacte des sources et de l’exécuteur et le jeu de plans compatible le plus avancé est retenu. Un redémarrage explicite crée une limite de lignée que les reprises suivantes ne peuvent franchir.
 
 La reconstruction de mémoire globale ancienne utilise le budget de mémoire globale (au plus 8 000 tokens estimés et un huitième du contexte d’entrée), plutôt que le budget plus court du résumé d’un passage. La demande de synthèse et la validation utilisent les mêmes unités de tokens estimés.
+
+Chaque opération de lecture dirigée réserve au plus 16 384 tokens de sortie pour son unique résultat limité, y compris les réparations de format et de preuves. Les autres opérations conservent les réglages du fournisseur. Cela évite de réserver les 65 536 tokens par défaut pour chaque passage ou synthèse de mémoire, sans changer l’identité du point de reprise.

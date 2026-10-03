@@ -10,13 +10,13 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
-| `agent` | 53 | 9502 |
+| `agent` | 53 | 9504 |
 | `api` | 38 | 13286 |
 | `app` | 8 | 822 |
 | `application root` | 2 | 55 |
 | `config` | 13 | 1355 |
 | `data` | 2 | 214 |
-| `domains` | 493 | 103995 |
+| `domains` | 493 | 103999 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 213 | 44305 |
+| `services` | 213 | 44308 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **913 modules** and **182112 source lines**.
+Total: **913 modules** and **182121 source lines**.
 
 ## agent
 
@@ -48,7 +48,7 @@ Total: **913 modules** and **182112 source lines**.
 | [`backend/agent/evals/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/__init__.py) | 1 | 0 | 0 | 0 | 0 | Deterministic evaluation corpus for the universal agent contract. |
 | [`backend/agent/evals/response_runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/response_runner.py) | 99 | 0 | 5 | 0 | 3 | Run deterministic final-response quality evaluations without a model. |
 | [`backend/agent/evals/runner.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/evals/runner.py) | 144 | 0 | 5 | 0 | 3 | Run the deterministic universal-turn evaluation corpus. |
-| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/factory.py) | 251 | 0 | 5 | 1 | 5 | Compatibility facade for the canonical :mod:`backend.domains.agent` package. |
+| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/factory.py) | 253 | 0 | 5 | 1 | 5 | Compatibility facade for the canonical :mod:`backend.domains.agent` package. |
 | [`backend/agent/feature_tool_support.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/feature_tool_support.py) | 56 | 0 | 4 | 0 | 3 | Authenticated scope and bounded results for optional feature adapters. |
 | [`backend/agent/generated_tools/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/__init__.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/agent/generated_tools/creator.py`](https://github.com/ismigar/Gnosi/blob/main/backend/agent/generated_tools/creator.py) | 226 | 0 | 4 | 0 | 4 | Tool Creator: The meta-tool that allows the agent to create new tools. |
@@ -207,7 +207,7 @@ Total: **913 modules** and **182112 source lines**.
 | [`backend/domains/agent/intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/intent.py) | 323 | 0 | 5 | 0 | 4 | Deterministic multilingual intent and authorization classification. |
 | [`backend/domains/agent/llm.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/llm.py) | 556 | 0 | 21 | 0 | 7 | Typed language-model selection and provider adapters. |
 | [`backend/domains/agent/messages.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/messages.py) | 219 | 0 | 9 | 0 | 2 | Bounded projection of durable agent messages into provider prompts. |
-| [`backend/domains/agent/operation_graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/operation_graph.py) | 90 | 0 | 2 | 0 | 0 | Structured operations with optional governed read tools. |
+| [`backend/domains/agent/operation_graph.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/operation_graph.py) | 92 | 0 | 2 | 0 | 0 | Structured operations with optional governed read tools. |
 | [`backend/domains/agent/policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/policy.py) | 401 | 1 | 11 | 0 | 11 | Request-scoped agent state, cancellation and governed tool policy. |
 | [`backend/domains/agent/responses.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/responses.py) | 481 | 0 | 14 | 0 | 14 | Deterministic, localized rendering of trusted agent tool results. |
 | [`backend/domains/agent/routes/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/routes/__init__.py) | 1 | 0 | 0 | 0 | 0 | Modular HTTP routes for the agent domain. |
@@ -247,7 +247,7 @@ Total: **913 modules** and **182112 source lines**.
 | [`backend/domains/agent/turn_citations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_citations.py) | 552 | 1 | 12 | 0 | 5 | Citation extraction and validation for governed agent turns. |
 | [`backend/domains/agent/turn_evidence.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_evidence.py) | 343 | 1 | 9 | 0 | 1 | Deterministic evidence verification for governed agent turns. |
 | [`backend/domains/agent/turn_planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/turn_planning.py) | 472 | 0 | 7 | 0 | 4 | Provider-independent planning for governed agent turns. |
-| [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 263 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
+| [`backend/domains/agent/workflow.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow.py) | 265 | 1 | 5 | 1 | 6 | Agent workflow coordination and compatibility-preserving dependencies. |
 | [`backend/domains/agent/workflow_nodes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_nodes.py) | 767 | 4 | 0 | 0 | 3 | LangGraph nodes for the agent workflow. |
 | [`backend/domains/agent/workflow_setup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/workflow_setup.py) | 773 | 4 | 16 | 1 | 20 | Typed preparation stages for the agent workflow coordinator. |
 | [`backend/domains/agent/write_intent.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/write_intent.py) | 525 | 0 | 8 | 0 | 5 | Fail-closed multilingual authorization intent. |
@@ -812,7 +812,7 @@ Total: **913 modules** and **182112 source lines**.
 | [`backend/services/agent_diagnostics.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_diagnostics.py) | 46 | 0 | 1 | 0 | 0 | Explicit model diagnostics using the common transport and usage ledger. |
 | [`backend/services/agent_document_work.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_document_work.py) | 160 | 0 | 5 | 0 | 1 | Shared, replayable read-only action loop for complete source synthesis. |
 | [`backend/services/agent_evidence_security.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_evidence_security.py) | 58 | 0 | 2 | 0 | 1 | Bounded semantic taint analysis for untrusted agent evidence. |
-| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 610 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
+| [`backend/services/agent_execution.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution.py) | 613 | 0 | 24 | 5 | 8 | One principal-agent executor for application operations and graph streams. |
 | [`backend/services/agent_execution_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_models.py) | 77 | 4 | 0 | 0 | 0 | Transport-independent contracts for principal-agent operations. |
 | [`backend/services/agent_execution_scope.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_scope.py) | 137 | 0 | 8 | 1 | 3 | Bind authenticated application scope before crossing threads or transports. |
 | [`backend/services/agent_execution_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_execution_store.py) | 346 | 0 | 21 | 0 | 9 | Private, scope-bound execution records shared by every application entrypoint. |

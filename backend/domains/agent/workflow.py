@@ -169,6 +169,7 @@ async def create_agent_workflow(
     operation_mode: bool = False,
     operation_read_tools: bool = False,
     operation_team_help: bool = True,
+    operation_max_output_tokens: int | None = None,
     output_schema: dict[str, Any] | None = None,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Create an uncompiled multi-agent graph and its selection metadata."""
@@ -235,6 +236,7 @@ async def create_agent_workflow(
                 model = replace(model, llm=JsonToolModel(model.llm))
         return operation_workflow(model.llm, prompts.combined_persona, prompts.context_window_tokens,
             team_help=team_help, output_schema=output_schema, provider=model.provider_name,
+            max_output_tokens=operation_max_output_tokens,
             runtime=profile.resolved_runtime if operation_read_tools else None), {
             "provider": model.provider_name, "model": model.model_name,
             "active_skill_ids": list(prompts.active_runtime_skill_ids),

@@ -1332,3 +1332,5 @@ Cada pla desat inclou una memòria global actualitzada i limitada que recull l�
 En reprendre, els punts interromputs anteriors del mateix recurs es comparen amb la identitat exacta de les fonts i de l’executor i es tria el conjunt de plans compatible més avançat. Un reinici explícit crea un límit de llinatge que les represes posteriors no poden travessar.
 
 La reconstrucció de memòria global antiga utilitza el pressupost de memòria global (com a màxim 8.000 tokens estimats i una vuitena part del context d’entrada), en lloc del pressupost més curt de resum d’un fragment. La petició de síntesi i la validació fan servir les mateixes unitats de tokens estimats.
+
+Cada operació de lectura dirigida reserva com a màxim 16.384 tokens de sortida per al seu únic resultat limitat, incloses les reparacions de format i d’evidències. Les altres operacions mantenen els ajustos del proveïdor. Això evita reservar els 65.536 tokens per defecte del proveïdor per cada fragment o síntesi de memòria, sense canviar la identitat del punt de represa.

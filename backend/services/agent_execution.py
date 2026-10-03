@@ -385,6 +385,9 @@ async def _operation_application(request: AgentOperation, snapshot: AgentExecuti
         # model for one bounded result; a team handoff cannot run that loop
         # from a conversation or switch its source-processing executor.
         operation_team_help=request.operation != "knowledge.process-source.phase",
+        # Reading returns one bounded action, never the whole book. Avoid a
+        # provider-default reservation of 65,536 output tokens for each step.
+        operation_max_output_tokens=(16_384 if request.operation == "knowledge.process-source.phase" else None),
         output_schema=request.output_schema,
     )
     if workflow is None:

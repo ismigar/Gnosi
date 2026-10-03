@@ -1398,3 +1398,5 @@ Cada plan guardado incluye una memoria global actualizada y limitada que recoge 
 Al reanudar, los puntos interrumpidos anteriores del mismo recurso se comparan con la identidad exacta de las fuentes y del ejecutor y se elige el conjunto de planes compatible más avanzado. Un reinicio explícito crea un límite de linaje que las reanudaciones posteriores no pueden cruzar.
 
 La reconstrucción de memoria global antigua utiliza el presupuesto de memoria global (como máximo 8.000 tokens estimados y una octava parte del contexto de entrada), en lugar del presupuesto más corto del resumen de un fragmento. La petición de síntesis y la validación utilizan las mismas unidades de tokens estimados.
+
+Cada operación de lectura dirigida reserva como máximo 16.384 tokens de salida para su único resultado acotado, incluidas las reparaciones de formato y de evidencias. Las demás operaciones mantienen los ajustes del proveedor. Así se evita reservar los 65.536 tokens predeterminados del proveedor por cada fragmento o síntesis de memoria, sin cambiar la identidad del punto de reanudación.

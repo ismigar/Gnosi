@@ -19,7 +19,7 @@ def is_read_tool(descriptor: Any) -> bool:
 
 def operation_workflow(model: Any, instructions: str, context_window: int, *, team_help: TeamHelp | None = None,
                        output_schema: dict[str, Any] | None = None, provider: str = "",
-                       runtime: Any = None) -> StateGraph[Any, None, Any, Any]:
+                       runtime: Any = None, max_output_tokens: int | None = None) -> StateGraph[Any, None, Any, Any]:
     from backend.services.agent_tool_identity import runtime_tool_name
     from backend.domains.agent.policy import _tool_policy_wrapper
     pairs = [(descriptor, tool) for descriptor, tool in zip(runtime.tool_descriptors, runtime.tools, strict=True)
@@ -60,6 +60,8 @@ def operation_workflow(model: Any, instructions: str, context_window: int, *, te
         # outer transport contract.
         if not tools or isinstance(active_model, JsonToolModel):
             active_model = constrain_output(active_model, provider, output_schema)
+        if max_output_tokens is not None:
+            active_model = active_model.bind(max_tokens=max_output_tokens)
         return {"messages": [_invoke_agent_model(active_model, messages, state)]}
 
     graph: StateGraph[Any, None, Any, Any] = StateGraph(AgentState)

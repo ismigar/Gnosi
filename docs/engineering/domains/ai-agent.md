@@ -1226,3 +1226,5 @@ Every saved plan includes an updated, bounded global memory covering the accumul
 On resume, interrupted historical checkpoints for the same resource are checked against the exact runtime/source identity and the most advanced compatible plan set is selected. A fresh explicit restart creates a lineage boundary that later resumes cannot cross.
 
 Legacy global-memory reconstruction uses the global memory allowance (at most 8,000 estimated tokens and one eighth of input context), rather than the shorter passage-summary allowance. Summary requests and validation use the same estimated-token units.
+
+Each directed reading operation reserves at most 16,384 output tokens for its single bounded result, including format and evidence repairs. Other operations retain their existing provider settings. This avoids reserving the provider default of 65,536 tokens for each passage or memory synthesis without changing checkpoint identity.
