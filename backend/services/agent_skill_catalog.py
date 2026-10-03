@@ -539,7 +539,7 @@ def _register_builtin_gnosi_catalog() -> None:
                 and str(descriptor.handler_ref or "").rsplit(".", 1)[-1]
                 not in capability_platform_names
             ),
-            instructions="Use the legacy Gnosi agent capability bundle.",
+            instructions=skill_instructions("core.legacy-default-v1"),
             metadata={"legacy_bundle": True},
         )
     )

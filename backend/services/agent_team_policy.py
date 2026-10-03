@@ -13,6 +13,22 @@ def team_for(profile: dict[str, Any]) -> AgentTeam:
     return AgentTeam.model_validate(profile.get("team") or {})
 
 
+def has_coordination_skill(profile: dict[str, Any]) -> bool:
+    """Accept an assigned personal procedure through the canonical resolver."""
+    assigned = profile.get("skill_ids") or []
+    if TEAM_SKILL in assigned:
+        return True
+    if not any(str(identifier).startswith("user.") for identifier in assigned):
+        return False
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    from backend.services.context_vars import get_active_vault_path
+
+    runtime = resolve_agent_runtime(
+        profile, vault_path=get_active_vault_path(), active_skill_ids=[TEAM_SKILL],
+    )
+    return TEAM_SKILL in runtime.active_skill_ids
+
+
 def validate_teams(ai: dict[str, Any], registry: list[dict[str, Any]]) -> None:
     profiles = {p["id"]: p for p in ai.get("agents", [])}
     routes = {(r.get("provider"), r.get("model_id")) for r in registry if r.get("enabled") is True}
@@ -30,7 +46,7 @@ def validate_teams(ai: dict[str, Any], registry: list[dict[str, Any]]) -> None:
                 raise ValueError("agent_team_profile_unavailable")
             if is_local_provider(profile.get("provider")) and not is_local_provider(target.get("provider")):
                 raise ValueError("agent_team_local_boundary")
-        if TEAM_SKILL not in profiles[team.director_id].get("skill_ids", []):
+        if not has_coordination_skill(profiles[team.director_id]):
             raise ValueError("agent_team_director_skill_required")
         for route in team.direct_routes:
             if route.operation not in OPERATIONS:
@@ -40,7 +56,7 @@ def validate_teams(ai: dict[str, Any], registry: list[dict[str, Any]]) -> None:
                 raise ValueError("agent_team_model_unavailable")
             if is_local_provider(profile.get("provider")) and not is_local_provider(candidate.provider):
                 raise ValueError("agent_team_local_boundary")
-        if TEAM_SKILL in team.temporary.skill_ids:
+        if has_coordination_skill({"skill_ids": team.temporary.skill_ids}):
             raise ValueError("agent_team_nested_coordination_forbidden")
 
 

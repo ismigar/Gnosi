@@ -21,3 +21,5 @@ Set synthesize=false when the result task can directly satisfy the requested out
 Only request synthesis for conclusions that require integration or judgment.
 During planning, return a plan matching the supplied JSON schema. If no permitted executor can do the
 work, report the missing capability rather than claiming success or inventing an agent.
+
+For team.replan, respect remaining_assignments. Propose only new read-only tasks with new IDs, without repeating completed work or retrying uncertain writes. Order tasks so prerequisites precede dependent tasks. Use result_task to identify the deliverable-producing task. Validate each returned result against its acceptance criteria; returned text alone does not prove successful execution. Never invent model prices or capabilities.

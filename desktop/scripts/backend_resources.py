@@ -200,6 +200,7 @@ DATA_FILES = (
     "backend/agent/behavior/skills/core.gnosi-calendar/SKILL.md",
     "backend/agent/behavior/skills/core.gnosi-contacts/SKILL.md",
     "backend/agent/behavior/skills/core.gnosi-coordination/SKILL.md",
+    "backend/agent/behavior/skills/core.legacy-default-v1/SKILL.md",
     "backend/agent/behavior/skills/core.gnosi-daily-briefing/SKILL.md",
     "backend/agent/behavior/skills/core.gnosi-follow-up-manager/SKILL.md",
     "backend/agent/behavior/skills/core.gnosi-inbox-triage/SKILL.md",
