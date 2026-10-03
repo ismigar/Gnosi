@@ -1,3 +1,4 @@
+import { SkillMarkdown } from './SkillMarkdown';
 import { SkillPackageTools } from '../../agent-learning';
 import { useMemo, useRef, useState } from 'react';
 import {
@@ -286,7 +287,7 @@ export function SkillsSettingsPanel({
             ) : null}
 
             {source && <div className="ai-resource-alert">{t('settings.ai.resources.customize_help')}
-                <details><summary>{t('settings.ai.resources.compare_original')}</summary><pre>{source.instructions}</pre></details>
+                <details><summary>{t('settings.ai.resources.compare_original')}</summary><SkillMarkdown instructions={source.instructions} /></details>
             </div>}
             {creating ? (
                 <SkillEditor

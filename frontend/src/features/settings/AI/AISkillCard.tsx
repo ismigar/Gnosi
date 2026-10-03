@@ -1,3 +1,4 @@
+import { SkillMarkdown } from './SkillMarkdown';
 import { SkillPackageTools } from '../../agent-learning';
 import type { ReactNode } from 'react';
 import {
@@ -175,7 +176,7 @@ export function SkillCard({
                 {skill.metadata?.derived_from && <div className="ai-resource-details">
                     <p>{t('settings.ai.resources.based_on', { name: baseSkill ? skillDisplayName(t, baseSkill) : skill.metadata.derived_from.name, version: skill.metadata.derived_from.version })}</p>
                     {baseSkill && baseSkill.revision !== skill.metadata.derived_from.revision && <p role="status">{t('settings.ai.resources.source_changed')}</p>}
-                    <details><summary>{t('settings.ai.resources.compare_original')}</summary><pre>{baseSkill?.instructions || skill.metadata.derived_from.instructions}</pre></details>
+                    <details><summary>{t('settings.ai.resources.compare_original')}</summary><SkillMarkdown instructions={baseSkill?.instructions || skill.metadata.derived_from.instructions || ''} /></details>
                 </div>}
                 <div className="ai-resource-details"><strong>{t('settings.ai.resources.consuming_automations')}</strong><span>{automationNames.join(', ') || t('settings.ai.resources.no_automations')}</span></div>
                 <SkillDetails skill={skill} toolsById={toolsById} agentNames={agentNames} />
