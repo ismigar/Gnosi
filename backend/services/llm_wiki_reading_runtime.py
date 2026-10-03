@@ -29,7 +29,25 @@ class ReadingRuntime:
 
     def count_tokens(self, text: str) -> int:
         from backend.services.agent_context_budget import count_tokens
-        return count_tokens(text, self.model if self.snapshot.behavior_resources else "").tokens
+        from backend.services.agent_behavior import operation_input
+        from langchain_core.messages import HumanMessage
+
+        # The operation wraps the JSON reading prompt in another JSON envelope,
+        # then the central budget measures serialized messages. Counting only
+        # the raw prompt misses escaping and the repeated output schema, which
+        # can reject a whole-source delivery before its first model call.
+        try:
+            envelope = json.loads(text)
+        except ValueError:
+            envelope = None
+        schema = envelope.get("output_schema") if isinstance(envelope, dict) else None
+        request = AgentOperation(
+            skill_id=SKILL_ID, operation="knowledge.process-source.phase", input=text,
+            output_schema=schema if isinstance(schema, dict) else {"type": "object"},
+        )
+        message = HumanMessage(content=operation_input(request))
+        serialized = json.dumps([message.model_dump(mode="json")], ensure_ascii=False)
+        return count_tokens(serialized, self.model if self.snapshot.behavior_resources else "").tokens
 
     @property
     def identity(self) -> str:
@@ -117,7 +135,9 @@ def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
     instructions = snapshot_instruction_text(snapshot)
     window = _model_context_window(provider, model)
     from backend.services.agent_context_budget import count_tokens
-    budget = window - max(2_048, window // 4) - count_tokens(instructions, model if snapshot.behavior_resources else "").tokens - 512
+    from langchain_core.messages import SystemMessage
+    system = json.dumps([SystemMessage(content=instructions).model_dump(mode="json")], ensure_ascii=False)
+    budget = window - max(2_048, window // 4) - count_tokens(system, model if snapshot.behavior_resources else "").tokens - 512
     if budget < 4_000:
         raise RuntimeError("Choose a model with a larger context window for source reading")
     return ReadingRuntime(snapshot.agent_id, provider, model, instructions, budget, snapshot)
