@@ -18,6 +18,8 @@ from backend.agent.vault_tools import create_page, summarize_to_cornell
 from backend.config.app_config import load_params
 from backend.services.agent_capability_health import assess_tool_capability
 
+from backend.domains.agent.intent import request_disallows_tools
+
 MAX_BOUND_TOOLS = 64
 
 
@@ -488,6 +490,8 @@ def _turn_model_tools(
     required_read_tool_names: Iterable[str] = (),
 ) -> List[Any]:
     """Bind relevant passive reads and exact current-turn guarded grants."""
+    if request_disallows_tools(user_message):
+        return []
     policies = {str(item.get("name") or ""): item for item in metadata if item.get("name")}
     authorized = {str(name) for name in authorized_tool_names if str(name)}
     required_reads = {str(name) for name in required_read_tool_names if str(name)}

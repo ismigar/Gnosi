@@ -1206,3 +1206,5 @@ The current-month spending control uses the same ledger and sums all providers i
 
 
 Quoted equality filters keep the literal resource title in Catalan, Spanish, English, and French, including `donde` and `où`. Explicit field assignments such as `set estat to "En revisió"` or `définis estat sur "En revisió"` use the complete verified inventory and require confirmation before writing. Negated or explanatory wording does not authorize an update. These deterministic flows do not establish model suitability.
+
+An explicit request not to use tools is enforced for the current turn in Catalan, Spanish, English and French. It removes required context reads, authorized write tools and team help from the effective plan and model tool bindings, including directed profiles. Quoted source material does not grant this restriction. Model answers still require independent factual review.

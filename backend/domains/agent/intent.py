@@ -262,9 +262,25 @@ def _inventory_or_lookup_mode(text: str) -> str:
     return "conversation"
 
 
+def request_disallows_tools(message: str) -> bool:
+    """Respect explicit tool restrictions outside quoted source material."""
+    unquoted = re.sub(r'"[^"\n]*"|«[^»]*»|`[^`]*`', " ", str(message or ""))
+    text = _normalized_request_text(unquoted)
+    return bool(re.search(
+        r"\b(?:no (?:utilitzis|utilitzeu|utilitzar|utilices|utilice|uses|usar) "
+        r"(?:cap )?(?:eines|herramientas)|sense (?:utilitzar )?eines|"
+        r"sin (?:usar )?herramientas|do not use (?:any )?tools|"
+        r"don t use (?:any )?tools|without tools|no tools|"
+        r"n utilise (?:aucun outil|pas d outils)|sans outils)\b",
+        text,
+    ))
+
+
 def _request_mode(message: str) -> str:
     """Classify the operation independently from the request's subject."""
     text = _normalized_request_text(message)
+    if request_disallows_tools(message):
+        return "conversation"
     if not text:
         return "conversation"
     if _reader_context_analysis_requested(message):

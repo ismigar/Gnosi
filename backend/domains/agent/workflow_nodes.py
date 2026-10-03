@@ -34,7 +34,7 @@ from backend.domains.agent.context import (
     _vault_context_is_relevant,
     build_agent_turn_plan,
 )
-from backend.domains.agent.intent import _obvious_route, _request_mode
+from backend.domains.agent.intent import _obvious_route, _request_mode, request_disallows_tools
 from backend.domains.agent.messages import _bounded_model_messages
 from backend.domains.agent.policy import (
     AgentState,
@@ -157,10 +157,12 @@ class AgentWorkflowNodes:
         """Route a turn deterministically before consulting the supervisor model."""
         if _turn_is_cancelled(state):
             return {"next": "FINISH"}
-        if frozen_resources.get():
-            return {"next": "Brain" if self.brain_tools else "General"}
         messages = state["messages"]
         latest_user = self._latest_user(messages)
+        if request_disallows_tools(latest_user):
+            return {"next": "General"}
+        if frozen_resources.get():
+            return {"next": "Brain" if self.brain_tools else "General"}
         request_mode = _request_mode(latest_user)
         if self.runtime_tools and not self.legacy_bundle_active:
             return {"next": "Brain"}
@@ -203,7 +205,9 @@ class AgentWorkflowNodes:
         )
         try:
             coder_model = self.coder_llm
-            if self.team_help and not can_request_help(state):
+            if request_disallows_tools(self._latest_user(messages)):
+                coder_model = self.llm
+            elif self.team_help and not can_request_help(state):
                 coder_model = self.llm.bind_tools(self.coder_tools) if self.coder_tools else self.llm
             response = _invoke_agent_model(
                 coder_model,
@@ -227,7 +231,9 @@ class AgentWorkflowNodes:
         messages = state["messages"]
         try:
             response = _invoke_agent_model(
-                self.llm.bind_tools([HELP_TOOL]) if self.team_help else self.llm,
+                self.llm.bind_tools([HELP_TOOL])
+                if self.team_help and not request_disallows_tools(self._latest_user(messages))
+                else self.llm,
                 [SystemMessage(content=self.general_prompt)]
                 + _bounded_model_messages(messages, self.message_budget_chars),
                 state,
@@ -243,6 +249,8 @@ class AgentWorkflowNodes:
 
     def _context_route(self, messages: Any, latest_user: str, request_mode: str) -> ContextRoute:
         """Select the one mandatory context read for a lookup or analysis turn."""
+        if request_disallows_tools(latest_user):
+            return ContextRoute(reader_message=latest_user)
         inventory_arguments = (
             _previous_inventory_arguments(messages)
             if _inventory_continuation_requested(latest_user)
@@ -354,7 +362,7 @@ class AgentWorkflowNodes:
             and not _vault_context_is_relevant(latest_user)
         ):
             tools = [tool for tool in tools if _tool_name(tool) not in self.context_tool_names]
-        model_tools = [*tools, HELP_TOOL] if self.team_help and can_request_help(state) else tools
+        model_tools = [*tools, HELP_TOOL] if self.team_help and can_request_help(state) and not request_disallows_tools(latest_user) else tools
         selected_llm = self.llm.bind_tools(model_tools) if model_tools else self.llm
         return BrainTurn(
             state=state,

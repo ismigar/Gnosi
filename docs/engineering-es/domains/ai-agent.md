@@ -1378,3 +1378,5 @@ El control de gasto del mes actual utiliza el mismo registro y suma todos los pr
 
 
 Los filtros de igualdad entre comillas conservan el título literal del recurso en catalán, español, inglés y francés, incluidos `donde` y `où`. Las asignaciones explícitas como `set estat to "En revisió"` o `définis estat sur "En revisió"` utilizan el inventario completo verificado y requieren confirmación antes de escribir. Las instrucciones negadas o explicativas no autorizan actualizaciones. Estos flujos deterministas no acreditan la idoneidad del modelo.
+
+Una petición explícita de no utilizar herramientas se aplica al turno actual en catalán, español, inglés y francés. Elimina lecturas obligatorias de contexto, herramientas de escritura autorizadas y ayuda del equipo del plan efectivo y de las herramientas del modelo, también en perfiles dirigidos. El material citado no impone esta restricción. Las respuestas del modelo aún necesitan una revisión factual independiente.

@@ -9,6 +9,8 @@ import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from backend.domains.agent.intent import request_disallows_tools
+
 LOCAL_PROVIDERS = frozenset({"ollama", "llama-cpp", "lmstudio", "local", "generic"})
 
 
@@ -238,6 +240,11 @@ def build_turn_plan(
     """Build the effective request-scoped capability and privacy plan."""
     from backend.agent.semantic_interpreter import broker_capabilities, interpret_request
 
+    if request_disallows_tools(message):
+        mode = "conversation"
+        tool_metadata = ()
+        authorized_tool_names = ()
+        required_tool_name = ""
     refs = [dict(ref) for ref in context_refs if isinstance(ref, Mapping)]
     tools = [dict(item) for item in tool_metadata if isinstance(item, Mapping)]
     authorized = {str(name) for name in authorized_tool_names if name}
