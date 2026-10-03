@@ -289,3 +289,41 @@ def test_busy_refresh_never_returns_a_stale_or_partial_inventory(inventory, monk
     assert result['error'] == 'inventory_changed_restart_pagination'
     assert result['restart_required'] and result['records'] == []
     assert 'matching_count' not in result
+
+
+@pytest.mark.parametrize('message', [
+    "Llista'm les propietats de la taula cervell digital",
+    'Lista las propiedades de la tabla Cervell Digital',
+    'List the properties of the Cervell Digital table',
+    'Liste les propriétés de la table Cervell Digital',
+])
+def test_schema_request_lists_fields_instead_of_matching_property_text(inventory, message):
+    from backend.domains.agent.responses import _inventory_context_response
+    from backend.domains.agent.intent import _request_mode
+    build, pages, _ = inventory
+    pages['brain'].clear()  # Empty tables still have a schema.
+    args = _inventory_request_arguments(message)
+    assert args == {'query': '', 'record_types': ['cervell digital'], 'schema_only': True}
+    assert _request_mode(message) == 'inventory'
+    payload = json.loads(build().invoke(args))
+    assert payload['result_kind'] == 'table_schema'
+    assert [field['name'] for field in payload['tables'][0]['fields']] == ['recurs', 'estat']
+    assert payload['tables'][0]['fields'][0]['relation_database_id'] == 'resources'
+    assert [option['name'] for option in payload['tables'][0]['fields'][1]['options']] == ['Pendent', 'Completat']
+    answer = _inventory_context_response(json.dumps(payload), message)
+    assert 'recurs — relation' in answer
+    assert 'estat — status' in answer
+    assert 'Note' not in answer
+
+
+def test_schema_cannot_read_unattached_tables(inventory):
+    build, _, refs = inventory
+    payload = json.loads(build(refs[1:]).invoke({'schema_only': True, 'record_types': ['Cervell Digital']}))
+    assert payload['tables'] == []
+    assert payload['record_types_unresolved'] == ['Cervell Digital']
+
+
+def test_record_search_for_word_properties_remains_a_record_search():
+    args = _inventory_request_arguments('Find all records in Cervell Digital containing properties')
+    assert not args.get('schema_only')
+    assert 'properties' in args['query']

@@ -318,6 +318,20 @@ class InventoryContextTool:
                 "refresh_scheduled": False,
             }
 
+    def _schema_result(self, record_types: Optional[list[str]]) -> str:
+        """Read only authorized schemas, even when tables have no records."""
+        from backend.domains.vault.tables.catalogs.core import get_prop_options
+        authorized = [item["table"] for item in _authorized_inventory_tables(self.inventory_refs)]
+        _, tables, unresolved = self._table_resolution(authorized, self._requested_types(record_types))
+        catalogs = _registry().get("option_catalogs", {})
+        return json.dumps({
+            "result_kind": "table_schema", "record_types_unresolved": unresolved,
+            "tables": [{"id": table["id"], "name": table.get("name") or table["id"],
+                        "fields": [{**{key: field[key] for key in ("id", "name", "type", "relation_database_id") if key in field},
+                                    "options": get_prop_options(field, catalogs)}
+                                   for field in table.get("properties", [])]} for table in tables],
+        }, ensure_ascii=False)
+
     def inventory_context(
         self,
         query: str = "",
@@ -327,6 +341,7 @@ class InventoryContextTool:
         limit: int = MAX_CONTEXT_INVENTORY_ROWS,
         property_filters: Optional[dict[str, Any]] = None,
         expected_revision: str = "",
+        schema_only: bool = False,
     ) -> str:
         """Enumerate exact matching records across attached Vault sources.
 
@@ -340,9 +355,12 @@ class InventoryContextTool:
         occurrence rather than records conceptually related through links.
         `property_filters` applies exact field equality before text matching.
         Relation values may be exact attached resource IDs or complete titles.
+        Set `schema_only` to read field definitions without searching records.
         Pass the previous page's `snapshot_revision` as `expected_revision`
         when continuing. Changed results require restarting from offset zero.
         """
+        if schema_only:
+            return self._schema_result(record_types)
         bounded_query = " ".join(str(query or "").split())[:MAX_CONTEXT_INVENTORY_QUERY_CHARS]
         root = _vault_root()
         try:

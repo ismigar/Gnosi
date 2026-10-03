@@ -327,6 +327,10 @@ INVENTORY_QUERY_STOPWORDS = {
 
 def _inventory_request_arguments(message: str) -> dict[str, Any]:
     """Extract generic record types and subject terms from an inventory request."""
+    from backend.domains.agent.table_schema import schema_request_arguments
+    schema = schema_request_arguments(_normalized_request_text(message))
+    if schema is not None:
+        return schema
     # An explicit quoted equality is a field predicate, not lexical search.
     # Keep the original title intact, including accents and short words.
     condition = re.search(
