@@ -613,3 +613,31 @@ def test_legacy_resume_reconstructs_memory_and_preserves_saved_plans():
     assert [item['chunk_id'] for item in seen_material] == list(original)
     assert checkpoints[('resumed', 'agent-state')]['plans'] == original
     assert checkpoints[('resumed', 'agent-state')]['memory']
+
+
+@pytest.mark.parametrize("compatible", [True, False])
+def test_resume_chooses_most_advanced_compatible_checkpoint(compatible):
+    reader, _, checkpoints = setup_reader()
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 1
+    chunk = reader.chunks[0]
+    reader.dependencies.generate_text = lambda *args, **kwargs: (json.dumps({
+        "action": "save_plan", "arguments": {"chunk_id": chunk["id"],
+        "plan": note_answer({"primary_segments": chunk["segments"]})}}), "test")
+    with pytest.raises(RuntimeError, match="resume_required"):
+        reader.run()
+    older = deepcopy(checkpoints[("current", "agent-state")])
+    latest = deepcopy(older)
+    latest["plans"] = {}
+    if not compatible:
+        older["identity"] = "different-source-or-runtime"
+    checkpoints[("older", "agent-state")] = older
+    checkpoints[("latest", "agent-state")] = latest
+    reader.resume_job_id, reader.job_id = "latest", "resumed"
+    reader.dependencies.resume_candidates = lambda job: [job, "older"]
+    reader.dependencies.generate_text = Mock(side_effect=RuntimeError("stop before action"))
+    with pytest.raises(RuntimeError, match="stop before action"):
+        reader.run()
+    saved = checkpoints[("resumed", "agent-state")]
+    assert len(saved["plans"]) == (1 if compatible else 0)
+    assert reader.resume_job_id == ("older" if compatible else "latest")

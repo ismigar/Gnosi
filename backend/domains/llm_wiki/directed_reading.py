@@ -21,7 +21,19 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     output_schema, _ = action_schemas(reader.dimensions)
     chunks = {str(chunk["id"]): chunk for chunk in reader.chunks}
     identity = fingerprint([deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index])
-    saved = deps.load_checkpoint(reader.resume_job_id, "agent-state") if reader.resume_job_id else None
+    saved = None
+    if reader.resume_job_id:
+        find_candidates = getattr(deps, "resume_candidates", None)
+        candidates = (find_candidates(reader.resume_job_id)
+                      if find_candidates else [reader.resume_job_id])
+        for candidate in candidates:
+            checkpoint_state = deps.load_checkpoint(candidate, "agent-state")
+            if (isinstance(checkpoint_state, dict)
+                    and checkpoint_state.get("identity") == identity
+                    and isinstance(checkpoint_state.get("plans"), dict)
+                    and (saved is None or len(checkpoint_state["plans"]) > len(saved["plans"]))):
+                saved = checkpoint_state
+                reader.resume_job_id = candidate
     state: dict[str, Any] = saved if isinstance(saved, dict) and saved.get("identity") == identity else {
         "identity": identity, "step": 0, "read": [], "plans": {}, "memory": "", "last_result": {},
     }

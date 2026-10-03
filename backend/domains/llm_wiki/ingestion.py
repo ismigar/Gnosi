@@ -104,6 +104,7 @@ class IngestionDependencies:
     logger: logging.Logger
     phases: IngestionPhases
     generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
+    resume_candidates: Callable[[str], list[str]] | None = None
     execution_revision: str = ""
     agent_directed: bool = False
     max_action_steps: int = 64

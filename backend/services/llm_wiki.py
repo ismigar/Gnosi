@@ -477,6 +477,7 @@ def process_resource(
         parse_plan=_parse_plan,
         save_checkpoint=llm_wiki_storage.save_checkpoint,
         load_checkpoint=llm_wiki_storage.load_checkpoint,
+        resume_candidates=llm_wiki_storage.resume_checkpoint_jobs,
         reduce_plans=_validate_and_reduce_plans,
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,
@@ -557,6 +558,10 @@ def start_ingest(
         raise PermissionError("agent_execution_vault_mismatch")
     job = llm_wiki_storage.create_job(source_table_id, source_page_id)
     job_id = str(job["job_id"])
+    # Preserve legacy lineage on a resume; a fresh run creates its own boundary.
+    llm_wiki_storage.update_job(
+        job_id, resume_lineage=previous.get("resume_lineage") if resume_job_id else job_id,
+    )
     snapshot = create_job_run(snapshot, job_id, "knowledge.process-source")
     active_vault = cv.get_active_vault_path()
 

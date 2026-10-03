@@ -335,6 +335,27 @@ def get_job_status(identifier: str, source_table_id: str = "") -> dict[str, obje
         return deepcopy(job)
 
 
+def resume_checkpoint_jobs(job_id: str) -> list[str]:
+    """Find interrupted checkpoints in the same resource and restart lineage.
+
+    Legacy jobs have no lineage, so compatible historical checkpoints remain
+    eligible. New forced restarts establish a boundary that resumes cannot cross.
+    The reader additionally checks the exact source/runtime identity.
+    """
+    previous = get_job_status(job_id)
+    lineage = previous.get("resume_lineage")
+    candidates = [job_id]
+    for path in (local_root() / "jobs").glob("*.json"):
+        candidate = get_job_status(path.stem)
+        if (candidate.get("source_table_id") == previous.get("source_table_id")
+                and candidate.get("resource_id") == previous.get("resource_id")
+                and candidate.get("phase") in {"partial", "error"}
+                and candidate.get("resume_lineage") == lineage
+                and path.stem != job_id):
+            candidates.append(path.stem)
+    return candidates
+
+
 def save_checkpoint(job_id: str, name: str, payload: object) -> Path:
     path = local_root() / "checkpoints" / _safe_component(job_id) / f"{_safe_component(name)}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
