@@ -233,5 +233,10 @@
     "file": "src/shared/ui/settings/SettingsSectionTabs.css",
     "before": "\n.ai-settings-sections button.is-active {\n    background: var(--settings-bg);\n    color: var(--sidebar-item-active-text);\n    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);\n}\n",
     "after": "\n.ai-settings-sections button.is-active {\n    background: var(--settings-bg);\n    color: var(--gnosi-link);\n    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);\n}\n"
+  },
+  {
+    "file": "src/features/settings/AI/styles/resource-catalog.css",
+    "before": "",
+    "after": "\n.ai-skill-markdown {\n    max-height: 360px;\n    overflow: auto;\n    padding: 16px;\n    border-radius: 10px;\n    background: var(--settings-bg);\n    color: var(--text-primary);\n    font-size: 0.875rem;\n    line-height: 1.65;\n    font-family: inherit;\n    overflow-wrap: anywhere;\n}\n.ai-skill-markdown > :first-child { margin-top: 0; }\n.ai-skill-markdown > :last-child { margin-bottom: 0; }\n.ai-skill-markdown h1 { font-size: 1.35rem; }\n.ai-skill-markdown h2 { font-size: 1.15rem; }\n.ai-skill-markdown h3 { font-size: 1rem; }\n.ai-resource-details .ai-skill-markdown strong {\n    font-size: inherit;\n    text-transform: none;\n    letter-spacing: normal;\n}\n.ai-resource-details .ai-skill-markdown ul,\n.ai-resource-details .ai-skill-markdown ol {\n    display: block;\n    margin: 0.75em 0;\n    padding-left: 1.5em;\n}\n.ai-resource-details .ai-skill-markdown ul { list-style: disc; }\n.ai-resource-details .ai-skill-markdown ol { list-style: decimal; }\n.ai-resource-details .ai-skill-markdown li { display: list-item; margin: 0.25em 0; }\n.ai-skill-markdown code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }\n.ai-skill-markdown blockquote { margin-left: 0; padding-left: 1em; border-left: 3px solid var(--settings-border); }\n.ai-skill-markdown table { border-collapse: collapse; }\n.ai-skill-markdown th,\n.ai-skill-markdown td { padding: 6px 10px; border: 1px solid var(--settings-border); }\n"
   }
 ]
