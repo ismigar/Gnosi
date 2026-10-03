@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from backend.domains.llm_wiki.chunking import encoded, reading_chunks
+from backend.domains.llm_wiki.chunking import encoded, reading_chunk_budget, reading_chunks
 from backend.domains.llm_wiki.contextual_reading import ContextualReader
 from backend.domains.llm_wiki.origins import finalize_origin
 from backend.services.llm_wiki_reading_runtime import token_bound
@@ -485,3 +485,50 @@ def test_validating_an_action_does_not_mutate_live_state(action):
     validate_action(reader, state, chunks, {"action": action, "arguments": arguments})
     assert state == before
     assert not checkpoints
+
+
+def test_long_context_chunks_preserve_the_complete_source_and_global_reading():
+    original = "The opening claim is qualified by the final conclusion. " * 5_000
+    origin = finalize_origin({"kind": "text", "label": "Whole book", "input_order": 0,
+                              "segments": [{"text": original, "locator": {}}]})
+    chunks = reading_chunks([origin], budget=reading_chunk_budget(750_000), count=token_bound)
+    assert len(chunks) > 10
+    assert all(token_bound(encoded(chunk["segments"])) <= 4096 for chunk in chunks)
+    assert "".join(segment["text"] for chunk in chunks for segment in chunk["segments"]) == original.strip()
+    assert all(chunk["context_segments"] for chunk in chunks)
+    reader, _, _ = setup_reader()
+    reader.origins, reader.chunks = [origin], chunks
+    reader.dependencies.input_budget = 750_000
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    requests = []
+    def inspect(prompt, **kwargs):
+        requests.append(json.loads(prompt))
+        raise ValueError("inspect global delivery")
+    reader.dependencies.generate_text = inspect
+    with pytest.raises(ValueError, match="inspect global delivery"):
+        reader.run()
+    delivered = requests[0]["last_result"]["sources"]
+    assert "".join(segment["text"] for chunk in delivered for segment in chunk["segments"]) == original.strip()
+
+
+def test_long_book_can_save_every_bounded_plan_beyond_the_short_document_step_limit():
+    reader, calls, checkpoints = setup_reader()
+    origin = finalize_origin({"kind": "text", "label": "Long book", "input_order": 0,
+        "segments": [{"text": f"Idea {i}.", "locator": {"section": f"Section {i}"}} for i in range(70)]})
+    reader.origins = [origin]
+    reader.chunks = reading_chunks([origin], budget=reading_chunk_budget(24_000), count=token_bound)
+    reader.dependencies.input_budget = 750_000
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 64
+    actions = [{"action": "save_plan", "arguments": {"chunk_id": chunk["id"],
+                "plan": {**note_answer({"primary_segments": chunk["segments"]}), "reviewed": True}}}
+               for chunk in reader.chunks]
+    actions.append({"action": "finish", "arguments": {"summary": "Complete book"}})
+    def generate(prompt, **kwargs):
+        return json.dumps(actions.pop(0)), "test-model"
+    reader.dependencies.generate_text = generate
+    result, _ = reader.run()
+    assert len(result["notes"]) == 70
+    assert len(checkpoints[("current", "agent-state")]["plans"]) == 70
+    assert result["reviewed"] is True

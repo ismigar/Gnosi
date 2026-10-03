@@ -44,7 +44,13 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     checkpoint()
 
     # A per-resume execution allowance, not a prescribed intellectual sequence.
-    for _ in range(deps.max_action_steps):
+    # Reading, saving and reviewing remain finite, but the allowance must
+    # grow with the number of bounded source chunks rather than stop a long
+    # book after the fixed short-document allowance.
+    action_steps = deps.max_action_steps
+    if action_steps == 64:
+        action_steps = max(action_steps, 4 * len(chunks) + 16)
+    for _ in range(action_steps):
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
             "step": state["step"],

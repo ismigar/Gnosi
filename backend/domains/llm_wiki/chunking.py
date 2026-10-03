@@ -10,6 +10,16 @@ from backend.domains.vault.registry.records import is_record
 from backend.utils.open_values import integer_value
 
 
+# Bound generation work independently of a model's input context capacity.
+# Every source passage still participates; larger documents produce more
+# durable plans instead of one unbounded response per chapter.
+MAX_READING_CHUNK_TOKENS = 4_096
+
+
+def reading_chunk_budget(input_budget: int) -> int:
+    return min(MAX_READING_CHUNK_TOKENS, input_budget // 5)
+
+
 def record(value: object) -> dict[str, object]:
     return {str(key): item for key, item in value.items()} if is_record(value) else {}
 
