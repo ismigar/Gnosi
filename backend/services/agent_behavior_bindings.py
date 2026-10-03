@@ -4,6 +4,16 @@ from __future__ import annotations
 from typing import Any
 
 
+def runtime_skill_ids(runtime: Any, identifiers: list[str]) -> set[str]:
+    """Resolve only personal aliases selected by this exact runtime profile."""
+    aliases = {
+        entry.descriptor.metadata["effective_skill_id"]: entry.descriptor.id
+        for entry in runtime.skills
+        if entry.descriptor.metadata.get("effective_skill_id")
+    }
+    return {aliases.get(identifier, identifier) for identifier in identifiers}
+
+
 def canonical_id(identifier: str, entries: dict[str, Any]) -> str:
     seen: set[str] = set()
     while identifier in entries:

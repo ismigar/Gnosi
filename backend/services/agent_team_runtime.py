@@ -15,6 +15,7 @@ from langchain_core.messages import AIMessage, HumanMessage, messages_to_dict
 from langgraph.graph import END, START, StateGraph
 
 from backend.services.agent_behavior import revision
+from backend.services.agent_behavior_bindings import canonical_id, runtime_skill_ids
 from backend.services.agent_execution_models import AgentExecutionSnapshot, AgentOperation, ExecutionScope
 from backend.services.agent_team_models import TEAM_SKILL, AgentTeam, TeamPlan, TeamTask, TemporaryAgentSpec
 from backend.services.agent_team_policy import chat_operation, select_executor, team_for
@@ -63,6 +64,8 @@ def validate_temporary(spec: TemporaryAgentSpec, owner: dict[str, Any], scope: E
     if not set(spec.skill_ids).issubset(policy.skill_ids) or TEAM_SKILL in spec.skill_ids:
         raise PermissionError("agent_team_skill_not_allowed")
     entries = {e.descriptor.id: e for e in get_skill_catalog().list_entries(Path(scope.vault_path))}
+    if any(canonical_id(identifier, entries) == TEAM_SKILL for identifier in spec.skill_ids):
+        raise PermissionError("agent_team_skill_not_allowed")
     if any(s not in entries or not entries[s].available for s in spec.skill_ids):
         raise PermissionError("agent_team_skill_unavailable")
     if is_local_provider(owner.get("provider")) and not is_local_provider(spec.provider):
@@ -114,7 +117,7 @@ def _candidate(owner: dict[str, Any], scope: ExecutionScope, ids: list[str], ski
         model = models.get((profile.get("provider"), profile.get("model")), {})
         if tools and runtime.tools and "tools" not in (model.get("tags") or []) and model.get("supports_tools") is not True:
             return False
-        return set(requested).issubset(runtime.active_skill_ids) and not runtime.missing_skill_ids and not runtime.unavailable_tool_ids
+        return runtime_skill_ids(runtime, requested).issubset(runtime.active_skill_ids) and not runtime.missing_skill_ids and not runtime.unavailable_tool_ids
     # UTF-8 byte count is a conservative upper bound, including profile instructions.
     overhead = max((len(str(p.get("persona", "")).encode()) + len(str(p.get("context", "")).encode()) for p in ai.get("agents", []) if p.get("id") in ids), default=0)
     return select_executor(ai.get("agents", []), registry, allowed_ids=ids,
@@ -131,7 +134,7 @@ def _snapshot(profile: dict[str, Any], owner: dict[str, Any], root_id: str, scop
     profile["context_refs"] = copy.deepcopy(refs)
     profile["_team_execution"] = {"root_id": root_id, "owner_id": owner["id"], "read_only": read_only, "temporary": temporary}
     runtime = _filter_runtime(_runtime(profile, scope, skills), read_only=read_only)
-    if not set(skills).issubset(runtime.active_skill_ids):
+    if not runtime_skill_ids(runtime, skills).issubset(runtime.active_skill_ids):
         raise PermissionError("agent_team_skill_unavailable")
     snapshot = snapshot_from_runtime(scope, profile, runtime).model_copy(update={"parent_run_id": root_id})
     return snapshot, runtime
@@ -286,12 +289,12 @@ async def _execute_task(task: TeamTask, owner: dict[str, Any], root_id: str, sco
     try:
         workflow, selection = await create_agent_workflow([], None, agent_id=selected["id"],
             user_message=original, prepared_ai_cfg=_config(), prepared_agent_data=snapshot.profile,
-            runtime_capabilities=runtime, active_skill_ids=task.skill_ids, vault_path=Path(scope.vault_path),
+            runtime_capabilities=runtime, active_skill_ids=list(runtime.active_skill_ids), vault_path=Path(scope.vault_path),
             memory_user_id=scope.user_id, operation_mode=operation_mode)
         if workflow is None:
             raise RuntimeError("agent_team_executor_model_unavailable")
         child_state = {**state, "messages": [HumanMessage(content=text)], "trace_id": child_id,
-            "active_skill_ids": task.skill_ids, "current_user_role": scope.role,
+            "active_skill_ids": list(runtime.active_skill_ids), "current_user_role": scope.role,
             "turn_authorized_tool_names": [] if task.read_only or operation_mode else list(state.get("turn_authorized_tool_names") or [])}
         try:
             parent_confirmation_scope = current_confirmation_scope()
