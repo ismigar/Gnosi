@@ -145,8 +145,8 @@ class ContextualReader:
                 prompt = encoded(request)
         raise AssertionError("unreachable")
 
-    def map(self, key: str, phase: str, material: object) -> str:
-        limit = max(300, min(2_000, self.budget // 20))
+    def map(self, key: str, phase: str, material: object, *, summary_limit: int | None = None) -> str:
+        limit = summary_limit or max(300, min(2_000, self.budget // 20))
 
         def validate(answer: dict[str, object]) -> None:
             summary = answer.get("summary")
@@ -154,16 +154,16 @@ class ContextualReader:
                 raise ValueError("summary must be a nonempty string")
             if self.dependencies.count_tokens(summary) > limit:
                 raise ValueError(
-                    f"Compress the summary to at most {limit} UTF-8 bytes, keeping evidence ids"
+                    f"Compress the summary to at most {limit} estimated tokens, keeping evidence ids"
                 )
 
         return str(
-            self.ask(key, phase, {"material": material, "summary_max_utf8_bytes": limit}, validate)[
+            self.ask(key, phase, {"material": material, "summary_max_tokens": limit}, validate)[
                 "summary"
             ]
         )
 
-    def combine(self, key: str, maps: list[str]) -> str:
+    def combine(self, key: str, maps: list[str], *, summary_limit: int | None = None) -> str:
         level = 0
         while len(maps) > 1:
             groups: list[list[str]] = []
@@ -181,7 +181,8 @@ class ContextualReader:
             if len(groups) >= len(maps):
                 raise RuntimeError("The context maps cannot fit the selected model's budget")
             maps = [
-                self.map(f"{key}-{level}-{i}", "synthesis", group) for i, group in enumerate(groups)
+                self.map(f"{key}-{level}-{i}", "synthesis", group, summary_limit=summary_limit)
+                for i, group in enumerate(groups)
             ]
             level += 1
         return maps[0] if maps else "No proposed notes."

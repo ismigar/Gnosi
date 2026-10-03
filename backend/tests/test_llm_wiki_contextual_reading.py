@@ -641,3 +641,15 @@ def test_resume_chooses_most_advanced_compatible_checkpoint(compatible):
     saved = checkpoints[("resumed", "agent-state")]
     assert len(saved["plans"]) == (1 if compatible else 0)
     assert reader.resume_job_id == ("older" if compatible else "latest")
+
+
+def test_legacy_memory_uses_global_budget_and_reports_token_units():
+    from backend.domains.llm_wiki.reading_memory import restore_memory
+    reader, calls, _ = setup_reader()
+    summary = "x" * 2500
+    assert 2000 < token_bound(summary) <= reader.budget // 8
+    reader.dependencies.generate_text = lambda prompt, **kwargs: (
+        calls.append(json.loads(prompt)) or json.dumps({"summary": summary}), "test")
+    assert restore_memory(reader, {"chunk": {"notes": [], "coverage": []}}) == summary
+    assert calls[-1]["summary_max_tokens"] == reader.budget // 8
+    assert "summary_max_utf8_bytes" not in calls[-1]

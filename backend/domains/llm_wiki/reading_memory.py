@@ -16,8 +16,9 @@ def restore_memory(reader: Any, plans: dict[str, Any]) -> str:
         current.append(item)
     if current:
         groups.append(current)
+    memory_limit = min(8_000, reader.budget // 8)
     maps = [reader.map(f"resume-memory-{len(plans)}-{i}", "synthesis", {
         "task": "Reconstruct the global argument, qualifications, contradictions and cross-chunk links from these saved reading notes. Keep chunk and evidence ids. Do not change the notes or infer unread content.",
         "saved_plans": group,
-    }) for i, group in enumerate(groups)]
-    return reader.combine(f"resume-memory-{len(plans)}", maps)
+    }, summary_limit=memory_limit) for i, group in enumerate(groups)]
+    return reader.combine(f"resume-memory-{len(plans)}", maps, summary_limit=memory_limit)
