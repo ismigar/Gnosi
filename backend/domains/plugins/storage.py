@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -82,7 +84,9 @@ def read_manifest(
     if not manifest_path.exists():
         raise PluginError(f"manifest.json no trobat per {plugin_id!r}")
     try:
-        raw: object = json.loads(manifest_path.read_text(encoding="utf-8"))
+        raw: object = json.loads(read_metadata_text(manifest_path, encoding="utf-8"))
+    except MetadataUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise PluginError(f"manifest.json il·legible: {exc}") from exc
     return _validated_manifest(
@@ -95,7 +99,7 @@ def read_manifest(
 
 def _read_provenance(path: Path, plugin_id: str, logger: WarningLogger) -> object:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(read_metadata_text(path, encoding="utf-8"))
     except (OSError, ValueError):
         logger.warning("Plugin provenance is unreadable for %s", plugin_id)
         return None

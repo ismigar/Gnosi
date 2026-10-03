@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 import logging
 import os
@@ -119,6 +121,8 @@ def _quarantine_table_asset_dirs(
             destination = quarantine / destination_name
             os.replace(source, destination)
             moved.append((source, destination))
+    except MetadataUnavailable:
+        raise
     except Exception:
         _rollback_asset_moves(quarantine, moved)
         raise
@@ -195,7 +199,7 @@ def _delete_table_asset_quarantine(quarantine: Path, vault_root: Path) -> None:
 
 
 def _read_manifest(path: Path) -> object:
-    value: object = json.loads(path.read_text(encoding="utf-8"))
+    value: object = json.loads(read_metadata_text(path, encoding="utf-8"))
     return value
 
 

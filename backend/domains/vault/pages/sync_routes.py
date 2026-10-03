@@ -1,5 +1,7 @@
 """Typed Vault domain extracted from the historical route facade."""
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import asyncio
 import importlib as _legacy_importlib
 import re
@@ -89,6 +91,8 @@ async def import_markdown(body: ImportRequest) -> dict[str, object]:
             path.write_text(f"---\n{fm}\n---\n\n{str(body_md).lstrip()}\n", encoding="utf-8")
             _legacy.register_page_in_index(path)
             imported += 1
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             errors.append({"name": f.name, "error": str(e)})
     return {"imported": imported, "errors": errors, "folder": folder}
@@ -122,6 +126,8 @@ def _broadcast_synced(sync_id: str, v_str: str) -> None:
             continue
         try:
             q.put_nowait(sync_id)
+        except MetadataUnavailable:
+            raise
         except Exception:
             pass
 
@@ -183,7 +189,7 @@ class SyncedBlockResponse(BaseModel):
 async def get_synced_block(sync_id: str) -> dict[str, str]:
     """Content of a synced block (source shared across instances)."""
     p = _synced_block_path(sync_id)
-    content = p.read_text(encoding="utf-8") if p.exists() else ""
+    content = read_metadata_text(p, encoding="utf-8") if p.exists() else ""
     return {"sync_id": sync_id, "content": content}
 
 

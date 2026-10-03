@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
 | Vitest | 610 | 2631 |
-| pytest | 617 | 4479 |
+| pytest | 618 | 4488 |
 
 ## Fitxers
 
@@ -948,6 +948,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_meeting_reminder_local_reads.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_reminder_local_reads.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_meeting_reminders_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_reminders_race.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_meeting_routes_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_meeting_routes_contract.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_metadata_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_metadata_io.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_microsoft_auth_routes.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_migrate_table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_migrate_table_system_dates.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_model_catalog.py) | 10 | Python AST |
@@ -1213,7 +1214,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [`backend/tests/test_vault_trash_purge.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_trash_purge.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_view_response_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_view_response_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_view_usage_io.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_view_usage_io.py) | 1 | Python AST |
-| pytest | [`backend/tests/test_vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_warmup.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_warmup.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vcard_escaping.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vcard_escaping.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_view_filter_rename.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_view_filter_rename.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_view_snapshot.py) | 51 | Python AST |

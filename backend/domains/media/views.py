@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import metadata_path
+
 import json
 import logging
 from _thread import RLock
@@ -56,7 +58,7 @@ def ensure_views_loaded(
         loaded: ViewStore = {"version": 1, "items": []}
         if path and path.exists():
             try:
-                with path.open("r", encoding="utf-8") as handle:
+                with metadata_path(path).open("r", encoding="utf-8") as handle:
                     raw = cast(object, json.load(handle))
                 if isinstance(raw, dict) and isinstance(raw.get("items"), list):
                     loaded = cast(ViewStore, raw)
@@ -76,6 +78,7 @@ def save_views(
         return False
     with service._views_lock:
         try:
+            metadata_path(path)
             temporary = path.with_suffix(path.suffix + ".tmp")
             with temporary.open("w", encoding="utf-8") as handle:
                 json.dump(service._views, handle, ensure_ascii=False, indent=2)

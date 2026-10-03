@@ -1,5 +1,7 @@
 """Resolve and persist a generated value against the current table schema."""
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes, read_metadata_text
+
 from pathlib import Path
 from collections.abc import Mapping, Sequence
 from typing import Any, NotRequired, TypedDict
@@ -68,11 +70,11 @@ def relation_title_candidates(field: dict[str, Any], *, include_context: bool = 
         if not path.is_relative_to(root):
             raise HTTPException(403, "Relation candidate is outside the selected vault")
         try:
-            original = path.read_bytes() if include_context else None
+            original = read_metadata_bytes(path) if include_context else None
             metadata, body = _parse(path)
             if not is_record(metadata):
                 raise HTTPException(503, "A relation candidate has invalid metadata")
-            if include_context and path.read_bytes() != original:
+            if include_context and read_metadata_bytes(path) != original:
                 raise HTTPException(409, "A relation candidate changed while preparing context")
         except (OSError, ValueError) as exc:
             raise HTTPException(503, "A relation candidate is unavailable") from exc
@@ -200,7 +202,7 @@ def commit_button_assignments(path: Path, original: str, fields: list[dict[str, 
 def prepare_button_assignments(path: Path, original: str, fields: list[dict[str, Any]],
                               assignments: Sequence[Mapping[str, object]]) -> tuple[RegistryData, str]:
     revalidate_scope(current_scope())
-    if path.read_text(encoding="utf-8") != original:
+    if read_metadata_text(path, encoding="utf-8") != original:
         raise HTTPException(status_code=409, detail="The row changed while the AI was generating a value")
     latest_metadata, latest_body = _parse(path)
     if not is_record(latest_metadata):

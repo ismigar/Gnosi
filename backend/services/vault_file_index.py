@@ -37,6 +37,8 @@ Design (mirroring the `vault_routes` page/link index)
 * Cache in the local volume `/app/data/cache/` (NEVER in OneDrive).
 """
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 import logging
 import os
@@ -300,6 +302,8 @@ def _save_to_disk(
             tmp.unlink(missing_ok=True)
     except _BuildCancelled:
         raise
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         log.warning(f"vault file-index: could not save the cache: {e}")
 
@@ -311,7 +315,7 @@ def _load_from_disk(cancel_event: threading.Event | None = None) -> bool:
     try:
         if not _CACHE_PATH.exists():
             return False
-        data: dict[str, object] = json.loads(_CACHE_PATH.read_text(encoding="utf-8") or "{}")
+        data: dict[str, object] = json.loads(read_metadata_text(_CACHE_PATH, encoding="utf-8") or "{}")
         raw = data.get("entries") or []
         if not isinstance(raw, list):
             raise TypeError("vault file-index entries must be a list")
@@ -348,6 +352,8 @@ def _load_from_disk(cancel_event: threading.Event | None = None) -> bool:
         log.info(f"⚡ vault file-index loaded from cache: {len(loaded)} entries")
         return bool(loaded)
     except _BuildCancelled:
+        raise
+    except MetadataUnavailable:
         raise
     except Exception as e:
         log.warning(f"vault file-index: disk cache unreadable: {e}")
@@ -422,6 +428,8 @@ def build_index(cancel_event: threading.Event | None = None) -> int:
     except _BuildCancelled:
         with _lock:
             _state = "ready" if _by_path else "preparing"
+        raise
+    except MetadataUnavailable:
         raise
     except Exception as error:
         with _lock:
@@ -532,6 +540,8 @@ def _run_refresh_loop(stop_event: threading.Event) -> None:
                 build_index(stop_event)
             except _BuildCancelled:
                 return
+            except MetadataUnavailable:
+                raise
             except Exception:
                 log.exception("vault file-index: background build failed")
             if _REFRESH_SECONDS <= 0:

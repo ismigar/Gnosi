@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes, read_metadata_text
+
 import hashlib
 import json
 import re
@@ -115,7 +117,7 @@ def _assert_global_integration_access(account: str, *, calendar: bool = False) -
 
 def _file_revision(path: Path) -> str:
     """Return an immutable content digest for optimistic concurrency checks."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(read_metadata_bytes(path)).hexdigest()
 
 
 def _value_revision(value: Any) -> str:
@@ -161,7 +163,7 @@ def _mail_message_preview(
         files = _find_message_files(get_mail_vault_path(), message_id)
         normalized_account = str(account or "").strip().lower()
         for path in files:
-            raw = path.read_text(encoding="utf-8", errors="replace")
+            raw = read_metadata_text(path, encoding="utf-8", errors="replace")
             # Confirmation preparation is read-only; omitting the path keeps
             # the mail parser from repairing malformed frontmatter in place.
             metadata, _body = parse_frontmatter(raw)
@@ -178,6 +180,8 @@ def _mail_message_preview(
                 "imap_folder": str(metadata.get("imap_folder") or ""),
                 "message_revision": _file_revision(path),
             }
+    except MetadataUnavailable:
+        raise
     except Exception:
         return None
     return None
@@ -206,6 +210,8 @@ async def _mail_message_snapshot(
             ),
             timeout=30,
         )
+    except MetadataUnavailable:
+        raise
     except Exception:
         return None
     if not isinstance(message, dict):
@@ -279,8 +285,10 @@ def _trash_snapshot() -> List[Dict[str, str]]:
         if sidecar.exists():
             try:
                 title = str(
-                    json.loads(sidecar.read_text(encoding="utf-8")).get("title") or entry.name
+                    json.loads(read_metadata_text(sidecar, encoding="utf-8")).get("title") or entry.name
                 )
+            except MetadataUnavailable:
+                raise
             except Exception:
                 pass
         snapshot.append(
@@ -311,7 +319,7 @@ def _parse(path: Path) -> tuple[Dict[str, Any], str]:
         Callable[[str, Path], tuple[Dict[str, Any], str]],
         parse_frontmatter,
     )
-    return typed_parse(path.read_text(encoding="utf-8"), path)
+    return typed_parse(read_metadata_text(path, encoding="utf-8"), path)
 
 
 def _resolve_page(identifier: str) -> Optional[Path]:
@@ -328,6 +336,8 @@ def _resolve_page(identifier: str) -> Optional[Path]:
     for path in _page_files():
         try:
             metadata, _body = _parse(path)
+        except MetadataUnavailable:
+            raise
         except Exception:
             continue
         if str(metadata.get("id") or "") == needle:
@@ -386,7 +396,7 @@ def _sidecar_snapshot(path: Path, page_id: str) -> Dict[str, Any]:
     sidecar = sidecar_path_for(root, page_id)
     if sidecar.resolve().parent != (root / ".gnosi/page_meta").resolve():
         raise ValueError("Invalid page identity for sidecar storage.")
-    return {"sidecar_path": sidecar, "sidecar_original": sidecar.read_bytes() if sidecar.exists() else None}
+    return {"sidecar_path": sidecar, "sidecar_original": read_metadata_bytes(sidecar) if sidecar.exists() else None}
 
 
 def _restore_sidecar(snapshot: Dict[str, Any]) -> None:
@@ -410,7 +420,7 @@ def _write_page(path: Path, metadata: object, body: str) -> None:
     if path.exists():
         create_page_version(str(metadata.get("id") or ""), path, True)
     sidecar = _sidecar_snapshot(path, str(metadata.get("id") or ""))
-    original = path.read_bytes() if path.exists() else None
+    original = read_metadata_bytes(path) if path.exists() else None
     try:
         save_page_md(path, metadata, body)
     except BaseException:
@@ -434,6 +444,8 @@ def _rollback_page_items(items: Iterable[Dict[str, Any]]) -> List[str]:
             safe_write_bytes(item["path"], item["original"])
             _restore_sidecar(item)
             index_page(item["path"])
+        except MetadataUnavailable:
+            raise
         except Exception:
             failed.append(str(item["id"]))
     return failed
@@ -445,7 +457,7 @@ def _table(table_id_or_name: str) -> Optional[Dict[str, Any]]:
     registry_path = load_params(strict_env=False).paths.get("REGISTRY")
     if not registry_path or not registry_path.exists():
         return None
-    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry = json.loads(read_metadata_text(registry_path, encoding="utf-8"))
     needle = str(table_id_or_name or "").strip().casefold()
     return next(
         (
@@ -465,6 +477,8 @@ def _table_rows_snapshot(table_id: str) -> List[Dict[str, str]]:
     for path in _page_files():
         try:
             metadata, _body = _parse(path)
+        except MetadataUnavailable:
+            raise
         except Exception:
             continue
         current_table_id = str(metadata.get("table_id") or metadata.get("database_table_id") or "")

@@ -39,6 +39,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Optional, Union
 
+from backend.utils.metadata_io import ensure_metadata_local
 from backend.config.logger_config import get_logger
 
 log = get_logger(__name__)
@@ -67,6 +68,7 @@ def safe_write_bytes(path: PathLike, data: bytes) -> None:
     upload a half-written file.
     """
     target = Path(path)
+    ensure_metadata_local(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     # NamedTemporaryFile in same dir → guarantees atomic rename
     fd, tmp_name = tempfile.mkstemp(

@@ -485,6 +485,9 @@ rollback on registration failure remain unchanged.
 
 ## File providers
 
+All `.gnosi` cloud metadata is requested on Vault startup/switch, including skills, plugins, sidecars, Wiki state, icons and backups. The metadata reader also requests individual placeholders on demand. Two helper processes and ten-second helper deadlines bound provider work; concurrent reads share a request and failed downloads have a thirty-second cooldown. Async reads return a recoverable 503 instead of blocking the event loop. Existing remote metadata is never replaced with defaults: readers propagate unavailability and atomic writes require the original file to be local. Missing local files retain their normal creation behavior. Symlink trees are excluded from background hydration. This does not guarantee availability when the File Provider fails; critical configuration remains fail-closed.
+
+
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
 iCloud Drive, Google Drive, Nextcloud, or Dropbox-aware behavior. Normal domain
 code still works with `Path`; the adapter adds placeholder detection,

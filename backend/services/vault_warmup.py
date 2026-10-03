@@ -1,42 +1,36 @@
-"""Proactive warmup of the vault's CRITICAL files (OneDrive online-only).
+"""Recover cloud placeholders for all .gnosi metadata in the background.
 
-Background, best-effort materialization of the folders the app hits on every
-cold start — the registry under ``BD/`` and the per-page metadata under
-``.gnosi/page_meta/``. When these sit as OneDrive ``dataless`` placeholders, the
-first burst of requests (opening Settings loads databases, tables, graph…) each
-block on an on-access download, saturating the request threadpool until even a
-DB-only endpoint like ``/api/vaults`` starves and the frontend gives up with a
-raw ``timeout of 30000ms exceeded``.
-
-This is the in-process, always-on version of the one-off ``rehydrate_vault.py``
-script: instead of the operator warming files by hand after an incident, the
-backend does it itself on startup (and on vault switch), through the same
-``files_provider`` that talks to the warmup daemon. Fully best-effort — if the
-cloud service is down or a file can't be downloaded, the per-request warmup
-paths (``_materialize_if_online_only``) remain the safety net.
+Hidden metadata uses bounded native coordination, independently of the optional
+legacy BD warmup. No document/attachment trees or symlinks are traversed.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
+import threading
+import time
 from pathlib import Path
 from typing import List
 
 from backend.platform.files import FilesProvider, get_files_provider
+from backend.platform.files.coordinated import is_cloud_placeholder
+from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local
 
 log = logging.getLogger(__name__)
 
 # Folders read on essentially every request: the DB registry and the page
 # metadata (icons, dashboards). Kept small on purpose — we do NOT warm the whole
 # vault (Biblioteca, attachments…), only what the UI needs to render on load.
-_CRITICAL_SUBDIRS = [("BD",), (".gnosi", "page_meta")]
+_CRITICAL_SUBDIRS = [("BD",)]
 
 # Bound concurrency so we don't flood OneDrive (which then throttles/deadlocks).
 _MAX_CONCURRENT = 6
 
 # Guard against re-entrancy: one warmup pass per vault path at a time.
 _running: set[str] = set()
+_running_guard = threading.Lock()
+_last_pass: dict[str, float] = {}
 
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
@@ -68,25 +62,34 @@ def _critical_warmup_enabled(provider: FilesProvider) -> bool:
 def _scan_online_only(root: Path) -> List[Path]:
     """Returns the online-only (``dataless``) files under ``root``.
 
-    Blocking (walks the FS) — call from a thread. Uses ``st_blocks == 0`` with a
-    non-zero size, matching the provider's ``is_online_only`` heuristic without
-    an extra stat per file.
+    Blocking (walks the FS): call from a thread. Ordinary sparse local files
+    are not cloud placeholders. Symlink directories and files are excluded.
     """
     out: List[Path] = []
-    for dirpath, _dirs, files in os.walk(root):
+    for dirpath, dirs, files in os.walk(root, followlinks=False):
+        dirs[:] = [name for name in dirs if not (Path(dirpath) / name).is_symlink()]
         for name in files:
             p = os.path.join(dirpath, name)
             try:
-                st = os.stat(p)
+                st = os.lstat(p)
             except OSError:
                 continue
-            if getattr(st, "st_blocks", 1) == 0 and st.st_size > 0:
+            if not Path(p).is_symlink() and is_cloud_placeholder(Path(p), st):
                 out.append(Path(p))
     return out
 
 
 async def _warm_critical(vault_path: str) -> None:
     """Materialize the online-only files under the vault's critical folders."""
+    # All hidden metadata is explicitly requested by the user. Use bounded
+    # coordinated reads, never GUI opening or restarting the sync client.
+    metadata = Path(vault_path) / ".gnosi"
+    if metadata.is_dir() and not metadata.is_symlink():
+        for path in await asyncio.to_thread(_scan_online_only, metadata):
+            try:
+                await asyncio.to_thread(ensure_metadata_local, path)
+            except MetadataUnavailable:
+                log.warning("Cloud metadata remains unavailable: %s", path.name)
     provider = get_files_provider()
     if not _critical_warmup_enabled(provider):
         log.info(
@@ -135,25 +138,29 @@ def kickoff_critical_warmup(vault_path: str | None) -> None:
     """
     if not vault_path:
         return
-    if vault_path in _running:
-        return
+    with _running_guard:
+        if vault_path in _running or time.monotonic() - _last_pass.get(vault_path, -300) < 300:
+            return
+        _running.add(vault_path)
 
     async def _runner() -> None:
-        _running.add(vault_path)
         try:
             await _warm_critical(vault_path)
         except Exception as e:  # noqa: BLE001
             log.warning("⚠️ Critical-warmup pass errored for %s: %s", vault_path, e)
         finally:
-            _running.discard(vault_path)
+            with _running_guard:
+                _running.discard(vault_path)
+                _last_pass[vault_path] = time.monotonic()
+                if len(_last_pass) > 128:
+                    _last_pass.pop(next(iter(_last_pass)))
 
     try:
         asyncio.get_running_loop().create_task(_runner())
     except RuntimeError:
-        # No running loop (called from a sync context without asyncio): run to
-        # completion in a throwaway loop. Best-effort; should not happen from
-        # the FastAPI lifespan.
-        try:
-            asyncio.run(_runner())
-        except Exception as e:  # noqa: BLE001
-            log.debug("Critical-warmup could not run without a loop: %s", e)
+        # Authorized workspace dependencies run in sync worker threads.
+        # Never hold that worker until the entire metadata tree is downloaded.
+        threading.Thread(
+            target=lambda: asyncio.run(_runner()),
+            name="gnosi-vault-warmup", daemon=True,
+        ).start()
