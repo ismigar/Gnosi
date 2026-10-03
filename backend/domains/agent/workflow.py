@@ -168,6 +168,7 @@ async def create_agent_workflow(
     dependencies: WorkflowDependencies | None = None,
     operation_mode: bool = False,
     operation_read_tools: bool = False,
+    operation_team_help: bool = True,
     output_schema: dict[str, Any] | None = None,
 ) -> tuple[StateGraph[Any, None, Any, Any] | None, dict[str, Any]]:
     """Create an uncompiled multi-agent graph and its selection metadata."""
@@ -187,7 +188,8 @@ async def create_agent_workflow(
     if profile is None:
         return None, {}
     from backend.domains.agent.team_help import optional_team_help
-    team_help = optional_team_help(profile.agent_data, operation_mode=operation_mode)
+    team_help = (optional_team_help(profile.agent_data, operation_mode=operation_mode)
+                 if not operation_mode or operation_team_help else None)
     model, failure_metadata = await asyncio.to_thread(
         resolve_model,
         profile,
