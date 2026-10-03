@@ -31,7 +31,7 @@ def _response_language(message: str) -> str:
         return "ca"
     if re.search(
         r"\b(?:je|mes|ressources|trouve|cherche|affiche|auteur|combien|"
-        r"quels|quelles|projets)\b",
+        r"quels|quelles|projets|liste|proprietes|champs)\b",
         text,
     ):
         return "fr"

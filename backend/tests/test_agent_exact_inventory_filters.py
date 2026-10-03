@@ -327,3 +327,14 @@ def test_record_search_for_word_properties_remains_a_record_search():
     args = _inventory_request_arguments('Find all records in Cervell Digital containing properties')
     assert not args.get('schema_only')
     assert 'properties' in args['query']
+
+
+def test_schema_prefers_exact_table_name_over_partial_title(inventory, monkeypatch):
+    from backend.domains.agent.context_inventory_tools import InventoryContextTool
+    import backend.domains.agent.context_inventory_tools as tools
+    registry = {"tables": [{"id": "brain", "name": "Cervell digital", "properties": []},
+                           {"id": "sections", "name": "Apartats de les fonts — Cervell digital", "properties": []}]}
+    monkeypatch.setattr(tools, '_authorized_inventory_tables', lambda refs: [{"table": t} for t in registry['tables']])
+    monkeypatch.setattr(tools, '_registry', lambda: registry)
+    payload = json.loads(InventoryContextTool([]).inventory_context(schema_only=True, record_types=['cervell digital']))
+    assert [t['id'] for t in payload['tables']] == ['brain']

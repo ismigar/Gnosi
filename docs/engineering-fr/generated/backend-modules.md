@@ -16,7 +16,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `application root` | 2 | 55 |
 | `config` | 13 | 1352 |
 | `data` | 2 | 214 |
-| `domains` | 492 | 103762 |
+| `domains` | 492 | 103766 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2297 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `sync` | 1 | 1 |
 | `utils` | 6 | 751 |
 
-Total: **911 modules** and **181489 source lines**.
+Total: **911 modules** and **181493 source lines**.
 
 ## agent
 
@@ -185,7 +185,7 @@ Total: **911 modules** and **181489 source lines**.
 | [`backend/domains/agent/context.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context.py) | 688 | 0 | 20 | 0 | 20 | Deterministic context planning and server-owned tool calls. |
 | [`backend/domains/agent/context_core_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_core_tools.py) | 312 | 1 | 1 | 0 | 1 | Core read and search tools for attached context references. |
 | [`backend/domains/agent/context_filters.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_filters.py) | 94 | 0 | 4 | 0 | 1 | Exact field predicates over authorized inventory records. |
-| [`backend/domains/agent/context_inventory_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_inventory_tools.py) | 521 | 1 | 2 | 0 | 2 | Exhaustive deterministic inventory tool for attached Vault context. |
+| [`backend/domains/agent/context_inventory_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_inventory_tools.py) | 525 | 1 | 2 | 0 | 2 | Exhaustive deterministic inventory tool for attached Vault context. |
 | [`backend/domains/agent/context_matching.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_matching.py) | 356 | 0 | 11 | 0 | 10 | Deterministic matching for attached Vault inventories. |
 | [`backend/domains/agent/context_notebook_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_notebook_tools.py) | 157 | 0 | 1 | 0 | 1 | Tools closed over grounded notebook context references. |
 | [`backend/domains/agent/context_reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/agent/context_reader_tools.py) | 178 | 0 | 2 | 0 | 1 | Tools closed over one attached Reader scope. |

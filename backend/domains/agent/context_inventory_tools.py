@@ -322,7 +322,11 @@ class InventoryContextTool:
         """Read only authorized schemas, even when tables have no records."""
         from backend.domains.vault.tables.catalogs.core import get_prop_options
         authorized = [item["table"] for item in _authorized_inventory_tables(self.inventory_refs)]
-        _, tables, unresolved = self._table_resolution(authorized, self._requested_types(record_types))
+        requested = self._requested_types(record_types)
+        exact = [table for table in authorized if any(
+            _normalized_phrase(value) in {_normalized_phrase(str(table.get("id") or "")), _normalized_phrase(str(table.get("name") or ""))}
+            for value in requested)]
+        _, tables, unresolved = self._table_resolution(exact or authorized, requested)
         catalogs = _registry().get("option_catalogs", {})
         return json.dumps({
             "result_kind": "table_schema", "record_types_unresolved": unresolved,
