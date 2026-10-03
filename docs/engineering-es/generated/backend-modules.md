@@ -24,11 +24,11 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 213 | 44215 |
+| `services` | 213 | 44244 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **912 modules** and **181905 source lines**.
+Total: **912 modules** and **181934 source lines**.
 
 ## agent
 
@@ -800,7 +800,7 @@ Total: **912 modules** and **181905 source lines**.
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/action_rules.py) | 292 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/active_vault_middleware.py) | 321 | 1 | 12 | 3 | 8 | Resolve canonical vault API routes and propagate the active vault context. |
 | [`backend/services/agent_behavior.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior.py) | 67 | 0 | 8 | 0 | 2 | Readable, versioned behavior resources and data-only operation requests. |
-| [`backend/services/agent_behavior_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior_bindings.py) | 51 | 0 | 2 | 0 | 0 | Resolve assigned personal procedures without changing canonical permissions. |
+| [`backend/services/agent_behavior_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_behavior_bindings.py) | 61 | 0 | 3 | 0 | 1 | Resolve assigned personal procedures without changing canonical permissions. |
 | [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_cancellation.py) | 201 | 1 | 11 | 1 | 10 | Cooperative cancellation for streamed agent turns. |
 | [`backend/services/agent_capability_conformance.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_conformance.py) | 81 | 0 | 3 | 0 | 0 | Versioned conformance reporting for governed skills and tools. |
 | [`backend/services/agent_capability_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_capability_contract.py) | 62 | 0 | 2 | 0 | 2 | Versioned extension contract for governed agent capabilities. |
@@ -843,10 +843,10 @@ Total: **912 modules** and **181905 source lines**.
 | [`backend/services/agent_stream_protocol.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_stream_protocol.py) | 21 | 0 | 0 | 0 | 0 | Compatibility exports for the agent-domain stream protocol. |
 | [`backend/services/agent_team_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_evaluations.py) | 25 | 0 | 1 | 0 | 0 | Metadata-only measurements for comparing the same tasks across team policies. |
 | [`backend/services/agent_team_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_models.py) | 137 | 10 | 0 | 0 | 0 | Explicit, additive contracts for governed agent teams. |
-| [`backend/services/agent_team_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_policy.py) | 105 | 0 | 5 | 0 | 1 | Model-free eligibility and economic routing. Labels never grant capabilities. |
+| [`backend/services/agent_team_policy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_policy.py) | 121 | 0 | 6 | 0 | 2 | Model-free eligibility and economic routing. Labels never grant capabilities. |
 | [`backend/services/agent_team_resume.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_resume.py) | 45 | 0 | 1 | 1 | 0 | Resume a frozen team plan without regenerating or replaying completed work. |
 | [`backend/services/agent_team_retention.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_retention.py) | 35 | 0 | 2 | 0 | 0 | Reviewable retention evidence; task instructions never become permanent defaults. |
-| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 461 | 0 | 19 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
+| [`backend/services/agent_team_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_runtime.py) | 464 | 0 | 19 | 4 | 2 | Teams execute through the canonical executor, never through provider clients. |
 | [`backend/services/agent_team_store.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_team_store.py) | 131 | 0 | 6 | 0 | 1 | Private team artifacts, scoped through the owning execution record. |
 | [`backend/services/agent_tool_identity.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_tool_identity.py) | 7 | 0 | 1 | 0 | 1 | Technical tool identities, independent of translated display labels. |
 | [`backend/services/ai_usage_dashboard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/ai_usage_dashboard.py) | 191 | 1 | 9 | 0 | 0 | Filtered projections and CSV for the provider-independent usage ledger. |
