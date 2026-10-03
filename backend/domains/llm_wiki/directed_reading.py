@@ -42,6 +42,13 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
 
     # Carry resumed plans into the new job before a provider call can fail.
     checkpoint()
+    if state["plans"] and not state["memory"]:
+        # Older checkpoints may have plans but no reader-authored global memory.
+        # Reconstruct from every saved note, preserving the original plans.
+        from backend.domains.llm_wiki.reading_memory import restore_memory
+        state["memory"] = restore_memory(reader, state["plans"])
+        state["memory_step"] = state["step"]
+        checkpoint()
 
     # A per-resume execution allowance, not a prescribed intellectual sequence.
     # Reading, saving and reviewing remain finite, but the allowance must
@@ -51,6 +58,15 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     if action_steps == 64:
         action_steps = max(action_steps, 4 * len(chunks) + 16)
     for _ in range(action_steps):
+        # Deliver the next original without spending a model call on a read
+        # command. Explicit read/search/recall actions still select other context.
+        if not state["last_result"] or (state.get("last_action") or {}).get("name") == "save_plan":
+            pending = next((key for key in chunks if key not in state["plans"]), None)
+            if pending is not None:
+                state["last_result"] = _apply_action(reader, state, chunks, "read", {"chunk_id": pending})
+                state["last_action"] = {"name": "read", "chunk_id": pending, "step": state["step"], "delivery": "automatic"}
+                record("reading.source.delivered", {"step": state["step"], "chunk_id": pending})
+                checkpoint()
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
             "step": state["step"],
@@ -62,7 +78,11 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "persists its result and calls you again for the next step. source_count describes the "
                 "whole book, not work to complete in this response. Do not delegate the book loop or "
                 "simulate reading or saving other chunks within this response. Use remember, search "
-                "and recall to preserve global understanding across steps."
+                "and recall to preserve global understanding across steps. The next original is delivered "
+                "automatically after saving a plan; analyze that last_result directly. Every save_plan "
+                "must include plan.memory: an updated global synthesis, retaining prior arguments, "
+                "qualifications, contradictions and cross-chunk references. Do not replace it with "
+                "only the current fragment's summary."
             ),
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
             "state_contract": (
@@ -80,9 +100,16 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "recall": {"chunk_id": "string"}, "finish": {"summary": "string"},
             },
         }
-        request["index"] = [{"id": key, "label": chunk.get("origin_label"), "section": chunk.get("section"),
+        # Keep a small current window; the index action exposes any other range.
+        keys = list(chunks)
+        focus = next((i for i, key in enumerate(keys) if key not in state["plans"]), len(keys) - 1)
+        start = max(0, focus - 2)
+        request["index_offset"] = start
+        request["index_total"] = len(keys)
+        request["memory_max_tokens"] = reader.budget // 8
+        request["index"] = [{"id": key, "section": chunks[key].get("section"),
                              **_chunk_status(state, key),
-                             "primary_segment_count": len(records(chunk.get("segments")))} for key, chunk in list(chunks.items())[:100]]
+                             "primary_segment_count": len(records(chunks[key].get("segments")))} for key in keys[start:start + 8]]
         answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
         action, args = str(answer["action"]), answer["arguments"]
         record("reading.action", {"step": state["step"], **answer})
@@ -172,10 +199,17 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         plan = args["plan"]
         if not isinstance(plan, dict) or "requests" in plan:
             raise ValueError("plan_required")
+        plan_memory = plan.get("memory")
+        if not isinstance(plan_memory, str) or not plan_memory.strip():
+            raise ValueError("global_memory_required: include the updated book-wide synthesis in plan.memory")
+        if deps.count_tokens(plan_memory) > reader.budget // 8:
+            raise ValueError("memory_budget_exceeded")
         evidence = [segment for chunk_id in state["read"] for segment in records(chunks[chunk_id].get("segments"))]
         validate_notes(plan, records(chunks[key].get("segments")), evidence)
         if deps.count_tokens(encoded(plan)) > reader.budget // 3:
             raise ValueError("plan_budget_exceeded")
         state["plans"][key] = plan
+        state["memory"] = plan_memory
+        state["memory_step"] = state["step"]
         result = {"saved": key, "remaining": len(chunks) - len(state["plans"])}
     return result

@@ -199,7 +199,7 @@ export function RowActions({ model, note, isChild }: { model: TableController, n
                 noteId: note.id,
                 action: 'process_resource',
                 sourceTableId: llmWikiTableId,
-                force: Boolean(processed) || retryable,
+                force: Boolean(processed) && !retryable,
               });
             }}
             disabled={!ok}

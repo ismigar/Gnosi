@@ -129,7 +129,9 @@ def start_source_process(
             "This resource is already being processed",
         )
     processed_value = vr._resource_processed_value(metadata)  # noqa: SLF001
-    if not force and processed_value:
+    previous = llm_wiki.get_job_status(item_id, resolved_source_table_id)
+    resumable = previous.get("phase") in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}
+    if not force and processed_value and not resumable:
         raise LlmWikiActionError(
             409,
             f"Already processed on {processed_value}; use force to reprocess",

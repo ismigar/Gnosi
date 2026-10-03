@@ -17,8 +17,9 @@ NOTE = {
                    "citations": {"type": "array", "minItems": 1, "items": CITATION}},
 }
 PLAN = {
-    "type": "object", "required": ["notes", "coverage"],
+    "type": "object", "required": ["notes", "coverage", "memory"],
     "properties": {
+        "memory": {**TEXT, "description": "Updated global reading memory: retain the book's argument, qualifications, contradictions and links to earlier chunk ids, incorporating this plan."},
         "notes": {"type": "array", "items": NOTE},
         "coverage": {"type": "array", "items": _object({"segment_id": TEXT, "reason": TEXT}, ["segment_id", "reason"])},
         "warnings": {"type": "array", "items": {"type": "string"}},

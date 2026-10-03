@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-03
+last_verified: 2026-10-04
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1218,3 +1218,7 @@ Directed source reading caps each work fragment at 4,096 estimated tokens. Its i
 Each `knowledge.process-source.phase` returns one action on its frozen executor. The application validates, executes and checkpoints that action before requesting another. This operation has no team-help binding or expanded team-call allowance; other operations retain optional team coordination and all operations retain centralized authorization, evidence validation and traces.
 
 Reference repair pairs each permitted path with its field's value schema: source identifier, citations or coverage. Local validation enforces the same pairing when large path enums are omitted. Invalid patches can retry within the existing maximum of three model calls and the original deadline, retaining the original draft, evidence and permitted paths. Note titles, bodies, ordering and unrelated fields remain unchanged. Only an action passing the original schema and complete evidence validation can advance the saved plan count; compatible checkpoints preserve completed plans and reading memory on resumption.
+
+The application now delivers the next unsaved original automatically, eliminating a model call whose only result was a read command. Explicit read, search, recall and index actions remain available. Each prompt carries at most eight nearby index entries with its offset and total; the index action retrieves other ranges. The action schema is not repeated as a second output contract inside the reading prompt.
+
+Every saved plan includes an updated, bounded global memory covering the accumulated argument, qualifications, contradictions and cross-chunk links. Memory and plans advance only after schema and evidence validation. Legacy checkpoints with saved plans and empty memory reconstruct their synthesis from every saved note in bounded groups before continuing; original notes remain unchanged. The table-row resume sends force=false for interrupted jobs, and a previous processed date does not prevent checkpoint resumption. Explicit reprocessing of completed work still uses force=true.

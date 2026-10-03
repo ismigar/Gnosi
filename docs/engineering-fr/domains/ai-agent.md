@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-03
+last_verified: 2026-10-04
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1413,3 +1413,7 @@ La lecture dirigée limite chaque fragment de travail à 4 096 tokens estimés. 
 Chaque `knowledge.process-source.phase` renvoie une action avec son exécutant fixé. L’application valide, exécute et enregistre cette action avant d’en demander une autre. Cette opération ne propose pas l’outil d’aide d’équipe et n’augmente pas la limite d’appels pour les équipes ; les autres opérations conservent la coordination facultative et toutes maintiennent les autorisations, la validation des preuves et les traces centralisées.
 
 La réparation des références associe chaque chemin autorisé au schéma de son champ : identifiant de source, citations ou couverture. La validation locale impose la même association lorsque les grandes énumérations de chemins sont omises. Les modifications invalides peuvent être redemandées dans la limite existante de trois appels au modèle et de l’échéance initiale, en conservant le brouillon, les preuves et les chemins autorisés. Les titres, corps, ordre et champs non concernés restent inchangés. Seule une action respectant le schéma original et toute la validation des preuves peut augmenter le nombre de plans enregistrés ; les points de reprise compatibles préservent les plans terminés et la mémoire de lecture.
+
+L’application livre automatiquement le prochain original non traité, supprimant un appel au modèle qui servait uniquement à demander sa lecture. Les actions explicites de lecture, recherche, rappel et index restent disponibles. Chaque requête contient au maximum huit entrées proches de l’index, avec leur position et le total ; l’action d’index récupère d’autres plages. Le schéma d’actions n’est pas répété comme un second contrat de sortie dans la requête de lecture.
+
+Chaque plan enregistré contient une mémoire globale mise à jour et bornée, couvrant l’argument accumulé, ses nuances, contradictions et liens entre fragments. La mémoire et les plans avancent uniquement après validation du schéma et des preuves. Les anciens points de reprise contenant des plans mais une mémoire vide reconstruisent la synthèse à partir de toutes les notes enregistrées, par groupes bornés, avant de continuer ; les notes originales restent intactes. La reprise depuis la ligne du tableau envoie force=false pour les tâches interrompues, et une date de traitement antérieure ne bloque pas la récupération du point de reprise. Le retraitement explicite d’une tâche terminée utilise toujours force=true.

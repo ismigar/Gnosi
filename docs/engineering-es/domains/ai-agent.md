@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-03
+last_verified: 2026-10-04
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1390,3 +1390,7 @@ La lectura dirigida limita cada fragmento de trabajo a 4.096 tokens estimados. E
 Cada `knowledge.process-source.phase` devuelve una acción con el ejecutor fijado. La aplicación valida, ejecuta y guarda esa acción antes de solicitar otra. Esta operación no incorpora la herramienta de ayuda de equipo ni amplía el límite de llamadas para equipos; las otras operaciones conservan la coordinación opcional y todas mantienen la autorización, la validación de evidencias y las trazas centralizadas.
 
 La reparación de referencias vincula cada ruta permitida con el esquema de su campo: identificador de fuente, citas o cobertura. La validación local impone la misma correspondencia cuando se omiten enumeraciones de rutas muy grandes. Los cambios inválidos pueden volver a solicitarse dentro del máximo existente de tres llamadas al modelo y del plazo original, conservando el borrador, las evidencias y las rutas permitidas. Los títulos, cuerpos, orden y campos no afectados de las notas permanecen intactos. Solo una acción que supera el esquema original y toda la validación de evidencias puede aumentar los planes guardados; los puntos de reanudación compatibles conservan los planes completados y la memoria de lectura.
+
+La aplicación entrega automáticamente el siguiente original pendiente, eliminando una llamada al modelo que solo servía para solicitar su lectura. Las acciones explícitas de lectura, búsqueda, recuperación e índice siguen disponibles. Cada petición incluye como máximo ocho entradas cercanas del índice, con su posición y total; la acción de índice recupera otros intervalos. El esquema de acciones no se repite como un segundo contrato de salida dentro de la petición de lectura.
+
+Cada plan guardado incluye una memoria global actualizada y limitada que recoge el argumento acumulado, los matices, las contradicciones y las conexiones entre fragmentos. La memoria y los planes solo avanzan después de validar el esquema y las evidencias. Los puntos de reanudación antiguos con planes guardados y memoria vacía reconstruyen la síntesis a partir de todas las notas guardadas, en grupos limitados, antes de continuar; las notas originales permanecen intactas. La reanudación desde la fila de la tabla envía force=false para trabajos interrumpidos, y una fecha de procesamiento anterior no impide recuperar el punto de reanudación. El reprocesamiento explícito de un trabajo completado sigue utilizando force=true.

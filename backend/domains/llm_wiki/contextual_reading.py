@@ -70,6 +70,8 @@ class ContextualReader:
             "output_contract": contract,
             **payload,
         }
+        if contract == payload.get("output_schema"):
+            request.pop("output_contract")
         if phase in {"extract", "review"}:
             request["alternative_output_contract"] = REQUEST_CONTRACT
             request["max_note_utf8_bytes"] = self.budget // 4

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-10-03
+last_verified: 2026-10-04
 source_paths:
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1324,3 +1324,7 @@ La lectura dirigida limita cada fragment de treball a 4.096 tokens estimats. El 
 Cada `knowledge.process-source.phase` retorna una acció amb l’executor fixat. L’aplicació valida, executa i desa aquesta acció abans de demanar-ne una altra. Aquesta operació no incorpora l’eina d’ajuda d’equip ni amplia el límit de crides per a equips; les altres operacions conserven la coordinació opcional i totes mantenen l’autorització, la validació d’evidències i les traces centralitzades.
 
 La reparació de referències vincula cada ruta permesa amb l’esquema del seu camp: identificador de font, cites o cobertura. La validació local imposa la mateixa correspondència quan s’ometen enumeracions de rutes molt grans. Els canvis invàlids es poden tornar a demanar dins del màxim existent de tres crides al model i del termini original, conservant l’esborrany, les evidències i les rutes permeses. Els títols, cossos, ordre i camps no afectats de les notes romanen intactes. Només una acció que supera l’esquema original i tota la validació d’evidències pot augmentar els plans desats; els punts de represa compatibles conserven els plans completats i la memòria de lectura.
+
+L’aplicació lliura automàticament el següent original pendent, eliminant una crida al model que només servia per demanar-ne la lectura. Les accions explícites de lectura, cerca, recuperació i índex continuen disponibles. Cada petició inclou com a màxim vuit entrades d’índex properes, amb la posició i el total; l’acció d’índex recupera altres intervals. L’esquema d’accions no es repeteix com un segon contracte de sortida dins de la petició de lectura.
+
+Cada pla desat inclou una memòria global actualitzada i limitada que recull l’argument acumulat, els matisos, les contradiccions i les connexions entre fragments. La memòria i els plans només avancen després de validar l’esquema i les evidències. Els punts de represa antics amb plans desats i memòria buida reconstrueixen la síntesi a partir de totes les notes desades, en grups limitats, abans de continuar; les notes originals romanen intactes. La represa des de la fila de la taula envia force=false per a feines interrompudes, i una data de processament anterior no impedeix recuperar el punt de represa. El reprocessament explícit d’una feina completada continua utilitzant force=true.
