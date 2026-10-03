@@ -2774,7 +2774,8 @@
           "core_gnosi_operation_writing": "Writing and correction",
           "core_gnosi_operation_tables": "Table actions",
           "core_gnosi_operation_knowledge": "Knowledge connections and refinement",
-          "core_gnosi_operation_learning": "Skill learning and evaluation"
+          "core_gnosi_operation_learning": "Skill learning and evaluation",
+          "core_gnosi_coordination": "Team coordination"
         },
         "tool_names": {
           "add_page_comment": "Add a page comment",
@@ -2965,7 +2966,8 @@
           "core_gnosi_operation_writing": "Write, summarize and correct text while preserving meaning and formatting.",
           "core_gnosi_operation_tables": "Propose configurations and field values from the supplied schema and record.",
           "core_gnosi_operation_knowledge": "Propose connections and reformulations from available notes and evidence, without saving changes.",
-          "core_gnosi_operation_learning": "Extract procedures from approved instructions and evaluate skills against explicit criteria."
+          "core_gnosi_operation_learning": "Extract procedures from approved instructions and evaluate skills against explicit criteria.",
+          "core_gnosi_coordination": "Plan tasks, select suitable specialists and integrate their results."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepare today’s agenda, priorities and pending messages.",

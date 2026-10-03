@@ -2738,7 +2738,8 @@
           "core_gnosi_operation_writing": "Redacción y corrección",
           "core_gnosi_operation_tables": "Acciones de tablas",
           "core_gnosi_operation_knowledge": "Conexiones y refinamiento del conocimiento",
-          "core_gnosi_operation_learning": "Aprendizaje y evaluación de habilidades"
+          "core_gnosi_operation_learning": "Aprendizaje y evaluación de habilidades",
+          "core_gnosi_coordination": "Coordinación del equipo"
         },
         "tool_names": {
           "add_page_comment": "Añade un comentario a una página",
@@ -2929,7 +2930,8 @@
           "core_gnosi_operation_writing": "Redacta, resume y corrige textos conservando el significado y el formato.",
           "core_gnosi_operation_tables": "Propone configuraciones y valores de campos a partir del esquema y del registro proporcionados.",
           "core_gnosi_operation_knowledge": "Propone conexiones y reformulaciones a partir de las notas y evidencias disponibles, sin guardar cambios.",
-          "core_gnosi_operation_learning": "Extrae procedimientos de las instrucciones aprobadas y evalúa habilidades según criterios explícitos."
+          "core_gnosi_operation_learning": "Extrae procedimientos de las instrucciones aprobadas y evalúa habilidades según criterios explícitos.",
+          "core_gnosi_coordination": "Planifica tareas, elige los especialistas adecuados e integra sus resultados."
         },
         "examples": {
           "core_gnosi_daily_briefing": "Prepara la agenda, las prioridades y los mensajes pendientes de hoy.",
