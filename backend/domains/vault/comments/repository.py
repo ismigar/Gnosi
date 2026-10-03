@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 import re
 from collections.abc import Callable
@@ -42,10 +44,12 @@ def load_page_comments(resolve_path: Callable[[], Path]) -> PageCommentMap:
             path = resolve_path()
             if not path.exists():
                 return {}
-            data: object = json.loads(path.read_text(encoding="utf-8"))
+            data: object = json.loads(read_metadata_text(path, encoding="utf-8"))
             if not is_record(data):
                 return {}
             return data
+        except MetadataUnavailable:
+            raise
         except Exception:
             return {}
 
@@ -79,10 +83,12 @@ def load_inline_comments(resolve_path: Callable[[str], Path], page_id: str) -> I
     if not path.exists():
         return []
     try:
-        data: object = json.loads(path.read_text(encoding="utf-8"))
+        data: object = json.loads(read_metadata_text(path, encoding="utf-8"))
         if not is_object_list(data):
             return []
         return data
+    except MetadataUnavailable:
+        raise
     except Exception:
         return []
 

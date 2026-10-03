@@ -1,5 +1,7 @@
 """Register existing libraries in the explicitly selected desktop container."""
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import os
 import hashlib
 import json
@@ -34,7 +36,7 @@ def register_desktop_vaults(db: Session, workspace_id: str, primary: Path) -> No
             key = hashlib.sha256(f"{workspace_id}:{root}".encode()).hexdigest()
             history_file = Path(data_dir) / "vault-discovery" / f"{key}.json"
             try:
-                seen = set(json.loads(history_file.read_text()))
+                seen = set(json.loads(read_metadata_text(history_file)))
             except FileNotFoundError:
                 pass
         candidates = sorted(

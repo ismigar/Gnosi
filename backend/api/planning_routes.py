@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import asyncio
 from datetime import datetime
 from itertools import islice
@@ -511,7 +513,7 @@ async def materialize_recurrence(recurrence_id: str, limit: int = 50) -> JsonRes
     if not source_path:
         raise HTTPException(status_code=404, detail="recurrence source task not found")
     metadata, content = await asyncio.to_thread(
-        lambda: parse_frontmatter_typed(source_path.read_text(encoding="utf-8"), source_path)
+        lambda: parse_frontmatter_typed(read_metadata_text(source_path, encoding="utf-8"), source_path)
     )
     period_key = next(
         (

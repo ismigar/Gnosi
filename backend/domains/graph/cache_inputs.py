@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import errno
 import hashlib
 import json
@@ -41,6 +43,8 @@ def graph_input_source(source: str) -> Iterator[None]:
     with graph_phase(f"input_{source}"):
         try:
             yield
+        except MetadataUnavailable:
+            raise
         except Exception as error:
             log_graph_input_failure(source, error)
             raise
@@ -78,7 +82,7 @@ def _read_managed_metadata(scope: str, entry: os.DirEntry[str]) -> tuple[_Manage
     if cached is not None:
         return signature, deepcopy(cached[1])
     path = Path(entry.path)
-    raw = path.read_text(encoding="utf-8")
+    raw = read_metadata_text(path, encoding="utf-8")
     payload = json.loads(raw)
     if not isinstance(payload, dict) or not isinstance(payload.get("metadata"), dict):
         raise ValueError("Managed graph page state is invalid")
@@ -178,7 +182,7 @@ def read_suggestion_edges(cfg: Any) -> list[dict[str, Any]]:
     if not isinstance(config_dir, Path):
         raise ValueError("Graph proposal configuration path is unavailable")
     try:
-        data = json.loads((config_dir / "llm_wiki_suggestions.json").read_text(encoding="utf-8"))
+        data = json.loads(read_metadata_text(config_dir / "llm_wiki_suggestions.json", encoding="utf-8"))
     except FileNotFoundError:
         return []
     if not isinstance(data, dict) or not isinstance(data.get("suggestions"), list):

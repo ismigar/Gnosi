@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from backend.utils.metadata_io import ensure_metadata_local
+
 Document = dict[str, Any]
 Stamp = tuple[int, int, int, int, int, int]
 Key = tuple[Path, type[Any]]
@@ -35,6 +37,7 @@ class ConfigYamlCache:
         # Preserve symlink/.. semantics; resolving the path itself can be a
         # slow cloud-filesystem walk and is unnecessary for freshness checks.
         path = path if path.is_absolute() else Path.cwd() / path
+        ensure_metadata_local(path)
         key = (path, loader)
         while True:
             try:

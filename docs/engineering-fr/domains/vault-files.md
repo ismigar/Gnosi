@@ -572,6 +572,9 @@ arrière en cas d'échec d'enregistrement restent inchangés.
 
 ## Fournisseurs de fichiers
 
+Au démarrage ou au changement de Vault, le téléchargement de toutes les métadonnées cloud de `.gnosi` est demandé, notamment les compétences, plugins, sidecars, l’état du Wiki, icônes et sauvegardes. Le lecteur demande également les fichiers individuels à la demande. Deux processus auxiliaires et des délais de dix secondes bornent le travail du fournisseur ; les lectures concurrentes partagent une demande et les échecs imposent trente secondes avant une nouvelle tentative. Les lectures asynchrones renvoient une erreur 503 récupérable sans bloquer la boucle d’événements. Les métadonnées distantes ne sont jamais remplacées par des valeurs par défaut : les lecteurs propagent l’indisponibilité et les écritures atomiques exigent que le fichier original soit disponible localement. Les fichiers inexistants peuvent être créés normalement. Le téléchargement en arrière-plan exclut les arbres de liens symboliques. Si le fournisseur échoue, la disponibilité ne peut être garantie ; la configuration critique reste fermée par sécurité.
+
+
 L'abstraction des fournisseurs sélectionne un comportement adapté au stockage
 local, au File Provider générique de macOS, à OneDrive, à iCloud Drive, à Google
 Drive, à Nextcloud ou à Dropbox. Le code ordinaire du domaine continue de

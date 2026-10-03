@@ -1,3 +1,5 @@
+
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path
 import hashlib
 import logging
 import time
@@ -117,10 +119,12 @@ def _attachment_context(  # noqa: C901 - bounded text and PDF extraction
                     chunks.append(chunk[: min(MAX_ATTACHMENT_TEXT, remaining_total) - extracted])
                     extracted += len(chunks[-1])
                 text = "\n".join(chunks)
+            except MetadataUnavailable:
+                raise
             except Exception as exc:
                 log.warning("Could not extract chat PDF attachment %s: %s", target.name, exc)
         else:
-            with target.open("r", encoding="utf-8", errors="replace") as handle:
+            with metadata_path(target).open("r", encoding="utf-8", errors="replace") as handle:
                 text = handle.read(min(MAX_ATTACHMENT_TEXT, remaining_total) + 1)
 
         if text.strip():
@@ -144,6 +148,8 @@ def _consume_attachment_context(
         for attachment in refs:
             try:
                 _delete_attachment(vault, attachment.path, scope_key)
+            except MetadataUnavailable:
+                raise
             except Exception as cleanup_error:
                 log.warning(
                     "Could not remove chat attachment %s: %s",

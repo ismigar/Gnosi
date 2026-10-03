@@ -1,5 +1,7 @@
 """Typed replay data; never deserialize code or silently accept stale documents."""
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes
+
 from contextlib import closing
 from collections.abc import Callable
 from datetime import date, datetime
@@ -99,7 +101,7 @@ def revision(path: Path | None) -> str:
     if path is None:
         return "no_document"
     try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        return hashlib.sha256(read_metadata_bytes(path)).hexdigest()
     except FileNotFoundError:
         return "missing"
 

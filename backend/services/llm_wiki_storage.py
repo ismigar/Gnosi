@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import hashlib
 import json
 import threading
@@ -483,6 +485,8 @@ def _read_json(path: Path) -> object:
     if not path or not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(read_metadata_text(path, encoding="utf-8"))
+    except MetadataUnavailable:
+        raise
     except Exception:
         return None

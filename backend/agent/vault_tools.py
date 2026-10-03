@@ -15,6 +15,8 @@ collab_ws_bypasses_fetch_block).
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+
 from backend.services.agent_behavior import task_input
 
 import re
@@ -52,7 +54,7 @@ def clear_wiki_search_cache(brain_id: str | None = None) -> None:
 
 def _read_text_prefix(path: Path, max_chars: int) -> tuple[str, bool]:
     """Read at most one character beyond a server-owned text ceiling."""
-    with path.open("r", encoding="utf-8", errors="replace") as handle:
+    with metadata_path(path).open("r", encoding="utf-8", errors="replace") as handle:
         text = handle.read(max_chars + 1)
     return text[:max_chars], len(text) > max_chars
 
@@ -183,6 +185,8 @@ def _resolve_page_path(page_id_or_title: str) -> Path | None:
             if p.stem.casefold() == needle.casefold():
                 return p
             head, _truncated = _read_text_prefix(p, 2_000)
+        except MetadataUnavailable:
+            raise
         except Exception:
             continue
         if re.search(rf'(^|\n)id:\s*["\']?{re.escape(needle)}["\']?\s*(\n|$)', head):
@@ -201,6 +205,8 @@ def read_page(page_id_or_title: str) -> str:
         if truncated:
             bounded += "\n\n[Page content truncated by Gnosi.]"
         return bounded
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         return f"Error reading the page: {e}"
 
@@ -245,6 +251,8 @@ def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
             if text.strip()
             else "(PDF has no extractable text; it may be scanned)"
         )
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         return f"Error reading the PDF: {e}"
 
@@ -291,6 +299,8 @@ def create_page(
             )
         register_page_in_index(path)
         return f"Page created: {path.name} (id: {page_id})"
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         return f"Error creating the page: {e}"
 
@@ -402,6 +412,8 @@ def query_wiki(query: str, k: int = 5) -> str:
         try:
             llm_wiki_indices.rebuild_search_cache(brain_id)
             records = llm_wiki_indices.load_search_cache(brain_id)
+        except MetadataUnavailable:
+            raise
         except Exception:
             records = []
     query_vector = llm_wiki_indices.search_vector(query)

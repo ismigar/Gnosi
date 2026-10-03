@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path as cloud_metadata_path
+
 import json
 import logging
 from _thread import RLock
@@ -60,7 +62,7 @@ def ensure_user_metadata_loaded(
         loaded: UserMetadataStore = {"version": 1, "items": {}}
         if path and path.exists():
             try:
-                with path.open("r", encoding="utf-8") as handle:
+                with cloud_metadata_path(path).open("r", encoding="utf-8") as handle:
                     raw = cast(object, json.load(handle))
                 if isinstance(raw, dict) and isinstance(raw.get("items"), dict):
                     loaded = cast(UserMetadataStore, raw)
@@ -85,8 +87,9 @@ def save_user_metadata(
         return False
     with service._user_metadata_lock:
         try:
+            cloud_metadata_path(path)
             temporary = path.with_suffix(path.suffix + ".tmp")
-            with temporary.open("w", encoding="utf-8") as handle:
+            with cloud_metadata_path(temporary).open("w", encoding="utf-8") as handle:
                 json.dump(service._user_metadata, handle, ensure_ascii=False, indent=2)
             replace_file(temporary, path)
             return True

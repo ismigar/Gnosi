@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import importlib as _legacy_importlib
 from collections.abc import Callable
 from pathlib import Path
@@ -51,6 +53,8 @@ def _relation_keys_for_metadata(metadata: RegistryData) -> set[str] | None:
         tid = _legacy.get_table_id(metadata)
         if tid:
             return _legacy.relation_keys_from_table(_legacy._table_by_id(tid)) or None
+    except MetadataUnavailable:
+        raise
     except Exception:
         return None
     return None
@@ -313,6 +317,8 @@ def _resolve_unique_filename(
             try:
                 if candidate_path.resolve() == exclude_path.resolve():
                     return candidate
+            except MetadataUnavailable:
+                raise
             except Exception:
                 if candidate_path == exclude_path:
                     return candidate
@@ -350,12 +356,14 @@ def _is_dashboard_file_path(file_path: Path) -> bool:
     try:
         file_path.resolve().relative_to(_legacy.get_p("DASHBOARDS").resolve())
         return True
+    except MetadataUnavailable:
+        raise
     except Exception:
         return False
 
 
 def _read_dashboard_file(file_path: Path) -> tuple[RegistryData, str]:
-    data: object = _legacy.json.loads(file_path.read_text(encoding="utf-8"))
+    data: object = _legacy.json.loads(read_metadata_text(file_path, encoding="utf-8"))
     raw_metadata = metadata_value(data, "metadata")
     # Preserve the original second lookup when the first value was a dictionary.
     raw_metadata = metadata_value(data, "metadata") if is_record(raw_metadata) else {}

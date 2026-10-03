@@ -561,6 +561,9 @@ paquetes deterministas y la reversión ante fallos de registro no cambian.
 
 ## Proveedores de archivos
 
+Al iniciar o cambiar de Vault se solicita la descarga de todos los metadatos de la nube de `.gnosi`, incluidos habilidades, plugins, sidecars, estado de Wiki, iconos y copias de seguridad. El lector también solicita archivos individuales cuando se necesitan. Dos procesos auxiliares y plazos de diez segundos acotan el trabajo del proveedor; las lecturas concurrentes comparten una petición y los fallos requieren esperar treinta segundos antes de reintentar. Las lecturas asíncronas devuelven un 503 recuperable sin bloquear el bucle de eventos. Los metadatos remotos no se sustituyen por valores predeterminados: los lectores propagan la indisponibilidad y las escrituras atómicas requieren que el archivo original esté disponible localmente. Los archivos inexistentes conservan su creación normal. La descarga en segundo plano excluye árboles con enlaces simbólicos. Si el proveedor falla, no se garantiza la disponibilidad; la configuración crítica permanece cerrada por seguridad.
+
+
 La abstracción de proveedores selecciona el comportamiento local, genérico de
 macOS File Provider, o adaptado a OneDrive, iCloud Drive, Google Drive, Nextcloud
 o Dropbox. El código habitual del dominio sigue trabajando con `Path`; el

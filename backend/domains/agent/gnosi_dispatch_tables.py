@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes
+
 import asyncio
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -42,7 +44,7 @@ def _prepare_table_rows(snapshot: dict[str, Any], table_id: str) -> list[dict[st
             {
                 "id": row["id"],
                 "path": path,
-                "original": path.read_bytes(),
+                "original": read_metadata_bytes(path),
                 **_sidecar_snapshot(path, str(row["id"])),
                 "metadata": metadata,
                 "body": body,
@@ -63,6 +65,8 @@ def _unlink_table_rows(
                 new_metadata.pop("database_table_id", None)
                 changed.append(item)
                 _write_page(item["path"], new_metadata, item["body"])
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         rollback_failed = _rollback_page_items(changed)
         if rollback_failed:
@@ -91,6 +95,8 @@ async def _trash_table_rows(
             )
             await asyncio.to_thread(move_to_trash, str(item["id"]), item["path"])
             changed.append(item)
+        except MetadataUnavailable:
+            raise
         except Exception:
             failed_ids.append(str(item["id"]))
             break
@@ -173,6 +179,8 @@ async def _delete_table(
             expected_views_revision=str(arguments["views_revision"]),
             expected_asset_revision=str(arguments["asset_revision"]),
         )
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         partial = _table_delete_conflict_result(error, row_action, changed)
         if partial is not None:
@@ -254,6 +262,8 @@ async def _empty_trash(
             )
             purged += 1
             freed += int(result.get("freed_bytes") or 0)
+        except MetadataUnavailable:
+            raise
         except Exception:
             failed_ids.append(entry_id)
     return {

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, TextIO, cast
 
+from backend.utils.metadata_io import metadata_path
 from backend.config.app_config import load_params
 from backend.data.management_db import get_mgmt_session
 from backend.models.scheduler import TaskExecutionHistory
@@ -168,7 +169,7 @@ class SchedulerManager:
 
         for attempt in range(3):
             try:
-                with open(path) as f:
+                with open(metadata_path(path)) as f:
                     data = json.load(f)
                 tasks = data.get("tasks", {})
                 return tasks or None  # Valid JSON but no tasks -> empty

@@ -11,6 +11,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import yaml
 
+from backend.utils.metadata_io import read_metadata_text
+
 from backend.models.agent_skills import SkillKind
 from backend.services.agent_skill_catalog import SkillCatalog
 from backend.utils.safe_io import file_etag, safe_write_text
@@ -108,7 +110,7 @@ class AgentSkillAssignmentStore:
         params: Dict[str, Any] = {}
         if path.exists():
             try:
-                raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                raw = yaml.safe_load(read_metadata_text(path, encoding="utf-8")) or {}
             except (OSError, yaml.YAMLError) as exc:
                 raise AgentAssignmentError(
                     f"could not read AI configuration: {exc}"
@@ -137,7 +139,7 @@ class AgentSkillAssignmentStore:
             return
         try:
             raw = yaml.safe_load(
-                self.params_path.read_text(encoding="utf-8")
+                read_metadata_text(self.params_path, encoding="utf-8")
             ) or {}
         except (OSError, yaml.YAMLError) as exc:
             raise AgentAssignmentError(
