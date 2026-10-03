@@ -22,14 +22,25 @@ def _bounded_strings(values: list[str]) -> dict[str, Any]:
     return {"type": "string", "minLength": 1, **({"enum": values} if len(values) <= 128 else {})}
 
 
-def _repair_schema(paths: list[str], primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> dict[str, Any]:
+def _value_schemas(primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> dict[str, Any]:
     primary_id = _bounded_strings([str(s["id"]) for s in primary])
     evidence_id = _bounded_strings([str(s["id"]) for s in evidence])
     text = {"type": "string", "minLength": 1}
     citations = {"type": "array", "minItems": 1, "items": _object({"segment_id": evidence_id, "quote": text})}
     coverage = {"type": "array", "items": _object({"segment_id": primary_id, "reason": text})}
+    return {"source_segment_id": primary_id, "citations": citations, "coverage": coverage}
+
+
+def _repair_schema(paths: list[str], primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> dict[str, Any]:
+    # Bind each path to its field's shape. An unrelated coverage value must
+    # never satisfy the provider grammar for a citation patch.
+    variants = []
+    for key, schema in _value_schemas(primary, evidence).items():
+        matching = [path for path in paths if path.rsplit("/", 1)[-1] == key]
+        if matching:
+            variants.append(_object({"path": _bounded_strings(matching), "value": schema}))
     return _object({"patches": {"type": "array", "minItems": len(paths), "maxItems": len(paths),
-        "items": _object({"path": _bounded_strings(paths), "value": {"anyOf": [primary_id, citations, coverage]}})}})
+        "items": {"anyOf": variants}}})
 
 
 def build_reading_repair(original_request: str, rejected: str, error: Exception) -> OutputRepair | None:
@@ -52,6 +63,7 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
     if not fields or not error.primary or not error.evidence:
         return None
     schema = _repair_schema(list(fields), error.primary, error.evidence)
+    value_schemas = _value_schemas(error.primary, error.evidence)
     affected = [{"index": i, "note": notes[i]} for i in error.note_indices]
     cited_ids = {str(notes[i].get("source_segment_id")) for i in error.note_indices}
     quotes = set()
@@ -86,6 +98,9 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
         target = restored["arguments"]["plan"]
         for row in replacements:
             index, key = fields[row["path"]]
+            # Long-source schemas can omit path enums to bound grammar size.
+            # Always enforce the path/value pairing locally as well.
+            jsonschema.validate(row["value"], value_schemas[key])
             owner = target if index is None else target["notes"][index]
             owner[key] = row["value"]
         return json.dumps(restored, ensure_ascii=False)

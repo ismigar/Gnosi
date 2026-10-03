@@ -457,8 +457,16 @@ async def execute_operation(request: AgentOperation, *, snapshot: AgentExecution
                     raise AgentTurnCancelled("agent_run_cancelled")
                 return store.update(snapshot.scope, run_id, status="completed", result=text)
             except (ValueError, jsonschema.ValidationError) as validation_error:
-                if attempt + 1 >= request.max_model_calls or partial_repair is not None:
+                if attempt + 1 >= request.max_model_calls:
                     raise
+                if partial_repair is not None:
+                    # Retry the same immutable patch within the original call
+                    # allowance and deadline; never regenerate valid notes.
+                    messages = [*messages, AIMessage(content=text), HumanMessage(content=
+                        "Correct only the permitted patches using the supplied original passages. "
+                        "Return the same patch contract, not a rewritten reading action.\n" +
+                        json.dumps({"validation_error": str(validation_error)}, ensure_ascii=False))]
+                    continue
                 partial_repair = output_repair(text, validation_error) if output_repair is not None else None
                 if partial_repair is not None:
                     response_schema = partial_repair.output_schema
