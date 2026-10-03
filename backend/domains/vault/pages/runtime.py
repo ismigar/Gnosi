@@ -1,5 +1,7 @@
 """Typed Vault domain extracted from the historical route facade."""
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import importlib as _legacy_importlib
 import operator
 from pathlib import Path
@@ -177,6 +179,8 @@ def purge_vault_caches(v_str: str) -> None:
             p = path_fn(v_str)
             if p:
                 _legacy.Path(p).unlink(missing_ok=True)
+        except MetadataUnavailable:
+            raise
         except Exception:
             pass
     _legacy.log.info(f"♻️ Per-vault caches purged for deleted vault: {v_str}")
@@ -283,6 +287,8 @@ def _vault_cache_key() -> str:
 
     try:
         return str(get_active_vault_path() or "")
+    except MetadataUnavailable:
+        raise
     except Exception:
         return ""
 
@@ -359,6 +365,8 @@ def kickoff_index_warmup(v_path: _legacy.Path) -> None:
     _legacy.page_state.last_vault_sync_time = _legacy.time.monotonic()
     try:
         _legacy._load_body_cache_from_disk()
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         _legacy.log.warning(f"body-cache load skipped: {e}")
     with _indexer_status_lock:
@@ -377,6 +385,8 @@ def kickoff_index_warmup(v_path: _legacy.Path) -> None:
         try:
             _legacy._load_id_title_from_disk(v_str)
             _legacy._refresh_id_title_index(v_str)
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             _legacy.log.warning(f"id-title warmup skipped: {e}")
         try:
@@ -393,6 +403,8 @@ def kickoff_index_warmup(v_path: _legacy.Path) -> None:
                     with _page_index_lock:
                         n = len(_page_index_entries.get(v_str, {}))
                     _legacy._set_indexer_status(v_str, files_indexed=n)
+                except MetadataUnavailable:
+                    raise
                 except Exception as e:
                     _legacy.log.warning(f"Background index refresh failed: {e}")
                 return
@@ -403,6 +415,8 @@ def kickoff_index_warmup(v_path: _legacy.Path) -> None:
                 v_str, state="ready", finished_at=_legacy.time.time(), files_indexed=n
             )
             _legacy.kickoff_link_index_rebuild()
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             _legacy.log.error(f"Indexer warmup failed for {v_str}: {e}")
             _legacy._set_indexer_status(
@@ -423,6 +437,8 @@ def _save_page_index_to_disk(v_str: str) -> None:
         if data:
             _legacy.safe_write_json(cache_path, data, indent=2, ensure_ascii=False)
             _legacy.log.info(f"💾 Page index cache saved to disk for {v_str}")
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         _legacy.log.error(f"❌ Error saving page index cache for {v_str}: {e}")
 
@@ -440,7 +456,7 @@ def _load_page_index_from_disk(v_str: str) -> bool:
                 cache_path = legacy_path
         if cache_path.exists():
             data, id_map, files_ordered = prepare_page_index(
-                _legacy.json.loads(cache_path.read_text(encoding="utf-8")), _legacy.Path
+                _legacy.json.loads(read_metadata_text(cache_path, encoding="utf-8")), _legacy.Path
             )
             with _page_index_lock:
                 _page_index_entries[v_str] = data
@@ -449,12 +465,16 @@ def _load_page_index_from_disk(v_str: str) -> bool:
                 _page_id_to_path[v_str] = id_map
                 try:
                     _legacy.path_resolver.update_index(_legacy.Path(v_str), id_map, files_ordered)
+                except MetadataUnavailable:
+                    raise
                 except Exception as e:
                     _legacy.log.warning(f"PathResolver update from disk cache failed: {e}")
             _legacy.log.info(
                 f"📂 Page index cache loaded from disk for {v_str} ({len(data)} entries)"
             )
             return True
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         _legacy.log.error(f"❌ Error loading page index cache for {v_str}: {e}")
     return False
@@ -545,6 +565,8 @@ def init_vault() -> None:
         if p:
             try:
                 p.mkdir(parents=True, exist_ok=True)
+            except MetadataUnavailable:
+                raise
             except Exception as e:
                 _legacy.log.error(f"Error initializing structural directory {p}: {e}")
 

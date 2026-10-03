@@ -561,6 +561,9 @@ deterministes i la reversió en cas de fallada del registre no canvien.
 
 ## Proveïdors de fitxers
 
+En iniciar o canviar de Vault es demana la descàrrega de totes les metadades del núvol de `.gnosi`, incloses habilitats, plugins, sidecars, estat de Wiki, icones i còpies de seguretat. El lector també demana els fitxers individuals quan calen. Dos processos auxiliars i terminis de deu segons acoten el treball del proveïdor; les lectures concurrents comparteixen una petició i les fallades tenen una espera de trenta segons abans del reintent. Les lectures asíncrones retornen un 503 recuperable sense bloquejar el bucle d’esdeveniments. No se substitueixen metadades remotes per valors per defecte: els lectors propaguen la indisponibilitat i les escriptures atòmiques exigeixen tenir el fitxer original local. Els fitxers inexistents es poden crear normalment. La descàrrega en segon pla exclou els arbres amb enllaços simbòlics. Si el proveïdor falla, no es garanteix la disponibilitat; la configuració crítica es manté tancada per seguretat.
+
+
 L'abstracció de proveïdor selecciona el comportament local o l'adaptat al
 File Provider genèric de macOS, OneDrive, iCloud Drive, Google Drive, Nextcloud
 o Dropbox. El codi habitual del domini continua treballant amb `Path`;

@@ -11,6 +11,8 @@ see :mod:`backend.services.llm_wiki_storage`.
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 import re
 import threading
@@ -197,6 +199,8 @@ def _legacy_reference_table_id() -> str:
 
         get_reference_table_id = vault_routes.get_reference_table_id
         return str(get_reference_table_id() or "").strip()
+    except MetadataUnavailable:
+        raise
     except Exception:
         return ""
 
@@ -309,7 +313,9 @@ def load_config() -> Config:
     """Read and normalize the active vault configuration."""
     path = config_path()
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(read_metadata_text(path, encoding="utf-8"))
+    except MetadataUnavailable:
+        raise
     except Exception:
         data = {}
     return normalize_config(data, reference_table_id=_legacy_reference_table_id())
@@ -330,7 +336,9 @@ def migrate_config() -> Config:
     """Persist the normalized v2 representation when the file is still v1."""
     path = config_path()
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(read_metadata_text(path, encoding="utf-8"))
+    except MetadataUnavailable:
+        raise
     except Exception:
         raw = {}
     normalized = normalize_config(raw, reference_table_id=_legacy_reference_table_id())

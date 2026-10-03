@@ -393,6 +393,8 @@ def get_workspace_context(
     auth_uid: Optional[str] = Depends(get_current_user_id),
 ) -> WorkspaceContext:
 
+    from backend.services.vault_warmup import kickoff_critical_warmup
+
     params = load_params(strict_env=False)
     project_root = params.paths.get("PROJECT_DIR")
     default_vault_path = params.paths.get("VAULT")
@@ -414,6 +416,7 @@ def get_workspace_context(
         ws_id = _ensure_personal_exists(db, resolved_user_id, default_vault_path)
         vpath = _resolve_personal_vault(db, ws_id, x_vault_id, default_vault_path)
         active_vault_path.set(vpath)
+        kickoff_critical_warmup(str(vpath))
         return WorkspaceContext(
             workspace_id=ws_id, user_id=resolved_user_id, role="owner", vault_path=vpath
         )
@@ -429,6 +432,7 @@ def get_workspace_context(
     v_path = _organization_vault_path(vault, project_root, x_workspace_id)
 
     active_vault_path.set(v_path)
+    kickoff_critical_warmup(str(v_path))
 
     capabilities = _membership_capabilities(membership)
 

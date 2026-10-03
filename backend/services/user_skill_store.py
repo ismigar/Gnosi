@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, ensure_metadata_local, read_metadata_text
+
 import hashlib
 import json
 import re
@@ -95,7 +97,7 @@ class UserSkillStore:
         if size > maximum:
             raise UserSkillStoreError(f"{path.name} exceeds the size limit")
         try:
-            return path.read_text(encoding="utf-8")
+            return read_metadata_text(path, encoding="utf-8")
         except OSError as exc:
             raise UserSkillStoreError(f"could not read {path.name}: {exc}") from exc
 
@@ -125,6 +127,8 @@ class UserSkillStore:
         ).model_dump(mode="python")
         try:
             descriptor = SkillDescriptor.model_validate(raw)
+        except MetadataUnavailable:
+            raise
         except Exception as exc:
             raise UserSkillStoreError(f"invalid descriptor: {exc}") from exc
         if descriptor.id != package.name:
@@ -165,6 +169,8 @@ class UserSkillStore:
                 try:
                     _normalize_user_id(package.name)
                     skills.append(self._load_package(package))
+                except MetadataUnavailable:
+                    raise
                 except Exception as exc:
                     issues.append({"package": package.name, "error": str(exc)})
             return skills, issues
@@ -197,6 +203,8 @@ class UserSkillStore:
         )
         # SKILL.md is written first; skill.yaml is the package's validity
         # marker and is atomically replaced last.
+        ensure_metadata_local(package / "SKILL.md")
+        ensure_metadata_local(package / "skill.yaml")
         safe_write_text(package / "SKILL.md", descriptor.instructions)
         safe_write_text(
             package / "skill.yaml",

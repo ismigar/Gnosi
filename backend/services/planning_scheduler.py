@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 from collections import defaultdict
 from copy import deepcopy
@@ -43,7 +45,7 @@ def _vault_port() -> VaultPlanningPort:
 
 def _plugins_state(vault_path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads((vault_path / ".gnosi" / "plugins.json").read_text(encoding="utf-8"))
+        payload = json.loads(read_metadata_text(vault_path / ".gnosi" / "plugins.json", encoding="utf-8"))
         return payload if isinstance(payload, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
@@ -81,7 +83,7 @@ def _read_tasks(
         if ".gnosi" in path.parts or ".history" in path.parts:
             continue
         try:
-            metadata, _ = vault.parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            metadata, _ = vault.parse_frontmatter(read_metadata_text(path, encoding="utf-8"), path)
         except OSError:
             continue
         if (
@@ -138,7 +140,7 @@ def _write_automatic_boundaries(
         metadata = deepcopy(source["metadata"])
         metadata[source["field"]] = period
         try:
-            body = source["path"].read_text(encoding="utf-8")
+            body = read_metadata_text(source["path"], encoding="utf-8")
             _, content = vault.parse_frontmatter(body, source["path"])
             vault.save_page_md(source["path"], metadata, content)
         except OSError:

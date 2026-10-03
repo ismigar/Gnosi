@@ -13,6 +13,8 @@ data (not code) allows it to be extended without touching the backend.
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import hashlib
 import io
 import json
@@ -51,7 +53,9 @@ def _load_bundled_catalog() -> List[Dict[str, Any]]:
     if not path.exists():
         return []
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(read_metadata_text(path, encoding="utf-8"))
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         logger.warning("catalog.json il·legible")
         return []

@@ -10,6 +10,8 @@ the vault). The graph reads this canonical queue directly.
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 from backend.services.agent_behavior import task_input
 
 import json
@@ -44,13 +46,15 @@ def _queue_path() -> Path:
 def load_queue() -> List[Dict[str, object]]:
     """Pending suggestions (newest last). Malformed/missing → empty."""
     try:
-        data = json.loads(_queue_path().read_text(encoding="utf-8"))
+        data = json.loads(read_metadata_text(_queue_path(), encoding="utf-8"))
         items = data.get("suggestions") if isinstance(data, dict) else None
         return (
             [s for s in items if isinstance(s, dict) and s.get("id")]
             if isinstance(items, list)
             else []
         )
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return []
 
@@ -174,6 +178,8 @@ def generate_suggestions(
             focus = set(focus_ids)
             parsed = [s for s in parsed if focus & set(iterable_values(s["member_ids"]))]
         return add_suggestions(parsed)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki: suggestion pass skipped: %s", exc)
         return 0
@@ -198,8 +204,10 @@ def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
         path = getattr(p, "path", None)
         if path:
             try:
-                raw = Path(path).read_text(encoding="utf-8")
+                raw = read_metadata_text(Path(path), encoding="utf-8")
                 body = raw.split("---", 2)[2] if raw.startswith("---") else raw
+            except MetadataUnavailable:
+                raise
             except Exception:  # noqa: BLE001
                 body = ""
         fonts = _fonts_ids(meta)
@@ -228,6 +236,8 @@ def _parse_suggestions(
     start, end = cleaned.find("{"), cleaned.rfind("}")
     try:
         data = json.loads(cleaned[start : end + 1] if (start != -1 and end > start) else cleaned)
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         logger.warning("llm_wiki: could not parse suggestions JSON")
         return []

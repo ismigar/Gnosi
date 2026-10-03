@@ -31,3 +31,29 @@ def test_explicit_bulk_warmup_override_wins(monkeypatch) -> None:
 
     monkeypatch.setenv("GNOSI_CRITICAL_WARMUP", "invalid")
     assert not _critical_warmup_enabled(provider)
+
+
+def test_sync_kickoff_returns_without_waiting_and_coalesces(tmp_path, monkeypatch):
+    import asyncio
+    import threading
+    from backend.services import vault_warmup
+    started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+    calls = []
+    async def slow(path):
+        calls.append(path)
+        started.set()
+        await asyncio.to_thread(release.wait, 2)
+        finished.set()
+    monkeypatch.setattr(vault_warmup, '_warm_critical', slow)
+    path = str(tmp_path)
+    try:
+        vault_warmup.kickoff_critical_warmup(path)
+        assert started.wait(1)
+        assert not finished.is_set()
+        vault_warmup.kickoff_critical_warmup(path)
+        assert calls == [path]
+    finally:
+        release.set()
+        assert finished.wait(1)

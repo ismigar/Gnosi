@@ -31,7 +31,7 @@ def _response_language(message: str) -> str:
         return "ca"
     if re.search(
         r"\b(?:je|mes|ressources|trouve|cherche|affiche|auteur|combien|"
-        r"quels|quelles|projets)\b",
+        r"quels|quelles|projets|liste|proprietes|champs)\b",
         text,
     ):
         return "fr"
@@ -387,6 +387,9 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
         }[language]
     if not isinstance(payload, dict) or payload.get("error"):
         return strings["error"]
+    if payload.get("result_kind") == "table_schema":
+        from backend.domains.agent.table_schema import schema_response
+        return schema_response(payload, language)
     records: list[Any] = payload.get("records") or []
     counts: dict[str, Any] = payload.get("counts_by_type") or {}
     match_counts: dict[str, Any] = payload.get("counts_by_match_kind") or {}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes
+
 from typing import Any
 
 from backend.domains.agent.gnosi_dispatch_basic import ActionHandler
@@ -88,7 +90,7 @@ def _prepare_title_updates(
             {
                 "id": row_id,
                 "path": path,
-                "original": path.read_bytes(),
+                "original": read_metadata_bytes(path),
                 **_sidecar_snapshot(path, row_id),
                 "metadata": new_metadata,
                 "body": body,
@@ -105,6 +107,8 @@ def _write_transaction(
         for item in prepared:
             attempted.append(item)
             _write_page(item["path"], item["metadata"], item["body"])
+    except MetadataUnavailable:
+        raise
     except Exception as error:
         rollback_failed = _rollback_page_items(attempted)
         if rollback_failed:
@@ -168,7 +172,7 @@ def _prepare_bulk_updates(updates: list[dict[str, Any]]) -> list[dict[str, Any]]
             {
                 "id": row_id,
                 "path": path,
-                "original": path.read_bytes(),
+                "original": read_metadata_bytes(path),
                 **_sidecar_snapshot(path, row_id),
                 "metadata": new_metadata,
                 "body": body,

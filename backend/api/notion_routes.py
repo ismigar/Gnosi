@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import asyncio as asyncio
 import json as json
 import os as os
@@ -249,6 +251,8 @@ async def set_token(payload: TokenPayload) -> JsonMap:
         raise HTTPException(status_code=400, detail="El token és buit")
     try:
         me = await asyncio.to_thread(NotionClient(token).me)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=400, detail=f"Token invàlid o sense permisos: {exc}"
@@ -297,7 +301,9 @@ async def get_import_config() -> JsonMap:
     if not path.exists():
         return {"config": None}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(read_metadata_text(path, encoding="utf-8"))
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return {"config": None}
     return {"config": data if isinstance(data, dict) else None}
@@ -337,6 +343,8 @@ async def list_databases() -> JsonMap:
         raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         databases = await asyncio.to_thread(NotionClient(token).search_databases)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Error consultant Notion: {exc}") from exc
     return {
@@ -367,6 +375,8 @@ async def database_schema(db_id: str) -> JsonMap:
         raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         database = await asyncio.to_thread(NotionClient(token).get_database, db_id)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Error consultant Notion: {exc}") from exc
     table = map_database_schema(database)
@@ -403,6 +413,8 @@ async def list_linked_databases() -> Dict[str, object]:
         raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         return await asyncio.to_thread(_find_linked_databases, token)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Error consultant Notion: {exc}") from exc
 
@@ -419,6 +431,8 @@ async def list_loose_pages() -> JsonMap:
         raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         pages = await asyncio.to_thread(_collect_loose_pages, token)
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Error consultant Notion: {exc}") from exc
     return {"pages": pages}
@@ -468,6 +482,8 @@ def _touch_clone_heartbeat() -> None:
     _clone_heartbeat_last[0] = now
     try:
         _CLONE_HEARTBEAT_PATH.touch()
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         pass
 
@@ -475,6 +491,8 @@ def _touch_clone_heartbeat() -> None:
 def _clear_clone_heartbeat() -> None:
     try:
         _CLONE_HEARTBEAT_PATH.unlink(missing_ok=True)
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         pass
 
@@ -510,6 +528,8 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: JsonMap) -> No
                     "tables": report.get("tables", 0),
                 },
             )
+        except MetadataUnavailable:
+            raise
         except Exception:  # noqa: BLE001
             pass
 
@@ -591,6 +611,8 @@ def _destination_vault_exists(vault_id: str) -> bool:
             return bool(row and row[0])
         finally:
             database.close()
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return False
 
@@ -667,6 +689,8 @@ async def run_clone(
             ],
             "truncated": False,
         }
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error cloning from Notion: {exc}") from exc
     finally:
@@ -725,6 +749,8 @@ async def verify_clone_route(payload: VerifyPayload) -> JsonMap:
         result = await asyncio.to_thread(
             _run_verify_sync, token, payload.database_ids, payload.target_folder
         )
+    except MetadataUnavailable:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error verificant el clon: {exc}") from exc
     return {"status": "success", **result}

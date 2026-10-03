@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import asyncio
 import json
 import logging
@@ -54,7 +56,7 @@ class PluginStateStore:
                     self._read_cache.move_to_end(path)
                     return deepcopy(cached[1])
                 self._read_cache.pop(path, None)
-                raw = json.loads(path.read_text(encoding="utf-8")) if stamp is not None else {}
+                raw = json.loads(read_metadata_text(path, encoding="utf-8")) if stamp is not None else {}
                 data, changed = self.dependencies.normalize_state(raw)
                 if changed:
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,6 +73,8 @@ class PluginStateStore:
                     while len(self._read_cache) > 16:
                         self._read_cache.popitem(last=False)
                 return data
+            except MetadataUnavailable:
+                raise
             except Exception as exc:
                 self.dependencies.logger.warning(
                     "Could not load plugin state; using core-only defaults: %s",

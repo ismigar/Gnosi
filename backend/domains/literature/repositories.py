@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import json
 import os
 import re
@@ -335,7 +337,7 @@ def load_config(vault_path: Path | str | None = None) -> dict[str, Any]:
     with _CONFIG_LOCK:
         path = _config_path(vault_path)
         try:
-            data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            data = json.loads(read_metadata_text(path, encoding="utf-8")) if path.exists() else {}
         except (OSError, json.JSONDecodeError):
             data = {}
         config = {**default_config(), **(data if isinstance(data, dict) else {})}
@@ -377,6 +379,8 @@ def _credential_value(key: str) -> str:
         return str(os.environ[env_name])
     try:
         return get_keychain().get_credential(key) or ""
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return ""
 
@@ -451,7 +455,7 @@ def _plugins_context(vault_path: Path | str) -> tuple[Path, dict[str, Any]]:
     """Load sandbox plugin state without importing the monolithic API routes."""
     config_dir = Path(vault_path) / ".gnosi"
     try:
-        state = json.loads((config_dir / "plugins.json").read_text(encoding="utf-8"))
+        state = json.loads(read_metadata_text(config_dir / "plugins.json", encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         state = {}
     if not isinstance(state, dict):
@@ -482,7 +486,7 @@ def _plugin_repositories(vault_path: Path | str) -> list[dict[str, Any]]:
             for relative in (manifest.get("contributes") or {}).get("academicRepositories") or []:
                 path = plugin_system.plugin_dir(config_dir, manifest["id"]) / relative
                 try:
-                    descriptor = json.loads(path.read_text(encoding="utf-8"))
+                    descriptor = json.loads(read_metadata_text(path, encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
                     continue
                 if not isinstance(descriptor, dict):
@@ -513,6 +517,8 @@ def _plugin_repositories(vault_path: Path | str) -> list[dict[str, Any]]:
                     }
                 )
         return repositories
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001
         return []
 

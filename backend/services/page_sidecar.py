@@ -12,6 +12,10 @@ The user opens the `.md` in any editor and only sees semantic metadata.
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+
+from backend.utils.metadata_io import ensure_metadata_local
+
 import json
 import os
 from functools import lru_cache
@@ -82,6 +86,8 @@ def _find_vault_root(start: Path) -> Optional[Path]:
     # into `~/.gnosi/page_meta/`.
     try:
         home = Path(os.environ.get("HOME_HOST_PATH") or Path.home()).resolve()
+    except MetadataUnavailable:
+        raise
     except Exception:
         home = None
     while current and current != current.parent:
@@ -118,25 +124,9 @@ def read_sidecar(vault_root: Path, page_id: str) -> Metadata:
     path = sidecar_path_for(vault_root, page_id)
     if not path.exists():
         return {}
-    # Guard against dataless / online-only files on cloud filesystems (OneDrive).
-    # Reading a dataless file synchronously blocks on the File Provider download;
-    # if OneDrive's hydration is broken it raises EDEADLK (errno 11) or hangs the
-    # calling thread indefinitely, which starves the request threadpool and makes
-    # the sidebar spin forever on "loading". A `stat()` is metadata-only and never
-    # blocks: st_blocks == 0 means the content isn't materialized locally, so we
-    # skip it and fall back to defaults (generic icon) instead of hanging. Once
-    # OneDrive materializes the file (st_blocks > 0) it gets read normally again.
-    # Windows does not expose st_blocks; an unknown block count must not
-    # prevent ordinary local metadata reads.
+    ensure_metadata_local(path)
     try:
-        if getattr(os.stat(path), "st_blocks", None) == 0:
-            log.warning(f"Sidecar {path} has no data (online-only or corrupted); ignoring it")
-            return {}
-    except OSError as e:
-        log.warning(f"Could not stat sidecar {path}: {e}")
-        return {}
-    try:
-        with path.open("r", encoding="utf-8") as f:
+        with metadata_path(path).open("r", encoding="utf-8") as f:
             data: object = json.load(f)
         if is_record(data):
             return data
@@ -157,6 +147,7 @@ def write_sidecar(vault_root: Path, page_id: str, sidecar_meta: Metadata) -> Non
     if not vault_root or not page_id:
         return
     path = sidecar_path_for(vault_root, page_id)
+    ensure_metadata_local(path)
     if not sidecar_meta:
         if path.exists():
             try:

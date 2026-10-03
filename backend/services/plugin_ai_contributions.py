@@ -8,6 +8,8 @@ Python is imported into the FastAPI process.
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import inspect
 import json
 import re
@@ -100,9 +102,9 @@ def _read_records(
         path = _safe_contribution_path(config_dir, plugin_id, relative_path)
         try:
             if path.suffix.lower() == ".json":
-                raw = json.loads(path.read_text(encoding="utf-8"))
+                raw = json.loads(read_metadata_text(path, encoding="utf-8"))
             elif path.suffix.lower() in {".yaml", ".yml"}:
-                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                raw = yaml.safe_load(read_metadata_text(path, encoding="utf-8"))
             else:
                 raise plugin_system.PluginError("AI contribution descriptors must be JSON or YAML")
         except (OSError, json.JSONDecodeError, yaml.YAMLError) as exc:
@@ -123,7 +125,7 @@ def _read_records(
                 )
                 if instructions_path.suffix.lower() != ".md":
                     raise plugin_system.PluginError("Skill instructions_file must be Markdown")
-                record["instructions"] = instructions_path.read_text(encoding="utf-8")
+                record["instructions"] = read_metadata_text(instructions_path, encoding="utf-8")
             records.append(record)
     return records
 

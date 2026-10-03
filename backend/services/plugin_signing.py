@@ -19,6 +19,8 @@ Store: `.gnosi/plugins_trust.json` = {"keys": {"<name>": "<pubkey_b64>"}}.
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import base64
 import json
 import threading
@@ -84,6 +86,8 @@ def verify(public_key_b64: str, signature_b64: str, data: bytes) -> bool:
         return True
     except (InvalidSignature, ValueError):
         return False
+    except MetadataUnavailable:
+        raise
     except Exception:  # noqa: BLE001 — unexpected base64/format → invalid
         return False
 
@@ -95,12 +99,14 @@ def load_trust_store(config_dir: Path) -> Dict[str, str]:
     path = _trust_path(config_dir)
     if path.exists():
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(read_metadata_text(path, encoding="utf-8"))
             user_keys = data.get("keys") if isinstance(data, dict) else None
             if isinstance(user_keys, dict):
                 for name, pk in user_keys.items():
                     if isinstance(pk, str):
                         keys[str(name)] = pk
+        except MetadataUnavailable:
+            raise
         except Exception:  # noqa: BLE001
             logger.warning("plugins_trust.json il·legible")
     return keys
@@ -111,6 +117,8 @@ def add_trusted_key(config_dir: Path, name: str, public_key_b64: str) -> None:
     # Validates that it's a valid Ed25519 key before saving it.
     try:
         Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64))
+    except MetadataUnavailable:
+        raise
     except Exception as e:  # noqa: BLE001
         raise ValueError(f"clau pública Ed25519 invàlida: {e}") from e
     with _trust_lock:
@@ -118,9 +126,11 @@ def add_trusted_key(config_dir: Path, name: str, public_key_b64: str) -> None:
         data: dict[str, Any] = {"keys": {}}
         if path.exists():
             try:
-                loaded: object = json.loads(path.read_text(encoding="utf-8"))
+                loaded: object = json.loads(read_metadata_text(path, encoding="utf-8"))
                 if isinstance(loaded, dict):
                     data = {str(key): value for key, value in loaded.items()}
+            except MetadataUnavailable:
+                raise
             except Exception:  # noqa: BLE001
                 data = {"keys": {}}
         raw_keys = data.get("keys")
@@ -137,7 +147,9 @@ def remove_trusted_key(config_dir: Path, name: str) -> None:
         if not path.exists():
             return
         try:
-            data = json.loads(path.read_text(encoding="utf-8")) or {"keys": {}}
+            data = json.loads(read_metadata_text(path, encoding="utf-8")) or {"keys": {}}
+        except MetadataUnavailable:
+            raise
         except Exception:  # noqa: BLE001
             return
         if isinstance(data.get("keys"), dict):

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import hashlib
 import importlib
 import json
@@ -77,7 +81,7 @@ class _JournalLock(AbstractContextManager["_JournalLock"]):
 
     def __enter__(self) -> _JournalLock:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        handle = self.path.open("a+", encoding="utf-8")
+        handle = metadata_path(self.path).open("a+", encoding="utf-8")
         self.handle = handle
         try:
             if os.name == "nt":
@@ -129,7 +133,7 @@ def _is_sqlite(path: Path) -> bool:
     if not path.is_file() or path.is_symlink():
         return False
     try:
-        with path.open("rb") as handle:
+        with metadata_path(path).open("rb") as handle:
             return handle.read(len(SQLITE_HEADER)) == SQLITE_HEADER
     except OSError:
         return False
@@ -180,7 +184,7 @@ def verify_sqlite_databases(root: Path, *, checkpoint: bool) -> list[dict[str, A
 
 def _hash_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
+    with metadata_path(path).open("rb") as handle:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
@@ -315,7 +319,7 @@ def _new_journal(source: Path, destination: Path, method: str) -> dict[str, Any]
 
 def _load_journal(journal_file: Path) -> dict[str, Any]:
     """Load one journal and reject non-object JSON before field access."""
-    loaded: object = json.loads(journal_file.read_text(encoding="utf-8"))
+    loaded: object = json.loads(read_metadata_text(journal_file, encoding="utf-8"))
     if not isinstance(loaded, dict):
         raise DataMigrationError(f"Migration journal is not an object: {journal_file}")
     return {str(key): value for key, value in loaded.items()}
@@ -523,6 +527,8 @@ def migrate_data_dir(
                 hashes=hashes,
             )
             return journal
+        except MetadataUnavailable:
+            raise
         except Exception as exc:
             _record_migration_failure(
                 journal_file,

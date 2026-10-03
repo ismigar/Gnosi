@@ -1,3 +1,5 @@
+
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path
 import asyncio
 import json
 import logging
@@ -48,9 +50,11 @@ def _read_identity() -> dict[str, Any]:
         return IdentityProfile().model_dump()
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(metadata_path(path), "r", encoding="utf-8") as f:
             payload = json.load(f)
         return IdentityReadResponse.model_validate(payload).model_dump(exclude_unset=True)
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         log.error(f"Error reading identity: {e}")
         return IdentityProfile().model_dump()
@@ -70,6 +74,8 @@ async def save_identity(
         # truncated and would lose the original data.
         safe_write_json(path, profile.model_dump(), indent=2, ensure_ascii=False)
         return IdentitySaveResponse(status="success").model_dump()
+    except MetadataUnavailable:
+        raise
     except Exception as e:
         log.error(f"Error saving identity: {e}")
         raise HTTPException(

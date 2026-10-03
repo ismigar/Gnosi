@@ -103,15 +103,16 @@ def test_online_only_sidecar_is_not_opened(
     from backend.services import page_sidecar
 
     write_sidecar(vault, "online", {"title_manual": True})
-    monkeypatch.setattr(page_sidecar, "os", SimpleNamespace(
-        stat=lambda _path: SimpleNamespace(st_blocks=0),
-    ))
+    from backend.utils.metadata_io import MetadataUnavailable
 
-    def unexpected_open(*_args, **_kwargs):
-        pytest.fail("Reading an online-only sidecar could block on hydration")
+    def unavailable(_path):
+        raise MetadataUnavailable("Cloud metadata download failed; retry later")
 
-    monkeypatch.setattr(Path, "open", unexpected_open)
-    assert read_sidecar(vault, "online") == {}
+    monkeypatch.setattr(page_sidecar, "ensure_metadata_local", unavailable)
+    with pytest.raises(MetadataUnavailable):
+        read_sidecar(vault, "online")
+    # An unavailable file remains present and unchanged, never defaults.
+    assert sidecar_path_for(vault, "online").read_text().find('true') >= 0
 
 
 def test_write_empty_dict_removes_file(vault: Path):

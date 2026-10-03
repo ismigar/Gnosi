@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, metadata_path
+
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_text
+
 import hashlib
 import importlib
 import json
@@ -52,7 +56,7 @@ def data_dir_for_database(path: Path) -> Path:
 
 
 def _load_fingerprints() -> dict[str, Any]:
-    payload = json.loads(FINGERPRINTS_PATH.read_text(encoding="utf-8"))
+    payload = json.loads(read_metadata_text(FINGERPRINTS_PATH, encoding="utf-8"))
     if payload.get("format") != "gnosi-schema-fingerprints-v1":
         raise SchemaMigrationError("Unsupported Gnosi schema fingerprint manifest.")
     families = payload.get("families")
@@ -156,7 +160,7 @@ def _checkpoint(path: Path) -> None:
 
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
+    with metadata_path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
@@ -175,7 +179,7 @@ def _row_counts(path: Path) -> dict[str, int]:
 def _database_lock(path: Path) -> Iterator[None]:
     lock_path = path.with_name(f".{path.name}.gnosi-migration.lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    handle = lock_path.open("a+b")
+    handle = metadata_path(lock_path).open("a+b")
     try:
         if os.name == "nt":
             msvcrt: Any = importlib.import_module("msvcrt")
@@ -273,7 +277,7 @@ def _database_label(path: Path, data_dir: Path) -> str:
 def _append_report(data_dir: Path, record: dict[str, Any]) -> None:
     report_path = data_dir / "backups" / "schema-migrations" / "migration-report.jsonl"
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    with report_path.open("a", encoding="utf-8") as handle:
+    with metadata_path(report_path).open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
     os.chmod(report_path, 0o600)
 

@@ -1314,3 +1314,5 @@ El control de despesa del mes actual utilitza el mateix registre i suma tots els
 Els filtres d’igualtat entre cometes preserven el títol literal del recurs en català, castellà, anglès i francès, incloent `donde` i `où`. Les assignacions explícites com `set estat to "En revisió"` o `définis estat sur "En revisió"` utilitzen l’inventari complet verificat i requereixen confirmació abans d’escriure. Les ordres negades o explicatives no autoritzen actualitzacions. Aquests fluxos deterministes no acrediten la idoneïtat del model.
 
 Una petició explícita de no utilitzar eines s’aplica al torn actual en català, castellà, anglès i francès. Elimina lectures obligatòries de context, eines d’escriptura autoritzades i ajuda d’equip del pla efectiu i de les eines del model, també als perfils dirigits. El material citat no imposa aquesta restricció. Les respostes del model encara necessiten una revisió factual independent.
+
+Les peticions per llistar les propietats o els camps d’una taula consulten el seu esquema autoritzat, amb tipus, opcions i relacions, sense buscar registres. També funcionen amb taules buides.

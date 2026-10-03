@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes, read_metadata_text
+
 import hashlib
 import io
 import json
@@ -450,6 +452,8 @@ def install_package(
         )
         stage.replace(final)
         return manifest, final
+    except MetadataUnavailable:
+        raise
     except Exception:
         shutil.rmtree(stage, ignore_errors=True)
         raise
@@ -478,7 +482,7 @@ def _secret_findings(path: Path, relative: str) -> List[Dict[str, str]]:
     try:
         if path.stat().st_size > 1024 * 1024:
             return []
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = read_metadata_text(path, encoding="utf-8", errors="replace")
     except OSError:
         return []
     findings = []
@@ -542,7 +546,7 @@ def build_package(
     file_payloads = []
     for item in preview["included"]:
         relative = _safe_payload_path(item["path"])
-        payload = (root / relative).read_bytes()
+        payload = read_metadata_bytes(root / relative)
         inventory.append(
             {
                 "path": relative,

@@ -8,6 +8,8 @@ For Docker/Linux: Falls back to encrypted file storage.
 Credentials are stored with the prefix "gnosi_" to avoid collisions.
 """
 
+from backend.utils.metadata_io import MetadataUnavailable, read_metadata_bytes, read_metadata_text
+
 import os
 import sys
 import subprocess
@@ -85,6 +87,8 @@ class KeychainManager:
                 # and masked real errors (locked Keychain, etc.).
                 return self._macos_update(key, value)
             return True
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             log.error(f"Failed to save to Keychain: {e}")
             return False
@@ -117,6 +121,8 @@ class KeychainManager:
                 )
                 return False
             return True
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             log.error(f"Failed to update Keychain: {e}")
             return False
@@ -140,6 +146,8 @@ class KeychainManager:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             log.warning(f"Failed to get from Keychain: {e}")
         return None
@@ -158,6 +166,8 @@ class KeychainManager:
             ]
             subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             return True
+        except MetadataUnavailable:
+            raise
         except Exception:
             return True
 
@@ -171,6 +181,8 @@ class KeychainManager:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             lines = result.stdout.split("\n")
             return [line.strip() for line in lines if "acct" in line.lower()]
+        except MetadataUnavailable:
+            raise
         except Exception:
             return []
 
@@ -180,7 +192,7 @@ class KeychainManager:
         """Get credential from Docker secrets."""
         secret_path = DOCKER_SECRETS_DIR / f"{SERVICE_PREFIX}_{key}"
         if secret_path.exists():
-            return secret_path.read_text().strip()
+            return read_metadata_text(secret_path).strip()
         return None
 
     def _docker_save(self, key: str, value: str) -> bool:
@@ -204,6 +216,8 @@ class KeychainManager:
 
             keyring.set_password(self.service_name, self._get_key_name(key), value)
             return True
+        except MetadataUnavailable:
+            raise
         except Exception as exc:
             log.info("System credential store unavailable; using encrypted fallback: %s", exc)
             return False
@@ -215,6 +229,8 @@ class KeychainManager:
             import keyring
 
             return keyring.get_password(self.service_name, self._get_key_name(key))
+        except MetadataUnavailable:
+            raise
         except Exception:
             return None
 
@@ -226,6 +242,8 @@ class KeychainManager:
 
             keyring.delete_password(self.service_name, self._get_key_name(key))
             return True
+        except MetadataUnavailable:
+            raise
         except Exception:
             return False
 
@@ -266,7 +284,7 @@ class KeychainManager:
 
             safe_write_bytes(key_path, Fernet.generate_key())
             self._protect_file(key_path)
-        key = key_path.read_bytes().strip()
+        key = read_metadata_bytes(key_path).strip()
         self._protect_file(key_path)
         return Fernet(key)
 
@@ -275,7 +293,7 @@ class KeychainManager:
         legacy_path = self._legacy_fallback_path()
         if not legacy_path.exists() or legacy_path == self._get_fallback_path():
             return {}
-        content = legacy_path.read_bytes()
+        content = read_metadata_bytes(legacy_path)
         master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
         if master_key:
             import hashlib
@@ -286,11 +304,15 @@ class KeychainManager:
                 decoded = json.loads(cipher.decrypt(content))
                 if isinstance(decoded, dict):
                     return {str(key): str(value) for key, value in decoded.items()}
+            except MetadataUnavailable:
+                raise
             except Exception:
                 pass
         try:
             data = json.loads(content)
             return data if isinstance(data, dict) else {}
+        except MetadataUnavailable:
+            raise
         except Exception:
             return {}
 
@@ -301,7 +323,7 @@ class KeychainManager:
         from cryptography.fernet import InvalidToken
 
         try:
-            data = json.loads(self._fallback_cipher().decrypt(storage_path.read_bytes()))
+            data = json.loads(self._fallback_cipher().decrypt(read_metadata_bytes(storage_path)))
         except InvalidToken as exc:
             raise RuntimeError(
                 f"Encrypted credential file cannot be decrypted: {storage_path}"
@@ -325,6 +347,8 @@ class KeychainManager:
             data[key] = value
             self._write_file_data(data)
             return True
+        except MetadataUnavailable:
+            raise
         except Exception as e:
             log.error(f"Failed to save to file: {e}")
             return False
@@ -333,6 +357,8 @@ class KeychainManager:
         """Get credential from encrypted file (fallback)."""
         try:
             return self._read_file_data().get(key)
+        except MetadataUnavailable:
+            raise
         except Exception as exc:
             log.error("Failed to read encrypted credential fallback: %s", exc)
             return None
@@ -348,6 +374,8 @@ class KeychainManager:
             data.pop(key, None)
             self._write_file_data(data)
             return True
+        except MetadataUnavailable:
+            raise
         except Exception as exc:
             log.error("Failed to delete encrypted fallback credential: %s", exc)
             return False
@@ -431,6 +459,8 @@ class KeychainManager:
             for key in self._read_file_data():
                 if key not in keys:
                     keys.append(key)
+        except MetadataUnavailable:
+            raise
         except Exception:
             pass
 

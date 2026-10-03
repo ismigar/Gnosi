@@ -145,6 +145,9 @@ def _warm_vault_indexes() -> None:
         vault_path = load_current_params(strict_env=False).paths.get("VAULT")
         if not vault_path:
             return
+        from backend.services.vault_warmup import kickoff_critical_warmup
+
+        kickoff_critical_warmup(str(vault_path))
         loaded = preload_page_index_from_disk(Path(vault_path))
         if loaded:
             log.info("⚡ Sync page-index preload completed for %s", vault_path)
@@ -158,9 +161,6 @@ def _warm_vault_indexes() -> None:
         kickoff_link_index_rebuild()
         log.info("🔗 Link-index rebuild kickstarted at lifespan startup")
 
-        from backend.services.vault_warmup import kickoff_critical_warmup
-
-        kickoff_critical_warmup(str(vault_path))
         log.info("☁️ Critical-vault warmup kicked off for %s", vault_path)
     except Exception as error:
         log.warning("⚠️ Could not launch indexer warmup: %s", error)
@@ -329,7 +329,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     durable_job_worker.start()
     confirmation_task = asyncio.create_task(_confirmation_maintenance_loop())
 
-    plugin_state = vault_routes._load_plugins_state()
+    plugin_state = await asyncio.to_thread(vault_routes._load_plugins_state)
     ai_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "ai-platform")
     _reconcile_plugin_contributions(plugin_state, ai_platform_enabled=ai_enabled)
 
