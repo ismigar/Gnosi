@@ -92,9 +92,11 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "simulate reading or saving other chunks within this response. Use remember, search "
                 "and recall to preserve global understanding across steps. The next original is delivered "
                 "automatically after saving a plan; analyze that last_result directly. Every save_plan "
-                "must include plan.memory: an updated global synthesis, retaining prior arguments, "
-                "qualifications, contradictions and cross-chunk references. Do not replace it with "
-                "only the current fragment's summary."
+                "must update global memory, retaining prior arguments, qualifications, contradictions "
+                "and cross-chunk references. Prefer plan.memory_updates with exact old/new edits; "
+                "empty old appends new and all untouched memory is retained. Use plan.memory only "
+                "when rewriting the complete synthesis is necessary. Never replace global memory "
+                "with only the current fragment's summary."
             ),
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
             "state_contract": (
@@ -104,13 +106,6 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "which may describe an earlier step. last_action identifies the operation that produced last_result."
             ),
             "last_result": state["last_result"], "dimensions": reader.dimensions,
-            "available_actions": {
-                "index": {"offset": "integer", "limit": "integer, maximum 100"},
-                "read": {"chunk_id": "string"}, "search": {"query": "string", "offset": "integer"},
-                "remember": {"text": "string"},
-                "save_plan": {"chunk_id": "string", "plan": "notes, coverage, warnings, reviewed"},
-                "recall": {"chunk_id": "string"}, "finish": {"summary": "string"},
-            },
         }
         # Keep a small current window; the index action exposes any other range.
         keys = list(chunks)
@@ -154,6 +149,11 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
 
 def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], answer: dict[str, object]) -> None:
     import jsonschema
+    if answer.get("action") == "save_plan":
+        arguments = answer.get("arguments")
+        plan = arguments.get("plan") if isinstance(arguments, dict) else None
+        if isinstance(plan, dict) and not any(key in plan for key in ("memory", "memory_updates")):
+            raise ValueError("global_memory_required: provide memory or memory_updates")
     output_schema, argument_schemas = action_schemas(reader.dimensions)
     try:
         jsonschema.validate(answer, output_schema)
@@ -211,9 +211,8 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         plan = args["plan"]
         if not isinstance(plan, dict) or "requests" in plan:
             raise ValueError("plan_required")
-        plan_memory = plan.get("memory")
-        if not isinstance(plan_memory, str) or not plan_memory.strip():
-            raise ValueError("global_memory_required: include the updated book-wide synthesis in plan.memory")
+        from backend.domains.llm_wiki.reading_memory import update_memory
+        plan_memory = update_memory(state["memory"], plan)
         if deps.count_tokens(plan_memory) > reader.budget // 8:
             raise ValueError("memory_budget_exceeded")
         evidence = [segment for chunk_id in state["read"] for segment in records(chunks[chunk_id].get("segments"))]

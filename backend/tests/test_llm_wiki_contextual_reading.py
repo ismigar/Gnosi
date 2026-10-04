@@ -653,3 +653,85 @@ def test_legacy_memory_uses_global_budget_and_reports_token_units():
     assert restore_memory(reader, {"chunk": {"notes": [], "coverage": []}}) == summary
     assert calls[-1]["summary_max_tokens"] == reader.budget // 8
     assert "summary_max_utf8_bytes" not in calls[-1]
+
+
+def test_targeted_memory_updates_preserve_global_context_across_191_plans_and_resume():
+    """One plan per passage; resume never regenerates the saved first 166 plans."""
+    delivered, repeated_memory_bytes, edit_bytes = [], [], []
+
+    def generate(request):
+        if request['saved_plan_count'] == request['source_count']:
+            assert 'Link0.' in request['memory'] and 'Link190.' in request['memory']
+            return {'action': 'finish', 'arguments': {'summary': 'Reviewed all originals'}}
+        chunk = request['last_result']
+        delivered.append(chunk['id'])
+        plan = note_answer({'primary_segments': chunk['segments']})
+        plan.pop('memory')
+        addition = f"Link{request['saved_plan_count']}."
+        plan['memory_updates'] = [{'old': '', 'new': addition}]
+        plan['reviewed'] = True
+        repeated_memory_bytes.append(len(encoded({'memory': request['memory'] + '\n' + addition})))
+        edit_bytes.append(len(encoded({'memory_updates': plan['memory_updates']})))
+        return {'action': 'save_plan', 'arguments': {'chunk_id': chunk['id'], 'plan': plan}}
+
+    reader, calls, checkpoints = setup_reader(generate=generate)
+    reader.dependencies.agent_directed = True
+    reader.dependencies.max_action_steps = 166
+    reader.origins = [finalize_origin({'kind': 'text', 'label': 'Long book', 'input_order': 0,
+        'segments': [{'text': f'Argument {i}: ' + 'Original evidence. ' * 100,
+                      'locator': {'section': f'Chapter {i}'}} for i in range(191)]})]
+    reader.chunks = reading_chunks(reader.origins, budget=4096, count=token_bound)
+    assert len(reader.chunks) == 191
+    with pytest.raises(RuntimeError, match='resume_required'):
+        reader.run()
+    original = deepcopy(checkpoints[('current', 'agent-state')]['plans'])
+    assert len(original) == 166
+    delivered.clear()
+    reader.resume_job_id, reader.job_id = 'current', 'resumed'
+    reader.dependencies.max_action_steps = 64
+    result, _ = reader.run()
+    state = checkpoints[('resumed', 'agent-state')]
+    assert delivered == [chunk['id'] for chunk in reader.chunks[166:]]
+    assert len(calls) == 192  # 191 validated plans and finalization, across both runs.
+    assert len(result['notes']) == 191 and result['reviewed']
+    assert all(state['plans'][key] == plan for key, plan in original.items())
+    assert all(f'Link{i}.' in state['memory'] for i in range(191))
+    assert sum(edit_bytes) < sum(repeated_memory_bytes) // 5
+    assert all('available_actions' not in request for request in calls)
+    assert all(token_bound(encoded(request)) <= reader.budget for request in calls)
+
+
+@pytest.mark.parametrize('updates', [
+    [{'old': 'missing', 'new': 'change'}],
+    [{'old': 'claim', 'new': 'change'}],
+    [{'old': '', 'new': ''}],
+    [{'old': '', 'new': 'addition'}, {'old': 'missing', 'new': 'change'}],
+])
+def test_invalid_memory_edits_cannot_change_existing_memory_or_save_a_plan(updates):
+    from backend.domains.llm_wiki.directed_reading import _apply_action
+    reader, _, _ = setup_reader()
+    key = reader.chunks[0]['id']
+    state = {'read': [key], 'plans': {}, 'memory': 'claim and claim', 'step': 0}
+    plan = note_answer({'primary_segments': reader.chunks[0]['segments']})
+    plan.pop('memory')
+    plan['memory_updates'] = updates
+    with pytest.raises(ValueError):
+        _apply_action(reader, state, {key: reader.chunks[0]}, 'save_plan', {'chunk_id': key, 'plan': plan})
+    assert state['memory'] == 'claim and claim' and state['plans'] == {}
+
+
+def test_exact_memory_edits_reconcile_a_claim_and_retain_unmentioned_qualifications():
+    from backend.domains.llm_wiki.reading_memory import update_memory
+    current = 'Opening: claim. Qualification: disputed. Evidence: chunk-1.'
+    assert update_memory(current, {'memory_updates': [
+        {'old': 'Opening: claim.', 'new': 'Opening: revised claim.'},
+        {'old': '', 'new': 'Conclusion: resolves the dispute; chunk-2.'},
+    ]}) == 'Opening: revised claim. Qualification: disputed. Evidence: chunk-1.\nConclusion: resolves the dispute; chunk-2.'
+    with pytest.raises(ValueError, match='either'):
+        update_memory(current, {'memory': 'rewrite', 'memory_updates': [{'old': '', 'new': 'addition'}]})
+
+
+def test_memory_edit_rejects_overlapping_ambiguous_anchors():
+    from backend.domains.llm_wiki.reading_memory import update_memory
+    with pytest.raises(ValueError, match='exactly once'):
+        update_memory('aaa', {'memory_updates': [{'old': 'aa', 'new': 'b'}]})

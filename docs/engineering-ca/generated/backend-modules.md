@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `application root` | 2 | 55 |
 | `config` | 13 | 1355 |
 | `data` | 2 | 214 |
-| `domains` | 493 | 103999 |
+| `domains` | 493 | 104036 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -28,7 +28,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **914 modules** and **182217 source lines**.
+Total: **914 modules** and **182254 source lines**.
 
 ## agent
 
@@ -343,7 +343,7 @@ Total: **914 modules** and **182217 source lines**.
 | [`backend/domains/llm_wiki/chunking.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/chunking.py) | 134 | 0 | 7 | 0 | 0 | Structure-aware, bounded primary chunks with separately labelled neighbours. |
 | [`backend/domains/llm_wiki/contextual_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/contextual_reading.py) | 387 | 1 | 1 | 0 | 0 | Bounded execution of the process-source skill, with durable phase checkpoints. |
 | [`backend/domains/llm_wiki/dimensions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/dimensions.py) | 214 | 1 | 7 | 0 | 5 | Typed LLM Wiki dimension mapping and option normalization. |
-| [`backend/domains/llm_wiki/directed_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/directed_reading.py) | 227 | 0 | 4 | 0 | 0 | Durable JSON actions over immutable source passages and validated draft notes. |
+| [`backend/domains/llm_wiki/directed_reading.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/directed_reading.py) | 226 | 0 | 4 | 0 | 0 | Durable JSON actions over immutable source passages and validated draft notes. |
 | [`backend/domains/llm_wiki/documents.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/documents.py) | 412 | 4 | 13 | 0 | 12 | Document and media adapters for LLM Wiki source extraction. |
 | [`backend/domains/llm_wiki/field_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/field_assignments.py) | 69 | 0 | 3 | 0 | 2 | Writable reading-note fields and deterministic value conversion. |
 | [`backend/domains/llm_wiki/field_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/field_catalogs.py) | 56 | 0 | 2 | 0 | 1 | Localized option catalogs and semantic values for generated Brain notes. |
@@ -355,9 +355,9 @@ Total: **914 modules** and **182217 source lines**.
 | [`backend/domains/llm_wiki/options.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/options.py) | 24 | 0 | 1 | 0 | 1 | Existing categorical values shared by Knowledge settings and processing. |
 | [`backend/domains/llm_wiki/origins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/origins.py) | 161 | 0 | 5 | 0 | 4 | Stable origin identity, deduplication, and LLM chunking. |
 | [`backend/domains/llm_wiki/planning.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/planning.py) | 239 | 0 | 8 | 0 | 4 | Typed planning and grounding rules for LLM Wiki ingestion. |
-| [`backend/domains/llm_wiki/reading_action_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_action_contracts.py) | 92 | 0 | 4 | 0 | 3 | Typed action payloads; source identity, coverage and citations are checked locally. |
+| [`backend/domains/llm_wiki/reading_action_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_action_contracts.py) | 98 | 0 | 4 | 0 | 3 | Typed action payloads; source identity, coverage and citations are checked locally. |
 | [`backend/domains/llm_wiki/reading_contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_contracts.py) | 102 | 1 | 4 | 0 | 1 | Deterministic evidence and coverage gates for skill-generated reading plans. |
-| [`backend/domains/llm_wiki/reading_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_memory.py) | 24 | 0 | 1 | 0 | 0 | Reconstruct global reading memory from all plans in a legacy checkpoint. |
+| [`backend/domains/llm_wiki/reading_memory.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_memory.py) | 56 | 0 | 2 | 0 | 1 | Reconstruct global reading memory from all plans in a legacy checkpoint. |
 | [`backend/domains/llm_wiki/reading_repairs.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_repairs.py) | 108 | 0 | 5 | 0 | 0 | Repair rejected references without asking a model to rewrite valid notes. |
 | [`backend/domains/llm_wiki/reading_skill.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/reading_skill.py) | 31 | 0 | 0 | 0 | 0 | The process-source skill's shared, versioned reading methodology. |
 | [`backend/domains/llm_wiki/recovery.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/llm_wiki/recovery.py) | 128 | 0 | 4 | 0 | 2 | Bounded retries for one Brain planning call, without provider switching. |

@@ -17,9 +17,15 @@ NOTE = {
                    "citations": {"type": "array", "minItems": 1, "items": CITATION}},
 }
 PLAN = {
-    "type": "object", "required": ["notes", "coverage", "memory"],
+    "type": "object", "required": ["notes", "coverage"],
+    "anyOf": [{"required": ["memory"]}, {"required": ["memory_updates"]}],
     "properties": {
         "memory": {**TEXT, "description": "Updated global reading memory: retain the book's argument, qualifications, contradictions and links to earlier chunk ids, incorporating this plan."},
+        "memory_updates": {
+            "type": "array", "minItems": 1, "maxItems": 16,
+            "description": "Prefer targeted changes to the supplied global memory. old must match exactly once; empty old appends new. Unchanged memory is retained locally. Include new arguments, qualifications and cross-chunk links.",
+            "items": _object({"old": {"type": "string"}, "new": {"type": "string"}}, ["old", "new"]),
+        },
         "notes": {"type": "array", "items": NOTE},
         "coverage": {"type": "array", "items": _object({"segment_id": TEXT, "reason": TEXT}, ["segment_id", "reason"])},
         "warnings": {"type": "array", "items": {"type": "string"}},
