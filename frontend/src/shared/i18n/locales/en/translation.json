@@ -6678,6 +6678,7 @@
       "evidence": "View reasoning and evidence",
       "requirements": "Requirements and detailed calculation",
       "configured_providers": "My configured providers",
+      "configured_providers_help": "Enabled providers with credentials and an activated model or a verified connection. A saved key awaiting verification is not sufficient. To set up a new provider, select it in the filter or show all providers.",
       "skills_loading": "Loading bot skills before recommending and assigning a model…",
       "skills_error": "Bot skills could not be loaded. Reopen AI settings before assigning a model.",
       "bot_recommendations": "Models for the bot’s responsibilities",

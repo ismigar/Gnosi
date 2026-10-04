@@ -5571,6 +5571,7 @@
       "evidence": "Veure el motiu i les evidències",
       "requirements": "Requisits i càlcul detallat",
       "configured_providers": "Els meus proveïdors configurats",
+      "configured_providers_help": "Proveïdors actius amb credencials i un model activat o una connexió comprovada. Una clau desada pendent de comprovar no és suficient. Per configurar-ne un de nou, tria’l al filtre o mostra tots els proveïdors.",
       "skills_loading": "Carregant les habilitats del bot abans de recomanar i assignar un model…",
       "skills_error": "No s’han pogut carregar les habilitats. Torna a obrir els ajustos d’IA abans d’assignar un model.",
       "bot_recommendations": "Models per a les funcions del bot",

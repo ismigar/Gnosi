@@ -30,6 +30,7 @@ import { ModelComparisonToolbar } from './ModelComparisonToolbar';
 import { useModelComparisonData } from './useModelComparisonData';
 import { useModelComparisonLayout } from './useModelComparisonLayout';
 import { comparisonRouteKey } from './model-comparison/modelComparisonRegistry';
+import { configuredModelOffers } from './model-comparison/configuredModelOffers';
 
 
 export interface AIModelComparisonModalProps {
@@ -120,12 +121,8 @@ export function AIModelComparisonModal({
         data.registry.models,
         ui,
     ), [data.feed, data.registry.models, ui]);
-    const configuredProviders = new Set(data.registry.models.filter(row => row.enabled).map(row => row.provider));
-    for (const [id, provider] of Object.entries(controller.providersById)) {
-        if (provider.has_api_key || provider.connected) configuredProviders.add(id);
-    }
-    const taskModels = (data.feed?.models ?? []).map(model => ({ ...model, routes: model.routes.filter(route =>
-        offerProvider === 'all' || (offerProvider === 'configured' ? configuredProviders.has(route.provider) : route.provider === offerProvider)) }));
+    const taskModels = configuredModelOffers(data.feed?.models ?? [], Object.values(controller.providersById),
+        data.registry.models, offerProvider);
     const beginActivation = (model: AiModelComparisonEntry, provider?: string) => {
         controller.beginActivation(model, provider);
         bodyRef.current?.scrollTo({ top: 0 });
@@ -237,6 +234,7 @@ export function AIModelComparisonModal({
                                         {providerOptions.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
                                     </select>
                                 </label>
+                                {offerProvider === 'configured' && <p className="settings-desc">{t('model_comparison.workspace.configured_providers_help')}</p>}
                                 <ModelTaskRecommendations key={bot?.id ?? 'general'} profile="all" initialTask={demand.tasks[0]} botDemand={bot ? demand : undefined} provider={offerProvider === 'configured' ? 'all' : offerProvider}
                                     initialDraft={taskDrafts[draftKey]} onDraftChange={rememberDraft}
                                     models={taskModels} feed={data.feed} revision={evidenceRevision} registry={data.registry.models}

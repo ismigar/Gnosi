@@ -5571,6 +5571,7 @@
       "evidence": "Voir le motif et les preuves",
       "requirements": "Exigences et calcul détaillé",
       "configured_providers": "Mes fournisseurs configurés",
+      "configured_providers_help": "Fournisseurs actifs avec des identifiants et un modèle activé ou une connexion vérifiée. Une clé enregistrée en attente de vérification ne suffit pas. Pour configurer un nouveau fournisseur, sélectionnez-le dans le filtre ou affichez tous les fournisseurs.",
       "skills_loading": "Chargement des compétences du bot avant de recommander et attribuer un modèle…",
       "skills_error": "Impossible de charger les compétences. Rouvrez les paramètres IA avant d’attribuer un modèle.",
       "bot_recommendations": "Modèles pour les responsabilités du bot",

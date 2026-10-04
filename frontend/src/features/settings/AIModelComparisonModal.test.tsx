@@ -165,6 +165,32 @@ function openCatalogue() {
 }
 
 describe('AIModelComparisonModal', () => {
+    it('keeps recommendations and activation on the configured provider instead of cheaper unfinished credentials', async () => {
+        const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+        const base = FEED.models[0];
+        const originalRoute = base?.routes[0];
+        if (!base || !originalRoute) throw new Error('Missing comparison fixture');
+        const full = { ...base, routes: [{ ...originalRoute, input_modes: ['text'], output_modes: ['text'] },
+            { ...originalRoute, provider: 'pareto', provider_name: 'Pareto', cost_in: .01, cost_out: .01, input_modes: ['text'], output_modes: ['text'] }] };
+        mocks.useData.mockReturnValue({ ...data, providersById: {
+            openai: { ...data.providersById.openai, id: 'openai', enabled: true, has_api_key: true, connected: true, validated_models: [] },
+            pareto: { id: 'pareto', enabled: true, has_api_key: true, connected: true, validated_models: [] },
+        }, state: { ...data.state, feed: { ...FEED, models: [full, { ...base, id: 'baseline', intelligence: 10, routes: [] }] } } });
+        await act(async () => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); await Promise.resolve(); });
+        const choices = [...document.body.querySelectorAll('.model-task-choice')];
+        expect(document.body.textContent).toContain('model_comparison.workspace.configured_providers_help');
+        expect(choices.map(choice => choice.textContent).join(' ')).not.toContain('Pareto');
+        expect(document.body.querySelector('.model-task-choice')?.textContent).toContain('OpenAI');
+        const configure = document.body.querySelector<HTMLButtonElement>('.model-task-choice button');
+        expect(configure).not.toBeNull();
+        act(() => { configure?.click(); });
+        expect(mocks.beginActivation).toHaveBeenCalledWith(expect.objectContaining({ routes: [full.routes[0]] }), 'openai');
+        const filter = document.body.querySelector<HTMLSelectElement>('.model-bot-provider select');
+        if (!filter) throw new Error('Missing provider selector');
+        act(() => { filter.value = 'all'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
+        expect(document.body.querySelector('.model-task-choice')?.textContent).toContain('Pareto');
+    });
+
     it('exposes parameter filters and explicit mode matching', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();

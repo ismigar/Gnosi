@@ -162,18 +162,18 @@ afterEach(() => {
 
 
 function openCatalogue() {
-    act(() => { container.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(2)')?.click(); });
+    act(() => { document.body.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(2)')?.click(); });
 }
 
 describe('comparison audit interface regressions', () => {
     it('announces the active sort column and direction as it changes', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-        const button = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.input_price"]');
+        const button = document.body.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.input_price"]');
         expect(button).not.toBeNull();
         act(() => { button?.click(); });
         expect(button?.closest('th')?.getAttribute('aria-sort')).toBe('ascending');
-        expect(container.querySelectorAll('th[aria-sort]')).toHaveLength(1);
+        expect(document.body.querySelectorAll('th[aria-sort]')).toHaveLength(1);
         act(() => { button?.click(); });
         expect(button?.closest('th')?.getAttribute('aria-sort')).toBe('descending');
     });
@@ -181,12 +181,12 @@ describe('comparison audit interface regressions', () => {
     it('updates the result count when filters exclude all models', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-        expect(container.textContent).toContain('Results: 1');
-        const filter = container.querySelector<HTMLSelectElement>('.model-parameter-filters select');
+        expect(document.body.textContent).toContain('Results: 1');
+        const filter = document.body.querySelector<HTMLSelectElement>('.model-parameter-filters select');
         if (!filter) throw new Error('Missing parameter filter');
         act(() => { filter.value = 'known'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
-        expect(container.textContent).toContain('Results: 0');
-        expect(container.textContent).toContain('model_comparison.no_results');
+        expect(document.body.textContent).toContain('Results: 0');
+        expect(document.body.textContent).toContain('model_comparison.no_results');
     });
 
     it('previews the same minimum price and maximum context used for sorting', () => {
@@ -200,7 +200,7 @@ describe('comparison audit interface regressions', () => {
         ] }] } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-        const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
+        const cells = [...document.body.querySelectorAll('tbody tr:first-child > td')];
         expect(cells[2]?.textContent).toContain('Cheaper total');
         expect(cells[5]?.textContent).toContain('Cheaper input — 500K');
         expect(cells[6]?.textContent).toContain('Cheaper input');
@@ -218,7 +218,7 @@ it('identifies shared offers before deactivation without requiring activation se
     ] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-    const rows = [...container.querySelectorAll('tbody tr')];
+    const rows = [...document.body.querySelectorAll('tbody tr')];
     expect(rows).toHaveLength(2);
     for (const row of rows) {
         expect(row.textContent).toContain('model_comparison.setup.shared_offer_label');
@@ -237,15 +237,15 @@ it('shows uncertainty rather than a compatible director when the offer has unkno
     }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-    const filter = [...container.querySelectorAll('select')].find(select => select.querySelector('option[value="director"]'));
+    const filter = [...document.body.querySelectorAll('select')].find(select => select.querySelector('option[value="director"]'));
     if (!filter) throw new Error('Missing role filter');
     act(() => { filter.value = 'director'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
-    expect(container.querySelectorAll('tbody tr')).toHaveLength(0);
-    const incomplete = container.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.show_incomplete"]');
+    expect(document.body.querySelectorAll('tbody tr')).toHaveLength(0);
+    const incomplete = document.body.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.show_incomplete"]');
     if (!incomplete) throw new Error('Missing incomplete-model switch');
     act(() => { incomplete.click(); });
-    expect(container.querySelectorAll('tbody tr')).toHaveLength(1);
-    const summary = container.querySelector('.model-role-assessments > .model-details-trigger');
+    expect(document.body.querySelectorAll('tbody tr')).toHaveLength(1);
+    const summary = document.body.querySelector('.model-role-assessments > .model-details-trigger');
     expect(summary?.textContent).toContain('agent_team.insufficient_data');
     expect(summary?.textContent).not.toContain('85%');
 });
@@ -262,10 +262,10 @@ it('orders usage summaries and details from director to worker like the profile 
     }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-    const summary = container.querySelector<HTMLButtonElement>('.model-role-assessments > .model-details-trigger');
+    const summary = document.body.querySelector<HTMLButtonElement>('.model-role-assessments > .model-details-trigger');
     expect(summary?.textContent).toBe(expected.map(role => `model_comparison.profiles.${role} · 85%`).join(', '));
     act(() => { summary?.click(); });
-    expect([...container.querySelectorAll('.model-role-assessments__body p > strong')].map(element => element.textContent))
+    expect([...document.body.querySelectorAll('.model-role-assessments__body p > strong')].map(element => element.textContent))
         .toEqual(expected.map(role => `model_comparison.profiles.${role}`));
 });
 
@@ -281,12 +281,12 @@ it('marks zero prices with their provider and scopes offers and capabilities to 
     ] }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
         openCatalogue();
-    const cells = () => [...container.querySelectorAll('tbody tr:first-child > td')];
+    const cells = () => [...document.body.querySelectorAll('tbody tr:first-child > td')];
     const zero = cells()[2]?.querySelector<HTMLElement>('[tabindex="0"]');
     expect(zero?.textContent).toBe('*');
     expect(zero?.title).toContain('NVIDIA · nvidia/free-model');
     expect(cells()[2]?.textContent).toContain('OpenAI');
-    const filter = [...container.querySelectorAll('select')].find(select => select.querySelector('option[value="openai"]'));
+    const filter = [...document.body.querySelectorAll('select')].find(select => select.querySelector('option[value="openai"]'));
     if (!filter) throw new Error('Missing provider filter');
     act(() => { filter.value = 'openai'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
     for (const index of [2, 5, 6, 7, 8]) {
@@ -299,7 +299,7 @@ it('marks zero prices with their provider and scopes offers and capabilities to 
     expect(cells()[10]?.textContent).toBe('—');
     expect(cells()[11]?.textContent).toBe('—');
     act(() => {
-        container.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.show_incomplete"]')?.click();
+        document.body.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.show_incomplete"]')?.click();
         filter.value = 'unknown'; filter.dispatchEvent(new Event('change', { bubbles: true }));
     });
     expect(cells()[2]?.textContent).toContain('model_comparison.unknown_cost');

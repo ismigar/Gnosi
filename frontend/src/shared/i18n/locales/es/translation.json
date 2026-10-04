@@ -5571,6 +5571,7 @@
       "evidence": "Ver el motivo y las evidencias",
       "requirements": "Requisitos y cálculo detallado",
       "configured_providers": "Mis proveedores configurados",
+      "configured_providers_help": "Proveedores activos con credenciales y un modelo activado o una conexión comprobada. Una clave guardada pendiente de comprobar no es suficiente. Para configurar uno nuevo, selecciónalo en el filtro o muestra todos los proveedores.",
       "skills_loading": "Cargando las habilidades del bot antes de recomendar y asignar un modelo…",
       "skills_error": "No se pudieron cargar las habilidades. Vuelve a abrir los ajustes de IA antes de asignar un modelo.",
       "bot_recommendations": "Modelos para las funciones del bot",
