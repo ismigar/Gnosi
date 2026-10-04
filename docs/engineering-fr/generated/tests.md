@@ -11,7 +11,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Exécuteur | Fichiers | Indices de tests |
 | --- | ---: | ---: |
 | Playwright | 25 | 83 |
-| Vitest | 619 | 2689 |
+| Vitest | 619 | 2690 |
 | pytest | 625 | 4554 |
 
 ## Fichiers
@@ -251,7 +251,7 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Vitest | [`frontend/src/features/settings/AI/aiSettingsUtils.test.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/aiSettingsUtils.test.ts) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AI/useAIResources.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AI/useAIResources.test.tsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AIConsumptionDashboard.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIConsumptionDashboard.test.tsx) | 7 | call-pattern estimate |
-| Vitest | [`frontend/src/features/settings/AIModelComparisonModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.test.tsx) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/features/settings/AIModelComparisonModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.test.tsx) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AIUsageHistoryModal.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryModal.test.tsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/AppSidebarSettings.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.test.tsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/features/settings/ModelComparisonAudit.test.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/ModelComparisonAudit.test.tsx) | 7 | call-pattern estimate |

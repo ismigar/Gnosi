@@ -48,7 +48,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències literals a l’API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1165 | 129306 | 38 |
+| `features` | 1165 | 129309 | 38 |
 | `generated` | 2 | 49120 | 504 |
 | `shared` | 279 | 32597 | 434 |
 
@@ -558,7 +558,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/AIActivity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIActivity.ts) | 2 | — | — |
 | [`frontend/src/features/settings/AIConsumptionCharts.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIConsumptionCharts.tsx) | 46 | `ConsumptionChart` | — |
 | [`frontend/src/features/settings/AIConsumptionDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIConsumptionDashboard.tsx) | 114 | `AIConsumptionDashboard` | — |
-| [`frontend/src/features/settings/AIModelComparisonModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.tsx) | 295 | `AIModelComparisonModal` | — |
+| [`frontend/src/features/settings/AIModelComparisonModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.tsx) | 298 | `AIModelComparisonModal` | — |
 | [`frontend/src/features/settings/AIUsageHistoryModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryModal.tsx) | 109 | `AIUsageHistoryModal` | — |
 | [`frontend/src/features/settings/AIUsageHistoryView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryView.tsx) | 290 | `AIUsageHistoryView` | — |
 | [`frontend/src/features/settings/AppSidebarSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.tsx) | 93 | `AppSidebarSettings` | — |
