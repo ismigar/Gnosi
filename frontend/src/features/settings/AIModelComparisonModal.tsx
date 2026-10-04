@@ -1,5 +1,6 @@
 import { AgentEvaluationLab } from './AI/AgentEvaluationLab';
-import { useMemo, useReducer, type CSSProperties } from 'react';
+import { ModelTaskRecommendations } from './model-comparison/ModelTaskRecommendations';
+import { useMemo, useReducer, useState, type CSSProperties } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -37,6 +38,7 @@ export function AIModelComparisonModal({
     onClose,
 }: AIModelComparisonModalProps) {
     const { t } = useTranslation();
+    const [evidenceRevision, setEvidenceRevision] = useState(0);
     const [ui, dispatchUi] = useReducer(
         modelComparisonUiReducer,
         INITIAL_COMPARISON_UI_STATE,
@@ -87,6 +89,8 @@ export function AIModelComparisonModal({
         data.registry.models,
         ui,
     ), [data.feed, data.registry.models, ui]);
+    const taskModels = useMemo(() => filteredComparisonModels(data.feed, data.registry.models,
+        { ...ui, profile: 'all', showIncomplete: true }), [data.feed, data.registry.models, ui]);
     const providerOptions = useMemo(() => {
         const providers = new Map<string, string>();
         for (const model of data.feed?.models ?? []) {
@@ -169,7 +173,10 @@ export function AIModelComparisonModal({
 
                     {!data.loading && data.feed ? (
                         <>
-                            <AgentEvaluationLab />
+                            <AgentEvaluationLab onComplete={() => {
+                                setEvidenceRevision(value => value + 1);
+                                controller.retry();
+                            }} />
                             <ModelComparisonToolbar
                                 providers={providerOptions}
                                 currencySymbol={data.feed.currency.symbol || data.feed.currency.code}
@@ -179,6 +186,8 @@ export function AIModelComparisonModal({
                                 state={ui}
                                 toolbarRef={toolbarRef}
                             />
+                            <ModelTaskRecommendations key={ui.profile} profile={ui.profile} provider={ui.provider}
+                                models={taskModels} feed={data.feed} revision={evidenceRevision} />
                             <p className="settings-desc" role="status">
                                 {t('model_comparison.results_count', { count: models.length })}
                             </p>

@@ -1,6 +1,7 @@
 # Provider subscriptions in model comparison
 
 Model catalog tariffs describe token charges, not subscription entitlements.
+Task-specific decisions use [task-aware recommendations](task_model_recommendations.md).
 A remote zero is insufficient evidence of free access. Every comparison route
 receives a billing classification and a provider documentation link when present
 in the catalog. Verified plan facts are kept in
