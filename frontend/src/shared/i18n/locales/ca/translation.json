@@ -5451,7 +5451,10 @@
     "reasoning": "Raonament",
     "unknown_capability": "Desconegut",
     "supported": "Sí",
-    "unsupported": "No"
+    "unsupported": "No",
+    "active_tariff": "Tarifa del proveïdor activat",
+    "zero_tariff_note": "Tarifa per token zero al catàleg; aquest proveïdor pot requerir un pla o limitar-ne l’ús.",
+    "provider_measurement_unknown": "No hi ha mesures de velocitat o latència d’aquest proveïdor. El benchmark general del model no s’hi substitueix."
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
@@ -6502,16 +6505,16 @@
     "reading_checkpoint_incompatible": "Els fragments desats no es poden reutilitzar amb la font o els ajustos actuals. Es conserven. Reprendre queda bloquejat per evitar pagar una lectura nova. Revisa els ajustos o demana explícitament tornar a processar.",
     "reprocess": "Reprocessar",
     "checkpoint_incompatible_details": "Els {{count}} fragments desats no es poden reutilitzar amb la font o els ajustos actuals. Es conserven. Tria Reprocessar per revisar una estimació nova abans de començar de zero.",
-    "budget_limit": "Límit de despesa (USD)",
+    "budget_limit": "Límit de despesa ({{currency}})",
     "batch_size": "Fragments per lot",
     "estimate_loading": "Calculant sense crides d’IA…",
     "estimate_failed": "No s’ha pogut calcular l’estimació. Tanca i torna a obrir per reintentar-ho.",
     "estimate_progress": "{{saved}} fragments desats; {{remaining}} pendents; unes {{calls}} crides.",
-    "estimate_cost": "Processament estimat: {{low}}–{{high}} USD, inclòs el marge per a reparacions.",
+    "estimate_cost": "Estimació conservadora de tot el treball pendent: {{cost}}.",
     "estimate_unpriced": "El model triat no té una tarifa verificada. El processament queda bloquejat fins que es configuri el preu.",
-    "estimate_tokens": "Límit estimat d’entrada amb el context repetit: {{input}}; sortida prevista: {{output}} tokens.",
-    "estimate_explanation": "Inclou passatges, instruccions, memòria global, notes i revisió final. Les cerques addicionals o notes més llargues poden augmentar el consum. El límit de despesa pausa el procés i conserva el progrés; reprendre’l manté el mateix pressupost.",
-    "budget_status": "Confirmat: {{spent}} USD; pendent de confirmar: {{held}} USD; disponible: {{remaining}} USD.",
+    "estimate_tokens": "Marge de seguretat d’entrada: {{input}}; hipòtesi de sortida: {{output}} tokens. L’entrada es compta en bytes UTF-8, que sobreestimen els tokens, i inclou les instruccions i la memòria repetides.",
+    "estimate_explanation": "Són hipòtesis de planificació, no consum mesurat. El cost real es registra a partir de la resposta del proveïdor. Reprendre manté el mateix límit de despesa.",
+    "budget_status": "Confirmat: {{spent}}; pendent de confirmar: {{held}}; disponible: {{remaining}}.",
     "budget_legacy": "Aquest límit cobreix la feina pendent. La despesa anterior a la introducció del límit queda exclosa.",
     "reading_budget_exhausted": "S’ha assolit el límit de despesa. El progrés està desat. Revisa el pressupost abans de reprendre.",
     "reading_budget_pending_cost": "Pausat mentre es confirmen els costos, per protegir el límit de despesa. El progrés està desat.",
@@ -6604,7 +6607,13 @@
       "report_title": "Revisió del Cervell",
       "results": "Veure la revisió",
       "unavailable": "Revisa la taula i les fonts configurades a Configuració → Connectors → Cervell abans de continuar."
-    }
+    },
+    "budget_available": "Disponible dins del límit: {{amount}}. El procés es pausa abans d’una crida que no hi càpiga i desa el progrés.",
+    "estimate_over_budget": "El càlcul supera el pressupost disponible. Si comences, pot quedar feina pendent; el límit no s’augmenta automàticament.",
+    "estimate_calculation": "Com es calcula",
+    "estimate_tariff": "Tarifa desada de {{provider}}, per milió de tokens: {{input}} d’entrada i {{output}} de sortida. Les ofertes d’altres proveïdors no s’apliquen a aquesta execució.",
+    "estimate_repairs": "Escenari conservador amb fins a dues reparacions per crida i un marge del 10%: {{cost}}. No és una despesa autoritzada.",
+    "budget_conversion": "La facturació i el límit desat són en USD (límit: {{limit}} USD). Conversió visual: 1 USD = {{rate}} {{currency}}; {{source}}."
   },
   "relation_item": {
     "open_new_tab": "Obre en una pestanya nova",
@@ -7652,8 +7661,7 @@
     "reference_copy_failed": "No s’ha pogut copiar la referència",
     "original_message": "Missatge original del servei (per a diagnòstic)",
     "show_all_services": "Mostra tots els serveis",
-    "service_unavailable": "Aquesta programació ja no està disponible. Pots consultar la resta de serveis.",
-    "scheduled_history": "Programacions i serveis"
+    "service_unavailable": "Aquesta programació ja no està disponible. Pots consultar la resta de serveis."
   },
   "learning": {
     "title": "Aprèn d’aquesta conversa",

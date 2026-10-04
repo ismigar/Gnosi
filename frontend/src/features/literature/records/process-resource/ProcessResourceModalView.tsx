@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import { ProcessResourcePreflight } from './ProcessResourcePreflight';
 import { AlertTriangle, BrainCircuit, CheckCircle2, Loader2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -120,35 +121,9 @@ export function ProcessResourceModalView({
                     ) : null}
 
                     {state === 'confirm' || state === 'error' ? (
-                        <div className="space-y-3 rounded-lg border border-[var(--border-primary)] p-3 text-xs text-[var(--text-secondary)]">
-                            <label className="flex items-center justify-between gap-3">
-                                <span>{translate('budget_limit', 'Spending limit (USD)')}</span>
-                                <input aria-label={translate('budget_limit', 'Spending limit (USD)')} type="number" min="0.01" max="1000" step="0.01" value={Number.isFinite(budgetLimit) ? budgetLimit : ''}
-                                    onChange={event => { onBudgetLimit(event.target.valueAsNumber); }}
-                                    className="w-24 rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 text-[var(--text-primary)]" />
-                            </label>
-                            <label className="flex items-center justify-between gap-3">
-                                <span>{translate('batch_size', 'Fragments per batch')}</span>
-                                <select aria-label={translate('batch_size', 'Fragments per batch')} value={batchSize} onChange={event => { onBatchSize(Number(event.target.value)); }}
-                                    className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 text-[var(--text-primary)]">
-                                    {[1, 2, 4].map(size => <option key={size} value={size}>{size}</option>)}
-                                </select>
-                            </label>
-                            {!estimate ? <p>{estimateError || translate('estimate_loading', 'Estimating without AI calls…')}</p> : (
-                                <>
-                                    <p className="font-semibold text-[var(--text-primary)]">{estimate.model}</p>
-                                    {estimate.incompatible_saved_chunks > 0 ? <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Choose Reprocess to review a fresh estimate before starting again.', { count: estimate.incompatible_saved_chunks })}</p> : null}
-                                    <p>{translate('estimate_progress', '{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.', { saved: estimate.saved_chunks, remaining: estimate.remaining_chunks, calls: estimate.planned_calls })}</p>
-                                    {estimate.priced && estimate.cost_usd !== null && estimate.cost_with_repairs_usd !== null ?
-                                        <p>{translate('estimate_cost', 'Estimated processing: {{low}}–{{high}} USD, including repair allowance.', { low: estimate.cost_usd.toFixed(3), high: estimate.cost_with_repairs_usd.toFixed(3) })}</p> :
-                                        <p>{translate('estimate_unpriced', 'The selected model has no verified tariff. Processing is blocked until its price is configured.')}</p>}
-                                    <p>{translate('estimate_tokens', 'Input bound including repeated context: {{input}}; planned output: {{output}} tokens.', { input: estimate.input_token_bound, output: estimate.output_tokens_assumed })}</p>
-                                    <p>{translate('estimate_explanation', 'Includes passages, instructions, global memory, notes and final review. Extra searches or larger notes can increase consumption. The spending limit pauses processing and keeps progress; resuming keeps the same budget.')}</p>
-                                    {estimate.budget ? <p>{translate('budget_status', 'Reported: {{spent}} USD; awaiting confirmation: {{held}} USD; available: {{remaining}} USD.', { spent: estimate.budget.spent_usd.toFixed(3), held: estimate.budget.reserved_usd.toFixed(3), remaining: estimate.budget.remaining_usd.toFixed(3) })}</p> :
-                                        estimate.saved_chunks > 0 ? <p>{translate('budget_legacy', 'This limit covers the remaining work. Spending before the limit was introduced is excluded.')}</p> : null}
-                                </>
-                            )}
-                        </div>
+                        <ProcessResourcePreflight estimate={estimate} estimateError={estimateError}
+                            budgetLimit={budgetLimit} onBudgetLimit={onBudgetLimit}
+                            batchSize={batchSize} onBatchSize={onBatchSize} />
                     ) : null}
 
                     {state === 'running' ? (

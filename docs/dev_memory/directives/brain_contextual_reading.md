@@ -64,3 +64,25 @@ Validation uses deterministic model doubles, including late refutation, distant
 evidence retrieval, invalid citations, missing coverage, changed instructions,
 retry deadlines, repeated interruptions and forced reprocessing. Do not call paid
 providers or modify a live vault merely to run these contracts.
+
+The source-processing preflight separates the authorized spending limit from the
+conservative cost calculation for all remaining work. Prices use the exact
+provider/model route, never the cheapest comparison offer from another provider.
+Missing or explicitly unknown catalogue prices must not become zero-cost access.
+The comparison keeps enabled provider tariffs visible beside its cheapest offer.
+
+Preflight returns the configured currency and the same FX snapshot as the model
+comparison. Amounts are displayed and edited in that currency; the durable limit,
+reservations and provider billing remain USD. Merely rendering a converted amount
+must not change the previously authorized limit. Budget warnings subtract both
+reported charges and pending reservations, including after a limit edit.
+
+The input byte bound, output assumption and repair scenario are planning safety
+margins, not measured token consumption or a promised invoice. The UI identifies
+the applied per-million tariffs, shows the repair scenario separately, and warns
+when the calculation exceeds the available budget without raising that budget.
+
+Zero comparison prices carry an asterisk whose hover/focus hint identifies the
+provider and model. Provider filters scope prices, context and capabilities to
+that provider; unknown values do not fall back to another route. General model
+speed/latency benchmarks are not presented or sorted as provider measurements.

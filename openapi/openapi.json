@@ -18410,6 +18410,28 @@
             "title": "Chunks Total",
             "type": "integer"
           },
+          "cost_in_per_million_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost In Per Million Usd"
+          },
+          "cost_out_per_million_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Out Per Million Usd"
+          },
           "cost_usd": {
             "anyOf": [
               {
@@ -18435,6 +18457,16 @@
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "display_currency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrencyInfoResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "estimate_id": {
             "title": "Estimate Id",

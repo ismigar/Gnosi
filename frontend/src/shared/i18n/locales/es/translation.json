@@ -5451,7 +5451,10 @@
     "reasoning": "Razonamiento",
     "unknown_capability": "Desconocido",
     "supported": "Sí",
-    "unsupported": "No"
+    "unsupported": "No",
+    "active_tariff": "Tarifa del proveedor activado",
+    "zero_tariff_note": "Tarifa por token cero en el catálogo; este proveedor puede requerir un plan o limitar el uso.",
+    "provider_measurement_unknown": "No hay medidas de velocidad o latencia de este proveedor. No se sustituyen por el benchmark general del modelo."
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
@@ -6502,16 +6505,16 @@
     "reading_checkpoint_incompatible": "Los fragmentos guardados no se pueden reutilizar con la fuente o los ajustes actuales. Se conservan. Reanudar queda bloqueado para evitar pagar otra lectura. Revisa los ajustes o solicita expresamente volver a procesar.",
     "reprocess": "Reprocesar",
     "checkpoint_incompatible_details": "Los {{count}} fragmentos guardados no se pueden reutilizar con la fuente o los ajustes actuales. Se conservan. Elige Reprocesar para revisar una nueva estimación antes de empezar de cero.",
-    "budget_limit": "Límite de gasto (USD)",
+    "budget_limit": "Límite de gasto ({{currency}})",
     "batch_size": "Fragmentos por lote",
     "estimate_loading": "Calculando sin llamadas de IA…",
     "estimate_failed": "No se pudo calcular la estimación. Cierra y vuelve a abrir para reintentar.",
     "estimate_progress": "{{saved}} fragmentos guardados; {{remaining}} pendientes; unas {{calls}} llamadas.",
-    "estimate_cost": "Procesamiento estimado: {{low}}–{{high}} USD, incluido el margen para reparaciones.",
+    "estimate_cost": "Estimación conservadora de todo el trabajo pendiente: {{cost}}.",
     "estimate_unpriced": "El modelo elegido no tiene una tarifa verificada. El procesamiento queda bloqueado hasta configurar su precio.",
-    "estimate_tokens": "Cota de entrada con el contexto repetido: {{input}}; salida prevista: {{output}} tokens.",
-    "estimate_explanation": "Incluye pasajes, instrucciones, memoria global, notas y revisión final. Las búsquedas adicionales o notas más largas pueden aumentar el consumo. El límite de gasto pausa el proceso y conserva el progreso; reanudarlo mantiene el mismo presupuesto.",
-    "budget_status": "Confirmado: {{spent}} USD; pendiente de confirmar: {{held}} USD; disponible: {{remaining}} USD.",
+    "estimate_tokens": "Margen de seguridad de entrada: {{input}}; hipótesis de salida: {{output}} tokens. La entrada se cuenta en bytes UTF-8, que sobreestiman los tokens, e incluye las instrucciones y la memoria repetidas.",
+    "estimate_explanation": "Son hipótesis de planificación, no consumo medido. El coste real se registra a partir de la respuesta del proveedor. Reanudar mantiene el mismo límite de gasto.",
+    "budget_status": "Confirmado: {{spent}}; pendiente de confirmar: {{held}}; disponible: {{remaining}}.",
     "budget_legacy": "Este límite cubre el trabajo pendiente. El gasto anterior a la introducción del límite queda excluido.",
     "reading_budget_exhausted": "Se ha alcanzado el límite de gasto. El progreso está guardado. Revisa el presupuesto antes de reanudar.",
     "reading_budget_pending_cost": "Pausado mientras se confirman los costes, para proteger el límite de gasto. El progreso está guardado.",
@@ -6604,7 +6607,13 @@
       "report_title": "Revisión del Cerebro",
       "results": "Ver la revisión",
       "unavailable": "Revisa la tabla y las fuentes configuradas en Configuración → Complementos → Cerebro antes de continuar."
-    }
+    },
+    "budget_available": "Disponible dentro del límite: {{amount}}. El proceso se pausa antes de una llamada que no quepa y guarda el progreso.",
+    "estimate_over_budget": "El cálculo supera el presupuesto disponible. Si empiezas, puede quedar trabajo pendiente; el límite no se aumenta automáticamente.",
+    "estimate_calculation": "Cómo se calcula",
+    "estimate_tariff": "Tarifa guardada de {{provider}}, por millón de tokens: {{input}} de entrada y {{output}} de salida. Las ofertas de otros proveedores no se aplican a esta ejecución.",
+    "estimate_repairs": "Escenario conservador con hasta dos reparaciones por llamada y un margen del 10%: {{cost}}. No es un gasto autorizado.",
+    "budget_conversion": "La facturación y el límite guardado están en USD (límite: {{limit}} USD). Conversión visual: 1 USD = {{rate}} {{currency}}; {{source}}."
   },
   "relation_item": {
     "open_new_tab": "Abrir en una pestaña nueva",
@@ -7652,8 +7661,7 @@
     "reference_copy_failed": "No se ha podido copiar la referencia",
     "original_message": "Mensaje original del servicio (para diagnóstico)",
     "show_all_services": "Muestra todos los servicios",
-    "service_unavailable": "Esta programación ya no está disponible. Puedes consultar los demás servicios.",
-    "scheduled_history": "Programaciones y servicios"
+    "service_unavailable": "Esta programación ya no está disponible. Puedes consultar los demás servicios."
   },
   "learning": {
     "title": "Aprende de esta conversación",

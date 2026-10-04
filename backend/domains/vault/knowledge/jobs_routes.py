@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Never
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from backend.domains.configuration.ai.contracts import CurrencyInfoResponse
 from backend.domains.llm_wiki.lint_contracts import LintReport
 from backend.domains.vault.knowledge.native_calls import capture_append
 from backend.domains.vault.pages.foundation_values import PageMetadata
@@ -70,6 +71,9 @@ class LlmWikiEstimateResponse(BaseModel):
     provider: str
     model: str
     currency: str
+    display_currency: CurrencyInfoResponse | None = None
+    cost_in_per_million_usd: float | None = None
+    cost_out_per_million_usd: float | None = None
     priced: bool
     chunks_total: int
     saved_chunks: int

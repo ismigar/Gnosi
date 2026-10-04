@@ -9,7 +9,7 @@ export function comparisonRouteCosts(model: AiModelComparisonEntry, provider: st
     const output = Number(outputTokens.replaceAll('.', '')) || 0;
     const seen = new Set<string>();
     return model.routes.filter(route => provider === 'all' || route.provider === provider).flatMap(route => {
-        const key = JSON.stringify([route.provider, route.cost_in, route.cost_out, route.is_local]);
+        const key = JSON.stringify([route.provider, route.model_id, route.cost_in, route.cost_out, route.is_local]);
         if (seen.has(key)) return [];
         seen.add(key);
         const cost = knownPrice(route.cost_in) && knownPrice(route.cost_out)

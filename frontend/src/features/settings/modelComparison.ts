@@ -346,13 +346,14 @@ const sortableModelValue = (
     profile: ModelComparisonUiState['profile'],
     provider: string,
 ): number | string | null => {
+    if (provider !== 'all' && (key === 'speed' || key === 'latency')) return null;
     if (key === 'context_window') return routeContextValue(model, provider);
     if (key === 'modes') {
         const modes = selectedRoutes(model, provider).map(routeModes).filter(value => value !== null).flat();
         return modes.length ? [...new Set(modes)].sort().join(',') : null;
     }
     if (key === 'parameters') return modelParameterMetadata(model)?.total ?? null;
-    if (key === 'provider') return [...new Set(model.routes.map(route => route.provider))].sort().join(', ');
+    if (key === 'provider') return [...new Set(selectedRoutes(model, provider).map(route => route.provider))].sort().join(', ');
     if (key === 'profile') {
         const scores = (model.role_assessments ?? []).filter(r => (profile === 'all' ? ['catalog_compatible', 'tested'].includes(r.status) : r.role === profile)).map(r => r.score).filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
         return scores.length ? Math.max(...scores) : null;

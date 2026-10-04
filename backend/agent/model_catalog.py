@@ -611,6 +611,13 @@ def catalog_model_cost(provider_id: str, model_id: str) -> Optional[Dict[str, fl
     provider = catalog_provider(provider_id)
     for model in (provider or {}).get("models", []):
         if model.get("id") == model_id:
-            return {"cost_in": float(model.get("cost_in") or 0),
-                    "cost_out": float(model.get("cost_out") or 0)}
+            values = [model.get(key) for key in ("cost_in", "cost_out")]
+            if model.get("pricing_known") is False or not all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(value) and value >= 0 for value in values
+            ):
+                return None
+            if not any(values) and model.get("pricing_known") is not True:
+                return None
+            return {key: float(model[key]) for key in ("cost_in", "cost_out")}
     return None

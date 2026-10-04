@@ -13,6 +13,8 @@ import { ProcessResourceModal } from './ProcessResourceModal';
 import { getResourceProcessingTasks, resetResourceProcessingTasks } from './process-resource/resourceProcessingTasks';
 
 
+vi.mock('../../../shared/i18n/useLocaleSettings', () => ({ useLocaleSettings: () => ({ numberLocale: 'en-US' }) }));
+
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
 }));

@@ -17487,12 +17487,17 @@ export interface components {
             budget: components["schemas"]["LlmWikiBudgetResponse"] | null;
             /** Chunks Total */
             chunks_total: number;
+            /** Cost In Per Million Usd */
+            cost_in_per_million_usd?: number | null;
+            /** Cost Out Per Million Usd */
+            cost_out_per_million_usd?: number | null;
             /** Cost Usd */
             cost_usd: number | null;
             /** Cost With Repairs Usd */
             cost_with_repairs_usd: number | null;
             /** Currency */
             currency: string;
+            display_currency?: components["schemas"]["CurrencyInfoResponse"] | null;
             /** Estimate Id */
             estimate_id: string;
             /**

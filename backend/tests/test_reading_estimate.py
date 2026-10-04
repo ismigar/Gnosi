@@ -15,6 +15,8 @@ def test_full_cost_and_exact_checkpoint_compatibility(monkeypatch, tmp_path):
     runtime = SimpleNamespace(provider='openrouter', model='test', identity='runtime', instructions='Global instructions',
                               input_budget=120000, count_tokens=lambda text:len(text.encode()))
     monkeypatch.setattr(estimate, 'prepare_reading_runtime', lambda *_:runtime)
+    fx = {'code': 'EUR', 'symbol': '€', 'usd_rate': .9, 'source': 'test', 'fetched_at': '2026-10-04'}
+    monkeypatch.setattr(estimate, 'currency_context', lambda: fx)
     monkeypatch.setattr(estimate.llm_wiki_extractors, 'extract_resource_sources', lambda *_:([origin], []))
     monkeypatch.setattr(estimate.llm_wiki_config, 'load_config', lambda:{})
     monkeypatch.setattr(estimate.llm_wiki, '_dimension_context', lambda *_:({}, []))
@@ -32,6 +34,10 @@ def test_full_cost_and_exact_checkpoint_compatibility(monkeypatch, tmp_path):
     assert result['planned_calls'] == 1+1+result['memory_restore_calls']
     assert result['input_token_bound'] > result['source_token_bound']
     assert result['cost_with_repairs_usd'] > result['cost_usd'] > 0
+    assert result['display_currency'] == fx and result['currency'] == 'USD'
+    assert result['cost_in_per_million_usd'] == .1
+    assert result['cost_out_per_million_usd'] == .5
+    assert result['cost_usd'] == (result['input_token_bound']*.1+result['output_tokens_assumed']*.5)/1_000_000
     assert result['output_token_bound'] > result['output_tokens_assumed']
     different = estimate.estimate('book',{},'',tmp_path,{'id':'table'},{},'brain', batch_size=1)
     assert different['planned_calls'] > result['planned_calls']

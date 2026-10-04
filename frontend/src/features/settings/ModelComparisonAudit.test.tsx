@@ -256,3 +256,41 @@ it('orders usage summaries and details from director to worker like the profile 
     expect([...container.querySelectorAll('.model-role-assessments__body p > strong')].map(element => element.textContent))
         .toEqual(expected.map(role => `model_comparison.profiles.${role}`));
 });
+
+it('marks zero prices with their provider and scopes offers and capabilities to the provider filter', () => {
+    const data = mocks.useData.getMockImplementation()?.() as ReturnType<typeof useModelComparisonData>;
+    const base = FEED.models[0];
+    const route = base?.routes[0];
+    if (!base || !route) throw new Error('Missing route fixture');
+    mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes: [
+        { ...route, provider: 'nvidia', provider_name: 'NVIDIA', model_id: 'nvidia/free-model', cost_in: 0, cost_out: 0, context_window: 1000000, input_modes: ['image'] },
+        route,
+        { ...route, provider: 'unknown', provider_name: 'Unknown', cost_in: null, cost_out: null, context_window: null, input_modes: null, output_modes: null },
+    ] }] } } });
+    act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+    const cells = () => [...container.querySelectorAll('tbody tr:first-child > td')];
+    const zero = cells()[2]?.querySelector<HTMLElement>('[tabindex="0"]');
+    expect(zero?.textContent).toBe('*');
+    expect(zero?.title).toContain('NVIDIA · nvidia/free-model');
+    expect(cells()[2]?.textContent).toContain('OpenAI');
+    const filter = [...container.querySelectorAll('select')].find(select => select.querySelector('option[value="openai"]'));
+    if (!filter) throw new Error('Missing provider filter');
+    act(() => { filter.value = 'openai'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
+    for (const index of [2, 5, 6, 7, 8]) {
+        expect(cells()[index]?.textContent).toContain('OpenAI');
+        expect(cells()[index]?.textContent).not.toContain('NVIDIA');
+        expect(cells()[index]?.textContent).not.toContain('Unknown');
+    }
+    expect(cells()[2]?.querySelector('[tabindex="0"]')).toBeNull();
+    expect(cells()[5]?.textContent).toBe('OpenAI — 128K');
+    expect(cells()[10]?.textContent).toBe('—');
+    expect(cells()[11]?.textContent).toBe('—');
+    act(() => {
+        container.querySelector<HTMLElement>('[role="switch"][aria-label="model_comparison.show_incomplete"]')?.click();
+        filter.value = 'unknown'; filter.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(cells()[2]?.textContent).toContain('model_comparison.unknown_cost');
+    expect(cells()[2]?.querySelector('[tabindex="0"]')).toBeNull();
+    expect(cells()[5]?.textContent).toContain('model_comparison.unknown_capability');
+    expect(cells()[8]?.textContent).not.toContain('modes_list.text');
+});

@@ -14,23 +14,21 @@ import {
 import { ProcessResourceModal } from './ProcessResourceModal';
 import { resetResourceProcessingTasks } from './process-resource/resourceProcessingTasks';
 
+vi.mock('../../../shared/i18n/useLocaleSettings', () => ({ useLocaleSettings: () => ({ numberLocale: 'en-US' }) }));
 
 vi.mock('../../../shared/hooks/useModalKeyboard', () => ({
     useModalKeyboard: vi.fn(),
 }));
 
-
 vi.mock('../../../shared/notifications/toast', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
-
 
 vi.mock('../../../shared/api/resource-processing', () => ({
     estimateResourceProcessing: vi.fn(),
     fetchResourceProcessingStatus: vi.fn(),
     startResourceProcessing: vi.fn(),
 }));
-
 
 vi.mock('react-i18next', () => {
     const t = (
@@ -51,12 +49,10 @@ vi.mock('react-i18next', () => {
     return { useTranslation: () => ({ t }) };
 });
 
-
 const reactTestGlobal = globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT: boolean;
 };
 reactTestGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-
 
 const runningJob: ResourceProcessingJob = {
     created: ['First note'],
@@ -87,10 +83,8 @@ const doneJob: ResourceProcessingJob = {
     updated: ['Existing note'],
 };
 
-
 let container: HTMLDivElement;
 let root: Root;
-
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -104,7 +98,6 @@ beforeEach(() => {
     vi.mocked(fetchResourceProcessingStatus).mockResolvedValue(runningJob);
 });
 
-
 afterEach(() => {
     act(() => {
         root.unmount();
@@ -114,14 +107,12 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-
 async function render(element: ReactElement): Promise<void> {
     await act(async () => {
         root.render(element);
         await Promise.resolve();
     });
 }
-
 
 function buttonWithText(label: string): HTMLButtonElement {
     const button = [...container.querySelectorAll('button')]
@@ -130,7 +121,6 @@ function buttonWithText(label: string): HTMLButtonElement {
     return button;
 }
 
-
 async function flushProcessing(): Promise<void> {
     await act(async () => {
         await Promise.resolve();
@@ -138,7 +128,6 @@ async function flushProcessing(): Promise<void> {
         await Promise.resolve();
     });
 }
-
 
 describe('ProcessResourceModal', () => {
     it('explains provider timeouts and retries without forcing a fresh run', async () => {
@@ -172,7 +161,6 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('does not overlap slow polls and keeps monitoring after navigation', async () => {
         let resolvePoll: (job: ResourceProcessingJob) => void = () => {};
         vi.mocked(fetchResourceProcessingStatus).mockReturnValueOnce(new Promise((resolve) => {
@@ -199,7 +187,6 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('shows reading observations even when no existing notes were updated', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
             ...doneJob, updated: [], warnings: ['A distant definition remains uncertain.'],
@@ -210,7 +197,6 @@ describe('ProcessResourceModal', () => {
         expect(container.textContent).toContain('Reading observations');
         expect(container.textContent).toContain('A distant definition remains uncertain.');
     });
-
 
     it('keeps polling while the provider cooldown is in progress', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
@@ -231,7 +217,6 @@ describe('ProcessResourceModal', () => {
         expect(container.textContent).toContain('Resource processed');
         expect(vi.getTimerCount()).toBe(0);
     });
-
 
     it('explains rate limits and resumes a failed force-run without forcing again', async () => {
         vi.mocked(fetchResourceProcessingStatus).mockResolvedValueOnce({
@@ -257,7 +242,6 @@ describe('ProcessResourceModal', () => {
         expect(container.textContent).toContain('Resource processed');
         expect(vi.getTimerCount()).toBe(0);
     });
-
 
     it('blocks paid starts while the read-only estimate is pending', async () => {
         vi.mocked(estimateResourceProcessing).mockReturnValueOnce(new Promise(() => {}));
@@ -285,7 +269,7 @@ describe('ProcessResourceModal', () => {
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
         expect(container.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('0.75');
         expect(container.textContent).toContain('166 saved fragments');
-        expect(container.textContent).toContain('0.200 USD');
+        expect(container.textContent).toContain('$0.20');
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 0.75, batch_size: 4, estimate_id: 'estimate-1' }));
@@ -348,7 +332,6 @@ describe('ProcessResourceModal', () => {
         expect(typeof keyboardOptions.onConfirm).toBe('function');
     });
 
-
     it('starts, reports and completes a durable processing job', async () => {
         const onClose = vi.fn();
         const onJobUpdate = vi.fn<(job: ResourceProcessingJob) => void>();
@@ -390,7 +373,6 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('continues a running job in the background when dismissed', async () => {
         const onClose = vi.fn();
         const onContinueInBackground = vi.fn<(
@@ -425,7 +407,6 @@ describe('ProcessResourceModal', () => {
         expect(onClose).toHaveBeenCalledOnce();
     });
 
-
     it('ignores a transient poll failure and surfaces a terminal partial job', async () => {
         const partialJob: ResourceProcessingJob = {
             ...runningJob,
@@ -459,7 +440,6 @@ describe('ProcessResourceModal', () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-
     it('localizes a missing Brain-table start error', async () => {
         vi.mocked(startResourceProcessing).mockRejectedValueOnce(
             new Error('No Brain table is configured'),
@@ -483,7 +463,6 @@ describe('ProcessResourceModal', () => {
             'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.',
         );
     });
-
 
     it('does not render content while closed', async () => {
         await render(

@@ -11,6 +11,7 @@ from backend.domains.llm_wiki.reading_action_contracts import action_schemas
 from backend.services import llm_wiki, llm_wiki_config, llm_wiki_extractors, llm_wiki_storage
 from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime
 from backend.services import reading_budget
+from backend.services.ai_usage_dashboard import currency_context
 
 
 def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_root: Path,
@@ -80,6 +81,9 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
         budget = reading_budget.status(str(previous["budget_id"]))
     return {"_reading_identity": identity, "estimate_id": fingerprint([identity, rates, batch_size, len(saved.get("plans", {})), previous_plans]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
+            "display_currency": currency_context(),
+            "cost_in_per_million_usd": rates["cost_in"] if priced and rates else None,
+            "cost_out_per_million_usd": rates["cost_out"] if priced and rates else None,
             "incompatible_saved_chunks": max(0, previous_plans-len(saved.get("plans", {}))),
             "chunks_total": len(chunks), "saved_chunks": len(saved.get("plans", {})), "remaining_chunks": len(remaining),
             "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,

@@ -6187,16 +6187,16 @@
     "reading_checkpoint_incompatible": "saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Review the settings or explicitly request reprocessing.",
     "reprocess": "Reprocess",
     "checkpoint_incompatible_details": "{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Choose Reprocess to review a fresh estimate before starting again.",
-    "budget_limit": "Spending limit (USD)",
+    "budget_limit": "Spending limit ({{currency}})",
     "batch_size": "Fragments per batch",
     "estimate_loading": "Estimating without AI calls…",
     "estimate_failed": "Could not estimate processing. Close and reopen to retry.",
     "estimate_progress": "{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.",
-    "estimate_cost": "Estimated processing: {{low}}–{{high}} USD, including repair allowance.",
+    "estimate_cost": "Conservative estimate for all remaining work: {{cost}}.",
     "estimate_unpriced": "The selected model has no verified tariff. Processing is blocked until its price is configured.",
-    "estimate_tokens": "Input bound including repeated context: {{input}}; planned output: {{output}} tokens.",
-    "estimate_explanation": "Includes passages, instructions, global memory, notes and final review. Extra searches or larger notes can increase consumption. The spending limit pauses processing and keeps progress; resuming keeps the same budget.",
-    "budget_status": "Reported: {{spent}} USD; awaiting confirmation: {{held}} USD; available: {{remaining}} USD.",
+    "estimate_tokens": "Input safety bound: {{input}}; output assumption: {{output}} tokens. Input uses UTF-8 byte counts, which overestimate tokens, and includes repeated instructions and memory.",
+    "estimate_explanation": "These planning assumptions are not metered usage. The actual charge is recorded from the provider. Resuming uses the same spending limit.",
+    "budget_status": "Reported: {{spent}}; awaiting confirmation: {{held}}; available: {{remaining}}.",
     "budget_legacy": "This limit covers the remaining work. Spending before the limit was introduced is excluded.",
     "reading_budget_exhausted": "Spending limit reached. Progress is saved. Review the budget before resuming.",
     "reading_budget_pending_cost": "Paused while costs are confirmed, to protect the spending limit. Progress is saved.",
@@ -6289,7 +6289,13 @@
       "report_title": "Knowledge review",
       "results": "View review",
       "unavailable": "Check the table and sources in Settings → Plugins → Knowledge before continuing."
-    }
+    },
+    "budget_available": "Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.",
+    "estimate_over_budget": "The calculation exceeds your available budget. Starting may only complete part of the work; your limit is not raised automatically.",
+    "estimate_calculation": "How this is calculated",
+    "estimate_tariff": "Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.",
+    "estimate_repairs": "Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.",
+    "budget_conversion": "Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}."
   },
   "model_comparison": {
     "additional_offers_one": "{{count}} more offer",
@@ -6552,7 +6558,10 @@
     "reasoning": "Reasoning",
     "unknown_capability": "Unknown",
     "supported": "Yes",
-    "unsupported": "No"
+    "unsupported": "No",
+    "active_tariff": "Active provider tariff",
+    "zero_tariff_note": "Zero per-token tariff in the catalogue; this provider may require a plan or impose usage limits.",
+    "provider_measurement_unknown": "No speed or latency measurements are available for this provider. The general model benchmark is not substituted."
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",
@@ -7596,8 +7605,7 @@
     "reference_copy_failed": "Could not copy the reference",
     "original_message": "Original service message (for diagnostics)",
     "show_all_services": "Show all services",
-    "service_unavailable": "This schedule is no longer available. You can browse the other services.",
-    "scheduled_history": "Schedules and services"
+    "service_unavailable": "This schedule is no longer available. You can browse the other services."
   },
   "learning": {
     "title": "Learn from this conversation",
