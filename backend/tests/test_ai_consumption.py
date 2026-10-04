@@ -257,3 +257,88 @@ def test_real_budget_uses_current_month_all_providers_and_ignores_filters(tmp_pa
     values['ai']['budget']['monthly_cost_cap'] = 0
     assert model_router.budget_status()['cap_ccy'] is None
     assert not model_router.budget_status()['over_cap']
+
+
+def test_generation_reconciliation_keeps_estimate_and_counts_once(runtime):
+    ledger.write_call(provider='openrouter', model_id='same', input_tokens=100, output_tokens=20,
+                      cost_usd='0.02', cost_source='estimated', call_id='c', generation_id='gen-test', metadata=META)
+    assert not ledger.reconcile_cost('c', 'gen-wrong', '0.017')
+    assert not ledger.reconcile_cost('c', 'gen-test', '-1')
+    assert ledger.reconcile_cost('c', 'gen-test', '0.017123456789')
+    assert not ledger.reconcile_cost('c', 'gen-test', '0.017123456789')
+    with ledger.connect() as db:
+        calls=[dict(r) for r in db.execute('select * from usage_calls')]
+        metadata=dict(db.execute('select * from usage_generations').fetchone())
+    assert len(calls)==1 and calls[0]['cost_source']=='reported'
+    assert calls[0]['cost_usd']=='0.017123456789'
+    assert metadata['estimated_cost_usd']=='0.02'
+    assert metadata['reported_cost_usd']=='0.017123456789'
+    assert sum(v['cost_usd'] for b in ledger.monthly().values() for v in b.values())==pytest.approx(.017123456789)
+
+
+def test_openrouter_generation_get_keeps_estimate_when_unavailable(runtime, monkeypatch):
+    from backend.services import ai_usage_openrouter as billed
+    import urllib.error
+    ledger.write_call(provider='openrouter', model_id='same', input_tokens=10, output_tokens=2,
+                      cost_usd='0.1', cost_source='estimated', call_id='c', generation_id='gen-test', metadata=META)
+    def unavailable(*args, **kwargs):
+        raise urllib.error.HTTPError('https://openrouter.ai/api/v1/generation',429,'limited',{},None)
+    monkeypatch.setattr(billed.urllib.request,'urlopen',unavailable)
+    assert not billed.reconcile('c','gen-test','secret')
+    with ledger.connect() as db:row=dict(db.execute('select * from usage_calls').fetchone())
+    assert row['cost_usd']=='0.1' and row['cost_source']=='estimated'
+
+
+def test_openrouter_generation_metadata_replaces_estimate(runtime, monkeypatch):
+    from backend.services import ai_usage_openrouter as billed
+    ledger.write_call(provider='openrouter', model_id='same', input_tokens=10, output_tokens=2,
+                      cost_usd='0.1', cost_source='estimated', call_id='c', generation_id='gen-test', metadata=META)
+    requests=[]
+    class Response(io.StringIO):
+        pass
+    def respond(request, **kwargs):
+        requests.append(request)
+        return Response(json.dumps({'data':{'id':'gen-test','total_cost':0}}))
+    monkeypatch.setattr(billed.urllib.request,'urlopen',respond)
+    assert billed.reconcile('c','gen-test','secret')
+    assert requests[0].get_method()=='GET'
+    assert requests[0].full_url=='https://openrouter.ai/api/v1/generation?id=gen-test'
+    with ledger.connect() as db:row=dict(db.execute('select * from usage_calls').fetchone())
+    assert row['cost_source']=='reported' and Decimal(row['cost_usd'])==0
+
+
+def test_response_generation_id_survives_raw_sdk_conversion(runtime, monkeypatch):
+    from backend.services import ai_usage_openrouter as billed
+    scheduled=[]
+    monkeypatch.setattr(billed,'schedule',lambda *args:scheduled.append(args))
+    callback=UsageCallback('openrouter','same','secret')
+    callback.on_chat_model_start({},[],run_id='c')
+    from backend.services.ai_usage_transport import observe
+    observe({'id':'gen-test','model':'same','usage':{'input_tokens':10,'output_tokens':2}})
+    result=LLMResult(generations=[[ChatGeneration(message=AIMessage(content='ok'))]])
+    callback.on_llm_end(result,run_id='c')
+    with ledger.connect() as db:row=dict(db.execute('select * from usage_generations').fetchone())
+    assert row['generation_id']=='gen-test' and row['call_id']=='c'
+    assert scheduled==[('c','gen-test','secret')]
+
+
+def test_responses_transport_retains_generation_for_billed_cost_lookup(runtime, monkeypatch):
+    from backend.services import ai_usage_openrouter as billed
+    scheduled=[]
+    monkeypatch.setattr(billed,'schedule',lambda *args:scheduled.append(args))
+    def response(request):
+        return httpx.Response(200,json={
+            'id':'gen-responses','object':'response','created_at':1,'model':'same','status':'completed',
+            'output':[{'id':'msg','type':'message','role':'assistant','status':'completed',
+                       'content':[{'type':'output_text','text':'ok','annotations':[]}]}],
+            'usage':{'input_tokens':10,'output_tokens':2,'total_tokens':12,
+                     'input_tokens_details':{'cached_tokens':0},'output_tokens_details':{'reasoning_tokens':0}}})
+    model=instrument(ChatOpenAI(model='same',api_key='test-key',base_url='https://test.invalid',
+                     use_responses_api=True,http_client=httpx.Client(transport=httpx.MockTransport(response))),
+                     'openrouter','same')
+    model.invoke('test')
+    with ledger.connect() as db:
+        calls=list(db.execute('select * from usage_calls'))
+        row=dict(db.execute('select * from usage_generations').fetchone())
+    assert len(calls)==1 and row['generation_id']=='gen-responses'
+    assert scheduled==[(row['call_id'],'gen-responses','test-key')]

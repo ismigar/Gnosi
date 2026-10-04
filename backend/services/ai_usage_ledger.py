@@ -63,6 +63,9 @@ def connect() -> Iterator[sqlite3.Connection]:
             user_id TEXT NOT NULL, input_tokens INTEGER, output_tokens INTEGER,
             cached_tokens INTEGER, reasoning_tokens INTEGER, duration_ms REAL NOT NULL,
             status TEXT NOT NULL, cost_usd TEXT, cost_source TEXT NOT NULL)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS usage_generations (
+            call_id TEXT PRIMARY KEY, generation_id TEXT NOT NULL,
+            estimated_cost_usd TEXT, reported_cost_usd TEXT, reconciled_at REAL)""")
         db.execute("CREATE INDEX IF NOT EXISTS usage_calls_date ON usage_calls(created)")
         db.execute("CREATE INDEX IF NOT EXISTS usage_calls_scope ON usage_calls(workspace_id,user_id,created)")
         db.execute("""CREATE TABLE IF NOT EXISTS usage_legacy (
@@ -110,14 +113,15 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                created: float | None = None, period: str | None = None,
                cached_tokens: int | None = None, reasoning_tokens: int | None = None,
                duration_ms: float = 0, status: str = "completed",
-               metadata: dict[str, str] | None = None) -> bool:
+               metadata: dict[str, str] | None = None, generation_id: str = "") -> bool:
     attribution = {**context_metadata(), **(metadata or {})}
     stamp = created if created is not None else time.time()
     cost = decimal_cost(cost_usd)
+    identifier = call_id or uuid.uuid4().hex
     with connect() as db:
         cursor = db.execute("""INSERT OR IGNORE INTO usage_calls VALUES
             (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
-            call_id or uuid.uuid4().hex, stamp,
+            identifier, stamp,
             period or datetime.fromtimestamp(stamp).strftime("%Y-%m"),
             provider, model_id, attribution["agent_id"], attribution["agent_name"],
             attribution["operation"], attribution["origin"], attribution["profile"],
@@ -125,6 +129,11 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
             input_tokens, output_tokens, cached_tokens, reasoning_tokens,
             duration_ms, status, str(cost) if cost is not None else None,
             cost_source if cost is not None else "unknown"))
+        if cursor.rowcount and generation_id:
+            db.execute("INSERT OR IGNORE INTO usage_generations VALUES (?,?,?,?,NULL)",
+                       (identifier, generation_id,
+                        str(cost) if cost is not None and cost_source == "estimated" else None,
+                        str(cost) if cost is not None and cost_source == "reported" else None))
         return bool(cursor.rowcount)
 
 
@@ -143,3 +152,21 @@ def monthly() -> dict[str, dict[str, dict[str, Any]]]:
         for entry in bucket.values():
             entry["cost_usd"] = float(entry["cost_usd"])
     return totals
+
+
+def reconcile_cost(call_id: str, generation_id: str, reported_cost: Any) -> bool:
+    """Replace an estimate with provider billing without adding another call."""
+    cost = decimal_cost(reported_cost)
+    if cost is None:
+        return False
+    with connect() as db:
+        row = db.execute("SELECT generation_id FROM usage_generations WHERE call_id=?", (call_id,)).fetchone()
+        if row is None or row["generation_id"] != generation_id:
+            return False
+        changed = db.execute("""UPDATE usage_calls SET cost_usd=?,cost_source='reported'
+            WHERE id=? AND provider='openrouter' AND cost_source IN ('estimated','unknown')""",
+            (str(cost), call_id)).rowcount
+        if changed:
+            db.execute("UPDATE usage_generations SET reported_cost_usd=?,reconciled_at=? WHERE call_id=?",
+                       (str(cost), time.time(), call_id))
+        return bool(changed)

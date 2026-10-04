@@ -1228,3 +1228,5 @@ On resume, interrupted historical checkpoints for the same resource are checked 
 Legacy global-memory reconstruction uses the global memory allowance (at most 8,000 estimated tokens and one eighth of input context), rather than the shorter passage-summary allowance. Summary requests and validation use the same estimated-token units.
 
 Each directed reading operation reserves at most 16,384 output tokens for its single bounded result, including format and evidence repairs. Other operations retain their existing provider settings. This avoids reserving the provider default of 65,536 tokens for each passage or memory synthesis without changing checkpoint identity.
+
+OpenRouter usage preserves its generation identifier and the original estimate separately. When the transport omits billed cost, a bounded background metadata GET retrieves generation total_cost and updates the same usage row to reported without adding calls or token counters. Missing, invalid or unavailable costs retain their estimated/unknown label; failed lookups never fabricate zero and do not interrupt the model operation. The usage dashboard, budget and CSV read the reconciled amount.

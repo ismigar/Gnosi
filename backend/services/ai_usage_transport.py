@@ -32,6 +32,7 @@ def observe(value: Any) -> None:
     usage = _mapping(response.get("usage"))
     if usage:
         state["raw_usage"] = usage
+        state["generation_id"] = str(response.get("id") or "")
         state["actual_model"] = str(response.get("model") or state["model"])
 
 
@@ -124,8 +125,9 @@ def price(provider: str, model: str, tokens: dict[str, Any], raw: dict[str, Any]
 
 class UsageCallback(BaseCallbackHandler):
     run_inline = True
-    def __init__(self, provider: str, model: str) -> None:
+    def __init__(self, provider: str, model: str, api_key: str = "") -> None:
         self.provider, self.model = provider, model
+        self.api_key = api_key
         self.pending: dict[str, dict[str, Any]] = {}
         self.lock = threading.Lock()
     def on_chat_model_start(self, serialized: Any, messages: Any, *, run_id: Any, **kwargs: Any) -> None:
@@ -163,6 +165,8 @@ class UsageCallback(BaseCallbackHandler):
             metadata = getattr(message, "usage_metadata", None) or {}
             raw = state["raw_usage"] or _mapping(getattr(result, "llm_output", None)).get("token_usage") or _mapping(getattr(message, "response_metadata", None)).get("token_usage") or {}
             tokens = normalize(raw, metadata)
+            response_meta = _mapping(getattr(message, "response_metadata", None))
+            generation_id = state.get("generation_id") or str(response_meta.get("id") or "")
             model = state.get("actual_model") or self.model
             # Estimates use the route's tariff frozen at invocation time, never
             # a native vendor's tariff inferred from an OpenRouter model prefix.
@@ -171,7 +175,10 @@ class UsageCallback(BaseCallbackHandler):
                 cost_usd=cost, cost_source=source, call_id=state["id"], created=state["started"],
                 duration_ms=(time.time() - state["started"]) * 1000,
                 status="cancelled" if isinstance(error, BaseException) and (type(error).__name__ in {"CancelledError", "AgentTurnCancelled"}) else "failed" if error is not None else "completed",
-                metadata=state["attribution"])
+                metadata=state["attribution"], generation_id=generation_id)
+            if added and self.provider == "openrouter" and source != "reported" and generation_id.startswith("gen-") and self.api_key:
+                from backend.services.ai_usage_openrouter import schedule
+                schedule(state["id"], generation_id, self.api_key)
             for item in messages:
                 item.additional_kwargs["gnosi_usage_recorded"] = True
             if added and state["attribution"]["run_id"] and tokens["input_tokens"] is not None:
@@ -194,7 +201,10 @@ def instrument(model: Any, provider: str, model_id: str | None) -> Any:
     if not isinstance(model, BaseChatModel):
         return model
     actual = str(getattr(model, "model_name", None) or getattr(model, "model", None) or model_id or "")
-    callback = UsageCallback(provider, actual)
+    credential = getattr(model, "openai_api_key", None)
+    get_secret = getattr(credential, "get_secret_value", None)
+    api_key = get_secret() if callable(get_secret) else str(credential or "")
+    callback = UsageCallback(provider, actual, api_key if provider == "openrouter" else "")
     if model.callbacks is not None and not isinstance(model.callbacks, list):
         manager = model.callbacks.copy()
         manager.add_handler(callback, inherit=True)
