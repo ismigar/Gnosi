@@ -10,6 +10,14 @@ const operations: Readonly<Record<string, readonly TaskId[]>> = {
     knowledge: ['retrieve', 'analyse'], capture: ['extract'], learning: ['analyse'],
 };
 const skills: Readonly<Record<string, readonly TaskId[]>> = {
+    'core.gnosi-vault': ['classify', 'extract', 'retrieve'], 'core.gnosi-jobs': ['workflow'],
+    'core.gnosi-activity': ['analyse'], 'core.gnosi-contacts': ['extract', 'retrieve'],
+    'core.gnosi-planning': ['workflow', 'analyse'], 'core.gnosi-memory': ['extract', 'retrieve'],
+    'core.gnosi-calendar': ['extract', 'workflow'], 'core.gnosi-mail': ['classify', 'extract'],
+    'core.gnosi-reader': ['retrieve', 'analyse'], 'core.gnosi-social': ['analyse'],
+    'core.gnosi-notion': ['extract', 'workflow'], 'core.gnosi-notion-migration': ['extract', 'workflow'],
+    'core.gnosi-project-status': ['analyse'], 'core.gnosi-weekly-review': ['analyse'],
+    'core.gnosi-relationship-brief': ['retrieve', 'analyse'], 'core.gnosi-follow-up-manager': ['extract', 'analyse'],
     'core.gnosi-coordination': ['workflow'], 'core.gnosi-reader-topic-evolution': operations.reader ?? [],
     'core.gnosi-daily-briefing': operations.podcast ?? [], 'core.gnosi-notebooks': operations.notebook ?? [],
     'core.gnosi-literature': operations.literature ?? [], 'core.gnosi-inbox-triage': operations.mail ?? [],

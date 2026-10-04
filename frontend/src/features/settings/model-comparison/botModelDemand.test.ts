@@ -25,3 +25,11 @@ it('includes required skills and explicit tool assignments', () => {
     const demand = botModelDemand({ id: 'a', tool_ids: ['search'] }, '', [skill]);
     expect(demand.tasks).toEqual(['extract']); expect(demand.tools).toEqual(['search', 'table.write']);
 });
+it('recognizes the principal’s personalized foundational Gnosi skills', () => {
+    const ids = ['core.gnosi-vault', 'core.gnosi-jobs', 'core.gnosi-activity', 'core.gnosi-contacts', 'core.gnosi-planning'];
+    const catalog = ids.map(id => normalizeSkill({ id: `custom-${id}`, tool_ids: [`${id}.tool`], metadata: { derived_from: { id, name: '', version: '', revision: '', instructions: '', tool_ids: [] } } }));
+    const demand = botModelDemand({ id: 'principal', skill_ids: catalog.map(item => item.id) }, 'principal', catalog);
+    expect(demand.unknown).toEqual([]);
+    expect(demand.tasks).toEqual(['workflow', 'classify', 'extract', 'retrieve', 'analyse']);
+    expect(demand.tools).toHaveLength(5);
+});
