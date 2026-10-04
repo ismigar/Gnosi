@@ -324,9 +324,14 @@ def test_abandoned_container_cleanup_is_scoped_to_stopped_ci_smoke(
                   CompletedProcess((), 0, stdout=json.dumps([container])), CompletedProcess((), 0)])
     monkeypatch.setattr(prepare_docker_runner, "run", runner)
     prepare_docker_runner._remove_stopped_ci_containers("gnosi-frontend:ci")
+    assert runner.call_args_list[0] == call(
+        ("docker", "ps", "--all", "--quiet", "--filter", "label=com.docker.compose.project"),
+        check=True, capture_output=True, text=True, timeout=30)
+    assert runner.call_args_list[1] == call(("docker", "inspect", "container-1"),
+        check=True, capture_output=True, text=True, timeout=30)
     assert runner.call_count == (3 if remove else 2)
     if remove:
-        assert runner.call_args == call(("docker", "container", "rm", "container-1"), check=True, timeout=60)
+        assert runner.call_args == call(("docker", "rm", "container-1"), check=True, timeout=60)
 
 
 def test_stopped_ci_container_is_removed_before_image(monkeypatch):
@@ -336,3 +341,13 @@ def test_stopped_ci_container_is_removed_before_image(monkeypatch):
     monkeypatch.setattr(prepare_docker_runner, "run", lambda *args, **kwargs: order.append("image"))
     prepare_docker_runner._remove_ci_image("gnosi-frontend:ci")
     assert order == ["container", "image"]
+
+
+def test_failed_container_listing_reports_daemon_error_without_cleanup(monkeypatch, caplog):
+    error = CalledProcessError(1, ("docker", "ps"), stderr="daemon unavailable")
+    runner = Mock(side_effect=error)
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    with pytest.raises(CalledProcessError):
+        prepare_docker_runner._remove_stopped_ci_containers("gnosi-frontend:ci")
+    assert "daemon unavailable" in caplog.text
+    assert runner.call_count == 1

@@ -36,15 +36,18 @@ def _ci_image_exists(tag: str) -> bool:
     return bool(listed.stdout.strip())
 
 
-def _remove_stopped_ci_containers(tag: str) -> None:
+def _remove_stopped_ci_containers(_tag: str) -> None:
     """Release abandoned smoke containers without deleting volumes or active work."""
-    listed = run(
-        ("docker", "container", "ls", "--all", "--quiet", "--filter", f"ancestor={tag}",
-         "--filter", "label=com.docker.compose.project"),
-        check=True, capture_output=True, text=True, timeout=30,
-    )
+    try:
+        listed = run(
+            ("docker", "ps", "--all", "--quiet", "--filter", "label=com.docker.compose.project"),
+            check=True, capture_output=True, text=True, timeout=30,
+        )
+    except CalledProcessError as error:
+        LOG.error("Cannot list CI smoke containers: %s", error.stderr or error)
+        raise
     for container_id in listed.stdout.split():
-        inspected = run(("docker", "container", "inspect", container_id),
+        inspected = run(("docker", "inspect", container_id),
                         check=True, capture_output=True, text=True, timeout=30)
         container = json.loads(inspected.stdout)[0]
         labels = container.get("Config", {}).get("Labels") or {}
@@ -55,7 +58,7 @@ def _remove_stopped_ci_containers(tag: str) -> None:
                 and state.get("Status") in {"exited", "dead", "created"}
                 and state.get("Running") is False):
             # A restart between inspection and removal fails safely: no --force or --volumes.
-            run(("docker", "container", "rm", container_id), check=True, timeout=60)
+            run(("docker", "rm", container_id), check=True, timeout=60)
 
 
 def _remove_ci_image(tag: str) -> None:
