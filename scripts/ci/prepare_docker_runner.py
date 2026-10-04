@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 from pathlib import Path
@@ -35,11 +36,34 @@ def _ci_image_exists(tag: str) -> bool:
     return bool(listed.stdout.strip())
 
 
+def _remove_stopped_ci_containers(tag: str) -> None:
+    """Release abandoned smoke containers without deleting volumes or active work."""
+    listed = run(
+        ("docker", "container", "ls", "--all", "--quiet", "--filter", f"ancestor={tag}",
+         "--filter", "label=com.docker.compose.project"),
+        check=True, capture_output=True, text=True, timeout=30,
+    )
+    for container_id in listed.stdout.split():
+        inspected = run(("docker", "container", "inspect", container_id),
+                        check=True, capture_output=True, text=True, timeout=30)
+        container = json.loads(inspected.stdout)[0]
+        labels = container.get("Config", {}).get("Labels") or {}
+        state = container.get("State", {})
+        project = labels.get("com.docker.compose.project", "")
+        if (re.fullmatch(r"gnosi-ci-[0-9]+-[0-9]+", project)
+                and labels.get("com.docker.compose.service") in {"frontend", "backend"}
+                and state.get("Status") in {"exited", "dead", "created"}
+                and state.get("Running") is False):
+            # A restart between inspection and removal fails safely: no --force or --volumes.
+            run(("docker", "container", "rm", container_id), check=True, timeout=60)
+
+
 def _remove_ci_image(tag: str) -> None:
     for attempt in range(1, MAX_IMAGE_REMOVAL_ATTEMPTS + 1):
         if not _ci_image_exists(tag):
             return
         try:
+            _remove_stopped_ci_containers(tag)
             # Never force removal of an image that is still used by a container.
             run(("docker", "image", "rm", tag), check=True, timeout=60)
         except TimeoutExpired:

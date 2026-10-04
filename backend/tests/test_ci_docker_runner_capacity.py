@@ -4,6 +4,7 @@ from pathlib import Path
 from subprocess import CalledProcessError, CompletedProcess, TimeoutExpired
 from unittest.mock import Mock, call
 import pytest
+import json
 
 from scripts.ci import prepare_docker_runner
 
@@ -63,6 +64,7 @@ def test_capacity_gate_fails_if_pruning_is_insufficient(
 
 
 def test_cleanup_removes_only_existing_ci_image_tags(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda _tag: None)
     runner = Mock(side_effect=[
         CompletedProcess((), 0, stdout=""),
         CompletedProcess((), 0, stdout="sha256:synthetic\n"),
@@ -82,6 +84,7 @@ def test_cleanup_removes_only_existing_ci_image_tags(monkeypatch: pytest.MonkeyP
 
 
 def test_cleanup_does_not_force_remove_an_in_use_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda _tag: None)
     error = CalledProcessError(1, ("docker", "image", "rm", "gnosi-frontend:ci"))
     runner = Mock(side_effect=[CompletedProcess((), 0, stdout="sha256:synthetic\n"), error])
     monkeypatch.setattr(prepare_docker_runner, "run", runner)
@@ -98,6 +101,7 @@ def test_cleanup_does_not_force_remove_an_in_use_image(monkeypatch: pytest.Monke
 def test_image_removal_timeout_accepts_only_verified_absence(
     monkeypatch: pytest.MonkeyPatch, absent_after_wait: bool,
 ) -> None:
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda _tag: None)
     present = CompletedProcess((), 0, stdout="sha256:synthetic\n")
     absent = CompletedProcess((), 0, stdout="")
     error = TimeoutExpired(("docker", "image", "rm", "gnosi-frontend:ci"), 60)
@@ -115,6 +119,7 @@ def test_image_removal_timeout_accepts_only_verified_absence(
 
 
 def test_image_removal_retries_a_timeout_when_tag_remains(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda _tag: None)
     present = CompletedProcess((), 0, stdout="sha256:synthetic\n")
     error = TimeoutExpired((), 60)
     runner = Mock(side_effect=[present, error, present, present, CompletedProcess((), 0)])
@@ -131,6 +136,7 @@ def test_image_removal_retries_a_timeout_when_tag_remains(monkeypatch: pytest.Mo
 
 
 def test_image_removal_still_fails_after_second_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda _tag: None)
     present = CompletedProcess((), 0, stdout="sha256:synthetic\n")
     error = TimeoutExpired((), 60)
     runner = Mock(side_effect=[present, error, present, present, error, present])
@@ -150,6 +156,7 @@ def test_image_removal_still_fails_after_second_timeout(monkeypatch: pytest.Monk
 def test_image_removal_never_treats_failed_inspection_as_absence(
     monkeypatch: pytest.MonkeyPatch, inspection_error: Exception,
 ) -> None:
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda _tag: None)
     runner = Mock(side_effect=[
         CompletedProcess((), 0, stdout="sha256:synthetic\n"),
         TimeoutExpired((), 60),
@@ -296,3 +303,36 @@ def test_capacity_gate_rechecks_after_releasing_package_downloads(tmp_path, monk
     monkeypatch.setattr(prepare_docker_runner, "_prune_unused_docker", lambda: None)
     monkeypatch.setattr(prepare_docker_runner, "_release_package_cache", lambda *_: freed.append(True))
     assert prepare_docker_runner.prepare({"RUNNER_TEMP": str(tmp_path)}, minimum_free_bytes=100) == 100
+
+
+@pytest.mark.parametrize("project,service,status,running,remove", [
+    ("gnosi-ci-37203470031-1", "frontend", "exited", False, True),
+    ("gnosi-ci-37203470031-1", "backend", "dead", False, True),
+    ("gnosi-ci-37203470031-1", "frontend", "running", True, False),
+    ("gnosi-ci-37203470031-1", "frontend", "paused", False, False),
+    ("gnosi-production", "frontend", "exited", False, False),
+    ("gnosi-ci-other", "frontend", "exited", False, False),
+    ("gnosi-ci-37203470031-1", "database", "exited", False, False),
+])
+def test_abandoned_container_cleanup_is_scoped_to_stopped_ci_smoke(
+    monkeypatch, project, service, status, running, remove,
+):
+    container = {"Config": {"Labels": {"com.docker.compose.project": project,
+                 "com.docker.compose.service": service}},
+                 "State": {"Status": status, "Running": running}}
+    runner = Mock(side_effect=[CompletedProcess((), 0, stdout="container-1\n"),
+                  CompletedProcess((), 0, stdout=json.dumps([container])), CompletedProcess((), 0)])
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    prepare_docker_runner._remove_stopped_ci_containers("gnosi-frontend:ci")
+    assert runner.call_count == (3 if remove else 2)
+    if remove:
+        assert runner.call_args == call(("docker", "container", "rm", "container-1"), check=True, timeout=60)
+
+
+def test_stopped_ci_container_is_removed_before_image(monkeypatch):
+    order = []
+    monkeypatch.setattr(prepare_docker_runner, "_ci_image_exists", lambda _: True)
+    monkeypatch.setattr(prepare_docker_runner, "_remove_stopped_ci_containers", lambda tag: order.append("container"))
+    monkeypatch.setattr(prepare_docker_runner, "run", lambda *args, **kwargs: order.append("image"))
+    prepare_docker_runner._remove_ci_image("gnosi-frontend:ci")
+    assert order == ["container", "image"]
