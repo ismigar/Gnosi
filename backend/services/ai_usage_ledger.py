@@ -134,6 +134,9 @@ def write_call(*, provider: str, model_id: str, input_tokens: int | None,
                        (identifier, generation_id,
                         str(cost) if cost is not None and cost_source == "estimated" else None,
                         str(cost) if cost is not None and cost_source == "reported" else None))
+        if cursor.rowcount and cost_source in {"reported", "local"}:
+            from backend.services.reading_budget import settle
+            settle(db, identifier, cost)
         return bool(cursor.rowcount)
 
 
@@ -169,4 +172,7 @@ def reconcile_cost(call_id: str, generation_id: str, reported_cost: Any) -> bool
         if changed:
             db.execute("UPDATE usage_generations SET reported_cost_usd=?,reconciled_at=? WHERE call_id=?",
                        (str(cost), time.time(), call_id))
+        if changed:
+            from backend.services.reading_budget import settle
+            settle(db, call_id, cost)
         return bool(changed)

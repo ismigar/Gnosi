@@ -47,10 +47,16 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
     if not isinstance(error, ReadingPlanError):
         return None
     answer = json.loads(rejected)
-    if not isinstance(answer, dict) or answer.get("action") != "save_plan":
+    if not isinstance(answer, dict) or answer.get("action") not in {"save_plan", "save_batch"}:
         return None
     original = deepcopy(answer)
-    plan = original.get("arguments", {}).get("plan", {})
+    batch_index = getattr(error, "batch_index", None)
+    if original["action"] == "save_batch":
+        if not isinstance(batch_index, int):
+            return None
+        plan = original["arguments"]["plans"][batch_index]["plan"]
+    else:
+        plan = original.get("arguments", {}).get("plan", {})
     notes = plan.get("notes")
     if not isinstance(notes, list) or any(not isinstance(n, dict) or not n.get("title") or not n.get("body_md") for n in notes):
         return None
@@ -95,7 +101,8 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
         if {row["path"] for row in replacements} != set(fields):
             raise ValueError("Return every permitted repair path exactly once")
         restored = deepcopy(original)
-        target = restored["arguments"]["plan"]
+        target = (restored["arguments"]["plans"][batch_index]["plan"]
+                  if batch_index is not None else restored["arguments"]["plan"])
         for row in replacements:
             index, key = fields[row["path"]]
             # Long-source schemas can omit path enums to bound grammar size.

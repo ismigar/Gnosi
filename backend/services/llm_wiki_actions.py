@@ -63,6 +63,10 @@ def start_source_process(
     source_table_id: str = "",
     force: bool = False,
     language: str = "",
+    max_cost_usd: float = 0.50,
+    batch_size: int = 4,
+    estimate_id: str = "",
+    estimate_only: bool = False,
 ) -> Dict[str, object]:
     """Start one validated durable Brain ingest or reprocess job."""
 
@@ -143,19 +147,41 @@ def start_source_process(
         source_table,
         source_config,
     )
-    job = llm_wiki.start_ingest(
-        item_id,
-        title,
-        metadata,
-        body,
-        brain_table_id,
-        vr.get_p("VAULT"),
-        resolved_language,
-        source_table_id=resolved_source_table_id,
-        source_table=source_table,
-        source_config=source_config,
-        force=force,
-    )
+    expected_reading_identity = ""
+    if estimate_only or estimate_id:
+        from backend.services.reading_estimate import estimate
+        try:
+            preflight = estimate(item_id, metadata, body, vr.get_p("VAULT"), source_table,
+                                 source_config, brain_table_id, force=force, batch_size=batch_size)
+        except (ValueError, RuntimeError) as error:
+            raise LlmWikiActionError(400, str(error)) from error
+        if estimate_only:
+            return preflight
+        if preflight["estimate_id"] != estimate_id:
+            raise LlmWikiActionError(409, "reading_estimate_changed")
+        expected_reading_identity = str(preflight["_reading_identity"])
+        if not preflight["priced"]:
+            raise LlmWikiActionError(409, "reading_budget_unknown_price_or_output_limit")
+    from backend.services.reading_budget import ReadingBudgetError
+    try:
+        job = llm_wiki.start_ingest(
+            item_id,
+            title,
+            metadata,
+            body,
+            brain_table_id,
+            vr.get_p("VAULT"),
+            resolved_language,
+            source_table_id=resolved_source_table_id,
+            source_table=source_table,
+            source_config=source_config,
+            force=force,
+            max_cost_usd=max_cost_usd,
+            batch_size=batch_size,
+            expected_reading_identity=expected_reading_identity,
+        )
+    except ReadingBudgetError as error:
+        raise LlmWikiActionError(409, str(error)) from error
     return {
         "status": "started",
         "item_id": item_id,
@@ -174,7 +200,11 @@ def process_status(item_id: str, *, source_table_id: str = "") -> Dict[str, obje
     normalized = str(item_id or "").strip()
     if not normalized:
         raise LlmWikiActionError(400, "item_id is required")
-    return llm_wiki.get_job_status(normalized, str(source_table_id or "").strip())
+    job = llm_wiki.get_job_status(normalized, str(source_table_id or "").strip())
+    if job.get("budget_id"):
+        from backend.services import reading_budget
+        job["budget"] = reading_budget.status(str(job["budget_id"]))
+    return job
 
 
 def run_maintenance(*, semantic: bool = False) -> Dict[str, object]:

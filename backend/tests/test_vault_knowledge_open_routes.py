@@ -30,7 +30,7 @@ def test_process_uses_late_action_and_preserves_result_identity(
     calls: list[object] = []
 
     def start(
-        resource_id: str, *, source_table_id: str, force: bool, language: str
+        resource_id: str, *, source_table_id: str, force: bool, language: str, **kwargs
     ) -> dict[str, object]:
         calls.append((resource_id, source_table_id, force, language))
         return result
@@ -160,9 +160,10 @@ def test_models_and_routes_keep_module_identity_and_open_fields() -> None:
         for route in facade.router.routes
         if isinstance(route, APIRoute) and route.endpoint.__module__ == jobs.__name__
     ]
-    assert len(routes) == 12
-    assert [route.path for route in routes][:3] == [
+    assert len(routes) == 13
+    assert [route.path for route in routes][:4] == [
         "/llm-wiki/process",
+        "/llm-wiki/estimate",
         "/llm-wiki/status/{item_id}",
         "/llm-wiki/evidence/{resource_id}/{snapshot_id}/{segment_id}",
     ]

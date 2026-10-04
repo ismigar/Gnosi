@@ -12,6 +12,7 @@ class ReadingPlanError(ValueError):
     def __init__(self, errors: list[str], note_indices: list[int], coverage_invalid: bool,
                  primary: list[dict[str, object]], evidence: list[dict[str, object]]) -> None:
         super().__init__("Invalid reading plan: " + "; ".join(errors))
+        self.batch_index: int | None = None
         self.note_indices = note_indices
         self.coverage_invalid = coverage_invalid
         self.primary = primary

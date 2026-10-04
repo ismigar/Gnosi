@@ -18009,6 +18009,39 @@
         "title": "LlmWikiBrokenCitationResponse",
         "type": "object"
       },
+      "LlmWikiBudgetResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limit_usd": {
+            "title": "Limit Usd",
+            "type": "number"
+          },
+          "remaining_usd": {
+            "title": "Remaining Usd",
+            "type": "number"
+          },
+          "reserved_usd": {
+            "title": "Reserved Usd",
+            "type": "number"
+          },
+          "spent_usd": {
+            "title": "Spent Usd",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "limit_usd",
+          "spent_usd",
+          "reserved_usd",
+          "remaining_usd"
+        ],
+        "title": "LlmWikiBudgetResponse",
+        "type": "object"
+      },
       "LlmWikiCapabilitiesResponse": {
         "additionalProperties": true,
         "properties": {
@@ -18357,6 +18390,132 @@
         "title": "LlmWikiDuplicateManagedKeyResponse",
         "type": "object"
       },
+      "LlmWikiEstimateResponse": {
+        "properties": {
+          "batch_size": {
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LlmWikiBudgetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chunks_total": {
+            "title": "Chunks Total",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "cost_with_repairs_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost With Repairs Usd"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "estimate_id": {
+            "title": "Estimate Id",
+            "type": "string"
+          },
+          "input_token_bound": {
+            "title": "Input Token Bound",
+            "type": "integer"
+          },
+          "memory_restore_calls": {
+            "title": "Memory Restore Calls",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "output_token_bound": {
+            "title": "Output Token Bound",
+            "type": "integer"
+          },
+          "output_tokens_assumed": {
+            "title": "Output Tokens Assumed",
+            "type": "integer"
+          },
+          "planned_calls": {
+            "title": "Planned Calls",
+            "type": "integer"
+          },
+          "priced": {
+            "title": "Priced",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "remaining_chunks": {
+            "title": "Remaining Chunks",
+            "type": "integer"
+          },
+          "saved_chunks": {
+            "title": "Saved Chunks",
+            "type": "integer"
+          },
+          "source_token_bound": {
+            "title": "Source Token Bound",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "estimate_id",
+          "provider",
+          "model",
+          "currency",
+          "priced",
+          "chunks_total",
+          "saved_chunks",
+          "remaining_chunks",
+          "batch_size",
+          "planned_calls",
+          "memory_restore_calls",
+          "source_token_bound",
+          "input_token_bound",
+          "output_tokens_assumed",
+          "output_token_bound",
+          "cost_usd",
+          "cost_with_repairs_usd",
+          "budget",
+          "warnings"
+        ],
+        "title": "LlmWikiEstimateResponse",
+        "type": "object"
+      },
       "LlmWikiEvidenceResponse": {
         "additionalProperties": true,
         "description": "Persisted citation evidence resolved without exposing filesystem paths.",
@@ -18439,6 +18598,16 @@
         "additionalProperties": true,
         "description": "Durable Brain-ingest state returned while a resource is processed.",
         "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LlmWikiBudgetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "chunks_done": {
             "anyOf": [
               {
@@ -18971,6 +19140,18 @@
         "additionalProperties": true,
         "description": "Compatible request body for starting one durable Brain ingest.",
         "properties": {
+          "batch_size": {
+            "default": 4,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "estimate_id": {
+            "default": "",
+            "title": "Estimate Id",
+            "type": "string"
+          },
           "force": {
             "default": false,
             "title": "Force",
@@ -18985,6 +19166,13 @@
             "default": "",
             "title": "Language",
             "type": "string"
+          },
+          "max_cost_usd": {
+            "default": 0.5,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000.0,
+            "title": "Max Cost Usd",
+            "type": "number"
           },
           "resource_id": {
             "default": "",
@@ -84099,6 +84287,130 @@
         ]
       }
     },
+    "/api/vault/knowledge/estimate": {
+      "post": {
+        "description": "Estimate all processing phases without inference or writes to the vault.",
+        "operationId": "knowledge_llm_wiki_estimate_llm_wiki_estimate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LlmWikiProcessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiEstimateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Knowledge Llm Wiki Estimate",
+        "tags": [
+          "Knowledge"
+        ]
+      }
+    },
     "/api/vault/knowledge/evidence/{resource_id}/{snapshot_id}/{segment_id}": {
       "get": {
         "description": "Return one persisted normalized source segment for a citation drawer.",
@@ -91371,6 +91683,130 @@
           }
         },
         "summary": "Put Llm Wiki Config",
+        "tags": [
+          "Vault"
+        ]
+      }
+    },
+    "/api/vault/llm-wiki/estimate": {
+      "post": {
+        "description": "Estimate all processing phases without inference or writes to the vault.",
+        "operationId": "llm_wiki_estimate_api_vault_llm_wiki_estimate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LlmWikiProcessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmWikiEstimateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Llm Wiki Estimate",
         "tags": [
           "Vault"
         ]

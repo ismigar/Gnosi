@@ -6730,6 +6730,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vault/knowledge/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Knowledge Llm Wiki Estimate
+         * @description Estimate all processing phases without inference or writes to the vault.
+         */
+        post: operations["knowledge_llm_wiki_estimate_llm_wiki_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vault/knowledge/evidence/{resource_id}/{snapshot_id}/{segment_id}": {
         parameters: {
             query?: never;
@@ -7639,6 +7659,26 @@ export interface paths {
          */
         put: operations["put_llm_wiki_config_api_vault_llm_wiki_config_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vault/llm-wiki/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Llm Wiki Estimate
+         * @description Estimate all processing phases without inference or writes to the vault.
+         */
+        post: operations["llm_wiki_estimate_api_vault_llm_wiki_estimate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17307,6 +17347,19 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LlmWikiBudgetResponse */
+        LlmWikiBudgetResponse: {
+            /** Id */
+            id: string;
+            /** Limit Usd */
+            limit_usd: number;
+            /** Remaining Usd */
+            remaining_usd: number;
+            /** Reserved Usd */
+            reserved_usd: number;
+            /** Spent Usd */
+            spent_usd: number;
+        };
         /** LlmWikiCapabilitiesResponse */
         LlmWikiCapabilitiesResponse: {
             /** Binaries */
@@ -17427,6 +17480,46 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** LlmWikiEstimateResponse */
+        LlmWikiEstimateResponse: {
+            /** Batch Size */
+            batch_size: number;
+            budget: components["schemas"]["LlmWikiBudgetResponse"] | null;
+            /** Chunks Total */
+            chunks_total: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Cost With Repairs Usd */
+            cost_with_repairs_usd: number | null;
+            /** Currency */
+            currency: string;
+            /** Estimate Id */
+            estimate_id: string;
+            /** Input Token Bound */
+            input_token_bound: number;
+            /** Memory Restore Calls */
+            memory_restore_calls: number;
+            /** Model */
+            model: string;
+            /** Output Token Bound */
+            output_token_bound: number;
+            /** Output Tokens Assumed */
+            output_tokens_assumed: number;
+            /** Planned Calls */
+            planned_calls: number;
+            /** Priced */
+            priced: boolean;
+            /** Provider */
+            provider: string;
+            /** Remaining Chunks */
+            remaining_chunks: number;
+            /** Saved Chunks */
+            saved_chunks: number;
+            /** Source Token Bound */
+            source_token_bound: number;
+            /** Warnings */
+            warnings: string[];
+        };
         /**
          * LlmWikiEvidenceResponse
          * @description Persisted citation evidence resolved without exposing filesystem paths.
@@ -17458,6 +17551,7 @@ export interface components {
          * @description Durable Brain-ingest state returned while a resource is processed.
          */
         LlmWikiJobResponse: {
+            budget?: components["schemas"]["LlmWikiBudgetResponse"] | null;
             /** Chunks Done */
             chunks_done?: number | null;
             /** Chunks Total */
@@ -17634,6 +17728,16 @@ export interface components {
          */
         LlmWikiProcessRequest: {
             /**
+             * Batch Size
+             * @default 4
+             */
+            batch_size: number;
+            /**
+             * Estimate Id
+             * @default
+             */
+            estimate_id: string;
+            /**
              * Force
              * @default false
              */
@@ -17648,6 +17752,11 @@ export interface components {
              * @default
              */
             language: string;
+            /**
+             * Max Cost Usd
+             * @default 0.5
+             */
+            max_cost_usd: number;
             /**
              * Resource Id
              * @default
@@ -39543,6 +39652,46 @@ export interface operations {
             };
         };
     };
+    knowledge_llm_wiki_estimate_llm_wiki_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiEstimateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     knowledge_llm_wiki_evidence_llm_wiki_evidence__resource_id___snapshot_id___segment_id__get: {
         parameters: {
             query?: never;
@@ -41816,6 +41965,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LlmWikiConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    llm_wiki_estimate_api_vault_llm_wiki_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LlmWikiProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmWikiEstimateResponse"];
                 };
             };
             /** @description Validation Error */

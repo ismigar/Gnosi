@@ -17,7 +17,7 @@ export function ProcessResourceModal(
     const processState = useProcessResourceController(props);
 
     useModalKeyboard({
-        confirmDisabled: processState.state !== 'confirm',
+        confirmDisabled: processState.state !== 'confirm' || !processState.canStart,
         containerRef: modalRef,
         isOpen,
         onClose: processState.dismiss,
@@ -33,6 +33,13 @@ export function ProcessResourceModal(
 
     return (
         <ProcessResourceModalView
+            estimate={processState.estimate}
+            estimateError={processState.estimateError}
+            budgetLimit={processState.budgetLimit}
+            onBudgetLimit={processState.setBudgetLimit}
+            batchSize={processState.batchSize}
+            onBatchSize={processState.setBatchSize}
+            canStart={processState.canStart}
             error={processState.error}
             force={force}
             job={processState.job}

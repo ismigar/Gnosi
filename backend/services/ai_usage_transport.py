@@ -70,15 +70,21 @@ def _observed_result(value: Any) -> Any:
 
 class ObservedResource:
     """Preserve the SDK surface, including raw-response parse and streams."""
-    def __init__(self, resource: Any) -> None:
+    def __init__(self, resource: Any, sdk_client: Any = None) -> None:
         self.resource = resource
+        self.sdk_client = sdk_client or getattr(resource, "_client", None)
     def __getattr__(self, name: str) -> Any:
         attribute = getattr(self.resource, name)
         if name in {"with_raw_response", "with_streaming_response"}:
-            return ObservedResource(attribute)
+            return ObservedResource(attribute, self.sdk_client)
         if name not in {"create", "parse", "stream"} or not callable(attribute):
             return attribute
         def call(*args: Any, **kwargs: Any) -> Any:
+            from backend.services import reading_budget
+            if reading_budget.active():
+                sdk = self.sdk_client
+                if sdk is not None and hasattr(sdk, "max_retries"):
+                    sdk.max_retries = 0
             result = attribute(*args, **kwargs)
             if inspect.isawaitable(result):
                 async def finish() -> Any:
@@ -125,6 +131,7 @@ def price(provider: str, model: str, tokens: dict[str, Any], raw: dict[str, Any]
 
 class UsageCallback(BaseCallbackHandler):
     run_inline = True
+    raise_error = True
     def __init__(self, provider: str, model: str, api_key: str = "") -> None:
         self.provider, self.model = provider, model
         self.api_key = api_key
@@ -151,6 +158,8 @@ class UsageCallback(BaseCallbackHandler):
             state["attribution"]["profile"] = str(profile or "unrated")
         except Exception:
             state["rates"] = None
+        from backend.services import reading_budget
+        reading_budget.reserve(str(run_id), messages, kwargs.get("invocation_params") or {}, state.get("rates"), self.provider)
         with self.lock:
             self.pending[str(run_id)] = state
         _active.set(state)
@@ -200,6 +209,16 @@ def instrument(model: Any, provider: str, model_id: str | None) -> Any:
     from langchain_core.language_models import BaseChatModel
     if not isinstance(model, BaseChatModel):
         return model
+    from backend.services import reading_budget
+    if reading_budget.active():
+        # SDK retries are opaque to callbacks. Govern each attempt at the agent
+        # boundary instead, where every new invocation reserves its own budget.
+        if hasattr(model, "max_retries"):
+            model.max_retries = 0
+        for field in ("root_client", "root_async_client"):
+            client = getattr(model, field, None)
+            if client is not None and hasattr(client, "max_retries"):
+                client.max_retries = 0
     actual = str(getattr(model, "model_name", None) or getattr(model, "model", None) or model_id or "")
     credential = getattr(model, "openai_api_key", None)
     get_secret = getattr(credential, "get_secret_value", None)

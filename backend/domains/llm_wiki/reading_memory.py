@@ -1,6 +1,6 @@
 """Reconstruct global reading memory from all plans in a legacy checkpoint."""
 
-from typing import Any
+from typing import Any, cast
 
 from backend.domains.llm_wiki.chunking import encoded
 
@@ -53,4 +53,4 @@ def restore_memory(reader: Any, plans: dict[str, Any]) -> str:
         "task": "Reconstruct the global argument, qualifications, contradictions and cross-chunk links from these saved reading notes. Keep chunk and evidence ids. Do not change the notes or infer unread content.",
         "saved_plans": group,
     }, summary_limit=memory_limit) for i, group in enumerate(groups)]
-    return reader.combine(f"resume-memory-{len(plans)}", maps, summary_limit=memory_limit)
+    return cast(str, reader.combine(f"resume-memory-{len(plans)}", maps, summary_limit=memory_limit))

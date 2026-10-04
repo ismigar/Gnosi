@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, cast
+from copy import deepcopy
 
 from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
@@ -34,13 +35,13 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                     and (saved is None or len(checkpoint_state["plans"]) > len(saved["plans"]))):
                 saved = checkpoint_state
                 reader.resume_job_id = candidate
-    state: dict[str, Any] = saved if isinstance(saved, dict) and saved.get("identity") == identity else {
+    state: dict[str, Any] = deepcopy(saved) if isinstance(saved, dict) and saved.get("identity") == identity else {
         "identity": identity, "step": 0, "read": [], "plans": {}, "memory": "", "last_result": {},
     }
     if not chunks:
         raise RuntimeError("No readable source segments were extracted")
     complete = list(chunks.values())
-    if state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, output_schema])) + 2048 <= reader.budget:
+    if getattr(deps, "batch_size", 1) == 1 and state["step"] == 0 and deps.count_tokens(encoded([complete, reader.dimensions, reader.title, reader.language, output_schema])) + 2048 <= reader.budget:
         state["read"] = list(chunks)
         state["last_result"] = {"sources": complete, "delivery": "complete"}
 
@@ -72,12 +73,22 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     for _ in range(action_steps):
         # Deliver the next original without spending a model call on a read
         # command. Explicit read/search/recall actions still select other context.
-        if not state["last_result"] or (state.get("last_action") or {}).get("name") == "save_plan":
-            pending = next((key for key in chunks if key not in state["plans"]), None)
-            if pending is not None:
-                state["last_result"] = _apply_action(reader, state, chunks, "read", {"chunk_id": pending})
-                state["last_action"] = {"name": "read", "chunk_id": pending, "step": state["step"], "delivery": "automatic"}
-                record("reading.source.delivered", {"step": state["step"], "chunk_id": pending})
+        if not state["last_result"] or (state.get("last_action") or {}).get("name") in {"save_plan", "save_batch"}:
+            pending = [key for key in chunks if key not in state["plans"]]
+            delivered: list[str] = []
+            for key in pending[:max(1, min(4, getattr(deps, "batch_size", 1)))]:
+                candidates = [chunks[k] for k in [*delivered, key]]
+                if delivered and deps.count_tokens(encoded([candidates, state["memory"], output_schema, reader.dimensions])) > reader.budget // 2:
+                    break
+                delivered.append(key)
+            if delivered:
+                for key in delivered:
+                    _apply_action(reader, state, chunks, "read", {"chunk_id": key})
+                state["delivered"] = delivered
+                state["last_result"] = (chunks[delivered[0]] if len(delivered) == 1 else
+                                        {"sources": [chunks[key] for key in delivered], "delivery": "batch"})
+                state["last_action"] = {"name": "read", "chunk_ids": delivered, "step": state["step"], "delivery": "automatic"}
+                record("reading.source.delivered", {"step": state["step"], "chunk_ids": delivered})
                 checkpoint()
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
@@ -96,7 +107,10 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "and cross-chunk references. Prefer plan.memory_updates with exact old/new edits; "
                 "empty old appends new and all untouched memory is retained. Use plan.memory only "
                 "when rewriting the complete synthesis is necessary. Never replace global memory "
-                "with only the current fragment's summary."
+                "with only the current fragment's summary. When delivery is batch, prefer save_batch "
+                "with exactly one individually evidenced plan per delivered chunk_id and one shared "
+                "global memory update. Never omit, merge or shorten a fragment to fit a batch; "
+                "save_plan remains available for a fragment requiring more attention."
             ),
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
             "state_contract": (
@@ -204,6 +218,25 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         result = {"saved": True}
     elif action == "recall":
         result = state["plans"][str(args["chunk_id"]) ]
+    elif action == "save_batch":
+        from backend.domains.llm_wiki.reading_memory import update_memory
+        from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
+        entries = args["plans"]
+        keys = [entry["chunk_id"] for entry in entries]
+        if len(set(keys)) != len(keys) or set(keys) != set(state.get("delivered", [])):
+            raise ValueError("batch_requires_exactly_all_delivered_chunks")
+        memory = update_memory(state["memory"], args)
+        preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
+        for index, entry in enumerate(entries):
+            try:
+                _apply_action(reader, preview, chunks, "save_plan", {
+                    "chunk_id": entry["chunk_id"], "plan": {**entry["plan"], "memory": memory}})
+            except ReadingPlanError as error:
+                error.batch_index = index
+                raise
+        # Commit only after every plan passes; prior checkpoints stay intact.
+        state.update(plans=preview["plans"], memory=preview["memory"], memory_step=preview["memory_step"])
+        result = {"saved": keys, "remaining": len(chunks)-len(state["plans"])}
     elif action == "save_plan":
         key = str(args["chunk_id"])
         if key not in state["read"]:

@@ -107,6 +107,8 @@ class IngestionDependencies:
     resume_candidates: Callable[[str], list[str]] | None = None
     execution_revision: str = ""
     agent_directed: bool = False
+    expected_reading_identity: str = ""
+    batch_size: int = 1
     max_action_steps: int = 64
     execution_metadata: dict[str, object] | None = None
     input_budget: int = 24000
@@ -170,6 +172,10 @@ def process_resource(
         resolved_config,
         metadata,
     )
+    if dependencies.expected_reading_identity and dependencies.expected_reading_identity != fingerprint(
+        [dependencies.execution_revision, sources.chunks, ai_dimensions, brain_index]
+    ):
+        raise RuntimeError("reading_estimate_changed")
     reading_revision = fingerprint([dependencies.execution_revision, source_title, language,
                                     source_dimensions, ai_dimensions, brain_index, sources.chunks,
                                     [document_key(origin) for origin in sources.origins]])

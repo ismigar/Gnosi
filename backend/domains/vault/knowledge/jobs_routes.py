@@ -4,7 +4,7 @@ import importlib as _legacy_importlib
 from typing import TYPE_CHECKING, Never
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from backend.domains.llm_wiki.lint_contracts import LintReport
 from backend.domains.vault.knowledge.native_calls import capture_append
@@ -52,6 +52,39 @@ class LlmWikiProcessRequest(BaseModel):
     source_table_id: str = ""
     force: bool = False
     language: str = ""
+    max_cost_usd: float = Field(default=0.50, gt=0, le=1000)
+    batch_size: int = Field(default=4, ge=1, le=4)
+    estimate_id: str = ""
+
+
+class LlmWikiBudgetResponse(BaseModel):
+    id: str
+    limit_usd: float
+    spent_usd: float
+    reserved_usd: float
+    remaining_usd: float
+
+
+class LlmWikiEstimateResponse(BaseModel):
+    estimate_id: str
+    provider: str
+    model: str
+    currency: str
+    priced: bool
+    chunks_total: int
+    saved_chunks: int
+    remaining_chunks: int
+    batch_size: int
+    planned_calls: int
+    memory_restore_calls: int
+    source_token_bound: int
+    input_token_bound: int
+    output_tokens_assumed: int
+    output_token_bound: int
+    cost_usd: float | None
+    cost_with_repairs_usd: float | None
+    budget: LlmWikiBudgetResponse | None
+    warnings: list[str]
 
 
 class LlmWikiJobResponse(BaseModel):
@@ -78,6 +111,7 @@ class LlmWikiJobResponse(BaseModel):
     started_at: float | None = None
     updated_at: float | None = None
     finished_at: float | None = None
+    budget: LlmWikiBudgetResponse | None = None
     index_report: dict[str, object] | None = None
 
 
@@ -406,6 +440,27 @@ async def llm_wiki_process(
             source_table_id=payload.source_table_id,
             force=payload.force,
             language=payload.language,
+            max_cost_usd=payload.max_cost_usd,
+            batch_size=payload.batch_size,
+            estimate_id=payload.estimate_id,
+        )
+    except LlmWikiActionError as exc:
+        raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.post(
+    "/llm-wiki/estimate",
+    dependencies=[_legacy.Depends(_legacy.require_role("editor"))],
+    response_model=LlmWikiEstimateResponse,
+)
+async def llm_wiki_estimate(payload: LlmWikiProcessRequest = _legacy.Body(...)) -> dict[str, object]:
+    """Estimate all processing phases without inference or writes to the vault."""
+    from backend.services.llm_wiki_actions import LlmWikiActionError, start_source_process
+    try:
+        return await _legacy.asyncio.to_thread(
+            start_source_process, payload.resource_id or payload.item_id,
+            source_table_id=payload.source_table_id, force=payload.force,
+            language=payload.language, batch_size=payload.batch_size, estimate_only=True,
         )
     except LlmWikiActionError as exc:
         raise _legacy.HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
