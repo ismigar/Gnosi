@@ -5551,7 +5551,8 @@
       },
       "history": "Historique opérationnel disponible des 30 derniers jours (toutes les tâches) : {{completed}} terminées, {{failed}} échouées ou interrompues, {{other}} dans d’autres états. Il ne valide pas la qualité et n’attribue pas les coûts des exécutions utilisant plusieurs modèles.",
       "benchmark": "Indices du catalogue utilisés : {{metrics}} · {{date}}.",
-      "variants": "Cette offre correspond à {{count}} variantes de benchmark. Le score connu le plus bas est utilisé ; confirmez la configuration de raisonnement avant l’exécution. Les tests enregistrés n’augmentent pas la qualité tant que la configuration reste ambiguë."
+      "variants": "Cette offre correspond à {{count}} variantes de benchmark. Le score connu le plus bas est utilisé ; confirmez la configuration de raisonnement avant l’exécution. Les tests enregistrés n’augmentent pas la qualité tant que la configuration reste ambiguë.",
+      "same_offer": "Les trois critères sélectionnent la même offre avec les filtres actuels. Il s’agit du coût d’une exécution, pas de trois coûts cumulés."
     }
   },
   "tags": {

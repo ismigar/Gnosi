@@ -5551,7 +5551,8 @@
       },
       "history": "Historial operatiu disponible dels darrers 30 dies (totes les tasques): {{completed}} acabades, {{failed}} fallides o interrompudes, {{other}} en altres estats. No valida la qualitat ni atribueix el cost d’execucions amb diversos models.",
       "benchmark": "Índexs del catàleg utilitzats: {{metrics}} · {{date}}.",
-      "variants": "Aquesta oferta correspon a {{count}} variants de benchmark. S’utilitza la puntuació més baixa coneguda; cal confirmar la configuració de raonament abans d’executar. Les proves guardades no incrementen la qualitat mentre la configuració sigui ambigua."
+      "variants": "Aquesta oferta correspon a {{count}} variants de benchmark. S’utilitza la puntuació més baixa coneguda; cal confirmar la configuració de raonament abans d’executar. Les proves guardades no incrementen la qualitat mentre la configuració sigui ambigua.",
+      "same_offer": "Els tres criteris coincideixen en la mateixa oferta amb els filtres actuals. És el cost d’una execució, no tres costos acumulats."
     }
   },
   "tags": {

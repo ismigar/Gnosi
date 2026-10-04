@@ -46,6 +46,8 @@ it('presents three explained choices with currency, retry allowance and pending 
     expect(container.textContent).toContain('Més econòmic que compleix');
     expect(container.textContent).toContain('Màxima qualitat estimada');
     expect(container.textContent).toContain('Model 3');
+    expect(container.textContent).toContain('Els tres criteris coincideixen en la mateixa oferta');
+    expect(container.textContent).toContain('no tres costos acumulats');
     expect(container.textContent).toContain('0.38 €'); // Two attempts, EUR FX.
     expect(container.textContent).toContain('comprensió global, cobertura i fidelitat');
     expect(container.textContent).not.toContain('model_comparison.recommend.');

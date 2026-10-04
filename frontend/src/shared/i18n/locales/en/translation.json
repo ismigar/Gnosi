@@ -6658,7 +6658,8 @@
       },
       "history": "Available operational history over the last 30 days (all tasks): {{completed}} completed, {{failed}} failed or interrupted, {{other}} in other states. It does not validate quality or attribute costs of runs using multiple models.",
       "benchmark": "Catalogue indices used: {{metrics}} · {{date}}.",
-      "variants": "This offer maps to {{count}} benchmark variants. The lowest known score is used; confirm the reasoning configuration before execution. Saved tests do not boost quality while the configuration is ambiguous."
+      "variants": "This offer maps to {{count}} benchmark variants. The lowest known score is used; confirm the reasoning configuration before execution. Saved tests do not boost quality while the configuration is ambiguous.",
+      "same_offer": "All three criteria select the same offer with the current filters. This is the cost of one execution, not three cumulative costs."
     }
   },
   "relation_item": {

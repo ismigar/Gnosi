@@ -1,3 +1,4 @@
+import './ModelTaskRecommendations.css';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AiModelComparison, AiModelComparisonEntry } from '../../../shared/api/ai';
@@ -51,6 +52,11 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         minimumQuality: number(minimum), budgetUsd: budget.trim() ? number(budget) / feed.currency.usd_rate : null,
         attempts: number(attempts),
     }, reports);
+    const sameOffer = result.balanced && result.cheapest && result.quality
+        && [result.cheapest, result.quality].every(candidate => candidate.offer.route.provider === result.balanced?.offer.route.provider
+            && candidate.offer.route.model_id === result.balanced.offer.route.model_id
+            && candidate.offer.cost === result.balanced.offer.cost
+            && candidate.offer.plan === result.balanced.offer.plan);
     const money = (value: number) => formatComparisonCost(value * feed.currency.usd_rate, feed.currency.symbol);
     const field = (key: string, value: string, set: (v: string) => void, max?: number) => <label>
         {t(`model_comparison.recommend.${key}`, { symbol: feed.currency.symbol })}
@@ -61,7 +67,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         const value = candidate.model[key as 'intelligence' | 'coding' | 'agentic'];
         return `${t(`model_comparison.columns.${key}`)}: ${String(value)} (${String(Math.round(weight * 100))}%)`;
     }).join(' · ');
-    const render = (candidate: Candidate | undefined, kind: string) => <article className="ai-resource-card" key={kind}>
+    const render = (candidate: Candidate | undefined, kind: string) => <article className="ai-resource-card model-task-choice" key={kind}>
         <h3>{t(`model_comparison.recommend.${kind}`)}</h3>
         {candidate ? <>
             <strong>{candidate.model.name}</strong>
@@ -78,9 +84,9 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         </> : <p>{t('model_comparison.recommend.empty')}</p>}
     </article>;
     return <section className="ai-resource-card model-task-recommendations" aria-label={t('model_comparison.recommend.title')}>
-        <header className="agent-evaluation-lab__header"><h3>{t('model_comparison.recommend.title')}</h3><RefreshButton onClick={() => { setReload(value => value + 1); }} /></header>
+        <header className="model-task-recommendations__header"><h3>{t('model_comparison.recommend.title')}</h3><RefreshButton onClick={() => { setReload(value => value + 1); }} /></header>
         <p className="settings-desc">{t('model_comparison.recommend.help')}</p>
-        <div className="ai-resource-editor__grid">
+        <div className="ai-resource-editor__grid model-task-recommendations__fields">
             <label>{t('model_comparison.recommend.task')}<select className="gnosi-select" value={task.id} onChange={event => {
                 const next = tasks.find(item => item.id === event.target.value);
                 if (!next) return;
@@ -92,7 +98,8 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         <p className="settings-desc">{t('model_comparison.recommend.volume_help')}</p>
         {evidence.vault === vault && evidence.error && <p role="alert">{t('model_comparison.recommend.evidence_error')}</p>}
         {!valid ? <p role="alert">{t('model_comparison.recommend.invalid')}</p> : <>
-            <div className="model-profile-help-content">{render(result.balanced, 'balanced')}{render(result.cheapest, 'cheapest')}{render(result.quality, 'quality')}</div>
+            {sameOffer && <p className="model-configuration-banner">{t('model_comparison.recommend.same_offer')}</p>}
+            <div className="model-task-recommendations__choices">{render(result.balanced, 'balanced')}{render(result.cheapest, 'cheapest')}{render(result.quality, 'quality')}</div>
             <details><summary>{t('model_comparison.recommend.exclusions')}</summary>
                 <ul>{Object.entries(result.excluded).filter(([, count]) => count > 0).map(([reason, count]) => <li key={reason}>{t(`model_comparison.recommend.excluded.${reason}`, { count })}</li>)}</ul>
             </details>

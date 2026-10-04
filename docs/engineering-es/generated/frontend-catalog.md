@@ -48,7 +48,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grupo | Archivos | Líneas | Referencias literales a la API |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1161 | 128977 | 38 |
+| `features` | 1161 | 128984 | 38 |
 | `generated` | 2 | 49118 | 504 |
 | `shared` | 279 | 32597 | 434 |
 
@@ -641,7 +641,7 @@ Regenera con `python pipeline/skills/technical_documentation/scripts/generate.py
 | [`frontend/src/features/settings/model-comparison/ModelOfferList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.tsx) | 19 | `ModelOfferList` | — |
 | [`frontend/src/features/settings/model-comparison/ModelParameterReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.tsx) | 53 | `ModelParameterReview` | — |
 | [`frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx) | 59 | `ModelPriceOffer` | — |
-| [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 101 | `ModelTaskRecommendations` | — |
+| [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 108 | `ModelTaskRecommendations` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonDataState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonDataState.ts) | 165 | `INITIAL_DATA_STATE`, `modelComparisonDataReducer` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts) | 146 | `comparisonRouteKey`, `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
 | [`frontend/src/features/settings/model-comparison/modelParameters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelParameters.ts) | 149 | `modelParameterDisclosure`, `modelParameterMetadata` | — |
