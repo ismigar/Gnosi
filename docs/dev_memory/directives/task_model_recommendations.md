@@ -100,3 +100,23 @@ contracts, latency and cost, and team strategy; they do not certify real book
 comprehension or citation quality. Upfront cost is explicitly unknown and tests
 retain explicit model-call authorization. A visited lab stays mounted while
 switching sections so an authorized running test is not abandoned by navigation.
+
+Bot selection now determines the automatic recommendation demand. Combine known
+plugin responsibilities, assigned and required skills (including personalized
+skill ancestry), and enabled team operation routes. Show the detected tasks,
+source skills, required tool count and unclassified skills; do not infer task
+semantics from arbitrary names or instruction text. Explicit tool IDs and skill
+tool dependencies require a tool-capable route. Unclassified skills remain a
+visible limitation, not a claim that all bot responsibilities are certified.
+
+Automatic recommendations require the capabilities and minimum estimated
+quality for every detected task, using the lowest task score and the largest
+example context. Input/output examples use the largest detected task volume;
+they are per-execution scenarios, not a sum of all skills or actual book billing.
+A single-task simulation is available only in advanced settings with an explicit
+warning. Returning to automatic mode restores the combined example volumes.
+Per-bot drafts retain this mode across section changes. No model is invoked or
+assigned by demand detection.
+Bot-view activation and assignment wait for the skill catalogue to load; loading
+and catalogue failures are shown explicitly rather than treating absent
+catalogue data as a tool-free bot.

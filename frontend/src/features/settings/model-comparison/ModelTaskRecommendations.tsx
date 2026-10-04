@@ -1,3 +1,4 @@
+import type { botModelDemand } from './botModelDemand';
 import './ModelTaskRecommendations.css';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,16 +12,17 @@ import { recommendTask, TASKS, type Candidate, type TaskId } from './taskRecomme
 import { operationalEvidence } from './operationalEvidence';
 
 export interface TaskRecommendationDraft {
-    taskId: TaskId; input: string; output: string; context: string; minimum: string; budget: string; attempts: string;
+    manual?: boolean; taskId: TaskId; input: string; output: string; context: string; minimum: string; budget: string; attempts: string;
 }
 
-export function ModelTaskRecommendations({ models, feed, provider, profile, revision, initialTask, registry = [], onConfigure, onAssign, botName, disabled = false, initialDraft, onDraftChange }: {
+export function ModelTaskRecommendations({ models, feed, provider, profile, revision, initialTask, botDemand, registry = [], onConfigure, onAssign, botName, disabled = false, initialDraft, onDraftChange }: {
     readonly models: readonly AiModelComparisonEntry[];
     readonly feed: AiModelComparison;
     readonly provider: string;
     readonly profile: string;
     readonly revision: number;
     readonly initialTask?: TaskId;
+    readonly botDemand?: ReturnType<typeof botModelDemand>;
     readonly registry?: readonly AiModelRegistryEntry[];
     readonly onConfigure?: (candidate: Candidate) => void;
     readonly onAssign?: (candidate: Candidate) => void;
@@ -33,16 +35,18 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
     const vault = useActiveVaultId();
     const tasks = TASKS.filter(task => profile === 'all' || profile === 'unrated' || task.role === profile);
     const initial = tasks.find(task => task.id === (initialTask ?? 'book')) ?? tasks[0] ?? TASKS[0];
+    const detected = TASKS.filter(item => botDemand?.tasks.includes(item.id));
+    const [manual, setManual] = useState(initialDraft?.manual ?? !botDemand);
     const [taskId, setTaskId] = useState<TaskId>(initialDraft?.taskId ?? initial.id);
     const task = tasks.find(item => item.id === taskId) ?? initial;
-    const [input, setInput] = useState(initialDraft?.input ?? (String(task.input)));
-    const [output, setOutput] = useState(initialDraft?.output ?? (String(task.output)));
-    const [context, setContext] = useState(initialDraft?.context ?? (String(task.context)));
+    const [input, setInput] = useState(initialDraft?.input ?? (String(!manual && detected.length ? Math.max(...detected.map(item => item.input)) : task.input)));
+    const [output, setOutput] = useState(initialDraft?.output ?? (String(!manual && detected.length ? Math.max(...detected.map(item => item.output)) : task.output)));
+    const [context, setContext] = useState(initialDraft?.context ?? (String(!manual && detected.length ? Math.max(...detected.map(item => item.context)) : task.context)));
     const [minimum, setMinimum] = useState(initialDraft?.minimum ?? ('60'));
     const [budget, setBudget] = useState(initialDraft?.budget ?? (task.id === 'book' ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : ''));
     const [attempts, setAttempts] = useState(initialDraft?.attempts ?? ('2'));
-    useEffect(() => { onDraftChange?.({ taskId, input, output, context, minimum, budget, attempts }); },
-        [taskId, input, output, context, minimum, budget, attempts, onDraftChange]);
+    useEffect(() => { onDraftChange?.({ manual, taskId, input, output, context, minimum, budget, attempts }); },
+        [manual, taskId, input, output, context, minimum, budget, attempts, onDraftChange]);
     const [reload, setReload] = useState(0);
     const [evidence, setEvidence] = useState<{ vault: string; reports: RoleEvaluationReport[]; runs: AgentExecutionRun[]; error: boolean }>({ vault: '', reports: [], runs: [], error: false });
     useEffect(() => {
@@ -62,7 +66,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         && Number.isInteger(number(attempts)) && number(attempts) >= 1 && number(attempts) <= 10
         && Number.isFinite(feed.currency.usd_rate) && feed.currency.usd_rate > 0;
     const result = recommendTask(models, feed.models, provider, {
-        task, input: number(input), output: number(output), context: number(context),
+        task, tasks: !manual && detected.length ? detected : undefined, needsTools: !manual && botDemand?.needsTools, input: number(input), output: number(output), context: !manual && detected.length ? Math.max(number(context), ...detected.map(item => item.context)) : number(context),
         minimumQuality: number(minimum), budgetUsd: budget.trim() ? number(budget) / feed.currency.usd_rate : null,
         attempts: number(attempts),
     }, reports);
@@ -74,6 +78,15 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         if (match) match.kinds.push(kind);
         else choices.push({ candidate, kinds: [kind] });
     }
+    const toggleSimulation = () => {
+        setManual(value => !value);
+        if (manual && detected.length) {
+            setInput(String(Math.max(...detected.map(item => item.input))));
+            setOutput(String(Math.max(...detected.map(item => item.output))));
+            setContext(String(Math.max(...detected.map(item => item.context))));
+            setBudget(detected.some(item => item.id === 'book') ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : '');
+        }
+    };
     const sameOffer = choices.length === 1 && Boolean(choices[0]?.candidate);
     const money = (value: number) => formatComparisonCost(value * feed.currency.usd_rate, feed.currency.symbol);
     const field = (key: string, value: string, set: (v: string) => void, max?: number) => <label>
@@ -81,10 +94,11 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         <input className="gnosi-input" type="number" min="0" max={max} step={key === 'budget' ? '0.01' : '1'} value={value} onChange={event => { set(event.target.value); }} />
     </label>;
     const history = (candidate: Candidate) => operationalEvidence(evidence.vault === vault ? evidence.runs : [], candidate.offer.route.provider, candidate.offer.route.model_id);
-    const metrics = (candidate: Candidate) => Object.entries(task.weights).map(([key, weight]) => {
-        const value = candidate.model[key as 'intelligence' | 'coding' | 'agentic'];
-        return `${t(`model_comparison.columns.${key}`)}: ${String(value)} (${String(Math.round(weight * 100))}%)`;
-    }).join(' · ');
+    const metrics = (candidate: Candidate) => (!manual && detected.length ? detected : [task]).map(item =>
+        `${t(`model_comparison.recommend.tasks.${item.id}`)}: ${Object.entries(item.weights).map(([key, weight]) => {
+            const value = candidate.model[key as 'intelligence' | 'coding' | 'agentic'];
+            return `${t(`model_comparison.columns.${key}`)}: ${String(value)} (${String(Math.round(weight * 100))}%)`;
+        }).join(' · ')}`).join('; ');
     const render = (candidate: Candidate | undefined, kinds: string[]) => <article className="ai-resource-card model-task-choice" key={kinds[0]}>
         <h3>{kinds.map(kind => t(`model_comparison.recommend.${kind}`)).join(' · ')}</h3>
         {candidate ? <>
@@ -99,7 +113,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             {candidate.sampleCostPerSuccess !== null && <p>{t('model_comparison.recommend.sample_cost', { cost: money(candidate.sampleCostPerSuccess) })}</p>}
             {candidate.sampleLatency !== null && <p>{t('model_comparison.recommend.sample_time', { seconds: (candidate.sampleLatency / 1000).toFixed(2) })}</p>}
             <p>{t('model_comparison.recommend.history', history(candidate))}</p>
-            <p>{t(`model_comparison.recommend.pending_${task.role}`)}</p>
+            {[...new Set((!manual && detected.length ? detected : [task]).map(item => item.role))].map(role => <p key={role}>{t(`model_comparison.recommend.pending_${role}`)}</p>)}
             </details>
             {(onConfigure || onAssign) && <div className="model-task-choice__actions">
                 {onConfigure && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={disabled}
@@ -111,18 +125,29 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         </> : <p>{t('model_comparison.recommend.empty')}</p>}
     </article>;
     return <section className="ai-resource-card model-task-recommendations" aria-label={t('model_comparison.recommend.title')}>
-        <header className="model-task-recommendations__header"><h3>{t('model_comparison.recommend.title')}</h3><RefreshButton onClick={() => { setReload(value => value + 1); }} /></header>
+        <header className="model-task-recommendations__header"><h3>{t(botDemand ? 'model_comparison.workspace.bot_recommendations' : 'model_comparison.recommend.title')}</h3><RefreshButton onClick={() => { setReload(value => value + 1); }} /></header>
 
+        {botDemand && <div className="settings-desc">
+            <p>{t('model_comparison.workspace.detected_tasks')}: {detected.map(item => t(`model_comparison.recommend.tasks.${item.id}`)).join(' · ')}</p>
+            {!manual && <p>{t('model_comparison.workspace.combined_quality')}</p>}
+            <p>{t('model_comparison.workspace.detected_tools', { count: botDemand.tools.length })}</p>
+            <details><summary>{t('model_comparison.workspace.assigned_skills')}</summary><ul>{[...new Set(botDemand.assigned)].map(name => <li key={name}>{name}</li>)}</ul></details>
+            {botDemand.unknown.length > 0 && <p role="status">{t('model_comparison.workspace.unknown_skills', { names: botDemand.unknown.join(', ') })}</p>}
+            {manual && <p role="status">{t('model_comparison.workspace.manual_warning')}</p>}
+        </div>}
         <div className="ai-resource-editor__grid model-task-recommendations__fields">
+            {field('input', input, setInput)}{field('output', output, setOutput)}{field('budget', budget, setBudget)}
+        </div>
+        <p className="settings-desc">{t('model_comparison.workspace.examples', { count: number(attempts) })}</p>
+        <details className="model-task-recommendations__requirements"><summary>{t('model_comparison.workspace.requirements')}</summary>
+            {botDemand && <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={toggleSimulation}>{t(manual ? 'model_comparison.workspace.automatic_mode' : 'model_comparison.workspace.manual_mode')}</button>}
+            {manual && <div className="ai-resource-editor__grid model-task-recommendations__fields">
             <label>{t('model_comparison.recommend.task')}<select className="gnosi-select" value={task.id} onChange={event => {
                 const next = tasks.find(item => item.id === event.target.value);
                 if (!next) return;
                 setTaskId(next.id); setInput(String(next.input)); setOutput(String(next.output)); setContext(String(next.context)); setBudget(next.id === 'book' ? String(Number((.5 * feed.currency.usd_rate).toFixed(2))) : '');
             }}>{tasks.map(item => <option key={item.id} value={item.id}>{t(`model_comparison.recommend.tasks.${item.id}`)}</option>)}</select></label>
-            {field('input', input, setInput)}{field('output', output, setOutput)}{field('budget', budget, setBudget)}
-        </div>
-        <p className="settings-desc">{t('model_comparison.workspace.examples', { count: number(attempts) })}</p>
-        <details className="model-task-recommendations__requirements"><summary>{t('model_comparison.workspace.requirements')}</summary>
+            </div>}
             <div className="ai-resource-editor__grid model-task-recommendations__fields">{field('context', context, setContext)}{field('minimum', minimum, setMinimum, 100)}{field('attempts', attempts, setAttempts, 10)}</div>
             <p className="settings-desc">{t('model_comparison.recommend.volume_help')}</p>
             <p className="settings-desc">{t('model_comparison.recommend.help')}</p>

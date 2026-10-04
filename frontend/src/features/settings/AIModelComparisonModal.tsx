@@ -1,3 +1,5 @@
+import type { NormalizedSkill } from './AI/aiSettingsUtils';
+import { botModelDemand } from './model-comparison/botModelDemand';
 import { AgentEvaluationLab } from './AI/AgentEvaluationLab';
 import { ModelTaskRecommendations, type TaskRecommendationDraft } from './model-comparison/ModelTaskRecommendations';
 import { useMemo, useReducer, useState, useCallback, type CSSProperties } from 'react';
@@ -8,7 +10,6 @@ import { useModalKeyboard } from '../../shared/hooks/useModalKeyboard';
 import './AIModelComparisonModal.css';
 import { SettingsSectionTabs } from '../../shared/ui/settings/SettingsSectionTabs';
 import { ModelBotContext } from './model-comparison/ModelBotContext';
-import { botTask } from './model-comparison/botModelChoice';
 import { isSuspendedPluginProfile, principalAssistant, profileDisplayName } from '../../shared/ai/assistantProfiles';
 import type { SettingsAgent } from './global-settings/types';
 import type { AiModelComparisonEntry } from '../../shared/api/ai';
@@ -32,6 +33,8 @@ export interface AIModelComparisonModalProps {
     readonly isOpen: boolean;
     readonly onClose: () => void;
     readonly bots?: readonly SettingsAgent[];
+    readonly skillCatalog?: readonly NormalizedSkill[];
+    readonly skillCatalogStatus?: 'ready' | 'loading' | 'error';
     readonly principalId?: string;
     readonly onAssignModel?: (botId: string, provider: string, model: string) => void;
     readonly onConfigureBot?: (id: string) => void;
@@ -46,7 +49,7 @@ type FilterHeightStyle = CSSProperties & {
 
 export function AIModelComparisonModal({
     isOpen,
-    onClose, bots = [], principalId = '', onAssignModel, onConfigureBot, saveStatus,
+    onClose, bots = [], skillCatalog = [], skillCatalogStatus = 'ready', principalId = '', onAssignModel, onConfigureBot, saveStatus,
 }: AIModelComparisonModalProps) {
     const { t } = useTranslation();
     const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskRecommendationDraft>>({});
@@ -57,6 +60,7 @@ export function AIModelComparisonModal({
     const visibleBots = bots.filter(bot => !isSuspendedPluginProfile(bot));
     const principal = principalAssistant(visibleBots, principalId);
     const bot = visibleBots.find(item => item.id === botId) ?? principal ?? visibleBots.at(0);
+    const demand = botModelDemand(bot, principal?.id ?? principalId, skillCatalog);
     const draftKey = bot?.id ?? 'general';
     const rememberDraft = useCallback((draft: TaskRecommendationDraft) => {
         setTaskDrafts(previous => JSON.stringify(previous[draftKey]) === JSON.stringify(draft) ? previous : { ...previous, [draftKey]: draft });
@@ -203,7 +207,7 @@ export function AIModelComparisonModal({
 
                     {!data.loading && data.feed ? (
                         <>
-                            <ModelBotContext key={bot?.id ?? 'general'} disabled={data.configurationLoading || Boolean(data.configurationError)} bots={visibleBots} bot={bot} onBotChange={setBotId} registry={data.registry.models}
+                            <ModelBotContext key={bot?.id ?? 'general'} disabled={data.configurationLoading || Boolean(data.configurationError) || skillCatalogStatus !== 'ready'} bots={visibleBots} bot={bot} onBotChange={setBotId} registry={data.registry.models}
                                 onAssign={onAssignModel} onConfigure={onConfigureBot} saveStatus={saveStatus} />
                             <SettingsSectionTabs activeId={tab} ariaLabel={t('model_comparison.workspace.sections')}
                                 items={[
@@ -217,6 +221,7 @@ export function AIModelComparisonModal({
                             </section>}
                             {tab === 'bots' && <>
                                 <p className="settings-desc">{t('model_comparison.workspace.choose_help')}</p>
+                                {skillCatalogStatus !== 'ready' && <p role={skillCatalogStatus === 'error' ? 'alert' : 'status'}>{t(`model_comparison.workspace.skills_${skillCatalogStatus}`)}</p>}
                                 <label className="model-setup-field model-bot-provider">{t('settings.ai.provider')}
                                     <select className="gnosi-select" value={offerProvider} onChange={event => { setOfferProvider(event.target.value); }}>
                                         <option value="configured">{t('model_comparison.workspace.configured_providers')}</option>
@@ -224,10 +229,10 @@ export function AIModelComparisonModal({
                                         {providerOptions.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
                                     </select>
                                 </label>
-                                <ModelTaskRecommendations key={bot?.id ?? 'general'} profile="all" initialTask={botTask(bot, principal?.id ?? principalId)} provider={offerProvider === 'configured' ? 'all' : offerProvider}
+                                <ModelTaskRecommendations key={bot?.id ?? 'general'} profile="all" initialTask={demand.tasks[0]} botDemand={bot ? demand : undefined} provider={offerProvider === 'configured' ? 'all' : offerProvider}
                                     initialDraft={taskDrafts[draftKey]} onDraftChange={rememberDraft}
                                     models={taskModels} feed={data.feed} revision={evidenceRevision} registry={data.registry.models}
-                                    botName={bot ? profileDisplayName(bot, t) || bot.id : undefined} disabled={data.configurationLoading || Boolean(data.configurationError) || saveStatus === 'saving'}
+                                    botName={bot ? profileDisplayName(bot, t) || bot.id : undefined} disabled={data.configurationLoading || Boolean(data.configurationError) || skillCatalogStatus !== 'ready' || saveStatus === 'saving'}
                                     onConfigure={candidate => { beginActivation({ ...candidate.model, routes: [candidate.offer.route] }, candidate.offer.route.provider); }}
                                     onAssign={bot && onAssignModel ? candidate => { onAssignModel(bot.id, candidate.offer.route.provider, candidate.offer.route.model_id); } : undefined} />
                             </>}

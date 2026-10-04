@@ -19,6 +19,8 @@ export type TaskId = Task['id'];
 export type Exclusion = 'capabilities' | 'terms' | 'cost' | 'budget' | 'quality' | 'failed_test';
 export interface TaskRequest {
     task: Task;
+    tasks?: readonly Task[];
+    needsTools?: boolean;
     input: number;
     output: number;
     context: number;
@@ -73,12 +75,17 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
     request: TaskRequest, reports: readonly RoleEvaluationReport[] = [], now = Date.now()) {
     const excluded: Record<Exclusion, number> = { capabilities: 0, terms: 0, cost: 0, budget: 0, quality: 0, failed_test: 0 };
     const candidates: Candidate[] = [];
+    const demands = request.tasks?.length ? request.tasks : [request.task];
+    const demandQuality = (model: Model) => {
+        const values = demands.map(task => benchmarkQuality(model, rankings, task));
+        return values.some(value => value === null) ? null : Math.min(...values.filter((value): value is number => value !== null));
+    };
     const seen = new Set<string>();
-    const rankings = new Map((Object.keys(request.task.weights) as Metric[])
+    const rankings = new Map(([...new Set(demands.flatMap(task => Object.keys(task.weights)))] as Metric[])
         .map(key => [key, peers.map(peer => peer[key]).filter(knownPrice).sort((a, b) => a - b)] as const));
     const variants = new Map<string, { model: Model; quality: number; ids: Set<string> }>();
     for (const peer of peers) {
-        const quality = benchmarkQuality(peer, rankings, request.task);
+        const quality = demandQuality(peer);
         if (quality === null) continue;
         for (const route of peer.routes) {
             const key = JSON.stringify([route.provider, route.model_id]);
@@ -91,7 +98,7 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
         }
     }
     for (const model of models) {
-        const benchmark = benchmarkQuality(model, rankings, request.task);
+        const benchmark = demandQuality(model);
         for (const offer of comparisonRouteCosts(model, provider, String(request.input * request.attempts), String(request.output * request.attempts))) {
             const route = offer.route;
             const variant = variants.get(JSON.stringify([route.provider, route.model_id]));
@@ -104,8 +111,8 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
             if (route.billing?.notes?.includes('interactive_only')) { excluded.terms++; continue; }
             if (!knownPrice(route.context_window) || route.context_window < request.context
                 || !route.input_modes?.includes('text') || !route.output_modes?.includes('text')
-                || (request.task.tools && route.tool_call !== true)
-                || (request.task.structured && !route.tags.some(tag => ['json', 'structured'].includes(tag)) && route.tool_call !== true)) {
+                || ((request.needsTools || demands.some(task => task.tools)) && route.tool_call !== true)
+                || (demands.some(task => task.structured) && !route.tags.some(tag => ['json', 'structured'].includes(tag)) && route.tool_call !== true)) {
                 excluded.capabilities++; continue;
             }
             // Local token price zero excludes hardware/energy and is not comparable
@@ -113,8 +120,9 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
             if (route.is_local || !knownPrice(offer.cost)
                 || (offer.cost === 0 && route.billing?.kind !== 'free')) { excluded.cost++; continue; }
             if (request.budgetUsd !== null && offer.cost > request.budgetUsd) { excluded.budget++; continue; }
-            const report = currentReport(reports, request.task.role, offer, now);
-            if (report?.cases.some(c => !c.passed)) { excluded.failed_test++; continue; }
+            const relevantReports = demands.map(task => currentReport(reports, task.role, offer, now));
+            const report = relevantReports.length === 1 ? relevantReports[0] : undefined;
+            if (relevantReports.some(item => item?.cases.some(c => !c.passed))) { excluded.failed_test++; continue; }
             const quality = observed === null ? null : report && variantCount === 1
                 ? Math.round((.8 * observed + .2 * report.score) * 10) / 10 : observed;
             if (quality === null || quality < request.minimumQuality) { excluded.quality++; continue; }

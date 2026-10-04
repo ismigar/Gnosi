@@ -373,9 +373,12 @@ it('starts with a bot decision view and separates the catalogue and optional tes
     const botSelect = container.querySelector<HTMLSelectElement>('.model-bot-context select');
     expect(botSelect?.value).toBe('principal');
     const taskSelect = () => container.querySelector<HTMLSelectElement>('.model-task-recommendations select');
-    expect(taskSelect()?.value).toBe('workflow');
+    expect(taskSelect()).toBeNull();
+    expect(container.textContent).toContain('model_comparison.recommend.tasks.workflow');
     await act(async () => { if (botSelect) { botSelect.value = 'wiki'; botSelect.dispatchEvent(new Event('change', { bubbles: true })); }  await Promise.resolve(); });
-    expect(taskSelect()?.value).toBe('book');
+    expect(taskSelect()).toBeNull();
+    expect(container.textContent).toContain('model_comparison.recommend.tasks.book');
+    await act(async () => { [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'model_comparison.workspace.manual_mode')?.click(); await Promise.resolve(); });
     await act(async () => { const select = taskSelect(); if (select) { select.value = 'retrieve'; select.dispatchEvent(new Event('change', { bubbles: true })); }  await Promise.resolve(); });
     openCatalogue(); expect(container.querySelector('.model-comparison-table')).not.toBeNull();
     expect(container.querySelector('.model-task-recommendations')).toBeNull();
@@ -402,4 +405,18 @@ it('assigns an explicitly chosen active route to the selected bot and opens its 
     act(() => { container.querySelector<HTMLButtonElement>('.model-bot-context__summary > button')?.click(); });
     expect(configure).toHaveBeenCalledWith('wiki');
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('model_comparison.workspace.save_error');
+});
+it('waits for skill data before assigning an active model and reports catalogue failures', async () => {
+    const assign = vi.fn();
+    const render = (status: 'loading' | 'error' | 'ready') => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} bots={[{ id: 'wiki', managed_by: 'builtin:llm-wiki' }]} onAssignModel={assign} skillCatalogStatus={status} />); };
+    await act(async () => { render('loading'); await Promise.resolve(); });
+    const route = container.querySelector<HTMLSelectElement>('.model-bot-context details select');
+    act(() => { if (route) { route.value = JSON.stringify(['openai', 'model-1']); route.dispatchEvent(new Event('change', { bubbles: true })); } });
+    const button = container.querySelector<HTMLButtonElement>('.model-bot-context details button');
+    expect(button?.disabled).toBe(true); expect(assign).not.toHaveBeenCalled();
+    act(() => { render('error'); });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('model_comparison.workspace.skills_error');
+    expect(button?.disabled).toBe(true);
+    act(() => { render('ready'); });
+    expect(button?.disabled).toBe(false); expect(assign).not.toHaveBeenCalled();
 });

@@ -113,3 +113,14 @@ describe('task recommendations', () => {
         expect(recommendTask([high], [...peers, high, weaker], 'p', { ...request, minimumQuality: 60 }, [], now).quality).toBeUndefined();
     });
 });
+
+it('requires every bot task and scores the weakest task rather than its best specialty', () => {
+    const weakAgent = { ...high, agentic: 1 };
+    const result = compare([weakAgent, near], { tasks: [TASKS[2], TASKS[5]], minimumQuality: 60, budgetUsd: 1 });
+    expect(result.quality?.model.id).toBe('near');
+    const noTools = { ...high, routes: [{ ...firstRoute(high), tool_call: false }] };
+    expect(compare([noTools], { needsTools: true }).excluded.capabilities).toBe(1);
+    expect(compare([noTools], { tasks: [TASKS[2], TASKS[5]] }).excluded.capabilities).toBe(1);
+    const missingAgentic = { ...high, agentic: null };
+    expect(compare([missingAgentic], { tasks: [TASKS[2], TASKS[5]] }).excluded.quality).toBe(1);
+});

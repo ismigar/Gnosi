@@ -262,7 +262,7 @@ export function GlobalSettingsView({ context }: { context: SettingsController })
       <Suspense fallback={<div role="status">{t('common.loading')}</div>}>
         {isModelComparisonOpen && <AIModelComparisonModal
           isOpen={isModelComparisonOpen}
-          bots={draft.ai.agents} principalId={draft.ai.active_agent_id} saveStatus={context.savingStatus}
+          bots={draft.ai.agents} skillCatalog={context.aiResources.skills} skillCatalogStatus={context.aiResources.loading ? 'loading' : context.aiResources.error ? 'error' : 'ready'} principalId={draft.ai.active_agent_id} saveStatus={context.savingStatus}
           onAssignModel={(id, provider, model) => { setDraft(prev => ({ ...prev, ai: { ...prev.ai,
             agents: prev.ai.agents.map(bot => bot.id === id ? withBotModel(bot, provider, model) : bot),
           } })); }}

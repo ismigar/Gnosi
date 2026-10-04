@@ -93,3 +93,20 @@ it('groups an identical offer and exposes configuration and assignment only for 
     expect(assign.mock.calls[0]?.[0]?.offer.route).toMatchObject({ provider: 'p', model_id: '3' });
     expect(mocks.invoke).not.toHaveBeenCalled();
 });
+it('uses detected bot duties by default and keeps single-task simulation in advanced settings', async () => {
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><ModelTaskRecommendations models={models} feed={feed} provider="all" profile="all" revision={0}
+        initialTask="book" botDemand={{ tasks: ['book', 'extract'], tools: ['mail.read'], assigned: ['Reading', 'Mail'], unknown: ['Custom'], needsTools: true }} /></I18nextProvider>); await Promise.resolve(); });
+    expect(container.querySelector('select')).toBeNull();
+    expect(container.textContent).toContain('Tasques detectades');
+    expect(container.textContent).toContain('Analitzar un llibre');
+    expect(container.textContent).toContain('Extreure dades');
+    expect(container.textContent).toContain('Encara no podem classificar aquestes habilitats: Custom');
+    const simulation = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Simular manualment una tasca');
+    expect(simulation?.closest('details')?.className).toBe('model-task-recommendations__requirements');
+    act(() => { simulation?.click(); });
+    expect(container.querySelector('select')?.value).toBe('book');
+    expect(container.textContent).toContain('Simulació manual d’una tasca');
+    act(() => { simulation?.click(); });
+    expect(container.querySelector('select')).toBeNull();
+    expect(mocks.invoke).not.toHaveBeenCalled();
+});
