@@ -22,19 +22,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     output_schema, _ = action_schemas(reader.dimensions)
     chunks = {str(chunk["id"]): chunk for chunk in reader.chunks}
     identity = fingerprint([deps.execution_revision, reader.chunks, reader.dimensions, reader.brain_index])
-    saved = None
-    if reader.resume_job_id:
-        find_candidates = getattr(deps, "resume_candidates", None)
-        candidates = (find_candidates(reader.resume_job_id)
-                      if find_candidates else [reader.resume_job_id])
-        for candidate in candidates:
-            checkpoint_state = deps.load_checkpoint(candidate, "agent-state")
-            if (isinstance(checkpoint_state, dict)
-                    and checkpoint_state.get("identity") == identity
-                    and isinstance(checkpoint_state.get("plans"), dict)
-                    and (saved is None or len(checkpoint_state["plans"]) > len(saved["plans"]))):
-                saved = checkpoint_state
-                reader.resume_job_id = candidate
+    saved = _resume_state(reader, identity)
     state: dict[str, Any] = deepcopy(saved) if isinstance(saved, dict) and saved.get("identity") == identity else {
         "identity": identity, "step": 0, "read": [], "plans": {}, "memory": "", "last_result": {},
     }
@@ -73,23 +61,7 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
     for _ in range(action_steps):
         # Deliver the next original without spending a model call on a read
         # command. Explicit read/search/recall actions still select other context.
-        if not state["last_result"] or (state.get("last_action") or {}).get("name") in {"save_plan", "save_batch"}:
-            pending = [key for key in chunks if key not in state["plans"]]
-            delivered: list[str] = []
-            for key in pending[:max(1, min(4, getattr(deps, "batch_size", 1)))]:
-                candidates = [chunks[k] for k in [*delivered, key]]
-                if delivered and deps.count_tokens(encoded([candidates, state["memory"], output_schema, reader.dimensions])) > reader.budget // 2:
-                    break
-                delivered.append(key)
-            if delivered:
-                for key in delivered:
-                    _apply_action(reader, state, chunks, "read", {"chunk_id": key})
-                state["delivered"] = delivered
-                state["last_result"] = (chunks[delivered[0]] if len(delivered) == 1 else
-                                        {"sources": [chunks[key] for key in delivered], "delivery": "batch"})
-                state["last_action"] = {"name": "read", "chunk_ids": delivered, "step": state["step"], "delivery": "automatic"}
-                record("reading.source.delivered", {"step": state["step"], "chunk_ids": delivered})
-                checkpoint()
+        _deliver_next(reader, state, chunks, output_schema, checkpoint)
         request = {
             "task": "knowledge.process-source.actions", "resource": reader.title,
             "step": state["step"],
@@ -219,24 +191,7 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
     elif action == "recall":
         result = state["plans"][str(args["chunk_id"]) ]
     elif action == "save_batch":
-        from backend.domains.llm_wiki.reading_memory import update_memory
-        from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
-        entries = args["plans"]
-        keys = [entry["chunk_id"] for entry in entries]
-        if len(set(keys)) != len(keys) or set(keys) != set(state.get("delivered", [])):
-            raise ValueError("batch_requires_exactly_all_delivered_chunks")
-        memory = update_memory(state["memory"], args)
-        preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
-        for index, entry in enumerate(entries):
-            try:
-                _apply_action(reader, preview, chunks, "save_plan", {
-                    "chunk_id": entry["chunk_id"], "plan": {**entry["plan"], "memory": memory}})
-            except ReadingPlanError as error:
-                error.batch_index = index
-                raise
-        # Commit only after every plan passes; prior checkpoints stay intact.
-        state.update(plans=preview["plans"], memory=preview["memory"], memory_step=preview["memory_step"])
-        result = {"saved": keys, "remaining": len(chunks)-len(state["plans"])}
+        result = _save_batch(reader, state, chunks, args)
     elif action == "save_plan":
         key = str(args["chunk_id"])
         if key not in state["read"]:
@@ -256,4 +211,66 @@ def _apply_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ac
         state["memory"] = plan_memory
         state["memory_step"] = state["step"]
         result = {"saved": key, "remaining": len(chunks) - len(state["plans"])}
+    return result
+
+
+def _resume_state(reader: Any, identity: str) -> Any:
+    deps = reader.dependencies
+    saved = None
+    if reader.resume_job_id:
+        find_candidates = getattr(deps, "resume_candidates", None)
+        candidates = (find_candidates(reader.resume_job_id)
+                      if find_candidates else [reader.resume_job_id])
+        for candidate in candidates:
+            checkpoint_state = deps.load_checkpoint(candidate, "agent-state")
+            if (isinstance(checkpoint_state, dict)
+                    and checkpoint_state.get("identity") == identity
+                    and isinstance(checkpoint_state.get("plans"), dict)
+                    and (saved is None or len(checkpoint_state["plans"]) > len(saved["plans"]))):
+                saved = checkpoint_state
+                reader.resume_job_id = candidate
+    return saved
+
+
+def _deliver_next(reader: Any, state: dict[str, Any], chunks: dict[str, Any], output_schema: dict[str, Any], checkpoint: Any) -> None:
+    from backend.services.agent_execution_trace import record
+    deps = reader.dependencies
+    if not state["last_result"] or (state.get("last_action") or {}).get("name") in {"save_plan", "save_batch"}:
+        pending = [key for key in chunks if key not in state["plans"]]
+        delivered: list[str] = []
+        for key in pending[:max(1, min(4, getattr(deps, "batch_size", 1)))]:
+            candidates = [chunks[k] for k in [*delivered, key]]
+            if delivered and deps.count_tokens(encoded([candidates, state["memory"], output_schema, reader.dimensions])) > reader.budget // 2:
+                break
+            delivered.append(key)
+        if delivered:
+            for key in delivered:
+                _apply_action(reader, state, chunks, "read", {"chunk_id": key})
+            state["delivered"] = delivered
+            state["last_result"] = (chunks[delivered[0]] if len(delivered) == 1 else
+                                    {"sources": [chunks[key] for key in delivered], "delivery": "batch"})
+            state["last_action"] = {"name": "read", "chunk_ids": delivered, "step": state["step"], "delivery": "automatic"}
+            record("reading.source.delivered", {"step": state["step"], "chunk_ids": delivered})
+            checkpoint()
+
+
+def _save_batch(reader: Any, state: dict[str, Any], chunks: dict[str, Any], args: dict[str, Any]) -> Any:
+    from backend.domains.llm_wiki.reading_memory import update_memory
+    from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
+    entries = args["plans"]
+    keys = [entry["chunk_id"] for entry in entries]
+    if len(set(keys)) != len(keys) or set(keys) != set(state.get("delivered", [])):
+        raise ValueError("batch_requires_exactly_all_delivered_chunks")
+    memory = update_memory(state["memory"], args)
+    preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
+    for index, entry in enumerate(entries):
+        try:
+            _apply_action(reader, preview, chunks, "save_plan", {
+                "chunk_id": entry["chunk_id"], "plan": {**entry["plan"], "memory": memory}})
+        except ReadingPlanError as error:
+            error.batch_index = index
+            raise
+    # Commit only after every plan passes; prior checkpoints stay intact.
+    state.update(plans=preview["plans"], memory=preview["memory"], memory_step=preview["memory_step"])
+    result = {"saved": keys, "remaining": len(chunks)-len(state["plans"])}
     return result

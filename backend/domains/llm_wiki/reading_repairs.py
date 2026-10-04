@@ -71,17 +71,7 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
     schema = _repair_schema(list(fields), error.primary, error.evidence)
     value_schemas = _value_schemas(error.primary, error.evidence)
     affected = [{"index": i, "note": notes[i]} for i in error.note_indices]
-    cited_ids = {str(notes[i].get("source_segment_id")) for i in error.note_indices}
-    quotes = set()
-    for i in error.note_indices:
-        for citation in notes[i].get("citations", []):
-            if isinstance(citation, dict):
-                cited_ids.add(str(citation.get("segment_id")))
-                quote = citation.get("quote")
-                if isinstance(quote, str) and quote:
-                    quotes.add(quote)
-    # Exact existing matches help correct a miscopied reference without fuzzy matching.
-    evidence = [s for s in error.evidence if str(s["id"]) in cited_ids or any(q in str(s["text"]) for q in quotes)]
+    evidence = _matching_evidence(notes, error)
     payload = {
         "task": "Repair only the listed reference fields; return patches, not a new reading action.",
         "instructions": "Return each allowed path exactly once. Keep all titles, bodies, note order and other fields unchanged. "
@@ -113,3 +103,18 @@ def build_reading_repair(original_request: str, rejected: str, error: Exception)
         return json.dumps(restored, ensure_ascii=False)
 
     return OutputRepair(json.dumps(payload, ensure_ascii=False), schema, restore)
+
+
+def _matching_evidence(notes: list[Any], error: ReadingPlanError) -> list[dict[str, object]]:
+    cited_ids = {str(notes[i].get("source_segment_id")) for i in error.note_indices}
+    quotes = set()
+    for i in error.note_indices:
+        for citation in notes[i].get("citations", []):
+            if isinstance(citation, dict):
+                cited_ids.add(str(citation.get("segment_id")))
+                quote = citation.get("quote")
+                if isinstance(quote, str) and quote:
+                    quotes.add(quote)
+    # Exact existing matches help correct a miscopied reference without fuzzy matching.
+    evidence = [s for s in error.evidence if str(s["id"]) in cited_ids or any(q in str(s["text"]) for q in quotes)]
+    return evidence

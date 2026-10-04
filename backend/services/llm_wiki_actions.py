@@ -147,23 +147,12 @@ def start_source_process(
         source_table,
         source_config,
     )
-    expected_reading_identity = ""
-    if estimate_only or estimate_id:
-        from backend.services.reading_estimate import estimate
-        try:
-            preflight = estimate(item_id, metadata, body, vr.get_p("VAULT"), source_table,
-                                 source_config, brain_table_id, force=force, batch_size=batch_size)
-        except (ValueError, RuntimeError) as error:
-            raise LlmWikiActionError(400, str(error)) from error
-        if estimate_only:
-            return preflight
-        if preflight["estimate_id"] != estimate_id:
-            raise LlmWikiActionError(409, "reading_estimate_changed")
-        if preflight.get("incompatible_saved_chunks"):
-            raise LlmWikiActionError(409, "reading_checkpoint_incompatible")
-        expected_reading_identity = str(preflight["_reading_identity"])
-        if not preflight["priced"]:
-            raise LlmWikiActionError(409, "reading_budget_unknown_price_or_output_limit")
+    preflight = _source_preflight(item_id, metadata, body, vr, source_table, source_config,
+                                 brain_table_id, force=force, batch_size=batch_size,
+                                 estimate_id=estimate_id, estimate_only=estimate_only)
+    if estimate_only:
+        return preflight
+    expected_reading_identity = str(preflight["_reading_identity"])
     from backend.services.reading_budget import ReadingBudgetError
     try:
         job = llm_wiki.start_ingest(
@@ -243,3 +232,24 @@ async def run_maintenance_async(*, semantic: bool = False) -> Dict[str, object]:
     """Async adapter that keeps blocking maintenance off the event loop."""
 
     return await asyncio.to_thread(run_maintenance, semantic=semantic)
+
+
+def _source_preflight(item_id: str, metadata: dict[str, object], body: str, vr: VaultActionsPort, source_table: dict[str, object], source_config: dict[str, object], brain_table_id: str, *, force: bool, batch_size: int, estimate_id: str, estimate_only: bool) -> Dict[str, object]:
+    expected_reading_identity = ""
+    if estimate_only or estimate_id:
+        from backend.services.reading_estimate import estimate
+        try:
+            preflight = estimate(item_id, metadata, body, vr.get_p("VAULT"), source_table,
+                                 source_config, brain_table_id, force=force, batch_size=batch_size)
+        except (ValueError, RuntimeError) as error:
+            raise LlmWikiActionError(400, str(error)) from error
+        if estimate_only:
+            return preflight
+        if preflight["estimate_id"] != estimate_id:
+            raise LlmWikiActionError(409, "reading_estimate_changed")
+        if preflight.get("incompatible_saved_chunks"):
+            raise LlmWikiActionError(409, "reading_checkpoint_incompatible")
+        expected_reading_identity = str(preflight["_reading_identity"])
+        if not preflight["priced"]:
+            raise LlmWikiActionError(409, "reading_budget_unknown_price_or_output_limit")
+    return {"_reading_identity": expected_reading_identity}
