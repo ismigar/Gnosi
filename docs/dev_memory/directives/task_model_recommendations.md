@@ -72,3 +72,31 @@ Offline tests verify provider isolation, retry/budget arithmetic, full fees,
 quota overflow, constraints, unavailable evidence, historical state grouping,
 synthetic-test freshness and exact matching, quality independence from context/
 price/speed, and vault isolation. No tests or recommendations spend API credits.
+
+
+## Bot decision workspace
+
+The comparison opens on bot selection and task recommendations. The bot's
+current model remains visible across three existing-style section tabs: choose
+for bot, complete catalogue, and optional tests. Catalogue filters and monthly
+volumes do not silently constrain per-task suggestions. Initial suggestions use
+configured providers; users may explicitly include other providers. Task drafts
+are kept per bot while switching sections. Additional requirements, evidence,
+and operational history use disclosures. Duplicate recommended offers share one
+card with all matching criteria.
+
+Recommendations open activation with only the selected exact provider/model
+route. Activation remains explicit through the existing connection/registry
+flow. Assigning is a separate explicit action, available only for enabled
+registry routes; it updates the selected bot through existing Settings autosave.
+The bot's instructions, skills, context, enabled state, and team are preserved.
+Changing routes clears model-specific reasoning and pins the chosen model;
+reasoning and other bot controls remain in the existing bot editor. Saving and
+save failures remain visible in the comparison. Suspended plugin profiles are
+excluded. This interface neither executes a book nor changes bots on opening.
+
+Synthetic tests live in their optional section. They help verify sample
+contracts, latency and cost, and team strategy; they do not certify real book
+comprehension or citation quality. Upfront cost is explicitly unknown and tests
+retain explicit model-call authorization. A visited lab stays mounted while
+switching sections so an authorized running test is not abandoned by navigation.

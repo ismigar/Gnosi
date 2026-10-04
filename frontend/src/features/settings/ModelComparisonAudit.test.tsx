@@ -104,6 +104,7 @@ let root: Root;
 
 beforeEach(() => {
     vi.resetAllMocks();
+    HTMLDivElement.prototype.scrollTo = vi.fn();
     mocks.deactivateModel.mockResolvedValue(undefined);
     mocks.useData.mockReturnValue({
         activateModel: vi.fn(),
@@ -160,9 +161,14 @@ afterEach(() => {
 });
 
 
+function openCatalogue() {
+    act(() => { container.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(2)')?.click(); });
+}
+
 describe('comparison audit interface regressions', () => {
     it('announces the active sort column and direction as it changes', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const button = container.querySelector<HTMLButtonElement>('[aria-label="model_comparison.columns.input_price"]');
         expect(button).not.toBeNull();
         act(() => { button?.click(); });
@@ -174,6 +180,7 @@ describe('comparison audit interface regressions', () => {
 
     it('updates the result count when filters exclude all models', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         expect(container.textContent).toContain('Results: 1');
         const filter = container.querySelector<HTMLSelectElement>('.model-parameter-filters select');
         if (!filter) throw new Error('Missing parameter filter');
@@ -192,6 +199,7 @@ describe('comparison audit interface regressions', () => {
             { ...route, provider: 'total', provider_name: 'Cheaper total', cost_in: 2, cost_out: 1, context_window: 8000 },
         ] }] } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const cells = [...container.querySelectorAll('tbody tr:first-child > td')];
         expect(cells[2]?.textContent).toContain('Cheaper total');
         expect(cells[5]?.textContent).toContain('Cheaper input — 500K');
@@ -209,6 +217,7 @@ it('identifies shared offers before deactivation without requiring activation se
         { ...base, id: 'plain', name: 'Model (Non-reasoning)' },
     ] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
     const rows = [...container.querySelectorAll('tbody tr')];
     expect(rows).toHaveLength(2);
     for (const row of rows) {
@@ -227,6 +236,7 @@ it('shows uncertainty rather than a compatible director when the offer has unkno
         role_assessments: [{ role: 'director', status: 'catalog_compatible', score: 85, coverage: 100 }],
     }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
     const filter = [...container.querySelectorAll('select')].find(select => select.querySelector('option[value="director"]'));
     if (!filter) throw new Error('Missing role filter');
     act(() => { filter.value = 'director'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -251,6 +261,7 @@ it('orders usage summaries and details from director to worker like the profile 
         role_assessments: roles.map(role => ({ role, status: 'catalog_compatible', score: 85, coverage: 100 })),
     }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
     const summary = container.querySelector<HTMLButtonElement>('.model-role-assessments > .model-details-trigger');
     expect(summary?.textContent).toBe(expected.map(role => `model_comparison.profiles.${role} · 85%`).join(', '));
     act(() => { summary?.click(); });
@@ -269,6 +280,7 @@ it('marks zero prices with their provider and scopes offers and capabilities to 
         { ...route, provider: 'unknown', provider_name: 'Unknown', cost_in: null, cost_out: null, context_window: null, input_modes: null, output_modes: null },
     ] }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
     const cells = () => [...container.querySelectorAll('tbody tr:first-child > td')];
     const zero = cells()[2]?.querySelector<HTMLElement>('[tabindex="0"]');
     expect(zero?.textContent).toBe('*');

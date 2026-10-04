@@ -35,6 +35,10 @@
 .model-task-choice > strong { display: block; margin-bottom: 8px; }
 .model-task-recommendations details { color: var(--text-secondary); font-size: .76rem; line-height: 1.5; }
 .model-task-recommendations summary { cursor: pointer; }
+.model-task-choice__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.model-task-choice { display: flex; flex-direction: column; }
+.model-task-choice__actions { margin-top: auto; padding-top: 16px; }
+.model-task-recommendations__requirements { margin: 12px 0; }
 
 @media (max-width: 560px) {
     .model-task-recommendations { padding: 14px; }

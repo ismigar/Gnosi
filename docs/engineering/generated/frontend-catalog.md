@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1161 | 128984 | 38 |
+| `features` | 1163 | 129148 | 38 |
 | `generated` | 2 | 49118 | 504 |
 | `shared` | 279 | 32597 | 434 |
 
@@ -558,7 +558,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/AIActivity.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIActivity.ts) | 2 | — | — |
 | [`frontend/src/features/settings/AIConsumptionCharts.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIConsumptionCharts.tsx) | 46 | `ConsumptionChart` | — |
 | [`frontend/src/features/settings/AIConsumptionDashboard.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIConsumptionDashboard.tsx) | 114 | `AIConsumptionDashboard` | — |
-| [`frontend/src/features/settings/AIModelComparisonModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.tsx) | 232 | `AIModelComparisonModal` | — |
+| [`frontend/src/features/settings/AIModelComparisonModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIModelComparisonModal.tsx) | 284 | `AIModelComparisonModal` | — |
 | [`frontend/src/features/settings/AIUsageHistoryModal.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryModal.tsx) | 109 | `AIUsageHistoryModal` | — |
 | [`frontend/src/features/settings/AIUsageHistoryView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AIUsageHistoryView.tsx) | 290 | `AIUsageHistoryView` | — |
 | [`frontend/src/features/settings/AppSidebarSettings.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/AppSidebarSettings.tsx) | 93 | `AppSidebarSettings` | — |
@@ -590,7 +590,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/AppearancePanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/AppearancePanel.tsx) | 76 | `AppearancePanel` | — |
 | [`frontend/src/features/settings/global-settings/DavAccountForm.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/DavAccountForm.tsx) | 90 | `DavAccountForm` | — |
 | [`frontend/src/features/settings/global-settings/GeneralPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GeneralPanel.tsx) | 87 | `GeneralPanel` | — |
-| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 276 | `GlobalSettingsView` | — |
+| [`frontend/src/features/settings/global-settings/GlobalSettingsView.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GlobalSettingsView.tsx) | 282 | `GlobalSettingsView` | — |
 | [`frontend/src/features/settings/global-settings/GraphDatabases.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphDatabases.tsx) | 202 | `GraphDatabases` | — |
 | [`frontend/src/features/settings/global-settings/GraphEntities.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphEntities.tsx) | 174 | `GraphEntities` | — |
 | [`frontend/src/features/settings/global-settings/GraphPanel.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/GraphPanel.tsx) | 82 | `GraphPanel` | — |
@@ -638,10 +638,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/useSettingsState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsState.ts) | 101 | `useSettingsState` | — |
 | [`frontend/src/features/settings/identity/IdentityProfile.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/identity/IdentityProfile.tsx) | 233 | `IdentityProfile`, `function` | — |
 | [`frontend/src/features/settings/model-comparison/ComparisonDetails.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ComparisonDetails.tsx) | 57 | `ComparisonDetails` | — |
+| [`frontend/src/features/settings/model-comparison/ModelBotContext.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelBotContext.tsx) | 56 | `ModelBotContext` | — |
 | [`frontend/src/features/settings/model-comparison/ModelOfferList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.tsx) | 19 | `ModelOfferList` | — |
 | [`frontend/src/features/settings/model-comparison/ModelParameterReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.tsx) | 53 | `ModelParameterReview` | — |
 | [`frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx) | 59 | `ModelPriceOffer` | — |
-| [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 108 | `ModelTaskRecommendations` | — |
+| [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 139 | `ModelTaskRecommendations` | — |
+| [`frontend/src/features/settings/model-comparison/botModelChoice.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/botModelChoice.ts) | 19 | `botTask`, `withBotModel` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonDataState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonDataState.ts) | 165 | `INITIAL_DATA_STATE`, `modelComparisonDataReducer` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts) | 146 | `comparisonRouteKey`, `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
 | [`frontend/src/features/settings/model-comparison/modelParameters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelParameters.ts) | 149 | `modelParameterDisclosure`, `modelParameterMetadata` | — |

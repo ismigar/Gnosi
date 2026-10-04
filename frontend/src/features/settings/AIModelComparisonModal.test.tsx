@@ -103,6 +103,7 @@ let root: Root;
 
 beforeEach(() => {
     vi.resetAllMocks();
+    HTMLDivElement.prototype.scrollTo = vi.fn();
     mocks.deactivateModel.mockResolvedValue(undefined);
     mocks.useData.mockReturnValue({
         activateModel: vi.fn(),
@@ -159,9 +160,14 @@ afterEach(() => {
 });
 
 
+function openCatalogue() {
+    act(() => { container.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(2)')?.click(); });
+}
+
 describe('AIModelComparisonModal', () => {
     it('exposes parameter filters and explicit mode matching', () => {
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const tokenInputs = container.querySelectorAll<HTMLInputElement>('.model-cost-calculator input');
         expect([...tokenInputs].map(input => input.value)).toEqual(['5.000.000', '1.000.000']);
         const group = container.querySelector('.model-parameter-filters');
@@ -201,6 +207,7 @@ describe('AIModelComparisonModal', () => {
             }] }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const row = container.querySelector('tbody tr');
         expect(row?.textContent).toContain('OpenAI — 8K');
         expect(row?.textContent).not.toContain('1M');
@@ -222,6 +229,7 @@ describe('AIModelComparisonModal', () => {
             }] }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const details = container.querySelector('.model-role-assessments');
         expect(details?.querySelector('button')?.textContent).toContain('75%');
         expect(details?.querySelector('.model-role-assessments__body')).toBeNull();
@@ -244,6 +252,7 @@ describe('AIModelComparisonModal', () => {
             ],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const filter = [...container.querySelectorAll('select')].find(s => s.querySelector('option[value="worker"]'));
         if (!filter) throw new Error('Missing role filter');
         act(() => { filter.value = 'worker'; filter.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -267,6 +276,7 @@ describe('AIModelComparisonModal', () => {
             ...FEED, models: [{ ...FEED.models[0], name, creator }],
         } } });
         act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
         const cell = container.querySelectorAll('tbody tr:first-child > td')[9];
         expect(cell?.textContent).toContain(label);
         expect(cell?.querySelector('a')?.getAttribute('href')).toBe(source);
@@ -278,6 +288,7 @@ describe('AIModelComparisonModal', () => {
         act(() => {
             root.render(<AIModelComparisonModal isOpen onClose={onClose} />);
         });
+        openCatalogue();
 
         const headers = [...container.querySelectorAll('thead th')].map((cell) => cell.querySelector('button')?.getAttribute('aria-label') ?? cell.textContent.trim());
         expect(headers).toEqual([
@@ -328,6 +339,7 @@ it('keeps a model with many provider offers compact and reveals the remaining of
     const routes = Array.from({ length: 24 }, (_, index) => ({ ...base.routes[0], provider: `provider-${String(index)}`, provider_name: `Provider ${String(index)}`, cost_in: index + 1 }));
     mocks.useData.mockReturnValue({ ...data, state: { ...data.state, feed: { ...FEED, models: [{ ...base, routes }] } } });
     act(() => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} />); });
+        openCatalogue();
     const row = container.querySelector('tbody tr');
     expect(row?.textContent).toContain('Model One');
     const offerLists = [...container.querySelectorAll('.model-offer-list')];
@@ -346,4 +358,48 @@ it('keeps a model with many provider offers compact and reveals the remaining of
     expect(container.querySelector('.model-offer-list__details')).toBeNull();
     act(() => { firstList.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); });
     expect(container.querySelectorAll('.model-offer-list__details > div')).toHaveLength(24);
+});
+
+it('starts with a bot decision view and separates the catalogue and optional tests', async () => {
+    await act(async () => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} bots={[
+        { id: 'principal', name: 'Principal', provider: 'openai', model: 'model-1' },
+        { id: 'wiki', name: 'Knowledge', managed_by: 'builtin:llm-wiki', provider: 'openai', model: 'model-1' },
+        { id: 'suspended', name: 'Hidden', managed_by: 'builtin:mail', plugin_suspended: true },
+    ]} principalId="principal" />);  await Promise.resolve(); });
+    expect(container.querySelector('.model-comparison-table')).toBeNull();
+    expect(container.querySelector('.model-comparison-toolbar')).toBeNull();
+    expect(container.querySelector('.agent-evaluation-lab')).toBeNull();
+    expect(container.textContent).not.toContain('Hidden');
+    const botSelect = container.querySelector<HTMLSelectElement>('.model-bot-context select');
+    expect(botSelect?.value).toBe('principal');
+    const taskSelect = () => container.querySelector<HTMLSelectElement>('.model-task-recommendations select');
+    expect(taskSelect()?.value).toBe('workflow');
+    await act(async () => { if (botSelect) { botSelect.value = 'wiki'; botSelect.dispatchEvent(new Event('change', { bubbles: true })); }  await Promise.resolve(); });
+    expect(taskSelect()?.value).toBe('book');
+    await act(async () => { const select = taskSelect(); if (select) { select.value = 'retrieve'; select.dispatchEvent(new Event('change', { bubbles: true })); }  await Promise.resolve(); });
+    openCatalogue(); expect(container.querySelector('.model-comparison-table')).not.toBeNull();
+    expect(container.querySelector('.model-task-recommendations')).toBeNull();
+    await act(async () => { container.querySelector<HTMLButtonElement>('.settings-section-tabs button:nth-child(3)')?.click();  await Promise.resolve(); });
+    expect(container.querySelector('.agent-evaluation-lab')).not.toBeNull();
+    expect(container.querySelector('.model-comparison-table')).toBeNull();
+    expect(mocks.beginActivation).not.toHaveBeenCalled();
+    await act(async () => { container.querySelector<HTMLButtonElement>('.settings-section-tabs button:first-child')?.click();  await Promise.resolve(); });
+    expect(taskSelect()?.value).toBe('retrieve');
+});
+
+it('assigns an explicitly chosen active route to the selected bot and opens its existing settings', async () => {
+    const assign = vi.fn(); const configure = vi.fn();
+    await act(async () => { root.render(<AIModelComparisonModal isOpen onClose={vi.fn()} bots={[
+        { id: 'wiki', name: 'Knowledge', managed_by: 'builtin:llm-wiki', provider: 'old', model: 'old-model' },
+    ]} onAssignModel={assign} onConfigureBot={configure} saveStatus="error" />);  await Promise.resolve(); });
+    const route = container.querySelector<HTMLSelectElement>('.model-bot-context details select');
+    const button = container.querySelector<HTMLButtonElement>('.model-bot-context details button');
+    expect(button?.disabled).toBe(true);
+    act(() => { if (route) { route.value = JSON.stringify(['openai', 'model-1']); route.dispatchEvent(new Event('change', { bubbles: true })); } });
+    expect(assign).not.toHaveBeenCalled();
+    act(() => { button?.click(); });
+    expect(assign).toHaveBeenCalledWith('wiki', 'openai', 'model-1');
+    act(() => { container.querySelector<HTMLButtonElement>('.model-bot-context__summary > button')?.click(); });
+    expect(configure).toHaveBeenCalledWith('wiki');
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('model_comparison.workspace.save_error');
 });
