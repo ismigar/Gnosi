@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/agent/routes/task_evaluations.py
   - backend/tests/test_agent_task_evaluations.py
   - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx
   - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1447,6 +1448,8 @@ Le contrôle préalable indique également les fragments enregistrés incompatib
 
 
 ## Tests des fonctions du bot et preuves réutilisables
+
+Le sélecteur de tests permet de vérifier toute offre active des fournisseurs sélectionnés avant de l’affecter au bot, y compris celles écartées par un test précédent ou absentes du catalogue. Changer ce sélecteur ne modifie pas l’affectation du bot ; il est verrouillé pendant un test.
 
 Le sélecteur du bot déduit ses fonctions des compétences affectées et obligatoires, de leur ascendance canonique, des opérations et des routes explicites de l’équipe. Traduction, rédaction, calendrier, recherche et synthèse ont des contrats distincts. Les compétences personnelles inconnues restent visibles comme non classées ; les noms des modèles et les instructions personnelles ne constituent pas des preuves de capacité.
 

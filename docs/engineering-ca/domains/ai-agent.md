@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/agent/routes/task_evaluations.py
   - backend/tests/test_agent_task_evaluations.py
   - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx
   - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1358,6 +1359,8 @@ La comprovació prèvia també indica els fragments desats incompatibles amb la 
 
 
 ## Proves de funcions del bot i evidència reutilitzable
+
+El selector de proves permet comprovar qualsevol oferta activa dels proveïdors seleccionats abans d’assignar-la al bot, incloses les descartades per una prova anterior o absents del catàleg. Canviar aquest selector no modifica l’assignació del bot; queda bloquejat mentre s’executa una prova.
 
 El selector del bot deriva les funcions de les habilitats assignades i obligatòries, l’ascendència de les habilitats, les operacions i les rutes explícites de l’equip. Traducció, escriptura, calendari, recerca i síntesi tenen contractes diferenciats. Les habilitats personals desconegudes continuen visibles com a no classificades; els noms dels models i les instruccions personals no constitueixen proves de capacitat.
 

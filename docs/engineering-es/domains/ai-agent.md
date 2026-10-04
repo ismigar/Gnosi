@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/agent/routes/task_evaluations.py
   - backend/tests/test_agent_task_evaluations.py
   - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx
   - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1424,6 +1425,8 @@ La comprobación previa también indica los fragmentos guardados incompatibles c
 
 
 ## Pruebas de funciones del bot y evidencia reutilizable
+
+El selector de pruebas permite comprobar cualquier oferta activa de los proveedores seleccionados antes de asignarla al bot, incluidas las descartadas por una prueba anterior o ausentes del catálogo. Cambiar este selector no modifica la asignación del bot; queda bloqueado durante una prueba.
 
 El selector del bot deriva sus funciones de las habilidades asignadas y obligatorias, su ascendencia canónica, las operaciones y las rutas explícitas del equipo. Traducción, escritura, calendario, investigación y síntesis tienen contratos diferenciados. Las habilidades personales desconocidas siguen visibles como no clasificadas; los nombres de los modelos y las instrucciones personales no son pruebas de capacidad.
 

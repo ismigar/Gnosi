@@ -5641,7 +5641,10 @@
         "chronology": "Chronologie et versions"
       },
       "summary": "Cette tentative : {{calls}} nouveaux appels et {{reused}} cas réutilisés. Nouveau coût communiqué ou estimé : {{cost}} ; réservation en attente de confirmation : {{reserved}}.",
-      "output_limit": "La réponse a atteint la limite de 512 tokens. Cet échantillon n’est pas concluant et n’exclut pas le modèle pour sa qualité."
+      "output_limit": "La réponse a atteint la limite de 512 tokens. Cet échantillon n’est pas concluant et n’exclut pas le modèle pour sa qualité.",
+      "choose_title": "Vérifier un modèle avant de l’affecter",
+      "choose_help": "Vous pouvez tester toute offre active des fournisseurs sélectionnés, même celles ayant échoué à un test précédent. Le modèle affecté au bot reste inchangé.",
+      "choose_model": "Modèle actif à vérifier"
     }
   },
   "tags": {

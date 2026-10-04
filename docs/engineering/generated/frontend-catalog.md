@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1168 | 129459 | 38 |
+| `features` | 1169 | 129494 | 38 |
 | `generated` | 2 | 49502 | 507 |
 | `shared` | 279 | 32614 | 437 |
 
@@ -641,7 +641,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/model-comparison/ModelOfferList.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelOfferList.tsx) | 19 | `ModelOfferList` | — |
 | [`frontend/src/features/settings/model-comparison/ModelParameterReview.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelParameterReview.tsx) | 53 | `ModelParameterReview` | — |
 | [`frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelPriceOffer.tsx) | 59 | `ModelPriceOffer` | — |
-| [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx) | 103 | `ModelTaskEvaluation` | — |
+| [`frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx) | 105 | `ModelTaskEvaluation` | — |
+| [`frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx) | 33 | `ModelTaskEvaluationChooser` | — |
 | [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 182 | `ModelTaskRecommendations` | — |
 | [`frontend/src/features/settings/model-comparison/__fixtures__/taskEvidence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/__fixtures__/taskEvidence.ts) | 15 | `checked`, `now`, `suite` | — |
 | [`frontend/src/features/settings/model-comparison/botModelChoice.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/botModelChoice.ts) | 19 | `botTask`, `withBotModel` | — |

@@ -8,6 +8,7 @@ source_paths:
   - backend/domains/agent/routes/task_evaluations.py
   - backend/tests/test_agent_task_evaluations.py
   - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluationChooser.tsx
   - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
@@ -1252,6 +1253,8 @@ The preflight also reports previously saved fragments that are incompatible with
 
 
 ## Bot-function checks and reusable evidence
+
+The active-model check selector lets users test any activated offer from the selected providers before assigning it to the bot, including offers rejected by an earlier check or absent from the catalogue. Changing this selector does not change the bot’s assignment; it is locked during an active check.
 
 The bot selector derives its functions from assigned and required skills, canonical skill ancestry, operation bindings and explicit team routes. Translation, writing, calendar, research and synthesis have distinct task contracts. Unknown personal skills remain visible as unclassified; model names and personas are not interpreted as evidence of capability.
 

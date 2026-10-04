@@ -7,10 +7,11 @@ import { formatComparisonCost } from '../modelComparison';
 import type { TaskId } from './taskRecommendations';
 
 /** Opening reads saved evidence. Only the explicitly authorized button pays. */
-export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency, active, onComplete }: {
+export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency, active, onComplete, onBusyChange }: {
     readonly agentId: string; readonly provider: string; readonly model: string;
     readonly tasks: readonly TaskId[]; readonly currency: { usd_rate: number; symbol: string };
     readonly active: boolean; readonly onComplete: () => void;
+    readonly onBusyChange?: (busy: boolean) => void;
 }) {
     const { t } = useTranslation();
     const vault = useActiveVaultId();
@@ -46,7 +47,7 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
     const run = async () => {
         if (inFlight.current || !authorized || !plan?.can_run || !valid) return;
         const requestedVault = vault;
-        inFlight.current = true; setBusy(true); setError(''); setStatus('');
+        inFlight.current = true; setBusy(true); onBusyChange?.(true); setError(''); setStatus('');
         try {
             const report = await runTaskEvaluation({ agent_id: agentId, provider, model, tasks: [...tasks],
                 budget_usd: limit, retest, authorize_model_calls: true });
@@ -55,13 +56,14 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
             setLastReport(report);
             setAuthorized(false); setRetest(false); setRevision(value => value + 1); onComplete();
         } catch { if (activeVault.current === requestedVault) setError('run_error'); }
-        finally { inFlight.current = false; setBusy(false); }
+        finally { inFlight.current = false; setBusy(false); onBusyChange?.(false); }
     };
     const results = plan?.reused_cases ?? [];
     return <details className="model-task-recommendations__requirements model-task-evaluation" open={open}
         onToggle={event => { setOpen(event.currentTarget.open); }}>
         <summary>{t('model_comparison.tests.title')}</summary>
         {open && <>
+            <p><strong>{model}</strong> · {provider}</p>
             <p>{t('model_comparison.tests.help')}</p>
             <p>{t('model_comparison.tests.limitations')}</p>
             {!active ? <p role="status">{t('model_comparison.tests.activate_first')}</p> : <>

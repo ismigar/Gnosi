@@ -5641,7 +5641,10 @@
         "chronology": "Cronologia i versions"
       },
       "summary": "Aquest intent: {{calls}} crides noves i {{reused}} casos reutilitzats. Cost nou comunicat o estimat: {{cost}}; reserva pendent de confirmar: {{reserved}}.",
-      "output_limit": "La resposta ha arribat al límit de 512 tokens. Aquesta mostra no és concloent i no descarta el model per qualitat."
+      "output_limit": "La resposta ha arribat al límit de 512 tokens. Aquesta mostra no és concloent i no descarta el model per qualitat.",
+      "choose_title": "Comprovar un model abans d’assignar-lo",
+      "choose_help": "Pots provar qualsevol oferta activa dels proveïdors seleccionats, incloses les que han fallat una prova anterior. El model assignat al bot es manté.",
+      "choose_model": "Model actiu que vols comprovar"
     }
   },
   "tags": {

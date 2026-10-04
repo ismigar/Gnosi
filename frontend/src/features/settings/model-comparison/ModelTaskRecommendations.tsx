@@ -11,6 +11,7 @@ import { ModelPriceOffer } from './ModelPriceOffer';
 import { recommendTask, TASKS, type Candidate, type TaskId } from './taskRecommendations';
 import { operationalEvidence } from './operationalEvidence';
 import { ModelTaskEvaluation } from './ModelTaskEvaluation';
+import { ModelTaskEvaluationChooser } from './ModelTaskEvaluationChooser';
 
 export interface TaskRecommendationDraft {
     manual?: boolean; taskId: TaskId; input: string; output: string; context: string; minimum: string; budget: string; attempts: string;
@@ -149,9 +150,8 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             {botDemand.unknown.length > 0 && <p role="status">{t('model_comparison.workspace.unknown_skills', { names: botDemand.unknown.join(', ') })}</p>}
             {manual && <p role="status">{t('model_comparison.workspace.manual_warning')}</p>}
         </div>}
-        {botId && currentRoute && <ModelTaskEvaluation key={`${currentRoute.provider}:${currentRoute.model}`} agentId={botId} provider={currentRoute.provider} model={currentRoute.model}
+        {botId && <ModelTaskEvaluationChooser agentId={botId} currentRoute={currentRoute} registry={registry} models={models}
             tasks={(!manual && detected.length ? detected : [task]).map(item => item.id)} currency={feed.currency}
-            active={registry.some(row => row.enabled && row.provider === currentRoute.provider && row.model_id === currentRoute.model)}
             onComplete={() => { setReload(value => value + 1); }} />}
         <div className="ai-resource-editor__grid model-task-recommendations__fields">
             {field('input', input, setInput)}{field('output', output, setOutput)}{field('budget', budget, setBudget)}

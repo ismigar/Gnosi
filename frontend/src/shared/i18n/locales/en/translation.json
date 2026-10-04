@@ -6748,7 +6748,10 @@
         "chronology": "Chronology and versions"
       },
       "summary": "This attempt: {{calls}} new calls and {{reused}} reused cases. Newly reported or estimated cost: {{cost}}; reservation awaiting confirmation: {{reserved}}.",
-      "output_limit": "The response reached the 512-token limit. This sample is inconclusive and does not exclude the model on quality grounds."
+      "output_limit": "The response reached the 512-token limit. This sample is inconclusive and does not exclude the model on quality grounds.",
+      "choose_title": "Check a model before assigning it",
+      "choose_help": "You can test any active offer from the selected providers, including offers that failed an earlier check. The bot’s assigned model stays the same.",
+      "choose_model": "Active model to check"
     }
   },
   "relation_item": {
