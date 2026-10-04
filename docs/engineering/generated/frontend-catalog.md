@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `app` | 21 | 2657 | 0 |
-| `features` | 1165 | 129309 | 38 |
+| `features` | 1165 | 129321 | 38 |
 | `generated` | 2 | 49120 | 504 |
 | `shared` | 279 | 32597 | 434 |
 
@@ -629,7 +629,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/global-settings/useSettingsLifecycle.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLifecycle.ts) | 186 | `useSettingsLifecycle` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsLoaders.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsLoaders.ts) | 92 | `useSettingsLoaders` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsMailEffects.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsMailEffects.ts) | 139 | `useSettingsMailEffects` | — |
-| [`frontend/src/features/settings/global-settings/useSettingsModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.ts) | 146 | `useSettingsModels` | — |
+| [`frontend/src/features/settings/global-settings/useSettingsModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsModels.ts) | 155 | `useSettingsModels` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsPersistence.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsPersistence.ts) | 232 | `useSettingsPersistence` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsPluginProfiles.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsPluginProfiles.ts) | 33 | `useSettingsPluginProfiles` | — |
 | [`frontend/src/features/settings/global-settings/useSettingsReader.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/global-settings/useSettingsReader.ts) | 218 | `useSettingsReader` | — |
@@ -645,7 +645,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/ModelTaskRecommendations.tsx) | 164 | `ModelTaskRecommendations` | — |
 | [`frontend/src/features/settings/model-comparison/botModelChoice.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/botModelChoice.ts) | 19 | `botTask`, `withBotModel` | — |
 | [`frontend/src/features/settings/model-comparison/botModelDemand.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/botModelDemand.ts) | 63 | `botModelDemand` | — |
-| [`frontend/src/features/settings/model-comparison/detachBotModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/detachBotModels.ts) | 12 | `detachBotModels` | — |
+| [`frontend/src/features/settings/model-comparison/detachBotModels.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/detachBotModels.ts) | 15 | `detachBotModels` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonDataState.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonDataState.ts) | 165 | `INITIAL_DATA_STATE`, `modelComparisonDataReducer` | — |
 | [`frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelComparisonRegistry.ts) | 146 | `comparisonRouteKey`, `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
 | [`frontend/src/features/settings/model-comparison/modelParameters.ts`](https://github.com/ismigar/Gnosi/blob/main/frontend/src/features/settings/model-comparison/modelParameters.ts) | 149 | `modelParameterDisclosure`, `modelParameterMetadata` | — |

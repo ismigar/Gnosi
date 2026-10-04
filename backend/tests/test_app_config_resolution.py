@@ -17,6 +17,48 @@ def _params_file(root: Path) -> Path:
     return path
 
 
+def test_loading_existing_disabled_bindings_repairs_only_the_user_document(tmp_path: Path) -> None:
+    path = _params_file(tmp_path / "vault")
+    active = {"provider": "openrouter", "model_id": "active", "enabled": True}
+    disabled = {"provider": "openrouter", "model_id": "disabled", "enabled": False}
+    bot = {"id": "principal", "name": "Principal", "provider": "openrouter", "model": "disabled",
+           "persona": "Keep instructions", "skill_ids": ["read"], "reasoning_effort": "high",
+           "model_strategy": {"allowed_models": [{"provider": "openrouter", "model": "disabled"},
+                                                  {"provider": "openrouter", "model": "active"}]},
+           "team": {"temporary": {"models": [{"provider": "openrouter", "model": "disabled"}]}}}
+    unaffected = {"id": "reader", "provider": "openrouter", "model": "active"}
+    original = {"ai": {"models": [active, disabled], "agents": [bot, unaffected]}, "settings": {"language": "ca"}}
+    path.write_text(yaml.safe_dump(original))
+    base = {"base_only": "Do not materialize", "ai": {"providers": {"fixture": {"enabled": True}}}}
+    merged, selected = app_config._merge_user_params(base, tmp_path / "base.yaml", path)
+    saved = yaml.safe_load(path.read_text())
+    repaired = saved["ai"]["agents"][0]
+    assert selected == path
+    assert repaired["provider"] == repaired["model"] == ""
+    assert repaired["reasoning_effort"] is None
+    assert repaired["persona"] == bot["persona"]
+    assert repaired["skill_ids"] == bot["skill_ids"]
+    assert repaired["model_strategy"]["allowed_models"] == [{"provider": "openrouter", "model": "active"}]
+    assert repaired["team"]["temporary"]["models"] == []
+    assert saved["ai"]["agents"][1] == unaffected
+    assert saved["ai"]["models"] == original["ai"]["models"]
+    assert saved["settings"] == original["settings"]
+    assert "base_only" not in saved and "providers" not in saved["ai"]
+    assert merged["ai"]["agents"] == saved["ai"]["agents"]
+    first_stat = path.stat()
+    again, _ = app_config._merge_user_params({}, tmp_path / "base.yaml", path)
+    assert again == saved
+    assert path.stat().st_mtime_ns == first_stat.st_mtime_ns
+
+
+def test_loading_enabled_binding_does_not_deactivate_or_rewrite(tmp_path: Path) -> None:
+    path = _params_file(tmp_path / "vault")
+    source = "ai:\n  models: [{provider: openrouter, model_id: selected, enabled: true}]\n  agents: [{id: principal, provider: openrouter, model: selected}]\n"
+    path.write_text(source)
+    app_config._merge_user_params({}, tmp_path / "base.yaml", path)
+    assert path.read_text() == source
+
+
 def test_active_environment_and_home_precedence(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

@@ -11,14 +11,15 @@ import { useEffect, useEffectEvent } from 'react';
 import { subscribeAppEvent } from '../../../shared/platform/app-events';
 import type { SettingsState } from './stateTypes';
 import { principalAssistant } from '../../../shared/ai/assistantProfiles';
+import { detachBotModels } from '../model-comparison/detachBotModels';
 
-type Input = SettingsState;
+type Input = Pick<SettingsState, 'draft' | 'isOpen' | 'setAiRegistry' | 'setAiUsage' | 'setConfirmConfig'
+  | 'setDraft' | 'setEditingAgent' | 'setEnforceBlock' | 'setMonthlyCostCap' | 'setSavingBudget' | 't'>;
 
 export function useSettingsModels(state: Input) {
   const { draft, isOpen, setAiRegistry, setAiUsage, setConfirmConfig, setDraft, setEditingAgent, setEnforceBlock, setMonthlyCostCap, setSavingBudget, t } = state;
   const loadAiRegistry = async () => {
-    // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
-    // model in the registry is not a valid target for a new agent.
+    // Usage can retain disabled rows, but they cannot remain bot bindings.
     try {
       const [payload, comparisonPayload, usageData] = await Promise.all([
         fetchAiModels(),
@@ -82,6 +83,14 @@ export function useSettingsModels(state: Input) {
       }
 
       setAiRegistry(configured);
+      const disabled = payload.configured_models.filter(model => model.enabled === false)
+        .map(model => ({ provider: model.provider, model: model.model_id }));
+      setEditingAgent(current => current ? detachBotModels(current, disabled) : current);
+      setDraft(current => {
+        const agents = current.ai.agents.map(agent => detachBotModels(agent, disabled));
+        return agents.every((agent, index) => agent === current.ai.agents[index])
+          ? current : { ...current, ai: { ...current.ai, agents } };
+      });
     } catch (err) { console.error("Error loading AI model registry:", err); }
   };
 

@@ -110,6 +110,8 @@ def test_budget_only_save_repairs_metadata_and_evicts_workflows(
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(agent_cache={"old": object()})),
     )
+    from backend.domains.configuration.config_response_cache import configuration_response_cache
+    configuration_response_cache.get_or_load("model-bindings-test", lambda: {"old": True})
 
     asyncio.run(ai_routes.set_model_registry(
         ai_routes.ModelsPayload(
@@ -129,6 +131,7 @@ def test_budget_only_save_repairs_metadata_and_evicts_workflows(
     assert saved["ai"]["models"][0]["context_window"] == 262144
     assert saved["ai"]["budget"]["monthly_cost_cap"] == 10.0
     assert request.app.state.agent_cache == {}
+    assert configuration_response_cache.get_or_load("model-bindings-test", lambda: {"new": True}) == {"new": True}
 
 
 def test_registry_rejects_a_concurrent_stale_writer(monkeypatch, tmp_path):

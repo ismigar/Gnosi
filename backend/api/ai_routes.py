@@ -741,6 +741,9 @@ async def set_model_registry(payload: ModelsPayload, request: Request) -> JsonOb
             sort_keys=False,
         )
         safe_write_text(params_path, yaml_text)
+        from backend.domains.configuration.config_response_cache import configuration_response_cache
+
+        configuration_response_cache.invalidate()
         _evict_agent_graphs(request)
         return {"status": "success", "count": len(cleaned)}
 
