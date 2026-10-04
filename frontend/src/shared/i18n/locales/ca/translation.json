@@ -5533,12 +5533,12 @@
       "evidence_error": "No s’han pogut llegir totes les evidències guardades. Les dades disponibles continuen visibles; actualitza per tornar-ho a intentar.",
       "invalid": "Introdueix volums i context vàlids, qualitat entre 0 i 100 i entre 1 i 10 intents.",
       "excluded": {
-        "capabilities": "{{count}}: falta confirmar text, context, eines o estructura necessaris.",
-        "terms": "{{count}}: el pla documentat restringeix les aplicacions o els processos en segon pla.",
-        "cost": "{{count}}: cost desconegut, quota insuficient o cost local no comparable.",
-        "budget": "{{count}}: superen el pressupost amb els intents previstos.",
-        "quality": "{{count}}: qualitat estimada insuficient o mancances de dades.",
-        "failed_test": "{{count}}: la prova sintètica recent del mateix perfil conté errors."
+        "capabilities": "Ofertes descartades ({{count}}): falta confirmar text, context, eines o estructura necessaris.",
+        "terms": "Ofertes descartades ({{count}}): el pla documentat restringeix les aplicacions o els processos en segon pla.",
+        "cost": "Ofertes descartades ({{count}}): cost desconegut, quota insuficient o cost local no comparable.",
+        "budget": "Ofertes descartades ({{count}}): superen el pressupost amb els intents previstos.",
+        "quality": "Ofertes descartades ({{count}}): qualitat estimada insuficient o mancances de dades.",
+        "failed_test": "Ofertes descartades ({{count}}): la prova sintètica recent del mateix perfil conté errors."
       },
       "tasks": {
         "classify": "Classificar i transformar un lot",

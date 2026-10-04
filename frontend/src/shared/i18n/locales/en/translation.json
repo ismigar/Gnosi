@@ -6640,12 +6640,12 @@
       "evidence_error": "Not all saved evidence could be read. Available data remains visible; refresh to retry.",
       "invalid": "Enter valid volumes and context, quality from 0 to 100, and 1 to 10 attempts.",
       "excluded": {
-        "capabilities": "{{count}}: required text, context, tools or structure support is unconfirmed.",
-        "terms": "{{count}}: documented plan restricts applications or background processing.",
-        "cost": "{{count}}: unknown cost, insufficient allowance or incomparable local cost.",
-        "budget": "{{count}}: over budget with the planned attempts.",
-        "quality": "{{count}}: insufficient estimated quality or missing data.",
-        "failed_test": "{{count}}: the recent synthetic test for this role contains failures."
+        "capabilities": "Excluded offers ({{count}}): required text, context, tools or structure support is unconfirmed.",
+        "terms": "Excluded offers ({{count}}): documented plan restricts applications or background processing.",
+        "cost": "Excluded offers ({{count}}): unknown cost, insufficient allowance or incomparable local cost.",
+        "budget": "Excluded offers ({{count}}): over budget with the planned attempts.",
+        "quality": "Excluded offers ({{count}}): insufficient estimated quality or missing data.",
+        "failed_test": "Excluded offers ({{count}}): the recent synthetic test for this role contains failures."
       },
       "tasks": {
         "classify": "Classify and transform a batch",

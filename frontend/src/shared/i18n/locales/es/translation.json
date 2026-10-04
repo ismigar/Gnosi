@@ -5533,12 +5533,12 @@
       "evidence_error": "No se han podido leer todas las evidencias guardadas. Los datos disponibles siguen visibles; actualiza para reintentarlo.",
       "invalid": "Introduce volúmenes y contexto válidos, calidad entre 0 y 100 y entre 1 y 10 intentos.",
       "excluded": {
-        "capabilities": "{{count}}: falta confirmar texto, contexto, herramientas o estructura necesarios.",
-        "terms": "{{count}}: el plan documentado restringe aplicaciones o procesos en segundo plano.",
-        "cost": "{{count}}: coste desconocido, cuota insuficiente o coste local no comparable.",
-        "budget": "{{count}}: superan el presupuesto con los intentos previstos.",
-        "quality": "{{count}}: calidad estimada insuficiente o datos incompletos.",
-        "failed_test": "{{count}}: la prueba sintética reciente del mismo perfil contiene errores."
+        "capabilities": "Ofertas descartadas ({{count}}): falta confirmar texto, contexto, herramientas o estructura necesarios.",
+        "terms": "Ofertas descartadas ({{count}}): el plan documentado restringe aplicaciones o procesos en segundo plano.",
+        "cost": "Ofertas descartadas ({{count}}): coste desconocido, cuota insuficiente o coste local no comparable.",
+        "budget": "Ofertas descartadas ({{count}}): superan el presupuesto con los intentos previstos.",
+        "quality": "Ofertas descartadas ({{count}}): calidad estimada insuficiente o datos incompletos.",
+        "failed_test": "Ofertas descartadas ({{count}}): la prueba sintética reciente del mismo perfil contiene errores."
       },
       "tasks": {
         "classify": "Clasificar y transformar un lote",

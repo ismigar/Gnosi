@@ -5533,12 +5533,12 @@
       "evidence_error": "Toutes les preuves enregistrées n’ont pas pu être lues. Les données disponibles restent visibles ; actualisez pour réessayer.",
       "invalid": "Saisissez des volumes et un contexte valides, une qualité de 0 à 100 et de 1 à 10 tentatives.",
       "excluded": {
-        "capabilities": "{{count}} : texte, contexte, outils ou structure nécessaires non confirmés.",
-        "terms": "{{count}} : l’abonnement documenté restreint les applications ou traitements en arrière-plan.",
-        "cost": "{{count}} : coût inconnu, quota insuffisant ou coût local non comparable.",
-        "budget": "{{count}} : dépassement du budget avec les tentatives prévues.",
-        "quality": "{{count}} : qualité estimée insuffisante ou données manquantes.",
-        "failed_test": "{{count}} : le test synthétique récent de ce rôle contient des échecs."
+        "capabilities": "Offres exclues ({{count}}) : texte, contexte, outils ou structure nécessaires non confirmés.",
+        "terms": "Offres exclues ({{count}}) : l’abonnement documenté restreint les applications ou traitements en arrière-plan.",
+        "cost": "Offres exclues ({{count}}) : coût inconnu, quota insuffisant ou coût local non comparable.",
+        "budget": "Offres exclues ({{count}}) : dépassement du budget avec les tentatives prévues.",
+        "quality": "Offres exclues ({{count}}) : qualité estimée insuffisante ou données manquantes.",
+        "failed_test": "Offres exclues ({{count}}) : le test synthétique récent de ce rôle contient des échecs."
       },
       "tasks": {
         "classify": "Classer et transformer un lot",
