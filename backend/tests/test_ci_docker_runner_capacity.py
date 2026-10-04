@@ -351,3 +351,25 @@ def test_failed_container_listing_reports_daemon_error_without_cleanup(monkeypat
         prepare_docker_runner._remove_stopped_ci_containers("gnosi-frontend:ci")
     assert "daemon unavailable" in caplog.text
     assert runner.call_count == 1
+
+
+@pytest.mark.parametrize("state,remove", [
+    ({"Status": "", "Running": False, "Paused": False, "Restarting": False, "Pid": 0}, True),
+    ({"Status": "", "Running": False}, False),
+    ({"Running": False, "Paused": False, "Restarting": False, "Pid": 0}, False),
+    ({"Status": "", "Running": False, "Paused": False, "Restarting": False, "Pid": 42}, False),
+    ({"Status": "", "Running": False, "Paused": True, "Restarting": False, "Pid": 0}, False),
+    ({"Status": "", "Running": False, "Paused": False, "Restarting": True, "Pid": 0}, False),
+    ({"Status": "", "Running": True, "Paused": False, "Restarting": False, "Pid": 0}, False),
+])
+def test_rootless_container_without_task_is_cleaned_only_with_explicit_stopped_state(monkeypatch, state, remove):
+    container = {"Config": {"Labels": {"com.docker.compose.project": "gnosi-ci-1234-1",
+                                       "com.docker.compose.service": "frontend"}}, "State": state}
+    runner = Mock(side_effect=[CompletedProcess((), 0, stdout="container-1\n"),
+                              CompletedProcess((), 0, stdout=json.dumps([container])),
+                              CompletedProcess((), 0)])
+    monkeypatch.setattr(prepare_docker_runner, "run", runner)
+    prepare_docker_runner._remove_stopped_ci_containers("gnosi-frontend:ci")
+    assert runner.call_count == (3 if remove else 2)
+    if remove:
+        assert runner.call_args == call(("docker", "rm", "container-1"), check=True, timeout=60)

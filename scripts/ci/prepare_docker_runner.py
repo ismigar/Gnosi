@@ -36,6 +36,18 @@ def _ci_image_exists(tag: str) -> bool:
     return bool(listed.stdout.strip())
 
 
+def _stopped_container(state: dict[str, object]) -> bool:
+    if state.get("Running") is not False:
+        return False
+    if state.get("Status") in {"exited", "dead", "created"}:
+        return True
+    # nerdctl reports a container with no task as an empty status. Require
+    # explicit inactive flags and a zero PID; missing metadata is not evidence.
+    return (state.get("Status") == "" and type(state.get("Pid")) is int
+            and state["Pid"] == 0 and state.get("Paused") is False
+            and state.get("Restarting") is False)
+
+
 def _remove_stopped_ci_containers(_tag: str) -> None:
     """Release abandoned smoke containers without deleting volumes or active work."""
     try:
@@ -55,8 +67,7 @@ def _remove_stopped_ci_containers(_tag: str) -> None:
         project = labels.get("com.docker.compose.project", "")
         if (re.fullmatch(r"gnosi-ci-[0-9]+-[0-9]+", project)
                 and labels.get("com.docker.compose.service") in {"frontend", "backend"}
-                and state.get("Status") in {"exited", "dead", "created"}
-                and state.get("Running") is False):
+                and _stopped_container(state)):
             # A restart between inspection and removal fails safely: no --force or --volumes.
             run(("docker", "rm", container_id), check=True, timeout=60)
 
