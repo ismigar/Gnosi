@@ -26,9 +26,12 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     identity = fingerprint([runtime.identity, chunks, dimensions, index])
     previous = llm_wiki_storage.get_job_status(resource_id, str(source_table.get("id") or ""))
     saved: dict[str, Any] = {}
+    previous_plans = 0
     if not force and previous.get("phase") in {llm_wiki.PHASE_PARTIAL, llm_wiki.PHASE_ERROR}:
         for job_id in llm_wiki_storage.resume_checkpoint_jobs(str(previous.get("job_id") or "")):
             checkpoint = llm_wiki_storage.load_checkpoint(job_id, "agent-state")
+            if isinstance(checkpoint, dict) and isinstance(checkpoint.get("plans"), dict):
+                previous_plans = max(previous_plans, len(checkpoint["plans"]))
             if isinstance(checkpoint, dict) and checkpoint.get("identity") == identity:
                 plans = checkpoint.get("plans", {})
                 if isinstance(plans, dict) and len(plans) > len(saved.get("plans", {})):
@@ -75,8 +78,9 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
     budget = None
     if not force and previous.get("budget_id"):
         budget = reading_budget.status(str(previous["budget_id"]))
-    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, rates, batch_size, len(saved.get("plans", {}))]),
+    return {"_reading_identity": identity, "estimate_id": fingerprint([identity, rates, batch_size, len(saved.get("plans", {})), previous_plans]),
             "provider": runtime.provider, "model": runtime.model, "currency": "USD", "priced": priced,
+            "incompatible_saved_chunks": max(0, previous_plans-len(saved.get("plans", {}))),
             "chunks_total": len(chunks), "saved_chunks": len(saved.get("plans", {})), "remaining_chunks": len(remaining),
             "batch_size": batch_size, "planned_calls": calls, "memory_restore_calls": restore_calls,
             "source_token_bound": source_bytes, "input_token_bound": input_bound,

@@ -17495,6 +17495,11 @@ export interface components {
             currency: string;
             /** Estimate Id */
             estimate_id: string;
+            /**
+             * Incompatible Saved Chunks
+             * @default 0
+             */
+            incompatible_saved_chunks: number;
             /** Input Token Bound */
             input_token_bound: number;
             /** Memory Restore Calls */

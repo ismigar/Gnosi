@@ -34,7 +34,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         });
         return () => { request.abort(); };
     }, [needsEstimate, noteId, sourceTableId, force, batchSize, hasTask, estimateKey, t]);
-    const canStart = Boolean(estimate?.priced) && Number.isFinite(budgetLimit) && budgetLimit > 0 && budgetLimit <= 1000;
+    const canStart = Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > 0 && budgetLimit <= 1000;
     const reportJob = useEffectEvent((job: NonNullable<typeof task>['job']) => { if (job) onJobUpdate?.(job); });
     const reportDone = useEffectEvent(() => { onProcessed?.(); });
     useEffect(() => {

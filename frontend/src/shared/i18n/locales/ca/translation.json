@@ -6499,6 +6499,8 @@
   },
   "reader_podcast_error_prefix": "Error",
   "llm_wiki": {
+    "reading_checkpoint_incompatible": "Els fragments desats no es poden reutilitzar amb la font o els ajustos actuals. Es conserven. Reprendre queda bloquejat per evitar pagar una lectura nova. Revisa els ajustos o demana explícitament tornar a processar.",
+    "checkpoint_incompatible_details": "Els {{count}} fragments desats no es poden reutilitzar amb la font o els ajustos actuals. Es conserven. Reprendre queda bloquejat per evitar pagar una lectura nova. Revisa els ajustos o demana explícitament tornar a processar.",
     "budget_limit": "Límit de despesa (USD)",
     "batch_size": "Fragments per lot",
     "estimate_loading": "Calculant sense crides d’IA…",

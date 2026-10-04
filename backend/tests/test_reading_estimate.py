@@ -37,5 +37,39 @@ def test_full_cost_and_exact_checkpoint_compatibility(monkeypatch, tmp_path):
     assert different['planned_calls'] > result['planned_calls']
     assert different['estimate_id'] != result['estimate_id']
     runtime.identity = 'changed-model-or-instructions'
-    assert estimate.estimate('book',{},'',tmp_path,{'id':'table'},{},'brain')['saved_chunks'] == 0
+    blocked = estimate.estimate('book',{},'',tmp_path,{'id':'table'},{},'brain')
+    assert blocked['saved_chunks'] == 0 and blocked['incompatible_saved_chunks'] == 16
+    fresh = estimate.estimate('book',{},'',tmp_path,{'id':'table'},{},'brain', force=True)
+    assert fresh['incompatible_saved_chunks'] == 0
     save.assert_not_called()
+
+
+def test_incompatible_checkpoint_and_stale_estimate_cannot_launch_worker(monkeypatch, tmp_path):
+    import pytest
+    from backend.api import vault_routes as vr
+    from backend.services import llm_wiki_actions as actions
+    page = tmp_path/'source.md';page.write_text('Source')
+    monkeypatch.setattr(vr, '_load_plugins_state', lambda:{})
+    monkeypatch.setattr(vr, '_llm_wiki_enabled', lambda _:True)
+    monkeypatch.setattr(vr, '_table_by_id', lambda key:{'id':key})
+    monkeypatch.setattr(vr, 'find_page_path', lambda _:page)
+    monkeypatch.setattr(vr, 'parse_frontmatter', lambda *_:({'table_id':'sources'}, 'Source'))
+    monkeypatch.setattr(vr, '_resource_processed_value', lambda _:'')
+    monkeypatch.setattr(vr, '_llm_wiki_source_title', lambda *_:'Book')
+    monkeypatch.setattr(vr, 'get_p', lambda _:tmp_path)
+    monkeypatch.setattr(estimate.llm_wiki_config, 'load_config', lambda:{'brain_table_id':'brain'})
+    monkeypatch.setattr(estimate.llm_wiki_config, 'get_source_config', lambda _:{'table_id':'sources'})
+    monkeypatch.setattr(estimate.llm_wiki, 'is_running', lambda *_:False)
+    monkeypatch.setattr(estimate.llm_wiki, 'get_job_status', lambda *_:{'phase':'partial', 'job_id':'saved'})
+    start = Mock(return_value={'job_id':'new'})
+    monkeypatch.setattr(estimate.llm_wiki, 'start_ingest', start)
+    result = {'estimate_id':'current','incompatible_saved_chunks':166,'_reading_identity':'identity','priced':True}
+    monkeypatch.setattr(estimate, 'estimate', lambda *_args, **_kwargs:result)
+    for identifier, error in [('stale','reading_estimate_changed'),('current','reading_checkpoint_incompatible')]:
+        with pytest.raises(actions.LlmWikiActionError, match=error):
+            actions.start_source_process('book', source_table_id='sources', estimate_id=identifier)
+        start.assert_not_called()
+    result['incompatible_saved_chunks'] = 0
+    actions.start_source_process('book', source_table_id='sources', estimate_id='current', force=True)
+    assert start.call_args.kwargs['force'] is True
+    assert start.call_args.kwargs['expected_reading_identity'] == 'identity'

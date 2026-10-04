@@ -73,6 +73,7 @@ class LlmWikiEstimateResponse(BaseModel):
     priced: bool
     chunks_total: int
     saved_chunks: int
+    incompatible_saved_chunks: int = 0
     remaining_chunks: int
     batch_size: int
     planned_calls: int

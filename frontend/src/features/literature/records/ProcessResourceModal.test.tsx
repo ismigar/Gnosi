@@ -99,7 +99,7 @@ beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    vi.mocked(estimateResourceProcessing).mockResolvedValue({ estimate_id: 'estimate-1', provider: 'test', model: 'test-model', currency: 'USD', priced: true, chunks_total: 8, saved_chunks: 0, remaining_chunks: 8, batch_size: 4, planned_calls: 3, memory_restore_calls: 0, source_token_bound: 1000, input_token_bound: 4000, output_tokens_assumed: 1000, output_token_bound: 49152, cost_usd: 0.02, cost_with_repairs_usd: 0.1, budget: null, warnings: [] });
+    vi.mocked(estimateResourceProcessing).mockResolvedValue({ estimate_id: 'estimate-1', provider: 'test', model: 'test-model', currency: 'USD', priced: true, chunks_total: 8, saved_chunks: 0, incompatible_saved_chunks: 0, remaining_chunks: 8, batch_size: 4, planned_calls: 3, memory_restore_calls: 0, source_token_bound: 1000, input_token_bound: 4000, output_tokens_assumed: 1000, output_token_bound: 49152, cost_usd: 0.02, cost_with_repairs_usd: 0.1, budget: null, warnings: [] });
     vi.mocked(startResourceProcessing).mockResolvedValue(started);
     vi.mocked(fetchResourceProcessingStatus).mockResolvedValue(runningJob);
 });
@@ -288,6 +288,16 @@ describe('ProcessResourceModal', () => {
         act(() => { buttonWithText('Process').click(); });
         await flushProcessing();
         expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ max_cost_usd: 0.75, batch_size: 4, estimate_id: 'estimate-1' }));
+    });
+
+    it('blocks accidental rereading when saved plans are incompatible', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 0, incompatible_saved_chunks: 166 });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        expect(buttonWithText('Process').disabled).toBe(true);
+        expect(container.textContent).toContain('166 saved fragments cannot be reused');
+        act(() => { buttonWithText('Process').click(); });
+        expect(startResourceProcessing).not.toHaveBeenCalled();
     });
 
     it('renders the accessible force-confirmation contract', async () => {

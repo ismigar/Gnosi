@@ -133,6 +133,7 @@ export function ProcessResourceModalView({
                             {!estimate ? <p>{estimateError || translate('estimate_loading', 'Estimating without AI calls…')}</p> : (
                                 <>
                                     <p className="font-semibold text-[var(--text-primary)]">{estimate.model}</p>
+                                    {estimate.incompatible_saved_chunks > 0 ? <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Review the settings or explicitly request reprocessing.', { count: estimate.incompatible_saved_chunks })}</p> : null}
                                     <p>{translate('estimate_progress', '{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.', { saved: estimate.saved_chunks, remaining: estimate.remaining_chunks, calls: estimate.planned_calls })}</p>
                                     {estimate.priced && estimate.cost_usd !== null && estimate.cost_with_repairs_usd !== null ?
                                         <p>{translate('estimate_cost', 'Estimated processing: {{low}}–{{high}} USD, including repair allowance.', { low: estimate.cost_usd.toFixed(3), high: estimate.cost_with_repairs_usd.toFixed(3) })}</p> :

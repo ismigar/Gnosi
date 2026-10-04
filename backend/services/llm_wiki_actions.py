@@ -159,6 +159,8 @@ def start_source_process(
             return preflight
         if preflight["estimate_id"] != estimate_id:
             raise LlmWikiActionError(409, "reading_estimate_changed")
+        if preflight.get("incompatible_saved_chunks"):
+            raise LlmWikiActionError(409, "reading_checkpoint_incompatible")
         expected_reading_identity = str(preflight["_reading_identity"])
         if not preflight["priced"]:
             raise LlmWikiActionError(409, "reading_budget_unknown_price_or_output_limit")

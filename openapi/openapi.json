@@ -18440,6 +18440,11 @@
             "title": "Estimate Id",
             "type": "string"
           },
+          "incompatible_saved_chunks": {
+            "default": 0,
+            "title": "Incompatible Saved Chunks",
+            "type": "integer"
+          },
           "input_token_bound": {
             "title": "Input Token Bound",
             "type": "integer"
