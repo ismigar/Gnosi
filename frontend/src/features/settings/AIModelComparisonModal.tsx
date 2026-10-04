@@ -142,7 +142,6 @@ export function AIModelComparisonModal({
             relatedBenchmarks={(data.feed?.models ?? []).filter(model => model.routes.some(route =>
                 data.setup?.routeKey === comparisonRouteKey(route))).map(model => model.name)}
             busyModelId={data.busyModelId}
-            onAliasChange={controller.setSetupAlias}
             onApiKeyChange={controller.setSetupApiKey}
             onBaseUrlChange={controller.setSetupBaseUrl}
             onCancel={controller.closeSetup}
@@ -235,7 +234,7 @@ export function AIModelComparisonModal({
                                     </select>
                                 </label>
                                 {offerProvider === 'configured' && <p className="settings-desc">{t('model_comparison.workspace.configured_providers_help')}</p>}
-                                <ModelTaskRecommendations key={bot?.id ?? 'general'} profile="all" initialTask={demand.tasks[0]} botDemand={bot ? demand : undefined} provider={offerProvider === 'configured' ? 'all' : offerProvider}
+                                <ModelTaskRecommendations key={bot?.id ?? 'general'} profile="all" initialTask={demand.tasks[0]} botDemand={bot ? demand : undefined} botId={bot?.id} currentRoute={bot?.provider && bot.model ? { provider: bot.provider, model: bot.model } : undefined} provider={offerProvider === 'configured' ? 'all' : offerProvider}
                                     initialDraft={taskDrafts[draftKey]} onDraftChange={rememberDraft}
                                     models={taskModels} feed={data.feed} revision={evidenceRevision} registry={data.registry.models}
                                     botName={bot ? profileDisplayName(bot, t) || bot.id : undefined} disabled={data.configurationLoading || Boolean(data.configurationError) || skillCatalogStatus !== 'ready' || saveStatus === 'saving'}
@@ -264,7 +263,6 @@ export function AIModelComparisonModal({
                                 metricAvailability={metricAvailability}
                                 models={models}
                                 onBeginActivation={(model) => { beginActivation(model, ui.provider === 'all' ? undefined : ui.provider); }}
-                                onSaveAlias={controller.saveModelAlias}
                                 onDeactivate={controller.deactivateModel}
                                 onScrollbarScroll={onScrollbarScroll}
                                 onSort={(key) => {

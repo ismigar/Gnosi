@@ -34291,6 +34291,420 @@
         "title": "TableUpsertRequest",
         "type": "object"
       },
+      "TaskCaseResult": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "cost_source": {
+            "default": "unknown",
+            "enum": [
+              "reported",
+              "estimated",
+              "unknown"
+            ],
+            "title": "Cost Source",
+            "type": "string"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "failure": {
+            "default": "",
+            "title": "Failure",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "reused_from": {
+            "default": "",
+            "title": "Reused From",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "enum": [
+                "classify",
+                "extract",
+                "book",
+                "retrieve",
+                "code",
+                "workflow",
+                "analyse",
+                "translate",
+                "write",
+                "calendar",
+                "research",
+                "synthesize"
+              ],
+              "type": "string"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "metric",
+          "tasks",
+          "passed",
+          "checked_at",
+          "latency_ms"
+        ],
+        "title": "TaskCaseResult",
+        "type": "object"
+      },
+      "TaskCriterion": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "enum": [
+                "classify",
+                "extract",
+                "book",
+                "retrieve",
+                "code",
+                "workflow",
+                "analyse",
+                "translate",
+                "write",
+                "calendar",
+                "research",
+                "synthesize"
+              ],
+              "type": "string"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "metric",
+          "tasks"
+        ],
+        "title": "TaskCriterion",
+        "type": "object"
+      },
+      "TaskEvaluationPlan": {
+        "properties": {
+          "can_run": {
+            "title": "Can Run",
+            "type": "boolean"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Case Ids",
+            "type": "array"
+          },
+          "maximum_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Cost Usd"
+          },
+          "mode": {
+            "default": "diagnostic_default_512",
+            "title": "Mode",
+            "type": "string"
+          },
+          "pending_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pending Ids",
+            "type": "array"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "reused_cases": {
+            "items": {
+              "$ref": "#/components/schemas/TaskCaseResult"
+            },
+            "title": "Reused Cases",
+            "type": "array"
+          },
+          "version": {
+            "default": "bot_tasks_v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_ids",
+          "reused_cases",
+          "pending_ids",
+          "maximum_cost_usd",
+          "can_run"
+        ],
+        "title": "TaskEvaluationPlan",
+        "type": "object"
+      },
+      "TaskEvaluationReport": {
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "budget_usd": {
+            "title": "Budget Usd",
+            "type": "number"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/TaskCaseResult"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "default": "diagnostic_default_512",
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "model_calls": {
+            "default": 0,
+            "title": "Model Calls",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reserved_usd": {
+            "default": 0,
+            "title": "Reserved Usd",
+            "type": "number"
+          },
+          "reused_cases": {
+            "default": 0,
+            "title": "Reused Cases",
+            "type": "integer"
+          },
+          "status": {
+            "default": "completed",
+            "enum": [
+              "completed",
+              "stopped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stop_reason": {
+            "default": "",
+            "title": "Stop Reason",
+            "type": "string"
+          },
+          "tasks": {
+            "items": {
+              "enum": [
+                "classify",
+                "extract",
+                "book",
+                "retrieve",
+                "code",
+                "workflow",
+                "analyse",
+                "translate",
+                "write",
+                "calendar",
+                "research",
+                "synthesize"
+              ],
+              "type": "string"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "version": {
+            "default": "bot_tasks_v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "provider",
+          "model",
+          "created_at",
+          "tasks",
+          "budget_usd"
+        ],
+        "title": "TaskEvaluationReport",
+        "type": "object"
+      },
+      "TaskEvaluationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "authorize_model_calls": {
+            "default": false,
+            "title": "Authorize Model Calls",
+            "type": "boolean"
+          },
+          "budget_usd": {
+            "default": 0.05,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Budget Usd",
+            "type": "number"
+          },
+          "model": {
+            "maxLength": 192,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "retest": {
+            "default": false,
+            "title": "Retest",
+            "type": "boolean"
+          },
+          "tasks": {
+            "items": {
+              "enum": [
+                "classify",
+                "extract",
+                "book",
+                "retrieve",
+                "code",
+                "workflow",
+                "analyse",
+                "translate",
+                "write",
+                "calendar",
+                "research",
+                "synthesize"
+              ],
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "agent_id",
+          "provider",
+          "model",
+          "tasks"
+        ],
+        "title": "TaskEvaluationRequest",
+        "type": "object"
+      },
+      "TaskEvaluationSuite": {
+        "properties": {
+          "criteria": {
+            "items": {
+              "$ref": "#/components/schemas/TaskCriterion"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "max_age_days": {
+            "default": 30,
+            "title": "Max Age Days",
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "default": 512,
+            "title": "Max Output Tokens",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "diagnostic_default_512",
+            "title": "Mode",
+            "type": "string"
+          },
+          "version": {
+            "default": "bot_tasks_v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criteria"
+        ],
+        "title": "TaskEvaluationSuite",
+        "type": "object"
+      },
       "TaskFactPayload": {
         "description": "Markdown-owned task facts accepted by schedule recalculation.",
         "properties": {
@@ -38730,6 +39144,480 @@
           }
         },
         "summary": "Run Role Evaluation",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/task-evaluation-suite": {
+      "get": {
+        "operationId": "suite_api_agent_runs_task_evaluation_suite_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEvaluationSuite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suite",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/task-evaluations": {
+      "get": {
+        "operationId": "reports_api_agent_runs_task_evaluations_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskEvaluationReport"
+                  },
+                  "title": "Response Reports Api Agent Runs Task Evaluations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reports",
+        "tags": [
+          "Agent runs"
+        ]
+      },
+      "post": {
+        "operationId": "run_api_agent_runs_task_evaluations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskEvaluationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEvaluationReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/task-evaluations/preview": {
+      "post": {
+        "operationId": "preview_api_agent_runs_task_evaluations_preview_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskEvaluationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEvaluationPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
         "tags": [
           "Agent runs"
         ]

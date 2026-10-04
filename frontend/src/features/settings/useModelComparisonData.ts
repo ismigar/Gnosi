@@ -62,8 +62,6 @@ export interface ModelComparisonDataController {
     ) => readonly ResolvedComparisonRoute[];
     readonly saveArtificialAnalysisApiKey: () => Promise<void>;
     readonly setApiKeyInput: (value: string) => void;
-    readonly saveModelAlias: (entry: AiModelRegistryEntry, alias: string) => Promise<void>;
-    readonly setSetupAlias: (value: string) => void;
     readonly setSetupApiKey: (value: string) => void;
     readonly setSetupBaseUrl: (value: string) => void;
     readonly state: ModelComparisonDataState;
@@ -176,7 +174,6 @@ export function useModelComparisonData(
             ?? null;
         const provider = route ? providersById[route.provider] : null;
         return {
-            alias: state.registry.models.find(entry => entry.provider === route?.provider && entry.model_id === route.model_id)?.alias || '',
             apiKey: '',
             baseUrl: provider?.base_url ?? provider?.api ?? '',
             error: '',
@@ -222,7 +219,7 @@ export function useModelComparisonData(
         activationVersion.current += 1;
         if (!state.setup) return;
         dispatch({
-            setup: { ...setupForMode(state.setup.model, mode), alias: state.setup.alias },
+            setup: setupForMode(state.setup.model, mode),
             type: 'set-setup',
         });
     };
@@ -361,7 +358,7 @@ export function useModelComparisonData(
         dispatch({ patch: { error: '' }, type: 'patch-setup' });
         try {
             const newEntry: AiModelRegistryEntry =
-                { ...comparisonRouteToRegistryEntry(selectedRoute), alias: setup.alias?.trim() || '' };
+                comparisonRouteToRegistryEntry(selectedRoute);
             if (!provider.enabled || !provider.connected) {
                 await setAiProviderStatus(provider.id, { enabled: true });
             }
@@ -407,11 +404,6 @@ export function useModelComparisonData(
         detachConfirmation,
         cancelDeactivation: () => { setDetachConfirmation(null); },
         confirmDeactivation: async () => { if (detachConfirmation) await deactivateModel(detachConfirmation.model, detachConfirmation.provider, detachConfirmation); },
-        saveModelAlias: async (entry, alias) => {
-            await saveRegistry(latest => latest.map(row => row.provider === entry.provider && row.model_id === entry.model_id
-                ? { ...row, alias: alias.trim() } : row));
-        },
-        setSetupAlias: value => { dispatch({ patch: { alias: value }, type: 'patch-setup' }); },
         beginActivation,
         changeSetupMode,
         changeSetupProvider,

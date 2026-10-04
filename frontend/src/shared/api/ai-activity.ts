@@ -99,6 +99,23 @@ export async function runRoleEvaluation(body: EvaluationRequest): Promise<RoleEv
     return unwrapApiResult<RoleEvaluationReport, unknown>(await apiClient.POST('/api/agent/runs/role-evaluations', { body }));
 }
 
+export type TaskEvaluationRequest = components['schemas']['TaskEvaluationRequest'];
+export type TaskEvaluationReport = components['schemas']['TaskEvaluationReport'];
+export type TaskEvaluationPlan = components['schemas']['TaskEvaluationPlan'];
+export type TaskEvaluationSuite = components['schemas']['TaskEvaluationSuite'];
+export async function fetchTaskEvaluations(signal?: AbortSignal): Promise<TaskEvaluationReport[]> {
+    return unwrapApiResult<TaskEvaluationReport[], unknown>(await apiClient.GET('/api/agent/runs/task-evaluations', { signal }));
+}
+export async function fetchTaskEvaluationSuite(signal?: AbortSignal): Promise<TaskEvaluationSuite> {
+    return unwrapApiResult<TaskEvaluationSuite, unknown>(await apiClient.GET('/api/agent/runs/task-evaluation-suite', { signal }));
+}
+export async function previewTaskEvaluation(body: TaskEvaluationRequest, signal?: AbortSignal): Promise<TaskEvaluationPlan> {
+    return unwrapApiResult<TaskEvaluationPlan, unknown>(await apiClient.POST('/api/agent/runs/task-evaluations/preview', { body, signal }));
+}
+export async function runTaskEvaluation(body: TaskEvaluationRequest): Promise<TaskEvaluationReport> {
+    return unwrapApiResult<TaskEvaluationReport, unknown>(await apiClient.POST('/api/agent/runs/task-evaluations', { body }));
+}
+
 export type ParameterReviewRequest = components['schemas']['ParameterReviewRequest'];
 export type ParameterReviewResponse = components['schemas']['ParameterReviewResponse'];
 export async function reviewModelParameters(body: ParameterReviewRequest): Promise<ParameterReviewResponse> {

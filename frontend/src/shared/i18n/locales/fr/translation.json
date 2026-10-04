@@ -5384,7 +5384,8 @@
       "router_help": "Le modèle sera disponible pour le routeur automatique et dans Modèles du routeur.",
       "activate": "Activer le modèle",
       "shared_offer_help": "Cette offre est partagée par ces variantes évaluées : {{models}}. L’activation et les alias concernent la même offre. Les variantes sont informatives : cet écran ne configure pas le mode de raisonnement et ne garantit pas les conditions de chaque évaluation.",
-      "shared_offer_label": "Activation et alias partagés"
+      "shared_offer_label": "Activation et alias partagés",
+      "activation_help": "Activez le modèle avec le fournisseur sélectionné quand vous êtes prêt."
     },
     "profiles": {
       "worker": "Exécutant",
@@ -5414,12 +5415,6 @@
       "quantization": "Quantification",
       "monthly_cost": "Est. {{symbol}}/mois",
       "available": "Disponible"
-    },
-    "alias": {
-      "label": "Alias",
-      "placeholder": "Ex. : Rapide et économique",
-      "help": "Les sélecteurs afficheront uniquement cet alias. Laissez-le vide pour utiliser le nom du modèle.",
-      "activation_help": "Choisissez un alias puis activez le modèle."
     },
     "review_lookup": "Consulter la source officielle",
     "review_help": "Consultez les sources du fabricant et vérifiez la version exacte. La recherche automatique consulte la fiche officielle ; sans nombre explicite, vérifiez puis enregistrez la donnée avec sa source. Aucun nombre n’est déduit du nom.",
@@ -5538,7 +5533,7 @@
         "cost": "Offres exclues ({{count}}) : coût inconnu, quota insuffisant ou coût local non comparable.",
         "budget": "Offres exclues ({{count}}) : dépassement du budget avec les tentatives prévues.",
         "quality": "Offres exclues ({{count}}) : qualité estimée insuffisante ou données manquantes.",
-        "failed_test": "Offres exclues ({{count}}) : le test synthétique récent de ce rôle contient des échecs."
+        "failed_test": "Offres exclues ({{count}}) : un test récent d’une fonction requise a échoué. Les incidents de connexion ne comptent pas comme des défauts de qualité."
       },
       "tasks": {
         "classify": "Classer et transformer un lot",
@@ -5547,7 +5542,12 @@
         "retrieve": "Retrouver des passages et citations",
         "code": "Programmer avec des outils",
         "workflow": "Coordonner un workflow à plusieurs étapes",
-        "analyse": "Effectuer une analyse complexe"
+        "analyse": "Effectuer une analyse complexe",
+        "translate": "Traduire fidèlement et préserver le format",
+        "write": "Rédiger en catalan à partir de sources",
+        "calendar": "Gérer dates, réunions et agenda",
+        "research": "Rechercher et évaluer la bibliographie",
+        "synthesize": "Synthétiser les sources et l’évolution des thèmes"
       },
       "history": "Historique opérationnel disponible des 30 derniers jours (toutes les tâches) : {{completed}} terminées, {{failed}} échouées ou interrompues, {{other}} dans d’autres états. Il ne valide pas la qualité et n’attribue pas les coûts des exécutions utilisant plusieurs modèles.",
       "benchmark": "Indices du catalogue utilisés : {{metrics}} · {{date}}.",
@@ -5593,7 +5593,56 @@
     "deactivate_assigned_title": "Désactiver le modèle attribué ?",
     "deactivate_assigned_confirm": "Désactiver et dissocier",
     "deactivate_assigned_help": "Ce modèle sera dissocié des bots suivants. Choisissez un modèle actif pour les utiliser à nouveau. Leurs autres réglages seront conservés.",
-    "choose_bot_model": "Choisir ou changer le modèle"
+    "choose_bot_model": "Choisir ou changer le modèle",
+    "tests": {
+      "title": "Vérifier les fonctions de ce bot",
+      "help": "Les tests enregistrés pour le modèle et le fournisseur exacts sont consultés en premier. Seuls les cas manquants ou périmés sont exécutés ; les résultats sont réutilisables par les autres bots ayant besoin du même critère, sans nouvel appel.",
+      "limitations": "Petits échantillons synthétiques avec des réponses vérifiables, sans documents personnels. Configuration de diagnostic : raisonnement par défaut, sortie limitée à 512 tokens. Ils ne certifient ni la qualité littéraire, ni l’exécution réelle d’outils, ni la compréhension d’un livre entier. Validité : 30 jours.",
+      "activate_first": "Activez et configurez cette offre avant de la tester. Le test ne change pas le modèle affecté au bot.",
+      "budget": "Limite pour ce test ({{symbol}})",
+      "retest": "Répéter aussi les cas enregistrés (nouvelle consommation)",
+      "invalid_budget": "Indiquez un budget positif, équivalent au maximum à 1 USD.",
+      "plan": "{{reused}} cas réutilisables ; {{pending}} nouveaux appels. Réservation maximale prévue : {{cost}}.",
+      "authorize": "J’autorise ces appels dans la limite indiquée",
+      "run": "Exécuter uniquement les tests manquants",
+      "completed": "Résultats enregistrés. Les recommandations en tiennent désormais compte.",
+      "stopped": "Le test s’est arrêté. Les cas terminés sont conservés ; les incidents de connexion ne sont pas considérés comme des défauts de qualité.",
+      "preview_error": "Impossible de préparer le test. Vérifiez que le bot existe, que le modèle est actif et que vous disposez des droits d’administration.",
+      "run_error": "Impossible de démarrer le test. Actualisez les résultats avant de réessayer.",
+      "evidence": "Échantillons vérifiés pour ces fonctions : {{measured}} sur {{total}}. Le score du catalogue reste indicatif.",
+      "checked": "cas réussis",
+      "criteria": "Critères pour les fonctions détectées",
+      "sources": "La compatibilité et les prix proviennent de l’offre du fournisseur. Les indices du catalogue orientent l’estimation de qualité ; les tests locaux vérifient ces critères précis. Parmi les options de qualité estimée similaire, le meilleur équilibre privilégie les échantillons entièrement vérifiés, puis le coût.",
+      "unmeasured": "Pas encore de test spécifique",
+      "cost_reported": "(coût communiqué)",
+      "cost_estimated": "(coût estimé)",
+      "cost_unknown": "(coût inconnu)",
+      "errors": {
+        "unknown_price": "Aucun tarif connu ne permet de limiter la dépense.",
+        "insufficient_context": "Le contexte du modèle est insuffisant pour cet échantillon.",
+        "budget_too_low": "La limite est inférieure à la réservation maximale. Aucun appel ne sera effectué."
+      },
+      "metrics": {
+        "classification": "Classification",
+        "structure": "Structure et extraction",
+        "citation_fidelity": "Fidélité des citations",
+        "coverage": "Couverture des sources",
+        "attribution": "Attribution des voix",
+        "cross_section_comprehension": "Liens entre les sections",
+        "grounding": "Réponses fondées et incertitude",
+        "reasoning": "Raisonnement vérifiable",
+        "code_correctness": "Résultats du code et cas limites",
+        "planning": "Dépendances du plan",
+        "simulated_tool_selection": "Sélection simulée d’outils",
+        "translation_fidelity": "Négations et format en traduction",
+        "catalan_constraints": "Contraintes linguistiques en catalan",
+        "dates_and_offsets": "Dates et fuseaux horaires",
+        "evidence_screening": "Application des critères bibliographiques",
+        "chronology": "Chronologie et versions"
+      },
+      "summary": "Cette tentative : {{calls}} nouveaux appels et {{reused}} cas réutilisés. Nouveau coût communiqué ou estimé : {{cost}} ; réservation en attente de confirmation : {{reserved}}.",
+      "output_limit": "La réponse a atteint la limite de 512 tokens. Cet échantillon n’est pas concluant et n’exclut pas le modèle pour sa qualité."
+    }
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",

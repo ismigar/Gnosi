@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-10-04
+last_verified: 2026-10-05
 source_paths:
+  - backend/services/agent_task_cases.py
+  - backend/services/agent_task_evaluation_models.py
+  - backend/services/agent_task_evaluations.py
+  - backend/domains/agent/routes/task_evaluations.py
+  - backend/tests/test_agent_task_evaluations.py
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
@@ -1348,3 +1355,25 @@ El lliurament automàtic agrupa fins a quatre fragments existents, reduint cride
 
 
 La comprovació prèvia també indica els fragments desats incompatibles amb la font o els ajustos actuals. Els dos diàlegs i les peticions amb identificador d’estimació bloquegen aquesta represa, conservant els checkpoints en lloc de pagar silenciosament una altra lectura. Tornar a processar explícitament continua sent una acció diferent de reprendre.
+
+
+## Proves de funcions del bot i evidència reutilitzable
+
+El selector del bot deriva les funcions de les habilitats assignades i obligatòries, l’ascendència de les habilitats, les operacions i les rutes explícites de l’equip. Traducció, escriptura, calendari, recerca i síntesi tenen contractes diferenciats. Les habilitats personals desconegudes continuen visibles com a no classificades; els noms dels models i les instruccions personals no constitueixen proves de capacitat.
+
+La vista de decisió consulta una bateria versionada i resultats desats dins l’àmbit corresponent, sense crides al proveïdor. La compatibilitat i el cost són requisits de l’oferta exacta. Un error de contracte recent descarta només les ofertes que necessiten satisfer aquell criteri. Les incidències de connexió, els costos desconeguts i les respostes tallades pel límit del diagnòstic són inconcluses i no es puntuen com a qualitat. Els índexs del catàleg continuen sent orientatius: superar una mostra petita no certifica la qualitat de la prosa, l’execució real d’eines ni la comprensió d’un llibre sencer. Dins de cinc punts de catàleg de la millor opció admissible, el millor equilibri prioritza les mostres completes comprovades i després el cost d’execució. L’adequació estimada no és una probabilitat d’èxit mesurada.
+
+Obre les proves d’un candidat després d’activar l’oferta exacta. La previsualització mostra casos reutilitzables, crides pendents i una reserva conservadora. Per executar cal autorització explícita i un pressupost positiu: per defecte 0,05 USD, mostrat en la moneda configurada, amb màxim d’1 USD. Les crides utilitzen el transport de diagnòstic auditat i les reserves persistents, raonament per defecte, sortida limitada a 512 tokens i sense reintents automàtics de l’SDK. Les mostres no reben documents personals, instruccions del bot, memòries ni eines de negoci. Cada resultat es desa amb la validació, data, latència i procedència del cost. Un error de transport, cancel·lació o cost desconegut atura els casos següents i conserva l’evidència completada.
+
+La reutilització exigeix el mateix usuari, espai de treball i vault, el proveïdor/model exacte, la versió de la bateria i el mode de diagnòstic. Cada cas caduca als 30 dies; copiar-lo en un informe nou no actualitza la data. Els criteris compartits es reaprofiten entre bots i només s’executen els casos pendents. Repetir-los requereix una acció explícita. Una prova simultània de la mateixa oferta es rebutja. Les recomanacions no assignen, activen ni proven models automàticament. Els àlies dels LLM s’han retirat dels controls d’activació i comparació; els selectors mostren la identitat oficial i les metadades antigues del registre mantenen la compatibilitat.
+
+```text
+GET  /api/agent/runs/task-evaluation-suite
+GET  /api/agent/runs/task-evaluations
+POST /api/agent/runs/task-evaluations/preview
+POST /api/agent/runs/task-evaluations
+version: bot_tasks_v1
+mode: diagnostic_default_512
+request: agent_id, provider, model, tasks, budget_usd, authorize_model_calls, retest
+storage: agent_team_artifacts / task_evaluation
+```

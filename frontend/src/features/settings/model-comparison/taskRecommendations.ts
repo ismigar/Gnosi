@@ -1,6 +1,7 @@
 import type { AiModelComparisonEntry } from '../../../shared/api/ai';
 import type { RoleEvaluationReport } from '../../../shared/api/ai-activity';
 import { comparisonRouteCosts, knownPrice, type ComparisonPriceOffer } from './modelRouteCosts';
+import { taskEvidence, type StoredTaskEvidence } from './taskEvidence';
 
 type Model = AiModelComparisonEntry;
 type Role = RoleEvaluationReport['role'];
@@ -12,6 +13,11 @@ export const TASKS = [
     { id: 'retrieve', role: 'documentalist', input: 50000, output: 4000, context: 64000, tools: false, structured: false, weights: { intelligence: 1 } },
     { id: 'code', role: 'allrounder', input: 30000, output: 6000, context: 48000, tools: true, structured: false, weights: { intelligence: .4, coding: .6 } },
     { id: 'workflow', role: 'director', input: 50000, output: 8000, context: 64000, tools: true, structured: false, weights: { intelligence: .4, agentic: .6 } },
+    { id: 'translate', role: 'allrounder', input: 20000, output: 20000, context: 32000, tools: false, structured: false, weights: { intelligence: 1 } },
+    { id: 'write', role: 'allrounder', input: 20000, output: 6000, context: 32000, tools: false, structured: false, weights: { intelligence: 1 } },
+    { id: 'calendar', role: 'administrative', input: 10000, output: 3000, context: 16000, tools: true, structured: true, weights: { intelligence: 1 } },
+    { id: 'research', role: 'documentalist', input: 50000, output: 8000, context: 64000, tools: true, structured: true, weights: { intelligence: 1 } },
+    { id: 'synthesize', role: 'documentalist', input: 50000, output: 8000, context: 64000, tools: false, structured: false, weights: { intelligence: 1 } },
     { id: 'analyse', role: 'expert', input: 50000, output: 10000, context: 64000, tools: false, structured: false, weights: { intelligence: 1 } },
 ] as const;
 export type Task = typeof TASKS[number];
@@ -36,6 +42,7 @@ export interface Candidate {
     sampleCostPerSuccess: number | null;
     sampleLatency: number | null;
     variantCount: number;
+    taskChecks?: ReturnType<typeof taskEvidence>;
 }
 
 function currentReport(reports: readonly RoleEvaluationReport[], role: Role, offer: ComparisonPriceOffer, now: number) {
@@ -72,7 +79,7 @@ function benchmarkQuality(model: Model, rankings: ReadonlyMap<Metric, readonly n
 
 /** Compare exact offers. Reading stored evaluations never initiates model calls. */
 export function recommendTask(models: readonly Model[], peers: readonly Model[], provider: string,
-    request: TaskRequest, reports: readonly RoleEvaluationReport[] = [], now = Date.now()) {
+    request: TaskRequest, reports: readonly RoleEvaluationReport[] = [], now = Date.now(), stored?: StoredTaskEvidence) {
     const excluded: Record<Exclusion, number> = { capabilities: 0, terms: 0, cost: 0, budget: 0, quality: 0, failed_test: 0 };
     const candidates: Candidate[] = [];
     const demands = request.tasks?.length ? request.tasks : [request.task];
@@ -121,18 +128,20 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
                 || (offer.cost === 0 && route.billing?.kind !== 'free')) { excluded.cost++; continue; }
             if (request.budgetUsd !== null && offer.cost > request.budgetUsd) { excluded.budget++; continue; }
             const relevantReports = demands.map(task => currentReport(reports, task.role, offer, now));
-            const report = relevantReports.length === 1 ? relevantReports[0] : undefined;
-            if (relevantReports.some(item => item?.cases.some(c => !c.passed))) { excluded.failed_test++; continue; }
+            const report = !stored && relevantReports.length === 1 ? relevantReports[0] : undefined;
+            const checks = taskEvidence(stored, route.provider, route.model_id, demands.map(task => task.id), now);
+            if (checks.failed || (!stored && relevantReports.some(item => item?.cases.some(c => !c.passed)))) { excluded.failed_test++; continue; }
             const quality = observed === null ? null : report && variantCount === 1
                 ? Math.round((.8 * observed + .2 * report.score) * 10) / 10 : observed;
             if (quality === null || quality < request.minimumQuality) { excluded.quality++; continue; }
             seen.add(identity);
             const successes = report?.cases.filter(c => c.passed).length ?? 0;
             const costs = report?.cases.map(c => c.cost_usd) ?? [];
-            candidates.push({ model: variant?.model ?? model, offer, quality, report, variantCount,
+            candidates.push({ model: variant?.model ?? model, offer, quality, report, variantCount, taskChecks: checks,
                 sampleCostPerSuccess: successes > 0 && costs.every(knownPrice)
                     ? costs.filter(knownPrice).reduce((a, b) => a + b, 0) / successes : null,
-                sampleLatency: report ? report.cases.reduce((sum, c) => sum + c.latency_ms, 0) / report.cases.length : null });
+                sampleLatency: checks.cases.length ? checks.cases.reduce((sum, item) => sum + item.latency_ms, 0) / checks.cases.length
+                    : report ? report.cases.reduce((sum, c) => sum + c.latency_ms, 0) / report.cases.length : null });
         }
     }
     const cost = (a: Candidate, b: Candidate) => (a.offer.cost ?? Infinity) - (b.offer.cost ?? Infinity)
@@ -140,6 +149,9 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
         || b.quality - a.quality || a.model.name.localeCompare(b.model.name);
     const byQuality = [...candidates].sort((a, b) => b.quality - a.quality || cost(a, b));
     const best = byQuality[0];
-    const balanced = best ? [...candidates].filter(c => c.quality >= best.quality - 5).sort(cost)[0] : undefined;
+    // Among near-best catalogue options prefer a fully checked small sample,
+    // then price. A synthetic pass never replaces broader quality evidence.
+    const balanced = best ? [...candidates].filter(c => c.quality >= best.quality - 5)
+        .sort((a, b) => Number(Boolean(b.taskChecks?.complete)) - Number(Boolean(a.taskChecks?.complete)) || cost(a, b))[0] : undefined;
     return { balanced, cheapest: [...candidates].sort(cost)[0], quality: best, excluded, count: candidates.length };
 }

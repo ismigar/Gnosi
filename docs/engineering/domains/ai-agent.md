@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-10-04
+last_verified: 2026-10-05
 source_paths:
+  - backend/services/agent_task_cases.py
+  - backend/services/agent_task_evaluation_models.py
+  - backend/services/agent_task_evaluations.py
+  - backend/domains/agent/routes/task_evaluations.py
+  - backend/tests/test_agent_task_evaluations.py
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
@@ -1126,9 +1133,9 @@ Activation rejects unknown route tariffs before enabling the provider or saving 
 
 Provider context and capabilities are displayed per route, including input/output modalities, tool use and reasoning. Unknown declarations stay unknown, including legacy default context values. Provider filters, context sorting and combined price/context/mode filters use route data; one route must satisfy all constraints. Context sorting uses the highest known matching-provider window, with unknowns last. The general benchmark and role assessments remain model-level evidence.
 
-Registry matching uses exact provider/model routes, never names or substrings. Active-state filtering and aliases respect the selected provider. Director and all-rounder filters exclude routes declaring no tool support. Activation retains every distinct provider/model offer and probes the selected route. Comparison edits are serialized and re-read the persisted registry before saving, preserving intervening model and budget changes. Restoring cached metrics recalculates role assessments against the restored feed.
+Registry matching uses exact provider/model routes, never names or substrings. Active-state filtering respects the selected provider. Director and all-rounder filters exclude routes declaring no tool support. Activation retains every distinct provider/model offer and probes the selected route. Comparison edits are serialized and re-read the persisted registry before saving, preserving intervening model and budget changes. Restoring cached metrics recalculates role assessments against the restored feed.
 
-Comparison writes include an optimistic registry revision; a stale writer receives HTTP 409 instead of overwriting another window’s changes. Explicit Refresh bypasses the benchmark and provider catalog caches, retaining fallback provenance on failure. Benchmark variants sharing an executable route remain informative views of one offer: activation and aliases apply to the shared offer, and the setup explains that it does not configure reasoning options or reproduce benchmark conditions. Unrated means no numeric role score; known limitations and below-threshold scores retain distinct labels. Compact context previews show the largest window; each price preview shows the minimum for that column, matching sorting. Sort headers expose aria-sort, filtered result counts are announced, and parameter inspection prepopulates existing evidence without reporting a saved change.
+Comparison writes include an optimistic registry revision; a stale writer receives HTTP 409 instead of overwriting another window’s changes. Explicit Refresh bypasses the benchmark and provider catalog caches, retaining fallback provenance on failure. Benchmark variants sharing an executable route remain informative views of one offer: activation applies to the shared offer, and the setup explains that it does not configure reasoning options or reproduce benchmark conditions. Unrated means no numeric role score; known limitations and below-threshold scores retain distinct labels. Compact context previews show the largest window; each price preview shows the minimum for that column, matching sorting. Sort headers expose aria-sort, filtered result counts are announced, and parameter inspection prepopulates existing evidence without reporting a saved change.
 
 
 ## Assistant settings and team participation
@@ -1242,3 +1249,25 @@ Automatic delivery groups up to four existing fragments, reducing repeated model
 
 
 The preflight also reports previously saved fragments that are incompatible with the current source or processing settings. Both dialogs and starts carrying an estimate identifier block that resume, keeping the checkpoints intact instead of silently paying to read the book again. Explicit fresh processing remains distinct from resumption.
+
+
+## Bot-function checks and reusable evidence
+
+The bot selector derives its functions from assigned and required skills, canonical skill ancestry, operation bindings and explicit team routes. Translation, writing, calendar, research and synthesis have distinct task contracts. Unknown personal skills remain visible as unclassified; model names and personas are not interpreted as evidence of capability.
+
+The default decision view reads a versioned suite and scoped saved results without provider calls. Compatibility and cost remain exact-provider constraints. Each recent contract failure excludes only offers required to satisfy that criterion. Connection failures, unknown bills and responses truncated by the diagnostic output limit are inconclusive, not quality scores. Catalogue indices remain advisory: passing a small sample does not certify prose quality, real tool execution or complete book comprehension. Within five catalogue points of the best eligible option, the balanced choice prefers candidates with all required samples checked, then execution cost. Estimated suitability is not a measured success probability.
+
+Open a candidate’s function checks after activating the exact route. The preview shows reusable cases, pending calls and a conservative reservation. Explicit authorization and a positive budget (default 0.05 USD, displayed in the configured currency, maximum 1 USD) are required to run. Calls use the audited diagnostic transport and durable reservation mechanism, default reasoning, a 512-token output limit and no automatic SDK retries. No private documents, bot personas, memories or business tools enter the fixtures. Results are saved after each case, with validator outcome, date, latency and cost provenance; a transport failure, cancellation or unknown cost stops further cases while retaining completed evidence.
+
+Reuse is scoped to the same user, workspace and vault, exact provider/model, suite version and diagnostic mode. Individual case dates expire after 30 days; copying a result into a newer report never refreshes it. Shared criteria can be reused across bots, and only missing cases run. Repeating saved cases requires an explicit retest action. A concurrent check of the same route is rejected. Recommendations do not assign, activate or test a model automatically. LLM aliases have been removed from activation and comparison controls; selectors show the official model identity while existing stored registry metadata remains compatible.
+
+```text
+GET  /api/agent/runs/task-evaluation-suite
+GET  /api/agent/runs/task-evaluations
+POST /api/agent/runs/task-evaluations/preview
+POST /api/agent/runs/task-evaluations
+version: bot_tasks_v1
+mode: diagnostic_default_512
+request: agent_id, provider, model, tasks, budget_usd, authorize_model_calls, retest
+storage: agent_team_artifacts / task_evaluation
+```

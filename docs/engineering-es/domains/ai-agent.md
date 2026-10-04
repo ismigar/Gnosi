@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-10-04
+last_verified: 2026-10-05
 source_paths:
+  - backend/services/agent_task_cases.py
+  - backend/services/agent_task_evaluation_models.py
+  - backend/services/agent_task_evaluations.py
+  - backend/domains/agent/routes/task_evaluations.py
+  - backend/tests/test_agent_task_evaluations.py
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
@@ -1414,3 +1421,25 @@ La entrega automática agrupa hasta cuatro fragmentos existentes, reduciendo lla
 
 
 La comprobación previa también indica los fragmentos guardados incompatibles con la fuente o los ajustes actuales. Los dos diálogos y las peticiones con identificador de estimación bloquean esa reanudación, conservando los checkpoints en vez de pagar silenciosamente otra lectura. Volver a procesar explícitamente sigue siendo una acción distinta de reanudar.
+
+
+## Pruebas de funciones del bot y evidencia reutilizable
+
+El selector del bot deriva sus funciones de las habilidades asignadas y obligatorias, su ascendencia canónica, las operaciones y las rutas explícitas del equipo. Traducción, escritura, calendario, investigación y síntesis tienen contratos diferenciados. Las habilidades personales desconocidas siguen visibles como no clasificadas; los nombres de los modelos y las instrucciones personales no son pruebas de capacidad.
+
+La vista de decisión consulta una batería versionada y resultados guardados en su ámbito, sin llamadas al proveedor. La compatibilidad y el coste son requisitos de la oferta exacta. Un fallo reciente de contrato descarta solo las ofertas que necesitan satisfacer ese criterio. Los incidentes de conexión, los costes desconocidos y las respuestas truncadas por el límite del diagnóstico son inconcluyentes y no se puntúan como calidad. Los índices del catálogo siguen siendo orientativos: superar una muestra pequeña no certifica la calidad de la prosa, la ejecución real de herramientas ni la comprensión de un libro entero. Dentro de cinco puntos de catálogo de la mejor opción admisible, el mejor equilibrio prioriza las muestras completas comprobadas y después el coste de ejecución. La adecuación estimada no es una probabilidad de éxito medida.
+
+Abre las pruebas del candidato después de activar la oferta exacta. La vista previa muestra casos reutilizables, llamadas pendientes y una reserva conservadora. Ejecutar requiere autorización explícita y un presupuesto positivo: por defecto 0,05 USD, mostrado en la moneda configurada, con máximo de 1 USD. Las llamadas utilizan el transporte de diagnóstico auditado y reservas persistentes, razonamiento por defecto, salida limitada a 512 tokens y sin reintentos automáticos del SDK. Las muestras no reciben documentos personales, instrucciones del bot, memorias ni herramientas de negocio. Cada resultado se guarda con validación, fecha, latencia y procedencia del coste. Un error de transporte, cancelación o coste desconocido detiene los siguientes casos y conserva la evidencia completada.
+
+La reutilización exige el mismo usuario, espacio de trabajo y vault, proveedor/modelo exacto, versión de la batería y modo de diagnóstico. Cada caso caduca a los 30 días; copiarlo a un informe nuevo no actualiza su fecha. Los criterios compartidos se reutilizan entre bots y solo se ejecutan los casos pendientes. Repetirlos requiere una acción explícita. Se rechaza una prueba simultánea de la misma oferta. Las recomendaciones no asignan, activan ni prueban modelos automáticamente. Se han retirado los alias de los LLM de los controles de activación y comparación; los selectores muestran la identidad oficial y los metadatos antiguos del registro mantienen la compatibilidad.
+
+```text
+GET  /api/agent/runs/task-evaluation-suite
+GET  /api/agent/runs/task-evaluations
+POST /api/agent/runs/task-evaluations/preview
+POST /api/agent/runs/task-evaluations
+version: bot_tasks_v1
+mode: diagnostic_default_512
+request: agent_id, provider, model, tasks, budget_usd, authorize_model_calls, retest
+storage: agent_team_artifacts / task_evaluation
+```

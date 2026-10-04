@@ -6491,7 +6491,8 @@
       "router_help": "The model will be available to the automatic router and under Router models.",
       "activate": "Enable model",
       "shared_offer_help": "This offer is shared by these benchmark variants: {{models}}. Activation and aliases apply to the same offer. Variants are informational: this screen does not configure reasoning mode or guarantee the conditions of each benchmark.",
-      "shared_offer_label": "Shared activation and aliases"
+      "shared_offer_label": "Shared activation and aliases",
+      "activation_help": "Activate the model with the selected provider when ready."
     },
     "profiles": {
       "worker": "Worker",
@@ -6521,12 +6522,6 @@
       "quantization": "Quantization",
       "monthly_cost": "Est. {{symbol}}/month",
       "available": "Available"
-    },
-    "alias": {
-      "label": "Alias",
-      "placeholder": "E.g. Fast and affordable",
-      "help": "Selectors will show only this alias. Leave it blank to use the model name.",
-      "activation_help": "Choose an alias and activate the model when ready."
     },
     "review_lookup": "Check official source",
     "review_help": "Consult manufacturer sources and check the exact version. Automatic lookup searches the official model card; if it finds no explicit count, review and save it with a source. Counts are never inferred from names.",
@@ -6645,7 +6640,7 @@
         "cost": "Excluded offers ({{count}}): unknown cost, insufficient allowance or incomparable local cost.",
         "budget": "Excluded offers ({{count}}): over budget with the planned attempts.",
         "quality": "Excluded offers ({{count}}): insufficient estimated quality or missing data.",
-        "failed_test": "Excluded offers ({{count}}): the recent synthetic test for this role contains failures."
+        "failed_test": "Excluded offers ({{count}}): a recent check of a required function failed. Connection incidents do not count as quality failures."
       },
       "tasks": {
         "classify": "Classify and transform a batch",
@@ -6654,7 +6649,12 @@
         "retrieve": "Retrieve passages and citations",
         "code": "Code with tools",
         "workflow": "Coordinate a multi-step workflow",
-        "analyse": "Perform a complex analysis"
+        "analyse": "Perform a complex analysis",
+        "translate": "Translate faithfully and preserve formatting",
+        "write": "Write in Catalan from sources",
+        "calendar": "Manage dates, meetings and calendars",
+        "research": "Search and assess literature",
+        "synthesize": "Synthesize sources and topic evolution"
       },
       "history": "Available operational history over the last 30 days (all tasks): {{completed}} completed, {{failed}} failed or interrupted, {{other}} in other states. It does not validate quality or attribute costs of runs using multiple models.",
       "benchmark": "Catalogue indices used: {{metrics}} · {{date}}.",
@@ -6700,7 +6700,56 @@
     "deactivate_assigned_title": "Deactivate the assigned model?",
     "deactivate_assigned_confirm": "Deactivate and unlink",
     "deactivate_assigned_help": "This model will be unlinked from the following bots. Choose an active model to use them again. Their other settings will be preserved.",
-    "choose_bot_model": "Choose or change model"
+    "choose_bot_model": "Choose or change model",
+    "tests": {
+      "title": "Check this bot’s functions",
+      "help": "Saved checks for the exact model and provider are read first. Only missing or expired cases are run; results can be reused by other bots that need the same criterion, without more calls.",
+      "limitations": "Small synthetic samples with checkable answers and no personal documents. Diagnostic settings: default reasoning, output limited to 512 tokens. They do not certify literary quality, actual tool execution or whole-book comprehension. Valid for 30 days.",
+      "activate_first": "Activate and configure this offer before testing. The test does not change the bot’s assigned model.",
+      "budget": "Limit for this test ({{symbol}})",
+      "retest": "Repeat saved cases too (incurs new usage)",
+      "invalid_budget": "Enter a positive budget, equivalent to at most USD 1.",
+      "plan": "{{reused}} reusable cases; {{pending}} new calls. Expected maximum reservation: {{cost}}.",
+      "authorize": "I authorize these calls within the stated limit",
+      "run": "Run pending checks only",
+      "completed": "Results saved. Recommendations now take them into account.",
+      "stopped": "The test stopped. Completed cases are kept; connection failures are not treated as quality failures.",
+      "preview_error": "Could not prepare the test. Check that the bot exists, the model is active and you have administrator permissions.",
+      "run_error": "Could not start the test. Refresh results before trying again.",
+      "evidence": "Samples checked for these functions: {{measured}} of {{total}}. The catalogue score remains advisory.",
+      "checked": "cases passed",
+      "criteria": "Criteria for detected functions",
+      "sources": "Compatibility and prices come from the provider offer. Catalogue indices guide quality estimates; local tests check these specific criteria. Among options with similar estimated quality, best balance prioritizes fully checked samples, then cost.",
+      "unmeasured": "No specific test yet",
+      "cost_reported": "(reported cost)",
+      "cost_estimated": "(estimated cost)",
+      "cost_unknown": "(unknown cost)",
+      "errors": {
+        "unknown_price": "No known tariff is available to limit spending.",
+        "insufficient_context": "This model’s context is too small for this sample.",
+        "budget_too_low": "The limit is below the maximum reservation. No calls will be made."
+      },
+      "metrics": {
+        "classification": "Classification",
+        "structure": "Structure and extraction",
+        "citation_fidelity": "Citation fidelity",
+        "coverage": "Source coverage",
+        "attribution": "Voice attribution",
+        "cross_section_comprehension": "Connections across sections",
+        "grounding": "Grounded answers and uncertainty",
+        "reasoning": "Verifiable reasoning",
+        "code_correctness": "Code results and boundary cases",
+        "planning": "Plan dependencies",
+        "simulated_tool_selection": "Simulated tool selection",
+        "translation_fidelity": "Negations and format in translation",
+        "catalan_constraints": "Catalan language constraints",
+        "dates_and_offsets": "Dates and time zones",
+        "evidence_screening": "Bibliographic criteria application",
+        "chronology": "Chronology and versions"
+      },
+      "summary": "This attempt: {{calls}} new calls and {{reused}} reused cases. Newly reported or estimated cost: {{cost}}; reservation awaiting confirmation: {{reserved}}.",
+      "output_limit": "The response reached the 512-token limit. This sample is inconclusive and does not exclude the model on quality grounds."
+    }
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

@@ -100,7 +100,6 @@ export type ModelComparisonUiAction =
 
 export interface ModelSetupState {
     readonly routeKey?: string;
-    readonly alias?: string;
     readonly apiKey: string;
     readonly baseUrl: string;
     readonly error: string;
@@ -401,7 +400,7 @@ export const filteredComparisonModels = (
     });
     return candidates.filter((model) => (
         (!normalizedQuery
-            || `${model.name} ${model.creator} ${model.routes.map(route => `${route.provider} ${route.provider_name} ${route.model_id}`).join(' ')} ${matchingRegistryIndexes(registryModels, model, ui.provider).map(index => registryModels[index]?.alias || '').join(' ')}`
+            || `${model.name} ${model.creator} ${model.routes.map(route => `${route.provider} ${route.provider_name} ${route.model_id}`).join(' ')}`
                 .toLocaleLowerCase()
                 .includes(normalizedQuery))
         && (ui.provider === 'all' || model.routes.some((route) => route.provider === ui.provider))

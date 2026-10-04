@@ -4,17 +4,17 @@ import { botTask } from './botModelChoice';
 import type { TaskId } from './taskRecommendations';
 
 const operations: Readonly<Record<string, readonly TaskId[]>> = {
-    writing: ['analyse'], reader: ['retrieve', 'analyse'], podcast: ['retrieve'], notebook: ['retrieve'],
-    literature: ['retrieve', 'analyse'], mail: ['classify', 'extract'], social: ['analyse'],
-    meeting: ['extract', 'analyse'], translation: ['analyse'], tables: ['extract'],
-    knowledge: ['retrieve', 'analyse'], capture: ['extract'], learning: ['analyse'],
+    writing: ['write'], reader: ['retrieve', 'synthesize'], podcast: ['synthesize', 'write'], notebook: ['retrieve'],
+    literature: ['research'], mail: ['classify', 'extract'], social: ['write'],
+    meeting: ['calendar', 'synthesize'], translation: ['translate'], tables: ['extract'],
+    knowledge: ['book', 'retrieve', 'analyse'], capture: ['extract'], learning: ['write'],
 };
 const skills: Readonly<Record<string, readonly TaskId[]>> = {
     'core.gnosi-vault': ['classify', 'extract', 'retrieve'], 'core.gnosi-jobs': ['workflow'],
     'core.gnosi-activity': ['analyse'], 'core.gnosi-contacts': ['extract', 'retrieve'],
     'core.gnosi-planning': ['workflow', 'analyse'], 'core.gnosi-memory': ['extract', 'retrieve'],
-    'core.gnosi-calendar': ['extract', 'workflow'], 'core.gnosi-mail': ['classify', 'extract'],
-    'core.gnosi-reader': ['retrieve', 'analyse'], 'core.gnosi-social': ['analyse'],
+    'core.gnosi-calendar': ['calendar'], 'core.gnosi-mail': ['classify', 'extract'],
+    'core.gnosi-reader': ['retrieve', 'synthesize'], 'core.gnosi-social': ['write'],
     'core.gnosi-notion': ['extract', 'workflow'], 'core.gnosi-notion-migration': ['extract', 'workflow'],
     'core.gnosi-project-status': ['analyse'], 'core.gnosi-weekly-review': ['analyse'],
     'core.gnosi-relationship-brief': ['retrieve', 'analyse'], 'core.gnosi-follow-up-manager': ['extract', 'analyse'],
@@ -26,9 +26,9 @@ const skills: Readonly<Record<string, readonly TaskId[]>> = {
     'core.gnosi-translation': operations.translation ?? [], 'core.gnosi-research-dossier': operations.knowledge ?? [],
 };
 const plugins: Readonly<Record<string, readonly TaskId[]>> = {
-    'llm-wiki': ['book', 'retrieve', 'analyse'], 'feeds-reader': ['retrieve', 'analyse'],
-    'grounded-notebooks': ['retrieve'], resources: ['retrieve', 'analyse'], mail: ['classify', 'extract'],
-    calendar: ['extract', 'analyse'], translation: ['analyse'], 'social-publishing': ['analyse'],
+    'llm-wiki': ['book', 'retrieve', 'analyse'], 'feeds-reader': ['retrieve', 'synthesize', 'write'],
+    'grounded-notebooks': ['retrieve'], resources: ['research'], mail: ['classify', 'extract'],
+    calendar: ['calendar', 'synthesize'], translation: ['translate'], 'social-publishing': ['write'],
 };
 
 /** Deterministic advisory demand from assignments, never from the bot's model or free text. */

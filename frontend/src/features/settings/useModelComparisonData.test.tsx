@@ -229,13 +229,12 @@ const settleAutosave = async (ms = 0) => {
 const NEW_MODEL = { ...MODEL, id: 'model-2', routes: MODEL.routes.map(route => ({ ...route, model_id: 'model-2' })) };
 
 describe('explicit model activation', () => {
-    it('preserves the chosen alias and validates the exact model on activation', async () => {
+    it('activates the exact model with its official identity', async () => {
         vi.useFakeTimers();
         await mountController();
         act(() => { currentController().beginActivation(NEW_MODEL); });
         await settleAutosave();
         expect(mocks.validateProvider).not.toHaveBeenCalled();
-        act(() => { currentController().setSetupAlias('  Research model  '); });
         expect(mocks.updateModels).not.toHaveBeenCalled();
         await act(async () => { await currentController().testSetupConnection(); });
         expect(mocks.validateProvider).toHaveBeenCalledWith('openai', { model: 'model-2' });
@@ -243,7 +242,7 @@ describe('explicit model activation', () => {
         expect(mocks.updateModels).toHaveBeenCalledOnce();
         const saved = mocks.updateModels.mock.lastCall?.[0] as { models: AiModelRegistryEntry[] };
         expect(saved.models).toEqual(expect.arrayContaining([
-            expect.objectContaining({ provider: 'openai', model_id: 'model-2', enabled: true, alias: 'Research model' }),
+            expect.objectContaining({ provider: 'openai', model_id: 'model-2', enabled: true }),
         ]));
         expect(currentController().state.setup).toBeNull();
     });

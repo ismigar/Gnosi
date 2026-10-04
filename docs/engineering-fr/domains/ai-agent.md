@@ -1,7 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-10-04
+last_verified: 2026-10-05
 source_paths:
+  - backend/services/agent_task_cases.py
+  - backend/services/agent_task_evaluation_models.py
+  - backend/services/agent_task_evaluations.py
+  - backend/domains/agent/routes/task_evaluations.py
+  - backend/tests/test_agent_task_evaluations.py
+  - frontend/src/features/settings/model-comparison/ModelTaskEvaluation.tsx
+  - frontend/src/features/settings/model-comparison/taskEvidence.ts
   - backend/domains/agent/context_filters.py
   - backend/domains/agent/exact_actions.py
   - backend/services/agent_learning_review.py
@@ -1437,3 +1444,25 @@ La livraison automatique groupe jusqu’à quatre fragments existants, réduisan
 
 
 Le contrôle préalable indique également les fragments enregistrés incompatibles avec la source ou les réglages actuels. Les deux dialogues et les demandes avec identifiant d’estimation bloquent cette reprise, conservant les checkpoints au lieu de payer silencieusement une nouvelle lecture. Un nouveau traitement explicite reste distinct de la reprise.
+
+
+## Tests des fonctions du bot et preuves réutilisables
+
+Le sélecteur du bot déduit ses fonctions des compétences affectées et obligatoires, de leur ascendance canonique, des opérations et des routes explicites de l’équipe. Traduction, rédaction, calendrier, recherche et synthèse ont des contrats distincts. Les compétences personnelles inconnues restent visibles comme non classées ; les noms des modèles et les instructions personnelles ne constituent pas des preuves de capacité.
+
+La vue de décision consulte une suite versionnée et des résultats enregistrés dans leur périmètre, sans appel au fournisseur. La compatibilité et le coût sont des contraintes de l’offre exacte. Un échec de contrat récent exclut seulement les offres devant satisfaire ce critère. Les incidents de connexion, les coûts inconnus et les réponses tronquées par la limite du diagnostic ne sont pas concluants et ne sont pas évalués comme une qualité. Les indices du catalogue restent indicatifs : réussir un petit échantillon ne certifie ni la qualité de la prose, ni l’exécution réelle d’outils, ni la compréhension d’un livre entier. À cinq points de catalogue au plus de la meilleure option admissible, le meilleur équilibre privilégie les échantillons entièrement vérifiés, puis le coût d’exécution. L’adéquation estimée n’est pas une probabilité de réussite mesurée.
+
+Ouvrez les tests d’un candidat après avoir activé l’offre exacte. L’aperçu indique les cas réutilisables, les appels manquants et une réservation prudente. L’exécution exige une autorisation explicite et un budget positif : 0,05 USD par défaut, affiché dans la devise configurée, avec un maximum de 1 USD. Les appels utilisent le transport de diagnostic audité et des réservations persistantes, le raisonnement par défaut, une sortie limitée à 512 tokens et aucun nouvel essai automatique du SDK. Les échantillons ne reçoivent ni documents personnels, ni instructions du bot, ni mémoires, ni outils métier. Chaque résultat est enregistré avec la validation, la date, la latence et l’origine du coût. Une erreur de transport, une annulation ou un coût inconnu arrête les cas suivants tout en conservant les preuves terminées.
+
+La réutilisation exige le même utilisateur, espace de travail et vault, le fournisseur/modèle exact, la version de la suite et le mode de diagnostic. Chaque cas expire après 30 jours ; le copier dans un nouveau rapport ne renouvelle pas sa date. Les critères partagés sont réutilisables entre bots et seuls les cas manquants sont exécutés. Les répéter exige une action explicite. Un test simultané de la même offre est rejeté. Les recommandations n’affectent, n’activent et ne testent pas les modèles automatiquement. Les alias des LLM ont été retirés des contrôles d’activation et de comparaison ; les sélecteurs affichent l’identité officielle tout en conservant la compatibilité des anciennes métadonnées du registre.
+
+```text
+GET  /api/agent/runs/task-evaluation-suite
+GET  /api/agent/runs/task-evaluations
+POST /api/agent/runs/task-evaluations/preview
+POST /api/agent/runs/task-evaluations
+version: bot_tasks_v1
+mode: diagnostic_default_512
+request: agent_id, provider, model, tasks, budget_usd, authorize_model_calls, retest
+storage: agent_team_artifacts / task_evaluation
+```

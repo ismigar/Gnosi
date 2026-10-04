@@ -9,7 +9,9 @@ import type { Candidate } from './taskRecommendations';
 import { ModelTaskRecommendations } from './ModelTaskRecommendations';
 
 const mocks = vi.hoisted(() => ({ reports: vi.fn(), runs: vi.fn(), invoke: vi.fn(), vault: 'vault-a' }));
-vi.mock('../../../shared/api/ai-activity', () => ({ fetchRoleEvaluations: mocks.reports, fetchAgentRuns: mocks.runs, runRoleEvaluation: mocks.invoke }));
+vi.mock('../../../shared/api/ai-activity', () => ({
+    fetchTaskEvaluations: vi.fn().mockResolvedValue([]),
+    fetchTaskEvaluationSuite: vi.fn().mockResolvedValue({ version: 'bot_tasks_v1', mode: 'diagnostic_default_512', criteria: [], max_age_days: 30, max_output_tokens: 512 }), fetchRoleEvaluations: mocks.reports, fetchAgentRuns: mocks.runs, runRoleEvaluation: mocks.invoke }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => mocks.vault }));
 const i18n = createInstance();
 const models = [1, 2, 3].map(value => ({ id: String(value), name: `Model ${String(value)}`, intelligence: value,

@@ -3,19 +3,20 @@ import './ModelTaskRecommendations.css';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AiModelComparison, AiModelComparisonEntry, AiModelRegistryEntry } from '../../../shared/api/ai';
-import { fetchAgentRuns, fetchRoleEvaluations, type AgentExecutionRun, type RoleEvaluationReport } from '../../../shared/api/ai-activity';
+import { fetchAgentRuns, fetchRoleEvaluations, fetchTaskEvaluations, fetchTaskEvaluationSuite, type AgentExecutionRun, type RoleEvaluationReport, type TaskEvaluationReport, type TaskEvaluationSuite } from '../../../shared/api/ai-activity';
 import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
 import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { formatComparisonCost } from '../modelComparison';
 import { ModelPriceOffer } from './ModelPriceOffer';
 import { recommendTask, TASKS, type Candidate, type TaskId } from './taskRecommendations';
 import { operationalEvidence } from './operationalEvidence';
+import { ModelTaskEvaluation } from './ModelTaskEvaluation';
 
 export interface TaskRecommendationDraft {
     manual?: boolean; taskId: TaskId; input: string; output: string; context: string; minimum: string; budget: string; attempts: string;
 }
 
-export function ModelTaskRecommendations({ models, feed, provider, profile, revision, initialTask, botDemand, registry = [], onConfigure, onAssign, botName, disabled = false, initialDraft, onDraftChange }: {
+export function ModelTaskRecommendations({ models, feed, provider, profile, revision, initialTask, botDemand, registry = [], onConfigure, onAssign, botName, botId, currentRoute, disabled = false, initialDraft, onDraftChange }: {
     readonly models: readonly AiModelComparisonEntry[];
     readonly feed: AiModelComparison;
     readonly provider: string;
@@ -27,6 +28,8 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
     readonly onConfigure?: (candidate: Candidate) => void;
     readonly onAssign?: (candidate: Candidate) => void;
     readonly botName?: string;
+    readonly botId?: string;
+    readonly currentRoute?: { provider: string; model: string };
     readonly disabled?: boolean;
     readonly initialDraft?: TaskRecommendationDraft;
     readonly onDraftChange?: (draft: TaskRecommendationDraft) => void;
@@ -48,13 +51,14 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
     useEffect(() => { onDraftChange?.({ manual, taskId, input, output, context, minimum, budget, attempts }); },
         [manual, taskId, input, output, context, minimum, budget, attempts, onDraftChange]);
     const [reload, setReload] = useState(0);
-    const [evidence, setEvidence] = useState<{ vault: string; reports: RoleEvaluationReport[]; runs: AgentExecutionRun[]; error: boolean }>({ vault: '', reports: [], runs: [], error: false });
+    const [evidence, setEvidence] = useState<{ vault: string; reports: RoleEvaluationReport[]; runs: AgentExecutionRun[]; taskReports: TaskEvaluationReport[]; suite?: TaskEvaluationSuite; error: boolean; checkedAt: number }>({ vault: '', reports: [], runs: [], taskReports: [], error: false, checkedAt: 0 });
     useEffect(() => {
         const controller = new AbortController();
-        void Promise.allSettled([fetchRoleEvaluations(controller.signal), fetchAgentRuns(controller.signal)]).then(([reports, runs]) => {
-            if (!controller.signal.aborted) setEvidence({ vault,
+        void Promise.allSettled([fetchRoleEvaluations(controller.signal), fetchAgentRuns(controller.signal), fetchTaskEvaluations(controller.signal), fetchTaskEvaluationSuite(controller.signal)]).then(([reports, runs, taskReports, suite]) => {
+            if (!controller.signal.aborted) setEvidence({ vault, checkedAt: Date.now(),
                 reports: reports.status === 'fulfilled' ? reports.value : [], runs: runs.status === 'fulfilled' ? runs.value : [],
-                error: reports.status === 'rejected' || runs.status === 'rejected' });
+                taskReports: taskReports.status === 'fulfilled' ? taskReports.value : [], suite: suite.status === 'fulfilled' ? suite.value : undefined,
+                error: reports.status === 'rejected' || runs.status === 'rejected' || taskReports.status === 'rejected' || suite.status === 'rejected' });
         });
         return () => { controller.abort(); };
     }, [vault, reload, revision]);
@@ -69,7 +73,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         task, tasks: !manual && detected.length ? detected : undefined, needsTools: !manual && botDemand?.needsTools, input: number(input), output: number(output), context: !manual && detected.length ? Math.max(number(context), ...detected.map(item => item.context)) : number(context),
         minimumQuality: number(minimum), budgetUsd: budget.trim() ? number(budget) / feed.currency.usd_rate : null,
         attempts: number(attempts),
-    }, reports);
+    }, reports, evidence.checkedAt, evidence.vault === vault && evidence.suite ? { reports: evidence.taskReports, suite: evidence.suite } : undefined);
     const choices: { candidate: Candidate | undefined; kinds: string[] }[] = [];
     for (const [kind, candidate] of [['balanced', result.balanced], ['cheapest', result.cheapest], ['quality', result.quality]] as const) {
         const match = candidate && choices.find(choice => choice.candidate?.offer.route.provider === candidate.offer.route.provider
@@ -106,8 +110,10 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <ModelPriceOffer offer={candidate.offer} field="monthly_cost" label={candidate.offer.route.provider_name || candidate.offer.route.provider} currency={feed.currency} active={false} />
             <p>{t('model_comparison.recommend.score', { score: candidate.quality })}</p>
             <p>{t(`model_comparison.recommend.why_${kinds[0] ?? 'balanced'}`)}</p>
+            <p>{t('model_comparison.tests.evidence', { measured: candidate.taskChecks?.cases.length ?? 0, total: candidate.taskChecks?.expected ?? 0 })}</p>
             <p>{t(candidate.report ? 'model_comparison.recommend.synthetic' : 'model_comparison.recommend.catalogue', { count: candidate.report?.cases.length ?? 0, date: candidate.report?.created_at.slice(0, 10) ?? '' })}</p>
             <details><summary>{t('model_comparison.workspace.evidence')}</summary>
+            {candidate.taskChecks && <ul>{candidate.taskChecks.tasks.map(item => <li key={item.task}>{t(`model_comparison.recommend.tasks.${item.task}`)}: {item.passed}/{item.total} {t('model_comparison.tests.checked')}</li>)}</ul>}
             <p>{t('model_comparison.recommend.benchmark', { metrics: metrics(candidate), date: feed.fetched_at.slice(0, 10) })}</p>
             {candidate.variantCount > 1 && <p>{t('model_comparison.recommend.variants', { count: candidate.variantCount })}</p>}
             {candidate.sampleCostPerSuccess !== null && <p>{t('model_comparison.recommend.sample_cost', { cost: money(candidate.sampleCostPerSuccess) })}</p>}
@@ -115,6 +121,10 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <p>{t('model_comparison.recommend.history', history(candidate))}</p>
             {[...new Set((!manual && detected.length ? detected : [task]).map(item => item.role))].map(role => <p key={role}>{t(`model_comparison.recommend.pending_${role}`)}</p>)}
             </details>
+            {botId && <ModelTaskEvaluation agentId={botId} provider={candidate.offer.route.provider} model={candidate.offer.route.model_id}
+                tasks={(!manual && detected.length ? detected : [task]).map(item => item.id)} currency={feed.currency}
+                active={registry.some(row => row.enabled && row.provider === candidate.offer.route.provider && row.model_id === candidate.offer.route.model_id)}
+                onComplete={() => { setReload(value => value + 1); }} />}
             {(onConfigure || onAssign) && <div className="model-task-choice__actions">
                 {onConfigure && <button type="button" className="btn-gnosi btn-gnosi-secondary" disabled={disabled}
                     onClick={() => { onConfigure(candidate); }}>{t('model_comparison.workspace.configure_offer')}</button>}
@@ -132,9 +142,17 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             {!manual && <p>{t('model_comparison.workspace.combined_quality')}</p>}
             <p>{t('model_comparison.workspace.detected_tools', { count: botDemand.tools.length })}</p>
             <details><summary>{t('model_comparison.workspace.assigned_skills')}</summary><ul>{[...new Set(botDemand.assigned)].map(name => <li key={name}>{name}</li>)}</ul></details>
+            <details><summary>{t('model_comparison.tests.criteria')}</summary><ul>{detected.map(item => <li key={item.id}>
+                <strong>{t(`model_comparison.recommend.tasks.${item.id}`)}</strong>: {evidence.suite?.criteria.filter(criterion => criterion.tasks.includes(item.id))
+                    .map(criterion => t(`model_comparison.tests.metrics.${criterion.metric}`)).join(' · ') || t('model_comparison.tests.unmeasured')}
+            </li>)}</ul><p>{t('model_comparison.tests.sources')}</p></details>
             {botDemand.unknown.length > 0 && <p role="status">{t('model_comparison.workspace.unknown_skills', { names: botDemand.unknown.join(', ') })}</p>}
             {manual && <p role="status">{t('model_comparison.workspace.manual_warning')}</p>}
         </div>}
+        {botId && currentRoute && <ModelTaskEvaluation key={`${currentRoute.provider}:${currentRoute.model}`} agentId={botId} provider={currentRoute.provider} model={currentRoute.model}
+            tasks={(!manual && detected.length ? detected : [task]).map(item => item.id)} currency={feed.currency}
+            active={registry.some(row => row.enabled && row.provider === currentRoute.provider && row.model_id === currentRoute.model)}
+            onComplete={() => { setReload(value => value + 1); }} />}
         <div className="ai-resource-editor__grid model-task-recommendations__fields">
             {field('input', input, setInput)}{field('output', output, setOutput)}{field('budget', budget, setBudget)}
         </div>

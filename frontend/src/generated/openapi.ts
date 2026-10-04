@@ -236,6 +236,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/task-evaluation-suite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Suite */
+        get: operations["suite_api_agent_runs_task_evaluation_suite_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reports */
+        get: operations["reports_api_agent_runs_task_evaluations_get"];
+        put?: never;
+        /** Run */
+        post: operations["run_api_agent_runs_task_evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/runs/task-evaluations/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["preview_api_agent_runs_task_evaluations_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/team-proposals": {
         parameters: {
             query?: never;
@@ -23673,6 +23725,184 @@ export interface components {
         } & {
             [key: string]: components["schemas"]["JsonValue"];
         };
+        /** TaskCaseResult */
+        TaskCaseResult: {
+            /** Checked At */
+            checked_at: string;
+            /**
+             * Cost Source
+             * @default unknown
+             * @enum {string}
+             */
+            cost_source: "reported" | "estimated" | "unknown";
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /**
+             * Failure
+             * @default
+             */
+            failure: string;
+            /** Id */
+            id: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Metric */
+            metric: string;
+            /** Passed */
+            passed: boolean;
+            /**
+             * Reused From
+             * @default
+             */
+            reused_from: string;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+        };
+        /** TaskCriterion */
+        TaskCriterion: {
+            /** Id */
+            id: string;
+            /** Metric */
+            metric: string;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+        };
+        /** TaskEvaluationPlan */
+        TaskEvaluationPlan: {
+            /** Can Run */
+            can_run: boolean;
+            /** Case Ids */
+            case_ids: string[];
+            /** Maximum Cost Usd */
+            maximum_cost_usd: number | null;
+            /**
+             * Mode
+             * @default diagnostic_default_512
+             */
+            mode: string;
+            /** Pending Ids */
+            pending_ids: string[];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Reused Cases */
+            reused_cases: components["schemas"]["TaskCaseResult"][];
+            /**
+             * Version
+             * @default bot_tasks_v1
+             */
+            version: string;
+        };
+        /** TaskEvaluationReport */
+        TaskEvaluationReport: {
+            /** Agent Id */
+            agent_id: string;
+            /** Budget Usd */
+            budget_usd: number;
+            /** Cases */
+            cases?: components["schemas"]["TaskCaseResult"][];
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /**
+             * Mode
+             * @default diagnostic_default_512
+             */
+            mode: string;
+            /** Model */
+            model: string;
+            /**
+             * Model Calls
+             * @default 0
+             */
+            model_calls: number;
+            /** Provider */
+            provider: string;
+            /**
+             * Reserved Usd
+             * @default 0
+             */
+            reserved_usd: number;
+            /**
+             * Reused Cases
+             * @default 0
+             */
+            reused_cases: number;
+            /**
+             * Status
+             * @default completed
+             * @enum {string}
+             */
+            status: "completed" | "stopped";
+            /**
+             * Stop Reason
+             * @default
+             */
+            stop_reason: string;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+            /**
+             * Version
+             * @default bot_tasks_v1
+             */
+            version: string;
+        };
+        /** TaskEvaluationRequest */
+        TaskEvaluationRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Authorize Model Calls
+             * @default false
+             */
+            authorize_model_calls: boolean;
+            /**
+             * Budget Usd
+             * @default 0.05
+             */
+            budget_usd: number;
+            /** Model */
+            model: string;
+            /** Provider */
+            provider: string;
+            /**
+             * Retest
+             * @default false
+             */
+            retest: boolean;
+            /** Tasks */
+            tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+        };
+        /** TaskEvaluationSuite */
+        TaskEvaluationSuite: {
+            /** Criteria */
+            criteria: components["schemas"]["TaskCriterion"][];
+            /**
+             * Max Age Days
+             * @default 30
+             */
+            max_age_days: number;
+            /**
+             * Max Output Tokens
+             * @default 512
+             */
+            max_output_tokens: number;
+            /**
+             * Mode
+             * @default diagnostic_default_512
+             */
+            mode: string;
+            /**
+             * Version
+             * @default bot_tasks_v1
+             */
+            version: string;
+        };
         /**
          * TaskFactPayload
          * @description Markdown-owned task facts accepted by schedule recalculation.
@@ -25441,6 +25671,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suite_api_agent_runs_task_evaluation_suite_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationSuite"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reports_api_agent_runs_task_evaluations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationReport"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_api_agent_runs_task_evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_agent_runs_task_evaluations_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationPlan"];
                 };
             };
             /** @description Validation Error */

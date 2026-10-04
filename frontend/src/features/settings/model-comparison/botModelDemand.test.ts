@@ -33,3 +33,8 @@ it('recognizes the principal’s personalized foundational Gnosi skills', () => 
     expect(demand.tasks).toEqual(['workflow', 'classify', 'extract', 'retrieve', 'analyse']);
     expect(demand.tools).toHaveLength(5);
 });
+it('distinguishes actual specialist functions instead of making all bots general analysts', () => {
+    const pairs = [['translation', ['translate']], ['calendar', ['calendar', 'synthesize']],
+        ['resources', ['research']], ['social-publishing', ['write']]] as const;
+    for (const [plugin, tasks] of pairs) expect(botModelDemand({ id: plugin, managed_by: `builtin:${plugin}` }, 'principal').tasks).toEqual(tasks);
+});

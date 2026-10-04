@@ -72,7 +72,7 @@ export function useSettingsModels(state: Input) {
         if (configuredModel.enabled !== false || hasUsage) {
           configured.push({
             ...configuredModel,
-            name: configuredModel.alias?.trim() || matched?.name || configuredModel.model_id,
+            name: matched?.name || configuredModel.model_id,
             creator: matched?.creator || configuredModel.provider || '',
             profile: matched?.profile || 'unrated',
             cost_in: costIn,

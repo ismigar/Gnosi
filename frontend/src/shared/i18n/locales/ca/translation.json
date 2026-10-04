@@ -5384,7 +5384,8 @@
       "router_help": "El model quedarà disponible per al router automàtic i també a Models del router.",
       "activate": "Activa el model",
       "shared_offer_help": "Aquesta oferta és compartida per aquestes variants de la comparativa: {{models}}. L’activació i l’àlies afecten la mateixa oferta. Les variants són informatives: aquesta pantalla no configura el mode de raonament ni garanteix reproduir les condicions de cada avaluació.",
-      "shared_offer_label": "Activació i àlies compartits"
+      "shared_offer_label": "Activació i àlies compartits",
+      "activation_help": "Activa el model amb el proveïdor seleccionat quan estiguis a punt."
     },
     "profiles": {
       "worker": "Peó",
@@ -5414,12 +5415,6 @@
       "quantization": "Quantització",
       "monthly_cost": "Est. {{symbol}}/mes",
       "available": "Disponible"
-    },
-    "alias": {
-      "label": "Àlies",
-      "placeholder": "Ex.: Ràpid i econòmic",
-      "help": "Als selectors només es mostrarà aquest àlies. Si el deixes buit, es mostrarà el nom del model.",
-      "activation_help": "Assigna un àlies i activa el model quan estiguis a punt."
     },
     "review_lookup": "Consulta la font oficial",
     "review_help": "Consulta les fonts del fabricant i comprova la versió exacta. La consulta automàtica busca la fitxa oficial; si no troba una dada explícita, pots contrastar-la i desar-la amb la font. No s’infereix del nom.",
@@ -5538,7 +5533,7 @@
         "cost": "Ofertes descartades ({{count}}): cost desconegut, quota insuficient o cost local no comparable.",
         "budget": "Ofertes descartades ({{count}}): superen el pressupost amb els intents previstos.",
         "quality": "Ofertes descartades ({{count}}): qualitat estimada insuficient o mancances de dades.",
-        "failed_test": "Ofertes descartades ({{count}}): la prova sintètica recent del mateix perfil conté errors."
+        "failed_test": "Ofertes descartades ({{count}}): una prova recent d’una funció requerida ha fallat. Les incidències de connexió no compten com a errors de qualitat."
       },
       "tasks": {
         "classify": "Classificar i transformar un lot",
@@ -5547,7 +5542,12 @@
         "retrieve": "Recuperar passatges i cites",
         "code": "Programar amb eines",
         "workflow": "Coordinar un flux de diversos passos",
-        "analyse": "Fer una anàlisi complexa"
+        "analyse": "Fer una anàlisi complexa",
+        "translate": "Traduir amb fidelitat i conservar el format",
+        "write": "Redactar en català a partir de fonts",
+        "calendar": "Gestionar dates, reunions i agenda",
+        "research": "Cercar i avaluar bibliografia",
+        "synthesize": "Sintetitzar fonts i evolució dels temes"
       },
       "history": "Historial operatiu disponible dels darrers 30 dies (totes les tasques): {{completed}} acabades, {{failed}} fallides o interrompudes, {{other}} en altres estats. No valida la qualitat ni atribueix el cost d’execucions amb diversos models.",
       "benchmark": "Índexs del catàleg utilitzats: {{metrics}} · {{date}}.",
@@ -5593,7 +5593,56 @@
     "deactivate_assigned_title": "Desactivar el model assignat?",
     "deactivate_assigned_confirm": "Desactivar i desvincular",
     "deactivate_assigned_help": "Aquest model es desvincularà dels bots següents. Hauràs de triar un model actiu per tornar-los a utilitzar. La resta dels ajustos es conservaran.",
-    "choose_bot_model": "Triar o canviar el model"
+    "choose_bot_model": "Triar o canviar el model",
+    "tests": {
+      "title": "Comprovar les funcions d’aquest bot",
+      "help": "Primer es consulten les proves guardades del model i proveïdor exactes. Només es fan els casos que falten o han caducat; un resultat es pot reutilitzar en altres bots que necessitin el mateix criteri, sense noves crides.",
+      "limitations": "Mostres sintètiques petites, amb respostes comprovables i sense documents personals. Configuració de diagnòstic: raonament per defecte, sortida limitada a 512 tokens. No certifica la qualitat literària, l’ús real d’eines ni la comprensió d’un llibre sencer. Vigència: 30 dies.",
+      "activate_first": "Activa i configura aquesta oferta abans de provar-la. La prova no canvia el model assignat al bot.",
+      "budget": "Límit per a aquesta prova ({{symbol}})",
+      "retest": "Repetir també els casos guardats (torna a consumir)",
+      "invalid_budget": "Indica un pressupost positiu, equivalent com a màxim a 1 USD.",
+      "plan": "{{reused}} casos reutilitzables; {{pending}} crides noves. Reserva màxima prevista: {{cost}}.",
+      "authorize": "Autoritzo aquestes crides amb el límit indicat",
+      "run": "Fer només les proves pendents",
+      "completed": "Resultats desats. Les recomanacions ja els tenen en compte.",
+      "stopped": "La prova s’ha aturat. Els casos completats es conserven; les incidències de connexió no es consideren errors de qualitat.",
+      "preview_error": "No s’ha pogut preparar la prova. Comprova que el bot existeix, el model està actiu i tens permisos d’administració.",
+      "run_error": "No s’ha pogut iniciar la prova. Actualitza els resultats abans de tornar-ho a provar.",
+      "evidence": "Mostres comprovades per a aquestes funcions: {{measured}} de {{total}}. La puntuació del catàleg continua sent orientativa.",
+      "checked": "casos superats",
+      "criteria": "Criteris per a les funcions detectades",
+      "sources": "La compatibilitat i els preus provenen de l’oferta del proveïdor. Els índexs del catàleg orienten la qualitat; les proves locals comproven aquests criteris concrets. Entre opcions amb qualitat estimada semblant, el millor equilibri prioritza les que tenen totes les mostres comprovades i després el cost.",
+      "unmeasured": "Encara sense una prova específica",
+      "cost_reported": "(cost comunicat)",
+      "cost_estimated": "(cost estimat)",
+      "cost_unknown": "(cost desconegut)",
+      "errors": {
+        "unknown_price": "No hi ha una tarifa coneguda que permeti limitar la despesa.",
+        "insufficient_context": "El context del model no és suficient per a aquesta mostra.",
+        "budget_too_low": "El límit és inferior a la reserva màxima. No es farà cap crida."
+      },
+      "metrics": {
+        "classification": "Classificació",
+        "structure": "Estructura i extracció",
+        "citation_fidelity": "Fidelitat de les cites",
+        "coverage": "Cobertura de les fonts",
+        "attribution": "Atribució de veus",
+        "cross_section_comprehension": "Relació entre seccions",
+        "grounding": "Resposta fonamentada i incertesa",
+        "reasoning": "Raonament verificable",
+        "code_correctness": "Resultats i casos límit del codi",
+        "planning": "Dependències del pla",
+        "simulated_tool_selection": "Selecció simulada d’eines",
+        "translation_fidelity": "Negacions i format en traducció",
+        "catalan_constraints": "Restriccions lingüístiques en català",
+        "dates_and_offsets": "Dates i fusos horaris",
+        "evidence_screening": "Aplicació de criteris bibliogràfics",
+        "chronology": "Cronologia i versions"
+      },
+      "summary": "Aquest intent: {{calls}} crides noves i {{reused}} casos reutilitzats. Cost nou comunicat o estimat: {{cost}}; reserva pendent de confirmar: {{reserved}}.",
+      "output_limit": "La resposta ha arribat al límit de 512 tokens. Aquesta mostra no és concloent i no descarta el model per qualitat."
+    }
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

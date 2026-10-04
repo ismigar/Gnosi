@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AiModelComparisonEntry } from '../../../shared/api/ai';
 import type { RoleEvaluationReport } from '../../../shared/api/ai-activity';
 import { recommendTask, TASKS, type TaskRequest } from './taskRecommendations';
+import { suite, checked } from './__fixtures__/taskEvidence';
 
 function firstRoute(model: AiModelComparisonEntry) {
     const route = model.routes[0];
@@ -32,6 +33,16 @@ const report = (changed: Partial<RoleEvaluationReport> = {}): RoleEvaluationRepo
 });
 const compare = (models = [high, near, cheap], changes: Partial<TaskRequest> = {}, reports: RoleEvaluationReport[] = [], provider = 'all') =>
     recommendTask(models, peers, provider, { ...request, ...changes }, reports, now);
+
+it('reuses task-specific evidence for the selected bot and prefers checked near-best offers', () => {
+    const stored = { suite, reports: [checked({ created_at: '2026-10-03T12:00:00Z', cases: checked().cases?.map(item => ({ ...item, checked_at: '2026-10-03T12:00:00Z' })) })] };
+    const translate = TASKS.find(task => task.id === 'translate');
+    if (!translate) throw new Error('Missing translation');
+    const knowledge = recommendTask([high, near, cheap], peers, 'all', request, [], now, stored);
+    expect(knowledge.balanced?.model.id).toBe('near'); expect(knowledge.balanced?.taskChecks?.complete).toBe(true);
+    const translation = recommendTask([high, near, cheap], peers, 'all', { ...request, task: translate }, [], now, stored);
+    expect(translation.balanced?.model.id).toBe('high'); expect(translation.excluded.failed_test).toBe(1);
+});
 
 describe('task recommendations', () => {
     it('gives distinct quality, economical and near-best balanced choices', () => {
