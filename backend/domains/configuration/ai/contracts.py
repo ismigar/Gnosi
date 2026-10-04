@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, RootModel
+from backend.services.model_billing import ComparisonBilling
 
 
 class AiConfigurationDocument(RootModel[dict[str, JsonValue]]):
@@ -212,6 +213,7 @@ class ModelComparisonRoute(BaseModel):
     is_local: bool
     cost_in: float | None
     cost_out: float | None
+    billing: ComparisonBilling | None = None
     context_window: int | None
     input_modes: list[str] | None = None
     output_modes: list[str] | None = None

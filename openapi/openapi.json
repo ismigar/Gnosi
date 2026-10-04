@@ -7469,6 +7469,203 @@
         "title": "CommentUpdateRequest",
         "type": "object"
       },
+      "ComparisonBilling": {
+        "description": "Provenance and comparability of one provider/model offer.",
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "input_price_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Price Usd"
+          },
+          "kind": {
+            "enum": [
+              "metered",
+              "subscription",
+              "free",
+              "unknown",
+              "local"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "model_covered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Covered"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "output_price_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Price Usd"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonBillingPlan"
+            },
+            "title": "Plans",
+            "type": "array"
+          },
+          "rate_source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Source Url"
+          },
+          "source_url": {
+            "default": "",
+            "title": "Source Url",
+            "type": "string"
+          },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ComparisonBilling",
+        "type": "object"
+      },
+      "ComparisonBillingPlan": {
+        "description": "Public monthly fee and quota, with exact-model deduction units.",
+        "properties": {
+          "currency": {
+            "default": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "input_units_per_million": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Units Per Million"
+          },
+          "monthly_fee": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Fee"
+          },
+          "monthly_fee_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Fee Usd"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "output_units_per_million": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Units Per Million"
+          },
+          "quota": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quota"
+          },
+          "quota_period": {
+            "default": "unknown",
+            "enum": [
+              "month",
+              "week",
+              "5h",
+              "unknown"
+            ],
+            "title": "Quota Period",
+            "type": "string"
+          },
+          "quota_unit": {
+            "default": "usage",
+            "enum": [
+              "tokens",
+              "credits",
+              "usd",
+              "requests",
+              "usage"
+            ],
+            "title": "Quota Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ComparisonBillingPlan",
+        "type": "object"
+      },
       "ComposeProposal": {
         "properties": {
           "char_count": {
@@ -23006,6 +23203,16 @@
       "ModelComparisonRoute": {
         "description": "One usable Gnosi route for an externally benchmarked model.",
         "properties": {
+          "billing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonBilling"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "context_window": {
             "anyOf": [
               {

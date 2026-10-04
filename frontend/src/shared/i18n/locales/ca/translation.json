@@ -5454,7 +5454,52 @@
     "unsupported": "No",
     "active_tariff": "Tarifa del proveïdor activat",
     "zero_tariff_note": "Tarifa per token zero al catàleg; aquest proveïdor pot requerir un pla o limitar-ne l’ús.",
-    "provider_measurement_unknown": "No hi ha mesures de velocitat o latència d’aquest proveïdor. El benchmark general del model no s’hi substitueix."
+    "provider_measurement_unknown": "No hi ha mesures de velocitat o latència d’aquest proveïdor. El benchmark general del model no s’hi substitueix.",
+    "billing": {
+      "required": "Requereix quota",
+      "fee": "Quota mensual: {{amount}}",
+      "quota": "Inclou {{amount}} {{unit}} / {{period}}",
+      "equivalent": "Equivalent amb tota la quota consumida",
+      "equivalent_help": "El preu per milió reparteix la quota mensual entre tot el consum inclòs, dedicat a aquest model. El cost mensual és la subscripció completa; no es factura només la fracció consumida.",
+      "no_conversion": "No hi ha prou dades verificades per convertir aquest pla en un preu per token.",
+      "formula": "Quota {{fee}} ÷ {{quota}} {{unit}}. Consum per milió de tokens: entrada {{input}}, sortida {{output}} {{unit}}.",
+      "exceeded": "Supera la quota",
+      "exceeded_help": "El volum indicat supera la quota d’aquest pla. No s’han suposat recàrregues ni subscripcions addicionals.",
+      "unverified_help": "El zero del catàleg no acredita que l’accés sigui gratuït. Tarifa pendent de verificar.",
+      "free_help": "Endpoint gratuït segons el proveïdor, subjecte als seus límits i condicions.",
+      "coverage_unknown": "Model no confirmat a la llista actual del pla",
+      "stale": "Informació amb més de 30 dies: comprova les condicions actuals. No s’utilitza per calcular preus equivalents.",
+      "checked": "Verificat el {{date}}",
+      "source": "Tarifes i condicions",
+      "units": {
+        "tokens": "tokens",
+        "credits": "crèdits",
+        "usd": "USD de consum",
+        "requests": "peticions",
+        "usage": "ús"
+      },
+      "periods": {
+        "month": "mes de subscripció",
+        "week": "setmana",
+        "5h": "5 hores",
+        "unknown": "període no publicat"
+      },
+      "notes": {
+        "regular_fee": "Preu ordinari, sense promocions temporals.",
+        "credits_variable": "El consum de crèdits depèn del model i de l’ús; no s’ha publicat una equivalència fixa verificable.",
+        "interactive_only": "El proveïdor limita aquest pla a eines interactives; no autoritza processos massius en segon pla o backends d’aplicacions.",
+        "rolling_limits": "També hi ha límits per finestres de temps; l’import mensual no garanteix consumir-ho tot de cop.",
+        "overage_possible": "El proveïdor pot carregar el consum excedent al saldo addicional.",
+        "weekly_not_monthly": "La quota publicada és setmanal. No s’ha convertit en una quota mensual fictícia.",
+        "region_price_unknown": "La tarifa de la regió s’ha de confirmar al proveïdor.",
+        "coding_clients": "Pla destinat a clients de programació compatibles.",
+        "full_allowance": "S’assumeix que tota la quota es dedica a aquest model; compartir-la redueix la disponibilitat.",
+        "no_cache_discount": "Càlcul amb entrada sense memòria cau i sense descomptes.",
+        "optional_subscription": "Ofereix subscripcions opcionals i pagament per ús; les condicions depenen del compte i del model.",
+        "public_prices_missing": "El catàleg no conté les tarifes actuals d’aquest proveïdor.",
+        "plans_retired": "El proveïdor ha retirat els plans antics i aplica pagament per ús."
+      }
+    }
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

@@ -5454,7 +5454,52 @@
     "unsupported": "No",
     "active_tariff": "Tarifa del proveedor activado",
     "zero_tariff_note": "Tarifa por token cero en el catálogo; este proveedor puede requerir un plan o limitar el uso.",
-    "provider_measurement_unknown": "No hay medidas de velocidad o latencia de este proveedor. No se sustituyen por el benchmark general del modelo."
+    "provider_measurement_unknown": "No hay medidas de velocidad o latencia de este proveedor. No se sustituyen por el benchmark general del modelo.",
+    "billing": {
+      "required": "Requiere cuota",
+      "fee": "Cuota mensual: {{amount}}",
+      "quota": "Incluye {{amount}} {{unit}} / {{period}}",
+      "equivalent": "Equivalente consumiendo toda la cuota",
+      "equivalent_help": "El precio por millón reparte la cuota mensual entre todo el consumo incluido, dedicado a este modelo. El coste mensual es la suscripción completa, no una factura proporcional al consumo.",
+      "no_conversion": "No hay suficientes datos verificados para convertir este plan en un precio por token.",
+      "formula": "Cuota {{fee}} ÷ {{quota}} {{unit}}. Consumo por millón de tokens: entrada {{input}}, salida {{output}} {{unit}}.",
+      "exceeded": "Supera la cuota",
+      "exceeded_help": "El volumen indicado supera la cuota de este plan. No se han supuesto recargas ni suscripciones adicionales.",
+      "unverified_help": "El cero del catálogo no acredita acceso gratuito. Tarifa pendiente de verificar.",
+      "free_help": "Endpoint gratuito según el proveedor, sujeto a sus límites y condiciones.",
+      "coverage_unknown": "Modelo no confirmado en la lista actual del plan",
+      "stale": "Información de hace más de 30 días: consulta las condiciones actuales. No se utiliza para calcular precios equivalentes.",
+      "checked": "Verificado el {{date}}",
+      "source": "Tarifas y condiciones",
+      "units": {
+        "tokens": "tokens",
+        "credits": "créditos",
+        "usd": "USD de consumo",
+        "requests": "peticiones",
+        "usage": "uso"
+      },
+      "periods": {
+        "month": "mes de suscripción",
+        "week": "semana",
+        "5h": "5 horas",
+        "unknown": "periodo no publicado"
+      },
+      "notes": {
+        "regular_fee": "Precio ordinario, sin promociones temporales.",
+        "credits_variable": "El consumo de créditos depende del modelo y del uso; no se ha publicado una equivalencia fija verificable.",
+        "interactive_only": "El proveedor limita este plan a herramientas interactivas; excluye procesos masivos en segundo plano y backends de aplicaciones.",
+        "rolling_limits": "También existen límites por ventanas de tiempo; la cuota mensual no garantiza consumirlo todo de golpe.",
+        "overage_possible": "El proveedor puede cargar el consumo excedente al saldo adicional.",
+        "weekly_not_monthly": "La cuota publicada es semanal. No se ha convertido en una cuota mensual ficticia.",
+        "region_price_unknown": "Confirma la tarifa de tu región con el proveedor.",
+        "coding_clients": "Plan destinado a clientes de programación compatibles.",
+        "full_allowance": "Se supone que toda la cuota se dedica a este modelo; compartirla reduce la disponibilidad.",
+        "no_cache_discount": "Cálculo con entrada sin caché y sin descuentos.",
+        "optional_subscription": "Ofrece suscripciones opcionales y pago por uso; las condiciones dependen de la cuenta y del modelo.",
+        "public_prices_missing": "El catálogo no contiene las tarifas actuales de este proveedor.",
+        "plans_retired": "El proveedor ha retirado los planes antiguos y aplica pago por uso."
+      }
+    }
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",

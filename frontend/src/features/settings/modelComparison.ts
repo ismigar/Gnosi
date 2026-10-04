@@ -415,7 +415,7 @@ export const filteredComparisonModels = (
                 (model.role_assessments?.length ? model.role_assessments.some(r => ['catalog_compatible', 'tested'].includes(r.status)) : model.profile !== 'unrated')
                 && model.coding !== null
                 && model.agentic !== null
-                && selectedRoutes(model, ui.provider).some(route => routeHasPrice(route, Infinity) && knownContext(route.context_window))
+                && selectedRoutes(model, ui.provider).some(route => (routeHasPrice(route, Infinity) || route.billing?.kind === 'subscription') && knownContext(route.context_window))
             )
             || ui.profile === 'unrated'
         )

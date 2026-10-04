@@ -6561,7 +6561,52 @@
     "unsupported": "No",
     "active_tariff": "Active provider tariff",
     "zero_tariff_note": "Zero per-token tariff in the catalogue; this provider may require a plan or impose usage limits.",
-    "provider_measurement_unknown": "No speed or latency measurements are available for this provider. The general model benchmark is not substituted."
+    "provider_measurement_unknown": "No speed or latency measurements are available for this provider. The general model benchmark is not substituted.",
+    "billing": {
+      "required": "Subscription required",
+      "fee": "Monthly fee: {{amount}}",
+      "quota": "Includes {{amount}} {{unit}} / {{period}}",
+      "equivalent": "Equivalent at full allowance use",
+      "equivalent_help": "The per-million price spreads the monthly fee over the entire included allowance, dedicated to this model. Monthly cost is the full subscription, not a prorated usage bill.",
+      "no_conversion": "There is not enough verified information to convert this plan to a per-token price.",
+      "formula": "Fee {{fee}} ÷ {{quota}} {{unit}}. Units per million tokens: input {{input}}, output {{output}} {{unit}}.",
+      "exceeded": "Allowance exceeded",
+      "exceeded_help": "The entered volume exceeds this plan’s allowance. No top-ups or additional subscriptions have been assumed.",
+      "unverified_help": "A zero in the catalog does not establish free access. Price awaiting verification.",
+      "free_help": "Free endpoint according to the provider, subject to its limits and terms.",
+      "coverage_unknown": "Model not confirmed in the plan’s current list",
+      "stale": "Information over 30 days old: check current terms. Not used to calculate equivalent prices.",
+      "checked": "Verified on {{date}}",
+      "source": "Pricing and terms",
+      "units": {
+        "tokens": "tokens",
+        "credits": "credits",
+        "usd": "USD of usage",
+        "requests": "requests",
+        "usage": "usage"
+      },
+      "periods": {
+        "month": "subscription month",
+        "week": "week",
+        "5h": "5 hours",
+        "unknown": "unpublished period"
+      },
+      "notes": {
+        "regular_fee": "Regular price, excluding temporary promotions.",
+        "credits_variable": "Credit consumption depends on the model and usage; no verifiable fixed conversion has been published.",
+        "interactive_only": "The provider restricts this plan to interactive tools; background batch processing and application backends are excluded.",
+        "rolling_limits": "Time-window limits also apply; a monthly allowance cannot necessarily be consumed at once.",
+        "overage_possible": "The provider may charge overflow to additional prepaid balance.",
+        "weekly_not_monthly": "The published allowance is weekly; no fictitious monthly allowance has been inferred.",
+        "region_price_unknown": "Confirm the regional fee with the provider.",
+        "coding_clients": "Plan intended for compatible coding clients.",
+        "full_allowance": "Assumes the entire allowance is dedicated to this model; sharing it reduces available usage.",
+        "no_cache_discount": "Calculated without input caching or discounts.",
+        "optional_subscription": "Optional subscriptions and metered billing are available; terms depend on account and model.",
+        "public_prices_missing": "The catalog does not contain this provider’s current rates.",
+        "plans_retired": "The provider has retired its old plans and now charges by usage."
+      }
+    }
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

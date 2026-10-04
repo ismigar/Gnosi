@@ -5454,7 +5454,52 @@
     "unsupported": "Non",
     "active_tariff": "Tarif du fournisseur activé",
     "zero_tariff_note": "Tarif par token nul dans le catalogue ; ce fournisseur peut exiger un forfait ou limiter l’utilisation.",
-    "provider_measurement_unknown": "Aucune mesure de vitesse ou de latence n’est disponible pour ce fournisseur. Le benchmark général du modèle ne s’y substitue pas."
+    "provider_measurement_unknown": "Aucune mesure de vitesse ou de latence n’est disponible pour ce fournisseur. Le benchmark général du modèle ne s’y substitue pas.",
+    "billing": {
+      "required": "Abonnement requis",
+      "fee": "Abonnement mensuel : {{amount}}",
+      "quota": "Comprend {{amount}} {{unit}} / {{period}}",
+      "equivalent": "Équivalent si tout le quota est consommé",
+      "equivalent_help": "Le prix par million répartit l’abonnement mensuel sur tout le quota inclus, consacré à ce modèle. Le coût mensuel correspond à l’abonnement complet, et non à une facture au prorata.",
+      "no_conversion": "Les informations vérifiées ne suffisent pas pour convertir ce forfait en prix par token.",
+      "formula": "Abonnement {{fee}} ÷ {{quota}} {{unit}}. Consommation par million de tokens : entrée {{input}}, sortie {{output}} {{unit}}.",
+      "exceeded": "Quota dépassé",
+      "exceeded_help": "Le volume indiqué dépasse le quota de ce forfait. Aucune recharge ni aucun abonnement supplémentaire n’est supposé.",
+      "unverified_help": "Un zéro dans le catalogue ne prouve pas la gratuité de l’accès. Tarif à vérifier.",
+      "free_help": "Point d’accès gratuit selon le fournisseur, soumis à ses limites et conditions.",
+      "coverage_unknown": "Modèle non confirmé dans la liste actuelle du forfait",
+      "stale": "Informations de plus de 30 jours : consultez les conditions actuelles. Exclues du calcul des prix équivalents.",
+      "checked": "Vérifié le {{date}}",
+      "source": "Tarifs et conditions",
+      "units": {
+        "tokens": "tokens",
+        "credits": "crédits",
+        "usd": "USD de consommation",
+        "requests": "requêtes",
+        "usage": "utilisation"
+      },
+      "periods": {
+        "month": "mois d’abonnement",
+        "week": "semaine",
+        "5h": "5 heures",
+        "unknown": "période non publiée"
+      },
+      "notes": {
+        "regular_fee": "Tarif normal, hors promotions temporaires.",
+        "credits_variable": "Les crédits consommés dépendent du modèle et de l’utilisation ; aucune conversion fixe vérifiable n’est publiée.",
+        "interactive_only": "Le fournisseur réserve ce forfait aux outils interactifs ; les traitements par lots en arrière-plan et les backends d’applications sont exclus.",
+        "rolling_limits": "Des limites par fenêtre temporelle s’appliquent aussi ; le quota mensuel n’est pas nécessairement consommable en une seule fois.",
+        "overage_possible": "Le fournisseur peut facturer les dépassements sur le solde supplémentaire.",
+        "weekly_not_monthly": "Le quota publié est hebdomadaire. Aucun quota mensuel fictif n’a été déduit.",
+        "region_price_unknown": "Confirmez le tarif régional auprès du fournisseur.",
+        "coding_clients": "Forfait destiné aux clients de programmation compatibles.",
+        "full_allowance": "Tout le quota est supposé consacré à ce modèle ; le partager réduit la disponibilité.",
+        "no_cache_discount": "Calcul sans cache d’entrée ni remise.",
+        "optional_subscription": "Abonnements facultatifs et paiement à l’usage ; les conditions dépendent du compte et du modèle.",
+        "public_prices_missing": "Le catalogue ne contient pas les tarifs actuels de ce fournisseur.",
+        "plans_retired": "Le fournisseur a retiré ses anciens forfaits et facture désormais à l’usage."
+      }
+    }
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",

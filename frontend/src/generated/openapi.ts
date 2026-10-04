@@ -13635,6 +13635,76 @@ export interface components {
             /** Resolved */
             resolved?: boolean | null;
         };
+        /**
+         * ComparisonBilling
+         * @description Provenance and comparability of one provider/model offer.
+         */
+        ComparisonBilling: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Input Price Usd */
+            input_price_usd?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "metered" | "subscription" | "free" | "unknown" | "local";
+            /** Model Covered */
+            model_covered?: boolean | null;
+            /** Notes */
+            notes?: string[];
+            /** Output Price Usd */
+            output_price_usd?: number | null;
+            /** Plans */
+            plans?: components["schemas"]["ComparisonBillingPlan"][];
+            /** Rate Source Url */
+            rate_source_url?: string | null;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+        };
+        /**
+         * ComparisonBillingPlan
+         * @description Public monthly fee and quota, with exact-model deduction units.
+         */
+        ComparisonBillingPlan: {
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Input Units Per Million */
+            input_units_per_million?: number | null;
+            /** Monthly Fee */
+            monthly_fee?: number | null;
+            /** Monthly Fee Usd */
+            monthly_fee_usd?: number | null;
+            /** Name */
+            name: string;
+            /** Output Units Per Million */
+            output_units_per_million?: number | null;
+            /** Quota */
+            quota?: number | null;
+            /**
+             * Quota Period
+             * @default unknown
+             * @enum {string}
+             */
+            quota_period: "month" | "week" | "5h" | "unknown";
+            /**
+             * Quota Unit
+             * @default usage
+             * @enum {string}
+             */
+            quota_unit: "tokens" | "credits" | "usd" | "requests" | "usage";
+        };
         /** ComposeProposal */
         ComposeProposal: {
             /** Char Count */
@@ -19187,6 +19257,7 @@ export interface components {
          * @description One usable Gnosi route for an externally benchmarked model.
          */
         ModelComparisonRoute: {
+            billing?: components["schemas"]["ComparisonBilling"] | null;
             /** Context Window */
             context_window: number | null;
             /** Cost In */

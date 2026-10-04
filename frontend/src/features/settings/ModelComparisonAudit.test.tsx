@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
+        i18n: { language: 'en' },
         t: (key: string, options?: { count?: number }) => key === 'model_comparison.results_count' ? `Results: ${String(options?.count ?? 0)}` : key,
     }),
 }));

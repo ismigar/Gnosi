@@ -1,5 +1,6 @@
 import { comparisonRouteCapabilities, knownContext } from './model-comparison/modelRouteCapabilities';
-import { comparisonRouteCosts, knownPrice } from './model-comparison/modelRouteCosts';
+import { comparisonRouteCosts } from './model-comparison/modelRouteCosts';
+import { ModelPriceOffer } from './model-comparison/ModelPriceOffer';
 import { ModelParameterReview } from './model-comparison/ModelParameterReview';
 import { ModelAliasField } from './ModelAliasField';
 import { modelParameterDisclosure, modelParameterMetadata } from './model-comparison/modelParameters';
@@ -19,7 +20,6 @@ import type {
 import {
     COMPARISON_PROFILE_KEYS,
     formatComparisonContext,
-    formatComparisonCost,
     formatComparisonMetric,
     isFiniteMetric,
     PROFILE_ICONS,
@@ -93,8 +93,6 @@ export function ModelComparisonRow({
     setupPanel,
 }: ModelComparisonRowProps) {
     const { t } = useTranslation();
-    const currencySymbol = feed.currency.symbol || '$';
-    const currencyRate = feed.currency.usd_rate || 1;
     const routeCapabilities = comparisonRouteCapabilities(model, selectedProvider);
     const routeCosts = {
         monthly_cost: comparisonRouteCosts(model, selectedProvider, inputTokens, outputTokens),
@@ -114,7 +112,8 @@ export function ModelComparisonRow({
     const isBusy = busyModelId === model.id;
     const sourceTitle = (field: string): string | undefined => {
         if (selectedProvider !== 'all' && (field === 'speed' || field === 'latency')) return t('model_comparison.provider_measurement_unknown');
-        if (['input_price', 'output_price', 'monthly_cost', 'context_window', 'modes'].includes(field)) return 'models.dev';
+        if (['input_price', 'output_price', 'monthly_cost'].includes(field)) return undefined;
+        if (['context_window', 'modes'].includes(field)) return 'models.dev';
         const source = model.metric_sources?.[field];
         return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
     };
@@ -156,16 +155,10 @@ export function ModelComparisonRow({
             case 'output_price':
             case 'monthly_cost': return routeCosts[key].length ? <ModelOfferList offers={routeCosts[key]}
                 isHighlighted={({ route }) => activeEntries.some(entry => entry.provider === route.provider && entry.model_id === route.model_id)}
-                renderOffer={({ route, cost }, index) => {
-                const value = key === 'monthly_cost' ? cost : route[key === 'input_price' ? 'cost_in' : 'cost_out'];
-                const label = providersById[route.provider]?.name || route.provider_name || route.provider;
-                const priceHint = `${label} · ${route.model_id}${!route.is_local && route.cost_in === 0 && route.cost_out === 0 ? ` — ${t('model_comparison.zero_tariff_note')}` : ''}`;
-                return <div key={`${route.provider}:${String(index)}`} title={route.model_id}>
-                    {label} — <strong>{knownPrice(value) ? formatComparisonCost(value * currencyRate, currencySymbol) : t('model_comparison.unknown_cost')}{value === 0 && <span className="cursor-help" tabIndex={0} title={priceHint} aria-label={priceHint}>*</span>}</strong>
-                    {activeEntries.some(entry => entry.provider === route.provider && entry.model_id === route.model_id) && <small>{t('model_comparison.active_tariff')}</small>}
-                    {route.is_local && <small>{t('model_comparison.local_cost_note')}</small>}
-                </div>;
-            }} /> : t('model_comparison.unknown_cost');
+                renderOffer={(offer, index) => <ModelPriceOffer key={`${offer.route.provider}:${String(index)}`} offer={offer} field={key}
+                    label={providersById[offer.route.provider]?.name || offer.route.provider_name || offer.route.provider} currency={feed.currency}
+                    active={activeEntries.some(entry => entry.provider === offer.route.provider && entry.model_id === offer.route.model_id)} />}
+            /> : t('model_comparison.unknown_cost');
             case 'speed': return selectedProvider === 'all' && isFiniteMetric(model.speed)
                 ? `${formatComparisonMetric(model.speed)} tokens/s` : '—';
             case 'latency': return selectedProvider === 'all' && isFiniteMetric(model.latency)

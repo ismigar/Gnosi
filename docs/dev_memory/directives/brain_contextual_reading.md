@@ -83,6 +83,9 @@ the applied per-million tariffs, shows the repair scenario separately, and warns
 when the calculation exceeds the available budget without raising that budget.
 
 Zero comparison prices carry an asterisk whose hover/focus hint identifies the
-provider and model. Provider filters scope prices, context and capabilities to
+provider and model. A zero alone does not establish free access: subscription
+fees and quota equivalents follow the separate
+[provider billing comparison contract](model_subscription_comparison.md).
+Provider filters scope prices, context and capabilities to
 that provider; unknown values do not fall back to another route. General model
 speed/latency benchmarks are not presented or sorted as provider measurements.
