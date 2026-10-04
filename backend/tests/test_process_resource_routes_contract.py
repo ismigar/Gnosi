@@ -63,11 +63,17 @@ def test_process_resource_routes_preserve_start_and_status_shapes(
         source_table_id: str,
         force: bool,
         language: str,
+        max_cost_usd: float,
+        batch_size: int,
+        estimate_id: str,
     ) -> dict[str, object]:
         assert resource_id == "resource-1"
         assert source_table_id == "resources"
         assert force is True
         assert language == "Catalan"
+        assert max_cost_usd == 0.50
+        assert batch_size == 4
+        assert estimate_id == ""
         return started
 
     def fake_status(resource_id: str, *, source_table_id: str) -> dict[str, object]:

@@ -116,6 +116,7 @@ afterEach(() => {
 async function render(element: ReactElement): Promise<void> {
     await act(async () => {
         root.render(element);
+        await Promise.resolve();
     });
 }
 
