@@ -295,10 +295,23 @@ describe('ProcessResourceModal', () => {
         const defaults = await vi.mocked(estimateResourceProcessing)({});
         vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...defaults, saved_chunks: 0, incompatible_saved_chunks: 166 });
         await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
-        expect(buttonWithText('Process').disabled).toBe(true);
+        expect(buttonWithText('Reprocess').disabled).toBe(false);
         expect(container.textContent).toContain('166 saved fragments cannot be reused');
-        act(() => { buttonWithText('Process').click(); });
         expect(startResourceProcessing).not.toHaveBeenCalled();
+    });
+
+    it('requires a fresh estimate and a second click before explicit reprocessing', async () => {
+        const defaults = await vi.mocked(estimateResourceProcessing)({});
+        vi.mocked(estimateResourceProcessing).mockClear();
+        vi.mocked(estimateResourceProcessing).mockResolvedValueOnce({ ...defaults, incompatible_saved_chunks: 166 })
+            .mockResolvedValue({ ...defaults, estimate_id: 'fresh-estimate', incompatible_saved_chunks: 0 });
+        await render(<ProcessResourceModal isOpen noteId="note-1" onClose={vi.fn()} />);
+        await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
+        expect(startResourceProcessing).not.toHaveBeenCalled();
+        expect(estimateResourceProcessing).toHaveBeenLastCalledWith(expect.objectContaining({ force: true }), expect.any(AbortSignal));
+        expect(container.textContent).toContain('All configured sources will be processed again');
+        await act(async () => { buttonWithText('Reprocess').click(); await Promise.resolve(); });
+        expect(startResourceProcessing).toHaveBeenCalledWith(expect.objectContaining({ force: true, estimate_id: 'fresh-estimate', max_cost_usd: 0.5, batch_size: 4 }));
     });
 
     it('renders the accessible force-confirmation contract', async () => {

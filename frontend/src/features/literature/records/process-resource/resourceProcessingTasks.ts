@@ -6,6 +6,7 @@ import { resourceProcessingError } from '../../../../shared/notifications/resour
 import { countTouchedPages, getPollingIdentifier, getStartErrorMessage, getTerminalProcessState, POLL_INTERVAL_MS, type ProcessResourceState } from './processResourceModel';
 
 export interface ResourceProcessingTask {
+    readonly reprocess?: boolean;
     readonly budgetLimit?: number;
     readonly batchSize?: number;
     readonly estimateId?: string;
@@ -19,7 +20,7 @@ export interface ResourceProcessingTask {
     readonly background: boolean;
 }
 
-type TaskInput = Pick<ResourceProcessingTask, 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'>;
+type TaskInput = Pick<ResourceProcessingTask, 'reprocess' | 'noteId' | 'sourceTableId' | 'title' | 'budgetLimit' | 'batchSize' | 'estimateId'>;
 interface Poller {
     timer?: ReturnType<typeof setInterval>;
     request?: AbortController;
@@ -92,7 +93,7 @@ export async function startResourceProcessingTask(input: TaskInput, force: boole
     publish();
     const current = (): boolean => pollers.get(id) === poller;
     try {
-        const response = await startResourceProcessing({ force: force && !previous, resource_id: input.noteId, source_table_id: input.sourceTableId,
+        const response = await startResourceProcessing({ force: force && (!previous || input.reprocess === true), resource_id: input.noteId, source_table_id: input.sourceTableId,
             ...(input.budgetLimit !== undefined ? { max_cost_usd: input.budgetLimit } : {}),
             ...(input.batchSize !== undefined ? { batch_size: input.batchSize } : {}),
             ...(input.estimateId ? { estimate_id: input.estimateId } : {}) });

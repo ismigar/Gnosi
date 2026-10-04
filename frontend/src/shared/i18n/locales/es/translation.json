@@ -6500,7 +6500,8 @@
   "reader_podcast_error_prefix": "Error",
   "llm_wiki": {
     "reading_checkpoint_incompatible": "Los fragmentos guardados no se pueden reutilizar con la fuente o los ajustes actuales. Se conservan. Reanudar queda bloqueado para evitar pagar otra lectura. Revisa los ajustes o solicita expresamente volver a procesar.",
-    "checkpoint_incompatible_details": "Los {{count}} fragmentos guardados no se pueden reutilizar con la fuente o los ajustes actuales. Se conservan. Reanudar queda bloqueado para evitar pagar otra lectura. Revisa los ajustes o solicita expresamente volver a procesar.",
+    "reprocess": "Reprocesar",
+    "checkpoint_incompatible_details": "Los {{count}} fragmentos guardados no se pueden reutilizar con la fuente o los ajustes actuales. Se conservan. Elige Reprocesar para revisar una nueva estimación antes de empezar de cero.",
     "budget_limit": "Límite de gasto (USD)",
     "batch_size": "Fragmentos por lote",
     "estimate_loading": "Calculando sin llamadas de IA…",

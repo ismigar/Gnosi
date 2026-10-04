@@ -20,6 +20,8 @@ interface ProcessResourceModalViewProps {
     readonly batchSize: number;
     readonly onBatchSize: (value: number) => void;
     readonly canStart: boolean;
+    readonly fresh: boolean;
+    readonly onReprocess: () => void;
     readonly error: string;
     readonly force: boolean;
     readonly job: ResourceProcessingJob | null;
@@ -34,6 +36,7 @@ interface ProcessResourceModalViewProps {
 
 export function ProcessResourceModalView({
     estimate, estimateError, budgetLimit, onBudgetLimit, batchSize, onBatchSize, canStart,
+    fresh, onReprocess,
     error,
     force,
     job,
@@ -50,6 +53,7 @@ export function ProcessResourceModalView({
         defaultValue: string,
         values: Readonly<Record<string, string | number>> = {},
     ): string => t(`llm_wiki.${key}`, { defaultValue, ...values });
+    const incompatible = (estimate?.incompatible_saved_chunks ?? 0) > 0;
     const phase = getProcessPhase(job);
     const touched = countTouchedPages(job);
     const progress = getProgressPercent(job);
@@ -133,7 +137,7 @@ export function ProcessResourceModalView({
                             {!estimate ? <p>{estimateError || translate('estimate_loading', 'Estimating without AI calls…')}</p> : (
                                 <>
                                     <p className="font-semibold text-[var(--text-primary)]">{estimate.model}</p>
-                                    {estimate.incompatible_saved_chunks > 0 ? <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Review the settings or explicitly request reprocessing.', { count: estimate.incompatible_saved_chunks })}</p> : null}
+                                    {estimate.incompatible_saved_chunks > 0 ? <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Choose Reprocess to review a fresh estimate before starting again.', { count: estimate.incompatible_saved_chunks })}</p> : null}
                                     <p>{translate('estimate_progress', '{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.', { saved: estimate.saved_chunks, remaining: estimate.remaining_chunks, calls: estimate.planned_calls })}</p>
                                     {estimate.priced && estimate.cost_usd !== null && estimate.cost_with_repairs_usd !== null ?
                                         <p>{translate('estimate_cost', 'Estimated processing: {{low}}–{{high}} USD, including repair allowance.', { low: estimate.cost_usd.toFixed(3), high: estimate.cost_with_repairs_usd.toFixed(3) })}</p> :
@@ -264,11 +268,11 @@ export function ProcessResourceModalView({
                             </button>
                             <button
                                 className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={!canStart}
+                                disabled={!incompatible && !canStart}
                                 data-autofocus="true"
-                                onClick={onStart}
+                                onClick={incompatible ? onReprocess : onStart}
                             >
-                                {translate('modal_confirm', 'Process')}
+                                {incompatible || fresh ? translate('reprocess', 'Reprocess') : translate('modal_confirm', 'Process')}
                             </button>
                         </>
                     ) : null}
@@ -282,11 +286,11 @@ export function ProcessResourceModalView({
                     ) : null}
                     {state === 'error' ? (
                         <button
-                            disabled={!canStart}
+                            disabled={!incompatible && !canStart}
                             className="px-4 py-2 rounded-md text-sm font-bold text-white bg-[var(--gnosi-primary)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={onStart}
+                            onClick={incompatible ? onReprocess : onStart}
                         >
-                            {translate('retry', 'Retry')}
+                            {incompatible || fresh ? translate('reprocess', 'Reprocess') : translate('retry', 'Retry')}
                         </button>
                     ) : null}
                     {state === 'running' ? (

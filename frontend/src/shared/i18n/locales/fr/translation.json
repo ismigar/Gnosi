@@ -6500,7 +6500,8 @@
   "reader_podcast_error_prefix": "Erreur",
   "llm_wiki": {
     "reading_checkpoint_incompatible": "Les fragments enregistrés ne peuvent être réutilisés avec la source ou les réglages actuels. Ils restent enregistrés. La reprise est bloquée pour éviter de payer une nouvelle lecture. Vérifiez les réglages ou demandez explicitement un nouveau traitement.",
-    "checkpoint_incompatible_details": "Les {{count}} fragments enregistrés ne peuvent être réutilisés avec la source ou les réglages actuels. Ils restent enregistrés. La reprise est bloquée pour éviter de payer une nouvelle lecture. Vérifiez les réglages ou demandez explicitement un nouveau traitement.",
+    "reprocess": "Retraiter",
+    "checkpoint_incompatible_details": "Les {{count}} fragments enregistrés ne peuvent être réutilisés avec la source ou les réglages actuels. Ils restent enregistrés. Choisissez Retraiter pour examiner une nouvelle estimation avant de recommencer.",
     "budget_limit": "Limite de dépenses (USD)",
     "batch_size": "Fragments par lot",
     "estimate_loading": "Calcul sans appels IA…",

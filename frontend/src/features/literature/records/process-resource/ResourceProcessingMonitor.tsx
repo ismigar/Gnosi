@@ -16,7 +16,7 @@ function ProcessingDetails({ task, onClose }: { readonly task: ResourceProcessin
     return <ProcessResourceModalView estimate={controller.estimate} estimateError={controller.estimateError}
         budgetLimit={controller.budgetLimit} onBudgetLimit={controller.setBudgetLimit}
         batchSize={controller.batchSize} onBatchSize={controller.setBatchSize} canStart={controller.canStart}
-        error={task.error} force={false} job={task.job} modalRef={modalRef}
+        error={task.error} force={controller.force} fresh={controller.fresh} onReprocess={controller.reprocess} job={task.job} modalRef={modalRef}
         onCancel={onClose} onDismiss={onClose} onStart={() => { void controller.start(); }}
         state={task.state} title={task.title} />;
 }

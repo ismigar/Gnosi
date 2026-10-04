@@ -12,7 +12,7 @@ export type { ProcessResourceModalProps } from './process-resource/processResour
 export function ProcessResourceModal(
     props: ProcessResourceModalProps,
 ) {
-    const { force = false, isOpen, title } = props;
+    const { isOpen, title } = props;
     const modalRef = useRef<HTMLDivElement>(null);
     const processState = useProcessResourceController(props);
 
@@ -41,7 +41,9 @@ export function ProcessResourceModal(
             onBatchSize={processState.setBatchSize}
             canStart={processState.canStart}
             error={processState.error}
-            force={force}
+            force={processState.force}
+            fresh={processState.fresh}
+            onReprocess={processState.reprocess}
             job={processState.job}
             modalRef={modalRef}
             onCancel={processState.dismiss}

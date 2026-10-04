@@ -6185,7 +6185,8 @@
   "reader_podcast_error_prefix": "Error",
   "llm_wiki": {
     "reading_checkpoint_incompatible": "saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Review the settings or explicitly request reprocessing.",
-    "checkpoint_incompatible_details": "{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Review the settings or explicitly request reprocessing.",
+    "reprocess": "Reprocess",
+    "checkpoint_incompatible_details": "{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Choose Reprocess to review a fresh estimate before starting again.",
     "budget_limit": "Spending limit (USD)",
     "batch_size": "Fragments per batch",
     "estimate_loading": "Estimating without AI calls…",

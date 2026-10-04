@@ -7,6 +7,9 @@ import { dismissResourceProcessingTask, getResourceProcessingTasks, processingTa
 export function useProcessResourceController({ force = false, isOpen, noteId, onClose, onContinueInBackground, onJobUpdate, onProcessed, sourceTableId, title, keepBackground = false }: ProcessResourceModalProps & { readonly keepBackground?: boolean }) {
     const { t } = useTranslation();
     const id = processingTaskId(noteId, sourceTableId);
+    const [freshTarget, setFreshTarget] = useState<string | null>(null);
+    const reprocess = freshTarget === id;
+    const processingForce = force || reprocess;
     const tasks = useResourceProcessingTasks();
     const task = tasks.find(item => item.id === id);
     const [budgetLimit, setBudgetState] = useState(0.50);
@@ -16,7 +19,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
     const hasTask = Boolean(task);
     const taskState = task?.state;
     const needsEstimate = isOpen && (!task || task.state === 'error');
-    const estimateKey = useMemo(() => Symbol(JSON.stringify([isOpen, noteId, sourceTableId, force, batchSize, hasTask, taskState])), [isOpen, noteId, sourceTableId, force, batchSize, hasTask, taskState]);
+    const estimateKey = useMemo(() => Symbol(JSON.stringify([isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState])), [isOpen, noteId, sourceTableId, processingForce, reprocess, batchSize, hasTask, taskState]);
     const [preflight, setPreflight] = useState<{ key: symbol; result: ResourceProcessingEstimate | null; error: string } | null>(null);
     const estimate = preflight?.key === estimateKey ? preflight.result : null;
     const estimateError = preflight?.key === estimateKey ? preflight.error : '';
@@ -24,7 +27,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         if (!needsEstimate) return;
         const request = new AbortController();
         void estimateResourceProcessing({ resource_id: noteId, source_table_id: sourceTableId,
-            force: force && !hasTask, batch_size: batchSize }, request.signal).then(result => {
+            force: reprocess || (force && !hasTask), batch_size: batchSize }, request.signal).then(result => {
             if (!request.signal.aborted) {
                 setPreflight({ key: estimateKey, result, error: '' });
                 if (result.budget && !budgetEdited.current) setBudgetState(result.budget.limit_usd);
@@ -33,7 +36,7 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
             if (!request.signal.aborted) setPreflight({ key: estimateKey, result: null, error: t('llm_wiki.estimate_failed') });
         });
         return () => { request.abort(); };
-    }, [needsEstimate, noteId, sourceTableId, force, batchSize, hasTask, estimateKey, t]);
+    }, [needsEstimate, noteId, sourceTableId, force, reprocess, batchSize, hasTask, estimateKey, t]);
     const canStart = Boolean(estimate?.priced) && !(estimate?.incompatible_saved_chunks ?? 0) && Number.isFinite(budgetLimit) && budgetLimit > 0 && budgetLimit <= 1000;
     const reportJob = useEffectEvent((job: NonNullable<typeof task>['job']) => { if (job) onJobUpdate?.(job); });
     const reportDone = useEffectEvent(() => { onProcessed?.(); });
@@ -50,17 +53,25 @@ export function useProcessResourceController({ force = false, isOpen, noteId, on
         return () => { unsubscribe(); if (!keepBackground) setResourceProcessingBackground(id, true); };
     }, [id, isOpen, keepBackground]);
     const dismiss = (): void => {
+        setFreshTarget(null);
         if (task?.state === 'running' && task.job?.job_id) onContinueInBackground?.(task.job);
         dismissResourceProcessingTask(id);
         onClose();
     };
     return {
         dismiss,
+        reprocess: () => { if (task?.state !== 'running') setFreshTarget(id); },
+        force: processingForce,
+        fresh: reprocess,
         error: task?.error ?? '',
         job: task?.job ?? null,
         estimate, estimateError, budgetLimit, setBudgetLimit, batchSize, setBatchSize, canStart,
-        start: () => canStart ? startResourceProcessingTask({ noteId, sourceTableId, title,
-            budgetLimit, batchSize, estimateId: estimate?.estimate_id }, force, t) : Promise.resolve(),
+        start: () => {
+            if (!canStart) return Promise.resolve();
+            setFreshTarget(null);
+            return startResourceProcessingTask({ noteId, sourceTableId, title, reprocess,
+                budgetLimit, batchSize, estimateId: estimate?.estimate_id }, processingForce, t);
+        },
         state: task?.state ?? 'confirm',
     };
 }
