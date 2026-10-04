@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+import { browserDocumentBody } from '../../shared/platform/browser-events';
 import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
 import type { NormalizedSkill } from './AI/aiSettingsUtils';
 import { botModelDemand } from './model-comparison/botModelDemand';
@@ -159,7 +161,7 @@ export function AIModelComparisonModal({
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div className="model-comparison-layer" role="presentation">
             <ConfirmModal isOpen={Boolean(controller.detachConfirmation)} onClose={controller.cancelDeactivation} onConfirm={controller.confirmDeactivation}
                 title={t('model_comparison.deactivate_assigned_title')} confirmText={t('model_comparison.deactivate_assigned_confirm')} confirmOnEnter={false} autofocusConfirm={false}
@@ -287,7 +289,8 @@ export function AIModelComparisonModal({
                     ) : null}
                 </div>
             </section>
-        </div>
+        </div>,
+        browserDocumentBody(),
     );
 }
 
