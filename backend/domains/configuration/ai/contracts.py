@@ -125,6 +125,7 @@ class ModelsPayload(BaseModel):
     models: list[JsonValue]
     budget: dict[str, JsonValue] | None = None
     expected_revision: str | None = None
+    detach_agents_revision: str | None = None
 
 
 class ModelRegistryResponse(BaseModel):

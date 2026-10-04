@@ -19475,6 +19475,8 @@ export interface components {
             budget?: {
                 [key: string]: components["schemas"]["JsonValue"];
             } | null;
+            /** Detach Agents Revision */
+            detach_agents_revision?: string | null;
             /** Expected Revision */
             expected_revision?: string | null;
             /** Models */

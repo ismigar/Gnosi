@@ -5588,7 +5588,11 @@
       "saved": "Configuració desada.",
       "save_error": "No s’ha pogut desar la configuració. Revisa els ajustos abans de donar-la per aplicada.",
       "examples": "Els volums són exemples editables; el cost estimat reserva {{count}} intents. No modifica el pressupost real del bot."
-    }
+    },
+    "deactivate_assigned_title": "Desactivar el model assignat?",
+    "deactivate_assigned_confirm": "Desactivar i desvincular",
+    "deactivate_assigned_help": "Aquest model es desvincularà dels bots següents. Hauràs de triar un model actiu per tornar-los a utilitzar. La resta dels ajustos es conservaran.",
+    "choose_bot_model": "Triar o canviar el model"
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

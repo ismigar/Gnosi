@@ -1,3 +1,4 @@
+import ConfirmModal from '../../shared/ui/dialogs/ConfirmModal';
 import type { NormalizedSkill } from './AI/aiSettingsUtils';
 import { botModelDemand } from './model-comparison/botModelDemand';
 import { AgentEvaluationLab } from './AI/AgentEvaluationLab';
@@ -36,6 +37,8 @@ export interface AIModelComparisonModalProps {
     readonly skillCatalog?: readonly NormalizedSkill[];
     readonly skillCatalogStatus?: 'ready' | 'loading' | 'error';
     readonly principalId?: string;
+    readonly initialBotId?: string;
+    readonly onModelsDetached?: (routes: readonly { provider: string; model: string }[]) => void;
     readonly onAssignModel?: (botId: string, provider: string, model: string) => void;
     readonly onConfigureBot?: (id: string) => void;
     readonly saveStatus?: string;
@@ -49,13 +52,13 @@ type FilterHeightStyle = CSSProperties & {
 
 export function AIModelComparisonModal({
     isOpen,
-    onClose, bots = [], skillCatalog = [], skillCatalogStatus = 'ready', principalId = '', onAssignModel, onConfigureBot, saveStatus,
+    onClose, bots = [], skillCatalog = [], skillCatalogStatus = 'ready', principalId = '', initialBotId = '', onModelsDetached, onAssignModel, onConfigureBot, saveStatus,
 }: AIModelComparisonModalProps) {
     const { t } = useTranslation();
     const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskRecommendationDraft>>({});
     const [tab, setTab] = useState('bots');
     const [labVisited, setLabVisited] = useState(false);
-    const [botId, setBotId] = useState(principalId);
+    const [botId, setBotId] = useState(initialBotId || principalId);
     const [offerProvider, setOfferProvider] = useState('configured');
     const visibleBots = bots.filter(bot => !isSuspendedPluginProfile(bot));
     const principal = principalAssistant(visibleBots, principalId);
@@ -70,7 +73,7 @@ export function AIModelComparisonModal({
         modelComparisonUiReducer,
         INITIAL_COMPARISON_UI_STATE,
     );
-    const controller = useModelComparisonData(isOpen);
+    const controller = useModelComparisonData(isOpen, onModelsDetached);
     const { state: data } = controller;
     const {
         bodyRef,
@@ -158,6 +161,9 @@ export function AIModelComparisonModal({
 
     return (
         <div className="model-comparison-layer" role="presentation">
+            <ConfirmModal isOpen={Boolean(controller.detachConfirmation)} onClose={controller.cancelDeactivation} onConfirm={controller.confirmDeactivation}
+                title={t('model_comparison.deactivate_assigned_title')} confirmText={t('model_comparison.deactivate_assigned_confirm')} confirmOnEnter={false} autofocusConfirm={false}
+                message={<><p>{t('model_comparison.deactivate_assigned_help')}</p><ul>{controller.detachConfirmation?.agents.map(agent => <li key={agent.id}>{profileDisplayName(agent, t)}</li>)}</ul></>} />
             <div className="model-comparison-backdrop" />
             <section
                 aria-labelledby="model-comparison-title"

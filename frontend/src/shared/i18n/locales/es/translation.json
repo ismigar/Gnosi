@@ -5588,7 +5588,11 @@
       "saved": "Configuración guardada.",
       "save_error": "No se ha podido guardar la configuración. Revisa los ajustes antes de darla por aplicada.",
       "examples": "Los volúmenes son ejemplos editables; el coste estimado reserva {{count}} intentos. No modifica el presupuesto real del bot."
-    }
+    },
+    "deactivate_assigned_title": "¿Desactivar el modelo asignado?",
+    "deactivate_assigned_confirm": "Desactivar y desvincular",
+    "deactivate_assigned_help": "Este modelo se desvinculará de los siguientes bots. Elige un modelo activo para volver a utilizarlos. Se conservarán los demás ajustes.",
+    "choose_bot_model": "Elegir o cambiar el modelo"
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",

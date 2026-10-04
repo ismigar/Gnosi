@@ -366,3 +366,26 @@ function lastSavedRegistry(): { models: AiModelRegistryEntry[]; budget: Record<s
     if (!payload) throw new Error('No registry write recorded');
     return payload;
 }
+
+it('requires explicit confirmation to detach bots and cancellation never retries the write', async () => {
+    const { GnosiApiError } = await import('../../shared/api/errors');
+    await mountController();
+    mocks.updateModels.mockRejectedValueOnce(new GnosiApiError(new Response('', { status: 409 }), {
+        detail: { code: 'model_in_use', confirmation_revision: 'reviewed-agents',
+            agents: [{ id: 'reader', name: 'Reader' }], routes: [{ provider: 'openai', model: 'model-1' }] },
+    }));
+    await act(async () => { await currentController().deactivateModel(MODEL); });
+    expect(currentController().detachConfirmation?.agents).toEqual([{ id: 'reader', name: 'Reader' }]);
+    expect(mocks.updateModels).toHaveBeenCalledTimes(1);
+    act(() => { currentController().cancelDeactivation(); });
+    expect(currentController().detachConfirmation).toBeNull();
+    expect(mocks.updateModels).toHaveBeenCalledTimes(1);
+    mocks.updateModels.mockRejectedValueOnce(new GnosiApiError(new Response('', { status: 409 }), {
+        detail: { code: 'model_in_use', confirmation_revision: 'reviewed-agents',
+            agents: [{ id: 'reader', name: 'Reader' }], routes: [{ provider: 'openai', model: 'model-1' }] },
+    }));
+    await act(async () => { await currentController().deactivateModel(MODEL); });
+    await act(async () => { await currentController().confirmDeactivation(); });
+    expect(mocks.updateModels).toHaveBeenLastCalledWith(expect.objectContaining({ detach_agents_revision: 'reviewed-agents' }));
+    expect(currentController().detachConfirmation).toBeNull();
+});

@@ -11,12 +11,12 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | Groupe | Modules | Lignes |
 | --- | ---: | ---: |
 | `agent` | 53 | 9511 |
-| `api` | 38 | 13286 |
+| `api` | 38 | 13303 |
 | `app` | 8 | 822 |
 | `application root` | 2 | 55 |
 | `config` | 13 | 1355 |
 | `data` | 2 | 214 |
-| `domains` | 493 | 104183 |
+| `domains` | 494 | 104232 |
 | `mcp` | 3 | 429 |
 | `migrations` | 39 | 2301 |
 | `models` | 12 | 1219 |
@@ -24,11 +24,11 @@ Régénérer avec `python pipeline/skills/technical_documentation/scripts/genera
 | `scheduler` | 8 | 1369 |
 | `scripts` | 2 | 69 |
 | `security` | 6 | 948 |
-| `services` | 217 | 44852 |
+| `services` | 217 | 44859 |
 | `sync` | 1 | 1 |
 | `utils` | 7 | 865 |
 
-Total: **917 modules** and **182856 source lines**.
+Total: **918 modules** and **182929 source lines**.
 
 ## agent
 
@@ -95,7 +95,7 @@ Total: **917 modules** and **182856 source lines**.
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_routes.py) | 209 | 1 | 0 | 0 | 1 | Compatibility facade for the modular agent HTTP routes. |
 | [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/agent_skills_routes.py) | 194 | 1 | 0 | 0 | 1 | Compatibility facade for governed agent configuration APIs. |
-| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 734 | 3 | 14 | 9 | 10 | No module docstring |
+| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/ai_routes.py) | 751 | 3 | 14 | 9 | 10 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/analytics_routes.py) | 378 | 0 | 12 | 7 | 12 | No module docstring |
 | [`backend/api/auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/auth_routes.py) | 384 | 7 | 11 | 0 | 11 | Auth endpoints — register / login / logout / me. |
 | [`backend/api/calendar_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/calendar_routes.py) | 692 | 0 | 30 | 22 | 20 | No module docstring |
@@ -274,7 +274,8 @@ Total: **917 modules** and **182856 source lines**.
 | [`backend/domains/configuration/ai/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/__init__.py) | 1 | 0 | 0 | 0 | 0 | AI configuration domain routes and contracts. |
 | [`backend/domains/configuration/ai/budget.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/budget.py) | 25 | 0 | 1 | 0 | 1 | Normalize model registry budget settings. |
 | [`backend/domains/configuration/ai/content_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/content_routes.py) | 171 | 4 | 5 | 2 | 3 | Typed AI content-generation routes used by the Vault editor. |
-| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 406 | 32 | 0 | 0 | 25 | Public request and response contracts for AI registry and usage APIs. |
+| [`backend/domains/configuration/ai/contracts.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/contracts.py) | 407 | 32 | 0 | 0 | 25 | Public request and response contracts for AI registry and usage APIs. |
+| [`backend/domains/configuration/ai/model_bindings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_bindings.py) | 44 | 0 | 2 | 0 | 0 | Explicit model bindings and safe confirmation of their removal. |
 | [`backend/domains/configuration/ai/model_metadata_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_metadata_routes.py) | 18 | 0 | 1 | 1 | 1 | Read-only model metadata used by assistant settings. |
 | [`backend/domains/configuration/ai/model_parameter_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/model_parameter_routes.py) | 29 | 0 | 1 | 1 | 0 | Review configured model parameters within the AI settings domain. |
 | [`backend/domains/configuration/ai/registry_revision.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/ai/registry_revision.py) | 9 | 0 | 1 | 0 | 0 | Optimistic revision for model and budget edits from independent clients. |
@@ -286,7 +287,7 @@ Total: **917 modules** and **182856 source lines**.
 | [`backend/domains/configuration/api/plugin_models.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_models.py) | 229 | 29 | 0 | 0 | 23 | Pydantic contracts for the plugin configuration API. |
 | [`backend/domains/configuration/api/plugin_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugin_routes.py) | 201 | 1 | 1 | 0 | 2 | Route composition for the plugin API. |
 | [`backend/domains/configuration/api/plugins.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/plugins.py) | 703 | 1 | 48 | 23 | 30 | HTTP adapters for built-in and third-party plugin configuration. |
-| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 370 | 0 | 22 | 5 | 16 | No module docstring |
+| [`backend/domains/configuration/api/settings.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/api/settings.py) | 374 | 0 | 22 | 5 | 16 | No module docstring |
 | [`backend/domains/configuration/config_response_cache.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/config_response_cache.py) | 104 | 2 | 0 | 0 | 1 | Thread-safe cache for sanitized configuration responses. |
 | [`backend/domains/configuration/credential_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/credential_schemas.py) | 41 | 4 | 0 | 0 | 0 | Public schemas for secret-safe credential management. |
 | [`backend/domains/configuration/environment_schemas.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/configuration/environment_schemas.py) | 21 | 3 | 0 | 0 | 3 | Public request and response contracts for local environment settings. |
@@ -825,7 +826,7 @@ Total: **917 modules** and **182856 source lines**.
 | [`backend/services/agent_learning_review.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_learning_review.py) | 50 | 0 | 3 | 0 | 0 | Exact criterion identity and observable evidence for text-only trials. |
 | [`backend/services/agent_model_decisions.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_decisions.py) | 190 | 1 | 6 | 0 | 3 | Optional decision adapters. They advise; Gnosi owns the allowed routes. |
 | [`backend/services/agent_model_evaluations.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_evaluations.py) | 138 | 0 | 5 | 0 | 2 | Explicit privacy-safe evaluations for configured agent models. |
-| [`backend/services/agent_model_strategy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_strategy.py) | 245 | 0 | 7 | 0 | 5 | Profile-owned model routing for Gnosi agents. |
+| [`backend/services/agent_model_strategy.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_model_strategy.py) | 252 | 0 | 7 | 0 | 5 | Profile-owned model routing for Gnosi agents. |
 | [`backend/services/agent_observability.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_observability.py) | 130 | 0 | 8 | 0 | 1 | Privacy-preserving local spans for end-to-end agent diagnostics. |
 | [`backend/services/agent_operation_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_operation_catalog.py) | 83 | 0 | 4 | 0 | 1 | Reusable methodology for application operations, published in the skill catalog. |
 | [`backend/services/agent_output_repair.py`](https://github.com/ismigar/Gnosi/blob/main/backend/services/agent_output_repair.py) | 14 | 1 | 0 | 0 | 0 | Operation-owned, immutable partial repairs inside the existing call budget. |

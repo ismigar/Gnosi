@@ -5588,7 +5588,11 @@
       "saved": "Configuration enregistrée.",
       "save_error": "Impossible d’enregistrer la configuration. Vérifiez les réglages avant de la considérer comme appliquée.",
       "examples": "Les volumes sont des exemples modifiables ; le coût estimé réserve {{count}} tentatives. Cela ne modifie pas le budget réel du bot."
-    }
+    },
+    "deactivate_assigned_title": "Désactiver le modèle attribué ?",
+    "deactivate_assigned_confirm": "Désactiver et dissocier",
+    "deactivate_assigned_help": "Ce modèle sera dissocié des bots suivants. Choisissez un modèle actif pour les utiliser à nouveau. Leurs autres réglages seront conservés.",
+    "choose_bot_model": "Choisir ou changer le modèle"
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",

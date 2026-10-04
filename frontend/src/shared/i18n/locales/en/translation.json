@@ -6695,7 +6695,11 @@
       "saved": "Configuration saved.",
       "save_error": "Configuration could not be saved. Review settings before treating it as applied.",
       "examples": "Volumes are editable examples; estimated cost reserves {{count}} attempts. This does not change the bot’s actual budget."
-    }
+    },
+    "deactivate_assigned_title": "Deactivate the assigned model?",
+    "deactivate_assigned_confirm": "Deactivate and unlink",
+    "deactivate_assigned_help": "This model will be unlinked from the following bots. Choose an active model to use them again. Their other settings will be preserved.",
+    "choose_bot_model": "Choose or change model"
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

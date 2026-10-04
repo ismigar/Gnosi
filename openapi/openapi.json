@@ -23899,6 +23899,17 @@
             ],
             "title": "Budget"
           },
+          "detach_agents_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detach Agents Revision"
+          },
           "expected_revision": {
             "anyOf": [
               {
