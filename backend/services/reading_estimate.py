@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ from backend.services import llm_wiki, llm_wiki_config, llm_wiki_extractors, llm
 from backend.services.llm_wiki_reading_runtime import prepare_reading_runtime
 from backend.services import reading_budget
 from backend.services.ai_usage_dashboard import currency_context
+from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, reduce_batch
 
 
 def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_root: Path,
@@ -35,8 +37,10 @@ def estimate(resource_id: str, metadata: dict[str, object], body: str, vault_roo
                 previous_plans = max(previous_plans, len(checkpoint["plans"]))
             if isinstance(checkpoint, dict) and checkpoint.get("identity") == identity:
                 plans = checkpoint.get("plans", {})
-                if isinstance(plans, dict) and len(plans) > len(saved.get("plans", {})):
-                    saved = checkpoint
+                if isinstance(plans, dict) and (not saved or len(plans) > len(saved.get("plans", {}))):
+                    saved = deepcopy(checkpoint)
+                    reduce_batch(saved, str(llm_wiki_storage.get_job_status(job_id).get("error") or ""))
+    batch_size = batch_limit(batch_size, saved)
     remaining = [chunk for chunk in chunks if str(chunk["id"]) not in saved.get("plans", {})]
     # Same context bound as automatic delivery; conservative fixed full memory
     # avoids an optimistic four-fragment count when the context is small.

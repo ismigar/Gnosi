@@ -170,3 +170,15 @@ describe('Book budget currency', () => {
     });
 
 });
+
+it('explains automatic batch reduction while retaining the configured maximum and saved progress', async () => {
+    const estimate = await vi.mocked(estimateResourceProcessing)({});
+    vi.mocked(estimateResourceProcessing).mockResolvedValue({ ...estimate, batch_size: 2, saved_chunks: 4, remaining_chunks: 4 });
+    await render(<ProcessResourceModal isOpen noteId="note-1" title="Book" onClose={vi.fn()} />);
+    await flushProcessing();
+    expect(container.textContent).toContain('llm_wiki.batch_reduced');
+    expect(container.textContent).toContain('4 saved fragments');
+    const select = container.querySelector('select');
+    expect(select?.value).toBe('4');
+    expect(startResourceProcessing).not.toHaveBeenCalled();
+});

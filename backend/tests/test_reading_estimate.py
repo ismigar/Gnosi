@@ -42,6 +42,23 @@ def test_full_cost_and_exact_checkpoint_compatibility(monkeypatch, tmp_path):
     different = estimate.estimate('book',{},'',tmp_path,{'id':'table'},{},'brain', batch_size=1)
     assert different['planned_calls'] > result['planned_calls']
     assert different['estimate_id'] != result['estimate_id']
+    # Preflight predicts the reduced delivery without mutating even a zero-plan
+    # checkpoint. The same provider error will drive resumption before billing.
+    from copy import deepcopy
+    from backend.tests.test_reading_batch_recovery import exhausted
+    saved.update(last_result={'delivery': 'batch', 'sources': chunks[16:]},
+                 last_action={'delivery': 'automatic'})
+    original = deepcopy(saved)
+    monkeypatch.setattr(estimate.llm_wiki_storage, 'get_job_status',
+                        lambda *_: {'phase': 'partial', 'job_id': 'saved', 'error': str(exhausted())})
+    reduced = estimate.estimate('book', {}, '', tmp_path, {'id': 'table'}, {}, 'brain')
+    assert reduced['batch_size'] == 2 and reduced['saved_chunks'] == 16
+    assert reduced['planned_calls'] == result['planned_calls'] + 1
+    assert saved == original
+    saved['plans'] = {}
+    empty = estimate.estimate('book', {}, '', tmp_path, {'id': 'table'}, {}, 'brain')
+    assert empty['batch_size'] == 2 and empty['saved_chunks'] == 0
+    saved.update(original)
     runtime.identity = 'changed-model-or-instructions'
     blocked = estimate.estimate('book',{},'',tmp_path,{'id':'table'},{},'brain')
     assert blocked['saved_chunks'] == 0 and blocked['incompatible_saved_chunks'] == 16

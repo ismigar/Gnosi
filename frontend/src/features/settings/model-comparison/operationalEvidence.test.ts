@@ -14,3 +14,16 @@ it('does not mix providers, models, child runs, future timestamps or obsolete ac
         run('completed', { created_at: now / 1000 - 31 * 86400 })], 'p', 'm', now))
         .toEqual({ completed: 0, failed: 0, other: 0 });
 });
+
+it('shows real reading-step durations separately from failed work and whole jobs', async () => {
+    const { readingTimings } = await import('./operationalEvidence');
+    const step = (seconds: number, changed: Partial<AgentExecutionRun> = {}) => run('completed', {
+        operation: 'knowledge.process-source.phase', parent_run_id: 'book', model_calls: 2,
+        created_at: now / 1000 - seconds, closed_at: now / 1000, ...changed,
+    });
+    const rows = [step(10), step(300), step(600, { status: 'failed' }), step(50, { status: 'running' }),
+        step(20, { operation: 'knowledge.process-source' }), step(30, { provider: 'other' }),
+        step(5, { closed_at: null }), step(10, { model_calls: 0 }), step(10, { parent_run_id: '' })];
+    expect(readingTimings(rows, 'p', 'm', now)).toEqual({ completed: 2, failed: 1, medianMs: 155000 });
+    expect(readingTimings([step(10, { status: 'failed' })], 'p', 'm', now)).toEqual({ completed: 0, failed: 1, medianMs: null });
+});

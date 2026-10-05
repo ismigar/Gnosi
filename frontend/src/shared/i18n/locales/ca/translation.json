@@ -5555,7 +5555,11 @@
       "same_offer": "Els tres criteris coincideixen en la mateixa oferta amb els filtres actuals. És el cost d’una execució, no tres costos acumulats.",
       "why_balanced_checked": "El cost més baix entre les ofertes compatibles que superen totes les mostres requerides i l’exigència orientativa d’aquest bot.",
       "checked": "Mostres de treball comprovades i revisades quan cal; encara cal validar el resultat en la tasca completa.",
-      "policy_help": "Els llindars inicials són una política editable, no mesures de precisió: 50 per classificació simple; 65 per extracció, consulta, traducció, redacció i calendari; 80 per llibres, programació, coordinació, recerca, síntesi i anàlisi. Si el bot combina funcions, s’aplica el llindar més exigent. La puntuació general no demostra que un model domini una especialitat."
+      "policy_help": "Els llindars inicials són una política editable, no mesures de precisió: 50 per classificació simple; 65 per extracció, consulta, traducció, redacció i calendari; 80 per llibres, programació, coordinació, recerca, síntesi i anàlisi. Si el bot combina funcions, s’aplica el llindar més exigent. La puntuació general no demostra que un model domini una especialitat.",
+      "measured_time": "Temps mesurat: {{seconds}} s per mostra, amb {{count}} mostres comprovades recents. No és el temps d’un llibre complet.",
+      "time_unknown": "Temps: encara no hi ha mesures recents comparables per a totes aquestes funcions.",
+      "time_balance": "Entre les ofertes amb proves superades, equilibra el cost estimat i el temps mesurat minimitzant cost × temps. Mateix joc de proves; la durada pot variar.",
+      "reading_time": "Lectures reals recents disponibles: {{count}} passos completats, mediana {{seconds}} s per pas, i {{failed}} passos fallits o interromputs. Inclou les correccions. Els lots poden tenir mides diferents; no s’extrapola la durada del llibre."
     },
     "workspace": {
       "bot": "Bot que vols configurar",
@@ -6790,7 +6794,7 @@
     "error_reasoning_output_limit": "El model ha consumit tot el límit de resposta en raonament i no ha retornat les notes. El progrés està desat. Si has configurat un raonament alt o màxim, redueix-lo abans de reprendre; la lectura amb raonament per defecte utilitza baix quan el model ho admet.",
     "error_reading_evidence": "No s’han pogut verificar totes les referències i cites d’aquest lot. Els fragments validats s’han desat; pots reprendre la lectura. Consulta els detalls si l’error es repeteix.",
     "error_reading_memory": "No s’ha pogut actualitzar la visió global del llibre. Es conserven la memòria anterior i els fragments validats. Pots reprendre la lectura; consulta els detalls si l’error es repeteix.",
-    "error_output_limit": "La resposta del model ha quedat incompleta perquè ha arribat al límit de sortida. El progrés està desat. Redueix els fragments per lot abans de reprendre.",
+    "error_output_limit": "La resposta del model ha quedat incompleta perquè ha arribat al límit de sortida. El progrés està desat. Revisa el lot i l’estimació abans de reprendre.",
     "error_details": "Detalls tècnics",
     "error_provider_timeout": "El proveïdor d’IA no ha respost a temps. Torna-ho a provar per reprendre el progrés desat.",
     "error_no_brain_table": "No hi ha cap taula del Coneixement configurada. Crea'n una a Configuració → Connectors → LLM Wiki.",
@@ -6855,7 +6859,8 @@
     "estimate_calculation": "Com es calcula",
     "estimate_tariff": "Tarifa desada de {{provider}}, per milió de tokens: {{input}} d’entrada i {{output}} de sortida. Les ofertes d’altres proveïdors no s’apliquen a aquesta execució.",
     "estimate_repairs": "Escenari conservador amb fins a dues reparacions per crida i un marge del 10%: {{cost}}. No és una despesa autoritzada.",
-    "budget_conversion": "La facturació i el límit desat són en USD (límit: {{limit}} USD). Conversió visual: 1 USD = {{rate}} {{currency}}; {{source}}."
+    "budget_conversion": "La facturació i el límit desat són en USD (límit: {{limit}} USD). Conversió visual: 1 USD = {{rate}} {{currency}}; {{source}}.",
+    "batch_reduced": "Després d’una resposta incompleta, aquest procés continuarà amb un màxim de {{count}} fragments per lot. Conserva els fragments desats i la memòria global."
   },
   "relation_item": {
     "open_new_tab": "Obre en una pestanya nova",

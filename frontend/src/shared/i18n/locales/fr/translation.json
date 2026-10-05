@@ -5555,7 +5555,11 @@
       "same_offer": "Les trois critères sélectionnent la même offre avec les filtres actuels. Il s’agit du coût d’une exécution, pas de trois coûts cumulés.",
       "why_balanced_checked": "Le coût le plus bas parmi les offres compatibles réussissant tous les échantillons requis et le seuil indicatif de ce bot.",
       "checked": "Exemples de travail vérifiés et évalués lorsque nécessaire ; le résultat de la tâche complète reste à valider.",
-      "policy_help": "Les seuils initiaux sont une politique modifiable, pas des mesures de précision : 50 pour la classification simple ; 65 pour l’extraction, la consultation, la traduction, la rédaction et le calendrier ; 80 pour les livres, la programmation, la coordination, la recherche, la synthèse et l’analyse. Les fonctions combinées utilisent le seuil le plus exigeant. Un score général ne démontre pas la maîtrise d’une spécialité."
+      "policy_help": "Les seuils initiaux sont une politique modifiable, pas des mesures de précision : 50 pour la classification simple ; 65 pour l’extraction, la consultation, la traduction, la rédaction et le calendrier ; 80 pour les livres, la programmation, la coordination, la recherche, la synthèse et l’analyse. Les fonctions combinées utilisent le seuil le plus exigeant. Un score général ne démontre pas la maîtrise d’une spécialité.",
+      "measured_time": "Temps mesuré : {{seconds}} s par exemple, sur {{count}} exemples vérifiés récemment. Ce n’est pas la durée d’un livre entier.",
+      "time_unknown": "Temps : aucune mesure récente comparable pour l’ensemble de ces fonctions.",
+      "time_balance": "Parmi les offres ayant réussi les tests, équilibre le coût estimé et le temps mesuré en minimisant coût × temps. Même jeu de tests ; la durée peut varier.",
+      "reading_time": "Lectures réelles récentes disponibles : {{count}} étapes terminées, médiane de {{seconds}} s par étape, et {{failed}} étapes en échec ou interrompues. Corrections incluses. La taille des lots peut varier ; la durée du livre entier n’est pas extrapolée."
     },
     "workspace": {
       "bot": "Bot à configurer",
@@ -6790,7 +6794,7 @@
     "error_reasoning_output_limit": "Le modèle a consacré toute sa limite de réponse au raisonnement sans renvoyer de notes. La progression est enregistrée. Si vous avez choisi un raisonnement élevé ou maximal, réduisez-le avant de reprendre ; la lecture avec le réglage par défaut utilise un niveau faible lorsque le modèle le permet.",
     "error_reading_evidence": "Toutes les références et citations de ce lot n’ont pas pu être vérifiées. Les fragments validés ont été enregistrés ; vous pouvez reprendre la lecture. Consultez les détails si l’erreur persiste.",
     "error_reading_memory": "La vue d’ensemble du livre n’a pas pu être mise à jour. La mémoire précédente et les fragments validés sont conservés. Vous pouvez reprendre la lecture ; consultez les détails si l’erreur se répète.",
-    "error_output_limit": "La réponse du modèle a été interrompue par la limite de sortie. La progression est enregistrée. Réduisez le nombre de fragments par lot avant de reprendre.",
+    "error_output_limit": "La réponse du modèle a été interrompue par la limite de sortie. La progression est enregistrée. Vérifiez la taille du lot et l’estimation avant de reprendre.",
     "error_details": "Détails techniques",
     "error_provider_timeout": "Le fournisseur d’IA n’a pas répondu à temps. Réessayez pour reprendre la progression enregistrée.",
     "error_no_brain_table": "Aucune table du Connaissance n’est configurée. Créez-en une dans Paramètres → Extensions → LLM Wiki.",
@@ -6855,7 +6859,8 @@
     "estimate_calculation": "Méthode de calcul",
     "estimate_tariff": "Tarif enregistré de {{provider}}, par million de tokens : {{input}} en entrée et {{output}} en sortie. Les offres des autres fournisseurs ne s’appliquent pas à cette exécution.",
     "estimate_repairs": "Scénario prudent avec jusqu’à deux corrections par appel et une marge de 10 % : {{cost}}. Ce montant n’est pas une dépense autorisée.",
-    "budget_conversion": "La facturation et la limite enregistrée sont en USD (limite : {{limit}} USD). Conversion affichée : 1 USD = {{rate}} {{currency}} ; {{source}}."
+    "budget_conversion": "La facturation et la limite enregistrée sont en USD (limite : {{limit}} USD). Conversion affichée : 1 USD = {{rate}} {{currency}} ; {{source}}.",
+    "batch_reduced": "Après une réponse incomplète, ce traitement continuera avec au maximum {{count}} fragments par lot. Les fragments enregistrés et la mémoire globale sont conservés."
   },
   "relation_item": {
     "open_new_tab": "Ouvrir dans un nouvel onglet",

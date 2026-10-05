@@ -6235,7 +6235,7 @@
     "error_reasoning_output_limit": "The model used its entire response allowance for reasoning and returned no notes. Progress is saved. If you selected high or maximum reasoning, lower it before resuming; reading with default reasoning uses low when supported by the model.",
     "error_reading_evidence": "Not all references and quotations in this batch could be verified. Validated fragments have been saved; you can resume reading. See the details if the error persists.",
     "error_reading_memory": "The overall understanding of the book could not be updated. The previous memory and validated fragments are preserved. You can resume reading; see the details if the error persists.",
-    "error_output_limit": "The model response was cut short by the output limit. Progress is saved. Reduce the fragments per batch before resuming.",
+    "error_output_limit": "The model response was cut short by the output limit. Progress is saved. Review the batch size and estimate before resuming.",
     "error_details": "Technical details",
     "error_provider_timeout": "The AI provider did not respond in time. Retry to resume saved progress.",
     "error_no_brain_table": "No Knowledge table is configured. Create one in Settings → Plugins → LLM Wiki.",
@@ -6300,7 +6300,8 @@
     "estimate_calculation": "How this is calculated",
     "estimate_tariff": "Saved tariff for {{provider}}, per million tokens: {{input}} input and {{output}} output. Other providers’ offers do not apply to this run.",
     "estimate_repairs": "Conservative scenario with up to two repairs per call and 10% margin: {{cost}}. This is not an authorized charge.",
-    "budget_conversion": "Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}."
+    "budget_conversion": "Billing and the saved limit use USD (limit: {{limit}} USD). Display conversion: 1 USD = {{rate}} {{currency}}; {{source}}.",
+    "batch_reduced": "After an incomplete response, this run will continue with at most {{count}} fragments per batch. Saved fragments and global memory are retained."
   },
   "model_comparison": {
     "additional_offers_one": "{{count}} more offer",
@@ -6667,7 +6668,11 @@
       "same_offer": "All three criteria select the same offer with the current filters. This is the cost of one execution, not three cumulative costs.",
       "why_balanced_checked": "The lowest cost among compatible offers passing every required sample and this bot’s advisory threshold.",
       "checked": "Work samples checked and reviewed where required; the full task result still needs validation.",
-      "policy_help": "Initial thresholds are an editable policy, not accuracy measurements: 50 for simple classification; 65 for extraction, retrieval, translation, writing and calendar; 80 for books, coding, coordination, research, synthesis and analysis. Combined duties use the most demanding threshold. A general score does not demonstrate mastery of a specialty."
+      "policy_help": "Initial thresholds are an editable policy, not accuracy measurements: 50 for simple classification; 65 for extraction, retrieval, translation, writing and calendar; 80 for books, coding, coordination, research, synthesis and analysis. Combined duties use the most demanding threshold. A general score does not demonstrate mastery of a specialty.",
+      "measured_time": "Measured time: {{seconds}} s per sample, across {{count}} recently verified samples. This is not the time for an entire book.",
+      "time_unknown": "Time: recent comparable measurements are not yet available for all these functions.",
+      "time_balance": "Among offers with passed tests, balances estimated cost and measured time by minimizing cost × time. Same test suite; duration may vary.",
+      "reading_time": "Available recent real readings: {{count}} completed steps, median {{seconds}} s per step, and {{failed}} failed or interrupted steps. Includes repairs. Batch sizes may differ; whole-book duration is not extrapolated."
     },
     "workspace": {
       "bot": "Bot to configure",

@@ -135,7 +135,8 @@ describe('task recommendations', () => {
             { version: 'obsolete' }, { created_at: '2026-08-01' }, { created_at: '2026-12-01' }]) {
             expect(compare([high], {}, [{ ...failed, ...mismatch }]).quality?.report).toBeUndefined();
         }
-        expect(compare([high], {}, [report()]).quality).toMatchObject({ sampleCostPerSuccess: .02, sampleLatency: 400 });
+        // Legacy role timings do not measure the selected task's current suite.
+        expect(compare([high], {}, [report()]).quality).toMatchObject({ sampleCostPerSuccess: .02, sampleLatency: null });
     });
     it('uses the newest report even if an older report was more favourable', () => {
         const failed = report({ created_at: '2026-10-04T11:00:00Z', cases: [{ ...caseDefaults, ...report().cases[0], passed: false }] });
@@ -172,4 +173,30 @@ it('requires every bot task and scores the weakest task rather than its best spe
     expect(compare([noTools], { tasks: [TASKS[2], TASKS[5]] }).excluded.capabilities).toBe(1);
     const missingAgentic = { ...high, agentic: null };
     expect(compare([missingAgentic], { tasks: [TASKS[2], TASKS[5]] }).excluded.quality).toBe(1);
+});
+
+it('balances measured speed and price for the same passed tasks while keeping the cheapest choice', () => {
+    const timed = (id: string, latency: number) => checked({ model: id,
+        cases: checked().cases?.filter(item => item.id === 'citation').map(item => ({ ...item, latency_ms: latency })) });
+    const stored = { suite, reports: [timed('near', 200000), timed('high', 10000)] };
+    const result = recommendTask([near, high], peers, 'p', request, [], now, stored);
+    expect(result.balanced?.model.id).toBe('high'); // twice the price, twenty times faster
+    expect(result.cheapest?.model.id).toBe('near');
+    expect(result.balancedUsesTiming).toBe(true);
+    expect(result.balanced?.timingCases).toBe(1);
+});
+
+it.each(['missing', 'old', 'zero', 'future', 'other-provider', 'other-mode'])('does not pretend %s timings are comparable', problem => {
+    const cases = checked().cases?.filter(item => item.id === 'citation');
+    const slow = checked({ model: 'near', cases: cases?.map(item => ({ ...item, latency_ms: 200000 })) });
+    const fast = checked({ model: 'high', cases: cases?.map(item => ({ ...item, latency_ms: 10000 })) });
+    if (problem === 'missing') fast.cases = [];
+    if (problem === 'old') fast.cases = fast.cases?.map(item => ({ ...item, checked_at: '2026-01-01T00:00:00Z' }));
+    if (problem === 'zero') fast.cases = fast.cases?.map(item => ({ ...item, latency_ms: 0 }));
+    if (problem === 'future') fast.cases = fast.cases?.map(item => ({ ...item, checked_at: '2030-01-01T00:00:00Z' }));
+    if (problem === 'other-provider') fast.provider = 'other';
+    if (problem === 'other-mode') fast.mode = 'other';
+    const result = recommendTask([near, high], peers, 'p', request, [], now, { suite, reports: [slow, fast] });
+    expect(result.balanced?.model.id).toBe('near');
+    expect(result.balancedUsesTiming).toBe(false);
 });

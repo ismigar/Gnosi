@@ -135,3 +135,14 @@ it('guides an inactive bot candidate straight to setup for its exact offer', asy
     expect(configure.mock.calls[0]?.[0]?.offer.route).toMatchObject({ provider: 'p', model_id: '3' });
     expect(mocks.invoke).not.toHaveBeenCalled();
 });
+
+it('displays unknown sample speed and observed real reader steps without launching tests', async () => {
+    const seconds = Date.now() / 1000;
+    mocks.runs.mockResolvedValue([{ provider: 'p', model: '3', status: 'completed', parent_run_id: 'book',
+        operation: 'knowledge.process-source.phase', model_calls: 2, created_at: seconds - 400, closed_at: seconds - 100 }]);
+    await render();
+    expect(container.textContent).toContain('encara no hi ha mesures recents comparables');
+    expect(container.textContent).toContain('mediana 300.0 s per pas');
+    expect(container.textContent).toContain('no s’extrapola la durada del llibre');
+    expect(mocks.invoke).not.toHaveBeenCalled();
+});

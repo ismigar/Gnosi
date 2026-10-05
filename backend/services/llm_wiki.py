@@ -482,6 +482,7 @@ def process_resource(
         save_checkpoint=llm_wiki_storage.save_checkpoint,
         load_checkpoint=llm_wiki_storage.load_checkpoint,
         resume_candidates=llm_wiki_storage.resume_checkpoint_jobs,
+        resume_job_status=llm_wiki_storage.get_job_status,
         reduce_plans=_validate_and_reduce_plans,
         apply_plan=_apply_plan,
         sync_annotations=llm_wiki_pdf_annotations.sync_generated_pdf_annotations,

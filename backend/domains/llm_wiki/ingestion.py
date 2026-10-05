@@ -105,6 +105,7 @@ class IngestionDependencies:
     phases: IngestionPhases
     generate_structured: Callable[[str, Callable[[dict[str, object]], None], int], tuple[str, str]] | None = None
     resume_candidates: Callable[[str], list[str]] | None = None
+    resume_job_status: Callable[[str], dict[str, object]] | None = None
     execution_revision: str = ""
     agent_directed: bool = False
     expected_reading_identity: str = ""

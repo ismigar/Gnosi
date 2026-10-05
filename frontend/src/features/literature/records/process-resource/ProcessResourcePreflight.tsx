@@ -48,6 +48,7 @@ export function ProcessResourcePreflight({ estimate, estimateError, budgetLimit,
             <p className="font-semibold text-[var(--text-primary)]">{estimate.model} · {estimate.provider}</p>
             {estimate.incompatible_saved_chunks > 0 && <p className="text-red-500">{translate('checkpoint_incompatible_details', '{{count}} saved fragments cannot be reused with the current source or processing settings. They remain saved. Resuming is blocked to avoid paying for a fresh reading. Choose Reprocess to review a fresh estimate before starting again.', { count: estimate.incompatible_saved_chunks })}</p>}
             <p>{translate('estimate_progress', '{{saved}} saved fragments; {{remaining}} remaining; about {{calls}} calls.', { saved: estimate.saved_chunks, remaining: estimate.remaining_chunks, calls: estimate.planned_calls })}</p>
+            {estimate.batch_size < batchSize && <p role="status">{t('llm_wiki.batch_reduced', { count: estimate.batch_size })}</p>}
             <p className="font-semibold">{translate('budget_available', 'Available within your limit: {{amount}}. Processing pauses before a call that cannot fit and saves progress.', { amount: money(available) })}</p>
             {estimate.priced && estimate.cost_usd !== null ? <>
                 <p>{translate('estimate_cost', 'Conservative estimate for all remaining work: {{cost}}.', { cost: money(estimate.cost_usd) })}</p>

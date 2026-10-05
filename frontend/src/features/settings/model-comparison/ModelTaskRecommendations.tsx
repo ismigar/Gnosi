@@ -9,7 +9,7 @@ import { RefreshButton } from '../../../shared/ui/actions/RefreshButton';
 import { formatComparisonCost } from '../modelComparison';
 import { ModelPriceOffer } from './ModelPriceOffer';
 import { recommendTask, TASKS, taskMinimum, type Candidate, type TaskId } from './taskRecommendations';
-import { operationalEvidence } from './operationalEvidence';
+import { operationalEvidence, readingTimings } from './operationalEvidence';
 import { ModelTaskEvaluation } from './ModelTaskEvaluation';
 import { SharedTaskBankPanel } from './SharedTaskBankPanel';
 import { ModelTaskEvaluationChooser } from './ModelTaskEvaluationChooser';
@@ -103,6 +103,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
         <input className="gnosi-input" type="number" min="0" max={max} step={key === 'budget' ? '0.01' : '1'} value={value} onChange={event => { set(event.target.value); }} />
     </label>;
     const history = (candidate: Candidate) => operationalEvidence(evidence.vault === vault ? evidence.runs : [], candidate.offer.route.provider, candidate.offer.route.model_id);
+    const reading = (candidate: Candidate) => readingTimings(evidence.vault === vault ? evidence.runs : [], candidate.offer.route.provider, candidate.offer.route.model_id, evidence.checkedAt);
     const metrics = (candidate: Candidate) => (!manual && detected.length ? detected : [task]).map(item =>
         `${t(`model_comparison.recommend.tasks.${item.id}`)}: ${Object.entries(item.weights).map(([key, weight]) => {
             const value = candidate.model[key as 'intelligence' | 'coding' | 'agentic'];
@@ -115,6 +116,14 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <ModelPriceOffer offer={candidate.offer} field="monthly_cost" label={candidate.offer.route.provider_name || candidate.offer.route.provider} currency={feed.currency} active={false} />
             <p>{t('model_comparison.recommend.score', { score: candidate.quality })}</p>
             <p>{t(`model_comparison.recommend.why_${kinds[0] === 'balanced' && candidate.taskChecks?.complete ? 'balanced_checked' : kinds[0] ?? 'balanced'}`)}</p>
+            {kinds.includes('balanced') && result.balancedUsesTiming && <p>{t('model_comparison.recommend.time_balance')}</p>}
+            <p>{candidate.sampleLatency !== null
+                ? t('model_comparison.recommend.measured_time', { seconds: (candidate.sampleLatency / 1000).toFixed(1), count: candidate.timingCases })
+                : t('model_comparison.recommend.time_unknown')}</p>
+            {demands.some(item => item.id === 'book') && (reading(candidate).completed + reading(candidate).failed > 0) && <p>
+                {t('model_comparison.recommend.reading_time', { count: reading(candidate).completed,
+                    seconds: reading(candidate).medianMs === null ? '—' : ((reading(candidate).medianMs ?? 0) / 1000).toFixed(1), failed: reading(candidate).failed })}
+            </p>}
             <p>{t('model_comparison.tests.evidence', { measured: candidate.taskChecks?.cases.length ?? 0, total: candidate.taskChecks?.expected ?? 0 })}</p>
             <p>{t(candidate.taskChecks?.complete ? 'model_comparison.recommend.checked' : 'model_comparison.recommend.catalogue')}</p>
             {Boolean(candidate.taskChecks?.cases.some(item => item.evidence_origin === 'shared')) && <p>{t('model_comparison.shared.candidate')}</p>}
@@ -125,7 +134,6 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <p>{t('model_comparison.recommend.benchmark', { metrics: metrics(candidate), date: feed.fetched_at.slice(0, 10) })}</p>
             {candidate.variantCount > 1 && <p>{t('model_comparison.recommend.variants', { count: candidate.variantCount })}</p>}
             {candidate.sampleCostPerSuccess !== null && <p>{t('model_comparison.recommend.sample_cost', { cost: money(candidate.sampleCostPerSuccess) })}</p>}
-            {candidate.sampleLatency !== null && <p>{t('model_comparison.recommend.sample_time', { seconds: (candidate.sampleLatency / 1000).toFixed(2) })}</p>}
             <p>{t('model_comparison.recommend.history', history(candidate))}</p>
             {[...new Set((!manual && detected.length ? detected : [task]).map(item => item.role))].map(role => <p key={role}>{t(`model_comparison.recommend.pending_${role}`)}</p>)}
             </details>

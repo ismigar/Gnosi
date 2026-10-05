@@ -8,6 +8,7 @@ from backend.domains.llm_wiki.chunking import encoded, records
 from backend.domains.llm_wiki.reading_contracts import validate_notes
 from backend.domains.llm_wiki.contextual_reading import fingerprint
 from backend.domains.llm_wiki.reading_action_contracts import ACTION_SCHEMA as ACTION_SCHEMA, action_schemas
+from backend.domains.llm_wiki.reading_batch_recovery import batch_limit, delivered_batch_size, reduce_batch
 
 
 def _chunk_status(state: dict[str, Any], key: str) -> dict[str, object]:
@@ -82,7 +83,10 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
                 "with only the current fragment's summary. When delivery is batch, prefer save_batch "
                 "with exactly one individually evidenced plan per delivered chunk_id and one shared "
                 "global memory update. Never omit, merge or shorten a fragment to fit a batch; "
-                "save_plan remains available for a fragment requiring more attention."
+                "save_plan remains available for a fragment requiring more attention. Do not request "
+                "the next unread chunks while automatically delivered originals await analysis. "
+                "Explicit read and recall accept one chunk_id, never a chunk_ids array. "
+                "Return only the action JSON, without repeating source passages outside citations."
             ),
             "memory_step": state.get("memory_step"), "last_action": state.get("last_action"),
             "state_contract": (
@@ -103,7 +107,14 @@ def run_directed(reader: Any) -> tuple[dict[str, object], list[str]]:
         request["index"] = [{"id": key, "section": chunks[key].get("section"),
                              **_chunk_status(state, key),
                              "primary_segment_count": len(records(chunks[key].get("segments")))} for key in keys[start:start + 8]]
-        answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
+        try:
+            answer = reader.ask(f"action-{state['step']}", "agent-actions", request, checked, contract=output_schema)
+        except Exception as error:
+            if not reduce_batch(state, error):
+                raise
+            record("reading.batch.reduced", {"step": state["step"], "batch_size": state["batch_size_limit"], "reason": "output_limit"})
+            checkpoint()
+            continue
         action, args = str(answer["action"]), answer["arguments"]
         record("reading.action", {"step": state["step"], **answer})
         result: Any = {}
@@ -234,16 +245,21 @@ def _resume_state(reader: Any, identity: str) -> Any:
                     and (saved is None or len(checkpoint_state["plans"]) > len(saved["plans"]))):
                 saved = checkpoint_state
                 reader.resume_job_id = candidate
+    resume_status = getattr(deps, "resume_job_status", None)
+    if saved and resume_status:
+        saved = deepcopy(saved)
+        reduce_batch(saved, str(resume_status(reader.resume_job_id).get("error") or ""))
     return saved
 
 
 def _deliver_next(reader: Any, state: dict[str, Any], chunks: dict[str, Any], output_schema: dict[str, Any], checkpoint: Any) -> None:
     from backend.services.agent_execution_trace import record
     deps = reader.dependencies
-    if not state["last_result"] or (state.get("last_action") or {}).get("name") in {"save_plan", "save_batch"}:
+    limit = batch_limit(getattr(deps, "batch_size", 1), state)
+    if not state["last_result"] or (state.get("last_action") or {}).get("name") in {"save_plan", "save_batch"} or delivered_batch_size(state) > limit:
         pending = [key for key in chunks if key not in state["plans"]]
         delivered: list[str] = []
-        for key in pending[:max(1, min(4, getattr(deps, "batch_size", 1)))]:
+        for key in pending[:limit]:
             candidates = [chunks[k] for k in [*delivered, key]]
             if delivered and deps.count_tokens(encoded([candidates, state["memory"], output_schema, reader.dimensions])) > reader.budget // 2:
                 break
@@ -255,6 +271,8 @@ def _deliver_next(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ou
             state["last_result"] = (chunks[delivered[0]] if len(delivered) == 1 else
                                     {"sources": [chunks[key] for key in delivered], "delivery": "batch"})
             state["last_action"] = {"name": "read", "chunk_ids": delivered, "step": state["step"], "delivery": "automatic"}
+            if reader.job_id:
+                deps.update_job(reader.job_id, effective_batch_size=len(delivered))
             record("reading.source.delivered", {"step": state["step"], "chunk_ids": delivered})
             checkpoint()
 

@@ -49,6 +49,7 @@ export interface Candidate {
     sampleCostPerSuccess: number | null;
     sampleLatency: number | null;
     variantCount: number;
+    timingCases: number;
     taskChecks?: ReturnType<typeof taskEvidence>;
 }
 
@@ -143,15 +144,17 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
             seen.add(identity);
             const successes = report?.cases.filter(c => c.passed).length ?? 0;
             const costs = report?.cases.map(c => c.cost_usd) ?? [];
+            const timingCases = checks.complete && !checks.stale
+                && checks.cases.every(item => Number.isFinite(item.latency_ms) && item.latency_ms > 0)
+                ? checks.cases : [];
             candidates.push({ model: variant?.model ?? model, offer, quality, report, variantCount, taskChecks: checks,
                 sampleCostPerSuccess: successes > 0 && costs.every(knownPrice)
                     ? costs.filter(knownPrice).reduce((a, b) => a + b, 0) / successes : null,
-                sampleLatency: checks.cases.length ? checks.cases.reduce((sum, item) => sum + item.latency_ms, 0) / checks.cases.length
-                    : report ? report.cases.reduce((sum, c) => sum + c.latency_ms, 0) / report.cases.length : null });
+                timingCases: timingCases.length,
+                sampleLatency: timingCases.length ? timingCases.reduce((sum, item) => sum + item.latency_ms, 0) / timingCases.length : null });
         }
     }
     const cost = (a: Candidate, b: Candidate) => (a.offer.cost ?? Infinity) - (b.offer.cost ?? Infinity)
-        || (a.sampleLatency ?? Infinity) - (b.sampleLatency ?? Infinity)
         || b.quality - a.quality || a.model.name.localeCompare(b.model.name);
     const byQuality = [...candidates].sort((a, b) => b.quality - a.quality || cost(a, b));
     const best = byQuality[0];
@@ -159,7 +162,14 @@ export function recommendTask(models: readonly Model[], peers: readonly Model[],
     // global top-score window would overprovision routine bots and hide a
     // cheaper specialist even after it passed every relevant check.
     // Without checks this is only a provisional, cost-based suggestion.
-    const balanced = [...candidates].sort((a, b) =>
-        Number(Boolean(b.taskChecks?.complete)) - Number(Boolean(a.taskChecks?.complete)) || cost(a, b))[0];
-    return { balanced, cheapest: [...candidates].sort(cost)[0], quality: best, excluded, count: candidates.length };
+    const checked = candidates.filter(candidate => candidate.taskChecks?.complete);
+    const pool = checked.length ? checked : candidates;
+    // All timings must cover the same current suite/mode and requested cases.
+    // Missing/old timings never become zero or an invented speed penalty.
+    const balancedUsesTiming = pool.length > 1 && pool.every(candidate => candidate.sampleLatency !== null);
+    const balanced = [...pool].sort((a, b) => balancedUsesTiming
+        ? (a.offer.cost ?? Infinity) * (a.sampleLatency ?? Infinity)
+            - (b.offer.cost ?? Infinity) * (b.sampleLatency ?? Infinity) || cost(a, b)
+        : cost(a, b))[0];
+    return { balanced, balancedUsesTiming, cheapest: [...candidates].sort(cost)[0], quality: best, excluded, count: candidates.length };
 }
