@@ -135,6 +135,16 @@ class ReadingRuntime:
             output_schema=schema, max_model_calls=2 if isinstance(envelope, dict) and envelope.get("reading_engine") == "semantic" else 3), snapshot=self.snapshot, output_validator=checked, output_repair=repair)
         return result.result, result.model
 
+    def generate_prose(self, prompt: str, validate: Callable[[str], str], timeout: int) -> tuple[str, str]:
+        """Argument maps are prose; the application serializes their checkpoint."""
+        from backend.services.agent_execution import run_sync
+        if self.count_tokens(prompt) > self.input_budget:
+            raise RuntimeError("The reading input exceeds the selected model's context budget")
+        result = run_sync(AgentOperation(skill_id=SKILL_ID, operation="knowledge.process-source.phase",
+            input=prompt, timeout_seconds=timeout, origin="worker", resume_requires_parent=True,
+            max_model_calls=2), snapshot=self.snapshot, output_validator=validate)
+        return result.result, result.model
+
 
 def prepare_reading_runtime(vault_root: str | Path) -> ReadingRuntime:
     from backend.services.agent_execution import prepare_snapshot, _snapshot

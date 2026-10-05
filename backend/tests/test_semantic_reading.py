@@ -269,3 +269,29 @@ def test_resume_selects_completed_reviews_not_older_state_with_same_saved_chunks
     resumed.dependencies.resume_candidates = lambda _: ['new', 'older']
     resumed.run()
     assert not calls
+
+
+def test_production_argument_maps_use_prose_and_resume_without_json_or_paid_repeat():
+    reader, calls, checkpoints = setup()
+    prose_calls = []
+    def prose(prompt, validator, timeout):
+        request = json.loads(prompt)
+        prose_calls.append(request)
+        assert 'output_schema' not in request and 'plain text' in request['instruction']
+        return validator(response(request)['summary']), 'test-model'
+    reader.dependencies.generate_prose = prose
+    result, _ = reader.run()
+    assert len(prose_calls) == 2 and all(c['phase'] != 'overview' for c in calls)
+    assert len(result['notes']) == 8 and checkpoints['new', 'semantic-overview-0']['summary']
+    resumed, new_calls, _ = setup(checkpoints=checkpoints, resume='new')
+    resumed.dependencies.generate_prose = lambda *_: pytest.fail('paid map repeat')
+    assert resumed.run()[0] == result and not new_calls
+
+
+@pytest.mark.parametrize('invalid', ['   ', '{"summary": "Incomplete"', '```json\n{}\n```'])
+def test_prose_maps_do_not_accept_empty_or_broken_json_as_an_argument_map(invalid):
+    reader, _, checkpoints = setup()
+    reader.dependencies.generate_prose = lambda prompt, validator, timeout: (validator(invalid), 'test-model')
+    with pytest.raises(ValueError, match='plain text'):
+        reader.run()
+    assert not checkpoints['new', 'semantic-state']['maps']

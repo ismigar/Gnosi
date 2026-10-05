@@ -64,6 +64,8 @@ class SemanticReader:
 
     def summarize(self, key: str, material: object) -> str:
         limit = max(350, min(2000, self.reader.budget // 24))
+        if getattr(self.deps, "generate_prose", None):
+            return self.prose_map(key, material, limit)
         def validate(answer: dict[str, object]) -> None:
             validate_schema(answer, MAP_SCHEMA)
             if self.deps.count_tokens(str(answer["summary"])) > limit:
@@ -71,6 +73,40 @@ class SemanticReader:
         answer = self.ask(key, "overview", {"material": material, "summary_max_tokens": limit,
             "instruction": "Map the argument, attributed voices, definitions, developments, disagreements and unresolved questions. Include the ending. Preserve document boundaries and qualifications. Do not invent reference IDs; original text remains authoritative."}, MAP_SCHEMA, validate)
         return str(answer["summary"])
+
+    def prose_map(self, key: str, material: object, limit: int) -> str:
+        from backend.domains.llm_wiki.recovery import call_with_retry
+        generate = self.deps.generate_prose
+        assert generate is not None
+        prompt = encoded({"reading_engine": "semantic", "phase": "overview", "resource": self.reader.title,
+            "language": self.reader.language, "material": material, "summary_max_tokens": limit,
+            "instruction": "Return the argument map as plain text, without JSON, an outer object or code fences. Map substantive claims, reasoning, attributed voices, developments, disagreements, qualifications and open questions across ALL supplied material, including the ending. Bibliographic metadata alone is not an argument map. Preserve document boundaries. Do not invent reference IDs; original text remains authoritative."})
+        identity = fingerprint([self.state["identity"], prompt])
+        def validate(text: str) -> str:
+            clean = text.strip()
+            if not clean or clean.startswith(("{", "```")):
+                raise ValueError("Return a nonempty argument map as plain text, without JSON or code fences")
+            if self.deps.count_tokens(clean) > limit:
+                raise ValueError(f"Keep the argument map within {limit} estimated tokens; preserve caveats and attribution")
+            return clean
+        cached = self.deps.load_checkpoint(self.reader.resume_job_id, key) if self.reader.resume_job_id else None
+        if isinstance(cached, dict) and cached.get("identity") == identity:
+            text, model = validate(str(cached["summary"])), str(cached["model"])
+        else:
+            if self.deps.count_tokens(prompt) > self.reader.budget:
+                raise RuntimeError("The reading phase exceeds the selected model's input budget")
+            self.state.update(last_action={"phase": "overview"}, last_result={})
+            self.save()
+            text, model = call_with_retry(lambda timeout: generate(prompt, validate, timeout),
+                on_wait=lambda: self.reader.phase("retrying"), on_attempt=lambda: self.reader.phase("overview"),
+                input_bytes=len(prompt.encode()), source_bytes=self.reader.source_bytes)
+            text = validate(text)
+        self.reader.models.append(model)
+        if self.reader.job_id:
+            self.deps.save_checkpoint(self.reader.job_id, key, {"identity": identity, "summary": text, "model": model})
+        self.state["step"] += 1
+        self.save()
+        return text
 
     def combine(self, key: str, summaries: list[str]) -> str:
         level = 0

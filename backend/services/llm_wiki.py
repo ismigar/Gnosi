@@ -469,6 +469,7 @@ def process_resource(
         build_prompt=_build_chunk_prompt,
         generate_text=runtime.generate,
         generate_structured=getattr(runtime, "generate_structured", None),
+        generate_prose=getattr(runtime, "generate_prose", None),
         batch_size=batch_size,
         expected_reading_identity=expected_reading_identity,
         execution_revision=runtime.identity,

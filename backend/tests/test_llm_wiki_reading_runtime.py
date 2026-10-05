@@ -145,3 +145,20 @@ def test_directed_reading_sends_the_action_schema_to_the_operation(configured, t
     assert request.output_schema == ACTION_SCHEMA
     assert request.input == prompt
     assert request.max_model_calls == 3
+
+
+def test_prose_argument_map_stays_governed_without_a_json_output_schema(configured, tmp_path):
+    _, _, execute = configured
+    runtime = prepare_reading_runtime(tmp_path)
+    validator = lambda text: text.strip()
+    runtime.generate_prose('{"phase":"overview","material":"source"}', validator, 240)
+    request = execute.call_args.args[0]
+    assert request.operation == 'knowledge.process-source.phase'
+    assert request.output_schema is None and request.max_model_calls == 2
+    assert request.resume_requires_parent and request.timeout_seconds == 240
+    assert execute.call_args.kwargs['output_validator'] is validator
+    assert execute.call_args.kwargs['snapshot'].agent_id == runtime.agent_id
+    execute.reset_mock()
+    with pytest.raises(RuntimeError, match='context budget'):
+        runtime.generate_prose('x' * (runtime.input_budget + 1), validator, 240)
+    execute.assert_not_called()
