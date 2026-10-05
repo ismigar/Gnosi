@@ -115,6 +115,7 @@ export function ModelTaskRecommendations({ models, feed, provider, profile, revi
             <p>{t(`model_comparison.recommend.why_${kinds[0] === 'balanced' && candidate.taskChecks?.complete ? 'balanced_checked' : kinds[0] ?? 'balanced'}`)}</p>
             <p>{t('model_comparison.tests.evidence', { measured: candidate.taskChecks?.cases.length ?? 0, total: candidate.taskChecks?.expected ?? 0 })}</p>
             <p>{t(candidate.taskChecks?.complete ? 'model_comparison.recommend.checked' : 'model_comparison.recommend.catalogue')}</p>
+            {candidate.taskChecks?.stale && <p>{t('model_comparison.tests.old_result')}</p>}
             <details><summary>{t('model_comparison.workspace.evidence')}</summary>
             {candidate.report && <p>{t('model_comparison.recommend.synthetic', { count: candidate.report.cases.length, date: candidate.report.created_at.slice(0, 10) })}</p>}
             {candidate.taskChecks && <ul>{candidate.taskChecks.tasks.map(item => <li key={item.task}>{t(`model_comparison.recommend.tasks.${item.task}`)}: {item.passed}/{item.total} {t('model_comparison.tests.checked')}</li>)}</ul>}

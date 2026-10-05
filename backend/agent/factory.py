@@ -241,7 +241,7 @@ async def create_agent_workflow(
     return workflow, dict(metadata)
 
 
-def build_diagnostic_client(provider: str, model: str, provider_config: dict[str, Any]) -> Any:
+def build_diagnostic_client(provider: str, model: str, provider_config: dict[str, Any], *, max_output: int = 512) -> Any:
     """Construct the bounded client used by the audited diagnostic transport."""
     client = get_llm(
         provider=provider, model=model,
@@ -250,4 +250,6 @@ def build_diagnostic_client(provider: str, model: str, provider_config: dict[str
     )
     if client is None:
         raise ValueError("agent_team.evaluation_model_unavailable")
-    return client.bind(max_tokens=512)
+    if max_output not in {512, 1024}:
+        raise ValueError('invalid_diagnostic_output_limit')
+    return client.bind(max_tokens=max_output)

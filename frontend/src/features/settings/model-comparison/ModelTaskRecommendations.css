@@ -41,6 +41,8 @@
 .model-task-recommendations__requirements { margin: 12px 0; }
 .model-task-evaluation > label { display: grid; gap: 8px; margin: 12px 0; }
 .model-task-evaluation .gnosi-input { width: 100%; max-width: 220px; box-sizing: border-box; }
+.model-task-evaluation pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow-y: auto; margin: 12px 0; }
+.model-task-evaluation textarea.gnosi-input { max-width: none; min-height: 80px; }
 .model-task-evaluation .agent-evaluation-lab__authorization { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; }
 
 @media (max-width: 560px) {

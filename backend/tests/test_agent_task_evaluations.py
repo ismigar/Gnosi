@@ -61,7 +61,7 @@ def test_same_cases_reused_across_bots_but_missing_functions_only_are_called(set
     assert all(case.reused_from == original.id for case in second.cases if case.reused_from)
 
 
-def test_old_different_version_mode_and_provider_are_not_reused(setup):
+def test_different_version_mode_and_provider_are_not_reused_but_age_does_not_force_paid_retests(setup):
     scope, registry = setup
     report = service.run(request(), scope, registry, invoke)
     for field, value in [('version', 'old'), ('mode', 'other'), ('provider', 'other')]:
@@ -71,7 +71,8 @@ def test_old_different_version_mode_and_provider_are_not_reused(setup):
     past = (datetime.now(timezone.utc) - timedelta(days=31)).isoformat()
     report.cases = [case.model_copy(update={'checked_at': past}) for case in report.cases]
     artifacts.put(scope, report.id, report.id, 'task_evaluation', report.model_dump())
-    assert service.plan(request(), scope, registry).reused_cases == []
+    cached = service.plan(request(), scope, registry)
+    assert len(cached.reused_cases) == len(report.cases) and cached.pending_ids == []
 
 
 @pytest.mark.parametrize('change', [{'authorize_model_calls': False}, {'budget_usd': .000001}])
@@ -141,3 +142,88 @@ def test_truncated_reasoning_sample_is_inconclusive_not_a_quality_failure(setup)
     assert report.status == 'stopped' and report.stop_reason == 'output_limit'
     assert report.model_calls == 1 and report.cases[0].failure == 'output_limit'
     assert service.plan(request(), scope, registry).reused_cases == []
+
+
+def work_invoke(_parent, prompt):
+    from backend.services.agent_work_samples import WORK_CASES
+    case = next(case for case in WORK_CASES if case.prompt == prompt)
+    answer = dict(case.expected)
+    field = {'book_map': 'summary', 'code_review': 'fix', 'workflow_plan': 'plan', 'decision_review': 'analysis',
+             'translation_document': 'translation', 'writing_document': 'text',
+             'research_screening': 'synthesis', 'meeting_synthesis': 'summary'}.get(case.id)
+    if field:
+        answer[field] = ('No tots els projectes han fracassat. **Important** [[doc-42]] '
+                         'https://example.org/manual `case-07`')
+    return SimpleNamespace(content=json.dumps(answer, ensure_ascii=False),
+        usage_metadata={'input_tokens': 1000, 'output_tokens': 300})
+
+
+@pytest.mark.parametrize('task', ['classify', 'extract', 'book', 'retrieve', 'code', 'workflow', 'analyse',
+                                  'translate', 'write', 'calendar', 'research', 'synthesize'])
+def test_work_samples_save_deliverables_and_keep_open_ended_quality_pending(setup, task):
+    from backend.services.agent_work_samples import suite_version, selected_cases
+    scope, registry = setup
+    report = service.run(request(suite='work', tasks=[task]), scope, registry, work_invoke)
+    assert report.version == suite_version('work') and report.mode == 'work_default_1024'
+    assert report.model_calls == len(selected_cases([task], 'work'))
+    assert all(case.passed and case.output for case in report.cases)
+    assert all(case.review == ('pending' if case.requires_review else 'not_required') for case in report.cases)
+    cached = service.plan(request(suite='work', tasks=[task]), scope, registry)
+    assert cached.pending_ids == [] and len(cached.reused_cases) == report.model_calls
+    assert service.plan(request(suite='basic', tasks=[task]), scope, registry).reused_cases == []
+
+
+def test_human_review_is_scoped_reusable_and_never_calls_the_model(setup):
+    from backend.services.agent_task_evaluation_models import TaskReviewRequest
+    scope, registry = setup
+    report = service.run(request(suite='work'), scope, registry, work_invoke)
+    payload = TaskReviewRequest(case_id='book_map', verdict='accepted', note='Cobertura i atribució revisades.')
+    with pytest.raises(ValueError, match='report_unavailable'):
+        service.review(scope.model_copy(update={'user_id': 'other'}), report.id, payload)
+    with pytest.raises(PermissionError):
+        service.review(scope.model_copy(update={'role': 'viewer'}), report.id, payload)
+    reviewed = service.review(scope, report.id, payload)
+    assert reviewed.cases[0].review == 'accepted' and reviewed.cases[0].reviewed_at
+    assert reviewed.model_calls == report.model_calls and reviewed.cost_usd == report.cost_usd
+    cached = service.plan(request(suite='work', agent_id='another'), scope, registry)
+    assert cached.reused_cases[0].review == 'accepted' and cached.pending_ids == []
+    service.review(scope, report.id, payload.model_copy(update={'verdict': 'rejected'}))
+    assert service.plan(request(suite='work'), scope, registry).reused_cases[0].review == 'rejected'
+
+
+def test_work_validator_requires_deliverable_and_protected_elements(setup):
+    from backend.services.agent_work_samples import WORK_CASES, validate_work, suite_version
+    case = next(case for case in WORK_CASES if case.id == 'translation_document')
+    assert not validate_work(case, '{"translation":"Un text sense els elements protegits"}')
+    assert not validate_work(case, '{}')
+    assert suite_version('work') != suite_version('basic')
+    scope, registry = setup
+    def wrong(parent, prompt):
+        answer = work_invoke(parent, prompt)
+        answer.content = '{}'
+        return answer
+    report = service.run(request(suite='work'), scope, registry, wrong)
+    from backend.services.agent_task_evaluation_models import TaskReviewRequest
+    with pytest.raises(ValueError, match='case_not_reviewable'):
+        service.review(scope, report.id, TaskReviewRequest(case_id='book_map', verdict='accepted'))
+
+
+def test_work_numbers_and_booleans_are_compared_correctly_and_sources_are_saved(setup):
+    from backend.services.agent_work_samples import data_matches
+    assert data_matches({'invoices': [121]}, {'invoices': [121.0]})
+    assert not data_matches({'paid': False}, {'paid': 0})
+    assert not data_matches({'amount': True}, {'amount': 1})
+    scope, registry = setup
+    report = service.run(request(suite='work'), scope, registry, work_invoke)
+    assert report.cases[0].task_prompt and report.cases[0].expected
+
+
+def test_changed_work_set_cannot_reuse_previous_deliverables(setup, monkeypatch):
+    from dataclasses import replace
+    from backend.services import agent_work_samples as samples
+    scope, registry = setup
+    service.run(request(suite='work'), scope, registry, work_invoke)
+    original = samples.suite_version('work')
+    monkeypatch.setattr(samples, 'WORK_CASES', (replace(samples.WORK_CASES[0], prompt='Changed task'), *samples.WORK_CASES[1:]))
+    assert samples.suite_version('work') != original
+    assert service.plan(request(suite='work'), scope, registry).reused_cases == []

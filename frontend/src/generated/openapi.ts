@@ -271,6 +271,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/runs/task-evaluations/{report_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["review_api_agent_runs_task_evaluations__report_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/runs/task-evaluations/preview": {
         parameters: {
             query?: never;
@@ -23737,6 +23754,8 @@ export interface components {
             cost_source: "reported" | "estimated" | "unknown";
             /** Cost Usd */
             cost_usd?: number | null;
+            /** Expected */
+            expected?: unknown;
             /**
              * Failure
              * @default
@@ -23748,24 +23767,77 @@ export interface components {
             latency_ms: number;
             /** Metric */
             metric: string;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
             /** Passed */
             passed: boolean;
+            /**
+             * Requires Review
+             * @default false
+             */
+            requires_review: boolean;
             /**
              * Reused From
              * @default
              */
             reused_from: string;
+            /**
+             * Review
+             * @default not_required
+             * @enum {string}
+             */
+            review: "pending" | "accepted" | "rejected" | "not_required";
+            /**
+             * Review Note
+             * @default
+             */
+            review_note: string;
+            /**
+             * Reviewed At
+             * @default
+             */
+            reviewed_at: string;
+            /**
+             * Task Prompt
+             * @default
+             */
+            task_prompt: string;
             /** Tasks */
             tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
         };
         /** TaskCriterion */
         TaskCriterion: {
+            /** Expected */
+            expected?: unknown;
             /** Id */
             id: string;
             /** Metric */
             metric: string;
+            /**
+             * Prompt
+             * @default
+             */
+            prompt: string;
+            /**
+             * Requires Review
+             * @default false
+             */
+            requires_review: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
             /** Tasks */
             tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /** TaskEvaluationPlan */
         TaskEvaluationPlan: {
@@ -23875,6 +23947,12 @@ export interface components {
              * @default false
              */
             retest: boolean;
+            /**
+             * Suite
+             * @default basic
+             * @enum {string}
+             */
+            suite: "basic" | "work";
             /** Tasks */
             tasks: ("classify" | "extract" | "book" | "retrieve" | "code" | "workflow" | "analyse" | "translate" | "write" | "calendar" | "research" | "synthesize")[];
         };
@@ -23882,6 +23960,12 @@ export interface components {
         TaskEvaluationSuite: {
             /** Criteria */
             criteria: components["schemas"]["TaskCriterion"][];
+            /**
+             * Kind
+             * @default basic
+             * @enum {string}
+             */
+            kind: "basic" | "work";
             /**
              * Max Age Days
              * @default 30
@@ -23956,6 +24040,21 @@ export interface components {
             status: string;
             /** Task Name */
             task_name: string;
+        };
+        /** TaskReviewRequest */
+        TaskReviewRequest: {
+            /** Case Id */
+            case_id: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "accepted" | "rejected";
         };
         /**
          * TaskRunResponse
@@ -25686,7 +25785,9 @@ export interface operations {
     };
     suite_api_agent_runs_task_evaluation_suite_get: {
         parameters: {
-            query?: never;
+            query?: {
+                kind?: string;
+            };
             header?: {
                 authorization?: string | null;
                 "x-user-id"?: string | null;
@@ -25773,6 +25874,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TaskEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEvaluationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_api_agent_runs_task_evaluations__report_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-user-id"?: string | null;
+                "x-vault-id"?: string | null;
+                "x-workspace-id"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: {
+                gnosi_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReviewRequest"];
             };
         };
         responses: {

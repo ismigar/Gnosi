@@ -5514,7 +5514,7 @@
       "why_cheapest": "Le coût estimé le plus bas respectant le budget, les exigences et le seuil indicatif, avec les tentatives prévues.",
       "why_quality": "Le score général du catalogue le plus élevé parmi les offres compatibles avec le budget. Les fonctions spécifiques du bot restent à valider.",
       "synthetic": "{{count}} cas synthétiques réussis · {{date}}. Preuves limitées ; validation de la tâche complète en attente.",
-      "catalogue": "Proposition provisoire : aucun test récent vérifié couvrant toutes les fonctions de ce bot.",
+      "catalogue": "Proposition provisoire : des exemples de travail vérifiés ou des évaluations humaines manquent pour les fonctions de ce bot.",
       "sample_cost": "Échantillon synthétique : {{cost}} par cas correct, comprenant tous les cas du rapport. Aucune extrapolation à la tâche complète.",
       "sample_time": "Durée moyenne des cas synthétiques : {{seconds}} s. Ce n’est pas la durée prévue de la tâche complète.",
       "pending_documentalist": "À vérifier : compréhension globale, couverture et fidélité des citations dans des documents réels.",
@@ -5554,7 +5554,7 @@
       "variants": "Cette offre correspond à {{count}} variantes de benchmark. Le score connu le plus bas est utilisé ; confirmez le réglage du raisonnement avant l’exécution. Les tests enregistrés sont affichés séparément du score du catalogue.",
       "same_offer": "Les trois critères sélectionnent la même offre avec les filtres actuels. Il s’agit du coût d’une exécution, pas de trois coûts cumulés.",
       "why_balanced_checked": "Le coût le plus bas parmi les offres compatibles réussissant tous les échantillons requis et le seuil indicatif de ce bot.",
-      "checked": "Échantillons de base complets pour ces fonctions. La qualité de la tâche complète reste à valider.",
+      "checked": "Exemples de travail vérifiés et évalués lorsque nécessaire ; le résultat de la tâche complète reste à valider.",
       "policy_help": "Les seuils initiaux sont une politique modifiable, pas des mesures de précision : 50 pour la classification simple ; 65 pour l’extraction, la consultation, la traduction, la rédaction et le calendrier ; 80 pour les livres, la programmation, la coordination, la recherche, la synthèse et l’analyse. Les fonctions combinées utilisent le seuil le plus exigeant. Un score général ne démontre pas la maîtrise d’une spécialité."
     },
     "workspace": {
@@ -5598,9 +5598,9 @@
     "deactivate_assigned_help": "Ce modèle sera dissocié des bots suivants. Choisissez un modèle actif pour les utiliser à nouveau. Leurs autres réglages seront conservés.",
     "choose_bot_model": "Choisir ou changer le modèle",
     "tests": {
-      "title": "Vérifier les fonctions de ce bot",
-      "help": "Les tests enregistrés pour le modèle et le fournisseur exacts sont consultés en premier. Seuls les cas manquants ou périmés sont exécutés ; les résultats sont réutilisables par les autres bots ayant besoin du même critère, sans nouvel appel.",
-      "limitations": "Petits échantillons synthétiques avec des réponses vérifiables, sans documents personnels. Configuration de diagnostic : raisonnement par défaut, sortie limitée à 512 tokens. Ils ne certifient ni la qualité littéraire, ni l’exécution réelle d’outils, ni la compréhension d’un livre entier. Validité : 30 jours.",
+      "title": "Tester le modèle",
+      "help": "Seuls les exemples de travail manquants sont exécutés avec le modèle et le fournisseur exacts. Les résultats sont conservés entre bots aux fonctions communes. Une modification du jeu de tests empêche leur réutilisation ; leur ancienneté est seulement signalée.",
+      "limitations": "Documents et cas originaux préparés par Gnosi, sans données personnelles. Le modèle réalise la tâche avec le raisonnement par défaut et au plus 1024 tokens de sortie. Les données et la structure sont vérifiées ; les textes ouverts nécessitent une évaluation humaine. Cela n’exécute ni les outils du bot ni le flux de production et ne valide pas la lecture d’un livre entier.",
       "activate_first": "Activez et configurez cette offre avant de la tester. Le test ne change pas le modèle affecté au bot.",
       "budget": "Limite pour ce test ({{symbol}})",
       "retest": "Répéter aussi les cas enregistrés (nouvelle consommation)",
@@ -5608,7 +5608,7 @@
       "plan": "{{reused}} cas réutilisables ; {{pending}} nouveaux appels. Réservation maximale prévue : {{cost}}.",
       "authorize": "J’autorise ces appels dans la limite indiquée",
       "run": "Exécuter uniquement les tests manquants",
-      "completed": "Résultats enregistrés. Les recommandations en tiennent désormais compte.",
+      "completed": "Résultats enregistrés. Les textes ouverts attendent une évaluation humaine ; les recommandations utilisent les vérifications et évaluations.",
       "stopped": "Le test s’est arrêté. Les cas terminés sont conservés ; les incidents de connexion ne sont pas considérés comme des défauts de qualité.",
       "preview_error": "Impossible de préparer le test. Vérifiez que le bot existe, que le modèle est actif et que vous disposez des droits d’administration.",
       "run_error": "Impossible de démarrer le test. Actualisez les résultats avant de réessayer.",
@@ -5644,10 +5644,24 @@
         "chronology": "Chronologie et versions"
       },
       "summary": "Cette tentative : {{calls}} nouveaux appels et {{reused}} cas réutilisés. Nouveau coût communiqué ou estimé : {{cost}} ; réservation en attente de confirmation : {{reserved}}.",
-      "output_limit": "La réponse a atteint la limite de 512 tokens. Cet échantillon n’est pas concluant et n’exclut pas le modèle pour sa qualité.",
-      "choose_title": "Vérifier un modèle avant de l’affecter",
-      "choose_help": "Vous pouvez tester toute offre active des fournisseurs sélectionnés, même celles ayant échoué à un test précédent. Le modèle affecté au bot reste inchangé.",
-      "choose_model": "Modèle actif à vérifier"
+      "output_limit": "La réponse a atteint la limite de sortie du test. Elle n’est pas concluante et n’exclut pas le modèle pour sa qualité.",
+      "choose_title": "Tester un autre modèle actif",
+      "choose_help": "Testez toute offre active des fournisseurs sélectionnés avec les mêmes exemples, y compris celles ayant échoué précédemment. Aucune affectation au bot n’est nécessaire.",
+      "choose_model": "Modèle actif à vérifier",
+      "work_set": "Voir le jeu de tests et les sources",
+      "sample_prompt": "Tâche et sources",
+      "expected": "Données attendues (la qualité du texte est évaluée séparément)",
+      "deliverable": "Résultat produit par le modèle",
+      "review_help": "Évaluez la fidélité, la couverture, la clarté et l’utilité par rapport à la source et à la tâche. Les vérifications automatiques ne mesurent pas ces aspects. Un résultat en attente n’est pas considéré comme validé.",
+      "review_note": "Commentaire d’évaluation",
+      "review_pending": "Évaluation humaine en attente",
+      "review_accepted": "Accepté après évaluation humaine",
+      "review_rejected": "Rejeté après évaluation humaine",
+      "review_not_required": "Vérification automatique",
+      "accept": "Accepter le résultat",
+      "reject": "Rejeter le résultat",
+      "review_error": "Impossible d’enregistrer l’évaluation. Le résultat conserve son état précédent.",
+      "old_result": "Résultat de plus de 30 jours : conservé ; vérifiez si le fournisseur a changé le modèle."
     }
   },
   "tags": {

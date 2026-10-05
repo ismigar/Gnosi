@@ -34318,6 +34318,9 @@
             ],
             "title": "Cost Usd"
           },
+          "expected": {
+            "title": "Expected"
+          },
           "failure": {
             "default": "",
             "title": "Failure",
@@ -34335,13 +34338,49 @@
             "title": "Metric",
             "type": "string"
           },
+          "output": {
+            "default": "",
+            "title": "Output",
+            "type": "string"
+          },
           "passed": {
             "title": "Passed",
+            "type": "boolean"
+          },
+          "requires_review": {
+            "default": false,
+            "title": "Requires Review",
             "type": "boolean"
           },
           "reused_from": {
             "default": "",
             "title": "Reused From",
+            "type": "string"
+          },
+          "review": {
+            "default": "not_required",
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected",
+              "not_required"
+            ],
+            "title": "Review",
+            "type": "string"
+          },
+          "review_note": {
+            "default": "",
+            "title": "Review Note",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "default": "",
+            "title": "Reviewed At",
+            "type": "string"
+          },
+          "task_prompt": {
+            "default": "",
+            "title": "Task Prompt",
             "type": "string"
           },
           "tasks": {
@@ -34379,12 +34418,30 @@
       },
       "TaskCriterion": {
         "properties": {
+          "expected": {
+            "title": "Expected"
+          },
           "id": {
             "title": "Id",
             "type": "string"
           },
           "metric": {
             "title": "Metric",
+            "type": "string"
+          },
+          "prompt": {
+            "default": "",
+            "title": "Prompt",
+            "type": "string"
+          },
+          "requires_review": {
+            "default": false,
+            "title": "Requires Review",
+            "type": "boolean"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
             "type": "string"
           },
           "tasks": {
@@ -34407,6 +34464,11 @@
             },
             "title": "Tasks",
             "type": "array"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
           }
         },
         "required": [
@@ -34636,6 +34698,15 @@
             "title": "Retest",
             "type": "boolean"
           },
+          "suite": {
+            "default": "basic",
+            "enum": [
+              "basic",
+              "work"
+            ],
+            "title": "Suite",
+            "type": "string"
+          },
           "tasks": {
             "items": {
               "enum": [
@@ -34677,6 +34748,15 @@
             },
             "title": "Criteria",
             "type": "array"
+          },
+          "kind": {
+            "default": "basic",
+            "enum": [
+              "basic",
+              "work"
+            ],
+            "title": "Kind",
+            "type": "string"
           },
           "max_age_days": {
             "default": 30,
@@ -34865,6 +34945,37 @@
           "duration_seconds"
         ],
         "title": "TaskHistoryResponse",
+        "type": "object"
+      },
+      "TaskReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Case Id",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Note",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "verdict"
+        ],
+        "title": "TaskReviewRequest",
         "type": "object"
       },
       "TaskRunResponse": {
@@ -39154,6 +39265,16 @@
         "operationId": "suite_api_agent_runs_task_evaluation_suite_get",
         "parameters": [
           {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "work",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
             "name": "x-workspace-id",
             "required": false,
@@ -39618,6 +39739,138 @@
           }
         },
         "summary": "Preview",
+        "tags": [
+          "Agent runs"
+        ]
+      }
+    },
+    "/api/agent/runs/task-evaluations/{report_id}/review": {
+      "post": {
+        "operationId": "review_api_agent_runs_task_evaluations__report_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-workspace-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Workspace-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-user-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-vault-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Vault-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gnosi_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gnosi Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskEvaluationReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review",
         "tags": [
           "Agent runs"
         ]

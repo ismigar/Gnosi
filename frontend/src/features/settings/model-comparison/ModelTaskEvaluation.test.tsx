@@ -4,10 +4,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { TaskEvaluationRequest } from '../../../shared/api/ai-activity';
 import { ModelTaskEvaluation } from './ModelTaskEvaluation';
 
-const mocks = vi.hoisted(() => ({ preview: vi.fn(), run: vi.fn(), complete: vi.fn() }));
+const mocks = vi.hoisted(() => ({ preview: vi.fn(), run: vi.fn(), complete: vi.fn(), suite: vi.fn() }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('../../../shared/hooks/useActiveVaultId', () => ({ useActiveVaultId: () => 'vault' }));
-vi.mock('../../../shared/api/ai-activity', () => ({ previewTaskEvaluation: mocks.preview, runTaskEvaluation: mocks.run }));
+vi.mock('../../../shared/api/ai-activity', () => ({ previewTaskEvaluation: mocks.preview, runTaskEvaluation: mocks.run,
+    fetchTaskEvaluationSuite: mocks.suite, reviewTaskEvaluation: vi.fn() }));
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
@@ -15,6 +16,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     mocks.preview.mockResolvedValue({ can_run: true, case_ids: ['citation'], reused_cases: [], pending_ids: ['citation'], maximum_cost_usd: .001 });
     mocks.run.mockResolvedValue({ status: 'completed', cases: [], model_calls: 1, reused_cases: 0, cost_usd: .0001, reserved_usd: 0 });
+    mocks.suite.mockResolvedValue({ version: 'work_v1', criteria: [] });
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => { await act(async () => { root.unmount(); await Promise.resolve(); }); container.remove(); });
@@ -30,7 +32,7 @@ async function open() {
 it('reads a preview only after opening and never calls the model automatically', async () => {
     await mount(); expect(mocks.preview).not.toHaveBeenCalled();
     await open(); expect(mocks.preview).toHaveBeenCalledOnce(); expect(mocks.run).not.toHaveBeenCalled();
-    expect(mocks.preview.mock.calls[0]?.[0]).toMatchObject({ agent_id: 'knowledge', provider: 'p', model: 'candidate', authorize_model_calls: false });
+    expect(mocks.preview.mock.calls[0]?.[0]).toMatchObject({ agent_id: 'knowledge', provider: 'p', model: 'candidate', authorize_model_calls: false, suite: 'work' });
     expect(container.querySelector<HTMLButtonElement>('button.btn-gnosi')?.disabled).toBe(true);
 });
 it('requires explicit authorization and passes the converted spending limit', async () => {
@@ -47,6 +49,8 @@ it('requires explicit authorization and passes the converted spending limit', as
 it('does not test a disabled candidate', async () => {
     await mount(false); await open(); expect(mocks.preview).not.toHaveBeenCalled(); expect(mocks.run).not.toHaveBeenCalled();
     expect(container.textContent).toContain('model_comparison.tests.activate_first');
+    expect(mocks.suite).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('model_comparison.tests.work_set');
 });
 it('fully reusable evidence offers no paid run button', async () => {
     mocks.preview.mockResolvedValue({ can_run: true, reused_cases: [], pending_ids: [], maximum_cost_usd: 0 });

@@ -20,6 +20,9 @@ class TaskCase:
     tasks: tuple[TaskId, ...]
     prompt: str
     expected: Any
+    title: str = ''
+    source: str = ''
+    requires_review: bool = False
 
 
 CASES: tuple[TaskCase, ...] = (

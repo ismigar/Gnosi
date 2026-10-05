@@ -2,9 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GnosiToggle } from '../../../shared/ui/settings/SettingsPrimitives';
 import { useActiveVaultId } from '../../../shared/hooks/useActiveVaultId';
-import { previewTaskEvaluation, runTaskEvaluation, type TaskEvaluationPlan, type TaskEvaluationRequest, type TaskEvaluationReport } from '../../../shared/api/ai-activity';
+import { previewTaskEvaluation, runTaskEvaluation, fetchTaskEvaluationSuite, type TaskEvaluationPlan, type TaskEvaluationRequest, type TaskEvaluationReport, type TaskEvaluationSuite } from '../../../shared/api/ai-activity';
 import { formatComparisonCost } from '../modelComparison';
 import type { TaskId } from './taskRecommendations';
+import { ModelTaskSampleResults } from './ModelTaskSampleResults';
 
 /** Opening reads saved evidence. Only the explicitly authorized button pays. */
 export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency, active, onComplete, onBusyChange }: {
@@ -24,6 +25,8 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
     const [busy, setBusy] = useState(false);
     const inFlight = useRef(false);
     const [plan, setPlan] = useState<TaskEvaluationPlan | null>(null);
+    const [suite, setSuite] = useState<TaskEvaluationSuite | null>(null);
+    const [checkedAt, setCheckedAt] = useState(0);
     const [error, setError] = useState('');
     const [status, setStatus] = useState('');
     const [lastReport, setLastReport] = useState<TaskEvaluationReport | null>(null);
@@ -35,11 +38,14 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
         const controller = new AbortController();
         void Promise.resolve().then(async () => {
             setPlan(null); setAuthorized(false); setError('');
-            if (!open || !active || !valid) return;
+            if (!open) return;
             const body: TaskEvaluationRequest = { agent_id: agentId, provider, model, tasks: JSON.parse(taskKey) as TaskId[],
-                budget_usd: limit, retest, authorize_model_calls: false };
-            const preview = await previewTaskEvaluation(body, controller.signal);
-            if (!controller.signal.aborted) setPlan(preview);
+                budget_usd: limit, retest, authorize_model_calls: false, suite: 'work' };
+            const [preview, samples] = await Promise.all([
+                active && valid ? previewTaskEvaluation(body, controller.signal) : Promise.resolve(null),
+                fetchTaskEvaluationSuite(controller.signal),
+            ]);
+            if (!controller.signal.aborted) { setPlan(preview); setSuite(samples); setCheckedAt(Date.now()); }
         }).catch(() => { if (!controller.signal.aborted) setError('preview_error'); });
         return () => { controller.abort(); };
     }, [open, active, valid, agentId, provider, model, taskKey, limit, retest, vault, revision]);
@@ -50,7 +56,7 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
         inFlight.current = true; setBusy(true); onBusyChange?.(true); setError(''); setStatus('');
         try {
             const report = await runTaskEvaluation({ agent_id: agentId, provider, model, tasks: [...tasks],
-                budget_usd: limit, retest, authorize_model_calls: true });
+                budget_usd: limit, retest, authorize_model_calls: true, suite: 'work' });
             if (activeVault.current !== requestedVault) return;
             setStatus(report.status === 'completed' ? 'completed' : 'stopped');
             setLastReport(report);
@@ -61,11 +67,18 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
     const results = plan?.reused_cases ?? [];
     return <details className="model-task-recommendations__requirements model-task-evaluation" open={open}
         onToggle={event => { setOpen(event.currentTarget.open); }}>
-        <summary>{t('model_comparison.tests.title')}</summary>
+        <summary className="btn-gnosi btn-gnosi-secondary">{t('model_comparison.tests.title')}</summary>
         {open && <>
             <p><strong>{model}</strong> · {provider}</p>
             <p>{t('model_comparison.tests.help')}</p>
             <p>{t('model_comparison.tests.limitations')}</p>
+            {suite && <details><summary>{t('model_comparison.tests.work_set')} · {suite.version}</summary>
+                {suite.criteria.filter(item => item.tasks.some(task => tasks.includes(task))).map(item => <details key={item.id}>
+                    <summary>{item.title || t(`model_comparison.tests.metrics.${item.metric}`)}</summary>
+                    <pre>{item.prompt}</pre><p>{t('model_comparison.tests.expected')}</p><pre>{JSON.stringify(item.expected, null, 2)}</pre>
+                    {item.requires_review && <p>{t('model_comparison.tests.review_help')}</p>}
+                </details>)}
+            </details>}
             {!active ? <p role="status">{t('model_comparison.tests.activate_first')}</p> : <>
                 <label>{t('model_comparison.tests.budget', { symbol: currency.symbol })}
                     <input className="gnosi-input" value={budget} disabled={busy} type="number" min="0.0001" step="0.01"
@@ -83,7 +96,11 @@ export function ModelTaskEvaluation({ agentId, provider, model, tasks, currency,
                         {' · '}{item.checked_at.slice(0, 10)} · {(item.latency_ms / 1000).toFixed(2)} s
                         {' · '}{item.cost_usd == null ? t('model_comparison.unknown_cost') : money(item.cost_usd)}
                         {' '}{t(`model_comparison.tests.cost_${item.cost_source}`)}
+                        {checkedAt - Date.parse(item.checked_at) > 30 * 86400000 && ` · ${t('model_comparison.tests.old_result')}`}
                     </li>)}</ul>}
+                    {suite && <ModelTaskSampleResults results={results} suite={suite} busy={busy} onReviewed={() => {
+                        setRevision(value => value + 1); onComplete();
+                    }} />}
                     {!plan.can_run && <p role="alert">{t(`model_comparison.tests.errors.${plan.reason}`)}</p>}
                     {plan.can_run && plan.pending_ids.length > 0 && <>
                         <div className="agent-evaluation-lab__authorization"><span>{t('model_comparison.tests.authorize')}</span>

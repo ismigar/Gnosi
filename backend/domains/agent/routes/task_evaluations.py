@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from backend.services.agent_execution_scope import current_scope, revalidate_scope
 from backend.services.agent_task_evaluation_models import (
     TaskEvaluationRequest, TaskEvaluationPlan, TaskEvaluationReport, TaskEvaluationSuite, TaskCriterion,
+    TaskReviewRequest,
 )
 from backend.services import agent_task_evaluations as evaluations
 
@@ -13,9 +14,15 @@ router = APIRouter()
 
 
 @router.get('/task-evaluation-suite', response_model=TaskEvaluationSuite)
-def suite() -> TaskEvaluationSuite:
-    from backend.services.agent_task_cases import CASES
-    return TaskEvaluationSuite(criteria=[TaskCriterion(id=case.id, metric=case.metric, tasks=list(case.tasks)) for case in CASES])
+def suite(kind: str = 'work') -> TaskEvaluationSuite:
+    from backend.services.agent_work_samples import SuiteKind, suite_cases, suite_version, suite_mode, output_limit
+    if kind not in {'basic', 'work'}:
+        raise HTTPException(status_code=422, detail='task_evaluation.invalid_suite')
+    selected: SuiteKind = 'work' if kind == 'work' else 'basic'
+    return TaskEvaluationSuite(kind=selected, version=suite_version(selected), mode=suite_mode(selected),
+        max_output_tokens=output_limit(selected), criteria=[TaskCriterion(id=case.id, metric=case.metric, tasks=list(case.tasks),
+        title=case.title, source=case.source, prompt=case.prompt if selected == 'work' else '', expected=case.expected,
+        requires_review=case.requires_review) for case in suite_cases(selected)])
 
 
 def _configuration(payload: TaskEvaluationRequest) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -65,11 +72,23 @@ async def run(payload: TaskEvaluationRequest) -> TaskEvaluationReport:
             # to the bot or loading private instructions, memories or documents.
             live_registry, config = _configuration(payload)
             evaluations.plan(payload, scope, live_registry)
-            client = build_diagnostic_client(payload.provider, payload.model, config)
+            from backend.services.agent_work_samples import output_limit
+            client = build_diagnostic_client(payload.provider, payload.model, config, max_output=output_limit(payload.suite))
             return invoke_diagnostic(client, [HumanMessage(content=prompt)], provider=payload.provider,
                 model=payload.model, parent_run_id=parent, agent_id=payload.agent_id, metadata_only=True)
 
         return await asyncio.to_thread(evaluations.run, payload, scope, registry, invoke)
+    except (ValueError, PermissionError) as exc:
+        raise HTTPException(status_code=403 if isinstance(exc, PermissionError) else 409,
+                            detail=f'task_evaluation.{exc}') from exc
+
+
+@router.post('/task-evaluations/{report_id}/review', response_model=TaskEvaluationReport)
+def review(report_id: str, payload: TaskReviewRequest) -> TaskEvaluationReport:
+    scope = current_scope()
+    revalidate_scope(scope)
+    try:
+        return evaluations.review(scope, report_id, payload)
     except (ValueError, PermissionError) as exc:
         raise HTTPException(status_code=403 if isinstance(exc, PermissionError) else 409,
                             detail=f'task_evaluation.{exc}') from exc

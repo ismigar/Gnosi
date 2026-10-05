@@ -115,6 +115,11 @@ export async function previewTaskEvaluation(body: TaskEvaluationRequest, signal?
 export async function runTaskEvaluation(body: TaskEvaluationRequest): Promise<TaskEvaluationReport> {
     return unwrapApiResult<TaskEvaluationReport, unknown>(await apiClient.POST('/api/agent/runs/task-evaluations', { body }));
 }
+export async function reviewTaskEvaluation(reportId: string, body: components['schemas']['TaskReviewRequest']): Promise<TaskEvaluationReport> {
+    return unwrapApiResult<TaskEvaluationReport, unknown>(await apiClient.POST('/api/agent/runs/task-evaluations/{report_id}/review', {
+        params: { path: { report_id: reportId } }, body,
+    }));
+}
 
 export type ParameterReviewRequest = components['schemas']['ParameterReviewRequest'];
 export type ParameterReviewResponse = components['schemas']['ParameterReviewResponse'];
