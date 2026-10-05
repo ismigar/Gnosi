@@ -110,7 +110,12 @@ class ReadingRuntime:
             # Persist the canonical answer, not the provider's rejected spelling.
             return json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
-            plan = build_reading_repair(prompt, text, error)
+            from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
+            # A schema rejection can hide bad citations in the same draft.
+            # Collect both before spending another call on a full rewrite.
+            plan = build_dimension_repair(prompt, text, validate)
+            if plan is None:
+                plan = build_reading_repair(prompt, text, error)
             if plan is not None and self.count_tokens(plan.input) > self.input_budget:
                 return None
             return plan

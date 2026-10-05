@@ -299,6 +299,36 @@ def test_invalid_reference_patch_retries_without_rewriting_notes(runtime, monkey
     assert "not a rewritten reading action" in calls[-1]["messages"][-1].content
 
 
+def test_syntax_then_classification_and_citations_fit_the_same_three_calls(runtime, monkeypatch):
+    from backend.tests.test_llm_wiki_dimension_repairs import fixture, patch_for
+    from backend.services.llm_wiki_reading_runtime import ReadingRuntime
+    scope, snapshot = runtime
+    from backend.domains.llm_wiki.reading_skill import SKILL_ID
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    from dataclasses import replace
+    resolved = resolve_agent_runtime({})
+    snapshot.skill_ids.append(SKILL_ID)
+    monkeypatch.setattr('backend.services.agent_skill_catalog.resolve_agent_runtime', lambda *args, **kwargs:
+        replace(resolved, active_skill_ids=tuple(snapshot.skill_ids)))
+    action, prompt, validate, state = fixture()
+    from backend.domains.llm_wiki.reading_dimension_repairs import build_dimension_repair
+    repair = build_dimension_repair(prompt, json.dumps(action), validate)
+    calls = install_workflow(monkeypatch, ['{"action":', json.dumps(action), json.dumps(patch_for(repair))])
+    reader = ReadingRuntime(snapshot.agent_id, 'test', 'fake', '', 1_000_000, snapshot)
+    with execution_scope(scope):
+        text, model = reader.generate_structured(prompt, validate, 900)
+    restored = json.loads(text)
+    validate(restored)
+    assert len(calls) == 3 and model == 'fake'
+    last_request = json.loads(calls[-1]['messages'][0].content)
+    combined = json.loads(last_request['input'])
+    assert combined['classification_fields'] and combined['reference_repair']
+    assert state['plans'] == {}  # Validation and repair do not commit progress.
+    for entry in restored['arguments']['plans']:
+        assert entry['plan']['notes'][0]['dimensions']['area'] == ['Ethics']
+        assert entry['plan']['notes'][0]['body_md'] == 'Complete and unchanged idea.'
+
+
 def test_partial_repair_keeps_the_original_deadline(runtime, monkeypatch):
     from backend.agent import factory
     from backend.domains.llm_wiki.reading_contracts import validate_notes
