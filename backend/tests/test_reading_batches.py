@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+import jsonschema
 
 from backend.domains.llm_wiki.chunking import reading_chunks, encoded
 from backend.domains.llm_wiki.contextual_reading import ContextualReader, fingerprint
@@ -97,3 +98,44 @@ def test_batch_cannot_skip_or_duplicate_fragment(fault):
     with pytest.raises(ValueError, match='exactly_all_delivered'):
         validate_action(reader, state, chunks, {'action':'save_batch', 'arguments':{'plans':entries, 'memory':'Whole book'}})
     assert state['plans'] == {}
+
+
+def test_all_rejected_plans_are_repaired_together_without_changing_valid_notes():
+    from backend.domains.llm_wiki.reading_contracts import ReadingBatchError
+    reader, chunks, _ = fixture()
+    state = {'step': 0, 'read': list(chunks), 'plans': {}, 'memory': 'Prior qualification', 'delivered': list(chunks)}
+    entries = [{'chunk_id': key, 'plan': plan(chunk)} for key, chunk in chunks.items()]
+    for index in (0, 2, 3):
+        entries[index]['plan']['notes'][0]['citations'][0]['quote'] = 'invented'
+    answer = {'action': 'save_batch', 'arguments': {'plans': entries, 'memory_updates': [{'old': '', 'new': 'New qualification'}]}}
+    previous = deepcopy(state)
+    with pytest.raises(ReadingBatchError) as caught:
+        validate_action(reader, state, chunks, answer)
+    assert set(caught.value.plan_errors) == {0, 2, 3}
+    assert state == previous
+    repair = build_reading_repair('Original passages and prior memory', json.dumps(answer), caught.value)
+    assert repair is not None
+    patches = []
+    for index in (0, 2, 3):
+        segment = chunks[entries[index]['chunk_id']]['segments'][0]
+        patches.extend([
+            {'path': f'plans/{index}/notes/0/source_segment_id', 'value': segment['id']},
+            {'path': f'plans/{index}/notes/0/citations', 'value': [{'segment_id': segment['id'], 'quote': segment['text']}]},
+        ])
+    restored = json.loads(repair.restore(json.dumps({'patches': patches})))
+    validate_action(reader, state, chunks, restored)
+    assert state == previous  # preview remains atomic
+    _apply_action(reader, state, chunks, 'save_batch', restored['arguments'])
+    assert len(state['plans']) == 4
+    assert restored['arguments']['plans'][1] == entries[1]
+    assert restored['arguments']['memory_updates'] == answer['arguments']['memory_updates']
+    for before, after in zip(entries, restored['arguments']['plans'], strict=True):
+        assert before['plan']['notes'][0]['body_md'] == after['plan']['notes'][0]['body_md']
+    # Correctly shaped patches for the wrong plan must still fail local membership.
+    patches[0]['value'] = chunks[entries[2]['chunk_id']]['segments'][0]['id']
+    with pytest.raises((ValueError, jsonschema.ValidationError)):
+        repaired = json.loads(repair.restore(json.dumps({'patches': patches})))
+        validate_action(reader, state, chunks, repaired)
+    patches[0]['path'] = 'plans/1/notes/0/body_md'
+    with pytest.raises((ValueError, jsonschema.ValidationError)):
+        repair.restore(json.dumps({'patches': patches}))

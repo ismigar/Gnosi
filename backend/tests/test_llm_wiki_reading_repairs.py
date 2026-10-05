@@ -124,3 +124,15 @@ def test_many_rejected_notes_still_reject_an_unauthorized_path_locally():
     jsonschema.validate({"patches": patches}, repair.output_schema)
     with pytest.raises(ValueError, match="permitted repair path"):
         repair.restore(json.dumps({"patches": patches}))
+
+
+def test_repair_keeps_primary_originals_when_both_identifier_and_quote_are_wrong():
+    action, passages, _, _ = repair_fixture()
+    note = action['arguments']['plan']['notes'][0]
+    note['source_segment_id'] = 'unknown'
+    note['citations'] = [{'segment_id': 'unknown', 'quote': 'Invented'}]
+    with pytest.raises(ReadingPlanError) as caught:
+        validate_notes(action['arguments']['plan'], passages, passages)
+    repair = build_reading_repair('context', json.dumps(action), caught.value)
+    assert repair is not None
+    assert json.loads(repair.input)['reference_passages'] == passages

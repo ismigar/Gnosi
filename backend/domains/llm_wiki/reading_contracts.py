@@ -19,6 +19,13 @@ class ReadingPlanError(ValueError):
         self.evidence = evidence
 
 
+class ReadingBatchError(ReadingPlanError):
+    """Collect every rejected plan so one bounded repair can address the lot."""
+    def __init__(self, plan_errors: dict[int, ReadingPlanError]) -> None:
+        super().__init__([f"plans[{index}]: {error}" for index, error in plan_errors.items()], [], False, [], [])
+        self.plan_errors = plan_errors
+
+
 def _citations(
     note: dict[str, object], primary: list[dict[str, object]], evidence: list[dict[str, object]]
 ) -> list[str]:

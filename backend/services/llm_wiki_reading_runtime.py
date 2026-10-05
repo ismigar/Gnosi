@@ -106,7 +106,9 @@ class ReadingRuntime:
                 validate(answer)
             except (TypeError, KeyError) as error:
                 raise ValueError(str(error)) from error
-            return text
+            # Validation can restore an unambiguously omitted segment digest.
+            # Persist the canonical answer, not the provider's rejected spelling.
+            return json.dumps(answer, ensure_ascii=False)
         def repair(text: str, error: Exception) -> OutputRepair | None:
             plan = build_reading_repair(prompt, text, error)
             if plan is not None and self.count_tokens(plan.input) > self.input_budget:

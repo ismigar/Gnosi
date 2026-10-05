@@ -7,7 +7,7 @@ from typing import Any
 
 import jsonschema
 
-from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
+from backend.domains.llm_wiki.reading_contracts import ReadingPlanError, ReadingBatchError
 from backend.services.agent_output_repair import OutputRepair
 
 
@@ -44,6 +44,9 @@ def _repair_schema(paths: list[str], primary: list[dict[str, object]], evidence:
 
 
 def build_reading_repair(original_request: str, rejected: str, error: Exception) -> OutputRepair | None:
+    if isinstance(error, ReadingBatchError):
+        from backend.domains.llm_wiki.reading_batch_repairs import build_batch_repair
+        return build_batch_repair(original_request, rejected, error)
     if not isinstance(error, ReadingPlanError):
         return None
     answer = json.loads(rejected)
@@ -116,5 +119,8 @@ def _matching_evidence(notes: list[Any], error: ReadingPlanError) -> list[dict[s
                 if isinstance(quote, str) and quote:
                     quotes.add(quote)
     # Exact existing matches help correct a miscopied reference without fuzzy matching.
+    # Always include the rejected plan's primary originals. A wrong ID and a
+    # nonliteral quote otherwise hide the very passage the repair must inspect.
+    cited_ids.update(str(s["id"]) for s in error.primary)
     evidence = [s for s in error.evidence if str(s["id"]) in cited_ids or any(q in str(s["text"]) for q in quotes)]
     return evidence

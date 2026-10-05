@@ -146,6 +146,11 @@ def validate_action(reader: Any, state: dict[str, Any], chunks: dict[str, Any], 
         jsonschema.validate(answer["arguments"], argument_schemas[str(answer["action"])])
     except jsonschema.ValidationError as error:
         raise ValueError(error.message) from error
+    from backend.domains.llm_wiki.reading_references import normalize_action_references
+    from backend.services.agent_execution_trace import record
+    normalized = normalize_action_references(answer, chunks, state["read"])
+    if normalized:
+        record("reading.references.normalized", {"count": normalized})
     action, args = str(answer["action"]), cast(dict[str, Any], answer["arguments"])
     if action in {"read", "recall", "save_plan"} and args["chunk_id"] not in chunks:
         raise ValueError("unknown_chunk_id: use an exact chunk id from the supplied index")
@@ -256,20 +261,25 @@ def _deliver_next(reader: Any, state: dict[str, Any], chunks: dict[str, Any], ou
 
 def _save_batch(reader: Any, state: dict[str, Any], chunks: dict[str, Any], args: dict[str, Any]) -> Any:
     from backend.domains.llm_wiki.reading_memory import update_memory
-    from backend.domains.llm_wiki.reading_contracts import ReadingPlanError
+    from backend.domains.llm_wiki.reading_contracts import ReadingPlanError, ReadingBatchError
     entries = args["plans"]
     keys = [entry["chunk_id"] for entry in entries]
     if len(set(keys)) != len(keys) or set(keys) != set(state.get("delivered", [])):
         raise ValueError("batch_requires_exactly_all_delivered_chunks")
     memory = update_memory(state["memory"], args)
     preview = {**state, "read": list(state["read"]), "plans": dict(state["plans"])}
+    errors = {}
     for index, entry in enumerate(entries):
         try:
             _apply_action(reader, preview, chunks, "save_plan", {
                 "chunk_id": entry["chunk_id"], "plan": {**entry["plan"], "memory": memory}})
         except ReadingPlanError as error:
             error.batch_index = index
-            raise
+            errors[index] = error
+    if len(errors) == 1:
+        raise next(iter(errors.values()))
+    if errors:
+        raise ReadingBatchError(errors)
     # Commit only after every plan passes; prior checkpoints stay intact.
     state.update(plans=preview["plans"], memory=preview["memory"], memory_step=preview["memory_step"])
     result = {"saved": keys, "remaining": len(chunks)-len(state["plans"])}

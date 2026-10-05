@@ -8,6 +8,7 @@ export function resourceProcessingError(error: string | null | undefined, t: TFu
         const reasoning = /reasoning_tokens=(\d+)/u.exec(error)?.[1];
         return t(total && reasoning === total ? 'llm_wiki.error_reasoning_output_limit' : 'llm_wiki.error_output_limit');
     }
+    if (error?.includes('Invalid reading plan:')) return t('llm_wiki.error_reading_evidence');
     for (const key of ['reading_budget_exhausted', 'reading_budget_pending_cost', 'reading_budget_unknown_price_or_output_limit', 'reading_estimate_changed', 'reading_checkpoint_incompatible']) {
         if (error?.includes(key)) return t(`llm_wiki.${key}`);
     }

@@ -6788,6 +6788,7 @@
     "updated": "Enrichies",
     "error_generic": "Erreur lors du traitement de la ressource",
     "error_reasoning_output_limit": "Le modèle a consacré toute sa limite de réponse au raisonnement sans renvoyer de notes. La progression est enregistrée. Si vous avez choisi un raisonnement élevé ou maximal, réduisez-le avant de reprendre ; la lecture avec le réglage par défaut utilise un niveau faible lorsque le modèle le permet.",
+    "error_reading_evidence": "Toutes les références et citations de ce lot n’ont pas pu être vérifiées. Les fragments validés ont été enregistrés ; vous pouvez reprendre la lecture. Consultez les détails si l’erreur persiste.",
     "error_output_limit": "La réponse du modèle a été interrompue par la limite de sortie. La progression est enregistrée. Réduisez le nombre de fragments par lot avant de reprendre.",
     "error_details": "Détails techniques",
     "error_provider_timeout": "Le fournisseur d’IA n’a pas répondu à temps. Réessayez pour reprendre la progression enregistrée.",
