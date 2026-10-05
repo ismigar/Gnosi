@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - frontend/src/shared/api/resource-processing.ts
+  - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
+  - frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts
+  - frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx
+  - frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx
   - backend/domains/llm_wiki/reading_identity.py
   - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
@@ -1537,3 +1542,5 @@ La demande de 2 000 tokens est un objectif de synthèse. Les cartes complètes p
 La version 2 de l’identité de lecture normalise les clés des dictionnaires et l’ordre de l’index des connaissances. Les limites des connaissances et des catalogues de relations sont appliquées après un tri stable, afin qu’un rechargement ne sélectionne pas un sous-ensemble arbitraire différent. Les composants de l’identité sont enregistrés pour le diagnostic ; l’ordre des sources, le texte, les classifications et la politique d’exécution restent significatifs. Les cartes de prose complètes ont leur propre identité fondée sur le matériau exact, le titre, la langue et la politique d’exécution figée, indépendamment de la classification et du contexte de connaissances. Elles peuvent être réutilisées même si les notes provisoires doivent être régénérées. Les anciens caches de cartes exigent une preuve explicite d’une réponse complète du fournisseur avant leur migration.
 
 Les opérations de cartes de prose réservent au maximum 8 192 tokens de sortie. Les métadonnées natives de limite de sortie rejettent le texte incomplet avant son enregistrement comme carte complète ou une réparation de format renvoyant toute la source. Seule une fenêtre tronquée contenant du texte de réponse est divisée ; les fenêtres voisines complètes et les décisions de division sont conservées après une interruption. Les cartes sans texte de réponse et les fenêtres indivisibles s’arrêtent. La réduction doit diminuer le matériau ou le nombre de cartes et sa profondeur est finie. La progression de la vue d’ensemble avance à la fin des fenêtres de sources ; ces cartes sont distinctes des fragments de notes extraits.
+
+Le dialogue de traitement des ressources détecte un travail persistant actif à son ouverture avant d’autoriser un démarrage payant. Tant qu’une confirmation inactive reste ouverte, il vérifie si le travail a été lancé ailleurs et rattache le dialogue sans nouveau démarrage ni estimation préalable. Le magasin partagé des tâches gère les consultations suivantes, même après fermeture ou navigation ; la détection peut être annulée, ne chevauche pas les requêtes et ne peut pas remplacer un démarrage local en attente. Le dialogue affiche la phase et le pourcentage actuels au lieu de présenter un travail actif comme une nouvelle confirmation.

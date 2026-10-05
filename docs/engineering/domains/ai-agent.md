@@ -2,6 +2,11 @@
 status: implemented
 last_verified: 2026-10-05
 source_paths:
+  - frontend/src/shared/api/resource-processing.ts
+  - frontend/src/features/literature/records/process-resource/useProcessResourceController.ts
+  - frontend/src/features/literature/records/process-resource/resourceProcessingTasks.ts
+  - frontend/src/features/literature/records/process-resource/ProcessResourceModalView.tsx
+  - frontend/src/features/literature/records/ResourceProcessingMonitor.test.tsx
   - backend/domains/llm_wiki/reading_identity.py
   - backend/domains/llm_wiki/semantic_map_windows.py
   - backend/domains/llm_wiki/semantic_reading.py
@@ -1342,3 +1347,5 @@ The 2,000-token request is a synthesis target. Longer complete maps that fit the
 Reading identity version 2 canonicalizes mapping keys and knowledge-index order. Knowledge and relation catalog limits are applied after stable sorting, so a reload cannot select a different arbitrary subset. Identity components are recorded for diagnosis; source order, text, classifications and execution policy remain significant. Complete prose maps have their own identity based on the exact material, title, language and frozen execution policy, independent of classification and knowledge context. They can be reused even when draft notes need regeneration. Older map caches require explicit evidence of a complete provider response before migration.
 
 Prose-map operations reserve at most 8,192 output tokens. Native output-limit metadata rejects incomplete text before it can be saved as a complete map or sent through a full-source format repair. Only a truncated window with answer text is split; complete sibling windows and the split decisions survive interruption. Maps without answer text or unsplittable windows stop. Reduction must decrease material or map count and has a finite depth. Overview progress advances as source windows complete; these maps are distinct from extracted note fragments.
+
+The resource-processing dialog discovers a durable running job on opening before enabling a paid start. While an idle confirmation remains open it checks for externally started work and attaches that job without a new start or preflight. The shared task store owns subsequent polling, including after closing or navigating; discovery is abortable, does not overlap requests and cannot overwrite a pending local start. The dialog shows the current phase and percentage rather than presenting an active job as a new confirmation.
